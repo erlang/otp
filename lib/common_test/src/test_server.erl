@@ -40,6 +40,7 @@
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1, find_release/1]).
+-export([peer_name/2, start_peer/3, start_peer/5]).
 -export([app_test/1, app_test/2, appup_test/1]).
 -export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
@@ -2687,6 +2688,7 @@ wait_for_node(Slave) ->
     end,
     Result.
 
+-compile([{nowarn_deprecated_function, [{slave, stop, 1}]}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% stop_node(Name) -> true|false
@@ -2779,6 +2781,103 @@ find_release(Release) ->
 		      {test_server_ctrl,find_release,[Release]}},
     receive {sync_result,R} -> R end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% API for starting peer nodes according to Common Test conventions
+peer_name(Module, TestCase) ->
+    peer:random_name(lists:concat([Module, "-", TestCase])).
+
+%% Command line arguments passed
+-spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string()) ->
+    {ok, gen_statem:server_ref(), node()} | {error, term()}.
+start_peer(Args, Module, TestCase) when is_list(Args) ->
+    start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
+
+%% Full set of options passed
+start_peer(#{name := _Name} = Opts, Module, _TestCase) ->
+    start_peer(Opts, Module);
+start_peer(Opts, Module, TestCase) ->
+    start_peer(Opts#{name => peer_name(Module, TestCase)}, Module).
+
+%% Release compatibility testing
+-spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string(),
+    Release :: string(), OutDir :: file:filename()) ->
+        {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
+    start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
+start_peer(Opts, Module, TestCase, Release, OutDir) ->
+    case find_release(Release) of
+        not_available ->
+            not_available;
+        Erl ->
+            %% remove ERL_FLAGS/ERL_AFLAGS, because they may contain
+            %% "-emu_type debug" which does not exist for old releases. Keep "ERL_ZFLAGS",
+            %% for sometimes you might really need it...
+            Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}, {"ERL_FLAGS", false}],
+            NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
+            start_peer(Opts#{exec => Erl, args => NewArgs,
+                env => Env}, Module, TestCase)
+    end.
+
+%% Internal implementation
+start_peer(#{name := Name} = Opts, Module) ->
+    CrashDir = test_server_sup:crash_dump_dir(),
+    CrashFile = filename:join([CrashDir, lists:concat(["erl_crash_dump.", Name])]),
+    Args = maps:get(args, Opts, []),
+    CookieArg =
+        case lists:member("-setcookie", Args) of
+            false ->
+                ["-setcookie", atom_to_list(erlang:get_cookie())];
+            true ->
+                []
+        end,
+    FullArgs = CookieArg ++ ["-pa", filename:dirname(code:which(Module)),
+        "-env", "ERL_CRASH_DUMP", CrashFile] ++ Args,
+    case test_server:is_cover() of
+        true ->
+            %% when cover is active, node must shut down gracefully, otherwise
+            %% coverage information won't be sent to cover master
+            CoverMain = cover:get_main_node(),
+            %% next line is a way to trick Dialyzer into not complaining over undocumented type
+            Shutdown = binary_to_term(term_to_binary({10000, CoverMain})),
+            case peer:start_link(Opts#{args => FullArgs, shutdown => Shutdown}) of
+                {ok, Peer, Node} ->
+                    do_cover_for_node(Node, start),
+                    {ok, Peer, Node};
+                Other ->
+                    Other
+            end;
+        false ->
+            peer:start_link(Opts#{args => FullArgs})
+    end.
+
+%% When a different release is requested, peer.erl needs to be compiled for
+%%  that specific release using the path supplied for 'erl'
+peer_compile(Erl, cover_compiled, OutDir) ->
+    {file, Path} = cover:is_compiled(peer),
+    peer_compile(Erl, Path, OutDir);
+peer_compile(Erl, ModPath, OutDir) ->
+    {ok, ModSrc} = filelib:find_source(ModPath),
+    Erlc = filename:join(filename:dirname(Erl), "erlc"),
+    cmd(Erlc, ["-o", OutDir, ModSrc]),
+    OutDir.
+
+%% This should really be implemented as os:cmd.
+cmd(Exec, Args) ->
+    %% remove all ERL_FLAGS/ERL_AFLAGS to drop "-emu_type debug"
+    Env = [{"ERL_AFLAGS", false}, {"ERL_FLAGS", false}],
+    Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env},
+        stream, binary, exit_status, stderr_to_stdout]),
+    read_std(Port, lists:join(" ", [Exec|Args]), <<>>).
+
+read_std(Port, Exec, Out) ->
+    receive
+        {Port, {data, More}} ->
+            read_std(Port, Exec, <<Out/binary, More/binary>>);
+        {Port, {exit_status, 0}}  ->
+            Out;
+       {Port, {exit_status, Status}} ->
+            erlang:error({exit, Status, Exec, Out})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_on_shielded_node(Fun, CArgs) -> term()

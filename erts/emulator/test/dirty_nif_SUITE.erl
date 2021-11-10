@@ -144,7 +144,7 @@ nif_raise_exceptions(NifFunc) ->
                 end, ok, ExcTerms).
 
 dirty_scheduler_exit(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config, "+SDio 1"),
+    {ok, Peer, Node} = ?CT_PEER(["+SDio", "1"]),
     Path = proplists:get_value(data_dir, Config),
     NifLib = filename:join(Path, atom_to_list(?MODULE)),
     [ok] = mcall(Node,
@@ -161,7 +161,7 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
 			  io:format("Time=~p ms~n", [End-Start]),
 			  ok
                   end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_scheduler_exit() ->
@@ -249,7 +249,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     end.
 
 dirty_heap_access(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Me = self(),
     RGL = rpc:call(Node,erlang,whereis,[init]),
     Ref = rpc:call(Node,erlang,make_ref,[]),
@@ -267,7 +267,7 @@ dirty_heap_access(Config) when is_list(Config) ->
     end,
     unlink(Dirty),
     exit(Dirty, kill),
-    stop_node(Node),
+    peer:stop(Peer),
     {comment, integer_to_list(N) ++ " GL change loops; "
      ++ integer_to_list(R) ++ " while running dirty"}.
 
@@ -303,7 +303,8 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% the dirty process is still alive immediately after accessing it.
 dirty_process_info(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
+      ?config(data_dir, Config),
       fun() -> ok end,
       fun(NifPid) ->
 	      PI = process_info(NifPid),
@@ -315,7 +316,8 @@ dirty_process_info(Config) when is_list(Config) ->
 
 dirty_process_register(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
+      ?config(data_dir, Config),
       fun() -> ok end,
       fun(NifPid) ->
 	      register(test_dirty_process_register, NifPid),
@@ -329,7 +331,8 @@ dirty_process_register(Config) when is_list(Config) ->
 
 dirty_process_trace(Config) when is_list(Config) ->
     access_dirty_process(
-      Config,
+      ?FUNCTION_NAME,
+      ?config(data_dir, Config),
       fun() ->
 	      erlang:trace_pattern({?MODULE,dirty_sleeper,1},
 				   [{'_',[],[{return_trace}]}],
@@ -537,16 +540,15 @@ literal_area(Config) when is_list(Config) ->
 %% Internal...
 %%
 
-access_dirty_process(Config, Start, Test, Finish) ->
-    {ok, Node} = start_node(Config, ""),
+access_dirty_process(TestCase, Path, Start, Test, Finish) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(TestCase)}),
     [ok] = mcall(Node,
 		 [fun() ->
-                          Path = ?config(data_dir, Config),
                           Lib = atom_to_list(?MODULE),
                           ok = erlang:load_nif(filename:join(Path,Lib), []),
 			  ok = test_dirty_process_access(Start, Test, Finish)
 		  end]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_dirty_process_access(Start, Test, Finish) ->
@@ -574,23 +576,6 @@ test_dirty_process_access(Start, Test, Finish) ->
 
 receive_any() ->
     receive M -> M end.
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 mcall(Node, Funs) ->
     Parent = self(),

@@ -103,6 +103,8 @@ pspawn(M, F, A) ->
 pspawn_link(M, F, A) ->
     spawn_link(get_node(), M, F, A).
 
+-compile([{nowarn_deprecated_function,[{slave,start,3}]}]).
+
 start_nodes([], _, _) -> [];
 start_nodes([Host|Tail], Name, Args) -> 
     case slave:start(Host, Name, Args) of 

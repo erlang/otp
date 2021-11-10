@@ -495,9 +495,9 @@ do_t2b_system_limit() ->
                 garbage_collect(),
                 ok
         end,
-    Opts = [{args, "-pa " ++ filename:dirname(code:which(?MODULE))}],
-    {ok,Node} = test_server:start_node(?FUNCTION_NAME, slave, Opts),
-    erpc:call(Node, F).
+    {ok, Peer, Node} = ?CT_PEER(),
+    erpc:call(Node, F),
+    peer:stop(Peer).
 
 test_t2b_system_limit(HugeBin, Name, F1, F2) ->
     io:format("Testing ~p(HugeBin)~n", [Name]),
@@ -1059,7 +1059,7 @@ run_when_enough_resources(Fun) ->
 
 %% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->
-    {ok, N} = test_server:start_node(plopp, slave, []),
+    {ok, Peer, N} = ?CT_PEER(),
     R = rpc:call(N, erlang, binary_to_term, [<<131,111,255,255,255,0>>]),
     case R of
 	      {badrpc, {'EXIT', _}} ->
@@ -1067,7 +1067,7 @@ bad_binary_to_term_2(Config) when is_list(Config) ->
 	      _Other ->
 		  ct:fail({rpcresult, R})
 	  end,
-    test_server:stop_node(N),
+    peer:stop(Peer),
     ok.
 
 %% Try bad input to binary_to_term/1.
@@ -1945,18 +1945,11 @@ cmp_old_impl(Config) when is_list(Config) ->
     %% implementation in R16B. Since OTP 22 we can't talk distribution with such
     %% old nodes (< 19). The test case it kept but compares with previous major
     %% version for semantic regression test.
-    Cookie = atom_to_list(erlang:get_cookie()),
-    Rel = (integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 1)
-           ++ "_latest"),
-    case test_server:is_release_available(Rel) of
-	false ->
+    Rel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 1),
+    case ?CT_PEER([], Rel, proplists:get_value(priv_dir, Config)) of
+	not_available ->
 	    {skipped, "No OTP "++Rel++" available"};
-	true ->
-	    {ok, Node} = test_server:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
-				       peer,
-				       [{args, " -setcookie "++Cookie},
-					{erl, [{release, Rel}]}]),
-
+        {ok, Peer, Node}  ->
 	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1))]}),
 	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10))]}),
 	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100))]}),
@@ -1994,7 +1987,7 @@ cmp_old_impl(Config) when is_list(Config) ->
 	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000000)))]}),
 	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000000)))]}),
 
-	    test_server:stop_node(Node),
+	    peer:stop(Peer),
 
 	    ok
     end.

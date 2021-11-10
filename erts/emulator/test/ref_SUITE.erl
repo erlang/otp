@@ -132,7 +132,7 @@ external_size(Config) when is_list(Config) ->
     %% matches what the documentation say in the advanced chapter of the
     %% efficiency guide. Note that the values in the efficiency guide
     %% also add the word referencing the heap structure.
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
 
     %% Ordinary external reference
     ORef = check_external_size(erpc:call(Node, fun () -> make_ref() end)),
@@ -145,7 +145,7 @@ external_size(Config) when is_list(Config) ->
     io:format("PRef = ~p~n", [PRef]),
 
 
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 check_external_size(Ref) when is_reference(Ref) ->
@@ -165,25 +165,3 @@ check_external_size(Ref) when is_reference(Ref) ->
                     error({internal_ref_size_out_of_range, Sz})
             end
     end.
-
-%% Internal stuff...
-
-make_nodename(Config) when is_list(Config) ->
-    list_to_atom(atom_to_list(?MODULE)
-                 ++ "-"
-                 ++ atom_to_list(proplists:get_value(testcase, Config))
-                 ++ "-"
-                 ++ integer_to_list(erlang:system_time(second))
-                 ++ "-"
-                 ++ integer_to_list(erlang:unique_integer([positive]))).
-    
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = make_nodename(Config),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

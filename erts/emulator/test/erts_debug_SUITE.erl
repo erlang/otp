@@ -260,29 +260,21 @@ instructions(Config) when is_list(Config) ->
 
 alloc_blocks_size(Config) when is_list(Config) ->
     F = fun(Args) ->
-                Node = start_slave(Args),
+                {ok, Peer, Node} = ?CT_PEER(Args),
                 ok = rpc:call(Node, ?MODULE, do_alloc_blocks_size, []),
-                true = test_server:stop_node(Node)
+                peer:stop(Peer)
         end,
     case test_server:is_asan() of
-	false -> F("+Meamax");
+	false -> F(["+Meamax"]);
 	true -> skip
     end,
-    F("+Meamin"),
-    F(""),
+    F(["+Meamin"]),
+    F([]),
     ok.
 
 do_alloc_blocks_size() ->
     _ = erts_debug:alloc_blocks_size(binary_alloc),
     ok.
-
-start_slave(Args) ->
-    Name = ?MODULE_STRING ++ "_slave",
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(list_to_atom(Name),
-                                        slave,
-                                        [{args, "-pa " ++ Pa ++ " " ++ Args}]),
-    Node.
 
 id(I) ->
     I.

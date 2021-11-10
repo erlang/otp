@@ -130,8 +130,7 @@ receive_trace(Config) when is_list(Config) ->
 		       {true, true}]),
 
     %% Remote messages
-    OtherName = atom_to_list(?MODULE)++"_receive_trace",
-    {ok, OtherNode} = start_node(OtherName),
+    {ok, Peer, OtherNode} = ?CT_PEER(),
     RemoteProc = spawn_link(OtherNode, ?MODULE, process, [self()]),
     io:format("RemoteProc = ~p ~n", [RemoteProc]),
 
@@ -179,7 +178,7 @@ receive_trace(Config) when is_list(Config) ->
     F2(NN, {true, true}),
 
     unlink(RemoteProc),
-    true = stop_node(OtherNode),
+    peer:stop(Peer),
 
     %% Timeout
     Receiver ! {set_timeout, 10},
@@ -647,8 +646,7 @@ procs_trace(Config) when is_list(Config) ->
 
 dist_procs_trace(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
-    OtherName = atom_to_list(?MODULE)++"_dist_procs_trace",
-    {ok, OtherNode} = start_node(OtherName),
+    {ok, Peer, OtherNode} = ?CT_PEER(),
     Self = self(),
     process_flag(trap_exit, true),
     %%
@@ -695,7 +693,7 @@ dist_procs_trace(Config) when is_list(Config) ->
 
     %%
     %% exit (with registered name, due to link)
-    Name = list_to_atom(OtherName),
+    Name = list_to_atom(hd(string:lexemes(atom_to_list(OtherNode), "@"))),
     Reason2 = make_ref(),
     Proc1 ! {link_please, Proc2},
     {trace, Proc1, link, Proc2} = receive_first_trace(),
@@ -708,8 +706,7 @@ dist_procs_trace(Config) when is_list(Config) ->
     receive_nothing(),
     %%
     %% Done.
-    true = stop_node(OtherNode),
-    ok.
+    peer:stop(Peer).
 
 %% Test trace(new, How, [procs]).
 procs_new_trace(Config) when is_list(Config) ->
@@ -1724,7 +1721,7 @@ trace_delivered(Config) when is_list(Config) ->
 
 %% This testcase checks that receive trace works on exit signal messages
 %% when the sender of the exit signal is the process itself.
-trap_exit_self_receive(Config) ->
+trap_exit_self_receive(Config) when is_list(Config) ->
     Parent = self(),
     Proc = spawn_link(fun() -> process(Parent) end),
 
@@ -1754,7 +1751,7 @@ trace_info_badarg(Config) when is_list(Config) ->
 %% An incoming suspend monitor down wasn't handled
 %% correct when the local monitor half had been
 %% removed with an emulator crash as result.
-erl_704(Config) ->
+erl_704(Config) when is_list(Config) ->
     erl_704_test(100).
 
 erl_704_test(0) ->
@@ -1942,16 +1939,6 @@ fun_spawn(Fun) ->
 
 fun_spawn(Fun, Args) ->
     spawn_link(erlang, apply, [Fun, Args]).
-
-
-start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Cookie = atom_to_list(erlang:get_cookie()),
-    test_server:start_node(Name, slave,
-                           [{args, "-setcookie " ++ Cookie ++" -pa " ++ Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 
 wait_for_empty_runq(DeadLine) ->

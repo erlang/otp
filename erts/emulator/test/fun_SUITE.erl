@@ -574,7 +574,7 @@ refc_ets_bag(F1, Options) ->
     ok.
 
 refc_dist(Config) when is_list(Config) ->
-    {ok,Node} = start_node(fun_SUITE_refc_dist),
+    {ok, Peer, Node} = ?CT_PEER(),
     process_flag(trap_exit, true),
     Pid = spawn_link(Node, fun() -> receive
                                         Fun when is_function(Fun) ->
@@ -595,7 +595,7 @@ refc_dist(Config) when is_list(Config) ->
     true = erlang:garbage_collect(),
     2 = fun_refc(F),
     refc_dist_send(Node, F),
-    test_server:stop_node(Node).
+    peer:stop(Peer).
 
 refc_dist_send(Node, F) ->
     Pid = spawn_link(Node, fun() -> receive
@@ -652,7 +652,7 @@ fun_refc(F) ->
     Count.
 
 const_propagation(Config) when is_list(Config) ->
-    Fun1 = fun start_node/1,
+    Fun1 = fun wait_until/1,
     2 = fun_refc(Fun1),
     Fun2 = Fun1,
     my_cmp({Fun1,Fun2}),
@@ -678,14 +678,14 @@ t_arity(Config) when is_list(Config) ->
 
     %% Test that the arity is transferred properly.
     process_flag(trap_exit, true),
-    {ok,Node} = start_node(fun_test_arity),
+    {ok, Peer, Node} = ?CT_PEER(),
     hello_world = spawn_call(Node, fun() -> hello_world end),
     0 = spawn_call(Node, fun(X) -> X end),
     42 = spawn_call(Node, fun(_X) -> A end),
     43 = spawn_call(Node, fun(X, Y) -> A+X+Y end),
     1 = spawn_call(Node, fun(X, Y) -> X+Y end),
     45 = spawn_call(Node, fun(X, Y, Z) -> A+X+Y+Z end),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 t_is_function2(Config) when is_list(Config) ->
@@ -867,12 +867,6 @@ spawn_call(Node, AFun) ->
 fun_arity(F) ->
     {arity,Arity} = erlang:fun_info(F, arity),
     Arity.
-
-start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Cookie = atom_to_list(erlang:get_cookie()),
-    test_server:start_node(Name, slave, 
-			   [{args, "-setcookie " ++ Cookie ++" -pa " ++ Pa}]).
 
 wait_until(Fun) ->
     case catch Fun() of

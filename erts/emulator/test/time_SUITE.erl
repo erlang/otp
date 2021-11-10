@@ -108,9 +108,7 @@ local_to_univ_utc(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
 	    %% TZ variable has a meaning
-	    {ok, Node} =
-		test_server:start_node(local_univ_utc,peer,
-				       [{args, "-env TZ UTC"}]),
+	    {ok, Peer, Node} = ?CT_PEER(["-env", "TZ", "UTC"]),
 	    {{2008,8,1},{0,0,0}} =
 		rpc:call(Node,
 			 erlang,localtime_to_universaltime,
@@ -125,8 +123,7 @@ local_to_univ_utc(Config) when is_list(Config) ->
 		rpc:call(Node,
 			 calendar,local_time_to_universal_time_dst,
 			 [{{2008, 8, 1}, {0, 0, 0}}]),
-	    test_server:stop_node(Node),
-	    ok;
+	    peer:stop(Peer);
 	_ ->
 	    {skip,"Only valid on Unix"}
     end.
@@ -431,41 +428,39 @@ now_update1(0) ->
 time_warp_modes(Config) when is_list(Config) ->
     %% All time warp modes always supported in
     %% combination with no time correction...
-    check_time_warp_mode(Config, false, no_time_warp),
-    check_time_warp_mode(Config, false, single_time_warp),
-    check_time_warp_mode(Config, false, multi_time_warp),
+    check_time_warp_mode(false, no_time_warp),
+    check_time_warp_mode(false, single_time_warp),
+    check_time_warp_mode(false, multi_time_warp),
 
     erts_debug:set_internal_state(available_internal_state, true),
     try
 	case erts_debug:get_internal_state({check_time_config,
 					    true, no_time_warp}) of
 	    false -> ok;
-	    true -> check_time_warp_mode(Config, true, no_time_warp)
+	    true -> check_time_warp_mode(true, no_time_warp)
 	end,
 	case erts_debug:get_internal_state({check_time_config,
 					    true, single_time_warp}) of
 	    false -> ok;
-	    true -> check_time_warp_mode(Config, true, single_time_warp)
+	    true -> check_time_warp_mode(true, single_time_warp)
 	end,
 	case erts_debug:get_internal_state({check_time_config,
 					    true, multi_time_warp}) of
 	    false -> ok;
-	    true -> check_time_warp_mode(Config, true, multi_time_warp)
+	    true -> check_time_warp_mode(true, multi_time_warp)
 	end
     after
 	erts_debug:set_internal_state(available_internal_state, false)
     end.
 
-check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
+check_time_warp_mode(TimeCorrection, TimeWarpMode) ->
     io:format("~n~n~n***** Testing TimeCorrection=~p TimeWarpMode=~p *****~n",
 	      [TimeCorrection, TimeWarpMode]),
     Mon = erlang:monitor(time_offset, clock_service),
     _ = erlang:time_offset(),
     Start = erlang:monotonic_time(1000),
     MonotonicityTimeout = 2000,
-    {ok, Node} = start_node(Config,
-			    "+c " ++ atom_to_list(TimeCorrection)
-			    ++ " +C " ++ atom_to_list(TimeWarpMode)),
+    {ok, Peer, Node} = ?CT_PEER(["+c", atom_to_list(TimeCorrection), "+C", atom_to_list(TimeWarpMode)]),
     StartTime = rpc:call(Node, erlang, system_info, [start_time]),
     Me = self(),
     MonotincityTestStarted = make_ref(),
@@ -494,7 +489,7 @@ check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
 					      millisecond),
     io:format("UpMilliSeconds=~p~n", [UpMilliSeconds]),
     End = erlang:monotonic_time(millisecond),
-    stop_node(Node),
+    peer:stop(Peer),
     try
 	true = (UpMilliSeconds > (98*MonotonicityTimeout) div 100),
 	true = (UpMilliSeconds < (102*(End-Start)) div 100)
@@ -867,6 +862,12 @@ test_data() ->
 		case os:cmd("date '+%Z'") of
 		    "SAST"++_ ->
 			{2,2};
+                    "PDT"++_ ->
+                        {-8,-7};
+                    "PST"++_ ->
+                        {-8,-7};
+                    "UTC"++_ ->
+                        {0,0};
 		    _ ->
 			{?timezone,?dst_timezone}
 		end;
@@ -992,22 +993,3 @@ bad_dates() ->
 
      {{1996, 4, 30}, {12, 0, -1}},		% Sec
      {{1996, 4, 30}, {12, 0, 60}}].
-
-start_node(Config, Args) ->
-    TestCase = proplists:get_value(testcase, Config),
-    PA = filename:dirname(code:which(?MODULE)),
-    ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
-    Unique = erlang:unique_integer([positive]),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(TestCase)
-			++ "-"
-			++ integer_to_list(ESTime)
-			++ "-"
-			++ integer_to_list(Unique)),
-    test_server:start_node(Name,
-			   slave,
-			   [{args, "-pa " ++ PA ++ " " ++ Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

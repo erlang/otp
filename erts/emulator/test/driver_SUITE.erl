@@ -84,7 +84,6 @@
          env/1,
          poll_pipe/1,
          lots_of_used_fds_on_boot/1,
-         lots_of_used_fds_on_boot_slave/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -178,16 +177,18 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(poll_thread, Config) ->
-    [{node_args, "+IOt 2"} | Config];
+    [{node_args, ["+IOt", "2"]} | Config];
 init_per_group(poll_set, Config) ->
-    [{node_args, "+IOt 2 +IOp 2"} | Config];
+    [{node_args, ["+IOt", "2", "+IOp", "2"]} | Config];
 init_per_group(polling, Config) ->
     case proplists:get_value(node_args, Config) of
         undefined ->
             Config;
         Args ->
-            {ok, Node} = start_node(polling, Args),
-            [{node, Node} | Config]
+            {ok, Peer, Node} = ?CT_PEER(Args),
+            unlink(Peer), %% otherwise it will immediately stop
+            setup_logger(Node),
+            [{node, {Peer, Node}} | Config]
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -195,11 +196,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     case proplists:get_value(node, Config) of
         undefined ->
-            ok;
-        Node ->
-            stop_node(Node)
-    end,
-    Config.
+            Config;
+        {Peer, _Node} ->
+            peer:stop(Peer),
+            {save_config, proplists:delete(node, Config)}
+    end.
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     CIOD = rpc(Config,
@@ -230,12 +231,13 @@ end_per_testcase(Case, Config) ->
             case proplists:get_value(node, Config) of
                 undefined ->
                     ok;
-                Node ->
-                    timer:sleep(1000), %% Give the node time to die
-                    [NodeName, _] = string:lexemes(atom_to_list(Node),"@"),
-                    {ok, Node} = start_node_final(
-                                   list_to_atom(NodeName),
-                                   proplists:get_value(node_args, Config))
+                {Peer, _Node} ->
+                    peer:stop(Peer),
+                    {ok, Peer2, Node2} = ?CT_PEER(proplists:get_value(node_args, Config)),
+                    unlink(Peer2), %% otherwise it will immediately stop
+                    setup_logger(Node2),
+                    Config2 = [{node, {Peer2, Node2}} | proplists:delete(node, Config)],
+                    {save_config, Config2}
             end
     end,
     ok.
@@ -1155,7 +1157,7 @@ tag_type(poll_threads) -> sum.
 %% driver that didn't use the same lock. The lock checker
 %% used to trigger on this and dump core.
 otp_6602(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Done = make_ref(),
     Parent = self(),
     Tester = spawn_link(Node,
@@ -1170,7 +1172,7 @@ otp_6602(Config) when is_list(Config) ->
                         end),
     receive Done -> ok end,
     unlink(Tester),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 -define(EXPECTED_SYSTEM_INFO_NAMES1,
@@ -1869,67 +1871,19 @@ lots_of_used_fds_on_boot_test(Config) ->
     %% open. This used to hang the whole VM at boot in
     %% an eternal loop trying to figure out how to size
     %% arrays in erts_poll() implementation.
-    Name = lots_of_used_fds_on_boot,
-    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
-				 atom_to_list(node())),
-    FullName = list_to_atom(atom_to_list(Name) ++ HostSuffix),
-    Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
 	       {ok,[[P]]} -> P;
 	       _ -> exit(no_progname_argument_found)
 	   end,
-    NameSw = case net_kernel:longnames() of
-		 false -> "-sname ";
-		 true -> "-name ";
-		 _ -> exit(not_distributed_node)
-	     end,
-    {ok, Pwd} = file:get_cwd(),
-    NameStr = atom_to_list(Name),
     DataDir = proplists:get_value(data_dir, Config),
     Wrapper = filename:join(DataDir, "lots_of_fds_used_wrapper"),
-    CmdLine = Wrapper ++ " " ++ Prog ++ " -noshell -noinput "
-	++ NameSw ++ " " ++ NameStr ++ " "
-	++ "-pa " ++ Pa ++ " "
-	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
-	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()) ++ " "
-        ++ "-s " ++ atom_to_list(?MODULE) ++ " lots_of_used_fds_on_boot_slave "
-        ++ atom_to_list(node()),
-    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
-    net_kernel:monitor_nodes(true),
-    Port = case open_port({spawn, CmdLine}, [exit_status]) of
-               Prt when is_port(Prt) ->
-                   Prt;
-               OPError ->
-                   exit({failed_to_start_node, {open_port_error, OPError}})
-           end,
-    receive
-        {Port, {exit_status, 17}} ->
-            {skip, "Cannot open enough fds to test this"};
-        {Port, {exit_status, Error}} ->
-            exit({failed_to_start_node, {exit_status, Error}});
-        {nodeup, FullName} ->
-            io:format("~p connected!~n", [FullName]),
-            FullName = rpc:call(FullName, erlang, node, []),
-            rpc:cast(FullName, erlang, halt, []),
-            receive
-                {Port, {exit_status, 0}} ->
-                    ok;
-                {Port, {exit_status, Error}} ->
-                    exit({unexpected_exit_status, Error})
-            after 5000 ->
-                    exit(missing_exit_status)
-            end
-    after 5000 ->
-            exit(connection_timeout)
+    try
+        {ok, Peer, _Node} = ?CT_PEER(#{connection => standard_io, exec => {Wrapper, [Prog]}}),
+        peer:stop(Peer)
+    catch
+        exit:{boot_failed, {exit_status, 17}} ->
+            {skip, "Cannot open enough fds to test this"}
     end.
-
-lots_of_used_fds_on_boot_slave([Master]) ->
-    erlang:monitor_node(Master, true),
-    receive
-        {nodedown, Master} ->
-            erlang:halt()
-    end,
-    ok.
 
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
@@ -2733,32 +2687,14 @@ sleep(Ms) when is_integer(Ms), Ms >= 0 ->
     receive after Ms -> ok end.
 
 
-start_node(Config) when is_list(Config) ->
-    start_node(proplists:get_value(testcase, Config));
-start_node(Name) ->
-    start_node(Name, "").
-start_node(NodeName, Args) ->
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(NodeName)
-                        ++ "-"
-                        ++ integer_to_list(erlang:system_time(second))
-                        ++ "-"
-                        ++ integer_to_list(erlang:unique_integer([positive]))),
-    start_node_final(Name, Args).
-start_node_final(Name, Args) ->
+setup_logger(Node) ->
     {ok, Pwd} = file:get_cwd(),
-    FinalArgs = [Args, " -pa ", filename:dirname(code:which(?MODULE))],
-    {ok, Node} = test_server:start_node(Name, slave, [{args, FinalArgs}]),
-    LogPath = Pwd ++ "/error_log." ++ atom_to_list(Name),
+    Name = hd(string:lexemes(atom_to_list(Node), "@")),
+    LogPath = filename:join(Pwd, "error_log." ++ Name),
     ct:pal("Logging to: ~s", [LogPath]),
     rpc:call(Node, logger, add_handler, [file_handler, logger_std_h,
                                          #{formatter => {logger_formatter,#{ single_line => false }},
-                                           config => #{file => LogPath }}]),
-    {ok, Node}.
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
+                                           config => #{file => LogPath }}]).
 
 wait_deallocations() ->
     try
@@ -2776,7 +2712,8 @@ rpc(Config, Fun) ->
     case proplists:get_value(node, Config) of
         undefined ->
             Fun();
-        Node ->
+        {_Peer, Node} ->
+            io:format("Running RPC ~p on ~p/~p~n", [Fun, _Peer, Node]),
             Self = self(),
             Ref = make_ref(),
             Pid = spawn(Node,

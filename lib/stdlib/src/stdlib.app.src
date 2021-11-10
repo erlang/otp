@@ -81,6 +81,7 @@
 	     orddict,
 	     ordsets,
 	     otp_internal,
+	     peer,
 	     pool,
 	     proc_lib,
 	     proplists,

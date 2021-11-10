@@ -176,7 +176,7 @@ test_3(Config) when is_list(Config) ->
 %% Test that caller and return to work as they should
 %% There was a bug where caller would be undefined when return_to was set
 %% for r the bif erlang:put().
-caller_and_return_to(Config) ->
+caller_and_return_to(Config) when is_list(Config) ->
     tr(
       fun do_put_wrapper/0,
       fun (Tracee) ->
@@ -686,10 +686,9 @@ destructive_in_test_bif(Config) when is_list(Config) ->
 
 %% Test that the comparison between boxed and small does not crash emulator
 boxed_and_small(Config) when is_list(Config) ->
-    {ok, Node} = start_node(match_spec_suite_other),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node,?MODULE,do_boxed_and_small,[]),
-    stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 do_boxed_and_small() ->
     {ok, false, _, _} = erlang:match_spec_test({0,3},[{{1.47,'_'},[],['$_']}],table),
@@ -700,10 +699,9 @@ do_boxed_and_small() ->
 
 %% Test that faulty seq_trace_call does not crash emulator
 faulty_seq_trace(Config) when is_list(Config) ->
-    {ok, Node} = start_node(match_spec_suite_other),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node,?MODULE,do_faulty_seq_trace,[]),
-    stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 do_faulty_seq_trace() ->
     {ok,'EXIT',_,_} = erlang:match_spec_test([],[{'_',[],[{message,{set_seq_token,yxa,true}}]}],trace),
@@ -1154,12 +1152,3 @@ fbinmatch(<<>>, Acc) -> Acc.
 
 id(X) ->
     X.
-
-start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Cookie = atom_to_list(erlang:get_cookie()),
-    test_server:start_node(Name, slave, 
-                           [{args, "-setcookie " ++ Cookie ++" -pa " ++ Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

@@ -54,7 +54,7 @@ start() ->
 
 do_it() ->
     {ok, _} = net_kernel:start([fideridum,shortnames]),
-    {ok, Node} = slave:start(host(), heppel),
+    {ok, _Peer, Node} = peer:start(#{name => peer:random_name(heppel)}),
     P = spawn(Node, net_kernel, stop, []),
     B1 = term_to_binary(P),
     N1 = node(P),

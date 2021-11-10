@@ -727,11 +727,11 @@ verify_lit_terms([], _) ->
     ok.
 
 get_external_terms() ->
-    {ok,Node} =	test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok, Peer, Node}= ?CT_PEER(),
     Ref = rpc:call(Node, erlang, make_ref, []),
     Ports = rpc:call(Node, erlang, ports, []),
     Pid = rpc:call(Node, erlang, self, []),
-    _ = test_server:stop_node(Node),
+    peer:stop(Peer),
     {Ref,hd(Ports),Pid}.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency

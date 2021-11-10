@@ -400,7 +400,7 @@ $ <input>erl \
           the name supplied together with flag <c><![CDATA[-sname]]></c> or
           <c><![CDATA[-name]]></c>.</p>
       </item>
-      <tag><c><![CDATA[-init_debug]]></c></tag>
+      <tag><marker id="init_debug"/><c><![CDATA[-init_debug]]></c></tag>
       <item>
         <p>Makes <c><![CDATA[init]]></c> write some debug information while
           interpreting the boot script.</p>

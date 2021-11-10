@@ -90,6 +90,7 @@
          t_large_unequal_bins_same_hash_bug/1]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(CHECK(Cond,Term),
 	case (catch (Cond)) of
@@ -3250,8 +3251,7 @@ t_hash_entropy(Config) when is_list(Config)  ->
 %% Provoke major GC with a lot of "fat" maps on external format in msg queue
 %% causing heap fragments to be allocated.
 t_gc_rare_map_overflow(Config) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(gc_rare_map_overflow, slave, [{args, "-pa \""++Pa++"\""}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     erts_debug:set_internal_state(available_internal_state, true),
     try
 	Echo = spawn_link(Node, fun Loop() -> receive {From,Msg} -> From ! Msg
@@ -3282,7 +3282,7 @@ t_gc_rare_map_overflow(Config) when is_list(Config) ->
     after
 	process_flag(trap_exit, false),
 	erts_debug:set_internal_state(available_internal_state, false),
-	test_server:stop_node(Node)
+	peer:stop(Peer)
     end.
 
 t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->

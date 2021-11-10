@@ -85,11 +85,9 @@ skip_missing_erl_bif_types(Config) ->
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(display_huge_term,peer,
-					[{args, "-pa \""++Pa++"\""}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     true = rpc:call(Node,?MODULE,display_huge,[]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 display_huge() ->
@@ -777,33 +775,32 @@ erlang_halt(Config) when is_list(Config) ->
     try halt(0, [{flush,true,undefined}]) of
 	_-> ct:fail({halt,{0,[{flush,true,undefined}]}})
     catch error:badarg -> ok end,
-    H = hostname(),
-    {ok,N1} = slave:start(H, halt_node1),
+    {ok, _, N1} = ?CT_PEER(),
     {badrpc,nodedown} = rpc:call(N1, erlang, halt, []),
-    {ok,N2} = slave:start(H, halt_node2),
+    {ok, _, N2} = ?CT_PEER(),
     {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
-    {ok,N3} = slave:start(H, halt_node3),
+    {ok, _, N3} = ?CT_PEER(),
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
-    {ok,N4} = slave:start(H, halt_node4),
+    {ok, _, N4} = ?CT_PEER(),
     {badrpc,nodedown} = rpc:call(N4, erlang, halt, [lists:duplicate(300,$x)]),
     %% Test unicode slogan
-    {ok,N4} = slave:start(H, halt_node4),
-    {badrpc,nodedown} = rpc:call(N4, erlang, halt, [[339,338,254,230,198,295,167,223,32,12507,12531,12480]]),
+    {ok, _, N5} = ?CT_PEER(),
+    {badrpc,nodedown} = rpc:call(N5, erlang, halt, [[339,338,254,230,198,295,167,223,32,12507,12531,12480]]),
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.
 
     %% Prevent address sanitizer from catching SEGV in slave node
     AsanOpts = add_asan_opt("handle_segv=0"),
-    {ok,N4} = slave:start(H, halt_node4),
+    {ok, _, N6} = ?CT_PEER(),
     reset_asan_opts(AsanOpts),
 
     CrashDump = filename:join(proplists:get_value(priv_dir,Config),
                               "segfault_erl_crash.dump"),
-    true = rpc:call(N4, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
-    false = rpc:call(N4, erts_debug, set_internal_state,
+    true = rpc:call(N6, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
+    false = rpc:call(N6, erts_debug, set_internal_state,
                      [available_internal_state, true]),
-    {badrpc,nodedown} = rpc:call(N4, erts_debug, set_internal_state,
+    {badrpc,nodedown} = rpc:call(N6, erts_debug, set_internal_state,
                                  [broken_halt, "Validate correct crash dump"]),
     {ok,_} = wait_until_stable_size(CrashDump,-1),
     {ok, Bin} = file:read_file(CrashDump),
@@ -860,8 +857,7 @@ erl_crash_dump_bytes(Config) when is_list(Config) ->
     ok.
 
 do_limited_crash_dump(Config, Bytes) ->
-    H = hostname(),
-    {ok,N} = slave:start(H, halt_node),
+    {ok, _, N} = ?CT_PEER(),
     BytesStr = integer_to_list(Bytes),
     CrashDump = filename:join(proplists:get_value(priv_dir,Config),
                               "erl_crash." ++ BytesStr ++ ".dump"),
@@ -1431,14 +1427,6 @@ extract_abstract(Mod, Path) ->
 	beam_lib:chunks(Beam, [abstract_code]),
     {Mod,Abstr}.
 
-
-hostname() ->
-    hostname(atom_to_list(node())).
-
-hostname([$@ | Hostname]) ->
-    list_to_atom(Hostname);
-hostname([_C | Cs]) ->
-    hostname(Cs).
 
 tok_loop() ->
     tok_loop(hej).

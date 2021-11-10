@@ -179,6 +179,9 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
 	end,
     gen_server:reply(From,Ret).
 
+%% Temporary suppression, to avoid a warning calling undocumented
+%%  but deprecated function.
+-compile([{nowarn_deprecated_function,[{slave,start,5}]}]).
 
 do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup) ->
     Host =
