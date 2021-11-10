@@ -283,7 +283,7 @@ void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
     a.bind(entry);
 
     a.lea(ARG1, x86::qword_ptr(entry));
-    a.lea(ARG2, x86::qword_ptr(labels[Wait.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Wait)));
     fragment_call(ga->get_i_loop_rec_shared());
 }
 
@@ -313,14 +313,14 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
     emit_leave_runtime();
 
     a.dec(FCALLS);
-    a.jmp(labels[Dest.getValue()]);
+    a.jmp(resolve_beam_label(Dest));
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
     runtime_call<2>(beam_jit_wait_unlocked);
 
     emit_leave_runtime();
@@ -332,7 +332,7 @@ void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
     runtime_call<2>(beam_jit_wait_locked);
 
     emit_leave_runtime();

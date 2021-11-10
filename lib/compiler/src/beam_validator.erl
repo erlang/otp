@@ -19,7 +19,7 @@
 
 -module(beam_validator).
 
--include("beam_types.hrl").
+-include("beam_asm.hrl").
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
@@ -134,15 +134,9 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
 -record(value_ref, {id :: index()}).
 -record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
 
--type argument() :: #value_ref{} | literal().
+-type argument() :: #value_ref{} | beam_literal().
 
 -type index() :: non_neg_integer().
-
--type literal() :: {atom, [] | atom()} |
-                   {float, [] | float()} |
-                   {integer, [] | integer()} |
-                   {literal, term()} |
-                   nil.
 
 %% Register tags describe the state of the register rather than the value they
 %% contain (if any).
@@ -274,7 +268,7 @@ validate_1(Is, MFA0, Entry, Level, Ft) ->
     validate_branches(MFA, Vst).
 
 extract_header([{func_info, {atom,Mod}, {atom,Name}, Arity}=I | Is],
-             MFA0, Entry, Offset, Acc) ->
+               MFA0, Entry, Offset, Acc) ->
     {_, Name, Arity} = MFA0,                    %Assertion.
     MFA = {Mod, Name, Arity},
 
@@ -425,7 +419,9 @@ vi({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
     assert_term(Src, Vst),
     assert_choices(Choices),
     validate_select_val(Fail, Choices, Src, Vst);
-vi({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
+vi({select_tuple_arity,Tuple0,{f,Fail},{list,Choices}}, Vst) ->
+    Tuple = unpack_typed_arg(Tuple0),
+
     assert_type(#t_tuple{}, Tuple, Vst),
     assert_arities(Choices),
     validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
@@ -441,6 +437,11 @@ vi({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, beam_types:make_boolean(), Src, Vst);
 vi({test,is_float,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_float{}, Src, Vst);
+vi({test,is_function,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_fun{}, Src, Vst);
+vi({test,is_function2,{f,Lbl},[Src,{integer,Arity}]}, Vst)
+  when Arity >= 0, Arity =< 255 ->
+    type_test(Lbl, #t_fun{arity=Arity}, Src, Vst);
 vi({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
@@ -453,9 +454,10 @@ vi({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_list{}, Src, Vst);
 vi({test,is_map,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_map{}, Src, Vst);
-vi({test,is_nil,{f,Lbl},[Src]}, Vst) ->
+vi({test,is_nil,{f,Lbl},[Src0]}, Vst) ->
     %% is_nil is an exact check against the 'nil' value, and should not be
     %% treated as a simple type test.
+    Src = unpack_typed_arg(Src0),
     assert_term(Src, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -464,18 +466,28 @@ vi({test,is_nil,{f,Lbl},[Src]}, Vst) ->
            fun(SuccVst) ->
                    update_eq_types(Src, nil, SuccVst)
            end);
+vi({test,is_pid,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, pid, Src, Vst);
+vi({test,is_port,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, port, Src, Vst);
+vi({test,is_reference,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, reference, Src, Vst);
 vi({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(#t_tuple{}, Tuple, Vst),
     Type =  #t_tuple{exact=true,size=Sz},
     type_test(Lbl, Type, Tuple, Vst);
-vi({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
+vi({test,is_tagged_tuple,{f,Lbl},[Src0,Sz,Atom]}, Vst) ->
+    Src = unpack_typed_arg(Src0),
     assert_term(Src, Vst),
     Es = #{ 1 => get_literal_type(Atom) },
     Type = #t_tuple{exact=true,size=Sz,elements=Es},
     type_test(Lbl, Type, Src, Vst);
-vi({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+vi({test,is_eq_exact,{f,Lbl},[Src0,Val0]}, Vst) ->
     assert_no_exception(Lbl),
-    validate_src(Ss, Vst),
+    Src = unpack_typed_arg(Src0),
+    assert_term(Src, Vst),
+    Val = unpack_typed_arg(Val0),
+    assert_term(Val, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
                    update_ne_types(Src, Val, FailVst)
@@ -483,9 +495,12 @@ vi({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
            fun(SuccVst) ->
                    update_eq_types(Src, Val, SuccVst)
            end);
-vi({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+vi({test,is_ne_exact,{f,Lbl},[Src0,Val0]}, Vst) ->
     assert_no_exception(Lbl),
-    validate_src(Ss, Vst),
+    Src = unpack_typed_arg(Src0),
+    assert_term(Src, Vst),
+    Val = unpack_typed_arg(Val0),
+    assert_term(Val, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
                    update_eq_types(Src, Val, FailVst)
@@ -644,6 +659,18 @@ vi({call_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
 vi({call_ext_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
+vi({call_fun2,{atom,Safe},Live,Fun0}, Vst) ->
+    Fun = unpack_typed_arg(Fun0),
+    assert_term(Fun, Vst),
+
+    true = is_boolean(Safe),                    %Assertion.
+
+    branch(?EXCEPTION_LABEL, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
+                                         Fun, SuccVst0),
+                   validate_body_call('fun', Live, SuccVst)
+           end);
 vi({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
@@ -684,7 +711,10 @@ vi(return, Vst) ->
 %% BIF calls
 %%
 
-vi({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
+vi({bif,Op,{f,Fail},Ss0,Dst0}, Vst0) ->
+    Ss = [unpack_typed_arg(Arg) || Arg <- Ss0],
+    Dst = unpack_typed_arg(Dst0),
+
     case is_float_arith_bif(Op, Ss) of
         true ->
             ?EXCEPTION_LABEL = Fail,            %Assertion.
@@ -693,7 +723,10 @@ vi({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
             validate_src(Ss, Vst0),
             validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
     end;
-vi({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
+vi({gc_bif,Op,{f,Fail},Live,Ss0,Dst0}, Vst0) ->
+    Ss = [unpack_typed_arg(Arg) || Arg <- Ss0],
+    Dst = unpack_typed_arg(Dst0),
+
     validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -918,9 +951,9 @@ vi({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
 vi({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     Type = beam_types:make_integer(0, ?UNICODE_MAX),
     validate_bs_get(Op, Fail, Ctx, Live, 32, Type, Dst, Vst);
-vi({test,_Op,{f,Lbl},Src}, Vst) ->
-    %% is_pid, is_reference, et cetera.
-    validate_src(Src, Vst),
+vi({test,_Op,{f,Lbl},Ss}, Vst) ->
+    %% is_lt, is_gt, et cetera.
+    validate_src([unpack_typed_arg(Arg) || Arg <- Ss], Vst),
     branch(Lbl, Vst);
 
 %%
@@ -1480,7 +1513,9 @@ validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
+validate_bs_get(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0),
+
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
@@ -1494,7 +1529,9 @@ validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
                    extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
            end).
 
-validate_bs_get_all(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
+validate_bs_get_all(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0),
+
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
@@ -1593,7 +1630,9 @@ invalidate_current_ms_position(Ctx, #vst{current=St0}=Vst) ->
 %%
 %% Common code for is_$type instructions.
 %%
-type_test(Fail, Type, Reg, Vst) ->
+type_test(Fail, Type, Reg0, Vst) ->
+    Reg = unpack_typed_arg(Reg0),
+
     assert_term(Reg, Vst),
     assert_no_exception(Fail),
     branch(Fail, Vst,
@@ -1801,10 +1840,10 @@ schedule_out(Live, Vst0) when is_integer(Live) ->
 prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
     #st{fragile=Fragile0,xs=Xs0} = St0,
     Fragile = sets:filter(fun({x,X}) ->
-                                       X < Live;
-                                  ({y,_}) ->
-                                       true
-                               end, Fragile0),
+                                  X < Live;
+                             ({y,_}) ->
+                                  true
+                         end, Fragile0),
     Xs = maps:filter(fun({x,X}, _) ->
                              X < Live
                      end, Xs0),
@@ -1997,6 +2036,12 @@ infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_float{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_function},args=[Src,{integer,Arity}]},
+              Val, Op, Vst)
+  when Arity >= 0, Arity =< 255 ->
+    infer_type_test_bif(#t_fun{arity=Arity}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
@@ -2005,6 +2050,12 @@ infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_map{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_number},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(number, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_pid},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(pid, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_port},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(port, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_reference},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(reference, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_tuple},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_tuple{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
@@ -2406,6 +2457,11 @@ assert_type(RequiredType, Term, Vst) ->
 validate_src(Ss, Vst) when is_list(Ss) ->
     _ = [assert_term(S, Vst) || S <- Ss],
     ok.
+
+unpack_typed_arg(#tr{r=Reg}) ->
+    Reg;
+unpack_typed_arg(Arg) ->
+    Arg.
 
 %% get_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be

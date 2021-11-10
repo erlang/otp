@@ -514,7 +514,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
     mov_arg(ARG2, Src);
 
     if (Fail.getValue() != 0) {
-        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), ARG2);
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, ARG2);
     } else {
         /* bs_start_match3 may not throw, and the compiler will only emit {f,0}
          * when it knows that the source is a match state or binary, so we're

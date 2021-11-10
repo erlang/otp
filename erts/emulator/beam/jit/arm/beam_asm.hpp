@@ -434,8 +434,8 @@ protected:
      * registers when we don't know the exact number.
      *
      * Furthermore, we only save the callee-save registers when told to sync
-     * sync all registers with the `Update::eXRegs` flag, as this is very
-     * rarely needed. */
+     * all registers with the `Update::eXRegs` flag, as this is very rarely
+     * needed. */
 
     template<int Spec = 0>
     void emit_enter_runtime(int live = num_register_backed_xregs) {
@@ -756,6 +756,12 @@ public:
     void setLogger(std::string log);
     void setLogger(FILE *log);
 
+    void comment(const char *format) {
+        if (logger.file()) {
+            a.commentf("# %s", format);
+        }
+    }
+
     template<typename... Ts>
     void comment(const char *format, Ts... args) {
         if (logger.file()) {
@@ -879,8 +885,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     };
 #undef DECL_ENUM
 
+    static const std::map<GlobalLabels, const std::string> labelNames;
     static const std::map<GlobalLabels, emitFptr> emitPtrs;
-    static const std::map<GlobalLabels, std::string> labelNames;
     std::unordered_map<GlobalLabels, Label> labels;
     std::unordered_map<GlobalLabels, fptr> ptrs;
 
@@ -925,14 +931,8 @@ class BeamModuleAssembler : public BeamAssembler {
     /* Map of BEAM label number to asmjit Label. These should not be used
      * directly by most instructions because of displacement limits, use
      * `resolve_beam_label` instead. */
-    typedef std::unordered_map<BeamLabel, Label> LabelMap;
+    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
     LabelMap rawLabels;
-
-    /* Map of label number to function name. Only defined for the
-     * entry label of a function. This map will be populated and
-     * used only when assembly output has been requested. */
-    typedef std::unordered_map<BeamLabel, std::string> LabelNames;
-    LabelNames labelNames;
 
     /* Sequence number used to create unique named labels by
      * resolve_label(). Only used when assembly output has been
@@ -978,6 +978,9 @@ class BeamModuleAssembler : public BeamAssembler {
 
     /* All functions that have been seen so far */
     std::vector<BeamLabel> functions;
+
+    /* The BEAM file we've been loaded from, if any. */
+    BeamFile *beam;
 
     BeamGlobalAssembler *ga;
 
@@ -1082,13 +1085,13 @@ class BeamModuleAssembler : public BeamAssembler {
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels,
-                        BeamFile_ExportTable *named_labels = NULL);
+                        int num_labels,
+                        BeamFile *file = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels,
-                        unsigned num_functions,
-                        BeamFile_ExportTable *named_labels = NULL);
+                        int num_labels,
+                        int num_functions,
+                        BeamFile *file = NULL);
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 
@@ -1136,6 +1139,67 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
+    bool always_immediate(const ArgVal &arg) const {
+        if (arg.isImmed()) {
+            return true;
+        }
+
+        int type_union = beam->types.entries[arg.typeIndex()].type_union;
+        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
+    }
+
+    bool always_same_types(const ArgVal &lhs, const ArgVal &rhs) const {
+        int lhs_types = beam->types.entries[lhs.typeIndex()].type_union;
+        int rhs_types = beam->types.entries[rhs.typeIndex()].type_union;
+
+        /* We can only be certain that the types are the same when there's
+         * one possible type. For example, if one is a number and the other
+         * is an integer, they could differ if the former is a float. */
+        if ((lhs_types & (lhs_types - 1)) == 0) {
+            return lhs_types == rhs_types;
+        }
+
+        return false;
+    }
+
+    bool always_one_of(const ArgVal &arg, int types) const {
+        if (arg.isImmed()) {
+            if (is_small(arg.getValue())) {
+                return !!(types & BEAM_TYPE_INTEGER);
+            } else if (is_atom(arg.getValue())) {
+                return !!(types & BEAM_TYPE_ATOM);
+            } else if (is_nil(arg.getValue())) {
+                return !!(types & BEAM_TYPE_NIL);
+            }
+
+            return false;
+        } else {
+            int type_union = beam->types.entries[arg.typeIndex()].type_union;
+            return type_union == (type_union & types);
+        }
+    }
+
+    int masked_types(const ArgVal &arg, int mask) const {
+        if (arg.isImmed()) {
+            if (is_small(arg.getValue())) {
+                return mask & BEAM_TYPE_INTEGER;
+            } else if (is_atom(arg.getValue())) {
+                return mask & BEAM_TYPE_ATOM;
+            } else if (is_nil(arg.getValue())) {
+                return mask & BEAM_TYPE_NIL;
+            }
+
+            return BEAM_TYPE_NONE;
+        } else {
+            int type_union = beam->types.entries[arg.typeIndex()].type_union;
+            return type_union & mask;
+        }
+    }
+
+    bool exact_type(const ArgVal &arg, int type_id) const {
+        return always_one_of(arg, type_id);
+    }
+
     /* Helpers */
     void emit_gc_test(const ArgVal &Stack,
                       const ArgVal &Heap,
@@ -1147,12 +1211,27 @@ protected:
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
-    arm::Gp emit_call_fun();
+    arm::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_fun_test = false,
+                          bool skip_arity_test = false);
 
     arm::Gp emit_is_binary(const ArgVal &Fail,
                            const ArgVal &Src,
                            Label next,
                            Label subbin);
+
+    void emit_is_boxed(Label Fail, arm::Gp Src) {
+        BeamAssembler::emit_is_boxed(Fail, Src);
+    }
+
+    void emit_is_boxed(Label Fail, const ArgVal &Arg, arm::Gp Src) {
+        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+            comment("skipped box test since argument is always boxed");
+            return;
+        }
+
+        BeamAssembler::emit_is_boxed(Fail, Src);
+    }
 
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgVal &Hd,
@@ -1233,17 +1312,18 @@ protected:
      *
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
-    Label resolve_beam_label(const ArgVal &Label, enum Displacement disp);
-    Label resolve_label(Label target,
-                        enum Displacement disp,
-                        std::string *name = nullptr);
+    const Label &resolve_beam_label(const ArgVal &Label,
+                                    enum Displacement disp);
+    const Label &resolve_label(const Label &target,
+                               enum Displacement disp,
+                               const char *name = nullptr);
 
     /* Resolves a shared fragment, creating a trampoline that loads the
      * appropriate address before jumping there.
      *
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
-    Label resolve_fragment(void (*fragment)(), enum Displacement disp);
+    const Label &resolve_fragment(void (*fragment)(), enum Displacement disp);
 
     /* Embeds a constant argument and returns its address. All kinds of
      * constants are accepted, including labels and export entries.

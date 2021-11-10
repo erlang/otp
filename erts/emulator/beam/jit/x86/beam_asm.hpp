@@ -288,7 +288,7 @@ protected:
         a.short_().jle(ok);
 
         a.bind(crash);
-        a.comment("# Redzone touched");
+        comment("Redzone touched");
         a.ud2();
 
         a.bind(ok);
@@ -336,7 +336,7 @@ protected:
         Label next = a.newLabel();
         a.cmp(x86::rsp, getInitialSPRef());
         a.short_().je(next);
-        a.comment("# The stack has grown");
+        comment("The stack has grown");
         a.ud2();
         a.bind(next);
 #endif
@@ -547,7 +547,7 @@ protected:
         a.short_().je(next);
 
         a.bind(crash);
-        a.comment("# Runtime stack is corrupt");
+        comment("Runtime stack is corrupt");
         a.ud2();
 
         a.bind(next);
@@ -568,7 +568,7 @@ protected:
         a.short_().jle(next);
 
         a.bind(crash);
-        a.comment("Erlang stack is corrupt");
+        comment("Erlang stack is corrupt");
         a.ud2();
         a.bind(next);
 #endif
@@ -794,6 +794,30 @@ protected:
         }
     }
 
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based on their
+     * tags alone. (They may still be equal if both are immediates and all other
+     * bits are equal too.) */
+    void emit_is_unequal_based_on_tags(x86::Gp Reg1, x86::Gp Reg2) {
+        ASSERT(Reg1 != RET && Reg2 != RET);
+        emit_is_unequal_based_on_tags(Reg1, Reg2, RET);
+    }
+
+    void emit_is_unequal_based_on_tags(x86::Gp Reg1,
+                                       x86::Gp Reg2,
+                                       const x86::Gp &spill) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+        a.mov(RETd, Reg1.r32());
+        a.or_(RETd, Reg2.r32());
+        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+
+        /* RET will be now be TAG_PRIMARY_IMMED1 if either one or both
+         * registers are immediates, or if one register is a list and the other
+         * a boxed. */
+        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+    }
+
     /*
      * Generate the shortest instruction for setting a register to an immediate
      * value. May clear flags.
@@ -844,6 +868,12 @@ public:
 
     void setLogger(std::string log);
     void setLogger(FILE *log);
+
+    void comment(const char *format) {
+        if (logger.file()) {
+            a.commentf("# %s", format);
+        }
+    }
 
     template<typename... Ts>
     void comment(const char *format, Ts... args) {
@@ -961,8 +991,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     };
 #undef DECL_ENUM
 
+    static const std::map<GlobalLabels, const std::string> labelNames;
     static const std::map<GlobalLabels, emitFptr> emitPtrs;
-    static const std::map<GlobalLabels, std::string> labelNames;
     std::unordered_map<GlobalLabels, Label> labels;
     std::unordered_map<GlobalLabels, fptr> ptrs;
 
@@ -1001,8 +1031,8 @@ class BeamModuleAssembler : public BeamAssembler {
     typedef unsigned BeamLabel;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, Label> LabelMap;
-    LabelMap labels;
+    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
+    LabelMap rawLabels;
 
     struct patch {
         Label where;
@@ -1045,6 +1075,9 @@ class BeamModuleAssembler : public BeamAssembler {
     /* All functions that have been seen so far */
     std::vector<BeamLabel> functions;
 
+    /* The BEAM file we've been loaded from, if any. */
+    BeamFile *beam;
+
     BeamGlobalAssembler *ga;
 
     Label codeHeader;
@@ -1072,13 +1105,13 @@ class BeamModuleAssembler : public BeamAssembler {
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels,
-                        BeamFile_ExportTable *named_labels = NULL);
+                        int num_labels,
+                        BeamFile *file = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels,
-                        unsigned num_functions,
-                        BeamFile_ExportTable *named_labels = NULL);
+                        int num_labels,
+                        int num_functions,
+                        BeamFile *file = NULL);
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 
@@ -1125,6 +1158,67 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
+    bool always_immediate(const ArgVal &arg) const {
+        if (arg.isImmed()) {
+            return true;
+        }
+
+        int type_union = beam->types.entries[arg.typeIndex()].type_union;
+        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
+    }
+
+    bool always_same_types(const ArgVal &lhs, const ArgVal &rhs) const {
+        int lhs_types = beam->types.entries[lhs.typeIndex()].type_union;
+        int rhs_types = beam->types.entries[rhs.typeIndex()].type_union;
+
+        /* We can only be certain that the types are the same when there's
+         * one possible type. For example, if one is a number and the other
+         * is an integer, they could differ if the former is a float. */
+        if ((lhs_types & (lhs_types - 1)) == 0) {
+            return lhs_types == rhs_types;
+        }
+
+        return false;
+    }
+
+    bool always_one_of(const ArgVal &arg, int types) const {
+        if (arg.isImmed()) {
+            if (is_small(arg.getValue())) {
+                return !!(types & BEAM_TYPE_INTEGER);
+            } else if (is_atom(arg.getValue())) {
+                return !!(types & BEAM_TYPE_ATOM);
+            } else if (is_nil(arg.getValue())) {
+                return !!(types & BEAM_TYPE_NIL);
+            }
+
+            return false;
+        } else {
+            int type_union = beam->types.entries[arg.typeIndex()].type_union;
+            return type_union == (type_union & types);
+        }
+    }
+
+    int masked_types(const ArgVal &arg, int mask) const {
+        if (arg.isImmed()) {
+            if (is_small(arg.getValue())) {
+                return mask & BEAM_TYPE_INTEGER;
+            } else if (is_atom(arg.getValue())) {
+                return mask & BEAM_TYPE_ATOM;
+            } else if (is_nil(arg.getValue())) {
+                return mask & BEAM_TYPE_NIL;
+            }
+
+            return BEAM_TYPE_NONE;
+        } else {
+            int type_union = beam->types.entries[arg.typeIndex()].type_union;
+            return type_union & mask;
+        }
+    }
+
+    bool exact_type(const ArgVal &arg, int type_id) const {
+        return always_one_of(arg, type_id);
+    }
+
     /* Helpers */
     void emit_gc_test(const ArgVal &Stack,
                       const ArgVal &Heap,
@@ -1136,9 +1230,30 @@ protected:
     x86::Mem emit_variable_apply(bool includeI);
     x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
 
-    x86::Gp emit_call_fun(void);
+    x86::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_fun_test = false,
+                          bool skip_arity_test = false);
 
-    void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
+    x86::Gp emit_is_binary(const ArgVal &Fail,
+                           const ArgVal &Src,
+                           Label next,
+                           Label subbin);
+
+    void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+    }
+
+    void emit_is_boxed(Label Fail,
+                       const ArgVal &Arg,
+                       x86::Gp Src,
+                       Distance dist = dLong) {
+        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+            comment("skipped box test since argument is always boxed");
+            return;
+        }
+
+        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+    }
 
     void emit_get_list(const x86::Gp boxed_ptr,
                        const ArgVal &Hd,
@@ -1187,16 +1302,20 @@ protected:
                           const ArgVal &RHS,
                           const ArgVal &Dst);
 
-    void emit_is_small(Label fail, x86::Gp Reg);
-    void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);
+    void emit_is_small(Label fail, const ArgVal &Arg, x86::Gp Reg);
+    void emit_are_both_small(Label fail,
+                             const ArgVal &LHS,
+                             x86::Gp A,
+                             const ArgVal &RHS,
+                             x86::Gp B);
 
     void emit_validate_unicode(Label next, Label fail, x86::Gp value);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
-                                       const ArgVal &Immed,
-                                       const ArgVal &Dst,
-                                       Eterm fail_value,
-                                       Eterm succ_value);
+    void emit_bif_is_eq_ne_exact(const ArgVal &LHS,
+                                 const ArgVal &RHS,
+                                 const ArgVal &Dst,
+                                 Eterm fail_value,
+                                 Eterm succ_value);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
@@ -1217,6 +1336,11 @@ protected:
 #endif
 
 #include "beamasm_protos.h"
+
+    const Label &resolve_beam_label(const ArgVal &Lbl) const {
+        ASSERT(Lbl.isLabel());
+        return rawLabels.at(Lbl.getValue());
+    }
 
     void make_move_patch(x86::Gp to,
                          std::vector<struct patch> &patches,

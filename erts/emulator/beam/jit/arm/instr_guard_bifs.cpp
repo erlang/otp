@@ -125,15 +125,21 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
-                                                        const ArgVal &Immed,
+void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &LHS,
+                                                        const ArgVal &RHS,
                                                         const ArgVal &Dst,
                                                         Eterm fail_value,
                                                         Eterm succ_value) {
-    auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, TMP2);
 
-    cmp_arg(src.reg, Immed);
+    if (RHS.isImmed()) {
+        auto lhs = load_source(LHS, TMP1);
+        cmp_arg(lhs.reg, RHS);
+    } else {
+        auto [lhs, rhs] = load_sources(LHS, TMP1, RHS, TMP2);
+        a.cmp(lhs.reg, rhs.reg);
+    }
+
     mov_imm(TMP3, succ_value);
     mov_imm(TMP4, fail_value);
     a.csel(dst.reg, TMP3, TMP4, arm::Cond::kEQ);
@@ -143,7 +149,10 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
 void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgVal &LHS,
                                                const ArgVal &RHS,
                                                const ArgVal &Dst) {
-    if (RHS.isImmed()) {
+    if (always_immediate(LHS) || always_immediate(RHS)) {
+        if (!LHS.isImmed() && !RHS.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
         emit_bif_is_eq_ne_exact_immed(LHS, RHS, Dst, am_false, am_true);
     } else {
         auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
@@ -160,7 +169,10 @@ void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgVal &LHS,
 void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgVal &LHS,
                                                const ArgVal &RHS,
                                                const ArgVal &Dst) {
-    if (RHS.isImmed()) {
+    if (always_immediate(LHS) || always_immediate(RHS)) {
+        if (!LHS.isImmed() && !RHS.isImmed()) {
+            comment("simplified check since one argument is an immediate");
+        }
         emit_bif_is_eq_ne_exact_immed(LHS, RHS, Dst, am_true, am_false);
     } else {
         auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
@@ -515,9 +527,9 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgVal &Fail,
     auto dst = init_destination(Dst, TMP2);
 
     if (Fail.getValue() == 0) {
-        emit_is_boxed(error, src.reg);
+        emit_is_boxed(error, Src, src.reg);
     } else {
-        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
     }
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);

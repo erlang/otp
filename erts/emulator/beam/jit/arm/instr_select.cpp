@@ -212,14 +212,19 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
                                                     const Span<ArgVal> &args) {
     auto src = load_source(Src, TMP1);
 
-    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), src.reg);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, 0));
 
-    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.tst(TMP1, imm(_TAG_HEADER_MASK));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.tst(TMP1, imm(_TAG_HEADER_MASK));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    }
 
     Label fail = rawLabels[Fail.getValue()];
     emit_linear_search(TMP1, fail, args);

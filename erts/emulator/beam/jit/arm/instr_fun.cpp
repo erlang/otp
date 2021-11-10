@@ -333,62 +333,116 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 /* Asssumes that:
  *   ARG3 = arity
  *   ARG4 = fun thing */
-arm::Gp BeamModuleAssembler::emit_call_fun() {
+arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
+                                           bool skip_fun_test,
+                                           bool skip_arity_test) {
+    const bool never_fails = skip_box_test && skip_fun_test && skip_arity_test;
     Label next = a.newLabel();
 
     /* Speculatively untag the ErlFunThing. */
     emit_untag_ptr(TMP2, ARG4);
 
-    /* Load the error fragment into TMP3 so we can CSEL ourselves there on
-     * error. */
-    a.adr(TMP3, resolve_fragment(ga->get_handle_call_fun_error(), disp1MB));
+    if (!never_fails) {
+        /* Load the error fragment into TMP3 so we can CSEL ourselves there on
+         * error. */
+        a.adr(TMP3, resolve_fragment(ga->get_handle_call_fun_error(), disp1MB));
+    }
 
-    /* The `handle_call_fun_error` fragment expects current PC in ARG5. */
+    /* The `handle_call_fun_error` and `unloaded_fun` fragments expect current
+     * PC in ARG5. */
     a.adr(ARG5, next);
 
-    /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that for
-     * error checking in `next`. */
-    a.tst(ARG4, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-    a.cond_ne().b(next);
+    if (!skip_box_test) {
+        /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that
+         * for error checking in `next`. */
+        a.tst(ARG4, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        a.cond_ne().b(next);
+    } else {
+        comment("skipped box test since source is always boxed");
+    }
 
-    /* Load header word and `ErlFunThing->entry`. We can safely do this before
-     * testing the header because boxed terms are guaranteed to be at least two
-     * words long. */
-    a.ldp(TMP1, ARG1, arm::Mem(TMP2));
+    if (!skip_fun_test) {
+        /* Load header word and `ErlFunThing->entry`. We can safely do this
+         * before testing the header because boxed terms are guaranteed to be
+         * at least two words long. */
+        ERTS_CT_ASSERT_FIELD_PAIR(ErlFunThing, thing_word, entry);
+        a.ldp(TMP1, ARG1, arm::Mem(TMP2));
 
-    a.cmp(TMP1, imm(HEADER_FUN));
-    a.cond_ne().b(next);
+        a.cmp(TMP1, imm(HEADER_FUN));
+        a.cond_ne().b(next);
+    } else {
+        comment("skipped fun test since source is always a fun when boxed");
+        a.ldr(ARG1, arm::Mem(TMP2, offsetof(ErlFunThing, entry)));
+    }
 
-    a.ldr(TMP2, arm::Mem(TMP2, offsetof(ErlFunThing, arity)));
-    a.cmp(TMP2, ARG3);
+    if (!skip_arity_test) {
+        a.ldr(TMP2, arm::Mem(TMP2, offsetof(ErlFunThing, arity)));
+        a.cmp(TMP2, ARG3);
+    } else {
+        comment("skipped arity test since source always has right arity");
+    }
 
     a.ldr(TMP1, emit_setup_dispatchable_call(ARG1));
 
     /* Assumes that ZF is set on success and clear on error, overwriting our
      * destination with the error fragment's address. */
     a.bind(next);
-    a.csel(TMP1, TMP1, TMP3, imm(arm::Cond::kEQ));
+
+    if (!never_fails) {
+        a.csel(TMP1, TMP1, TMP3, imm(arm::Cond::kEQ));
+    }
 
     return TMP1;
 }
 
-void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
-    mov_arg(ARG4, ArgVal(ArgVal::XReg, Arity.getValue()));
-    mov_imm(ARG3, Arity.getValue());
+void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Safe,
+                                           const ArgVal &Arity,
+                                           const ArgVal &Func) {
+    arm::Gp target;
 
-    erlang_call(emit_call_fun());
+    mov_imm(ARG3, Arity.getValue());
+    mov_arg(ARG4, Func);
+
+    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
+                                   BEAM_TYPE_FUN,
+                           Safe.getValue() == am_true);
+
+    erlang_call(target);
+}
+
+void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Safe,
+                                                const ArgVal &Arity,
+                                                const ArgVal &Func,
+                                                const ArgVal &Deallocate) {
+    arm::Gp target;
+
+    mov_imm(ARG3, Arity.getValue());
+    mov_arg(ARG4, Func);
+
+    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
+                                   BEAM_TYPE_FUN,
+                           Safe.getValue() == am_true);
+
+    emit_deallocate(Deallocate);
+    emit_leave_erlang_frame();
+    a.br(target);
+}
+
+void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
+    const ArgVal Func(ArgVal::XReg, Arity.getValue());
+    const ArgVal Safe(ArgVal::Immediate, am_false);
+
+    emit_i_call_fun2(Safe, Arity, Func);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Arity,
                                                const ArgVal &Deallocate) {
-    emit_deallocate(Deallocate);
+    const ArgVal Func(ArgVal::XReg, Arity.getValue());
+    const ArgVal Safe(ArgVal::Immediate, am_false);
 
-    mov_arg(ARG4, ArgVal(ArgVal::XReg, Arity.getValue()));
-    mov_imm(ARG3, Arity.getValue());
-
-    arm::Gp target = emit_call_fun();
-    emit_leave_erlang_frame();
-    a.br(target);
+    emit_i_call_fun2_last(Safe, Arity, Func, Deallocate);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */

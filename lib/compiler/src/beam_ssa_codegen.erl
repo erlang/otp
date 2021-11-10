@@ -27,6 +27,7 @@
 -export_type([ssa_register/0]).
 
 -include("beam_ssa.hrl").
+-include("beam_asm.hrl").
 
 -import(lists, [foldl/3,keymember/3,keysort/2,map/2,mapfoldl/3,
                 member/2,reverse/1,reverse/2,sort/1,
@@ -104,11 +105,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 
 -type sw_list_item() :: {b_literal(),ssa_label()}.
 
--type reg_num() :: beam_asm:reg_num().
--type xreg() :: {'x',reg_num()}.
--type yreg() :: {'y',reg_num()}.
-
--type ssa_register() :: xreg() | yreg() | {'fr',reg_num()} | {'z',reg_num()}.
+-type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
 functions(Forms, AtomMod) ->
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
@@ -1041,7 +1038,8 @@ cg_block([#cg_set{op=new_try_tag,dst=Tag,args=Args}], {Tag,Fail0}, St) ->
     {[{Kind,Reg,Fail}],St};
 cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
-    [Dst|Args] = beam_args([Dst0|Args0], St),
+    Args = typed_args(Args0, Anno, St),
+    Dst = beam_arg(Dst0, St),
     Line0 = call_line(body, {extfunc,erlang,Name,length(Args)}, Anno),
     Fail = bif_fail(Fail0),
     Line = case Fail of
@@ -1072,9 +1070,10 @@ cg_block([#cg_set{op={bif,tuple_size},dst=Arity0,args=[Tuple0]},
             {Is,St} = cg_block([Eq], Context, St0),
             {[TupleSize|Is],St}
     end;
-cg_block([#cg_set{op={bif,Name},dst=Dst0,args=Args0}]=Is0, {Dst0,Fail}, St0) ->
-    [Dst|Args] = beam_args([Dst0|Args0], St0),
-    case Dst of
+cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}]=Is0,
+         {Dst0,Fail}, St0) ->
+    Args = typed_args(Args0, Anno, St0),
+    case beam_arg(Dst0, St0) of
         {z,_} ->
             %% The result of the BIF call will only be used once. Convert to
             %% a test instruction.
@@ -1089,7 +1088,8 @@ cg_block([#cg_set{op={bif,Name},dst=Dst0,args=Args0}]=Is0, {Dst0,Fail}, St0) ->
     end;
 cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}=I|T],
          Context, St0) ->
-    [Dst|Args] = beam_args([Dst0|Args0], St0),
+    Args = typed_args(Args0, Anno, St0),
+    Dst = beam_arg(Dst0, St0),
     {Is0,St} = cg_block(T, Context, St0),
     case is_gc_bif(Name, Args) of
         true ->
@@ -1187,7 +1187,7 @@ cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail
             {[{test,is_tuple,ensure_label(Fail, St),[Src]},
               {test,test_arity,ensure_label(Fail, St),[Src,Arity]}],St};
         #{} ->
-            [Src,{integer,Arity},Tag] = beam_args(Args0, St),
+            [Src,{integer,Arity},Tag] = typed_args(Args0, Anno, St),
             {[{test,is_tagged_tuple,ensure_label(Fail, St),[Src,Arity,Tag]}],St}
     end;
 cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
@@ -1568,13 +1568,20 @@ cg_call(#cg_set{anno=Anno0,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
                 [line(Anno0)] ++ Apply,
             {Is,St}
     end;
-cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=Args0},
+cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[Func | Args0]},
         Where, Context, St) ->
-    [Dst,Func|Args] = beam_args([Dst0|Args0], St),
     Line = call_line(Where, Func, Anno),
-    Arity = length(Args),
-    Call = build_call(call_fun, Arity, Func, Context, Dst),
-    Is = setup_args(Args++[Func], Anno, Context, St) ++ Line ++ Call,
+    Args = beam_args(Args0 ++ [Func], St),
+
+    Arity = length(Args0),
+    Dst = beam_arg(Dst0, St),
+
+    %% Note that we only inspect the (possible) type of the fun while building
+    %% the call, we don't want the arguments to be typed.
+    [TypedFunc] = typed_args([Func], Anno, St),
+    Call = build_call(call_fun, Arity, TypedFunc, Context, Dst),
+
+    Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
     case Anno of
         #{ result_type := Type } ->
             Info = {var_info, Dst, [{type,Type}]},
@@ -1619,6 +1626,24 @@ build_stk([V|Vs], TmpReg, Tail) ->
 build_stk([], _TmpReg, nil) ->
     [{move,nil,{x,1}}].
 
+build_call(call_fun, Arity, #tr{}=Func0, none, Dst) ->
+    %% Func0 was the source register prior to copying arguments, and has been
+    %% moved to {x, Arity}. Update it to match.
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func}|copy({x,0}, Dst)];
+build_call(call_fun, Arity, #tr{}=Func0, {return,Dst,N}, Dst)
+  when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func},{deallocate,N},return];
+build_call(call_fun, Arity, #tr{}=Func0, {return,Val,N}, _Dst)
+ when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    Safe = is_fun_call_safe(Arity, Func),
+    [{call_fun2,{atom,Safe},Arity,Func},
+     {move,Val,{x,0}},
+     {deallocate,N},return];
 build_call(call_fun, Arity, _Func, none, Dst) ->
     [{call_fun,Arity}|copy({x,0}, Dst)];
 build_call(call_fun, Arity, _Func, {return,Dst,N}, Dst) when is_integer(N) ->
@@ -1649,6 +1674,12 @@ build_call(I, Arity, Func, {return,Val,N}, _Dst) when is_integer(N) ->
     [{I,Arity,Func}|copy(Val, {x,0})++[{deallocate,N},return]];
 build_call(I, Arity, Func, none, Dst) ->
     [{I,Arity,Func}|copy({x,0}, Dst)].
+
+%% Returns whether a call of the given fun is guaranteed to succeed.
+is_fun_call_safe(Arity, #tr{t=#t_fun{arity=Arity}}) ->
+    true;
+is_fun_call_safe(_Arity, _Func) ->
+    false.
 
 build_apply(Arity, {return,Dst,N}, Dst) when is_integer(N) ->
     [{apply_last,Arity,N}];
@@ -1819,6 +1850,9 @@ cg_extract([#cg_set{op=extract,dst=Dst0,args=Args0}|Is0], Agg, St) ->
 cg_extract(Is, _, _) ->
     {[],Is}.
 
+-spec copy(Src, Dst) -> [{move,Src,Dst}] when
+      Src :: beam_reg() | beam_literal(),
+      Dst :: beam_reg().
 copy(Src, Src) -> [];
 copy(Src, Dst) -> [{move,Src,Dst}].
 
@@ -2057,6 +2091,20 @@ get_register(V, Regs) ->
         true -> V;
         false -> maps:get(V, Regs)
     end.
+
+typed_args(As, Anno, St) ->
+    typed_args_1(As, Anno, St, 0).
+
+typed_args_1([Arg | Args], Anno, St, Index) ->
+   case Anno of
+       #{ arg_types := #{ Index := Type } } ->
+           Typed = #tr{r=beam_arg(Arg, St),t=Type},
+           [Typed | typed_args_1(Args, Anno, St, Index + 1)];
+       #{} ->
+           [beam_arg(Arg, St) | typed_args_1(Args, Anno, St, Index + 1)]
+   end;
+typed_args_1([], _Anno, _St, _Index) ->
+    [].
 
 beam_args(As, St) ->
     [beam_arg(A, St) || A <- As].

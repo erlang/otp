@@ -25,6 +25,7 @@
 
 #include "sys.h"
 #include "atom.h"
+#include "beam_types.h"
 
 #define CHECKSUM_SIZE 16
 
@@ -137,6 +138,13 @@ typedef struct {
 } BeamFile_LiteralTable;
 
 typedef struct {
+    /* To simplify code that queries types, the first entry (which must be
+     * present) is always the "any type." */
+    Sint32 count;
+    BeamType *entries;
+} BeamFile_TypeTable;
+
+typedef struct {
     IFF_File iff;
 
     Eterm module;
@@ -151,6 +159,7 @@ typedef struct {
 #endif
     BeamFile_LambdaTable lambdas;
     BeamFile_LineTable lines;
+    BeamFile_TypeTable types;
 
     /* Static literals are those defined in the file, and dynamic literals are
      * those created when loading. The former is positively indexed starting
@@ -190,13 +199,14 @@ enum beamfile_read_result {
     /* Optional chunks */
     BEAMFILE_READ_CORRUPT_LAMBDA_TABLE,
     BEAMFILE_READ_CORRUPT_LINE_TABLE,
-    BEAMFILE_READ_CORRUPT_LITERAL_TABLE
+    BEAMFILE_READ_CORRUPT_LITERAL_TABLE,
+    BEAMFILE_READ_CORRUPT_TYPE_TABLE
 };
 
 typedef struct {
     /* TAG_xyz */
-    int type;
-    BeamInstr val;
+    UWord type;
+    UWord val;
 } BeamOpArg;
 
 typedef struct beamop {

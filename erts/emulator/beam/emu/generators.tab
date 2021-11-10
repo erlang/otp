@@ -19,6 +19,36 @@
 // %CopyrightEnd%
 //
 
+// Rewrites call_fun2 as call_fun: we're not yet helped by the Safe parameter,
+// and can't do anything clever with Func either.
+gen.call_fun2(Safe, Arity, Func) {
+    BeamOp *call;
+
+    (void)Safe;
+
+    $NewBeamOp(S, call);
+    $BeamOpNameArity(call, call_fun, 1);
+    call->a[0] = Arity;
+    call->next = NULL;
+
+    /* Move the fun in place when needed. We don't generate this at the moment,
+     * but a future version of the compiler might keep Func in a Y register. */
+    if (Func.type != TAG_x || Arity.val != Func.val) {
+        BeamOp *move;
+
+        $NewBeamOp(S, move);
+        $BeamOpNameArity(move, move, 2);
+        move->a[0] = Func;
+        move->a[1].type = TAG_x;
+        move->a[1].val = Arity.val;
+        move->next = call;
+
+        return move;
+    }
+
+    return call;
+}
+
 // Generate the fastest instruction to fetch an integer from a binary.
 gen.get_integer2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
     BeamOp* op;

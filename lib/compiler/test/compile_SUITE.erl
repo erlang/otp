@@ -1575,42 +1575,45 @@ bc_options(Config) ->
     L = [{101, small_float, [no_shared_fun_wrappers,no_line_info]},
          {125, small_float, [no_shared_fun_wrappers,
                              no_line_info,
-                             no_ssa_opt_float]},
+                             no_ssa_opt_float,
+                             no_type_opt]},
 
          {153, small_float, [no_shared_fun_wrappers]},
 
-         {164, small_maps, [no_init_yregs,no_shared_fun_wrappers]},
+         {164, small_maps, [no_init_yregs,no_shared_fun_wrappers,no_type_opt]},
          {164, small_maps, [r22]},
          {164, big, [r22]},
          {164, funs, [r22]},
          {164, funs, [no_init_yregs,no_shared_fun_wrappers,
                       no_ssa_opt_record,
                       no_line_info,no_stack_trimming,
-                      no_make_fun3]},
+                      no_make_fun3,no_type_opt]},
 
          {168, small, [r22]},
+
+         {168, small, [no_init_yregs,no_shared_fun_wrappers,
+                       no_ssa_opt_record,
+                       no_ssa_opt_float,no_line_info,no_type_opt]},
 
          {169, big, [no_init_yregs,no_shared_fun_wrappers,
                      no_ssa_opt_record,
                      no_line_info,no_stack_trimming,
-                     no_make_fun3]},
+                     no_make_fun3,no_type_opt]},
          {169, big, [r23]},
 
-         {169, small_maps, [no_init_yregs]},
-
-         {170, small, [no_init_yregs,no_shared_fun_wrappers,
-                       no_ssa_opt_record,
-                       no_ssa_opt_float,no_line_info]},
+         {169, small_maps, [no_init_yregs,no_type_opt]},
 
          {171, big, [no_init_yregs,no_shared_fun_wrappers,
                      no_ssa_opt_record,
-                     no_ssa_opt_float,no_line_info]},
+                     no_ssa_opt_float,no_line_info,
+                     no_type_opt]},
          {171, funs, [no_init_yregs,no_shared_fun_wrappers,
                       no_ssa_opt_record,
-                      no_ssa_opt_float,no_line_info]},
+                      no_ssa_opt_float,no_line_info,
+                      no_type_opt]},
 
-         {172, funs, []},
-         {172, big, []}
+         {178, funs, []},
+         {178, big, []}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

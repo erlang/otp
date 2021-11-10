@@ -133,7 +133,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgVal &Size,
     Label fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
     }
@@ -234,7 +234,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(const ArgVal &NumBits,
     Label fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
     }
@@ -311,7 +311,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(const ArgVal &Src,
     a.test(RET, RET);
 
     if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         a.short_().jne(next);
         emit_error(BADARG);
@@ -327,7 +327,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer(const ArgVal &Fail,
     Label next, fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
         next = a.newLabel();
@@ -369,7 +369,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary(const ArgVal &Fail,
     Label next, fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
         next = a.newLabel();
@@ -428,7 +428,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_all(const ArgVal &Src,
         emit_error(BADARG);
         a.bind(next);
     } else {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     }
 }
 
@@ -458,7 +458,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(const ArgVal &Fail,
         emit_error(BADARG);
         a.bind(next);
     } else {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     }
 }
 
@@ -470,7 +470,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float(const ArgVal &Fail,
     Label next, fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
         next = a.newLabel();
@@ -528,7 +528,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float_imm(const ArgVal &Fail,
     emit_test_the_non_value(RET);
 
     if (Fail.getValue() != 0) {
-        a.jne(labels[Fail.getValue()]);
+        a.jne(resolve_beam_label(Fail));
     } else {
         a.short_().je(next);
         emit_error(BADARG);
@@ -545,7 +545,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
     mov_arg(ARG2, Src);
 
     if (Fail.getValue() != 0) {
-        emit_is_boxed(labels[Fail.getValue()], ARG2);
+        emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
     } else {
         /* bs_start_match3 may not throw, and the compiler will only emit {f,0}
          * when it knows that the source is a match state or binary, so we're
@@ -570,7 +570,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(RETb, imm(~4));
         a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
-        a.jne(labels[Fail.getValue()]);
+        a.jne(resolve_beam_label(Fail));
     }
 
     a.bind(is_binary);
@@ -602,7 +602,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgVal &Ctx,
                                                  const ArgVal &Bits,
                                                  const ArgVal &Ptr) {
     const UWord size = Bits.getValue();
-    Label fail = labels[Fail.getValue()];
+    Label fail = resolve_beam_label(Fail);
 
     mov_arg(ARG1, Ctx);
 
@@ -723,7 +723,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer_8(const ArgVal &Ctx,
     mov_arg(ARG4, Ctx);
 
     address = emit_bs_get_integer_prologue(next,
-                                           labels[Fail.getValue()],
+                                           resolve_beam_label(Fail),
                                            flags,
                                            8);
 
@@ -751,7 +751,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer_16(const ArgVal &Ctx,
     mov_arg(ARG4, Ctx);
 
     address = emit_bs_get_integer_prologue(next,
-                                           labels[Fail.getValue()],
+                                           resolve_beam_label(Fail),
                                            flags,
                                            16);
 
@@ -794,7 +794,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer_32(const ArgVal &Ctx,
     mov_arg(ARG4, Ctx);
 
     address = emit_bs_get_integer_prologue(next,
-                                           labels[Fail.getValue()],
+                                           resolve_beam_label(Fail),
                                            flags,
                                            32);
 
@@ -843,7 +843,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer_64(const ArgVal &Ctx,
                           ARG4);
 
     address = emit_bs_get_integer_prologue(next,
-                                           labels[Fail.getValue()],
+                                           resolve_beam_label(Fail),
                                            flags,
                                            64);
 
@@ -901,7 +901,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer(const ArgVal &Ctx,
     Label fail;
     int unit;
 
-    fail = labels[Fail.getValue()];
+    fail = resolve_beam_label(Fail);
     unit = FlagsAndUnit.getValue() >> 3;
 
     /* Clobbers RET + ARG3, returns a negative result if we always fail and
@@ -942,7 +942,7 @@ void BeamModuleAssembler::emit_bs_test_tail2(const ArgVal &Fail,
         a.cmp(ARG2, imm(Offset.getValue()));
     }
 
-    a.jne(labels[Fail.getValue()]);
+    a.jne(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_bs_set_position(const ArgVal &Ctx,
@@ -982,7 +982,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgVal &Ctx,
         a.test(RETb, imm(unit - 1));
     }
 
-    a.jne(labels[Fail.getValue()]);
+    a.jne(resolve_beam_label(Fail));
 
     emit_enter_runtime<Update::eHeap>();
 
@@ -1037,7 +1037,7 @@ void BeamModuleAssembler::emit_bs_skip_bits(const ArgVal &Fail,
 
     a.add(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
     a.cmp(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.size)));
-    a.ja(labels[Fail.getValue()]);
+    a.ja(resolve_beam_label(Fail));
 
     a.mov(emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)), RET);
 }
@@ -1048,7 +1048,7 @@ void BeamModuleAssembler::emit_i_bs_skip_bits2(const ArgVal &Ctx,
                                                const ArgVal &Unit) {
     Label fail;
 
-    fail = labels[Fail.getValue()];
+    fail = resolve_beam_label(Fail);
 
     if (emit_bs_get_field_size(Bits, Unit.getValue(), fail, RET) >= 0) {
         emit_bs_skip_bits(Fail, Ctx);
@@ -1072,7 +1072,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgVal &Ctx,
     Label fail;
     int unit;
 
-    fail = labels[Fail.getValue()];
+    fail = resolve_beam_label(Fail);
     unit = Flags.getValue() >> 3;
 
     /* Clobbers RET + ARG3 */
@@ -1114,7 +1114,7 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgVal &Ctx,
     Label fail;
     Sint unit;
 
-    fail = labels[Fail.getValue()];
+    fail = resolve_beam_label(Fail);
     unit = Flags.getValue() >> 3;
 
     mov_arg(ARG4, Ctx);
@@ -1183,7 +1183,7 @@ void BeamModuleAssembler::emit_i_bs_put_utf8(const ArgVal &Fail,
     a.test(RET, RET);
 
     if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         a.short_().jne(next);
         emit_error(BADARG);
@@ -1203,7 +1203,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgVal &Ctx,
     emit_leave_runtime();
 
     emit_test_the_non_value(RET);
-    a.je(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_i_bs_get_utf8(const ArgVal &Ctx,
@@ -1253,7 +1253,7 @@ void BeamModuleAssembler::emit_i_bs_put_utf16(const ArgVal &Fail,
     a.test(RET, RET);
 
     if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         a.short_().jne(next);
         emit_error(BADARG);
@@ -1275,7 +1275,7 @@ void BeamModuleAssembler::emit_bs_get_utf16(const ArgVal &Ctx,
     emit_leave_runtime();
 
     emit_test_the_non_value(RET);
-    a.je(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_i_bs_get_utf16(const ArgVal &Ctx,
@@ -1315,7 +1315,7 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode(const ArgVal &Fail,
     Label fail, next = a.newLabel();
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
     }
@@ -1348,7 +1348,7 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(const ArgVal &Fail,
               imm(32));
 
         if (Fail.getValue() != 0) {
-            a.jmp(labels[Fail.getValue()]);
+            a.jmp(resolve_beam_label(Fail));
         } else {
             emit_error(BADARG);
         }
@@ -1377,7 +1377,7 @@ void BeamModuleAssembler::emit_bs_test_unit(const ArgVal &Fail,
         a.test(RETb, imm(unit - 1));
     }
 
-    a.jnz(labels[Fail.getValue()]);
+    a.jnz(resolve_beam_label(Fail));
 }
 
 /* Set the error reason when bs_add has failed. */
@@ -1397,7 +1397,7 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
     Label fail;
 
     if (Fail.getValue() != 0) {
-        fail = labels[Fail.getValue()];
+        fail = resolve_beam_label(Fail);
     } else {
         fail = a.newLabel();
     }
@@ -1502,7 +1502,7 @@ void BeamModuleAssembler::emit_i_bs_append(const ArgVal &Fail,
     emit_test_the_non_value(RET);
 
     if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         a.short_().jne(next);
         /* The error has been prepared in `erts_bs_append` */
@@ -1538,7 +1538,7 @@ void BeamModuleAssembler::emit_i_bs_private_append(const ArgVal &Fail,
     emit_test_the_non_value(RET);
 
     if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(Fail));
     } else {
         a.short_().jne(next);
         /* The error has been prepared in `erts_bs_private_append` */
@@ -1726,7 +1726,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
         emit_leave_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
         if (Fail.getValue() != 0) {
-            a.jmp(labels[Fail.getValue()]);
+            a.jmp(resolve_beam_label(Fail));
         } else {
             safe_fragment_call(ga->get_bs_create_bin_error_shared());
         }

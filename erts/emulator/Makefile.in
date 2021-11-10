@@ -1149,7 +1149,8 @@ RUN_OBJS += \
 	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o \
 	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_global_literals.o \
-	$(OBJDIR)/beam_file.o
+	$(OBJDIR)/beam_file.o \
+	$(OBJDIR)/beam_types.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 

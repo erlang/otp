@@ -69,6 +69,7 @@
 -export([module/2]).
 
 -include("beam_ssa.hrl").
+-include("beam_asm.hrl").
 
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,member/2,partition/2,
@@ -90,9 +91,6 @@ functions([], _Ps) -> [].
 -type var_name() :: beam_ssa:var_name().
 -type instr_number() :: pos_integer().
 -type range() :: {instr_number(),instr_number()}.
--type reg_num() :: beam_asm:reg_num().
--type xreg() :: {'x',reg_num()}.
--type yreg() :: {'y',reg_num()}.
 -type ypool() :: {'y',beam_ssa:label()}.
 -type reservation() :: 'fr' | {'prefer',xreg()} | 'x' | {'x',xreg()} |
                        ypool() | {yreg(),ypool()} | 'z'.

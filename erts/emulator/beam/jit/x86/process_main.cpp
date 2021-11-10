@@ -154,7 +154,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Check that ARG3 is set to a valid CP. */
         a.test(ARG3, imm(_CPMASK));
         a.je(check_i);
-        a.comment("# ARG3 is not a valid CP");
+        comment("# ARG3 is not a valid CP");
         a.ud2();
         a.bind(check_i);
 #endif

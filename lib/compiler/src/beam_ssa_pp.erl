@@ -116,7 +116,7 @@ format_param_info([], _Break) ->
 
 format_type(T, Break) ->
     %% Gross hack, but it's short and simple.
-    Indented = lists:flatten(format_type(T)),
+    Indented = unicode:characters_to_list(format_type(T)),
     string:replace(Indented, [$\n], Break, all).
 
 format_blocks(Ls, Blocks, Anno) ->
@@ -143,7 +143,7 @@ format_instrs([], _FuncAnno, _First) ->
 
 format_instr(#b_set{anno=Anno,op=Op,dst=Dst,args=Args},
              FuncAnno, First) ->
-    AnnoStr = format_anno(Anno),
+    AnnoStr = format_instr_anno(Anno, FuncAnno, Args),
     LiveIntervalStr = format_live_interval(Dst, FuncAnno),
     [if
          First ->
@@ -242,20 +242,37 @@ format_switch_list(List, FuncAnno) ->
 format_label(L) ->
     io_lib:format("^~w", [L]).
 
-format_anno(#{n:=_}=Anno) ->
-    format_anno(maps:remove(n, Anno));
-format_anno(#{location:={File,Line}}=Anno0) ->
+format_instr_anno(#{n:=_}=Anno, FuncAnno, Args) ->
+    format_instr_anno(maps:remove(n, Anno), FuncAnno, Args);
+format_instr_anno(#{location:={File,Line}}=Anno0, FuncAnno, Args) ->
     Anno = maps:remove(location, Anno0),
-    [io_lib:format("  %% ~ts:~p\n", [File,Line])|format_anno(Anno)];
-format_anno(#{result_type:=T}=Anno0) ->
+    [io_lib:format("  %% ~ts:~p\n", [File,Line]) |
+     format_instr_anno(Anno, FuncAnno, Args)];
+format_instr_anno(#{result_type:=T}=Anno0, FuncAnno, Args) ->
     Anno = maps:remove(result_type, Anno0),
     Break = "\n  %%    ",
     [io_lib:format("  %% Result type:~s~s\n",
-                   [Break, format_type(T, Break)]) | format_anno(Anno)];
-format_anno(Anno) ->
-    format_anno_1(Anno).
+                   [Break, format_type(T, Break)]) |
+                    format_instr_anno(Anno, FuncAnno, Args)];
+format_instr_anno(#{arg_types:=Ts}=Anno0, FuncAnno, Args) ->
+    Anno = maps:remove(arg_types, Anno0),
 
-format_anno_1(Anno) ->
+    Break = "\n  %%    ",
+
+    Iota = lists:seq(0, length(Args) - 1),
+    Formatted0 = [[format_arg(Arg, FuncAnno), " => ",
+                   format_type(map_get(Idx, Ts),
+                   Break)]
+                  || {Idx, Arg} <- lists:zip(Iota, Args), is_map_key(Idx, Ts)],
+    Formatted = lists:join(Break, Formatted0),
+
+    [io_lib:format("  %% Argument types:~s~ts\n",
+                   [Break, unicode:characters_to_list(Formatted)]) |
+     format_instr_anno(Anno, FuncAnno, Args)];
+format_instr_anno(Anno, _FuncAnno, _Args) ->
+    format_instr_anno_1(Anno).
+
+format_instr_anno_1(Anno) ->
     case map_size(Anno) of
         0 ->
             [];
@@ -330,6 +347,12 @@ format_type(#t_tuple{elements=Es,exact=Ex,size=S}) ->
     ["{",
      string:join(format_tuple_elems(S, Ex, Es, 1), ", "),
      "}"];
+format_type(pid) ->
+    "pid()";
+format_type(port) ->
+    "pid()";
+format_type(reference) ->
+    "reference()";
 format_type(none) ->
     "none()";
 format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,other=O}) ->

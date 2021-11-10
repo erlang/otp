@@ -38,7 +38,7 @@ const std::map<BeamGlobalAssembler::GlobalLabels, BeamGlobalAssembler::emitFptr>
 
 #define DECL_LABEL_NAME(NAME) {NAME, STRINGIFY(NAME)},
 
-const std::map<BeamGlobalAssembler::GlobalLabels, std::string>
+const std::map<BeamGlobalAssembler::GlobalLabels, const std::string>
         BeamGlobalAssembler::labelNames = {BEAM_GLOBAL_FUNCS(
                 DECL_LABEL_NAME) PROCESS_MAIN_LABELS(DECL_LABEL_NAME)};
 #undef DECL_LABEL_NAME

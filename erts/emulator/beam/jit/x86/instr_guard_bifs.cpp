@@ -66,9 +66,8 @@ void BeamModuleAssembler::emit_bif_hd(const ArgVal &Fail,
     mov_arg(RET, Src);
     a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
 
-    Uint fail = Fail.getValue();
-    if (fail) {
-        a.jne(labels[fail]);
+    if (Fail.getValue() != 0) {
+        a.jne(resolve_beam_label(Fail));
     } else {
         Label next = a.newLabel();
         a.short_().je(next);
@@ -169,47 +168,70 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
          * The size of the code is 40 bytes, while the size of the bif2
          * instruction is 36 bytes. */
         Uint position = signed_val(Pos.getValue());
-        Label error;
 
         mov_arg(ARG2, Tuple);
 
-        if (Fail.getValue() == 0) {
-            error = a.newLabel();
-
-            emit_is_boxed(error, ARG2, dShort);
-        } else {
-            emit_is_boxed(labels[Fail.getValue()], ARG2);
-        }
-
         x86::Gp boxed_ptr = emit_ptr_val(ARG3, ARG2);
-        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
-        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
-        a.cmp(RETd, imm(make_arityval_unchecked(position)));
+        if (exact_type(Tuple, BEAM_TYPE_TUPLE)) {
+            comment("skipped tuple test since source is always a tuple");
+            ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+            a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)),
+                  imm(make_arityval_unchecked(position)));
 
-        if (Fail.getValue() == 0) {
-            a.short_().jb(error);
-        } else {
-            a.jb(labels[Fail.getValue()]);
-        }
+            if (Fail.getValue() == 0) {
+                Label next = a.newLabel();
 
-        ERTS_CT_ASSERT(make_arityval_zero() == 0);
-        a.and_(RETb, imm(_TAG_HEADER_MASK));
+                a.short_().jae(next);
 
-        if (Fail.getValue() == 0) {
-            Label next = a.newLabel();
-
-            a.short_().je(next);
-
-            a.bind(error);
-            {
                 mov_imm(ARG1, make_small(position));
                 safe_fragment_call(ga->get_handle_element_error());
+
+                a.bind(next);
+            } else {
+                a.jb(resolve_beam_label(Fail));
+            }
+        } else {
+            Distance dist;
+            Label error;
+
+            if (Fail.getValue() == 0) {
+                error = a.newLabel();
+                dist = dShort;
+            } else {
+                error = resolve_beam_label(Fail);
+                dist = dLong;
             }
 
-            a.bind(next);
-        } else {
-            a.jne(labels[Fail.getValue()]);
+            emit_is_boxed(error, Tuple, ARG2, dist);
+
+            a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+            a.cmp(RETd, imm(make_arityval_unchecked(position)));
+
+            if (Fail.getValue() == 0) {
+                a.short_().jb(error);
+            } else {
+                a.jb(error);
+            }
+
+            ERTS_CT_ASSERT(make_arityval_zero() == 0);
+            a.and_(RETb, imm(_TAG_HEADER_MASK));
+
+            if (Fail.getValue() == 0) {
+                Label next = a.newLabel();
+
+                a.short_().je(next);
+
+                a.bind(error);
+                {
+                    mov_imm(ARG1, make_small(position));
+                    safe_fragment_call(ga->get_handle_element_error());
+                }
+
+                a.bind(next);
+            } else {
+                a.jne(error);
+            }
         }
 
         a.mov(RET, emit_boxed_val(boxed_ptr, position * sizeof(Eterm)));
@@ -222,7 +244,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
         mov_arg(ARG1, Pos);
 
         if (Fail.getValue() != 0) {
-            a.lea(ARG3, x86::qword_ptr(labels[Fail.getValue()]));
+            a.lea(ARG3, x86::qword_ptr(resolve_beam_label(Fail)));
         } else {
             mov_imm(ARG3, 0);
         }
