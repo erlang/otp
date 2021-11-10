@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,14 +95,15 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 	#usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
 			       msgUserName = MsgUserName} ->
 	    ?vlog("process_incoming_msg -> USM security parms: "
-		  "~n   msgAuthEngineID: ~w"
-		  "~n   userName:        ~p", [MsgAuthEngineID, MsgUserName]),
+		  "~n      msgAuthEngineID: ~w"
+		  "~n      userName:        ~p", [MsgAuthEngineID, MsgUserName]),
 	    %% 3.2.3
 	    ?vtrace("process_incoming_msg -> check engine id: 3.2.3",[]),
 	    case snmp_user_based_sm_mib:is_engine_id_known(MsgAuthEngineID) of
 		true ->
 		    ok;
 		false ->
+                    ?vlog("process_incoming_msg -> engine id *not* known"),
 		    SecData1 = [MsgUserName],
 		    error(usmStatsUnknownEngineIDs, 
 			  ?usmStatsUnknownEngineIDs_instance, %% OTP-3542
@@ -116,29 +117,30 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 		    User when element(?usmUserStatus, User) =:= ?'RowStatus_active' ->
 			User;
 		    {_, Name,_,_,_,_,_,_,_,_,_,_,_, RowStatus,_,_} ->
-			?vdebug("process_incoming_msg -> "
-				"found user ~p with wrong row status: ~p", 
-				[Name, RowStatus]),
+			?vlog("process_incoming_msg -> "
+                              "found user ~p with wrong row status: ~p", 
+                              [Name, RowStatus]),
 			SecData2 = [MsgUserName],
 			error(usmStatsUnknownUserNames, 
 			      ?usmStatsUnknownUserNames_instance, %% OTP-3542
 			      undefined, [{sec_data, SecData2}]);
 		    _ -> % undefined or not active user
+                        ?vlog("process_incoming_msg -> unknown user"),
 			SecData2 = [MsgUserName],
 			error(usmStatsUnknownUserNames, 
 			      ?usmStatsUnknownUserNames_instance, %% OTP-3542
 			      undefined, [{sec_data, SecData2}])
 		end,
 	    SecName = element(?usmUserSecurityName, UsmUser),
-	    ?vtrace("process_incoming_msg -> securityName: ~p",[SecName]),
+	    ?vtrace("process_incoming_msg -> securityName: ~p", [SecName]),
 	    %% 3.2.5 - implicit in following checks
 	    %% 3.2.6 - 3.2.7
 	    ?vtrace("process_incoming_msg -> "
 		    "authenticate incoming: 3.2.5 - 3.2.7"
-		    "~n   ~p",[UsmUser]),
-	    DiscoOrPlain = authenticate_incoming(Packet, 
-						 UsmSecParams, UsmUser, 
-						 SecLevel, LocalEngineID), 
+		    "~n      USM User: ~p", [UsmUser]),
+	    DiscoOrPlain = authenticate_incoming(Packet,
+						 UsmSecParams, UsmUser,
+						 SecLevel, LocalEngineID),
 	    %% 3.2.8
 	    ?vtrace("process_incoming_msg -> "
 		    "decrypt scoped data: 3.2.8",[]),
@@ -183,7 +185,8 @@ process_discovery_msg(MsgAuthEngineID, Data, SecLevel) ->
 authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel, 
 		      LocalEngineID) ->
     %% 3.2.6
-    ?vtrace("authenticate_incoming -> 3.2.6", []),
+    ?vtrace("authenticate_incoming -> 3.2.6"
+            "~n      SecLevel: ~p", [SecLevel]),
     AuthProtocol = element(?usmUserAuthProtocol, UsmUser),
     #usmSecurityParameters{msgAuthoritativeEngineID    = MsgAuthEngineID,
 			   msgAuthoritativeEngineBoots = MsgAuthEngineBoots,
@@ -191,12 +194,13 @@ authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel,
 			   msgAuthenticationParameters = MsgAuthParams} = 
 	UsmSecParams,
     ?vtrace("authenticate_incoming -> Sec params: "
-	    "~n   MsgAuthEngineID:    ~w"
-	    "~n   MsgAuthEngineBoots: ~p"
-	    "~n   MsgAuthEngineTime:  ~p",
+	    "~n      MsgAuthEngineID:    ~w"
+	    "~n      MsgAuthEngineBoots: ~p"
+	    "~n      MsgAuthEngineTime:  ~p",
 	    [MsgAuthEngineID, MsgAuthEngineBoots, MsgAuthEngineTime]),
     case snmp_misc:is_auth(SecLevel) of
 	true ->
+            ?vtrace("authenticate_incoming -> authenticate"),
 	    SecName = element(?usmUserSecurityName, UsmUser),
 	    case is_auth(AuthProtocol,
 			 element(?usmUserAuthKey, UsmUser),
@@ -218,6 +222,7 @@ authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel,
 	    end;
 
 	false ->  % noAuth
+            ?vtrace("authenticate_incoming -> don't authenticate"),
 	    plain
     end.
 	    
@@ -262,19 +267,18 @@ authoritative(SecName, MsgAuthEngineBoots, MsgAuthEngineTime, LocalEngineID) ->
 non_authoritative(SecName, 
 		  MsgAuthEngineID, MsgAuthEngineBoots, MsgAuthEngineTime) ->
     ?vtrace("non_authoritative -> entry with"
-	    "~n   SecName:            ~p"
-	    "~n   MsgAuthEngineID:    ~p"
-	    "~n   MsgAuthEngineBoots: ~p"
-	    "~n   MsgAuthEngineTime:  ~p", 
-	    [SecName, 
-	     MsgAuthEngineID, MsgAuthEngineBoots, MsgAuthEngineTime]),
+	    "~n      SecName:            ~p"
+	    "~n      MsgAuthEngineID:    ~p"
+	    "~n      MsgAuthEngineBoots: ~p"
+	    "~n      MsgAuthEngineTime:  ~p", 
+	    [SecName, MsgAuthEngineID, MsgAuthEngineBoots, MsgAuthEngineTime]),
     SnmpEngineBoots = get_engine_boots(MsgAuthEngineID),
     SnmpEngineTime  = get_engine_time(MsgAuthEngineID),
     LatestRecvTime  = get_engine_latest_time(MsgAuthEngineID),
     ?vtrace("non_authoritative -> "
-	    "~n   SnmpEngineBoots: ~p"
-	    "~n   SnmpEngineTime:  ~p"
-	    "~n   LatestRecvTime:  ~p", 
+	    "~n      SnmpEngineBoots: ~p"
+	    "~n      SnmpEngineTime:  ~p"
+	    "~n      LatestRecvTime:  ~p", 
 	    [SnmpEngineBoots, SnmpEngineTime, LatestRecvTime]),
     UpdateLCD =
 	if
@@ -311,11 +315,11 @@ non_authoritative(SecName,
     case InTimeWindow of
 	false ->
 	    ?vinfo("NOT in time window: "
-		   "~n   SecName:            ~p"
-		   "~n   SnmpEngineBoots:    ~p"
-		   "~n   MsgAuthEngineBoots: ~p"
-		   "~n   SnmpEngineTime:     ~p"
-		   "~n   MsgAuthEngineTime:  ~p",
+		   "~n      SecName:            ~p"
+		   "~n      SnmpEngineBoots:    ~p"
+		   "~n      MsgAuthEngineBoots: ~p"
+		   "~n      SnmpEngineTime:     ~p"
+		   "~n      MsgAuthEngineTime:  ~p",
 		   [SecName,
 		    SnmpEngineBoots, MsgAuthEngineBoots,
 		    SnmpEngineTime, MsgAuthEngineTime]),
@@ -357,7 +361,11 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 				   (MsgAuthEngineTime =:= 0) andalso 
 				   (TermDiscoEnabled =:= true) andalso 
 				   (TermDiscoStage2 =:= discovery)) -> %% 3.2.7a
-		    ?vtrace("is_auth -> terminating discovery stage 2 - discovery",[]),
+		    ?vtrace("is_auth -> terminating discovery stage 2 - discovery:"
+                            "~n      Local Boots: ~p"
+                            "~n      Local Time:  ~p",
+                            [get_local_engine_boots(LocalEngineID),
+                             get_local_engine_time(LocalEngineID)]),
 		    discovery;
 		SnmpEngineID when ((MsgAuthEngineBoots =:= 0) andalso 
 				   (MsgAuthEngineTime =:= 0) andalso 
@@ -444,30 +452,35 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel,
 		      LocalEngineID) ->
     %% 3.1.1
     ?vtrace("generate_outgoing_msg -> [3.1.1] entry with"
-	    "~n   SecEngineID:   ~p"
-	    "~n   SecName:       ~p"
-	    "~n   SecLevel:      ~w" 
-	    "~n   LocalEngineID: ~p", 
+	    "~n      SecEngineID:   ~p"
+	    "~n      SecName:       ~p"
+	    "~n      SecLevel:      ~w" 
+	    "~n      LocalEngineID: ~p", 
 	    [SecEngineID, SecName, SecLevel, LocalEngineID]),
     {UserName, AuthProtocol, PrivProtocol, AuthKey, PrivKey} =
 	case SecData of
 	    [] -> % 3.1.1b
 		%% Not a response - read from LCD
+                ?vtrace("generate_outgoing_msh -> [3.1.1b] get user from sec name"),
 		case snmp_user_based_sm_mib:get_user_from_security_name(
 		       SecEngineID, SecName) of
 		    User when element(?usmUserStatus, User) =:=
 			      ?'RowStatus_active' ->
-			{element(?usmUserName, User),
+			{element(?usmUserName,         User),
 			 element(?usmUserAuthProtocol, User),
 			 element(?usmUserPrivProtocol, User),
-			 element(?usmUserAuthKey, User),
-			 element(?usmUserPrivKey, User)};
+			 element(?usmUserAuthKey,      User),
+			 element(?usmUserPrivKey,      User)};
 		    {_, Name,_,_,_,_,_,_,_,_,_,_,_, RowStatus,_,_} ->
 			?vdebug("generate_outgoing_msg -> "
 				"found not active user ~p: ~p", 
 				[Name, RowStatus]),
 			error(unknownSecurityName);
-		    _ ->
+		    _X ->
+			?vdebug("generate_outgoing_msg -> unexpected"
+                                "~n      SecEngineID: ~p"
+                                "~n      SecName:     ~p"
+				"~n      ~p", [SecEngineID, SecName, _X]),
 			error(unknownSecurityName)
 		end;
 	    [MsgUserName] ->
@@ -544,6 +557,7 @@ generate_discovery_msg(Message,
 
 	    _ ->
 		%% Discovery step 2
+                ?vtrace("generate_discovery_msg -> step 2 - get user from sec name"),
 		case snmp_user_based_sm_mib:get_user_from_security_name(
 		       SecEngineID, SecName) of
 		    User when element(?usmUserStatus, User) =:=
@@ -558,7 +572,11 @@ generate_discovery_msg(Message,
 				"found user ~p with wrong row status: ~p", 
 				[Name, RowStatus]),
 			error(unknownSecurityName);
-		    _ ->
+		    _X ->
+			?vdebug("generate_discovery_msg -> unexpected"
+                                "~n      SecEngineID: ~p"
+                                "~n      SecName:     ~p"
+				"~n      ~p", [SecEngineID, SecName, _X]),
 			error(unknownSecurityName)
 		end
 	end,

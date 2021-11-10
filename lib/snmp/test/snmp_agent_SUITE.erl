@@ -202,6 +202,10 @@
 	 v3_crypto_basic/1, 
 	 v3_md5_auth/1, 
 	 v3_sha_auth/1,
+	 v3_sha224_auth/1,
+	 v3_sha256_auth/1,
+	 v3_sha384_auth/1,
+	 v3_sha512_auth/1,
 	 v3_des_priv/1, 
 
 	 %% major_tcs - test_multi_threaded, test_multi_threaded_ext
@@ -3368,6 +3372,10 @@ v3_security_cases() ->
      v3_crypto_basic, 
      v3_md5_auth, 
      v3_sha_auth,
+     v3_sha224_auth,
+     v3_sha256_auth,
+     v3_sha384_auth,
+     v3_sha512_auth,
      v3_des_priv
     ].
 
@@ -3461,6 +3469,8 @@ v3_sha_auth(Config) when is_list(Config) ->
 
     MA = whereis(snmp_master_agent),
 
+    snmp_user_based_sm_mib:usmUserTable(print),
+
     ?line load_master("Test2"),
     ?line load_master("TestTrap"),
     ?line load_master("TestTrapv2"),
@@ -3469,6 +3479,122 @@ v3_sha_auth(Config) when is_list(Config) ->
 			{ma_v2_trap1, [MA]},
 			{v3_inform_sync, [MA]}]],
 	     [{sec_level, authNoPriv}, {user, "authSHA"}]),
+
+    ?line unload_master("TestTrapv2"),
+    ?line unload_master("TestTrap"),
+    ?line unload_master("Test2"),
+    ?line reset_target_params_conf(AgentConfDir).
+
+v3_sha224_auth(suite) -> [];
+v3_sha224_auth(Config) when is_list(Config) ->
+    ?P(v3_sha224_auth), 
+    init_case(Config),
+
+    ?NPRINT("Testing SHA224 authentication...takes a few seconds..."),
+
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authSHA224", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
+
+    MA = whereis(snmp_master_agent),
+
+    snmp_user_based_sm_mib:usmUserTable(print),
+
+    ?line load_master("Test2"),
+    ?line load_master("TestTrap"),
+    ?line load_master("TestTrapv2"),
+
+    try_test(v3_sync, [[{v2_proc, []},
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authSHA224"}]),
+
+    ?line unload_master("TestTrapv2"),
+    ?line unload_master("TestTrap"),
+    ?line unload_master("Test2"),
+    ?line reset_target_params_conf(AgentConfDir).
+
+v3_sha256_auth(suite) -> [];
+v3_sha256_auth(Config) when is_list(Config) ->
+    ?P(v3_sha256_auth), 
+    init_case(Config),
+
+    ?NPRINT("Testing SHA256 authentication...takes a few seconds..."),
+
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authSHA256", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
+
+    MA = whereis(snmp_master_agent),
+
+    snmp_user_based_sm_mib:usmUserTable(print),
+
+    ?line load_master("Test2"),
+    ?line load_master("TestTrap"),
+    ?line load_master("TestTrapv2"),
+
+    try_test(v3_sync, [[{v2_proc, []},
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authSHA256"}]),
+
+    ?line unload_master("TestTrapv2"),
+    ?line unload_master("TestTrap"),
+    ?line unload_master("Test2"),
+    ?line reset_target_params_conf(AgentConfDir).
+
+v3_sha384_auth(suite) -> [];
+v3_sha384_auth(Config) when is_list(Config) ->
+    ?P(v3_sha384_auth), 
+    init_case(Config),
+
+    ?NPRINT("Testing SHA authentication...takes a few seconds..."),
+
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authSHA384", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
+
+    MA = whereis(snmp_master_agent),
+
+    snmp_user_based_sm_mib:usmUserTable(print),
+
+    ?line load_master("Test2"),
+    ?line load_master("TestTrap"),
+    ?line load_master("TestTrapv2"),
+
+    try_test(v3_sync, [[{v2_proc, []},
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authSHA384"}]),
+
+    ?line unload_master("TestTrapv2"),
+    ?line unload_master("TestTrap"),
+    ?line unload_master("Test2"),
+    ?line reset_target_params_conf(AgentConfDir).
+
+v3_sha512_auth(suite) -> [];
+v3_sha512_auth(Config) when is_list(Config) ->
+    ?P(v3_sha512_auth), 
+    init_case(Config),
+
+    ?NPRINT("Testing SHA512 authentication...takes a few seconds..."),
+
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authSHA512", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
+
+    MA = whereis(snmp_master_agent),
+
+    snmp_user_based_sm_mib:usmUserTable(print),
+
+    ?line load_master("Test2"),
+    ?line load_master("TestTrap"),
+    ?line load_master("TestTrapv2"),
+
+    try_test(v3_sync, [[{v2_proc, []},
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authSHA512"}]),
 
     ?line unload_master("TestTrapv2"),
     ?line unload_master("TestTrap"),

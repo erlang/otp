@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2020</year>
+      <year>1999</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,9 +36,10 @@
   <modulesummary>Instrumentation Functions for SNMP-USER-BASED-SM-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_user_based_sm_mib</c> implements the instrumentation 
-      functions for the SNMP-USER-BASED-SM-MIB, and functions for configuring 
-      the database.
-      </p>
+    functions for the SNMP-USER-BASED-SM-MIB, and functions for configuring 
+    the database. </p>
+    <p>Note that authentication has been extended according to RFC 7860
+    (SNMP-USM-HMAC-SHA2-MIB). </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
   </description>
   <funcs>
@@ -110,7 +111,7 @@
         <v>Name = string()</v>
         <v>SecName = string()</v>
         <v>Clone = zeroDotZero | [integer()]</v>
-        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol</v>
+        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol</v>
         <v>AuthKeyC = string()</v>
         <v>OwnAuthKeyC = string()</v>
         <v>PrivP = usmNoPrivProtocol | usmDESPrivProtocol</v>

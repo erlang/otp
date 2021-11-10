@@ -415,9 +415,13 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
         <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[
 sec_name = string()
-auth = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocoltimeout
+auth = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol
 auth_key = [integer()]   (length 16 if auth = usmHMACMD5AuthProtocol, 
-                          length 20 if auth = usmHMACSHAAuthProtocol)
+                          length 20 if auth = usmHMACSHAAuthProtocol,
+                          length 28 if auth = usmHMAC128SHA224AuthProtocol,
+                          length 32 if auth = usmHMAC192SHA256AuthProtocol,
+                          length 48 if auth = usmHMAC256SHA384AuthProtocol,
+                          length 64 if auth = usmHMAC384SHA512AuthProtocol)
 priv = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol
 priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb128Protocol).
 ]]></code>

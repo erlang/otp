@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,10 +39,12 @@
 -export([check_usm/1]).
 
 -include("SNMP-USER-BASED-SM-MIB.hrl").
+-include("SNMP-USM-HMAC-SHA2-MIB.hrl").
 -include("SNMP-USM-AES-MIB.hrl").
 -include("SNMPv2-TC.hrl").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
+-include("snmp_usm.hrl").
 
 -define(VMODULE,"USM_MIB").
 -include("snmp_verbosity.hrl").
@@ -55,7 +57,7 @@
 %% Columns not accessible via SNMP
 -define(usmUserAuthKey, 14).
 -define(usmUserPrivKey, 15).
--define(is_cloning, 16).
+-define(is_cloning,     16).
 
 
 %%%-----------------------------------------------------------------
@@ -167,9 +169,13 @@ check_usm({EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	    {ok, X} ->
                 X
         end,
-    AuthProtoAlt = [{usmNoAuthProtocol,      ?usmNoAuthProtocol},
-		    {usmHMACSHAAuthProtocol, ?usmHMACSHAAuthProtocol},
-		    {usmHMACMD5AuthProtocol, ?usmHMACMD5AuthProtocol}],
+    AuthProtoAlt = [{usmNoAuthProtocol,            ?usmNoAuthProtocol},
+		    {usmHMACMD5AuthProtocol,       ?usmHMACMD5AuthProtocol},
+		    {usmHMACSHAAuthProtocol,       ?usmHMACSHAAuthProtocol},
+		    {usmHMAC128SHA224AuthProtocol, ?usmHMAC128SHA224AuthProtocol},
+		    {usmHMAC192SHA256AuthProtocol, ?usmHMAC192SHA256AuthProtocol},
+		    {usmHMAC256SHA384AuthProtocol, ?usmHMAC256SHA384AuthProtocol},
+		    {usmHMAC384SHA512AuthProtocol, ?usmHMAC384SHA512AuthProtocol}],
     {ok, AuthProto} = snmp_conf:check_atom(AuthP, AuthProtoAlt),
     snmp_conf:check_string(AuthKeyC),
     snmp_conf:check_string(OwnAuthKeyC),
@@ -191,12 +197,16 @@ check_usm({EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 check_usm(X) ->
     error({invalid_user, X}).
 
-alen(usmNoAuthProtocol) -> any;
-alen(usmHMACMD5AuthProtocol) -> 16;
-alen(usmHMACSHAAuthProtocol) -> 20.
+alen(usmNoAuthProtocol)            -> any;
+alen(usmHMACMD5AuthProtocol)       -> 16;
+alen(usmHMACSHAAuthProtocol)       -> 20;
+alen(usmHMAC128SHA224AuthProtocol) -> ?usmHMAC128SHA224AuthProtocol_secret_key_length;
+alen(usmHMAC192SHA256AuthProtocol) -> ?usmHMAC192SHA256AuthProtocol_secret_key_length;
+alen(usmHMAC256SHA384AuthProtocol) -> ?usmHMAC256SHA384AuthProtocol_secret_key_length;
+alen(usmHMAC384SHA512AuthProtocol) -> ?usmHMAC384SHA512AuthProtocol_secret_key_length.
 
-plen(usmNoPrivProtocol) -> any;
-plen(usmDESPrivProtocol) -> 16;
+plen(usmNoPrivProtocol)    -> any;
+plen(usmDESPrivProtocol)   -> 16;
 plen(usmAesCfb128Protocol) -> 16.
 
 
@@ -225,6 +235,26 @@ check_user(User) ->
 	    case is_crypto_supported(sha) of
 		true -> ok;
 		false -> exit({unsupported_crypto, sha_mac_96})
+	    end;
+	?usmHMAC128SHA224AuthProtocol ->
+	    case is_crypto_supported(sha224) of
+		true -> ok;
+		false -> exit({unsupported_crypto, sha224_hmac_sha_2})
+	    end;
+	?usmHMAC192SHA256AuthProtocol ->
+	    case is_crypto_supported(sha256) of
+		true -> ok;
+		false -> exit({unsupported_crypto, sha256_hmac_sha_2})
+	    end;
+	?usmHMAC256SHA384AuthProtocol ->
+	    case is_crypto_supported(sha384) of
+		true -> ok;
+		false -> exit({unsupported_crypto, sha384_hmac_sha_2})
+	    end;
+	?usmHMAC384SHA512AuthProtocol ->
+	    case is_crypto_supported(sha512) of
+		true -> ok;
+		false -> exit({unsupported_crypto, sha512_hmac_sha_2})
 	    end
     end,
     case element(?usmUserPrivProtocol, User) of
@@ -492,11 +522,19 @@ usmUserTable(print) ->
 				 Prefix, element(?usmUserCloneFrom, Row),
 				 Prefix, element(?usmUserAuthProtocol, Row),
 				 case element(?usmUserAuthProtocol, Row) of
-				     ?usmNoAuthProtocol      -> none;
-				     ?usmHMACMD5AuthProtocol -> md5;
-				     ?usmHMACSHAAuthProtocol -> sha;
-				     md5 -> md5;
-				     sha -> sha;
+				     ?usmNoAuthProtocol            -> none;
+				     ?usmHMACMD5AuthProtocol       -> md5;
+				     ?usmHMACSHAAuthProtocol       -> sha;
+				     ?usmHMAC128SHA224AuthProtocol -> sha224;
+				     ?usmHMAC192SHA256AuthProtocol -> sha256;
+				     ?usmHMAC256SHA384AuthProtocol -> sha384;
+				     ?usmHMAC384SHA512AuthProtocol -> sha512;
+				     md5    -> md5;
+				     sha    -> sha;
+				     sha224 -> sha224;
+				     sha256 -> sha256;
+				     sha384 -> sha384;
+				     sha512 -> sha512;
 				     _ -> undefined
 				 end,
 				 Prefix, element(?usmUserAuthKeyChange, Row),
@@ -637,12 +675,20 @@ verify_usmUserTable_col(?usmUserCloneFrom, Clone) ->
     end;
 verify_usmUserTable_col(?usmUserAuthProtocol, AuthP) ->
     case AuthP of
-	usmNoAuthProtocol       -> ?usmNoAuthProtocol;
-	usmHMACSHAAuthProtocol  -> ?usmHMACSHAAuthProtocol;
-	usmHMACMD5AuthProtocol  -> ?usmHMACMD5AuthProtocol;
-	?usmNoAuthProtocol      -> ?usmNoAuthProtocol;
-	?usmHMACSHAAuthProtocol -> ?usmHMACSHAAuthProtocol;
-	?usmHMACMD5AuthProtocol -> ?usmHMACMD5AuthProtocol;
+	usmNoAuthProtocol             -> ?usmNoAuthProtocol;
+	usmHMACSHAAuthProtocol        -> ?usmHMACSHAAuthProtocol;
+	usmHMACMD5AuthProtocol        -> ?usmHMACMD5AuthProtocol;
+        usmHMAC128SHA224AuthProtocol  -> ?usmHMAC128SHA224AuthProtocol;
+        usmHMAC192SHA256AuthProtocol  -> ?usmHMAC192SHA256AuthProtocol;
+        usmHMAC256SHA384AuthProtocol  -> ?usmHMAC256SHA384AuthProtocol;
+        usmHMAC384SHA512AuthProtocol  -> ?usmHMAC384SHA512AuthProtocol;
+	?usmNoAuthProtocol            -> ?usmNoAuthProtocol;
+	?usmHMACSHAAuthProtocol       -> ?usmHMACSHAAuthProtocol;
+	?usmHMACMD5AuthProtocol       -> ?usmHMACMD5AuthProtocol;
+	?usmHMAC128SHA224AuthProtocol -> ?usmHMAC128SHA224AuthProtocol;
+	?usmHMAC192SHA256AuthProtocol -> ?usmHMAC192SHA256AuthProtocol;
+	?usmHMAC256SHA384AuthProtocol -> ?usmHMAC256SHA384AuthProtocol;
+	?usmHMAC384SHA512AuthProtocol -> ?usmHMAC384SHA512AuthProtocol;
 	_ ->
 	    wrongValue(?usmUserAuthProtocol)
     end;
@@ -865,6 +911,14 @@ validate_auth_protocol(RowIndex, Cols) ->
 			    inconsistentValue(?usmUserAuthProtocol);
 			?usmHMACSHAAuthProtocol ->
 			    inconsistentValue(?usmUserAuthProtocol);
+			?usmHMAC128SHA224AuthProtocol ->
+			    inconsistentValue(?usmUserAuthProtocol);
+			?usmHMAC192SHA256AuthProtocol ->
+			    inconsistentValue(?usmUserAuthProtocol);
+			?usmHMAC256SHA384AuthProtocol ->
+			    inconsistentValue(?usmUserAuthProtocol);
+			?usmHMAC384SHA512AuthProtocol ->
+			    inconsistentValue(?usmUserAuthProtocol);
 			_ ->
 			    wrongValue(?usmUserAuthProtocol)
 		    end;
@@ -887,6 +941,30 @@ validate_auth_protocol(RowIndex, Cols) ->
 			    end;
 			?usmHMACSHAAuthProtocol ->
 			    case is_crypto_supported(sha) of
+				true -> ok;
+				false ->
+				    wrongValue(?usmUserAuthProtocol)
+			    end;
+			?usmHMAC128SHA224AuthProtocol ->
+			    case is_crypto_supported(sha224) of
+				true -> ok;
+				false ->
+				    wrongValue(?usmUserAuthProtocol)
+			    end;
+			?usmHMAC192SHA256AuthProtocol ->
+			    case is_crypto_supported(sha256) of
+				true -> ok;
+				false ->
+				    wrongValue(?usmUserAuthProtocol)
+			    end;
+			?usmHMAC256SHA384AuthProtocol ->
+			    case is_crypto_supported(sha384) of
+				true -> ok;
+				false ->
+				    wrongValue(?usmUserAuthProtocol)
+			    end;
+			?usmHMAC384SHA512AuthProtocol ->
+			    case is_crypto_supported(sha512) of
 				true -> ok;
 				false ->
 				    wrongValue(?usmUserAuthProtocol)
@@ -966,8 +1044,14 @@ validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
 		auth ->
 		    case get_auth_proto(RowIndex, Cols) of
 			?usmNoAuthProtocol -> ok;
-			?usmHMACMD5AuthProtocol when Len =:= 32 -> ok;
-			?usmHMACSHAAuthProtocol when Len =:= 40 -> ok;
+			?usmHMACMD5AuthProtocol       when Len =:= 32 -> ok;
+			?usmHMACSHAAuthProtocol       when Len =:= 40 -> ok;
+
+			?usmHMAC128SHA224AuthProtocol when Len =:= (2*?usmHMAC128SHA224AuthProtocol_secret_key_length) -> ok;
+			?usmHMAC192SHA256AuthProtocol when Len =:= (2*?usmHMAC192SHA256AuthProtocol_secret_key_length) -> ok;
+			?usmHMAC256SHA384AuthProtocol when Len =:= (2*?usmHMAC256SHA384AuthProtocol_secret_key_length) -> ok;
+			?usmHMAC384SHA512AuthProtocol when Len =:= (2*?usmHMAC384SHA512AuthProtocol_secret_key_length) -> ok;
+
 			_ -> wrongValue(KeyChangeCol)
 		    end;
 		priv ->
@@ -1158,10 +1242,18 @@ get(Name, RowIndex, Cols) ->
 mk_key_change(Hash, OldKey, NewKey) ->
     KeyLen = length(NewKey),
     Alg = case Hash of
-	      ?usmHMACMD5AuthProtocol -> md5;
-	      ?usmHMACSHAAuthProtocol -> sha;
-	      md5 -> md5;
-	      sha -> sha
+	      ?usmHMACMD5AuthProtocol       -> md5;
+	      ?usmHMACSHAAuthProtocol       -> sha;
+	      ?usmHMAC128SHA224AuthProtocol -> sha224;
+	      ?usmHMAC192SHA256AuthProtocol -> sha256;
+	      ?usmHMAC256SHA384AuthProtocol -> sha384;
+	      ?usmHMAC384SHA512AuthProtocol -> sha512;
+	      md5    -> md5;
+	      sha    -> sha;
+	      sha224 -> sha224;
+	      sha256 -> sha256;
+	      sha384 -> sha384;
+	      sha512 -> sha512
 	  end,
     Random = mk_random(KeyLen),
     mk_key_change(Alg, OldKey, NewKey, KeyLen, Random).
@@ -1181,10 +1273,18 @@ extract_new_key(?usmNoAuthProtocol, OldKey, _KeyChange) ->
 extract_new_key(Hash, OldKey, KeyChange) ->
     KeyLen = length(OldKey),
     Alg = case Hash of
-	      ?usmHMACMD5AuthProtocol -> md5;
-	      ?usmHMACSHAAuthProtocol -> sha;
-	      md5 -> md5;
-	      sha -> sha
+	      ?usmHMACMD5AuthProtocol       -> md5;
+	      ?usmHMACSHAAuthProtocol       -> sha;
+	      ?usmHMAC128SHA224AuthProtocol -> sha224;
+	      ?usmHMAC192SHA256AuthProtocol -> sha256;
+	      ?usmHMAC256SHA384AuthProtocol -> sha384;
+	      ?usmHMAC384SHA512AuthProtocol -> sha512;
+	      md5    -> md5;
+	      sha    -> sha;
+	      sha224 -> sha224;
+	      sha256 -> sha256;
+	      sha384 -> sha384;
+	      sha512 -> sha512
 	  end,
     {Random, Delta} = split(KeyLen, KeyChange, []),
     Digest = lists:sublist(binary_to_list(crypto:hash(Alg, OldKey++Random)), KeyLen),
