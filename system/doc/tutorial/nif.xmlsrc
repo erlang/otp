@@ -62,7 +62,7 @@
      </list>
    <p>Normally these are minimal stub implementations that throw an
      exception. But they can also be used as fallback implementations
-     for functions that do not have native implemenations on some
+     for functions that do not have native implementations on some
      architectures.</p>
    <p>NIF libraries are loaded by calling <c>erlang:load_nif/2</c>,
      with the name of the shared library as argument. The second

@@ -1947,7 +1947,7 @@ do_unlock() ->
     <p>
       Say you have a state machine specification
       that uses state enter actions.
-      Allthough you can code this using inserted events
+      Although you can code this using inserted events
       (described in the next section), especially if just
       one or a few states has got state enter actions,
       this is a perfect use case for the built in

@@ -90,7 +90,7 @@
     <p>a list with 10000 elements (or about 20000 heap words) will be
     copied to the newly created process.</p>
 
-    <p>An unncessary copy of 10000 element list can be bad enough, but it
+    <p>An unnecessary copy of 10000 element list can be bad enough, but it
     can get even worse if the <c>state</c> record contains <em>shared subterms</em>.
     Here is a simple example of a term with a shared subterm:</p>
 
@@ -197,7 +197,7 @@ multiple_setelement(T0) ->
     <p>The two following <c>setelement/3</c> calls modify
     the tuple in place.</p>
 
-    <p>For the optimization to be applied, <em>all</em> the followings conditions
+    <p>For the optimization to be applied, <em>all</em> the following conditions
     must be true:</p>
 
     <list type="bulleted">
