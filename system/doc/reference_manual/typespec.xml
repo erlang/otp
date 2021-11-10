@@ -160,7 +160,7 @@
 ]]></pre>
   <p>
     Integer values are either integer or character literals or expressions
-    consisting of possibily nested unary or binary operations that evaluate to
+    consisting of possibly nested unary or binary operations that evaluate to
     an integer. Such expressions can also be used in bit strings and ranges.
   </p>
   <p>

@@ -1014,7 +1014,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <p>
 		  Here keys <c>K1 .. Kn</c> are any expressions with
 		  literals or bound variables. If all key expressions
-		  evalute successfully and all keys exist in map
+		  evaluate successfully and all keys exist in map
 		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
 		  matched to the associated values of their respective
 		  keys.
@@ -1612,7 +1612,7 @@ end</pre>
     the following syntax:</p>
     <pre>
 &lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p><c>BitStringExpr</c> is an expression that evalutes to a bit
+    <p><c>BitStringExpr</c> is an expression that evaluates to a bit
     string. If <c>BitStringExpr</c> is a function call, it must be
     enclosed in parentheses.  Each <c>Qualifier</c> is either a
     generator, a bit string generator or a filter.</p>

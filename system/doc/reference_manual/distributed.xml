@@ -162,7 +162,7 @@ dilbert@uab</pre>
         in the following text is not very unpredictable.
         A better one can be generated using primitives
         in the <c>crypto</c> module, though this still does not make
-        the inital handshake  cryptographically secure.
+        the initial handshake cryptographically secure.
         And inter-node communication is still in clear text.
       </p>
     </note>
