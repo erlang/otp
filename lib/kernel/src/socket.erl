@@ -1298,7 +1298,8 @@ cancel_monitor(MRef) ->
                                                   boolean()}]}]}].
 supports() ->
     [{Key1, supports(Key1)}
-     || Key1 <- [ioctl_requests, options, msg_flags, protocols]]
+     || Key1 <- [ioctl_requests, ioctl_flags,
+                 options, msg_flags, protocols]]
         ++ prim_socket:supports().
 
 -spec supports(Key1 :: term()) ->
