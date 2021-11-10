@@ -206,14 +206,14 @@
     <datatype>
       <name name="dist_handle"></name>
       <desc>
-        <p>An opaque handle identifing a distribution channel.</p>
+        <p>An opaque handle identifying a distribution channel.</p>
       </desc>
     </datatype>
 
     <datatype>
       <name name="nif_resource"></name>
       <desc>
-        <p>An opaque handle identifing a
+        <p>An opaque handle identifying a
 	<seecref marker="erl_nif#resource_objects">NIF resource object
 	</seecref>.</p>
       </desc>
@@ -1514,7 +1514,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1543,7 +1543,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1579,7 +1579,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1600,7 +1600,7 @@ end</code>
 	  Once this function has been called, <c><anno>InputHandler</anno></c>
 	  is the only process allowed to call
 	  <seemfa marker="erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data(DHandle, Data)</c></seemfa>
-	  with the <c><anno>DHandle</anno></c> identifing this distribution
+	  with the <c><anno>DHandle</anno></c> identifying this distribution
 	  channel.
 	</p>
 	<note><p>
@@ -1612,7 +1612,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1645,7 +1645,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1694,7 +1694,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -2357,7 +2357,7 @@ account.</p>
 {#Fun&lt;test.2.107738983>,#Fun&lt;test.3.107738983>}
 </pre>
 <p>Explanation: The string representations differ because the funs
-come from different fun experssions.</p>
+come from different fun expressions.</p>
 <pre>
 > <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
 {#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
@@ -2592,7 +2592,7 @@ uncompiled code with the same arity are mapped to the same list by
           applications with a supervision tree, because OTP
           assumes the group leader of their processes is
           their application master.</p>
-        <p>Setting the group leader follows the signal ordering guarentees
+        <p>Setting the group leader follows the signal ordering guarantees
           described in the
           <seeguide marker="system/reference_manual:processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
@@ -3081,7 +3081,7 @@ is_process_alive(P2Pid),
        <p>See the documentation about
         <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
        and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
-       information about signals and exit singnals.</p>
+       information about signals and exit signals.</p>
       </desc>
     </func>
 
@@ -3667,7 +3667,7 @@ is_process_alive(P2Pid),
 
     <func>
       <name name="make_tuple" arity="3" since=""/>
-      <fsummary>Create a new tuple with specifed arity and contents.</fsummary>
+      <fsummary>Create a new tuple with specified arity and contents.</fsummary>
       <desc>
         <p>Creates a tuple of size <c><anno>Arity</anno></c>, where each element
           has value <c><anno>DefaultValue</anno></c>, and then fills in
@@ -4641,7 +4641,7 @@ receive_replies(ReqId, N, Acc) ->
           new Erlang port. A port can be seen as an external Erlang
           process.</p>
         <p>The name of the executable as well as the arguments
-          specifed in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
+          specified in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
           subject to Unicode filename translation if the system is running
           in Unicode filename mode. To avoid
           translation or to force, for example UTF-8, supply the executable
@@ -6151,7 +6151,7 @@ receive_replies(ReqId, N, Acc) ->
           <c><anno>Item</anno></c>s were included
           in <c><anno>ItemList</anno></c>. Valid <c><anno>Item</anno></c>s can
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
-        <p>Getting process informations follows the signal ordering guarantees
+        <p>Getting process information follows the signal ordering guarantees
           described in the
           <seeguide marker="system/reference_manual:processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
@@ -8310,7 +8310,7 @@ lists:map(
           and <seeerl marker="#system_info_dirty_cpu_schedulers">dirty CPU</seeerl>
           schedulers in the system have been busy. This value is normally a
           better indicator of how much load an Erlang node is under instead of
-          looking at the CPU utilization privided by tools such as <c>top</c> or
+          looking at the CPU utilization provided by tools such as <c>top</c> or
           <c>sysstat</c>. This is because <c>scheduler_wall_time</c> also includes
           time where the scheduler is waiting for some other reasource (such as an internal
           mutex) to be available but does not use the CPU. In order to better
@@ -8615,7 +8615,7 @@ ok
 		</item>
 	      </taglist>
 	      <p>
-		Appart from the reply message, the <c>{asynchronous,
+		Apart from the reply message, the <c>{asynchronous,
 		ReplyTag}</c> option behaves exactly the same as the
 		<c>asynchronous</c> option without reply tag.
 	      </p>
@@ -9928,7 +9928,7 @@ Metadata = #{ pid => pid(),
               introduced in the future:</p>
             <taglist>
               <tag><c>{function, Function}</c></tag>
-              <item><p><c>Function</c> is the name of the funcion used.</p>
+              <item><p><c>Function</c> is the name of the function used.</p>
               </item>
               <tag><c>{clock_id, ClockId}</c></tag>
               <item><p>Exists only if <c>Function</c>
@@ -12094,7 +12094,7 @@ improper_end</pre>
           <item>
             <p>Returns a list of atoms indicating what kind of traces is
               enabled for the process. The list is empty if no
-              traces are enabled, and one or more of the followings
+              traces are enabled, and one or more of the following
               atoms if traces are enabled: <c>send</c>,
               <c>'receive'</c>, <c>set_on_spawn</c>, <c>call</c>,
               <c>return_to</c>, <c>procs</c>, <c>ports</c>,

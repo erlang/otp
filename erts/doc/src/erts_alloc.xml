@@ -638,7 +638,7 @@
             good fit strategy is selected for allocator
             <c><![CDATA[<S>]]></c>. When the good fit strategy is used, free
             blocks are placed in segregated free-lists. Each free-list
-            contains blocks of sizes in a specific range. The maxiumum block
+            contains blocks of sizes in a specific range. The maximum block
             search depth sets a limit on the maximum number of blocks to
             inspect in a free-list during a search for suitable block
             satisfying the request.</p>
