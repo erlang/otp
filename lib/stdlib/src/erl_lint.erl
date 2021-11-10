@@ -4170,7 +4170,7 @@ check_format_2a(Fmt, FmtAnno, As) ->
         false ->
             Anno = element(2, As),
             {warn,1,Anno,"format arguments not a list",[]};
-        maybe ->
+        'maybe' ->
             Anno = erl_parse:first_anno(As),
             {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
@@ -4216,12 +4216,12 @@ arguments(N) ->
 args_list({cons,_A,_H,T}) -> args_list(T);
 %% Strange case: user has written something like [a | "bcd"]; pretend
 %% we don't know:
-args_list({string,_A,_Cs}) -> maybe;
+args_list({string,_A,_Cs}) -> 'maybe';
 args_list({nil,_A}) -> true;
 args_list({atom,_,_}) -> false;
 args_list({integer,_,_}) -> false;
 args_list({float,_,_}) -> false;
-args_list(_Other) -> maybe.
+args_list(_Other) -> 'maybe'.
 
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.
