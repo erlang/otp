@@ -16199,8 +16199,8 @@
         <item>
           <p>
 	    The effect of the deprecated environment variable
-	    ERL_MAX_PORTS had been removed premeturely. It has now
-	    been read. Note that this is still scheduled to be
+	    ERL_MAX_PORTS had been removed prematurely. It has now
+	    been re-added. Note that this is still scheduled to be
 	    released in R17B.</p>
           <p>
 	    Own Id: OTP-10895</p>
