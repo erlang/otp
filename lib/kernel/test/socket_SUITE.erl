@@ -25861,6 +25861,46 @@ reg_s_single_open_and_close_and_count() ->
             reg_si_fail(wrong_number_of_sockets2, {N, NumberOf2})
     end,
 
+
+    i("verify owner sockets (none)", []),
+    Expected1 = [],
+    case socket:which_sockets(self()) of
+        Expected1 ->
+            ok;
+        Unexpected1 ->
+            reg_si_fail(wrong_sockets_own1, {Expected1, Unexpected1})
+    end,
+
+    i("create some sockets", []),
+    OwnSockets = lists:sort(
+                   [fun({D, T})->
+                            i("create ~w:~w socket", [D, T]),
+                            {ok, OS} = socket:open(D, T, default),
+                            OS
+                    end(SockInfo) || SockInfo <-
+                                         [{inet, dgram},
+                                          {inet, dgram},
+                                          {inet, stream},
+                                          {inet, stream}]]),
+
+    i("verify owner sockets (~w)", [length(OwnSockets)]),
+    case lists:sort(socket:which_sockets(self())) of
+        OwnSockets ->
+            ok;
+        Unexpected2 ->
+            reg_si_fail(wrong_sockets_own2, {OwnSockets, Unexpected2})
+    end,
+
+    i("close (own) sockets"),
+    lists:foreach(fun(S) ->
+                          i("close socket"),                          
+                          ok = socket:close(S)
+                  end, OwnSockets),
+    ?SLEEP(1000),
+
+    i("verify number of sockets(2) (again)"),
+    NumberOf2 = socket:number_of(),
+
     i("verify pre-existing sockets(2)", []),
     case socket:which_sockets() of
         Existing ->

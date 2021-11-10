@@ -809,9 +809,9 @@ which_sockets(Proto)
        Proto =:= udp ->
     ?REGISTRY:which_sockets({protocol, Proto});
 
-which_sockets(CTRL)
-  when is_pid(CTRL) ->
-    ?REGISTRY:which_sockets({ctrl, CTRL});
+which_sockets(Owner)
+  when is_pid(Owner) ->
+    ?REGISTRY:which_sockets({owner, Owner});
 
 which_sockets(Filter) when is_function(Filter, 1) ->
     ?REGISTRY:which_sockets(Filter);
