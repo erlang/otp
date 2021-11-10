@@ -37,6 +37,7 @@
 -export([xm_sig_order/1,
          kill2killed/1,
          busy_dist_exit_signal/1,
+         busy_dist_demonitor_signal/1,
          busy_dist_down_signal/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -59,6 +60,7 @@ all() ->
     [xm_sig_order,
      kill2killed,
      busy_dist_exit_signal,
+     busy_dist_demonitor_signal,
      busy_dist_down_signal].
 
 
@@ -194,6 +196,55 @@ busy_dist_exit_signal(Config) when is_list(Config) ->
     stop_node(OtherNode),
     ok.
 
+busy_dist_demonitor_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Demonitorer = spawn(BusyChannelNode,
+                        fun () ->
+                                pong = net_adm:ping(OtherNode),
+                                Tester ! {self(), alive},
+                                receive
+                                    {Tester, monitor, Pid} ->
+                                        _Mon = erlang:monitor(process, Pid)
+                                end,
+                                receive after infinity -> ok end
+                        end),
+    receive {Demonitorer, alive} -> ok end,
+    Demonitoree = spawn_link(OtherNode,
+                             fun () ->
+                                     wait_until(fun () ->
+                                                        {monitored_by, MB1}
+                                                            = process_info(self(),
+                                                                           monitored_by),
+                                                        lists:member(Demonitorer, MB1)
+                                                end),
+                                     Tester ! {self(), monitored},
+                                     wait_until(fun () ->
+                                                        {monitored_by, MB2}
+                                                            = process_info(self(),
+                                                                           monitored_by),
+                                                        not lists:member(Demonitorer, MB2)
+                                                end),
+                                     Tester ! {self(), got_demonitorer_demonitor_signal}
+                             end),
+    Demonitorer ! {self(), monitor, Demonitoree},
+    receive {Demonitoree, monitored} -> ok end,
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    exit(Demonitorer, tester_killed_me),
+    receive
+        {Demonitoree, got_demonitorer_demonitor_signal} ->
+            unlink(Demonitoree),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_demonitor_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
+
 busy_dist_down_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
     {ok, BusyChannelNode} = start_node(Config),
@@ -235,6 +286,15 @@ busy_dist_down_signal(Config) when is_list(Config) ->
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 10 -> ok end,
+            wait_until(Fun)
+    end.
 
 make_busy(OnNode, ToNode, Time) ->
     Parent = self(),
