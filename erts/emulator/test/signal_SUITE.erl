@@ -35,7 +35,10 @@
 
 % Test cases
 -export([xm_sig_order/1,
-         kill2killed/1]).
+         kill2killed/1,
+         busy_dist_exit_signal/1,
+         busy_dist_down_signal/1,
+         busy_dist_spawn_reply_signal/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -55,7 +58,10 @@ suite() ->
 
 all() -> 
     [xm_sig_order,
-     kill2killed].
+     kill2killed,
+     busy_dist_exit_signal,
+     busy_dist_down_signal,
+     busy_dist_spawn_reply_signal].
 
 
 %% Test that exit signals and messages are received in correct order
@@ -152,10 +158,210 @@ spawn_link_line(NodeA, NodeB, Type, N, Tester) ->
                        receive after infinity -> ok end
                end).
 
+busy_dist_exit_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Exiter = spawn(BusyChannelNode,
+                   fun () ->
+                           pong = net_adm:ping(OtherNode),
+                           Tester ! {self(), alive},
+                           receive after infinity -> ok end
+                   end),
+    receive {Exiter, alive} -> ok end,
+    Linker = spawn_link(OtherNode,
+                        fun () ->
+                                process_flag(trap_exit, true),
+                                link(Exiter),
+                                receive
+                                    {'EXIT', Exiter, Reason} ->
+                                        tester_killed_me = Reason,
+                                        Tester ! {self(), got_exiter_exit_message};
+                                    Unexpected ->
+                                        exit({unexpected_message, Unexpected})
+                                end
+                         end),
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    exit(Exiter, tester_killed_me),
+    receive
+        {Linker, got_exiter_exit_message} ->
+            unlink(Linker),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_exit_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
+
+busy_dist_down_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Exiter = spawn(BusyChannelNode,
+                   fun () ->
+                           pong = net_adm:ping(OtherNode),
+                           Tester ! {self(), alive},
+                           receive after infinity -> ok end
+                   end),
+    receive {Exiter, alive} -> ok end,
+    Monitorer = spawn_link(OtherNode,
+                        fun () ->
+                                process_flag(trap_exit, true),
+                                Mon = erlang:monitor(process, Exiter),
+                                receive
+                                    {'DOWN', Mon, process, Exiter, Reason} ->
+                                        tester_killed_me = Reason,
+                                        Tester ! {self(), got_exiter_down_message};
+                                    Unexpected ->
+                                        exit({unexpected_message, Unexpected})
+                                end
+                         end),
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    exit(Exiter, tester_killed_me),
+    receive
+        {Monitorer, got_exiter_down_message} ->
+            unlink(Monitorer),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_down_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
+
+busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
+    BusyTime = 1000,
+    {ok, BusyChannelNode} = start_node(Config),
+    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    Tester = self(),
+    Spawner = spawn_link(OtherNode,
+                         fun () ->
+                                 pong = net_adm:ping(BusyChannelNode),
+                                 Tester ! {self(), ready},
+                                 receive {Tester, go} -> ok end,
+                                 ReqID = spawn_request(BusyChannelNode,
+                                                       fun () -> ok end,
+                                                       []),
+                                 receive
+                                     {spawn_reply, ReqID, Result, _Pid} ->
+                                         ok = Result,
+                                         Tester ! {self(), got_spawn_reply_message};
+                                     Unexpected ->
+                                         exit({unexpected_message, Unexpected})
+                                 end
+                         end),
+    receive {Spawner, ready} -> ok end,
+    make_busy(BusyChannelNode, OtherNode, 1000),
+    Spawner ! {self(), go},
+    receive
+        {Spawner, got_spawn_reply_message} ->
+            unlink(Spawner),
+            ok
+    after
+        BusyTime*2 ->
+            ct:fail(missing_spawn_reply_signal)
+    end,
+    stop_node(BusyChannelNode),
+    stop_node(OtherNode),
+    ok.
 
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+make_busy(OnNode, ToNode, Time) ->
+    Parent = self(),
+    Fun = fun () ->
+                  Proxy = self(),
+                  Sspndr = spawn_link(
+                             ToNode,
+                             fun () ->
+                                     IC = find_gen_tcp_input_cntrlr(OnNode),
+                                     erlang:suspend_process(IC),
+                                     Proxy ! {self(), input_cntrlr_suspended},
+                                     receive
+                                         {Proxy, resume_input_cntrlr} ->
+                                             erlang:resume_process(IC)
+                                     end,
+                                     Proxy ! {self(), input_cntrlr_resumed}
+                             end),
+                  receive
+                      {Sspndr, input_cntrlr_suspended} ->
+                          ok
+                  end,
+                  Spammer = spawn_link(
+                              OnNode,
+                              fun () ->
+                                      spammed = spam(ToNode),
+                                      Proxy ! {self(), channel_busy},
+                                      receive
+                                      after Time -> ok
+                                      end,
+                                      Proxy ! {self(), timeout}
+                              end),
+                  receive
+                      {Spammer, channel_busy} ->
+                          Parent ! {self(), channel_busy}
+                  end,
+                  receive
+                      {Spammer, timeout} ->
+                          Sspndr ! {self(), resume_input_cntrlr}
+                  end,
+                  receive
+                      {Sspndr, input_cntrlr_resumed} ->
+                          ok
+                  end
+          end,
+    Proxy = spawn_link(Fun),
+    receive
+        {Proxy, channel_busy} ->
+            ok
+    end,
+    Proxy.
+
+find_gen_tcp_input_cntrlr(Node) when is_atom(Node) ->
+    case lists:keyfind(Node, 1, erlang:system_info(dist_ctrl)) of
+        {Node, DistCtrl} ->
+            find_gen_tcp_input_cntrlr(DistCtrl);
+        false ->
+            undefined
+    end;
+find_gen_tcp_input_cntrlr(DistCtrl) when is_pid(DistCtrl) ->
+    {links, LList} = process_info(DistCtrl, links),
+    try
+        lists:foreach(fun (Pid) ->
+                              case process_info(Pid, initial_call) of
+                                  {initial_call,
+                                   {gen_tcp_dist,dist_cntrlr_input_setup,3}} ->
+                                      throw({input_ctrlr, Pid});
+                                  _ ->
+                                      ok
+                              end
+                      end,
+                      LList),
+        undefined
+    catch
+        throw:{input_ctrlr, DistInputCtrlr} ->
+            DistInputCtrlr
+    end.
+
+spam(Node) ->
+    To = {'__a_name_hopefully_not_registered__', Node},
+    Data = lists:seq(1, 100),
+    spam(To, Data).
+
+spam(To, Data) ->
+    case erlang:send(To, Data, [nosuspend]) of
+        nosuspend ->
+            spammed;
+        _ ->
+            spam(To, Data)
+    end.
 
 repeat(_Fun, N) when is_integer(N), N =< 0 ->
     ok;
@@ -163,13 +369,16 @@ repeat(Fun, N) when is_integer(N)  ->
     Fun(),
     repeat(Fun, N-1).
 
-start_node(Config) ->
+start_node(Config, Args) ->
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-" ++ integer_to_list(erlang:system_time(second))
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa ++ " " ++ Args}]).
+
+start_node(Config) ->
+    start_node(Config, "").
 
 stop_node(Node) ->
     test_server:stop_node(Node).
