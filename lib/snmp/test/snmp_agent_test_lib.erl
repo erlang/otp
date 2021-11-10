@@ -1750,6 +1750,26 @@ update_usm(Vsns, Dir) ->
 		     usmNoPrivProtocol, "", "", "", 
 		     "passwd_shaxxxxxxxxxx", ""}, 
 
+		    {"agentEngine", "authSHA224", "authSHA224", zeroDotZero, 
+		     usmHMAC128SHA224AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha224xxxxxxxxxxxxxxx", ""}, 
+
+		    {"agentEngine", "authSHA256", "authSHA256", zeroDotZero, 
+		     usmHMAC192SHA256AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha256xxxxxxxxxxxxxxxxxxx", ""}, 
+
+		    {"agentEngine", "authSHA384", "authSHA384", zeroDotZero, 
+		     usmHMAC256SHA384AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha384xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ""}, 
+
+		    {"agentEngine", "authSHA512", "authSHA512", zeroDotZero, 
+		     usmHMAC384SHA512AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha512xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ""}, 
+
 		    {"agentEngine", "privDES", "privDES", zeroDotZero, 
 		     usmHMACSHAAuthProtocol, "", "", 
 		     usmDESPrivProtocol, "", "", "", 
@@ -1771,6 +1791,26 @@ update_usm(Vsns, Dir) ->
 		     usmHMACSHAAuthProtocol, "", "", 
 		     usmNoPrivProtocol, "", "", "", 
 		     "passwd_shaxxxxxxxxxx", ""}, 
+
+		    {"mgrEngine", "authSHA224", "authSHA224", zeroDotZero, 
+		     usmHMAC128SHA224AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha224xxxxxxxxxxxxxxx", ""}, 
+
+		    {"mgrEngine", "authSHA256", "authSHA256", zeroDotZero, 
+		     usmHMAC192SHA256AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha256xxxxxxxxxxxxxxxxxxx", ""}, 
+
+		    {"mgrEngine", "authSHA384", "authSHA384", zeroDotZero, 
+		     usmHMAC256SHA384AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha384xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ""}, 
+
+		    {"mgrEngine", "authSHA512", "authSHA512", zeroDotZero, 
+		     usmHMAC384SHA512AuthProtocol, "", "", 
+		     usmNoPrivProtocol, "", "", "", 
+		     "passwd_sha512xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ""}, 
 
 		    {"mgrEngine", "privDES", "privDES", zeroDotZero, 
 		     usmHMACSHAAuthProtocol, "", "", 
@@ -1826,10 +1866,14 @@ update_community(_, Dir) ->
     
 -define(tDescr_instance, [1,3,6,1,2,1,16,1,0]).
 update_vacm(_Vsn, Dir) ->
-    Conf = [{vacmSecurityToGroup, usm, "authMD5", "initial"}, 
-	    {vacmSecurityToGroup, usm, "authSHA", "initial"}, 
-	    {vacmSecurityToGroup, usm, "privDES", "initial"}, 
-	    {vacmSecurityToGroup, usm, "newUser", "initial"},
+    Conf = [{vacmSecurityToGroup, usm, "authMD5",    "initial"}, 
+	    {vacmSecurityToGroup, usm, "authSHA",    "initial"}, 
+	    {vacmSecurityToGroup, usm, "authSHA224", "initial"}, 
+	    {vacmSecurityToGroup, usm, "authSHA256", "initial"}, 
+	    {vacmSecurityToGroup, usm, "authSHA384", "initial"}, 
+	    {vacmSecurityToGroup, usm, "authSHA512", "initial"}, 
+	    {vacmSecurityToGroup, usm, "privDES",    "initial"}, 
+	    {vacmSecurityToGroup, usm, "newUser",    "initial"},
 	    {vacmViewTreeFamily, "internet", ?tDescr_instance, 
 	     excluded, null}],
     ?line ok = snmp_config:update_agent_vacm_config(Dir, Conf).
