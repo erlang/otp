@@ -792,7 +792,7 @@ getopt_result(Error, _Option) ->
 
 getopt_native(SockRef, Option, ValueSpec) ->
     NativeValue = 1,
-    case enc_sockopt(Option, NativeValue) of
+    try enc_sockopt(Option, NativeValue) of
         undefined ->
             {error, {invalid, {socket_option, Option}}};
         invalid ->
@@ -806,6 +806,8 @@ getopt_native(SockRef, Option, ValueSpec) ->
                     end;
                 Result -> Result
             end
+    catch throw : Reason ->
+            {error, Reason}
     end.
 
 %% ----------------------------------
@@ -889,7 +891,10 @@ enc_ioctl_flags(Flags, Table) ->
 	   (Flag, BadSetOrReset, _) ->
 		invalid_ioctl_flag({Flag, BadSetOrReset})
 	end,
-    maps:fold(F, #{}, Flags).
+    try maps:fold(F, #{}, Flags)
+    catch throw : Reason ->
+            {error, Reason}
+    end.
 
 
 %% These clauses should be deprecated
@@ -1090,14 +1095,20 @@ enc_sockopt(Option, _NativeValue) ->
 
 %% ===========================================================================
 
+-spec invalid_socket_option(Opt :: term()) -> no_return().
+
 invalid_socket_option(Opt) ->
     invalid({socket_option, Opt}).
+
+-spec invalid_ioctl_flag(Flag :: term()) -> no_return().
 
 invalid_ioctl_flag(Flag) ->
     invalid({ioctl_flag, Flag}).
 
+-spec invalid(What :: term()) -> no_return().
+
 invalid(What) ->
-    erlang:error({invalid, What}).
+    throw({invalid, What}).
 
 
 
