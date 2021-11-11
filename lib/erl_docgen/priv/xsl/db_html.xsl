@@ -2546,6 +2546,7 @@
     <xsl:call-template name="title_link">
       <xsl:with-param name="title" select="$title"/>
       <xsl:with-param name="link" select="erl:to-link($title)"/>
+      <xsl:with-param name="header" select="'h3'"/>
     </xsl:call-template>
   </xsl:template>
 
