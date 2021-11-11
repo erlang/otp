@@ -31,6 +31,55 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The runtime system could call <c>select()</c> with a too
+	    large timeout value when executing on MacOS. This could
+	    in turn cause the runtime system to crash.</p>
+          <p>
+	    Own Id: OTP-17735 Aux Id: GH-5339 </p>
+        </item>
+        <item>
+	    <p> The fix for Linux's behaviour when reconnecting an
+	    UDP socket in PR-5120 released in OTP-24.1.2 has been
+	    refined to only dissolve the socket's connection before a
+	    connect if the socket is already connected, that is: only
+	    for a reconnect. </p><p> This allows code to open a
+	    socket with an ephemeral port, get the port number and
+	    connect; without the port number changing (on Linux).
+	    This turned out to have at least one valid use case
+	    (besides test cases). </p><p> Should one reconnect the
+	    socket then the port number may change, on Linux; it is a
+	    known quirk, which can be worked around by binding to a
+	    specific port number when opening the socket. If you can
+	    do without an ephemeral port, that is... </p>
+          <p>
+	    Own Id: OTP-17736 Aux Id: GH-5279, PR-5120, OTP-17559 </p>
+        </item>
+        <item>
+	    <p>Certain distributed signals that for various reasons
+	    must to be forced into the distribution buffer even when
+	    it is full would instead be lost if the distribution
+	    buffer was full when sent. The effected signals:</p>
+	    <list> <item><c>EXIT</c> signals with exit reasons of one
+	    word size.</item> <item><c>DOWN</c> signals with exit
+	    reasons of one word size.</item> <item><c>demonitor</c>
+	    signals from a terminating process.</item>
+	    <item><c>unlink_ack</c> signals on OTP 23 and 24.</item>
+	    <item><c>spawn_reply</c> signals on OTP 23 and 24.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-17737 Aux Id: GH-5346, GH-4989 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

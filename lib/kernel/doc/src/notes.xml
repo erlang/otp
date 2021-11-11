@@ -31,6 +31,48 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The internal, undocumented, but used, module
+	    <c>inet_dns</c> has been fixed to handle mDNS high bit
+	    usage of the Class field. </p><p> Code that uses the
+	    previously obsolete, undocumented and unused record field
+	    <c>#dns_rr.func</c> will need to be updated since that
+	    field is now used as a boolean flag for the mDNS high
+	    Class bit. Code that uses the also undocumented record
+	    <c>#dns_query</c> will need to be recompiled since a
+	    boolean field <c>#dns_query.unicast_response</c> has been
+	    added for the mDNS high Class bit. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17734 Aux Id: GH-5327, OTP-17659 </p>
+        </item>
+        <item>
+	    <p> The fix for Linux's behaviour when reconnecting an
+	    UDP socket in PR-5120 released in OTP-24.1.2 has been
+	    refined to only dissolve the socket's connection before a
+	    connect if the socket is already connected, that is: only
+	    for a reconnect. </p><p> This allows code to open a
+	    socket with an ephemeral port, get the port number and
+	    connect; without the port number changing (on Linux).
+	    This turned out to have at least one valid use case
+	    (besides test cases). </p><p> Should one reconnect the
+	    socket then the port number may change, on Linux; it is a
+	    known quirk, which can be worked around by binding to a
+	    specific port number when opening the socket. If you can
+	    do without an ephemeral port, that is... </p>
+          <p>
+	    Own Id: OTP-17736 Aux Id: GH-5279, PR-5120, OTP-17559 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
