@@ -48,6 +48,7 @@
 	  neg_indent/1,
 	  maps_syntax/1,
 	  format_options/1,
+          form_vars/1,
 	  quoted_atom_types/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
@@ -78,7 +79,7 @@ groups() ->
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
        messages, maps_syntax, quoted_atom_types,
-       format_options
+       format_options, form_vars
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -577,6 +578,37 @@ format_options(Config) when is_list(Config) ->
 		[{indent, 2}, {linewidth, 1000}]
 	    )
 	).
+
+form_vars(Config) when is_list(Config) ->
+    %% Check that erl_pp:legalize_vars/1 does its job.  If
+    %% legalize_vars/1 fails to convert variable names starting with a
+    %% lower case letter, the compiler will detect that `X` is an atom
+    %% and report that the `+` operation will fail. If legalize_vars/1
+    %% fails to generate unique variable names and just converts the
+    %% name to uppercase, the variable named `REC0` will be used in an
+    %% unsafe way.
+    String = <<"-module(erl_pp_test).
+                -export([f/1]).
+                -record(r, {a, b}).
+                f(#r{b = B} = C) ->
+                  receive
+	            B ->
+	              X = C#r.a,
+	              REC0 = X + X,
+	              REC0
+                    end.">>,
+    FileName = filename('erl_pp_test.erl', Config),
+    ok = file:write_file(FileName, String),
+    Opts = [binary,deterministic,nowarn_unused_record],
+    {ok, [], Forms} = compile:file(FileName, ['E'|Opts]),
+    Forms1 = lists:map(fun(F={function,_,_,_,_}) ->
+                               erl_pp:legalize_vars(F);
+                          (F) ->
+                               F
+                       end, Forms),
+    ok = file:write_file(FileName, [erl_pp:form(F) || F <- Forms1]),
+    {ok, _, _, []} = compile:file(FileName, [return|Opts]),
+    ok.
 
 misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-module(m). ">>),

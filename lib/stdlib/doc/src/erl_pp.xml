@@ -45,6 +45,14 @@
 
     <p>All functions can have an optional argument, which specifies a hook
       that is called if an attempt is made to print an unknown form.</p>
+
+    <p>Note that if the functions in this module are used to convert
+      abstract code back to Erlang source code, the enclosing function
+      should first be processed by <seemfa
+      marker="#legalize_vars/1"><c>legalize_vars/1</c></seemfa> in order
+      to ensure that the output is semantically equivalent to the
+      abstract code.</p>
+
   </description>
 
   <datatypes>
@@ -144,6 +152,29 @@
       <desc>
         <p>Same as <seemfa marker="#form/1"><c>form/1,2</c></seemfa>,
           but only for the guard test <c><anno>Guard</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="legalize_vars" arity="1" since=""/>
+      <fsummary>Ensure all variable names are valid.</fsummary>
+      <desc>
+        <p>The Erlang compiler will, when expanding records to tuples,
+          introduce new variables in the abstract representation. As the
+          expansion is done on the abstract representation, the compiler
+          can safely name the new variables with names that are not
+          syntactically valid in Erlang source code (the name starts
+          with a lowercase letter), thus ensuring the uniqueness of the
+          new names.</p>
+
+        <p>The above strategy leads to problems if a user wants to
+          convert the abstract representation, using the functions of
+          this module back to Erlang source code. Typically, pattern
+          variables are output as atoms thus changing the sematics of
+          the program. To solve this problem <c>legalize_vars/1</c>,
+          when run on the abstract representation of a function, will
+          return an equivalent function where all variables will have
+          syntactically valid names.</p>
       </desc>
     </func>
   </funcs>

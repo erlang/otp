@@ -24,7 +24,8 @@
 
 -export([form/1,form/2,
          attribute/1,attribute/2,function/1,function/2,
-         guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4]).
+         guard/1,guard/2,exprs/1,exprs/2,exprs/3,expr/1,expr/2,expr/3,expr/4,
+         legalize_vars/1]).
 
 -import(lists, [append/1,foldr/3,map/2,mapfoldl/3,reverse/1,reverse/2]).
 -import(io_lib, [write/1,format/2]).
@@ -198,6 +199,34 @@ expr(E, I, Options) ->
 expr(E, I, P, Options) ->
     ?TEST(E),
     frmt(lexpr(E, P, options(Options)), I, state(Options)).
+
+-spec(legalize_vars(Function) -> erl_parse:abstract_form() when
+      Function :: erl_parse:abstract_form()).
+
+legalize_vars({function,ANNO,Name0,Arity,Clauses0}) ->
+    ?TEST(F),
+    %% Collect all used variables in this function and classify them
+    %% as either syntactically valid or not.
+    F = fun({var,_Anno,Name}, {Valid, Invalid}) ->
+                Str = [First|_] = atom_to_list(Name),
+                case First of
+                    X when X >= $a, X =< $z ->
+                        {Valid,Invalid#{Name => Str}};
+                    _ ->
+                        {Valid#{Name => Name},Invalid}
+                end
+        end,
+    {Valid, Invalid} = fold_vars(F, {#{}, #{}}, Clauses0),
+    %% Make up an unique variable name for each key in Invalid, then
+    %% replace all invalid names.
+    Mapping = maps:fold(fun legalize_name/3, Valid, Invalid),
+    Subs = fun({var,Anno,Name}) ->
+                   {var,Anno,map_get(Name, Mapping)}
+           end,
+    Clauses = map_vars(Subs, Clauses0),
+    {function,ANNO,Name0,Arity,Clauses};
+legalize_vars(Form) ->
+    erlang:error(badarg, [Form]).
 
 %%%
 %%% Local functions
@@ -1352,3 +1381,36 @@ word('when', WT) -> element(16, WT);
 word(' ::', WT) -> element(17, WT);
 word('..', WT) -> element(18, WT);
 word(' |', WT) -> element(19, WT).
+
+%% Make up an unique variable name for Name that won't clash with any
+%% name in Used. We first try by converting the name to uppercase and
+%% if that fails we start prepending 'X'es until we find an unused
+%% name.
+legalize_name(InvalidName, StringName, Used) ->
+    Upper = string:to_upper(StringName),
+    NewName = list_to_atom(Upper),
+    case Used of
+        #{ NewName := _ } ->
+            legalize_name(InvalidName, [$X|StringName], Used);
+        #{} ->
+            Used#{ InvalidName => NewName }
+    end.
+
+fold_vars(F, Acc0, Forms) when is_list(Forms) ->
+    lists:foldl(fun(Elem, Acc) -> fold_vars(F, Acc, Elem) end, Acc0, Forms);
+fold_vars(F, Acc0, V={var,_,_}) ->
+    F(V, Acc0);
+fold_vars(F, Acc0, Form) when is_tuple(Form) ->
+    lists:foldl(fun(Elem, Acc) -> fold_vars(F, Acc, Elem) end,
+                Acc0, tuple_to_list(Form));
+fold_vars(_, Acc, _) ->
+    Acc.
+
+map_vars(F, Forms) when is_list(Forms) ->
+    [map_vars(F, Form) || Form <- Forms];
+map_vars(F, V={var,_,_}) ->
+    F(V);
+map_vars(F, Form) when is_tuple(Form) ->
+    list_to_tuple([map_vars(F, Elem) || Elem <- tuple_to_list(Form)]);
+map_vars(_, Form) ->
+    Form.
