@@ -400,7 +400,7 @@ struct dist_sequences {
 extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
 extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
-extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Process *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
 extern int erts_dsig_send_unlink_ack(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
 extern int erts_dsig_send_group_leader(ErtsDSigSendContext *, Eterm, Eterm);
