@@ -4628,12 +4628,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 #endif
         }
         erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
-        ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
     }
 
     if (ret != am_ok) {
 	goto error;
     }
+    ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
 
     /* Call load or upgrade:
      */
