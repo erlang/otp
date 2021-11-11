@@ -36,6 +36,12 @@
 #  define _DARWIN_UNLIMITED_SELECT
 #endif
 
+/*
+ * According to posix, select() implementations should
+ * support a max timeout value of at least 31 days.
+ */
+#define ETHR_SELECT_MAX_TV_SEC__ (31*24*60*60-1)
+
 #include "ethread.h"
 #undef ETHR_INCLUDE_MONOTONIC_CLOCK__
 #define ETHR_INCLUDE_MONOTONIC_CLOCK__
@@ -500,6 +506,7 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 #endif
 	fd_set *rsetp, *esetp;
 	struct timeval select_timeout;
+        int select_timeout_res;
 
 #ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
 #if ERTS_USE_PREMATURE_TIMEOUT
@@ -527,7 +534,22 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 #endif
 
 	select_timeout.tv_sec = time / (1000*1000);
-	select_timeout.tv_usec = time % (1000*1000);
+
+        if (select_timeout.tv_sec <= ETHR_SELECT_MAX_TV_SEC__) {
+            select_timeout.tv_usec = time % (1000*1000);
+            select_timeout_res = ETIMEDOUT;
+        }
+        else {
+            select_timeout.tv_sec = ETHR_SELECT_MAX_TV_SEC__;
+            select_timeout.tv_usec = 0;
+            /*
+             * Return EINTR (spurious wakeup) instead of
+             * ETIMEDOUT if we time out on this (huge)
+             * timeout value. Caller is responsible for
+             * restarting the wait...
+             */
+            select_timeout_res = EINTR;
+        }
 
 	ETHR_ASSERT(val != ETHR_EVENT_ON__);
 
@@ -577,7 +599,7 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 
 	sres = select(fd + 1, rsetp, NULL, esetp, &select_timeout);
 	if (sres == 0)
-	    res = ETIMEDOUT;
+            res = select_timeout_res;
 	else {
 	    res = EINTR;
 	    if (sres < 0 && errno != EINTR)
