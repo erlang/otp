@@ -80,6 +80,8 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
     }
     if ((digp = get_digest_type(type)) == NULL)
         return PKEY_BADARG;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        return PKEY_NOTSUP;
     if (digp->md.p == NULL)
         return PKEY_NOTSUP;
 

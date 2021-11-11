@@ -187,6 +187,9 @@ ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env)
     hd = enif_make_list(env, 0);
 
     for (p = digest_types; (p->atom & (p->atom != atom_false)); p++) {
+        if (DIGEST_FORBIDDEN_IN_FIPS(p))
+            continue;
+
         if (p->md.p != NULL)
             hd = enif_make_list_cell(env, p->atom, hd);
     }
