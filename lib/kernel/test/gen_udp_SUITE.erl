@@ -1702,17 +1702,18 @@ do_reconnect(Config) ->
     {ok, {LocalAddr,Port}} = inet:sockname(S),
     ok = inet:close(S).
 
-%% For Linux to behave predictably we need to bind
-%% to a specific port; when we bind to port 0
-%% and get an ephemeral port - it apparently can change
-%% when we reconnect to a different destination.
+%% For Linux to keep the port when we reconnect;
+%% we need to first bind to a specific port.
+%% If we bind to port 0 and get an ephemeral port
+%% it apparently can change when we reconnect to a different
+%% destination depending on routing and interfaces.
 %%
 %% I consider this a workaround for a Linux bug,
 %% ironically in a test case that tests
 %% a workaround for another Linux bug (related)...
 %%
 open_port_0(Config, Opts) ->
-open_port_0(Config, 0, Opts, 10).
+    open_port_0(Config, 0, Opts, 10).
 %%
 open_port_0(Config, Port, Opts, N) ->
     case ?OPEN(Config, Port, Opts) of
@@ -1742,22 +1743,20 @@ do_implicit_inet6(Config) ->
     Host = ok(inet:gethostname()),
     case inet:getaddr(Host, inet6) of
 	{ok, {16#fe80,0,0,0,_,_,_,_} = Addr} ->
-	    {skip,
-	     "Got link local IPv6 address: "
-	     ++inet:ntoa(Addr)};
+	     ?SKIPT("Got link local IPv6 address: "
+                    ++inet:ntoa(Addr));
 	{ok, Addr} ->
 	    implicit_inet6(Config, Host, Addr);
 	{error, Reason} ->
-	    {skip,
-	     "Can not look up IPv6 address: "
-	     ++atom_to_list(Reason)}
+	    ?SKIPT("Can not look up IPv6 address: "
+                   ++atom_to_list(Reason))
     end.
 
 implicit_inet6(Config, Host, Addr) ->
     Active = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
     ?P("try 1 with explit inet6 on loopback"),
-    S1 = case open_port_0(Config, [inet6, Active, {ip, Loopback}]) of
+    S1 = case ?OPEN(Config, 0, [inet6, Active, {ip, Loopback}]) of
              {ok, Sock1} ->
                  Sock1;
              {error, eaddrnotavail = Reason1} ->
@@ -1770,7 +1769,7 @@ implicit_inet6(Config, Host, Addr) ->
     %%
     Localaddr = ok(get_localaddr()),
     ?P("try 2 on local addr (~p)", [Localaddr]),
-    S2 = case open_port_0(Config, [{ip, Localaddr}, Active]) of
+    S2 = case ?OPEN(Config, 0, [{ip, Localaddr}, Active]) of
              {ok, Sock2} ->
                  Sock2;
              {error, eaddrnotavail = Reason2} ->
@@ -1780,7 +1779,7 @@ implicit_inet6(Config, Host, Addr) ->
     ok = gen_udp:close(S2),
     %%
     ?P("try 3 on addr ~p (~p)", [Addr, Host]),
-    S3 = case open_port_0(Config, [{ifaddr, Addr}, Active]) of
+    S3 = case ?OPEN(Config, 0, [{ifaddr, Addr}, Active]) of
              {ok, Sock3} ->
                  Sock3;
              {error, eaddrnotavail = Reason3} ->
