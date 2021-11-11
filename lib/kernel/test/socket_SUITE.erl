@@ -302,6 +302,7 @@
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
          ioctl_get_gifindex/1,
+         ioctl_get_gifaddr/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1236,7 +1237,8 @@ ioctl_simple_cases() ->
 ioctl_get_cases() ->
     [
      ioctl_get_gifname,
-     ioctl_get_gifindex
+     ioctl_get_gifindex,
+     ioctl_get_gifaddr
     ].
 
 
@@ -35067,6 +35069,63 @@ do_ioctl_get_gifindex(_State) ->
 
 
 
+%% --- gifaddr ---
+
+ioctl_get_gifaddr(suite) ->
+    [];
+ioctl_get_gifaddr(doc) ->
+    [];
+ioctl_get_gifaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifaddr()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifaddr(InitState)
+           end).
+
+
+do_ioctl_get_gifaddr(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifaddr, IfName) of
+             {ok, #{family := Fam,
+                    addr   := Addr}} ->
+                 i("got (expected) socket address for interface ~p (~w): "
+                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
@@ -49020,12 +49079,15 @@ has_support_ioctl_gifname() ->
 has_support_ioctl_gifindex() ->
     has_support_ioctl_request(gifindex).
 
+has_support_ioctl_gifaddr() ->
+    has_support_ioctl_request(gifaddr).
+
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
         true ->
             ok;
         false ->
-            skip(f("Not supported: ioctl_requests:~w", [Req]))
+            skip(f("Not supported: ioctl_request: ~w", [Req]))
     catch
         error : notsup ->
             skip("Not supported: socket")
