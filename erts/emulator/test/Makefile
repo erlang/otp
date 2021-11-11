@@ -179,6 +179,9 @@ HRL_FILES= \
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
+KERNEL_MODULES=gen_tcp_dist
+KERNEL_ERL_FILES=$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl
+
 EMAKEFILE=Emakefile
 
 TEST_SPEC_FILES= emulator.spec \
@@ -202,9 +205,9 @@ ERL_COMPILE_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES) $(KERNEL_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	$(MODULES) >> $(EMAKEFILE)
+	$(MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
@@ -246,6 +249,7 @@ release_tests_spec: make_emakefile
 		$(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
