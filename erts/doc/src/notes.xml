@@ -2951,6 +2951,38 @@
 
 </section>
 
+<section><title>Erts 10.7.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The runtime system could call <c>select()</c> with a too
+	    large timeout value when executing on MacOS. This could
+	    in turn cause the runtime system to crash.</p>
+          <p>
+	    Own Id: OTP-17735 Aux Id: GH-5339 </p>
+        </item>
+        <item>
+	    <p>Certain distributed signals that for various reasons
+	    must to be forced into the distribution buffer even when
+	    it is full would instead be lost if the distribution
+	    buffer was full when sent. The effected signals:</p>
+	    <list> <item><c>EXIT</c> signals with exit reasons of one
+	    word size.</item> <item><c>DOWN</c> signals with exit
+	    reasons of one word size.</item> <item><c>demonitor</c>
+	    signals from a terminating process.</item>
+	    <item><c>unlink_ack</c> signals on OTP 23 and 24.</item>
+	    <item><c>spawn_reply</c> signals on OTP 23 and 24.</item>
+	    </list>
+          <p>
+	    Own Id: OTP-17737 Aux Id: GH-5346, GH-4989 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
