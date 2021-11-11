@@ -301,6 +301,7 @@
          ioctl_simple1/1,
          %% Socket IOCTL get requests
          ioctl_get_gifname/1,
+         ioctl_get_gifindex/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1234,7 +1235,8 @@ ioctl_simple_cases() ->
 
 ioctl_get_cases() ->
     [
-     ioctl_get_gifname
+     ioctl_get_gifname,
+     ioctl_get_gifindex
     ].
 
 
@@ -34878,7 +34880,7 @@ ioctl_simple1(suite) ->
 ioctl_simple1(doc) ->
     [];
 ioctl_simple1(_Config) when is_list(_Config) ->
-    ?TT(?SECS(1)),
+    ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_ioctl_requests(),
@@ -34955,7 +34957,7 @@ do_ioctl_simple(_State) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test "some" ioctl get
+%% These test case(s) are intended to (simply) test "some" ioctl get
 %% request(s).
 %%
 
@@ -34964,7 +34966,7 @@ ioctl_get_gifname(suite) ->
 ioctl_get_gifname(doc) ->
     [];
 ioctl_get_gifname(_Config) when is_list(_Config) ->
-    ?TT(?SECS(1)),
+    ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_net_if_names(),
@@ -34995,12 +34997,66 @@ do_ioctl_get_gifname(_State) ->
                    "~n      Expected: ~p"
                    "~n      Received: ~p", [IfIdx, IfName, OtherName]),
                  socket:close(Sock),
-                 ?FAIL({unexpected_interface_name, OtherName, IfName});
+                 ?FAIL({unexpected_interface_name, IfIdx, OtherName, IfName});
              {error, Reason} ->
-                 i("<ERROR> got unexpected error for interface ~w"
+                 i("<ERROR> got unexpected error for interface index ~w"
                    "~n      Reason: ~p", [IfIdx, Reason]),
                  socket:close(Sock),
                  ?FAIL({unexpected_failure, IfName, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+%% --- gifindex ---
+
+ioctl_get_gifindex(suite) ->
+    [];
+ioctl_get_gifindex(doc) ->
+    [];
+ioctl_get_gifindex(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifindex()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifindex(InitState)
+           end).
+
+
+do_ioctl_get_gifindex(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    _ = [case socket:ioctl(Sock, gifindex, IfName) of
+             {ok, IfIdx} ->
+                 i("got expected interface index ~w for interface ~p",
+                   [IfIdx, IfName]),
+                 ok;
+             {ok, OtherIdx} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected interface index for interface ~p"
+                   "~n      Expected: ~p"
+                   "~n      Received: ~p", [IfName, IfIdx, OtherIdx]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_interface_index, IfName, OtherIdx, IfIdx});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p"
+                   "~n      Reason: ~p", [IfName, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfIdx, Reason})
          end || {IfIdx, IfName} <- IfNames],
 
     i("close dummy dgram:UDP socket"),
@@ -48960,6 +49016,9 @@ has_support_ioctl_gifconf() ->
 
 has_support_ioctl_gifname() ->
     has_support_ioctl_request(gifname).
+
+has_support_ioctl_gifindex() ->
+    has_support_ioctl_request(gifindex).
 
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
