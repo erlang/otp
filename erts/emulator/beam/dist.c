@@ -1582,12 +1582,12 @@ erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name,
 
 /* local has died, deliver the exit signal to remote */
 int
-erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, 
+erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Process *c_p, Eterm remote, 
 		       Eterm reason, Eterm token)
 {
-    Eterm ctl, msg = THE_NON_VALUE;
+    Eterm ctl, msg = THE_NON_VALUE, local = c_p->common.id;
 #ifdef USE_VM_PROBES
-    Process *sender = ctx->c_p;
+    Process *sender = c_p;
     Sint tok_label = 0;
     Sint tok_lastcnt = 0;
     Sint tok_serial = 0;
@@ -1601,7 +1601,7 @@ erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Eterm local, Eterm remote,
         msg = reason;
 
     if (have_seqtrace(token)) {
-	seq_trace_update_serial(ctx->c_p);
+	seq_trace_update_serial(c_p);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
         if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
             ctl = TUPLE4(&ctx->ctl_heap[0],
@@ -2940,6 +2940,11 @@ erts_dsig_prepare(ErtsDSigSendContext *ctx,
                   int no_trap,
 		  int connect)
 {
+    /*
+     * No process imply that we should force data through. That
+     * is, ignore busy state of dist entry and allow enqueue
+     * regardless of its state...
+     */
     int res;
 
     ASSERT(no_trap || proc);
@@ -2984,7 +2989,7 @@ retry:
 	goto fail;
     }
 
-    if (no_suspend) {
+    if (no_suspend && proc) {
 	if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
 	    res = ERTS_DSIG_PREP_WOULD_SUSPEND;
 	    goto fail;

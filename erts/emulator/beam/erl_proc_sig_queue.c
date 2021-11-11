@@ -252,6 +252,7 @@ handle_move_msgq_off_heap(Process *c_p,
 static void
 send_cla_reply(Process *c_p, ErtsMessage *sig, Eterm to,
                Eterm req_id, Eterm result);
+static void handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon);
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -1927,7 +1928,7 @@ reply_dist_unlink_ack(Process *c_p, ErtsSigDistUnlinkOp *sdulnk)
          */
         if (dep != erts_this_dist_entry && sdulnk->nodename == dep->sysname) {
             ErtsDSigSendContext ctx;
-            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
+            int code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
@@ -4619,14 +4620,14 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
 
         if (dep != erts_this_dist_entry && dist->nodename == dep->sysname) {
             ErtsDSigSendContext ctx;
-            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
+            int code = erts_dsig_prepare(&ctx, dep, NULL, 0,
                                          ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
             case ERTS_DSIG_PREP_PENDING:
                 if (dist->connection_id == ctx.connection_id) {
                     code = erts_dsig_send_exit_tt(&ctx,
-                                                  c_p->common.id,
+                                                  c_p,
                                                   result,
                                                   am_abandoned,
                                                   SEQ_TRACE_TOKEN(c_p));
@@ -5080,11 +5081,23 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         omon = NULL;
                         break;
                     }
+                    if (omon->flags & ERTS_ML_FLG_SPAWN_PENDING) {
+                        handle_missing_spawn_reply(c_p, omon);
+                        /*
+                         * We leave the pending spawn monitor as is,
+                         * so that the nodedown will trigger an error
+                         * spawn_reply...
+                         */
+                        omon = NULL; 
+                        cnt += 4;
+                        break;
+                    }
                     mdp = erts_monitor_to_data(omon);
                     if (omon->type == ERTS_MON_TYPE_DIST_PROC) {
                         if (erts_monitor_dist_delete(&mdp->u.target))
                             tmon = &mdp->u.target;
                     }
+                    ASSERT(!(omon->flags & ERTS_ML_FLGS_SPAWN));
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,
                                                          next_nm_sig);
@@ -6983,6 +6996,42 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
      */
 
     return 0;
+}
+
+static void
+handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon)
+{
+    ErtsMonitorData *mdp;
+    ErtsMonitorDataExtended *mdep;
+    erts_dsprintf_buf_t *dsbufp;
+    Eterm nodename;
+    DistEntry *dep;
+
+    /* Terminate connection to the node and report it... */
+
+    if (omon->type != ERTS_MON_TYPE_DIST_PROC)
+        ERTS_INTERNAL_ERROR("non-distributed missing spawn_reply");
+    
+    mdp = erts_monitor_to_data(omon);
+    ASSERT(mdp->origin.flags & ERTS_ML_FLG_EXTENDED);
+    mdep = (ErtsMonitorDataExtended *) mdp;
+    ASSERT(mdep->dist);
+    nodename = mdep->dist->nodename;
+    ASSERT(is_atom(nodename));
+
+    dep = erts_find_dist_entry(nodename);
+    if (dep)
+        erts_kill_dist_connection(dep, mdep->dist->connection_id);
+
+    dsbufp = erts_create_logger_dsbuf();
+    erts_dsprintf(dsbufp,
+                  "Missing 'spawn_reply' signal from the node %T "
+                  "detected by %T on the node %T. The node %T "
+                  "probably suffers from the bug with ticket id "
+                  "OTP-17737.",
+                  nodename, c_p->common.id,
+                  erts_this_dist_entry->sysname, nodename);
+    erts_send_error_to_logger_nogl(dsbufp);
 }
 
 Uint
