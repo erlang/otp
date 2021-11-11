@@ -310,6 +310,7 @@
          ioctl_get_gifhwaddr/1,
          ioctl_get_giftxqlen/1,
          ioctl_get_gifflags/1,
+         ioctl_get_gifmap/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1252,7 +1253,8 @@ ioctl_get_cases() ->
      ioctl_get_gifmtu,
      ioctl_get_gifhwaddr,
      ioctl_get_giftxqlen,
-     ioctl_get_gifflags
+     ioctl_get_gifflags,
+     ioctl_get_gifmap
     ].
 
 
@@ -35567,6 +35569,62 @@ do_ioctl_get_gifflags(_State) ->
 
 
 
+%% --- gifmap ---
+
+ioctl_get_gifmap(suite) ->
+    [];
+ioctl_get_gifmap(doc) ->
+    [];
+ioctl_get_gifmap(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifmap()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifmap(InitState)
+           end).
+
+
+do_ioctl_get_gifmap(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifmap, IfName) of
+             {ok, Map} when is_map(Map) ->
+                 i("got (expected) map for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, Map]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
@@ -49544,6 +49602,9 @@ has_support_ioctl_giftxqlen() ->
 
 has_support_ioctl_gifflags() ->
     has_support_ioctl_request(gifflags).
+
+has_support_ioctl_gifmap() ->
+    has_support_ioctl_request(gifmap).
 
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
