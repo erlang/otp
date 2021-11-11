@@ -3,6 +3,8 @@ NIF_LIBS = nif_SUITE.1@dll@ \
            nif_mod.1@dll@ \
            nif_mod.2@dll@ \
            nif_mod.3@dll@ \
+           nif_mod.4@dll@ \
+           nif_mod.5@dll@ \
 	   nif_mod.1.2_0@dll@ \
 	   nif_mod.2.2_0@dll@ \
 	   nif_mod.3.2_0@dll@ \

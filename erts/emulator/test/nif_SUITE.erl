@@ -2505,8 +2505,10 @@ neg(Config) when is_list(Config) ->
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
 
-    {error,{load_failed,_}} = nif_mod:load_nif_lib(Config, 0),
-    {error,{bad_lib,_}} = nif_mod:load_nif_lib(Config, no_init),    
+    {error,{load_failed,"Failed to load NIF library"++_}} = nif_mod:load_nif_lib(Config, 0),
+    {error,{bad_lib,"Failed to find library init"++_}} = nif_mod:load_nif_lib(Config, 3),
+    {error,{bad_lib,"Function not found"++_}} = nif_mod:load_nif_lib(Config, 4),
+    {error,{bad_lib,"Duplicate NIF entry for"++_}} = nif_mod:load_nif_lib(Config, 5),
     verify_tmpmem(TmpMem),
     ok.
 
