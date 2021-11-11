@@ -71,6 +71,12 @@
 #  define _DARWIN_UNLIMITED_SELECT
 #endif
 
+/*
+ * According to posix, select() implementations should
+ * support a max timeout value of at least 31 days.
+ */
+#define ERTS_SELECT_MAX_TV_SEC__ (31*24*60*60-1)
+
 #ifndef WANT_NONBLOCKING
 #  define WANT_NONBLOCKING
 #endif
@@ -1757,6 +1763,17 @@ get_timeout_timeval(ErtsPollSet *ps,
     }
     else {
 	ErtsMonotonicTime sec = timeout/(1000*1000);
+        if (sec >= ERTS_SELECT_MAX_TV_SEC__) {
+            tvp->tv_sec = ERTS_SELECT_MAX_TV_SEC__;
+            tvp->tv_usec = 0;
+            /*
+             * If we actually should time out on
+             * this (huge) timeout, the select() call
+             * will be restarted with a newly calculated
+             * timeout after verifying the timeout...
+             */
+            return 1;
+        }
 	tvp->tv_sec = sec;
 	tvp->tv_usec = timeout - sec*(1000*1000);
 
