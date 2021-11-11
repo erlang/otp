@@ -306,6 +306,7 @@
          ioctl_get_gifdstaddr/1,
          ioctl_get_gifbrdaddr/1,
          ioctl_get_gifnetmask/1,
+         ioctl_get_gifmtu/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1244,7 +1245,8 @@ ioctl_get_cases() ->
      ioctl_get_gifaddr,
      ioctl_get_gifdstaddr,
      ioctl_get_gifbrdaddr,
-     ioctl_get_gifnetmask
+     ioctl_get_gifnetmask,
+     ioctl_get_gifmtu
     ].
 
 
@@ -35304,6 +35306,62 @@ do_ioctl_get_gifnetmask(_State) ->
 
 
 
+%% --- gifmtu ---
+
+ioctl_get_gifmtu(suite) ->
+    [];
+ioctl_get_gifmtu(doc) ->
+    [];
+ioctl_get_gifmtu(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifmtu()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifmtu(InitState)
+           end).
+
+
+do_ioctl_get_gifmtu(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifmtu, IfName) of
+             {ok, MTU} when is_integer(MTU) ->
+                 i("got (expected) MTU for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, MTU]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
@@ -49268,6 +49326,9 @@ has_support_ioctl_gifbrdaddr() ->
 
 has_support_ioctl_gifnetmask() ->
     has_support_ioctl_request(gifnetmask).
+
+has_support_ioctl_gifmtu() ->
+    has_support_ioctl_request(gifmtu).
 
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
