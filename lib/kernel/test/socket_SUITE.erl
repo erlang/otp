@@ -297,9 +297,10 @@
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
          sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
-         %% Socket IOCTL
+         %% Socket IOCTL simple
          ioctl_simple1/1,
-         %% ioctl_get_requests/1,
+         %% Socket IOCTL get requests
+         ioctl_get_gifname/1,
          %% ioctl_set_requests/1,
 
          %% *** Traffic ***
@@ -1233,6 +1234,7 @@ ioctl_simple_cases() ->
 
 ioctl_get_cases() ->
     [
+     ioctl_get_gifname
     ].
 
 
@@ -34868,7 +34870,7 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test the ioctl function.
+%% This test case is intended to (simply) test "some" ioctl features.
 %%
 
 ioctl_simple1(suite) ->
@@ -34904,7 +34906,7 @@ do_ioctl_simple(_State) ->
             i("error: unexpected result: "
               "~n      ~p", [Else11]),
             exit({unexpected_ioctl_result, dgram, Else11})
-        end,
+    end,
     i("close dummy dgram:UDP socket"),
     ok = socket:close(Sock1),
     i("perform simple ioctl (expect failure)"),
@@ -34933,7 +34935,7 @@ do_ioctl_simple(_State) ->
             i("error: unexpected result: "
               "~n      ~p", [Else21]),
             exit({unexpected_ioctl_result, stream, Else21})
-        end,
+    end,
     i("close dummy stream:TCP socket"),
     ok = socket:close(Sock2),
     i("perform simple ioctl (expect failure)"),
@@ -34946,7 +34948,64 @@ do_ioctl_simple(_State) ->
               "~n      ~p", [Else22]),
             exit({unexpected_ioctl_result, stream, Else22})
     end,
-    
+
+    i("done"),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test "some" ioctl get
+%% request(s).
+%%
+
+ioctl_get_gifname(suite) ->
+    [];
+ioctl_get_gifname(doc) ->
+    [];
+ioctl_get_gifname(_Config) when is_list(_Config) ->
+    ?TT(?SECS(1)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifname()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifname(InitState)
+           end).
+
+
+do_ioctl_get_gifname(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if names: "
+      "~n      ~p", [IfNames]),
+    _ = [case socket:ioctl(Sock, gifname, IfIdx) of
+             {ok, IfName} ->
+                 i("got expected interface name ~p for index ~w", [IfName, IfIdx]),
+                 ok;
+             {ok, OtherName} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected interface name for index ~w"
+                   "~n      Expected: ~p"
+                   "~n      Received: ~p", [IfIdx, IfName, OtherName]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_interface_name, OtherName, IfName});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~w"
+                   "~n      Reason: ~p", [IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
     i("done"),
     ok.
 
@@ -48874,6 +48933,17 @@ has_support_sendfile() ->
     end.
 
 
+has_support_net_if_names() ->
+    try net:if_names() of
+        {ok, N} when is_list(N) ->
+            ok;
+        _ ->
+            skip("Not supported: net:if_names()")
+    catch
+        error : notsup ->
+            skip("Not supported: net")
+    end.
+
 has_support_ioctl_requests() ->
     try socket:supports(ioctl_requests) of
         Reqs when is_list(Reqs) ->
@@ -48887,6 +48957,9 @@ has_support_ioctl_requests() ->
 
 has_support_ioctl_gifconf() ->
     has_support_ioctl_request(gifconf).
+
+has_support_ioctl_gifname() ->
+    has_support_ioctl_request(gifname).
 
 has_support_ioctl_request(Req) when is_atom(Req) ->
     try socket:is_supported(ioctl_requests, Req) of
