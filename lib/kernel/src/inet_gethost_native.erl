@@ -392,16 +392,14 @@ restart_port(#state{port = Port, requests = Requests}) ->
 
 do_open_port(Poolsize, ExtraArgs) ->
     try 
-	open_port({spawn, 
-		   ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++" "++
-		   ExtraArgs},
-		  [{packet,4},eof,binary,overlapped_io])
+	open_port({spawn_executable, 
+		   ?PORT_PROGRAM},
+		  [{packet,4},{args,[integer_to_list(Poolsize),ExtraArgs]},eof,binary,overlapped_io])
     catch
 	error:_ ->
-	    open_port({spawn, 
-		       ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++
-		       " "++ExtraArgs},
-		      [{packet,4},eof,binary])
+	    open_port({spawn_executable, 
+		       ?PORT_PROGRAM},
+		      [{packet,4},{args,[integer_to_list(Poolsize),ExtraArgs]},eof,binary])
     end.
 
 get_extra_args() ->
