@@ -13124,7 +13124,7 @@ proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
         item = copy_struct(mon->other.item, item_sz, &hp, factory.off_heap);
         erts_factory_close(&factory);
         code = erts_dsig_send_exit_tt(&ctx,
-                                      c_p->common.id,
+                                      c_p,
                                       item,
                                       reason,
                                       SEQ_TRACE_TOKEN(c_p));
@@ -13406,7 +13406,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         item = copy_struct(lnk->other.item, item_sz, &hp, factory.off_heap);
         erts_factory_close(&factory);
         code = erts_dsig_send_exit_tt(&ctx,
-                                      c_p->common.id,
+                                      c_p,
                                       item,
                                       reason,
                                       SEQ_TRACE_TOKEN(c_p));
@@ -13491,13 +13491,13 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
             if (!erts_link_dist_delete(dlnk))
                 elnk = NULL;
 
-            code = erts_dsig_prepare(&ctx, dep, c_p, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
+            code = erts_dsig_prepare(&ctx, dep, NULL, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
             case ERTS_DSIG_PREP_PENDING:
                 if (dist->connection_id == ctx.connection_id) {
                     code = erts_dsig_send_exit_tt(&ctx,
-                                                  c_p->common.id,
+                                                  c_p,
                                                   lnk->other.item,
                                                   reason,
                                                   SEQ_TRACE_TOKEN(c_p));
