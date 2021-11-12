@@ -22,5 +22,7 @@
 	{connection_handler,
 	 socket,
 	 name,
-	 nodename}
+	 nodename,
+         logfile,
+         dumpfile}
        ).
