@@ -1139,18 +1139,22 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
+    int getTypeUnion(const ArgVal &arg) const {
+        ASSERT(arg.typeIndex() < beam->types.count);
+        return beam->types.entries[arg.typeIndex()].type_union;
+    }
+
     bool always_immediate(const ArgVal &arg) const {
         if (arg.isImmed()) {
             return true;
         }
-
-        int type_union = beam->types.entries[arg.typeIndex()].type_union;
+        int type_union = getTypeUnion(arg);
         return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
     }
 
     bool always_same_types(const ArgVal &lhs, const ArgVal &rhs) const {
-        int lhs_types = beam->types.entries[lhs.typeIndex()].type_union;
-        int rhs_types = beam->types.entries[rhs.typeIndex()].type_union;
+        int lhs_types = getTypeUnion(lhs);
+        int rhs_types = getTypeUnion(rhs);
 
         /* We can only be certain that the types are the same when there's
          * one possible type. For example, if one is a number and the other
@@ -1174,7 +1178,7 @@ protected:
 
             return false;
         } else {
-            int type_union = beam->types.entries[arg.typeIndex()].type_union;
+            int type_union = getTypeUnion(arg);
             return type_union == (type_union & types);
         }
     }
@@ -1191,8 +1195,7 @@ protected:
 
             return BEAM_TYPE_NONE;
         } else {
-            int type_union = beam->types.entries[arg.typeIndex()].type_union;
-            return type_union & mask;
+            return getTypeUnion(arg) & mask;
         }
     }
 
