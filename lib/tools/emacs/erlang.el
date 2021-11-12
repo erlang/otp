@@ -5120,14 +5120,19 @@ about Erlang modules."
 ;;
 ;; As mentioned this xref implementation is based on the etags xref
 ;; implementation.  But in the cases where arity is considered the
-;; etags information structures (class xref-etags-location) will be
-;; translated to our own structures which include arity (class
+;; etags information structures (struct xref-etags-location) will be
+;; translated to our own structures which include arity (struct
 ;; erlang-xref-location).  This translation is started in the function
 ;; `erlang-refine-xrefs'.
 
 ;; I mention this as a head up that some of the functions below deal
 ;; with xref items with xref-etags-location and some deal with xref
 ;; items with erlang-xref-location.
+
+;; NOTE: Around Sept 2021, the xrefs package changed all of its defined types
+;; (i.e.  xref-location, xref-file-location) from EIEIO classes to CL-Lib
+;; structures. These are both supported. Older Emacsen with earlier versions of
+;; xref will continue to use defclass. Newer Emacsen will use cl-defstruct.
 
 (defun erlang-etags--xref-backend () 'erlang-etags)
 
@@ -5137,6 +5142,7 @@ about Erlang modules."
 
 (when (and (erlang-soft-require 'xref)
            (erlang-soft-require 'cl-generic)
+           (erlang-soft-require 'cl-lib)
            (erlang-soft-require 'eieio)
            (erlang-soft-require 'etags))
   ;; The purpose of using eval here is to avoid compilation
@@ -5165,10 +5171,20 @@ about Erlang modules."
         (let ((erlang-replace-etags-tags-completion-table t))
           (tags-completion-table)))
 
-      (defclass erlang-xref-location (xref-file-location)
-        ((arity :type fixnum :initarg :arity
-                :reader erlang-xref-location-arity))
-        :documentation "An erlang location is a file location plus arity.")
+      ;; Xref 1.3.1 bundled with Emacs 28+ switched from using EIEIO classes to
+      ;; using CL-Lib structs.
+      (if (find-class 'xref-file-location)
+          (progn
+            (defclass erlang-xref-location (xref-file-location)
+              ((arity :type fixnum :initarg :arity
+                      :reader erlang-xref-location-arity))
+              :documentation "An erlang location is a file location plus arity.")
+            ;; Make a constructor with the same name that a CL structure would have.
+            (defalias 'make-erlang-xref-location 'erlang-xref-location))
+        (cl-defstruct (erlang-xref-location
+                       (:include xref-file-location))
+          "An erlang location is a file location plus arity."
+          (arity 0 :type fixnum)))
 
       ;; This method definition only calls the superclass which is
       ;; the default behaviour if it was not defined.  It is only
@@ -5331,8 +5347,7 @@ is non-nil then TAG is a regexp."
       xrefs
     (when (and xrefs
                (fboundp 'xref-item-location)
-               (fboundp 'xref-location-group)
-               (fboundp 'slot-value))
+               (fboundp 'xref-location-group))
       (let (files)
         (cl-loop for xref in xrefs
                  for loc = (xref-item-location xref)
@@ -5357,7 +5372,8 @@ is non-nil then TAG is a regexp."
            t))))
 
 (defun erlang-xrefs-in-file (file kind tag is-regexp)
-  (when (fboundp 'make-instance)
+  (when (and (fboundp 'make-erlang-xref-location)
+             (fboundp 'xref-make))
     (with-current-buffer (find-file-noselect file)
       (save-excursion
         (goto-char (point-min))
@@ -5369,17 +5385,15 @@ is non-nil then TAG is a regexp."
                    for name = (match-string-no-properties 1)
                    for arity = (save-excursion
                                  (erlang-get-arity))
-                   for loc = (make-instance 'erlang-xref-location
-                                            :file file
-                                            :line (line-number-at-pos)
-                                            :column 0
-                                            :arity arity)
+                   for loc = (make-erlang-xref-location
+                              :file file
+                              :line (line-number-at-pos)
+                              :column 0
+                              :arity arity)
                    for sum = (erlang-xref-summary kind name arity)
                    when (and arity
                              (not (eq arity last-arity)))
-                   collect (make-instance 'xref-item
-                                          :summary sum
-                                          :location loc)
+                   collect (xref-make sum loc)
                    do (setq last-arity arity)))))))
 
 (defun erlang-xref-summary (kind tag arity)
