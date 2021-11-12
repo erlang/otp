@@ -73,7 +73,9 @@ apply_on_ssl_node(Node, Ref, Msg) ->
 
 stop_ssl_node(#node_handle{connection_handler = Handler,
 			   socket = Socket,
-			   name = Name}) ->
+			   name = Name,
+                           logfile = LogPath,
+                           dumpfile = DumpPath}) ->
     test_server:format("Trying to stop ssl node ~s.~n", [Name]),
     Mon = erlang:monitor(process, Handler),
     unlink(Handler),
@@ -93,13 +95,24 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
 	Error ->
 	    erlang:demonitor(Mon, [flush]),
 	    ct:pal("stop_ssl_node/1 ~s Warning ~p ~n", [Name,Error])
-    end.
+    end,
+    case file:read_file(LogPath) of
+        {ok, Binary} ->
+            ct:pal("LogPath(~pB) = ~p~n~s", [filelib:file_size(LogPath), LogPath,
+                                             Binary]);
+        _ ->
+            ok
+    end,
+    ct:pal("DumpPath(~pB) = ~p~n", [filelib:file_size(DumpPath), DumpPath]).
 
 start_ssl_node(Name, Args) ->
     {ok, LSock} = gen_tcp:listen(0,
 				 [binary, {packet, 4}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
-    CmdLine = mk_node_cmdline(ListenPort, Name, Args),
+    {ok, Pwd} = file:get_cwd(),
+    LogFilePath = filename:join([Pwd, "error_log." ++ Name]),
+    DumpFilePath = filename:join([Pwd, "erl_crash_dump." ++ Name]),
+    CmdLine = mk_node_cmdline(ListenPort, Name, Args, LogFilePath, DumpFilePath),
     test_server:format("Attempting to start ssl node ~ts: ~ts~n", [Name, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
@@ -109,7 +122,9 @@ start_ssl_node(Name, Args) ->
 		#node_handle{} = NodeHandle ->
 		    test_server:format("Ssl node ~s started.~n", [Name]),
 		    NodeName = list_to_atom(Name ++ "@" ++ host_name()),
-		    NodeHandle#node_handle{nodename = NodeName};
+		    NodeHandle#node_handle{nodename = NodeName,
+                                           logfile = LogFilePath,
+                                           dumpfile = DumpFilePath};
 		Error ->
 		    exit({failed_to_start_node, Name, Error})
 	    end;
@@ -123,7 +138,7 @@ host_name() ->
     %%     			  atom_to_list(node())),
     Host.
 
-mk_node_cmdline(ListenPort, Name, Args) ->
+mk_node_cmdline(ListenPort, Name, Args, LogPath, DumpPath) ->
     Static = "-detached -noinput",
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
@@ -134,7 +149,6 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 		 false -> "-sname ";
 		 _ -> "-name "
 	     end,
-    {ok, Pwd} = file:get_cwd(),
     "\"" ++ Prog ++ "\" "
 	++ Static ++ " "
 	++ NameSw ++ " " ++ Name ++ " "
@@ -145,10 +159,10 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ host_name() ++ " "
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
-	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+	++ "-env ERL_CRASH_DUMP " ++ DumpPath ++ " "
         ++ "-kernel inet_dist_connect_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
         ++ "-kernel inet_dist_listen_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
-	++ "-kernel error_logger \"{file,\\\"" ++ Pwd ++ "/error_log." ++ Name ++ "\\\"}\" "
+	++ "-kernel error_logger \"{file,\\\"" ++ LogPath ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
 %%
