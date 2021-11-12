@@ -35127,6 +35127,10 @@ do_ioctl_get_gifaddr(_State) ->
                    "~n      ~p", [IfName, IfIdx, Crap]),
                  socket:close(Sock),
                  ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
              {error, Reason} ->
                  i("<ERROR> got unexpected error for interface ~p (~w)"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
@@ -35184,6 +35188,10 @@ do_ioctl_get_gifdstaddr(_State) ->
                    "~n      ~p", [IfName, IfIdx, Crap]),
                  socket:close(Sock),
                  ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
              {error, Reason} ->
                  i("<ERROR> got unexpected error for interface ~p (~w)"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
@@ -35242,6 +35250,10 @@ do_ioctl_get_gifbrdaddr(_State) ->
                    "~n      ~p", [IfName, IfIdx, Crap]),
                  socket:close(Sock),
                  ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
              {error, Reason} ->
                  i("<ERROR> got unexpected error for interface ~p (~w)"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
@@ -35299,6 +35311,10 @@ do_ioctl_get_gifnetmask(_State) ->
                    "~n      ~p", [IfName, IfIdx, Crap]),
                  socket:close(Sock),
                  ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
              {error, Reason} ->
                  i("<ERROR> got unexpected error for interface ~p (~w)"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
