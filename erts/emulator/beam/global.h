@@ -443,28 +443,29 @@ do {						\
 
 #define ESTACK_IS_STATIC(s) ((s).start == ESTK_DEF_STACK(s))
 
+#define ESTACK_RESERVE(s, push_cnt)             \
+do {					        \
+    if ((s).end - (s).sp < (Sint)(push_cnt)) {	\
+	erl_grow_estack(&(s), (push_cnt));	\
+    }					        \
+} while(0)
+
 #define ESTACK_PUSH(s, x)			\
 do {						\
-    if ((s).sp == (s).end) {			\
-	erl_grow_estack(&(s), 1); 		\
-    }						\
+    ESTACK_RESERVE(s, 1);                       \
     *(s).sp++ = (x);				\
 } while(0)
 
 #define ESTACK_PUSH2(s, x, y)			\
 do {						\
-    if ((s).sp > (s).end - 2) {			\
-	erl_grow_estack(&(s), 2);		\
-    }						\
+    ESTACK_RESERVE(s, 2);                       \
     *(s).sp++ = (x);				\
     *(s).sp++ = (y);				\
 } while(0)
 
 #define ESTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if ((s).sp > (s).end - 3) {			\
-	erl_grow_estack(&s, 3); 		\
-    }						\
+    ESTACK_RESERVE(s, 3);                       \
     *(s).sp++ = (x);				\
     *(s).sp++ = (y);				\
     *(s).sp++ = (z);				\
@@ -472,20 +473,11 @@ do {						\
 
 #define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
 do {						\
-    if ((s).sp > (s).end - 4) {			\
-	erl_grow_estack(&s, 4);                 \
-    }						\
+    ESTACK_RESERVE(s, 4);                       \
     *(s).sp++ = (E1);				\
     *(s).sp++ = (E2);				\
     *(s).sp++ = (E3);				\
     *(s).sp++ = (E4);				\
-} while(0)
-
-#define ESTACK_RESERVE(s, push_cnt)             \
-do {					        \
-    if ((s).sp > (s).end - (push_cnt)) {	\
-	erl_grow_estack(&(s), (push_cnt));	\
-    }					        \
 } while(0)
 
 /* Must be preceded by ESTACK_RESERVE */
