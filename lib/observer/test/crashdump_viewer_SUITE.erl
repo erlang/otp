@@ -45,11 +45,18 @@ init_per_testcase(start_stop, Config) ->
 	case os:type() of
 	    {unix,darwin} ->
 		exit("Can not test on MacOSX");
+            {unix,sunos} ->
+                exit("Skip on sunos, for now");
 	    {unix, _} ->
-		io:format("DISPLAY ~s~n", [os:getenv("DISPLAY")]),
+                Display = os:getenv("DISPLAY"),
+		io:format("DISPLAY ~s~n", [Display]),
 		case ct:get_config(xserver, none) of
 		    none -> ignore;
-		    Server -> os:putenv("DISPLAY", Server)
+                    Display -> ok;
+		    Server ->
+                        os:putenv("DISPLAY", Server), %% Might work if new node is spawned
+                        io:format("Config sets other x-server than the DISPLAY\n"
+                                  "the DISPLAY variable must be set when starting erlang")
 		end;
 	    _ -> ignore
 	end,

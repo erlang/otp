@@ -96,12 +96,19 @@ init_per_group(gui = Group, Config) ->
 	    {unix,darwin} ->
 		?P("init_per_group(~w) -> skip", [Group]),
 		exit("Can not test on MacOSX");
+            {unix,sunos} ->
+                exit("Skip on sunos, for now");
 	    {unix, _} ->
+                Display = os:getenv("DISPLAY"),
 		?P("init_per_group(~w) -> DISPLAY ~s",
-                   [Group, os:getenv("DISPLAY")]),
+                   [Group, Display]),
 		case ct:get_config(xserver, none) of
 		    none -> ignore;
-		    Server -> os:putenv("DISPLAY", Server)
+                    Display -> ok;
+		    Server ->
+                        os:putenv("DISPLAY", Server), %% Might work if new node is spawned
+                        io:format("Config sets other x-server than the DISPLAY\n"
+                                  "the DISPLAY variable must be set when starting erlang")
 		end;
 	    _ -> ignore
 	end,
