@@ -345,12 +345,17 @@ typedef struct db_table_common {
 #define DB_FREQ_READ      (1 << 10) /* read_concurrency */
 #define DB_NAMED_TABLE    (1 << 11)
 #define DB_BUSY           (1 << 12)
+#define DB_EXPLICIT_LOCK_GRANULARITY  (1 << 13)
+#define DB_FINE_LOCKED_AUTO (1 << 14)
 
 #define DB_CATREE_FORCE_SPLIT (1 << 31)  /* erts_debug */
 #define DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN (1 << 30)  /* erts_debug */
 
-#define IS_HASH_TABLE(Status) (!!((Status) & \
-				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
+#define IS_HASH_TABLE(Status) (!!((Status) &                       \
+                                  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
+#define IS_HASH_WITH_AUTO_TABLE(Status) \
+    (((Status) &                                                        \
+      (DB_ORDERED_SET | DB_CA_ORDERED_SET | DB_FINE_LOCKED_AUTO)) == DB_FINE_LOCKED_AUTO)
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
 #define IS_CATREE_TABLE(Status) (!!((Status) & \

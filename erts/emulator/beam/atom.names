@@ -739,3 +739,5 @@ atom x86
 atom yes
 atom yield
 atom nifs
+atom auto
+atom debug_hash_fixed_number_of_locks
