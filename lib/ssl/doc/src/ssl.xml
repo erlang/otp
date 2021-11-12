@@ -884,7 +884,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     
     <datatype>
       <name name="ssl_imp"/>
-        <desc><p>Deprecated since OTP-17, has no affect.</p></desc>
+        <desc><p>Deprecated since OTP-17, has no effect.</p></desc>
     </datatype>
 
     <datatype>
