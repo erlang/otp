@@ -641,8 +641,9 @@ clear_system(Unload,BootPid,State) ->
     Logger = get_logger(State#state.kernel),
     shutdown_pids(Heart,Logger,BootPid,State),
     Unload andalso unload(Heart),
-    kill_em([Logger]),
-    do_unload([logger_server]).
+    unlink(Logger),
+    exit(Logger, kill),
+    Unload andalso do_unload([logger_server]).
 
 flush() ->
     receive
@@ -744,14 +745,9 @@ kill_all_pids(Heart,Logger) ->
     
 %% All except system processes.
 get_pids(Heart,Logger) ->
-    Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
-    delete(Heart,Logger,self(),Pids).
-
-delete(Heart,Logger,Init,[Heart|Pids]) -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Logger|Pids])  -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Init|Pids])  -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Pid|Pids])   -> [Pid|delete(Heart,Logger,Init,Pids)];
-delete(_,_,_,[])                  -> [].
+    Self = self(),
+    [P || P <- processes(), not erts_internal:is_system_process(P),
+        P =/= Heart, P =/= Logger, P =/= Self].
     
 kill_em([Pid|Pids]) ->
     exit(Pid,kill),
@@ -781,9 +777,9 @@ kill_all_ports(_,_) ->
     ok.
 
 unload(false) ->
-    do_unload(sub([logger_server|erlang:pre_loaded()],erlang:loaded()));
+    do_unload(erlang:loaded() -- [logger_server|erlang:pre_loaded()]);
 unload(_) ->
-    do_unload(sub([heart,logger_server|erlang:pre_loaded()],erlang:loaded())).
+    do_unload(erlang:loaded() -- [heart,logger_server|erlang:pre_loaded()]).
 
 do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
@@ -792,13 +788,6 @@ do_unload([M|Mods]) ->
     do_unload(Mods);
 do_unload([]) ->
     ok.
-
-sub([H|T],L) -> sub(T,del(H,L));
-sub([],L)    -> L.
-    
-del(Item, [Item|T]) -> T;
-del(Item, [H|T])    -> [H|del(Item, T)];
-del(_Item, [])      -> [].
 
 %%% -------------------------------------------------
 %%% If the terminated Pid is one of the processes
