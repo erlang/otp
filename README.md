@@ -41,7 +41,6 @@ To compile Erlang from source, run the following commands. The complete building
 ```
 git clone https://github.com/erlang/otp.git
 cd otp
-./otp_build autoconf
 ./configure
 make
 make install
