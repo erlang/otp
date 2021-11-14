@@ -363,7 +363,7 @@ do_test_hard_purge(Mod, From, Ref, Reqs) ->
     end.
 
 test_progress(_State, _From, _Ref, died) ->
-    %% Test process died; continue so we wont
+    %% Test process died; continue so we won't
     %% leave the system in an inconsistent
     %% state...
     died;

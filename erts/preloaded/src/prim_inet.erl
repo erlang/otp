@@ -1566,7 +1566,7 @@ dec_opt(I) when is_integer(I)     -> undefined.
 %% The use of [] and [[Type,Default]] is commented out in enc_value/2
 %% and type_value/2 below since they are only used in record fields.
 %% And record fields does not call enc_value/2 nor type_value/2.
-%% Anyone introducing these metatypes otherwhere will have to activate
+%% Anyone introducing these metatypes elsewhere will have to activate
 %% those clauses in enc_value/2 and type_value/2. You have been warned!
 
 type_opt(get, raw) -> [{[int],[int],[binary_or_uint]}];
@@ -2066,7 +2066,7 @@ enc_value_2(binary_or_uint,Datum) when is_integer(Datum) ->
 
 
 %%
-%% Decoding of option VALUES receved from "getopt":
+%% Decoding of option VALUES received from "getopt":
 %% NOT required for SCTP, as it always returns ready terms, not lists:
 %%
 dec_value(bool, [0,0,0,0|T])       -> {false,T};
@@ -2459,7 +2459,7 @@ dec_subs([]) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% handle statictics options
+%% handle statistics options
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
