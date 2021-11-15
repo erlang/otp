@@ -88,11 +88,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glArrayElement.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="attachObjectARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="attachShader" arity="2" clause_i="1" since=""/>
     <fsummary>Attaches a shader object to a program object</fsummary>
     <desc>
@@ -119,11 +114,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginConditionalRender.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="endList" arity="0" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="beginQuery" arity="2" clause_i="1" since=""/>
     <name name="endQuery" arity="1" clause_i="1" since=""/>
     <fsummary>delimit the boundaries of a query object</fsummary>
@@ -134,14 +124,10 @@
   </func>
   <func>
     <name name="beginQueryIndexed" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="endQueryIndexed" arity="2" clause_i="1" since=""/>
     <fsummary>delimit the boundaries of a query object on an indexed target</fsummary>
     <desc>
-    <p><seemfa marker="gl#beginQueryIndexed/3"><c>gl:beginQueryIndexed/3</c></seemfa> and <seemfa marker="gl#endQueryIndexed/2"><c>gl:endQueryIndexed/2</c></seemfa> delimit the boundaries of a query object. <c>Query</c> must be a name previously returned from a call to <seemfa marker="gl#genQueries/1"><c>gl:genQueries/1</c></seemfa>. If a query object with name <c>Id</c> does not yet exist it is created with the type determined by <c>Target</c>. <c>Target</c> must be one of <c>?GL_SAMPLES_PASSED</c>, <c>?GL_ANY_SAMPLES_PASSED</c>, <c>?GL_PRIMITIVES_GENERATED</c>, <c>?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN</c>, or <c>?GL_TIME_ELAPSED</c>. The behavior of the query object depends on its type and is as follows. </p>
+    <p><seemfa marker="gl#beginQueryIndexed/3"><c>gl:beginQueryIndexed/3</c></seemfa> and <seemfa marker="gl#beginQueryIndexed/3"><c>gl:endQueryIndexed/2</c></seemfa> delimit the boundaries of a query object. <c>Query</c> must be a name previously returned from a call to <seemfa marker="gl#genQueries/1"><c>gl:genQueries/1</c></seemfa>. If a query object with name <c>Id</c> does not yet exist it is created with the type determined by <c>Target</c>. <c>Target</c> must be one of <c>?GL_SAMPLES_PASSED</c>, <c>?GL_ANY_SAMPLES_PASSED</c>, <c>?GL_PRIMITIVES_GENERATED</c>, <c>?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN</c>, or <c>?GL_TIME_ELAPSED</c>. The behavior of the query object depends on its type and is as follows. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQueryIndexed.xhtml">External documentation.</url></p></desc>
   </func>
@@ -161,11 +147,6 @@
     <p><seemfa marker="gl#bindAttribLocation/3"><c>gl:bindAttribLocation/3</c></seemfa> is used to associate a user-defined attribute variable in the program object specified by <c>Program</c> with a generic vertex attribute index. The name of the user-defined attribute variable is passed as a null terminated string in <c>Name</c>. The generic vertex attribute index to be bound to this variable is specified by <c>Index</c>. When <c>Program</c> is made part of current state, values provided via the generic vertex attribute <c>Index</c> will modify the value of the user-defined attribute variable specified by <c>Name</c>.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindAttribLocation.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="bindAttribLocationARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="bindBuffer" arity="2" clause_i="1" since=""/>
@@ -217,8 +198,11 @@
   </func>
   <func>
     <name name="bindFragDataLocationIndexed" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>bind a user-defined varying out variable to a fragment shader color number and index</fsummary>
+    <desc>
+    <p><seemfa marker="gl#bindFragDataLocationIndexed/4"><c>gl:bindFragDataLocationIndexed/4</c></seemfa> specifies that the varying out variable <c>Name</c> in <c>Program</c> should be bound to fragment color <c>ColorNumber</c> when the program is next linked. <c>Index</c> may be zero or one to specify that the color be used as either the first or second color input to the blend equation, respectively. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindFragDataLocationIndexed.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="bindFramebuffer" arity="2" clause_i="1" since=""/>
@@ -243,11 +227,6 @@
     <p><seemfa marker="gl#bindImageTextures/2"><c>gl:bindImageTextures/2</c></seemfa> binds images from an array of existing texture objects to a specified number of consecutive image units. <c>Count</c> specifies the number of texture objects whose names are stored in the array <c>Textures</c>. That number of texture names are read from the array and bound to the <c>Count</c> consecutive texture units starting from <c>First</c>.  If the name zero appears in the <c>Textures</c> array, any existing binding to the image unit is reset. Any non-zero entry in <c>Textures</c> must be the name of an existing texture object. When a non-zero entry in <c>Textures</c> is present, the image at level zero is bound, the binding is considered layered, with the first layer set to zero, and the image is bound for read-write access. The image unit format parameter is taken from the internal format of the image at level zero of the texture object. For cube map textures, the internal format of the positive X image of level zero is used.   If <c>Textures</c> is <c>?NULL</c> then it is as if an appropriately sized array containing only zeros had been specified. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindImageTextures.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="bindProgramARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="bindProgramPipeline" arity="1" clause_i="1" since=""/>
@@ -323,17 +302,19 @@
   </func>
   <func>
     <name name="bindVertexBuffer" arity="4" clause_i="1" since=""/>
+    <name name="vertexArrayVertexBuffer" arity="5" clause_i="1" since=""/>
     <fsummary>bind a buffer to a vertex buffer bind point</fsummary>
     <desc>
-    <p><seemfa marker="gl#bindVertexBuffer/4"><c>gl:bindVertexBuffer/4</c></seemfa> and <seemfa marker="gl#vertexArrayVertexBuffer/5"><c>gl:vertexArrayVertexBuffer/5</c></seemfa> bind the buffer named <c>Buffer</c> to the vertex buffer binding point whose index is given by <c>Bindingindex</c>. <seemfa marker="gl#bindVertexBuffer/4"><c>gl:bindVertexBuffer/4</c></seemfa> modifies the binding of the currently bound vertex array object, whereas <seemfa marker="gl#vertexArrayVertexBuffer/5"><c>gl:vertexArrayVertexBuffer/5</c></seemfa> allows the caller to specify ID of the vertex array object with an argument named <c>Vaobj</c>, for which the binding should be modified. <c>Offset</c> and <c>Stride</c> specify the offset of the first element within the buffer and the distance between elements within the buffer, respectively, and are both measured in basic machine units. <c>Bindingindex</c> must be less than the value of <c>?GL_MAX_VERTEX_ATTRIB_BINDINGS</c>. <c>Offset</c> and <c>Stride</c> must be greater than or equal to zero. If <c>Buffer</c> is zero, then any buffer currently bound to the specified binding point is unbound.</p>
+    <p><seemfa marker="gl#bindVertexBuffer/4"><c>gl:bindVertexBuffer/4</c></seemfa> and <seemfa marker="gl#bindVertexBuffer/4"><c>gl:vertexArrayVertexBuffer/5</c></seemfa> bind the buffer named <c>Buffer</c> to the vertex buffer binding point whose index is given by <c>Bindingindex</c>. <seemfa marker="gl#bindVertexBuffer/4"><c>gl:bindVertexBuffer/4</c></seemfa> modifies the binding of the currently bound vertex array object, whereas <seemfa marker="gl#bindVertexBuffer/4"><c>gl:vertexArrayVertexBuffer/5</c></seemfa> allows the caller to specify ID of the vertex array object with an argument named <c>Vaobj</c>, for which the binding should be modified. <c>Offset</c> and <c>Stride</c> specify the offset of the first element within the buffer and the distance between elements within the buffer, respectively, and are both measured in basic machine units. <c>Bindingindex</c> must be less than the value of <c>?GL_MAX_VERTEX_ATTRIB_BINDINGS</c>. <c>Offset</c> and <c>Stride</c> must be greater than or equal to zero. If <c>Buffer</c> is zero, then any buffer currently bound to the specified binding point is unbound.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffer.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="bindVertexBuffers" arity="4" clause_i="1" since=""/>
+    <name name="vertexArrayVertexBuffers" arity="5" clause_i="1" since=""/>
     <fsummary>attach multiple buffer objects to a vertex array object</fsummary>
     <desc>
-    <p><seemfa marker="gl#bindVertexBuffers/4"><c>gl:bindVertexBuffers/4</c></seemfa> and <seemfa marker="gl#vertexArrayVertexBuffers/5"><c>gl:vertexArrayVertexBuffers/5</c></seemfa> bind storage from an array of existing buffer objects to a specified number of consecutive vertex buffer binding points units in a vertex array object. For <seemfa marker="gl#bindVertexBuffers/4"><c>gl:bindVertexBuffers/4</c></seemfa>, the vertex array object is the currently bound vertex array object. For <seemfa marker="gl#vertexArrayVertexBuffers/5"><c>gl:vertexArrayVertexBuffers/5</c></seemfa>, <c>Vaobj</c> is the name of the vertex array object. </p>
+    <p><seemfa marker="gl#bindVertexBuffers/4"><c>gl:bindVertexBuffers/4</c></seemfa> and <seemfa marker="gl#bindVertexBuffers/4"><c>gl:vertexArrayVertexBuffers/5</c></seemfa> bind storage from an array of existing buffer objects to a specified number of consecutive vertex buffer binding points units in a vertex array object. For <seemfa marker="gl#bindVertexBuffers/4"><c>gl:bindVertexBuffers/4</c></seemfa>, the vertex array object is the currently bound vertex array object. For <seemfa marker="gl#bindVertexBuffers/4"><c>gl:vertexArrayVertexBuffers/5</c></seemfa>, <c>Vaobj</c> is the name of the vertex array object. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffers.xhtml">External documentation.</url></p></desc>
   </func>
@@ -344,11 +325,6 @@
     <p> A bitmap is a binary image. When drawn, the bitmap is positioned relative to the current raster position, and frame buffer pixels corresponding to 1's in the bitmap are written using the current raster color or index. Frame buffer pixels corresponding to 0's in the bitmap are not modified. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glBitmap.xml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="blendBarrierKHR" arity="0" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="blendColor" arity="4" clause_i="1" since=""/>
@@ -378,6 +354,7 @@
   </func>
   <func>
     <name name="blendFunc" arity="2" clause_i="1" since=""/>
+    <name name="blendFunci" arity="3" clause_i="1" since=""/>
     <fsummary>specify pixel arithmetic</fsummary>
     <desc>
     <p> Pixels can be drawn using a function that blends the incoming (source) RGBA values with the RGBA values that are already in the frame buffer (the destination values). Blending is initially disabled. Use <seemfa marker="gl#enable/1"><c>gl:enable/1</c></seemfa> and <seemfa marker="gl#enable/1"><c>gl:disable/1</c></seemfa> with argument <c>?GL_BLEND</c> to enable and disable blending. </p>
@@ -394,11 +371,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFuncSeparate.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="blendFunci" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="blitFramebuffer" arity="10" clause_i="1" since=""/>
     <fsummary>copy a block of pixels from one framebuffer object to another</fsummary>
     <desc>
@@ -413,11 +385,6 @@
     <p><seemfa marker="gl#bufferData/4"><c>gl:bufferData/4</c></seemfa> and <c>glNamedBufferData</c> create a new data store for a buffer object. In case of <seemfa marker="gl#bufferData/4"><c>gl:bufferData/4</c></seemfa>, the buffer object currently bound to <c>Target</c> is used. For <c>glNamedBufferData</c>, a buffer object associated with ID specified by the caller in <c>Buffer</c> will be used instead.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBufferData.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="bufferPageCommitmentARB" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="bufferStorage" arity="4" clause_i="1" since=""/>
@@ -484,35 +451,17 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClearAccum.xml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="clearBufferData" arity="5" clause_i="1" since=""/>
+    <name name="clearBufferSubData" arity="7" clause_i="1" since=""/>
+    <name name="clearBufferfi" arity="4" clause_i="1" since=""/>
     <name name="clearBufferfv" arity="3" clause_i="1" since=""/>
     <name name="clearBufferiv" arity="3" clause_i="1" since=""/>
     <name name="clearBufferuiv" arity="3" clause_i="1" since=""/>
     <fsummary>clear individual buffers of a framebuffer</fsummary>
     <desc>
-    <p> These commands clear a specified buffer of a framebuffer to specified value(s). For <c>glClearBuffer*</c>, the framebuffer is the currently bound draw framebuffer object. For <c>glClearNamedFramebuffer*</c>, <c>Framebuffer</c> is zero, indicating the default draw framebuffer, or the name of a framebuffer object. </p>
+    <p> These commands clear a specified buffer of a framebuffer to specified value(s). For <seemfa marker="gl#clearBufferiv/3"><c>gl:clearBuffer*()</c></seemfa>, the framebuffer is the currently bound draw framebuffer object. For <c>glClearNamedFramebuffer*</c>, <c>Framebuffer</c> is zero, indicating the default draw framebuffer, or the name of a framebuffer object. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearBuffer.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="clearBufferData" arity="5" clause_i="1" since=""/>
-    <fsummary>fill a buffer object's data store with a fixed value</fsummary>
-    <desc>
-    <p><seemfa marker="gl#clearBufferData/5"><c>gl:clearBufferData/5</c></seemfa> and <c>glClearNamedBufferData</c> fill the entirety of a buffer object's data store with data from client memory. </p>
-    
-    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearBufferData.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="clearBufferSubData" arity="7" clause_i="1" since=""/>
-    <fsummary>fill all or part of buffer object's data store with a fixed value</fsummary>
-    <desc>
-    <p><seemfa marker="gl#clearBufferSubData/7"><c>gl:clearBufferSubData/7</c></seemfa> and <c>glClearNamedBufferSubData</c> fill a specified region of a buffer object's data store with data from client memory.  </p>
-    
-    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearBufferSubData.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="clearBufferfi" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="clearColor" arity="4" clause_i="1" since=""/>
@@ -524,16 +473,12 @@
   </func>
   <func>
     <name name="clearDepth" arity="1" clause_i="1" since=""/>
+    <name name="clearDepthf" arity="1" clause_i="1" since=""/>
     <fsummary>specify the clear value for the depth buffer</fsummary>
     <desc>
     <p><seemfa marker="gl#clearDepth/1"><c>gl:clearDepth/1</c></seemfa> specifies the depth value used by <seemfa marker="gl#clear/1"><c>gl:clear/1</c></seemfa> to clear the depth buffer. Values specified by <seemfa marker="gl#clearDepth/1"><c>gl:clearDepth/1</c></seemfa> are clamped to the range [0 1]. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearDepth.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="clearDepthf" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="clearIndex" arity="1" clause_i="1" since=""/>
@@ -640,16 +585,12 @@
   </func>
   <func>
     <name name="colorMask" arity="4" clause_i="1" since=""/>
+    <name name="colorMaski" arity="5" clause_i="1" since=""/>
     <fsummary>enable and disable writing of frame buffer color components</fsummary>
     <desc>
-    <p><seemfa marker="gl#colorMask/4"><c>gl:colorMask/4</c></seemfa> and <seemfa marker="gl#colorMaski/5"><c>gl:colorMaski/5</c></seemfa> specify whether the individual color components in the frame buffer can or cannot be written. <seemfa marker="gl#colorMaski/5"><c>gl:colorMaski/5</c></seemfa> sets the mask for a specific draw buffer, whereas <seemfa marker="gl#colorMask/4"><c>gl:colorMask/4</c></seemfa> sets the mask for all draw buffers. If <c>Red</c> is <c>?GL_FALSE</c>, for example, no change is made to the red component of any pixel in any of the color buffers, regardless of the drawing operation attempted. </p>
+    <p><seemfa marker="gl#colorMask/4"><c>gl:colorMask/4</c></seemfa> and <seemfa marker="gl#colorMask/4"><c>gl:colorMaski/5</c></seemfa> specify whether the individual color components in the frame buffer can or cannot be written. <seemfa marker="gl#colorMask/4"><c>gl:colorMaski/5</c></seemfa> sets the mask for a specific draw buffer, whereas <seemfa marker="gl#colorMask/4"><c>gl:colorMask/4</c></seemfa> sets the mask for all draw buffers. If <c>Red</c> is <c>?GL_FALSE</c>, for example, no change is made to the red component of any pixel in any of the color buffers, regardless of the drawing operation attempted. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glColorMask.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="colorMaski" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="colorMaterial" arity="2" clause_i="1" since=""/>
@@ -701,16 +642,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompileShader.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="compileShaderARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="compileShaderIncludeARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="compressedTexImage1D" arity="7" clause_i="1" since=""/>
     <fsummary>specify a one-dimensional texture image in a compressed format</fsummary>
     <desc>
@@ -736,6 +667,7 @@
   </func>
   <func>
     <name name="compressedTexSubImage1D" arity="7" clause_i="1" since=""/>
+    <name name="compressedTextureSubImage1D" arity="7" clause_i="1" since=""/>
     <fsummary>specify a one-dimensional texture subimage in a compressed format</fsummary>
     <desc>
     <p>Texturing allows elements of an image array to be read by shaders.</p>
@@ -744,6 +676,7 @@
   </func>
   <func>
     <name name="compressedTexSubImage2D" arity="9" clause_i="1" since=""/>
+    <name name="compressedTextureSubImage2D" arity="9" clause_i="1" since=""/>
     <fsummary>specify a two-dimensional texture subimage in a compressed format</fsummary>
     <desc>
     <p>Texturing allows elements of an image array to be read by shaders.</p>
@@ -752,26 +685,12 @@
   </func>
   <func>
     <name name="compressedTexSubImage3D" arity="11" clause_i="1" since=""/>
+    <name name="compressedTextureSubImage3D" arity="11" clause_i="1" since=""/>
     <fsummary>specify a three-dimensional texture subimage in a compressed format</fsummary>
     <desc>
     <p>Texturing allows elements of an image array to be read by shaders.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage3D.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="compressedTextureSubImage1D" arity="7" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="compressedTextureSubImage2D" arity="9" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="compressedTextureSubImage3D" arity="11" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="convolutionFilter1D" arity="6" clause_i="1" since=""/>
@@ -884,7 +803,7 @@
     <name name="copyTexSubImage2D" arity="8" clause_i="1" since=""/>
     <fsummary>copy a two-dimensional texture subimage</fsummary>
     <desc>
-    <p><seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa> and <c>glCopyTextureSubImage2D</c> replace a rectangular portion of a two-dimensional texture image, cube-map texture image, rectangular image, or a linear portion of a number of slices of a one-dimensional array texture with pixels from the current <c>?GL_READ_BUFFER</c> (rather than from main memory, as is the case for <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>). </p>
+    <p><seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa> and <c>glCopyTextureSubImage2D</c> replace a rectangular portion of a two-dimensional texture image, cube-map texture image, rectangular image, or a linear portion of a number of slices of a one-dimensional array texture with pixels from the current <c>?GL_READ_BUFFER</c> (rather than from main memory, as is the case for <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>). </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexSubImage2D.xhtml">External documentation.</url></p></desc>
   </func>
@@ -892,7 +811,7 @@
     <name name="copyTexSubImage3D" arity="9" clause_i="1" since=""/>
     <fsummary>copy a three-dimensional texture subimage</fsummary>
     <desc>
-    <p><seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa> and <c>glCopyTextureSubImage3D</c> functions replace a rectangular portion of a three-dimensional or two-dimensional array texture image with pixels from the current <c>?GL_READ_BUFFER</c> (rather than from main memory, as is the case for <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>). </p>
+    <p><seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa> and <c>glCopyTextureSubImage3D</c> functions replace a rectangular portion of a three-dimensional or two-dimensional array texture image with pixels from the current <c>?GL_READ_BUFFER</c> (rather than from main memory, as is the case for <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>). </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexSubImage3D.xhtml">External documentation.</url></p></desc>
   </func>
@@ -921,15 +840,10 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateProgram.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="createProgramObjectARB" arity="0" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="createProgramPipelines" arity="1" clause_i="1" since=""/>
     <fsummary>create program pipeline objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createProgramPipelines/1"><c>gl:createProgramPipelines/1</c></seemfa>  returns <c>N</c> previously unused program pipeline names in <c>Pipelines</c>, each representing a new program pipeline object initialized to the default state. </p>
+    <p><seemfa marker="gl#createProgramPipelines/1"><c>gl:createProgramPipelines/1</c></seemfa> returns <c>N</c> previously unused program pipeline names in <c>Pipelines</c>, each representing a new program pipeline object initialized to the default state. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateProgramPipelines.xhtml">External documentation.</url></p></desc>
   </func>
@@ -937,7 +851,7 @@
     <name name="createQueries" arity="2" clause_i="1" since=""/>
     <fsummary>create query objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createQueries/2"><c>gl:createQueries/2</c></seemfa>  returns <c>N</c> previously unused query object names in <c>Ids</c>, each representing a new query object with the specified <c>Target</c>. </p>
+    <p><seemfa marker="gl#createQueries/2"><c>gl:createQueries/2</c></seemfa> returns <c>N</c> previously unused query object names in <c>Ids</c>, each representing a new query object with the specified <c>Target</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateQueries.xhtml">External documentation.</url></p></desc>
   </func>
@@ -945,7 +859,7 @@
     <name name="createRenderbuffers" arity="1" clause_i="1" since=""/>
     <fsummary>create renderbuffer objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createRenderbuffers/1"><c>gl:createRenderbuffers/1</c></seemfa>  returns <c>N</c> previously unused renderbuffer object names in <c>Renderbuffers</c>, each representing a new renderbuffer object initialized to the default state. </p>
+    <p><seemfa marker="gl#createRenderbuffers/1"><c>gl:createRenderbuffers/1</c></seemfa> returns <c>N</c> previously unused renderbuffer object names in <c>Renderbuffers</c>, each representing a new renderbuffer object initialized to the default state. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateRenderbuffers.xhtml">External documentation.</url></p></desc>
   </func>
@@ -953,7 +867,7 @@
     <name name="createSamplers" arity="1" clause_i="1" since=""/>
     <fsummary>create sampler objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createSamplers/1"><c>gl:createSamplers/1</c></seemfa>  returns <c>N</c> previously unused sampler names in <c>Samplers</c>, each representing a new sampler object initialized to the default state. </p>
+    <p><seemfa marker="gl#createSamplers/1"><c>gl:createSamplers/1</c></seemfa> returns <c>N</c> previously unused sampler names in <c>Samplers</c>, each representing a new sampler object initialized to the default state. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateSamplers.xhtml">External documentation.</url></p></desc>
   </func>
@@ -966,20 +880,18 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateShader.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="createShaderObjectARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="createShaderProgramv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>create a stand-alone program from an array of null-terminated source code strings</fsummary>
+    <desc>
+    <p><seemfa marker="gl#createShaderProgramv/2"><c>gl:createShaderProgram()</c></seemfa> creates a program object containing compiled and linked shaders for a single stage specified by <c>Type</c>. <c>Strings</c> refers to an array of <c>Count</c> strings from which to create the shader executables. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateShaderProgram.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="createTextures" arity="2" clause_i="1" since=""/>
     <fsummary>create texture objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createTextures/2"><c>gl:createTextures/2</c></seemfa>  returns <c>N</c> previously unused texture names in <c>Textures</c>, each representing a new texture object of the dimensionality and type specified by  <c>Target</c> and initialized to the default values for that texture type. </p>
+    <p><seemfa marker="gl#createTextures/2"><c>gl:createTextures/2</c></seemfa> returns <c>N</c> previously unused texture names in <c>Textures</c>, each representing a new texture object of the dimensionality and type specified by <c>Target</c> and initialized to the default values for that texture type. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateTextures.xhtml">External documentation.</url></p></desc>
   </func>
@@ -987,7 +899,7 @@
     <name name="createTransformFeedbacks" arity="1" clause_i="1" since=""/>
     <fsummary>create transform feedback objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createTransformFeedbacks/1"><c>gl:createTransformFeedbacks/1</c></seemfa>  returns <c>N</c> previously unused transform feedback object names in <c>Ids</c>, each representing a new transform feedback object initialized to the default state. </p>
+    <p><seemfa marker="gl#createTransformFeedbacks/1"><c>gl:createTransformFeedbacks/1</c></seemfa> returns <c>N</c> previously unused transform feedback object names in <c>Ids</c>, each representing a new transform feedback object initialized to the default state. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateTransformFeedbacks.xhtml">External documentation.</url></p></desc>
   </func>
@@ -995,7 +907,7 @@
     <name name="createVertexArrays" arity="1" clause_i="1" since=""/>
     <fsummary>create vertex array objects</fsummary>
     <desc>
-    <p><seemfa marker="gl#createVertexArrays/1"><c>gl:createVertexArrays/1</c></seemfa>  returns <c>N</c> previously unused vertex array object names in <c>Arrays</c>, each representing a new vertex array object initialized to the default state. </p>
+    <p><seemfa marker="gl#createVertexArrays/1"><c>gl:createVertexArrays/1</c></seemfa> returns <c>N</c> previously unused vertex array object names in <c>Arrays</c>, each representing a new vertex array object initialized to the default state. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateVertexArrays.xhtml">External documentation.</url></p></desc>
   </func>
@@ -1006,11 +918,6 @@
     <p><seemfa marker="gl#cullFace/1"><c>gl:cullFace/1</c></seemfa> specifies whether front- or back-facing facets are culled (as specified by <c>mode</c>) when facet culling is enabled. Facet culling is initially disabled. To enable and disable facet culling, call the <seemfa marker="gl#enable/1"><c>gl:enable/1</c></seemfa> and <seemfa marker="gl#enable/1"><c>gl:disable/1</c></seemfa> commands with the argument <c>?GL_CULL_FACE</c>. Facets include triangles, quadrilaterals, polygons, and rectangles. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCullFace.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="currentPaletteMatrixARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="debugMessageControl" arity="5" clause_i="1" since=""/>
@@ -1053,16 +960,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glDeleteLists.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="deleteNamedStringARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="deleteObjectARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="deleteProgram" arity="1" clause_i="1" since=""/>
     <fsummary>Deletes a program object</fsummary>
     <desc>
@@ -1077,11 +974,6 @@
     <p><seemfa marker="gl#deleteProgramPipelines/1"><c>gl:deleteProgramPipelines/1</c></seemfa> deletes the <c>N</c> program pipeline objects whose names are stored in the array <c>Pipelines</c>. Unused names in <c>Pipelines</c> are ignored, as is the name zero. After a program pipeline object is deleted, its name is again unused and it has no contents. If program pipeline object that is currently bound is deleted, the binding for that object reverts to zero and no program pipeline object becomes current. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteProgramPipelines.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="deleteProgramsARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="deleteQueries" arity="1" clause_i="1" since=""/>
@@ -1148,11 +1040,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteVertexArrays.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="depthBoundsEXT" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="depthFunc" arity="1" clause_i="1" since=""/>
     <fsummary>specify the value used for depth buffer comparisons</fsummary>
     <desc>
@@ -1179,18 +1066,19 @@
   </func>
   <func>
     <name name="depthRangeArrayv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>specify mapping of depth values from normalized device coordinates to window coordinates for a specified set of viewports</fsummary>
+    <desc>
+    <p> After clipping and division by <c>w</c>, depth coordinates range from  -1 to 1, corresponding to the near and far clipping planes. Each viewport has an independent depth range specified as a linear mapping of the normalized depth coordinates in this range to window depth coordinates. Regardless of the actual depth buffer implementation, window coordinate depth values are treated as though they range from 0 through 1 (like color components). <seemfa marker="gl#depthRangeArrayv/2"><c>gl:depthRangeArray()</c></seemfa> specifies a linear mapping of the normalized depth coordinates in this range to window depth coordinates for each viewport in the range [<c>First</c>, <c>First</c> + <c>Count</c>). Thus, the values accepted by <seemfa marker="gl#depthRangeArrayv/2"><c>gl:depthRangeArray()</c></seemfa> are both clamped to this range before they are accepted. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRangeArray.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="depthRangeIndexed" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="detachObjectARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>specify mapping of depth values from normalized device coordinates to window coordinates for a specified viewport</fsummary>
+    <desc>
+    <p> After clipping and division by <c>w</c>, depth coordinates range from  -1 to 1, corresponding to the near and far clipping planes. Each viewport has an independent depth range specified as a linear mapping of the normalized depth coordinates in this range to window depth coordinates. Regardless of the actual depth buffer implementation, window coordinate depth values are treated as though they range from 0 through 1 (like color components). <seemfa marker="gl#depthRangeIndexed/3"><c>gl:depthRangeIndexed/3</c></seemfa> specifies a linear mapping of the normalized depth coordinates in this range to window depth coordinates for a specified viewport. Thus, the values accepted by <seemfa marker="gl#depthRangeIndexed/3"><c>gl:depthRangeIndexed/3</c></seemfa> are both clamped to this range before they are accepted. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRangeIndexed.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="detachShader" arity="2" clause_i="1" since=""/>
@@ -1207,11 +1095,6 @@
     <p><seemfa marker="gl#dispatchCompute/3"><c>gl:dispatchCompute/3</c></seemfa> launches one or more compute work groups. Each work group is processed by the active program object for the compute shader stage. While the individual shader invocations within a work group are executed as a unit, work groups are executed completely independently and in unspecified order. <c>Num_groups_x</c>, <c>Num_groups_y</c> and <c>Num_groups_z</c> specify the number of local work groups that will be dispatched in the X, Y and Z dimensions, respectively. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDispatchCompute.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="dispatchComputeGroupSizeARB" arity="6" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="dispatchComputeIndirect" arity="1" clause_i="1" since=""/>
@@ -1239,8 +1122,11 @@
   </func>
   <func>
     <name name="drawArraysInstanced" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>draw multiple instances of a range of elements</fsummary>
+    <desc>
+    <p><seemfa marker="gl#drawArraysInstanced/4"><c>gl:drawArraysInstanced/4</c></seemfa> behaves identically to <seemfa marker="gl#drawArrays/3"><c>gl:drawArrays/3</c></seemfa> except that <c>Instancecount</c> instances of the range of elements are executed and the value of the internal counter <c>InstanceID</c> advances for each iteration. <c>InstanceID</c> is an internal 32-bit integer counter that may be read by a vertex shader as <c>?gl_InstanceID</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawArraysInstanced.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="drawArraysInstancedBaseInstance" arity="5" clause_i="1" since=""/>
@@ -1292,8 +1178,11 @@
   </func>
   <func>
     <name name="drawElementsInstanced" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>draw multiple instances of a set of elements</fsummary>
+    <desc>
+    <p><seemfa marker="gl#drawElementsInstanced/5"><c>gl:drawElementsInstanced/5</c></seemfa> behaves identically to <seemfa marker="gl#drawElements/4"><c>gl:drawElements/4</c></seemfa> except that <c>Instancecount</c> instances of the set of elements are executed and the value of the internal counter <c>InstanceID</c> advances for each iteration. <c>InstanceID</c> is an internal 32-bit integer counter that may be read by a vertex shader as <c>?gl_InstanceID</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsInstanced.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="drawElementsInstancedBaseInstance" arity="6" clause_i="1" since=""/>
@@ -1353,8 +1242,11 @@
   </func>
   <func>
     <name name="drawTransformFeedbackInstanced" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>render multiple instances of primitives using a count derived from a transform feedback object</fsummary>
+    <desc>
+    <p><seemfa marker="gl#drawTransformFeedbackInstanced/3"><c>gl:drawTransformFeedbackInstanced/3</c></seemfa> draws multiple copies of a range of primitives of a type specified by <c>Mode</c> using a count retrieved from the transform feedback stream specified by <c>Stream</c> of the transform feedback object specified by <c>Id</c>. Calling <seemfa marker="gl#drawTransformFeedbackInstanced/3"><c>gl:drawTransformFeedbackInstanced/3</c></seemfa> is equivalent to calling <seemfa marker="gl#drawArraysInstanced/4"><c>gl:drawArraysInstanced/4</c></seemfa> with <c>Mode</c> and <c>Instancecount</c> as specified, <c>First</c> set to zero, and <c>Count</c> set to the number of vertices captured on vertex stream zero the last time transform feedback was active on the transform feedback object named by <c>Id</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawTransformFeedbackInstanced.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="drawTransformFeedbackStream" arity="3" clause_i="1" since=""/>
@@ -1366,11 +1258,15 @@
   </func>
   <func>
     <name name="drawTransformFeedbackStreamInstanced" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>render multiple instances of primitives using a count derived from a specifed stream of a transform feedback object</fsummary>
+    <desc>
+    <p><seemfa marker="gl#drawTransformFeedbackStreamInstanced/4"><c>gl:drawTransformFeedbackStreamInstanced/4</c></seemfa> draws multiple copies of a range of primitives of a type specified by <c>Mode</c> using a count retrieved from the transform feedback stream specified by <c>Stream</c> of the transform feedback object specified by <c>Id</c>. Calling <seemfa marker="gl#drawTransformFeedbackStreamInstanced/4"><c>gl:drawTransformFeedbackStreamInstanced/4</c></seemfa> is equivalent to calling <seemfa marker="gl#drawArraysInstanced/4"><c>gl:drawArraysInstanced/4</c></seemfa> with <c>Mode</c> and <c>Instancecount</c> as specified, <c>First</c> set to zero, and <c>Count</c> set to the number of vertices captured on vertex stream <c>Stream</c> the last time transform feedback was active on the transform feedback object named by <c>Id</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawTransformFeedbackStreamInstanced.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="edgeFlag" arity="1" clause_i="1" since=""/>
+    <name name="edgeFlagv" arity="1" clause_i="1" since=""/>
     <fsummary>flag edges as either boundary or nonboundary</fsummary>
     <desc>
     <p> Each vertex of a polygon, separate triangle, or separate quadrilateral specified between a <seemfa marker="gl#'begin'/1"><c>gl:'begin'/1</c></seemfa>/<seemfa marker="gl#'begin'/1"><c>gl:'end'/0</c></seemfa> pair is marked as the start of either a boundary or nonboundary edge. If the current edge flag is true when the vertex is specified, the vertex is marked as the start of a boundary edge. Otherwise, the vertex is marked as the start of a nonboundary edge. <seemfa marker="gl#edgeFlag/1"><c>gl:edgeFlag/1</c></seemfa> sets the edge flag bit to <c>?GL_TRUE</c> if <c>Flag</c> is <c>?GL_TRUE</c> and to <c>?GL_FALSE</c> otherwise. </p>
@@ -1386,12 +1282,8 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEdgeFlagPointer.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="edgeFlagv" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="disable" arity="1" clause_i="1" since=""/>
+    <name name="disablei" arity="2" clause_i="1" since=""/>
     <name name="enable" arity="1" clause_i="1" since=""/>
     <name name="enablei" arity="2" clause_i="1" since=""/>
     <fsummary>enable or disable server-side GL capabilities</fsummary>
@@ -1411,23 +1303,14 @@
   </func>
   <func>
     <name name="disableVertexArrayAttrib" arity="2" clause_i="1" since=""/>
-    <name name="enableVertexArrayAttrib" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="disableVertexAttribArray" arity="1" clause_i="1" since=""/>
+    <name name="enableVertexArrayAttrib" arity="2" clause_i="1" since=""/>
     <name name="enableVertexAttribArray" arity="1" clause_i="1" since=""/>
     <fsummary>Enable or disable a generic vertex attribute array</fsummary>
     <desc>
-    <p><seemfa marker="gl#enableVertexAttribArray/1"><c>gl:enableVertexAttribArray/1</c></seemfa> and <seemfa marker="gl#enableVertexArrayAttrib/2"><c>gl:enableVertexArrayAttrib/2</c></seemfa> enable the generic vertex attribute array specified by <c>Index</c>. <seemfa marker="gl#enableVertexAttribArray/1"><c>gl:enableVertexAttribArray/1</c></seemfa> uses currently bound vertex array object for the operation, whereas <seemfa marker="gl#enableVertexArrayAttrib/2"><c>gl:enableVertexArrayAttrib/2</c></seemfa> updates state of the vertex array object with ID <c>Vaobj</c>.</p>
+    <p><seemfa marker="gl#enableVertexAttribArray/1"><c>gl:enableVertexAttribArray/1</c></seemfa> and <seemfa marker="gl#disableVertexAttribArray/1"><c>gl:enableVertexArrayAttrib/2</c></seemfa> enable the generic vertex attribute array specified by <c>Index</c>. <seemfa marker="gl#enableVertexAttribArray/1"><c>gl:enableVertexAttribArray/1</c></seemfa> uses currently bound vertex array object for the operation, whereas <seemfa marker="gl#disableVertexAttribArray/1"><c>gl:enableVertexArrayAttrib/2</c></seemfa> updates state of the vertex array object with ID <c>Vaobj</c>.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnableVertexAttribArray.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="disablei" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="evalCoord1d" arity="1" clause_i="1" since=""/>
@@ -1440,7 +1323,7 @@
     <name name="evalCoord2fv" arity="1" clause_i="1" since=""/>
     <fsummary>evaluate enabled one- and two-dimensional maps</fsummary>
     <desc>
-    <p><seemfa marker="gl#evalCoord1d/1"><c>gl:evalCoord1()</c></seemfa> evaluates enabled one-dimensional maps at argument <c>U</c>. <seemfa marker="gl#evalCoord1d/1"><c>gl:evalCoord2()</c></seemfa> does the same for two-dimensional maps using two domain values, <c>U</c> and <c>V</c>. To define a map, call <seemfa marker="gl#map1d/6"><c>gl:map1()</c></seemfa> and <seemfa marker="gl#map1d/6"><c>gl:map2()</c></seemfa>; to enable and disable it, call <seemfa marker="gl#enable/1"><c>gl:enable/1</c></seemfa> and <seemfa marker="gl#enable/1"><c>gl:disable/1</c></seemfa>. </p>
+    <p><seemfa marker="gl#evalCoord1d/1"><c>gl:evalCoord1()</c></seemfa> evaluates enabled one-dimensional maps at argument <c>U</c>. <seemfa marker="gl#evalCoord1d/1"><c>gl:evalCoord2()</c></seemfa> does the same for two-dimensional maps using two domain values, <c>U</c> and <c>V</c>. To define a map, call <c>glMap1</c> and <c>glMap2</c>; to enable and disable it, call <seemfa marker="gl#enable/1"><c>gl:enable/1</c></seemfa> and <seemfa marker="gl#enable/1"><c>gl:disable/1</c></seemfa>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml">External documentation.</url></p></desc>
   </func>
@@ -1449,7 +1332,7 @@
     <name name="evalMesh2" arity="5" clause_i="1" since=""/>
     <fsummary>compute a one- or two-dimensional grid of points or lines</fsummary>
     <desc>
-    <p><seemfa marker="gl#mapGrid1d/3"><c>gl:mapGrid()</c></seemfa> and <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> are used in tandem to efficiently generate and evaluate a series of evenly-spaced map domain values. <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> steps through the integer domain of a one- or two-dimensional grid, whose range is the domain of the evaluation maps specified by <seemfa marker="gl#map1d/6"><c>gl:map1()</c></seemfa> and <seemfa marker="gl#map1d/6"><c>gl:map2()</c></seemfa>. <c>Mode</c> determines whether the resulting vertices are connected as points, lines, or filled polygons. </p>
+    <p><seemfa marker="gl#mapGrid1d/3"><c>gl:mapGrid()</c></seemfa> and <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> are used in tandem to efficiently generate and evaluate a series of evenly-spaced map domain values. <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> steps through the integer domain of a one- or two-dimensional grid, whose range is the domain of the evaluation maps specified by <c>glMap1</c> and <c>glMap2</c>. <c>Mode</c> determines whether the resulting vertices are connected as points, lines, or filled polygons. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalMesh.xml">External documentation.</url></p></desc>
   </func>
@@ -1461,11 +1344,6 @@
     <p><seemfa marker="gl#mapGrid1d/3"><c>gl:mapGrid()</c></seemfa> and <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> are used in tandem to efficiently generate and evaluate a series of evenly spaced map domain values. <seemfa marker="gl#evalPoint1/1"><c>gl:evalPoint()</c></seemfa> can be used to evaluate a single grid point in the same gridspace that is traversed by <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa>. Calling <seemfa marker="gl#evalPoint1/1"><c>gl:evalPoint1/1</c></seemfa> is equivalent to calling  glEvalCoord1(  i.ð u+u 1 );  where ð u=(u 2-u 1)/n</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalPoint.xml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="evaluateDepthValuesARB" arity="0" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="feedbackBuffer" arity="3" clause_i="1" since=""/>
@@ -1501,16 +1379,12 @@
   </func>
   <func>
     <name name="flushMappedBufferRange" arity="3" clause_i="1" since=""/>
+    <name name="flushMappedNamedBufferRange" arity="3" clause_i="1" since=""/>
     <fsummary>indicate modifications to a range of a mapped buffer</fsummary>
     <desc>
     <p><seemfa marker="gl#flushMappedBufferRange/3"><c>gl:flushMappedBufferRange/3</c></seemfa> indicates that modifications have been made to a range of a mapped buffer object. The buffer object must previously have been mapped with the <c>?GL_MAP_FLUSH_EXPLICIT_BIT</c> flag. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFlushMappedBufferRange.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="flushMappedNamedBufferRange" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="fogf" arity="2" clause_i="1" since=""/>
@@ -1544,8 +1418,11 @@
   </func>
   <func>
     <name name="framebufferParameteri" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>set a named parameter of a framebuffer object</fsummary>
+    <desc>
+    <p><seemfa marker="gl#framebufferParameteri/3"><c>gl:framebufferParameteri/3</c></seemfa> and <c>glNamedFramebufferParameteri</c> modify the value of the parameter named <c>Pname</c> in the specified framebuffer object. There are no modifiable parameters of the default draw and read framebuffer, so they are not valid targets of these commands. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFramebufferParameteri.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="framebufferRenderbuffer" arity="4" clause_i="1" since=""/>
@@ -1617,11 +1494,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenProgramPipelines.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="genProgramsARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="genQueries" arity="1" clause_i="1" since=""/>
     <fsummary>generate query object names</fsummary>
     <desc>
@@ -1671,16 +1543,12 @@
   </func>
   <func>
     <name name="generateMipmap" arity="1" clause_i="1" since=""/>
+    <name name="generateTextureMipmap" arity="1" clause_i="1" since=""/>
     <fsummary>generate mipmaps for a specified texture object</fsummary>
     <desc>
-    <p><seemfa marker="gl#generateMipmap/1"><c>gl:generateMipmap/1</c></seemfa> and <seemfa marker="gl#generateTextureMipmap/1"><c>gl:generateTextureMipmap/1</c></seemfa> generates mipmaps for the specified texture object. For <seemfa marker="gl#generateMipmap/1"><c>gl:generateMipmap/1</c></seemfa>, the texture object that is bound to <c>Target</c>. For <seemfa marker="gl#generateTextureMipmap/1"><c>gl:generateTextureMipmap/1</c></seemfa>, <c>Texture</c> is the name of the texture object. </p>
+    <p><seemfa marker="gl#generateMipmap/1"><c>gl:generateMipmap/1</c></seemfa> and <seemfa marker="gl#generateMipmap/1"><c>gl:generateTextureMipmap/1</c></seemfa> generates mipmaps for the specified texture object. For <seemfa marker="gl#generateMipmap/1"><c>gl:generateMipmap/1</c></seemfa>, the texture object that is bound to <c>Target</c>. For <seemfa marker="gl#generateMipmap/1"><c>gl:generateTextureMipmap/1</c></seemfa>, <c>Texture</c> is the name of the texture object. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenerateMipmap.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="generateTextureMipmap" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getBooleani_v" arity="2" clause_i="1" since=""/>
@@ -1708,11 +1576,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveAttrib.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getActiveAttribARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getActiveSubroutineName" arity="4" clause_i="1" since=""/>
     <fsummary>query the name of an active shader subroutine</fsummary>
     <desc>
@@ -1735,11 +1598,6 @@
     <p><seemfa marker="gl#getActiveUniform/3"><c>gl:getActiveUniform/3</c></seemfa> returns information about an active uniform variable in the program object specified by <c>Program</c>. The number of active uniform variables can be obtained by calling <seemfa marker="gl#getProgramiv/2"><c>gl:getProgram()</c></seemfa> with the value <c>?GL_ACTIVE_UNIFORMS</c>. A value of 0 for <c>Index</c> selects the first active uniform variable. Permissible values for <c>Index</c> range from zero to the number of active uniform variables minus one.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniform.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getActiveUniformARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getActiveUniformBlockiv" arity="4" clause_i="1" since=""/>
@@ -1767,13 +1625,11 @@
   </func>
   <func>
     <name name="getActiveUniformsiv" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getAttachedObjectsARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>Returns information about several active uniform variables for the specified program object</fsummary>
+    <desc>
+    <p><seemfa marker="gl#getActiveUniformsiv/3"><c>gl:getActiveUniformsiv/3</c></seemfa> queries the value of the parameter named <c>Pname</c> for each of the uniforms within <c>Program</c> whose indices are specified in the array of <c>UniformCount</c> unsigned integers <c>UniformIndices</c>. Upon success, the value of the parameter for each uniform is written into the corresponding entry in the array whose address is given in <c>Params</c>. If an error is generated, nothing is written into <c>Params</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniformsiv.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="getAttachedShaders" arity="2" clause_i="1" since=""/>
@@ -1792,19 +1648,13 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetAttribLocation.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getAttribLocationARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getBufferParameterivARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getBufferParameteri64v" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <name name="getBufferParameterivARB" arity="2" clause_i="1" since=""/>
+    <fsummary>return parameters of a buffer object</fsummary>
+    <desc>
+    <p> These functions return in <c>Data</c> a selected parameter of the specified buffer object. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetBufferParameter.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="getBufferParameteriv" arity="2" clause_i="1" since=""/>
@@ -1854,11 +1704,6 @@
     <p><seemfa marker="gl#getCompressedTexImage/3"><c>gl:getCompressedTexImage/3</c></seemfa> and <c>glGetnCompressedTexImage</c> return the compressed texture image associated with <c>Target</c> and <c>Lod</c> into <c>Pixels</c>. <c>glGetCompressedTextureImage</c> serves the same purpose, but instead of taking a texture target, it takes the ID of the texture object. <c>Pixels</c> should be an array of <c>BufSize</c> bytes for <c>glGetnCompresedTexImage</c> and <c>glGetCompressedTextureImage</c> functions, and of <c>?GL_TEXTURE_COMPRESSED_IMAGE_SIZE</c> bytes in case of <seemfa marker="gl#getCompressedTexImage/3"><c>gl:getCompressedTexImage/3</c></seemfa>. If the actual data takes less space than <c>BufSize</c>, the remaining bytes will not be touched. <c>Target</c> specifies the texture target, to which the texture the data the function should extract the data from is bound to. <c>Lod</c> specifies the level-of-detail number of the desired image.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetCompressedTexImage.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getCompressedTexImageARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getConvolutionFilter" arity="4" clause_i="1" since=""/>
@@ -1934,11 +1779,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetGraphicsResetStatus.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getHandleARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getHistogram" arity="5" clause_i="1" since=""/>
     <fsummary>get histogram table</fsummary>
     <desc>
@@ -1956,27 +1796,13 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetHistogramParameter.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getImageHandleARB" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getInfoLogARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
+    <name name="getInternalformati64v" arity="4" clause_i="1" since=""/>
     <name name="getInternalformativ" arity="4" clause_i="1" since=""/>
     <fsummary>retrieve information about implementation-dependent support for internal formats</fsummary>
     <desc>
-    <p><seemfa marker="gl#getInternalformativ/4"><c>gl:getInternalformativ/4</c></seemfa> and <seemfa marker="gl#getInternalformati64v/4"><c>gl:getInternalformati64v/4</c></seemfa> retrieve information about implementation-dependent support for internal formats. <c>Target</c> indicates the target with which the internal format will be used and must be one of <c>?GL_RENDERBUFFER</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, or <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c>, corresponding to usage as a renderbuffer, two-dimensional multisample texture or two-dimensional multisample array texture, respectively. </p>
+    <p><seemfa marker="gl#getInternalformativ/4"><c>gl:getInternalformativ/4</c></seemfa> and <seemfa marker="gl#getInternalformativ/4"><c>gl:getInternalformati64v/4</c></seemfa> retrieve information about implementation-dependent support for internal formats. <c>Target</c> indicates the target with which the internal format will be used and must be one of <c>?GL_RENDERBUFFER</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, or <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c>, corresponding to usage as a renderbuffer, two-dimensional multisample texture or two-dimensional multisample array texture, respectively. </p>
     
-    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetInternalformat.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getInternalformati64v" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetInternalFormat.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="getLightfv" arity="2" clause_i="1" since=""/>
@@ -1993,7 +1819,7 @@
     <name name="getMapiv" arity="3" clause_i="1" since=""/>
     <fsummary>return evaluator parameters</fsummary>
     <desc>
-    <p><seemfa marker="gl#map1d/6"><c>gl:map1()</c></seemfa> and <seemfa marker="gl#map1d/6"><c>gl:map2()</c></seemfa> define evaluators. <seemfa marker="gl#getMapdv/3"><c>gl:getMap()</c></seemfa> returns evaluator parameters. <c>Target</c> chooses a map, <c>Query</c> selects a specific parameter, and <c>V</c> points to storage where the values will be returned. </p>
+    <p><c>glMap1</c> and <c>glMap2</c> define evaluators. <seemfa marker="gl#getMapdv/3"><c>gl:getMap()</c></seemfa> returns evaluator parameters. <c>Target</c> chooses a map, <c>Query</c> selects a specific parameter, and <c>V</c> points to storage where the values will be returned. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMap.xml">External documentation.</url></p></desc>
   </func>
@@ -2032,18 +1858,12 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetMultisample.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getObjectParameterfvARB" arity="2" clause_i="1" since=""/>
-    <name name="getObjectParameterivARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getPixelMapfv" arity="2" clause_i="1" since=""/>
     <name name="getPixelMapuiv" arity="2" clause_i="1" since=""/>
     <name name="getPixelMapusv" arity="2" clause_i="1" since=""/>
     <fsummary>return the specified pixel map</fsummary>
     <desc>
-    <p> See the <seemfa marker="gl#pixelMapfv/3"><c>gl:pixelMap()</c></seemfa> reference page for a description of the acceptable values for the <c>Map</c> parameter. <seemfa marker="gl#getPixelMapfv/2"><c>gl:getPixelMap()</c></seemfa> returns in <c>Data</c> the contents of the pixel map specified in <c>Map</c>. Pixel maps are used during the execution of <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, and <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>. to map color indices, stencil indices, color components, and depth components to other values. </p>
+    <p> See the <seemfa marker="gl#pixelMapfv/3"><c>gl:pixelMap()</c></seemfa> reference page for a description of the acceptable values for the <c>Map</c> parameter. <seemfa marker="gl#getPixelMapfv/2"><c>gl:getPixelMap()</c></seemfa> returns in <c>Data</c> the contents of the pixel map specified in <c>Map</c>. Pixel maps are used during the execution of <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>, <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, and <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>. to map color indices, stencil indices, color components, and depth components to other values. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetPixelMap.xml">External documentation.</url></p></desc>
   </func>
@@ -2072,12 +1892,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramBinary.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getProgramEnvParameterdvARB" arity="2" clause_i="1" since=""/>
-    <name name="getProgramEnvParameterfvARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getProgramInfoLog" arity="2" clause_i="1" since=""/>
     <fsummary>Returns the information log for a program object</fsummary>
     <desc>
@@ -2092,12 +1906,6 @@
     <p><seemfa marker="gl#getProgramInterfaceiv/3"><c>gl:getProgramInterfaceiv/3</c></seemfa> queries the property of the interface identifed by <c>ProgramInterface</c> in <c>Program</c>, the property name of which is given by <c>Pname</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramInterface.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getProgramLocalParameterdvARB" arity="2" clause_i="1" since=""/>
-    <name name="getProgramLocalParameterfvARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getProgramPipelineiv" arity="2" clause_i="1" since=""/>
@@ -2156,32 +1964,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramStage.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getProgramStringARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getQueryiv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getQueryBufferObjectiv" arity="4" clause_i="1" since=""/>
-    <name name="getQueryBufferObjectuiv" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getQueryBufferObjecti64v" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getQueryBufferObjectui64v" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getQueryIndexediv" arity="3" clause_i="1" since=""/>
     <fsummary>return parameters of an indexed query object target</fsummary>
     <desc>
@@ -2190,23 +1972,27 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryIndexed.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="getQueryBufferObjecti64v" arity="4" clause_i="1" since=""/>
+    <name name="getQueryBufferObjectiv" arity="4" clause_i="1" since=""/>
+    <name name="getQueryBufferObjectui64v" arity="4" clause_i="1" since=""/>
+    <name name="getQueryBufferObjectuiv" arity="4" clause_i="1" since=""/>
+    <name name="getQueryObjecti64v" arity="2" clause_i="1" since=""/>
     <name name="getQueryObjectiv" arity="2" clause_i="1" since=""/>
+    <name name="getQueryObjectui64v" arity="2" clause_i="1" since=""/>
     <name name="getQueryObjectuiv" arity="2" clause_i="1" since=""/>
     <fsummary>return parameters of a query object</fsummary>
     <desc>
-    <p> These commands return a selected parameter of the query object specified by <c>Id</c>. <seemfa marker="gl#getQueryObjectiv/2"><c>gl:getQueryObject()</c></seemfa> returns in <c>Params</c> a selected parameter of the query object specified by <c>Id</c>. <seemfa marker="gl#getQueryBufferObjectiv/4"><c>gl:getQueryBufferObject()</c></seemfa> returns in <c>Buffer</c> a selected parameter of the query object specified by <c>Id</c>, by writing it to <c>Buffer</c>'s data store at the byte offset specified by <c>Offset</c>. </p>
+    <p> These commands return a selected parameter of the query object specified by <c>Id</c>. <seemfa marker="gl#getQueryObjectiv/2"><c>gl:getQueryObject()</c></seemfa> returns in <c>Params</c> a selected parameter of the query object specified by <c>Id</c>. <seemfa marker="gl#getQueryObjectiv/2"><c>gl:getQueryBufferObject()</c></seemfa> returns in <c>Buffer</c> a selected parameter of the query object specified by <c>Id</c>, by writing it to <c>Buffer</c>'s data store at the byte offset specified by <c>Offset</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryObject.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getQueryObjecti64v" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getQueryObjectui64v" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <name name="getQueryiv" arity="2" clause_i="1" since=""/>
+    <fsummary>return parameters of a query object target</fsummary>
+    <desc>
+    <p><seemfa marker="gl#getQueryiv/2"><c>gl:getQueryiv/2</c></seemfa> returns in <c>Params</c> a selected parameter of the query object target specified by <c>Target</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryiv.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="getRenderbufferParameteriv" arity="2" clause_i="1" since=""/>
@@ -2218,6 +2004,7 @@
   </func>
   <func>
     <name name="getSamplerParameterIiv" arity="2" clause_i="1" since=""/>
+    <name name="getSamplerParameterIuiv" arity="2" clause_i="1" since=""/>
     <name name="getSamplerParameterfv" arity="2" clause_i="1" since=""/>
     <name name="getSamplerParameteriv" arity="2" clause_i="1" since=""/>
     <fsummary>return sampler parameter values</fsummary>
@@ -2225,11 +2012,6 @@
     <p><seemfa marker="gl#getSamplerParameteriv/2"><c>gl:getSamplerParameter()</c></seemfa> returns in <c>Params</c> the value or values of the sampler parameter specified as <c>Pname</c>. <c>Sampler</c> defines the target sampler, and must be the name of an existing sampler object, returned from a previous call to <seemfa marker="gl#genSamplers/1"><c>gl:genSamplers/1</c></seemfa>. <c>Pname</c> accepts the same symbols as <seemfa marker="gl#samplerParameteri/3"><c>gl:samplerParameter()</c></seemfa>, with the same interpretations: </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSamplerParameter.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getSamplerParameterIuiv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getShaderiv" arity="2" clause_i="1" since=""/>
@@ -2262,11 +2044,6 @@
     <p><seemfa marker="gl#getShaderSource/2"><c>gl:getShaderSource/2</c></seemfa> returns the concatenation of the source code strings from the shader object specified by <c>Shader</c>. The source code strings for a shader object are the result of a previous call to <seemfa marker="gl#shaderSource/2"><c>gl:shaderSource/2</c></seemfa>. The string returned by the function will be null terminated.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShaderSource.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getShaderSourceARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getString" arity="1" clause_i="1" since=""/>
@@ -2306,7 +2083,7 @@
     <name name="getTexEnviv" arity="2" clause_i="1" since=""/>
     <fsummary>return texture environment parameters</fsummary>
     <desc>
-    <p><seemfa marker="gl#getTexEnvfv/2"><c>gl:getTexEnv()</c></seemfa> returns in <c>Params</c> selected values of a texture environment that was specified with <seemfa marker="gl#texEnvfv/3"><c>gl:texEnv()</c></seemfa>. <c>Target</c> specifies a texture environment. </p>
+    <p><seemfa marker="gl#getTexEnvfv/2"><c>gl:getTexEnv()</c></seemfa> returns in <c>Params</c> selected values of a texture environment that was specified with <seemfa marker="gl#texEnvf/3"><c>gl:texEnv()</c></seemfa>. <c>Target</c> specifies a texture environment. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexEnv.xml">External documentation.</url></p></desc>
   </func>
@@ -2339,6 +2116,7 @@
   </func>
   <func>
     <name name="getTexParameterIiv" arity="2" clause_i="1" since=""/>
+    <name name="getTexParameterIuiv" arity="2" clause_i="1" since=""/>
     <name name="getTexParameterfv" arity="2" clause_i="1" since=""/>
     <name name="getTexParameteriv" arity="2" clause_i="1" since=""/>
     <fsummary>return texture parameter values</fsummary>
@@ -2346,11 +2124,6 @@
     <p><seemfa marker="gl#getTexParameterfv/2"><c>gl:getTexParameter()</c></seemfa> and <c>glGetTextureParameter</c> return in <c>Params</c> the value or values of the texture parameter specified as <c>Pname</c>. <c>Target</c> defines the target texture. <c>?GL_TEXTURE_1D</c>, <c>?GL_TEXTURE_2D</c>, <c>?GL_TEXTURE_3D</c>, <c>?GL_TEXTURE_1D_ARRAY</c>, <c>?GL_TEXTURE_2D_ARRAY</c>, <c>?GL_TEXTURE_RECTANGLE</c>, <c>?GL_TEXTURE_CUBE_MAP</c>, <c>?GL_TEXTURE_CUBE_MAP_ARRAY</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, or <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c> specify one-, two-, or three-dimensional, one-dimensional array, two-dimensional array, rectangle, cube-mapped or cube-mapped array, two-dimensional multisample, or two-dimensional multisample array texturing, respectively. <c>Pname</c> accepts the same symbols as <seemfa marker="gl#texParameterf/3"><c>gl:texParameter()</c></seemfa>, with the same interpretations: </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexParameter.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getTexParameterIuiv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getTransformFeedbackVarying" arity="3" clause_i="1" since=""/>
@@ -2370,12 +2143,6 @@
     <p><seemfa marker="gl#getUniformfv/2"><c>gl:getUniform()</c></seemfa> and <c>glGetnUniform</c> return in <c>Params</c> the value(s) of the specified uniform variable. The type of the uniform variable specified by <c>Location</c> determines the number of values returned. If the uniform variable is defined in the shader as a boolean, int, or float, a single value will be returned. If it is defined as a vec2, ivec2, or bvec2, two values will be returned. If it is defined as a vec3, ivec3, or bvec3, three values will be returned, and so on. To query values stored in uniform variables declared as arrays, call <seemfa marker="gl#getUniformfv/2"><c>gl:getUniform()</c></seemfa> for each element of the array. To query values stored in uniform variables declared as structures, call <seemfa marker="gl#getUniformfv/2"><c>gl:getUniform()</c></seemfa> for each field in the structure. The values for uniform variables declared as a matrix will be returned in column major order.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniform.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getUniformfvARB" arity="2" clause_i="1" since=""/>
-    <name name="getUniformivARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="getUniformBlockIndex" arity="2" clause_i="1" since=""/>
@@ -2402,11 +2169,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformLocation.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getUniformLocationARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getUniformSubroutineuiv" arity="2" clause_i="1" since=""/>
     <fsummary>retrieve the value of a subroutine uniform of a given shader stage of the current program</fsummary>
     <desc>
@@ -2415,17 +2177,9 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformSubroutine.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="getUniformi64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getUniformui64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="getVertexAttribIiv" arity="2" clause_i="1" since=""/>
+    <name name="getVertexAttribIuiv" arity="2" clause_i="1" since=""/>
+    <name name="getVertexAttribLdv" arity="2" clause_i="1" since=""/>
     <name name="getVertexAttribdv" arity="2" clause_i="1" since=""/>
     <name name="getVertexAttribfv" arity="2" clause_i="1" since=""/>
     <name name="getVertexAttribiv" arity="2" clause_i="1" since=""/>
@@ -2434,16 +2188,6 @@
     <p><seemfa marker="gl#getVertexAttribdv/2"><c>gl:getVertexAttrib()</c></seemfa> returns in <c>Params</c> the value of a generic vertex attribute parameter. The generic vertex attribute to be queried is specified by <c>Index</c>, and the parameter to be queried is specified by <c>Pname</c>.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetVertexAttrib.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="getVertexAttribIuiv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="getVertexAttribLdv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="hint" arity="2" clause_i="1" since=""/>
@@ -2554,7 +2298,7 @@
     <name name="invalidateTexSubImage" arity="8" clause_i="1" since=""/>
     <fsummary>invalidate a region of a texture image</fsummary>
     <desc>
-    <p><seemfa marker="gl#invalidateTexSubImage/8"><c>gl:invalidateTexSubImage/8</c></seemfa> invalidates all or part of a texture image. <c>Texture</c> and <c>Level</c> indicated which texture image is being invalidated. After this command, data in that subregion have undefined values. <c>Xoffset</c>, <c>Yoffset</c>, <c>Zoffset</c>, <c>Width</c>, <c>Height</c>, and <c>Depth</c> are interpreted as they are in <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>. For texture targets that don't have certain dimensions, this command treats those dimensions as having a size of 1. For example, to invalidate a portion of a two- dimensional texture, the application would use <c>Zoffset</c> equal to zero and <c>Depth</c> equal to one. Cube map textures are treated as an array of six slices in the z-dimension, where a value of <c>Zoffset</c> is interpreted as specifying face <c>?GL_TEXTURE_CUBE_MAP_POSITIVE_X</c> + <c>Zoffset</c>. </p>
+    <p><seemfa marker="gl#invalidateTexSubImage/8"><c>gl:invalidateTexSubImage/8</c></seemfa> invalidates all or part of a texture image. <c>Texture</c> and <c>Level</c> indicated which texture image is being invalidated. After this command, data in that subregion have undefined values. <c>Xoffset</c>, <c>Yoffset</c>, <c>Zoffset</c>, <c>Width</c>, <c>Height</c>, and <c>Depth</c> are interpreted as they are in <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>. For texture targets that don't have certain dimensions, this command treats those dimensions as having a size of 1. For example, to invalidate a portion of a two- dimensional texture, the application would use <c>Zoffset</c> equal to zero and <c>Depth</c> equal to one. Cube map textures are treated as an array of six slices in the z-dimension, where a value of <c>Zoffset</c> is interpreted as specifying face <c>?GL_TEXTURE_CUBE_MAP_POSITIVE_X</c> + <c>Zoffset</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glInvalidateTexSubImage.xhtml">External documentation.</url></p></desc>
   </func>
@@ -2568,16 +2312,12 @@
   </func>
   <func>
     <name name="isEnabled" arity="1" clause_i="1" since=""/>
+    <name name="isEnabledi" arity="2" clause_i="1" since=""/>
     <fsummary>test whether a capability is enabled</fsummary>
     <desc>
-    <p><seemfa marker="gl#isEnabled/1"><c>gl:isEnabled/1</c></seemfa> returns <c>?GL_TRUE</c> if <c>Cap</c> is an enabled capability and returns <c>?GL_FALSE</c> otherwise. Boolean states that are indexed may be tested with <seemfa marker="gl#isEnabledi/2"><c>gl:isEnabledi/2</c></seemfa>. For <seemfa marker="gl#isEnabledi/2"><c>gl:isEnabledi/2</c></seemfa>, <c>Index</c> specifies the index of the capability to test. <c>Index</c> must be between zero and the count of indexed capabilities for <c>Cap</c>. Initially all capabilities except <c>?GL_DITHER</c> are disabled; <c>?GL_DITHER</c> is initially enabled. </p>
+    <p><seemfa marker="gl#isEnabled/1"><c>gl:isEnabled/1</c></seemfa> returns <c>?GL_TRUE</c> if <c>Cap</c> is an enabled capability and returns <c>?GL_FALSE</c> otherwise. Boolean states that are indexed may be tested with <seemfa marker="gl#isEnabled/1"><c>gl:isEnabledi/2</c></seemfa>. For <seemfa marker="gl#isEnabled/1"><c>gl:isEnabledi/2</c></seemfa>, <c>Index</c> specifies the index of the capability to test. <c>Index</c> must be between zero and the count of indexed capabilities for <c>Cap</c>. Initially all capabilities except <c>?GL_DITHER</c> are disabled; <c>?GL_DITHER</c> is initially enabled. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsEnabled.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="isEnabledi" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="isFramebuffer" arity="1" clause_i="1" since=""/>
@@ -2588,22 +2328,12 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsFramebuffer.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="isImageHandleResidentARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="isList" arity="1" clause_i="1" since=""/>
     <fsummary>determine if a name corresponds to a display list</fsummary>
     <desc>
     <p><seemfa marker="gl#isList/1"><c>gl:isList/1</c></seemfa> returns <c>?GL_TRUE</c> if <c>List</c> is the name of a display list and returns <c>?GL_FALSE</c> if it is not, or if an error occurs. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIsList.xml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="isNamedStringARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="isProgram" arity="1" clause_i="1" since=""/>
@@ -2670,11 +2400,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsTexture.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="isTextureHandleResidentARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="isTransformFeedback" arity="1" clause_i="1" since=""/>
     <fsummary>determine if a name corresponds to a transform feedback object</fsummary>
     <desc>
@@ -2737,11 +2462,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLinkProgram.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="linkProgramARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="listBase" arity="1" clause_i="1" since=""/>
     <fsummary>set the display-list base for <c>glCallLists</c></fsummary>
     <desc>
@@ -2784,12 +2504,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadTransposeMatrix.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="loadTransposeMatrixdARB" arity="1" clause_i="1" since=""/>
-    <name name="loadTransposeMatrixfARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="logicOp" arity="1" clause_i="1" since=""/>
     <fsummary>specify a logical pixel operation for rendering</fsummary>
     <desc>
@@ -2798,32 +2512,22 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLogicOp.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="makeImageHandleNonResidentARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="makeImageHandleResidentARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="makeTextureHandleNonResidentARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="makeTextureHandleResidentARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="map1d" arity="6" clause_i="1" since=""/>
     <name name="map1f" arity="6" clause_i="1" since=""/>
+    <fsummary>define a one-dimensional evaluator</fsummary>
+    <desc>
+    <p> Evaluators provide a way to use polynomial or rational polynomial mapping to produce vertices, normals, texture coordinates, and colors. The values produced by an evaluator are sent to further stages of GL processing just as if they had been presented using <seemfa marker="gl#vertex2d/2"><c>gl:vertex()</c></seemfa>, <seemfa marker="gl#normal3b/3"><c>gl:normal()</c></seemfa>, <seemfa marker="gl#texCoord1d/1"><c>gl:texCoord()</c></seemfa>, and <seemfa marker="gl#color3b/3"><c>gl:color()</c></seemfa> commands, except that the generated values do not update the current normal, texture coordinates, or color. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap1.xml">External documentation.</url></p></desc>
+  </func>
+  <func>
     <name name="map2d" arity="10" clause_i="1" since=""/>
     <name name="map2f" arity="10" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>define a two-dimensional evaluator</fsummary>
+    <desc>
+    <p> Evaluators provide a way to use polynomial or rational polynomial mapping to produce vertices, normals, texture coordinates, and colors. The values produced by an evaluator are sent on to further stages of GL processing just as if they had been presented using <seemfa marker="gl#vertex2d/2"><c>gl:vertex()</c></seemfa>, <seemfa marker="gl#normal3b/3"><c>gl:normal()</c></seemfa>, <seemfa marker="gl#texCoord1d/1"><c>gl:texCoord()</c></seemfa>, and <seemfa marker="gl#color3b/3"><c>gl:color()</c></seemfa> commands, except that the generated values do not update the current normal, texture coordinates, or color. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap2.xml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="mapGrid1d" arity="3" clause_i="1" since=""/>
@@ -2832,7 +2536,7 @@
     <name name="mapGrid2f" arity="6" clause_i="1" since=""/>
     <fsummary>define a one- or two-dimensional mesh</fsummary>
     <desc>
-    <p><seemfa marker="gl#mapGrid1d/3"><c>gl:mapGrid()</c></seemfa> and <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> are used together to efficiently generate and evaluate a series of evenly-spaced map domain values. <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> steps through the integer domain of a one- or two-dimensional grid, whose range is the domain of the evaluation maps specified by <seemfa marker="gl#map1d/6"><c>gl:map1()</c></seemfa> and <seemfa marker="gl#map1d/6"><c>gl:map2()</c></seemfa>. </p>
+    <p><seemfa marker="gl#mapGrid1d/3"><c>gl:mapGrid()</c></seemfa> and <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> are used together to efficiently generate and evaluate a series of evenly-spaced map domain values. <seemfa marker="gl#evalMesh1/3"><c>gl:evalMesh()</c></seemfa> steps through the integer domain of a one- or two-dimensional grid, whose range is the domain of the evaluation maps specified by <c>glMap1</c> and <c>glMap2</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMapGrid.xml">External documentation.</url></p></desc>
   </func>
@@ -2848,13 +2552,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMaterial.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="matrixIndexubvARB" arity="1" clause_i="1" since=""/>
-    <name name="matrixIndexuivARB" arity="1" clause_i="1" since=""/>
-    <name name="matrixIndexusvARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="matrixMode" arity="1" clause_i="1" since=""/>
     <fsummary>specify which matrix is the current matrix</fsummary>
     <desc>
@@ -2863,27 +2560,13 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMatrixMode.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="maxShaderCompilerThreadsARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="maxShaderCompilerThreadsKHR" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="memoryBarrier" arity="1" clause_i="1" since=""/>
+    <name name="memoryBarrierByRegion" arity="1" clause_i="1" since=""/>
     <fsummary>defines a barrier ordering memory transactions</fsummary>
     <desc>
     <p><seemfa marker="gl#memoryBarrier/1"><c>gl:memoryBarrier/1</c></seemfa> defines a barrier ordering the memory transactions issued prior to the command relative to those issued after the barrier. For the purposes of this ordering, memory transactions performed by shaders are considered to be issued by the rendering command that triggered the execution of the shader. <c>Barriers</c> is a bitfield indicating the set of operations that are synchronized with shader stores; the bits used in <c>Barriers</c> are as follows: </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="memoryBarrierByRegion" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="minSampleShading" arity="1" clause_i="1" since=""/>
@@ -2918,12 +2601,6 @@
     <p><seemfa marker="gl#multTransposeMatrixf/1"><c>gl:multTransposeMatrix()</c></seemfa> multiplies the current matrix with the one specified using <c>M</c>, and replaces the current matrix with the product. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultTransposeMatrix.xml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="multTransposeMatrixdARB" arity="1" clause_i="1" since=""/>
-    <name name="multTransposeMatrixfARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="multiDrawArrays" arity="3" clause_i="1" since=""/>
@@ -2986,10 +2663,11 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="endList" arity="0" clause_i="1" since=""/>
     <name name="newList" arity="2" clause_i="1" since=""/>
     <fsummary>create or replace a display list</fsummary>
     <desc>
-    <p> Display lists are groups of GL commands that have been stored for subsequent execution. Display lists are created with <seemfa marker="gl#newList/2"><c>gl:newList/2</c></seemfa>. All subsequent commands are placed in the display list, in the order issued, until <seemfa marker="gl#endList/0"><c>gl:endList/0</c></seemfa> is called. </p>
+    <p> Display lists are groups of GL commands that have been stored for subsequent execution. Display lists are created with <seemfa marker="gl#newList/2"><c>gl:newList/2</c></seemfa>. All subsequent commands are placed in the display list, in the order issued, until <seemfa marker="gl#newList/2"><c>gl:endList/0</c></seemfa> is called. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNewList.xml">External documentation.</url></p></desc>
   </func>
@@ -3065,7 +2743,7 @@
     <name name="pixelMapusv" arity="3" clause_i="1" since=""/>
     <fsummary>set up pixel transfer maps</fsummary>
     <desc>
-    <p><seemfa marker="gl#pixelMapfv/3"><c>gl:pixelMap()</c></seemfa> sets up translation tables, or <c>maps</c>, used by <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>. Additionally, if the ARB_imaging subset is supported, the routines <seemfa marker="gl#colorTable/6"><c>gl:colorTable/6</c></seemfa>, <seemfa marker="gl#colorSubTable/6"><c>gl:colorSubTable/6</c></seemfa>, <seemfa marker="gl#convolutionFilter1D/6"><c>gl:convolutionFilter1D/6</c></seemfa>, <seemfa marker="gl#convolutionFilter2D/7"><c>gl:convolutionFilter2D/7</c></seemfa>, <seemfa marker="gl#histogram/4"><c>gl:histogram/4</c></seemfa>, <seemfa marker="gl#minmax/3"><c>gl:minmax/3</c></seemfa>, and <seemfa marker="gl#separableFilter2D/8"><c>gl:separableFilter2D/8</c></seemfa>. Use of these maps is described completely in the <seemfa marker="gl#pixelTransferf/2"><c>gl:pixelTransfer()</c></seemfa> reference page, and partly in the reference pages for the pixel and texture image commands. Only the specification of the maps is described in this reference page. </p>
+    <p><seemfa marker="gl#pixelMapfv/3"><c>gl:pixelMap()</c></seemfa> sets up translation tables, or <c>maps</c>, used by <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>. Additionally, if the ARB_imaging subset is supported, the routines <seemfa marker="gl#colorTable/6"><c>gl:colorTable/6</c></seemfa>, <seemfa marker="gl#colorSubTable/6"><c>gl:colorSubTable/6</c></seemfa>, <seemfa marker="gl#convolutionFilter1D/6"><c>gl:convolutionFilter1D/6</c></seemfa>, <seemfa marker="gl#convolutionFilter2D/7"><c>gl:convolutionFilter2D/7</c></seemfa>, <seemfa marker="gl#histogram/4"><c>gl:histogram/4</c></seemfa>, <seemfa marker="gl#minmax/3"><c>gl:minmax/3</c></seemfa>, and <seemfa marker="gl#separableFilter2D/8"><c>gl:separableFilter2D/8</c></seemfa>. Use of these maps is described completely in the <seemfa marker="gl#pixelTransferf/2"><c>gl:pixelTransfer()</c></seemfa> reference page, and partly in the reference pages for the pixel and texture image commands. Only the specification of the maps is described in this reference page. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelMap.xml">External documentation.</url></p></desc>
   </func>
@@ -3074,7 +2752,7 @@
     <name name="pixelStorei" arity="2" clause_i="1" since=""/>
     <fsummary>set pixel storage modes</fsummary>
     <desc>
-    <p><seemfa marker="gl#pixelStoref/2"><c>gl:pixelStore()</c></seemfa> sets pixel storage modes that affect the operation of subsequent <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa> as well as the unpacking of texture patterns (see <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>), <seemfa marker="gl#compressedTexImage1D/7"><c>gl:compressedTexImage1D/7</c></seemfa>, <seemfa marker="gl#compressedTexImage2D/8"><c>gl:compressedTexImage2D/8</c></seemfa>, <seemfa marker="gl#compressedTexImage3D/9"><c>gl:compressedTexImage3D/9</c></seemfa>, <seemfa marker="gl#compressedTexSubImage1D/7"><c>gl:compressedTexSubImage1D/7</c></seemfa>, <seemfa marker="gl#compressedTexSubImage2D/9"><c>gl:compressedTexSubImage2D/9</c></seemfa> or <seemfa marker="gl#compressedTexSubImage1D/7"><c>gl:compressedTexSubImage1D/7</c></seemfa>. </p>
+    <p><seemfa marker="gl#pixelStoref/2"><c>gl:pixelStore()</c></seemfa> sets pixel storage modes that affect the operation of subsequent <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa> as well as the unpacking of texture patterns (see <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>, <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>), <seemfa marker="gl#compressedTexImage1D/7"><c>gl:compressedTexImage1D/7</c></seemfa>, <seemfa marker="gl#compressedTexImage2D/8"><c>gl:compressedTexImage2D/8</c></seemfa>, <seemfa marker="gl#compressedTexImage3D/9"><c>gl:compressedTexImage3D/9</c></seemfa>, <seemfa marker="gl#compressedTexSubImage1D/7"><c>gl:compressedTexSubImage1D/7</c></seemfa>, <seemfa marker="gl#compressedTexSubImage2D/9"><c>gl:compressedTexSubImage2D/9</c></seemfa> or <seemfa marker="gl#compressedTexSubImage1D/7"><c>gl:compressedTexSubImage1D/7</c></seemfa>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPixelStore.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3083,7 +2761,7 @@
     <name name="pixelTransferi" arity="2" clause_i="1" since=""/>
     <fsummary>set pixel transfer modes</fsummary>
     <desc>
-    <p><seemfa marker="gl#pixelTransferf/2"><c>gl:pixelTransfer()</c></seemfa> sets pixel transfer modes that affect the operation of subsequent <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa> commands. Additionally, if the ARB_imaging subset is supported, the routines <seemfa marker="gl#colorTable/6"><c>gl:colorTable/6</c></seemfa>, <seemfa marker="gl#colorSubTable/6"><c>gl:colorSubTable/6</c></seemfa>, <seemfa marker="gl#convolutionFilter1D/6"><c>gl:convolutionFilter1D/6</c></seemfa>, <seemfa marker="gl#convolutionFilter2D/7"><c>gl:convolutionFilter2D/7</c></seemfa>, <seemfa marker="gl#histogram/4"><c>gl:histogram/4</c></seemfa>, <seemfa marker="gl#minmax/3"><c>gl:minmax/3</c></seemfa>, and <seemfa marker="gl#separableFilter2D/8"><c>gl:separableFilter2D/8</c></seemfa> are also affected. The algorithms that are specified by pixel transfer modes operate on pixels after they are read from the frame buffer (<seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa><seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, and <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>), or unpacked from client memory (<seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage3D/11</c></seemfa>). Pixel transfer operations happen in the same order, and in the same manner, regardless of the command that resulted in the pixel operation. Pixel storage modes (see <seemfa marker="gl#pixelStoref/2"><c>gl:pixelStore()</c></seemfa>) control the unpacking of pixels being read from client memory and the packing of pixels being written back into client memory. </p>
+    <p><seemfa marker="gl#pixelTransferf/2"><c>gl:pixelTransfer()</c></seemfa> sets pixel transfer modes that affect the operation of subsequent <seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa>, <seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, <seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa> commands. Additionally, if the ARB_imaging subset is supported, the routines <seemfa marker="gl#colorTable/6"><c>gl:colorTable/6</c></seemfa>, <seemfa marker="gl#colorSubTable/6"><c>gl:colorSubTable/6</c></seemfa>, <seemfa marker="gl#convolutionFilter1D/6"><c>gl:convolutionFilter1D/6</c></seemfa>, <seemfa marker="gl#convolutionFilter2D/7"><c>gl:convolutionFilter2D/7</c></seemfa>, <seemfa marker="gl#histogram/4"><c>gl:histogram/4</c></seemfa>, <seemfa marker="gl#minmax/3"><c>gl:minmax/3</c></seemfa>, and <seemfa marker="gl#separableFilter2D/8"><c>gl:separableFilter2D/8</c></seemfa> are also affected. The algorithms that are specified by pixel transfer modes operate on pixels after they are read from the frame buffer (<seemfa marker="gl#copyPixels/5"><c>gl:copyPixels/5</c></seemfa><seemfa marker="gl#copyTexImage1D/7"><c>gl:copyTexImage1D/7</c></seemfa>, <seemfa marker="gl#copyTexImage2D/8"><c>gl:copyTexImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage1D/6"><c>gl:copyTexSubImage1D/6</c></seemfa>, <seemfa marker="gl#copyTexSubImage2D/8"><c>gl:copyTexSubImage2D/8</c></seemfa>, <seemfa marker="gl#copyTexSubImage3D/9"><c>gl:copyTexSubImage3D/9</c></seemfa>, and <seemfa marker="gl#readPixels/7"><c>gl:readPixels/7</c></seemfa>), or unpacked from client memory (<seemfa marker="gl#drawPixels/5"><c>gl:drawPixels/5</c></seemfa>, <seemfa marker="gl#texImage1D/8"><c>gl:texImage1D/8</c></seemfa>, <seemfa marker="gl#texImage2D/9"><c>gl:texImage2D/9</c></seemfa>, <seemfa marker="gl#texImage3D/10"><c>gl:texImage3D/10</c></seemfa>, <seemfa marker="gl#texSubImage1D/7"><c>gl:texSubImage1D/7</c></seemfa>, <seemfa marker="gl#texSubImage2D/9"><c>gl:texSubImage2D/9</c></seemfa>, and <seemfa marker="gl#texSubImage3D/11"><c>gl:texSubImage3D/11</c></seemfa>). Pixel transfer operations happen in the same order, and in the same manner, regardless of the command that resulted in the pixel operation. Pixel storage modes (see <seemfa marker="gl#pixelStoref/2"><c>gl:pixelStore()</c></seemfa>) control the unpacking of pixels being read from client memory and the packing of pixels being written back into client memory. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelTransfer.xml">External documentation.</url></p></desc>
   </func>
@@ -3144,11 +2822,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPolygonStipple.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="primitiveBoundingBoxARB" arity="8" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="primitiveRestartIndex" arity="1" clause_i="1" since=""/>
     <fsummary>specify the primitive restart index</fsummary>
     <desc>
@@ -3173,33 +2846,12 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramBinary.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="programEnvParameter4dARB" arity="6" clause_i="1" since=""/>
-    <name name="programEnvParameter4dvARB" arity="3" clause_i="1" since=""/>
-    <name name="programEnvParameter4fARB" arity="6" clause_i="1" since=""/>
-    <name name="programEnvParameter4fvARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programLocalParameter4dARB" arity="6" clause_i="1" since=""/>
-    <name name="programLocalParameter4dvARB" arity="3" clause_i="1" since=""/>
-    <name name="programLocalParameter4fARB" arity="6" clause_i="1" since=""/>
-    <name name="programLocalParameter4fvARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="programParameteri" arity="3" clause_i="1" since=""/>
     <fsummary>specify a parameter for a program object</fsummary>
     <desc>
     <p><seemfa marker="gl#programParameteri/3"><c>gl:programParameter()</c></seemfa> specifies a new value for the parameter nameed by <c>Pname</c> for the program object <c>Program</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramParameter.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="programStringARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="programUniform1d" arity="3" clause_i="1" since=""/>
@@ -3257,91 +2909,6 @@
     <p><seemfa marker="gl#programUniform1i/3"><c>gl:programUniform()</c></seemfa> modifies the value of a uniform variable or a uniform variable array. The location of the uniform variable to be modified is specified by <c>Location</c>, which should be a value returned by <seemfa marker="gl#getUniformLocation/2"><c>gl:getUniformLocation/2</c></seemfa>. <seemfa marker="gl#programUniform1i/3"><c>gl:programUniform()</c></seemfa> operates on the program object specified by <c>Program</c>.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramUniform.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="programUniform1i64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform1i64ARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform1ui64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform1ui64ARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform2i64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform2i64ARB" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform2ui64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform2ui64ARB" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform3i64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform3i64ARB" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform3ui64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform3ui64ARB" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform4i64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform4i64ARB" arity="6" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform4ui64vARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniform4ui64ARB" arity="6" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="programUniformHandleui64ARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="provokingVertex" arity="1" clause_i="1" since=""/>
@@ -3540,11 +3107,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSampleCoverage.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="sampleCoverageARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="sampleMaski" arity="2" clause_i="1" since=""/>
     <fsummary>set the value of a sub-word of the sample mask</fsummary>
     <desc>
@@ -3554,6 +3116,7 @@
   </func>
   <func>
     <name name="samplerParameterIiv" arity="3" clause_i="1" since=""/>
+    <name name="samplerParameterIuiv" arity="3" clause_i="1" since=""/>
     <name name="samplerParameterf" arity="3" clause_i="1" since=""/>
     <name name="samplerParameterfv" arity="3" clause_i="1" since=""/>
     <name name="samplerParameteri" arity="3" clause_i="1" since=""/>
@@ -3563,11 +3126,6 @@
     <p><seemfa marker="gl#samplerParameteri/3"><c>gl:samplerParameter()</c></seemfa> assigns the value or values in <c>Params</c> to the sampler parameter specified as <c>Pname</c>. <c>Sampler</c> specifies the sampler object to be modified, and must be the name of a sampler object previously returned from a call to <seemfa marker="gl#genSamplers/1"><c>gl:genSamplers/1</c></seemfa>. The following symbols are accepted in <c>Pname</c>: </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSamplerParameter.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="samplerParameterIuiv" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="scaled" arity="3" clause_i="1" since=""/>
@@ -3588,14 +3146,20 @@
   </func>
   <func>
     <name name="scissorArrayv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>define the scissor box for multiple viewports</fsummary>
+    <desc>
+    <p><seemfa marker="gl#scissorArrayv/2"><c>gl:scissorArrayv/2</c></seemfa> defines rectangles, called scissor boxes, in window coordinates for each viewport. <c>First</c> specifies the index of the first scissor box to modify and <c>Count</c> specifies the number of scissor boxes to modify. <c>First</c> must be less than the value of <c>?GL_MAX_VIEWPORTS</c>, and <c>First</c> + <c>Count</c> must be less than or equal to the value of <c>?GL_MAX_VIEWPORTS</c>. <c>V</c> specifies the address of an array containing integers specifying the lower left corner of the scissor boxes, and the width and height of the scissor boxes, in that order. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glScissorArray.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="scissorIndexed" arity="5" clause_i="1" since=""/>
     <name name="scissorIndexedv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>define the scissor box for a specific viewport</fsummary>
+    <desc>
+    <p><seemfa marker="gl#scissorIndexed/5"><c>gl:scissorIndexed/5</c></seemfa> defines the scissor box for a specified viewport. <c>Index</c> specifies the index of scissor box to modify. <c>Index</c> must be less than the value of <c>?GL_MAX_VIEWPORTS</c>. For <seemfa marker="gl#scissorIndexed/5"><c>gl:scissorIndexed/5</c></seemfa>, <c>Left</c>, <c>Bottom</c>, <c>Width</c> and <c>Height</c> specify the left, bottom, width and height of the scissor box, in pixels, respectively. For <seemfa marker="gl#scissorIndexed/5"><c>gl:scissorIndexedv/2</c></seemfa>, <c>V</c> specifies the address of an array containing integers specifying the lower left corner of the scissor box, and the width and height of the scissor box, in that order. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glScissorIndexed.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="secondaryColor3b" arity="3" clause_i="1" since=""/>
@@ -3669,11 +3233,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glShaderSource.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="shaderSourceARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="shaderStorageBlockBinding" arity="3" clause_i="1" since=""/>
     <fsummary>change an active shader storage block binding</fsummary>
     <desc>
@@ -3731,17 +3290,19 @@
   </func>
   <func>
     <name name="texBuffer" arity="3" clause_i="1" since=""/>
+    <name name="textureBuffer" arity="3" clause_i="1" since=""/>
     <fsummary>attach a buffer object's data store to a buffer texture object</fsummary>
     <desc>
-    <p><seemfa marker="gl#texBuffer/3"><c>gl:texBuffer/3</c></seemfa> and <seemfa marker="gl#textureBuffer/3"><c>gl:textureBuffer/3</c></seemfa> attaches the data store of a specified buffer object to a specified texture object, and specify the storage format for the texture image found in the buffer object. The texture object must be a buffer texture. </p>
+    <p><seemfa marker="gl#texBuffer/3"><c>gl:texBuffer/3</c></seemfa> and <seemfa marker="gl#texBuffer/3"><c>gl:textureBuffer/3</c></seemfa> attaches the data store of a specified buffer object to a specified texture object, and specify the storage format for the texture image found in the buffer object. The texture object must be a buffer texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBuffer.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="texBufferRange" arity="5" clause_i="1" since=""/>
+    <name name="textureBufferRange" arity="5" clause_i="1" since=""/>
     <fsummary>attach a range of a buffer object's data store to a buffer texture object</fsummary>
     <desc>
-    <p><seemfa marker="gl#texBufferRange/5"><c>gl:texBufferRange/5</c></seemfa> and <seemfa marker="gl#textureBufferRange/5"><c>gl:textureBufferRange/5</c></seemfa> attach a range of the data store of a specified buffer object to a specified texture object, and specify the storage format for the texture image found in the buffer object. The texture object must be a buffer texture. </p>
+    <p><seemfa marker="gl#texBufferRange/5"><c>gl:texBufferRange/5</c></seemfa> and <seemfa marker="gl#texBufferRange/5"><c>gl:textureBufferRange/5</c></seemfa> attach a range of the data store of a specified buffer object to a specified texture object, and specify the storage format for the texture image found in the buffer object. The texture object must be a buffer texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBufferRange.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3793,23 +3354,15 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoordPointer.xml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="texEnvf" arity="3" clause_i="1" since=""/>
     <name name="texEnvfv" arity="3" clause_i="1" since=""/>
+    <name name="texEnvi" arity="3" clause_i="1" since=""/>
     <name name="texEnviv" arity="3" clause_i="1" since=""/>
     <fsummary>set texture environment parameters</fsummary>
     <desc>
     <p> A texture environment specifies how texture values are interpreted when a fragment is textured. When <c>Target</c> is <c>?GL_TEXTURE_FILTER_CONTROL</c>, <c>Pname</c> must be <c>?GL_TEXTURE_LOD_BIAS</c>. When <c>Target</c> is <c>?GL_TEXTURE_ENV</c>, <c>Pname</c> can be <c>?GL_TEXTURE_ENV_MODE</c>, <c>?GL_TEXTURE_ENV_COLOR</c>, <c>?GL_COMBINE_RGB</c>, <c>?GL_COMBINE_ALPHA</c>, <c>?GL_RGB_SCALE</c>, <c>?GL_ALPHA_SCALE</c>, <c>?GL_SRC0_RGB</c>, <c>?GL_SRC1_RGB</c>, <c>?GL_SRC2_RGB</c>, <c>?GL_SRC0_ALPHA</c>, <c>?GL_SRC1_ALPHA</c>, or <c>?GL_SRC2_ALPHA</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexEnv.xml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="texEnvf" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="texEnvi" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="texGend" arity="3" clause_i="1" since=""/>
@@ -3865,32 +3418,23 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage3DMultisample.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="texPageCommitmentARB" arity="9" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="texParameterIiv" arity="3" clause_i="1" since=""/>
+    <name name="texParameterIuiv" arity="3" clause_i="1" since=""/>
     <name name="texParameterf" arity="3" clause_i="1" since=""/>
     <name name="texParameterfv" arity="3" clause_i="1" since=""/>
     <name name="texParameteri" arity="3" clause_i="1" since=""/>
     <name name="texParameteriv" arity="3" clause_i="1" since=""/>
     <fsummary>set texture parameters</fsummary>
     <desc>
-    <p><seemfa marker="gl#texParameterf/3"><c>gl:texParameter()</c></seemfa> and <c>glTextureParameter</c> assign the value or values in <c>Params</c> to the texture parameter specified as <c>Pname</c>. For <seemfa marker="gl#texParameterf/3"><c>gl:texParameter()</c></seemfa>, <c>Target</c> defines the target texture, either <c>?GL_TEXTURE_1D</c>, <c>?GL_TEXTURE_1D_ARRAY</c>, <c>?GL_TEXTURE_2D</c>, <c>?GL_TEXTURE_2D_ARRAY</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c>, <c>?GL_TEXTURE_3D</c>, <c>?GL_TEXTURE_CUBE_MAP</c>, <c>?GL_TEXTURE_CUBE_MAP_ARRAY</c>, or <c>?GL_TEXTURE_RECTANGLE</c>. The following symbols are accepted in <c>Pname</c>:</p>
+    <p><seemfa marker="gl#texParameterf/3"><c>gl:texParameter()</c></seemfa> and <seemfa marker="gl#texParameterf/3"><c>gl:textureParameter()</c></seemfa> assign the value or values in <c>Params</c> to the texture parameter specified as <c>Pname</c>. For <seemfa marker="gl#texParameterf/3"><c>gl:texParameter()</c></seemfa>, <c>Target</c> defines the target texture, either <c>?GL_TEXTURE_1D</c>, <c>?GL_TEXTURE_1D_ARRAY</c>, <c>?GL_TEXTURE_2D</c>, <c>?GL_TEXTURE_2D_ARRAY</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE</c>, <c>?GL_TEXTURE_2D_MULTISAMPLE_ARRAY</c>, <c>?GL_TEXTURE_3D</c>, <c>?GL_TEXTURE_CUBE_MAP</c>, <c>?GL_TEXTURE_CUBE_MAP_ARRAY</c>, or <c>?GL_TEXTURE_RECTANGLE</c>. The following symbols are accepted in <c>Pname</c>:</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexParameter.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="texParameterIuiv" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="texStorage1D" arity="4" clause_i="1" since=""/>
     <fsummary>simultaneously specify storage for all levels of a one-dimensional texture</fsummary>
     <desc>
-    <p><seemfa marker="gl#texStorage1D/4"><c>gl:texStorage1D/4</c></seemfa> and <c>glTextureStorage1D</c> specify the storage requirements for all levels of a one-dimensional texture simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
+    <p><seemfa marker="gl#texStorage1D/4"><c>gl:texStorage1D/4</c></seemfa> and <seemfa marker="gl#texStorage1D/4"><c>gl:textureStorage1D()</c></seemfa> specify the storage requirements for all levels of a one-dimensional texture simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage1D.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3898,7 +3442,7 @@
     <name name="texStorage2D" arity="5" clause_i="1" since=""/>
     <fsummary>simultaneously specify storage for all levels of a two-dimensional or one-dimensional array texture</fsummary>
     <desc>
-    <p><seemfa marker="gl#texStorage2D/5"><c>gl:texStorage2D/5</c></seemfa> and <c>glTextureStorage2D</c> specify the storage requirements for all levels of a two-dimensional texture or one-dimensional texture array simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
+    <p><seemfa marker="gl#texStorage2D/5"><c>gl:texStorage2D/5</c></seemfa> and <seemfa marker="gl#texStorage2D/5"><c>gl:textureStorage2D()</c></seemfa> specify the storage requirements for all levels of a two-dimensional texture or one-dimensional texture array simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage2D.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3906,7 +3450,7 @@
     <name name="texStorage2DMultisample" arity="6" clause_i="1" since=""/>
     <fsummary>specify storage for a two-dimensional multisample texture</fsummary>
     <desc>
-    <p><seemfa marker="gl#texStorage2DMultisample/6"><c>gl:texStorage2DMultisample/6</c></seemfa> and <c>glTextureStorage2DMultisample</c> specify the storage requirements for a two-dimensional multisample texture. Once a texture is specified with this command, its format and dimensions become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
+    <p><seemfa marker="gl#texStorage2DMultisample/6"><c>gl:texStorage2DMultisample/6</c></seemfa> and <seemfa marker="gl#texStorage2DMultisample/6"><c>gl:textureStorage2DMultisample()</c></seemfa> specify the storage requirements for a two-dimensional multisample texture. Once a texture is specified with this command, its format and dimensions become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage2DMultisample.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3914,7 +3458,7 @@
     <name name="texStorage3D" arity="6" clause_i="1" since=""/>
     <fsummary>simultaneously specify storage for all levels of a three-dimensional, two-dimensional array or cube-map array texture</fsummary>
     <desc>
-    <p><seemfa marker="gl#texStorage3D/6"><c>gl:texStorage3D/6</c></seemfa> and <c>glTextureStorage3D</c> specify the storage requirements for all levels of a three-dimensional, two-dimensional array or cube-map array texture simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
+    <p><seemfa marker="gl#texStorage3D/6"><c>gl:texStorage3D/6</c></seemfa> and <seemfa marker="gl#texStorage3D/6"><c>gl:textureStorage3D()</c></seemfa> specify the storage requirements for all levels of a three-dimensional, two-dimensional array or cube-map array texture simultaneously. Once a texture is specified with this command, the format and dimensions of all levels become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage3D.xhtml">External documentation.</url></p></desc>
   </func>
@@ -3922,16 +3466,33 @@
     <name name="texStorage3DMultisample" arity="7" clause_i="1" since=""/>
     <fsummary>specify storage for a two-dimensional multisample array texture</fsummary>
     <desc>
-    <p><seemfa marker="gl#texStorage3DMultisample/7"><c>gl:texStorage3DMultisample/7</c></seemfa> and <c>glTextureStorage3DMultisample</c> specify the storage requirements for a two-dimensional multisample array texture. Once a texture is specified with this command, its format and dimensions become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
+    <p><seemfa marker="gl#texStorage3DMultisample/7"><c>gl:texStorage3DMultisample/7</c></seemfa> and <seemfa marker="gl#texStorage3DMultisample/7"><c>gl:textureStorage3DMultisample()</c></seemfa> specify the storage requirements for a two-dimensional multisample array texture. Once a texture is specified with this command, its format and dimensions become immutable unless it is a proxy texture. The contents of the image may still be modified, however, its storage requirements may not change. Such a texture is referred to as an <c>immutable-format</c> texture. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage3DMultisample.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="texSubImage1D" arity="7" clause_i="1" since=""/>
+    <fsummary>specify a one-dimensional texture subimage</fsummary>
+    <desc>
+    <p> Texturing maps a portion of a specified texture image onto each graphical primitive for which texturing is enabled. To enable or disable one-dimensional texturing, call <seemfa marker="gl#enable/1"><c>gl:enable/1</c></seemfa> and <seemfa marker="gl#enable/1"><c>gl:disable/1</c></seemfa> with argument <c>?GL_TEXTURE_1D</c>. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexSubImage1D.xhtml">External documentation.</url></p></desc>
+  </func>
+  <func>
     <name name="texSubImage2D" arity="9" clause_i="1" since=""/>
+    <fsummary>specify a two-dimensional texture subimage</fsummary>
+    <desc>
+    <p> Texturing maps a portion of a specified texture image onto each graphical primitive for which texturing is enabled. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexSubImage2D.xhtml">External documentation.</url></p></desc>
+  </func>
+  <func>
     <name name="texSubImage3D" arity="11" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>specify a three-dimensional texture subimage</fsummary>
+    <desc>
+    <p> Texturing maps a portion of a specified texture image onto each graphical primitive for which texturing is enabled. </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexSubImage3D.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="textureBarrier" arity="0" clause_i="1" since=""/>
@@ -3940,16 +3501,6 @@
     <p> The values of rendered fragments are undefined when a shader stage fetches texels and the same texels are written via fragment shader outputs, even if the reads and writes are not in the same drawing command. To safely read the result of a written texel via a texel fetch in a subsequent drawing command, call <seemfa marker="gl#textureBarrier/0"><c>gl:textureBarrier/0</c></seemfa> between the two drawing commands to guarantee that writes have completed and caches have been invalidated before subsequent drawing commands are executed. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTextureBarrier.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="textureBuffer" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="textureBufferRange" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="textureView" arity="8" clause_i="1" since=""/>
@@ -3971,7 +3522,7 @@
     <name name="transformFeedbackBufferRange" arity="5" clause_i="1" since=""/>
     <fsummary>bind a range within a buffer object to a transform feedback buffer object</fsummary>
     <desc>
-    <p><seemfa marker="gl#transformFeedbackBufferRange/5"><c>gl:transformFeedbackBufferRange/5</c></seemfa>  binds a range of the buffer object <c>Buffer</c> represented by <c>Offset</c> and <c>Size</c> to the binding point at index <c>Index</c> of the transform feedback object <c>Xfb</c>.  </p>
+    <p><seemfa marker="gl#transformFeedbackBufferRange/5"><c>gl:transformFeedbackBufferRange/5</c></seemfa> binds a range of the buffer object <c>Buffer</c> represented by <c>Offset</c> and <c>Size</c> to the binding point at index <c>Index</c> of the transform feedback object <c>Xfb</c>. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTransformFeedbackBufferRange.xhtml">External documentation.</url></p></desc>
   </func>
@@ -4050,97 +3601,12 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniform.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="uniform1i64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform1i64ARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform1ui64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform1ui64ARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform2i64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform2i64ARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform2ui64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform2ui64ARB" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform3i64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform3i64ARB" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform3ui64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform3ui64ARB" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform4i64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform4i64ARB" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform4ui64vARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="uniform4ui64ARB" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="uniformBlockBinding" arity="3" clause_i="1" since=""/>
     <fsummary>assign a binding point to an active uniform block</fsummary>
     <desc>
     <p> Binding points for active uniform blocks are assigned using <seemfa marker="gl#uniformBlockBinding/3"><c>gl:uniformBlockBinding/3</c></seemfa>. Each of a program's active uniform blocks has a corresponding uniform buffer binding point. <c>Program</c> is the name of a program object for which the command <seemfa marker="gl#linkProgram/1"><c>gl:linkProgram/1</c></seemfa> has been issued in the past. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniformBlockBinding.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="uniformHandleui64ARB" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="uniformSubroutinesuiv" arity="2" clause_i="1" since=""/>
@@ -4159,11 +3625,6 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUseProgram.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="useProgramObjectARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="useProgramStages" arity="3" clause_i="1" since=""/>
     <fsummary>bind stages of a program object to a program pipeline</fsummary>
     <desc>
@@ -4178,11 +3639,6 @@
     <p><seemfa marker="gl#validateProgram/1"><c>gl:validateProgram/1</c></seemfa> checks to see whether the executables contained in <c>Program</c> can execute given the current OpenGL state. The information generated by the validation process will be stored in <c>Program</c>'s information log. The validation information may consist of an empty string, or it may be a string containing information about how the current program object interacts with the rest of current OpenGL state. This provides a way for OpenGL implementers to convey more information about why the current program is inefficient, suboptimal, failing to execute, and so on.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glValidateProgram.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="validateProgramARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="validateProgramPipeline" arity="1" clause_i="1" since=""/>
@@ -4224,47 +3680,12 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml">External documentation.</url></p></desc>
   </func>
   <func>
-    <name name="vertexArrayAttribBinding" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayAttribFormat" arity="6" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayAttribIFormat" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayAttribLFormat" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayBindingDivisor" arity="3" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
     <name name="vertexArrayElementBuffer" arity="2" clause_i="1" since=""/>
     <fsummary>configures element array buffer binding of a vertex array object</fsummary>
     <desc>
     <p><seemfa marker="gl#vertexArrayElementBuffer/2"><c>gl:vertexArrayElementBuffer/2</c></seemfa> binds a buffer object with id <c>Buffer</c> to the element array buffer bind point of a vertex array object with id <c>Vaobj</c>. If <c>Buffer</c> is zero, any existing element array buffer binding to <c>Vaobj</c> is removed. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexArrayElementBuffer.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayVertexBuffer" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexArrayVertexBuffers" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="vertexAttrib1d" arity="2" clause_i="1" since=""/>
@@ -4323,6 +3744,14 @@
     <name name="vertexAttribI4ui" arity="5" clause_i="1" since=""/>
     <name name="vertexAttribI4uiv" arity="2" clause_i="1" since=""/>
     <name name="vertexAttribI4usv" arity="2" clause_i="1" since=""/>
+    <name name="vertexAttribL1d" arity="2" clause_i="1" since=""/>
+    <name name="vertexAttribL1dv" arity="2" clause_i="1" since=""/>
+    <name name="vertexAttribL2d" arity="3" clause_i="1" since=""/>
+    <name name="vertexAttribL2dv" arity="2" clause_i="1" since=""/>
+    <name name="vertexAttribL3d" arity="4" clause_i="1" since=""/>
+    <name name="vertexAttribL3dv" arity="2" clause_i="1" since=""/>
+    <name name="vertexAttribL4d" arity="5" clause_i="1" since=""/>
+    <name name="vertexAttribL4dv" arity="2" clause_i="1" since=""/>
     <fsummary>Specifies the value of a generic vertex attribute</fsummary>
     <desc>
     <p>The <seemfa marker="gl#vertexAttrib1d/2"><c>gl:vertexAttrib()</c></seemfa> family of entry points allows an application to pass generic vertex attributes in numbered locations.</p>
@@ -4330,10 +3759,11 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="vertexArrayAttribBinding" arity="3" clause_i="1" since=""/>
     <name name="vertexAttribBinding" arity="2" clause_i="1" since=""/>
     <fsummary>associate a vertex attribute and a vertex buffer binding for a vertex array object</fsummary>
     <desc>
-    <p><seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexAttribBinding/2</c></seemfa> and <seemfa marker="gl#vertexArrayAttribBinding/3"><c>gl:vertexArrayAttribBinding/3</c></seemfa> establishes an association between the generic vertex attribute of a vertex array object whose index is given by <c>Attribindex</c>, and a vertex buffer binding whose index is given by <c>Bindingindex</c>. For <seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexAttribBinding/2</c></seemfa>, the vertex array object affected is that currently bound. For <seemfa marker="gl#vertexArrayAttribBinding/3"><c>gl:vertexArrayAttribBinding/3</c></seemfa>, <c>Vaobj</c> is the name of the vertex array object. </p>
+    <p><seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexAttribBinding/2</c></seemfa> and <seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexArrayAttribBinding/3</c></seemfa> establishes an association between the generic vertex attribute of a vertex array object whose index is given by <c>Attribindex</c>, and a vertex buffer binding whose index is given by <c>Bindingindex</c>. For <seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexAttribBinding/2</c></seemfa>, the vertex array object affected is that currently bound. For <seemfa marker="gl#vertexAttribBinding/2"><c>gl:vertexArrayAttribBinding/3</c></seemfa>, <c>Vaobj</c> is the name of the vertex array object. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribBinding.xhtml">External documentation.</url></p></desc>
   </func>
@@ -4346,65 +3776,36 @@
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribDivisor.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="vertexArrayAttribFormat" arity="6" clause_i="1" since=""/>
+    <name name="vertexArrayAttribIFormat" arity="5" clause_i="1" since=""/>
+    <name name="vertexArrayAttribLFormat" arity="5" clause_i="1" since=""/>
     <name name="vertexAttribFormat" arity="5" clause_i="1" since=""/>
+    <name name="vertexAttribIFormat" arity="4" clause_i="1" since=""/>
+    <name name="vertexAttribIPointer" arity="5" clause_i="1" since=""/>
+    <name name="vertexAttribLFormat" arity="4" clause_i="1" since=""/>
+    <name name="vertexAttribLPointer" arity="5" clause_i="1" since=""/>
     <fsummary>specify the organization of vertex arrays</fsummary>
     <desc>
-    <p><seemfa marker="gl#vertexAttribFormat/5"><c>gl:vertexAttribFormat/5</c></seemfa>, <seemfa marker="gl#vertexAttribIFormat/4"><c>gl:vertexAttribIFormat/4</c></seemfa> and <seemfa marker="gl#vertexAttribLFormat/4"><c>gl:vertexAttribLFormat/4</c></seemfa>, as well as <seemfa marker="gl#vertexArrayAttribFormat/6"><c>gl:vertexArrayAttribFormat/6</c></seemfa>, <seemfa marker="gl#vertexArrayAttribIFormat/5"><c>gl:vertexArrayAttribIFormat/5</c></seemfa> and <seemfa marker="gl#vertexArrayAttribLFormat/5"><c>gl:vertexArrayAttribLFormat/5</c></seemfa> specify the organization of data in vertex arrays. The first three calls operate on the bound vertex array object, whereas the last three ones modify the state of a vertex array object with ID <c>Vaobj</c>. <c>Attribindex</c> specifies the index of the generic vertex attribute array whose data layout is being described, and must be less than the value of <c>?GL_MAX_VERTEX_ATTRIBS</c>.</p>
+    <p><seemfa marker="gl#vertexAttribFormat/5"><c>gl:vertexAttribFormat/5</c></seemfa>, <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexAttribIFormat/4</c></seemfa> and <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexAttribLFormat/4</c></seemfa>, as well as <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexArrayAttribFormat/6</c></seemfa>, <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexArrayAttribIFormat/5</c></seemfa> and <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexArrayAttribLFormat/5</c></seemfa> specify the organization of data in vertex arrays. The first three calls operate on the bound vertex array object, whereas the last three ones modify the state of a vertex array object with ID <c>Vaobj</c>. <c>Attribindex</c> specifies the index of the generic vertex attribute array whose data layout is being described, and must be less than the value of <c>?GL_MAX_VERTEX_ATTRIBS</c>.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribFormat.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="vertexAttribIFormat" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexAttribIPointer" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexAttribL1d" arity="2" clause_i="1" since=""/>
-    <name name="vertexAttribL1dv" arity="2" clause_i="1" since=""/>
-    <name name="vertexAttribL2d" arity="3" clause_i="1" since=""/>
-    <name name="vertexAttribL2dv" arity="2" clause_i="1" since=""/>
-    <name name="vertexAttribL3d" arity="4" clause_i="1" since=""/>
-    <name name="vertexAttribL3dv" arity="2" clause_i="1" since=""/>
-    <name name="vertexAttribL4d" arity="5" clause_i="1" since=""/>
-    <name name="vertexAttribL4dv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexAttribLFormat" arity="4" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
-  </func>
-  <func>
-    <name name="vertexAttribLPointer" arity="5" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="vertexAttribPointer" arity="6" clause_i="1" since=""/>
     <fsummary>define an array of generic vertex attribute data</fsummary>
     <desc>
-    <p><seemfa marker="gl#vertexAttribPointer/6"><c>gl:vertexAttribPointer/6</c></seemfa>, <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexAttribIPointer/5</c></seemfa> and <seemfa marker="gl#vertexAttribLPointer/5"><c>gl:vertexAttribLPointer/5</c></seemfa> specify the location and data format of the array of generic vertex attributes at index <c>Index</c> to use when rendering. <c>Size</c> specifies the number of components per attribute and must be 1, 2, 3, 4, or <c>?GL_BGRA</c>. <c>Type</c> specifies the data type of each component, and <c>Stride</c> specifies the byte stride from one attribute to the next, allowing vertices and attributes to be packed into a single array or stored in separate arrays. </p>
+    <p><seemfa marker="gl#vertexAttribPointer/6"><c>gl:vertexAttribPointer/6</c></seemfa>, <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexAttribIPointer/5</c></seemfa> and <seemfa marker="gl#vertexAttribIPointer/5"><c>gl:vertexAttribLPointer/5</c></seemfa> specify the location and data format of the array of generic vertex attributes at index <c>Index</c> to use when rendering. <c>Size</c> specifies the number of components per attribute and must be 1, 2, 3, 4, or <c>?GL_BGRA</c>. <c>Type</c> specifies the data type of each component, and <c>Stride</c> specifies the byte stride from one attribute to the next, allowing vertices and attributes to be packed into a single array or stored in separate arrays. </p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribPointer.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
+    <name name="vertexArrayBindingDivisor" arity="3" clause_i="1" since=""/>
     <name name="vertexBindingDivisor" arity="2" clause_i="1" since=""/>
     <fsummary>modify the rate at which generic vertex attributes advance</fsummary>
     <desc>
-    <p><seemfa marker="gl#vertexBindingDivisor/2"><c>gl:vertexBindingDivisor/2</c></seemfa> and <seemfa marker="gl#vertexArrayBindingDivisor/3"><c>gl:vertexArrayBindingDivisor/3</c></seemfa> modify the rate at which generic vertex attributes advance when rendering multiple instances of primitives in a single draw command. If <c>Divisor</c> is zero, the attributes using the buffer bound to <c>Bindingindex</c> advance once per vertex. If <c>Divisor</c> is non-zero, the attributes advance once per <c>Divisor</c> instances of the set(s) of vertices being rendered. An attribute is referred to as <c>instanced</c> if the corresponding <c>Divisor</c> value is non-zero.</p>
+    <p><seemfa marker="gl#vertexBindingDivisor/2"><c>gl:vertexBindingDivisor/2</c></seemfa> and <seemfa marker="gl#vertexBindingDivisor/2"><c>gl:vertexArrayBindingDivisor/3</c></seemfa> modify the rate at which generic vertex attributes advance when rendering multiple instances of primitives in a single draw command. If <c>Divisor</c> is zero, the attributes using the buffer bound to <c>Bindingindex</c> advance once per vertex. If <c>Divisor</c> is non-zero, the attributes advance once per <c>Divisor</c> instances of the set(s) of vertices being rendered. An attribute is referred to as <c>instanced</c> if the corresponding <c>Divisor</c> value is non-zero.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexBindingDivisor.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="vertexBlendARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="vertexPointer" arity="4" clause_i="1" since=""/>
@@ -4424,8 +3825,11 @@
   </func>
   <func>
     <name name="viewportArrayv" arity="2" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
+    <fsummary>set multiple viewports</fsummary>
+    <desc>
+    <p><seemfa marker="gl#viewportArrayv/2"><c>gl:viewportArrayv/2</c></seemfa> specifies the parameters for multiple viewports simulataneously. <c>First</c> specifies the index of the first viewport to modify and <c>Count</c> specifies the number of viewports to modify. <c>First</c> must be less than the value of <c>?GL_MAX_VIEWPORTS</c>, and <c>First</c> + <c>Count</c> must be less than or equal to the value of <c>?GL_MAX_VIEWPORTS</c>. Viewports whose indices lie outside the range [<c>First</c>, <c>First</c> + <c>Count</c>) are not modified. <c>V</c> contains the address of an array of floating point values specifying the left ( x), bottom ( y), width ( w), and height ( h) of each viewport, in that order.  x and  y give the location of the viewport's lower left corner, and  w and  h give the width and height of the viewport, respectively. The viewport specifies the affine transformation of  x and  y from normalized device coordinates to window coordinates. Let (x nd y nd) be normalized device coordinates. Then the window coordinates (x w y w) are computed as follows: </p>
+    
+    <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glViewportArray.xhtml">External documentation.</url></p></desc>
   </func>
   <func>
     <name name="viewportIndexedf" arity="5" clause_i="1" since=""/>
@@ -4444,18 +3848,6 @@
     <p><c>Flags</c> and <c>Timeout</c> are placeholders for anticipated future extensions of sync object capabilities. They must have these reserved values in order that existing code calling <seemfa marker="gl#waitSync/3"><c>gl:waitSync/3</c></seemfa> operate properly in the presence of such extensions.</p>
     
     <p><url href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glWaitSync.xhtml">External documentation.</url></p></desc>
-  </func>
-  <func>
-    <name name="weightbvARB" arity="1" clause_i="1" since=""/>
-    <name name="weightdvARB" arity="1" clause_i="1" since=""/>
-    <name name="weightfvARB" arity="1" clause_i="1" since=""/>
-    <name name="weightivARB" arity="1" clause_i="1" since=""/>
-    <name name="weightsvARB" arity="1" clause_i="1" since=""/>
-    <name name="weightubvARB" arity="1" clause_i="1" since=""/>
-    <name name="weightuivARB" arity="1" clause_i="1" since=""/>
-    <name name="weightusvARB" arity="1" clause_i="1" since=""/>
-    <fsummary/>
-    <desc><p>No documentation available.</p></desc>
   </func>
   <func>
     <name name="windowPos2d" arity="2" clause_i="1" since=""/>
