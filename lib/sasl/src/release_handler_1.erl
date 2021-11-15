@@ -637,14 +637,19 @@ maybe_supervisor_which_children(Proc, Name, Pid) ->
             error(suspended_supervisor);
 
         running ->
-            case catch supervisor:which_children(Pid) of
+            try supervisor:which_children(Pid) of
                 Res when is_list(Res) ->
-                    Res;
-                Other ->
+                    Res
+            catch
+                exit:Reason when Reason =/= timeout andalso
+                                 not (is_tuple(Reason) andalso
+                                      element(1,Reason) =:= nodedown) ->
+                    [];
+                exit:Other ->
                     error_logger:error_msg("release_handler: ~p~nerror during"
                                            " a which_children call to ~p (~w)."
                                            " [State: running] Exiting ... ~n",
-                                           [Other, Name, Pid]),
+                                           [{'EXIT',Other}, Name, Pid]),
                     error(which_children_failed)
             end
     end.
