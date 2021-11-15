@@ -106,7 +106,7 @@ skip(_Buffer, _Size) ->
 wipe(Buffer) ->
     skip(Buffer, prim_buffer:size(Buffer)).
 
-%% Finds the start-index of the first occurence of Needle, for implementing
+%% Finds the start-index of the first occurrence of Needle, for implementing
 %% read_line and similar.
 -spec find_byte_index(Buffer, Needle) -> Result when
       Buffer :: prim_buffer(),

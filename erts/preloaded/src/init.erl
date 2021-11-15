@@ -591,7 +591,7 @@ set_flag(_Flag,false,Flags) ->
     {ok,Flags};
 set_flag(Flag,Value,Flags) when is_list(Value) ->
     %% The flag here can be -boot or -config, which means the value is
-    %% a file name! Thus the file name encoding is used when coverting.
+    %% a file name! Thus the file name encoding is used when converting.
     Encoding = file:native_name_encoding(),
     case catch unicode:characters_to_binary(Value,Encoding,Encoding) of
 	{'EXIT',_} ->
