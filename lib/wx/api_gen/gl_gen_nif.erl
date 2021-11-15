@@ -172,7 +172,7 @@ declare_var(P=#arg{name=Name,
         false -> w("  ~s ~s;\n",[T,Name])
     end,
     {P,Argc+1};
-declare_var(P=#arg{name=Name,type=#type{base=string,ref={pointer,2},mod=[const]}},Argc) ->
+declare_var(P=#arg{name=_Name,type=#type{base=string,ref={pointer,2},mod=[const]}},Argc) ->
     {P,Argc+1};
 declare_var(P=#arg{name=Name, in=true, type=#type{base=Base}}, Argc)
   when Base =:= binary; Base =:= string ->
@@ -181,6 +181,7 @@ declare_var(P=#arg{name=Name, in=true, type=#type{base=Base}}, Argc)
 declare_var(P=#arg{name=Name, in=true, alt=list_binary, type=#type{name=T}}, Argc) ->
     w("  ErlNifBinary ~s_bin;\n", [Name]),
     w("  unsigned int ~s_len;\n", [Name]),
+    w("  std::vector <~s> ~s_vec;\n", [T, Name]),
     w("  ~s *~s;\n",[T, Name]),
     {P,Argc+1};
 declare_var(P=#arg{name=Name, in=true, type=#type{name=T, base=guard_int}}, Argc) ->
@@ -206,6 +207,10 @@ declare_var(P=#arg{name=Name, in=true, type=#type{name=T,single={Comp, Sz}}},
         list ->
             w("  ~s ~s[~w];\n",[T,Name,Sz])
     end,
+    {P,Argc+1};
+declare_var(P=#arg{name=Name, in=true, type=#type{name=Type, single=list}}, Argc) ->
+    w("  ~s *~s;\n",[Type,Name]),
+    w("  std::vector <~s> ~s_vec;\n", [Type, Name]),
     {P,Argc+1};
 declare_var(P=#arg{name=Name, in=true, type=#type{name=T}}, Argc) ->
     w("  ~s *~s;\n",[T,Name]),
@@ -240,7 +245,7 @@ declare_var(P, Argc) ->
 
 %%% Decode
 
-decode_var_0(P=#arg{name=Name}, Argc) ->
+decode_var_0(P=#arg{name=_Name}, Argc) ->
     Res = decode_var(P, Argc),
     Res.
 
@@ -369,7 +374,6 @@ decode_var(P=#arg{name=Name, in=true, alt=Alt,
     end,
     w(" else {\n",[]),
     w("    ERL_NIF_TERM ~s_l, ~s_h, ~s_t;\n", [Name, Name, Name]),
-    w("    std::vector <~s> ~s_vec;\n", [Type, Name]),
     w("    ~s ~s_tmp;\n", [Type, Name]),
     w("    ~s_l = argv[~w];\n",[Name,Argc]),
     w("    while(enif_get_list_cell(env, ~s_l, &~s_h, &~s_t)) {\n", [Name,Name,Name]),
