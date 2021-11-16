@@ -35166,8 +35166,33 @@ ioctl_get_gifdstaddr(_Config) when is_list(_Config) ->
 
 
 do_ioctl_get_gifdstaddr(_State) ->
-    i("create dummy stream:TCP socket"),
-    {ok, Sock} = socket:open(inet, stream, tcp),
+    Domain = inet,
+    LSA    = which_local_socket_addr(Domain),
+
+    i("create and init listen stream:TCP socket"),
+    {ok, LSock} = socket:open(inet, stream, tcp),
+    ok = socket:bind(LSock, LSA#{port => 0}),
+    ok = socket:listen(LSock),
+    {ok, #{port := LPort}} = socket:sockname(LSock),
+    
+    i("create and init connection stream:TCP socket"),
+    {ok, CSock} = socket:open(inet, stream, tcp),
+
+    i("attempt nowait connect"),
+    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
+        socket:connect(CSock, LSA#{port => LPort}, nowait),
+
+    i("attempt accept"),
+    {ok, ASock} = socket:accept(LSock),
+    
+    i("await connection ready"),
+    receive
+        {'$socket', CSock, select, SelectHandle} ->
+            ok
+    end,
+
+    i("attmpt complete connection"),
+    ok = socket:connect(CSock),
 
     i("get if names"),
     {ok, IfNames} = net:if_names(),
@@ -35176,34 +35201,54 @@ do_ioctl_get_gifdstaddr(_State) ->
       "~n      ~p", [IfNames]),
     %% This a *very* simple test...
     %% ...just to check that we actually get an socket address
-    _ = [case socket:ioctl(Sock, gifdstaddr, IfName) of
-             {ok, #{family := Fam,
-                    addr   := Addr}} ->
-                 i("got (expected) (dest) socket address for interface ~p (~w): "
-                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
-                 ok;
-             {ok, Crap} ->
-                 %% Oups?!
-                 i("<ERROR> got unexpected result for interface ~p (~w)"
-                   "~n      ~p", [IfName, IfIdx, Crap]),
-                 socket:close(Sock),
-                 ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
-             {error, eaddrnotavail = Reason} ->
-                 i("got unexpected error for interface ~p (~w) => SKIP interface"
-                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
-                 ignore;
-             {error, Reason} ->
-                 i("<ERROR> got unexpected error for interface ~p (~w)"
-                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
-                 socket:close(Sock),
-                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
-         end || {IfIdx, IfName} <- IfNames],
+    verify_gifdstaddr(ASock, "accept",  IfNames),
+    verify_gifdstaddr(CSock, "connect", IfNames),
+    verify_gifdstaddr(LSock, "listen",  IfNames),
 
-    i("close dummy stream:TCP socket"),
-    ok = socket:close(Sock),
+    i("close socket(s)"),
+    _ = socket:close(CSock),
+    _ = socket:close(ASock),
+    _ = socket:close(LSock),
 
     i("done"),
     ok.
+
+
+
+verify_gifdstaddr(_Sock, _Prefix, []) ->
+    ok;
+verify_gifdstaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
+    i("[~s] attempt verify gifdstaddr for interface ~s (~w)",
+      [Prefix, IfName, IfIdx]),
+    verify_gifdstaddr(Sock, Prefix, IfIdx, IfName),
+    verify_gifdstaddr(Sock, Prefix, IfNames).
+
+verify_gifdstaddr(Sock, Prefix, IfIdx, IfName) ->
+    case socket:ioctl(Sock, gifdstaddr, IfName) of
+        {ok, #{family := Fam,
+               addr   := Addr}} ->
+            i("[~s] got (expected) (dest) socket address "
+              "for interface ~p (~w): "
+              "~n      (~w) ~p", [Prefix, IfName, IfIdx, Fam, Addr]),
+            ok;
+        {ok, Crap} ->
+        %% Oups?!
+            i("<ERROR> [~s] got unexpected result for interface ~p (~w)"
+              "~n      ~p", [Prefix, IfName, IfIdx, Crap]),
+            socket:close(Sock),
+            ?FAIL({unexpected_addr, Prefix, IfName, IfIdx, Crap});
+        {error, eaddrnotavail = Reason} ->
+            i("[~s] got unexpected error for interface ~p (~w) => "
+              "SKIP interface"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+            ignore;
+        {error, Reason} ->
+            i("<ERROR> got unexpected error for interface ~p (~w)"
+              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            socket:close(Sock),
+            ?FAIL({unexpected_failure, Prefix, IfName, IfIdx, Reason})
+    end.
+    
 
 
 
@@ -35227,8 +35272,33 @@ ioctl_get_gifbrdaddr(_Config) when is_list(_Config) ->
 
 
 do_ioctl_get_gifbrdaddr(_State) ->
-    i("create dummy stream:TCP socket"),
-    {ok, Sock} = socket:open(inet, stream, tcp),
+    Domain = inet,
+    LSA    = which_local_socket_addr(Domain),
+
+    i("create and init listen stream:TCP socket"),
+    {ok, LSock} = socket:open(inet, stream, tcp),
+    ok = socket:bind(LSock, LSA#{port => 0}),
+    ok = socket:listen(LSock),
+    {ok, #{port := LPort}} = socket:sockname(LSock),
+    
+    i("create and init connection stream:TCP socket"),
+    {ok, CSock} = socket:open(inet, stream, tcp),
+
+    i("attempt nowait connect"),
+    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
+        socket:connect(CSock, LSA#{port => LPort}, nowait),
+
+    i("attempt accept"),
+    {ok, ASock} = socket:accept(LSock),
+    
+    i("await connection ready"),
+    receive
+        {'$socket', CSock, select, SelectHandle} ->
+            ok
+    end,
+
+    i("attmpt complete connection"),
+    ok = socket:connect(CSock),
 
     i("get if names"),
     {ok, IfNames} = net:if_names(),
@@ -35237,35 +35307,51 @@ do_ioctl_get_gifbrdaddr(_State) ->
       "~n      ~p", [IfNames]),
     %% This a *very* simple test...
     %% ...just to check that we actually get an socket address
-    _ = [case socket:ioctl(Sock, gifbrdaddr, IfName) of
-             {ok, #{family := Fam,
-                    addr   := Addr}} ->
-                 i("got (expected) (broadcast) socket address for "
-                   "interface ~p (~w): "
-                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
-                 ok;
-             {ok, Crap} ->
-                 %% Oups?!
-                 i("<ERROR> got unexpected result for interface ~p (~w)"
-                   "~n      ~p", [IfName, IfIdx, Crap]),
-                 socket:close(Sock),
-                 ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
-             {error, eaddrnotavail = Reason} ->
-                 i("got unexpected error for interface ~p (~w) => SKIP interface"
-                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
-                 ignore;
-             {error, Reason} ->
-                 i("<ERROR> got unexpected error for interface ~p (~w)"
-                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
-                 socket:close(Sock),
-                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
-         end || {IfIdx, IfName} <- IfNames],
+    verify_gifbrdaddr(ASock, "accept",  IfNames),
+    verify_gifbrdaddr(CSock, "connect", IfNames),
+    verify_gifbrdaddr(LSock, "listen",  IfNames),
 
-    i("close dummy stream:TCP socket"),
-    ok = socket:close(Sock),
+    i("close socket(s)"),
+    _ = socket:close(CSock),
+    _ = socket:close(ASock),
+    _ = socket:close(LSock),
 
     i("done"),
     ok.
+
+
+verify_gifbrdaddr(_Sock, _Prefix, []) ->
+    ok;
+verify_gifbrdaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
+    i("[~s] attempt verify gifbrdaddr for interface ~s (~w)",
+      [Prefix, IfName, IfIdx]),
+    verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName),
+    verify_gifbrdaddr(Sock, Prefix, IfNames).
+
+verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName) ->
+    case socket:ioctl(Sock, gifbrdaddr, IfName) of
+        {ok, #{family := Fam,
+               addr   := Addr}} ->
+            i("got (expected) (broadcast) socket address for "
+              "interface ~p (~w): "
+              "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+            ok;
+        {ok, Crap} ->
+            %% Oups?!
+            i("<ERROR> got unexpected result for interface ~p (~w)"
+              "~n      ~p", [IfName, IfIdx, Crap]),
+            socket:close(Sock),
+            ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+        {error, eaddrnotavail = Reason} ->
+            i("got unexpected error for interface ~p (~w) => SKIP interface"
+              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            ignore;
+        {error, Reason} ->
+            i("<ERROR> got unexpected error for interface ~p (~w)"
+              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            socket:close(Sock),
+            ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+    end.
 
 
 
