@@ -592,6 +592,7 @@ static void init_fallback_type_table(BeamFile *beam) {
     types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                                 sizeof(types->entries[0]));
     types->count = 1;
+    types->fallback = 1;
 
     types->entries[0].type_union = BEAM_TYPE_ANY;
 }
@@ -618,6 +619,7 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                                 count * sizeof(types->entries[0]));
     types->count = count;
+    types->fallback = 0;
 
     for (i = 0; i < count; i++) {
         const byte *type_data;
@@ -1620,10 +1622,14 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
                     LoadAssert(index.tag == TAG_u);
 
                     types = &(code_reader->file)->types;
-                    LoadAssert(index.word_value < types->count);
+                    /* If we use the fallback, then there was not type chunk
+                       and thus we should not load any type information */
+                    if (!types->fallback) {
+                        LoadAssert(index.word_value < types->count);
 
-                    ERTS_CT_ASSERT(REG_MASK < (1 << 10));
-                    raw_arg.word_value |= index.word_value << 10;
+                        ERTS_CT_ASSERT(REG_MASK < (1 << 10));
+                        raw_arg.word_value |= index.word_value << 10;
+                    }
                     break;
                 }
             default:

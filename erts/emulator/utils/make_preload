@@ -150,7 +150,9 @@ sub beam_strip {
 			'ExpT' => 1,
 			'StrT' => 1,
 			'FunT' => 1,
-			'LitT' => 1);
+			'LitT' => 1,
+			'Type' => 1
+        );
 
     die "$file: can't read Beam files for OTP R4 or earlier (sorry)"
 	if $beam =~ /^\x7fBEAM!/;

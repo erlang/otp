@@ -141,6 +141,7 @@ typedef struct {
     /* To simplify code that queries types, the first entry (which must be
      * present) is always the "any type." */
     Sint32 count;
+    char fallback; /* If this is a fallback type table */
     BeamType *entries;
 } BeamFile_TypeTable;
 
