@@ -90,7 +90,20 @@
 
   <func:function name="erl:to-link">
     <xsl:param name="text"/>
-    <func:result select="translate(erl:lower-case($text),'?: /()&quot;&#10;','--------')"/>
+    <xsl:variable name="link" select="translate(erl:lower-case($text),'?: /()&quot;&#10;','--------')"/>
+    <func:result>
+        <xsl:choose>
+            <!-- Stupid JS does not want us to have html elements with id="exports".
+                 If we do, then highlight.js breaks because it uses the 'exports'
+                 variable to do JS module things. See:
+                 https://github.com/googlearchive/observe-js/issues/81
+                 for more details on this very frustrating issue... -->
+            <xsl:when test="$link = 'exports'">export</xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$link"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </func:result>
   </func:function>
 
   <!-- Used from template menu.funcs to sort a module's functions for the lefthand index list,
@@ -2542,6 +2555,7 @@
     <xsl:call-template name="title_link">
       <xsl:with-param name="title" select="$title"/>
       <xsl:with-param name="link" select="erl:to-link($title)"/>
+      <xsl:with-param name="header" select="'h3'"/>
     </xsl:call-template>
   </xsl:template>
 

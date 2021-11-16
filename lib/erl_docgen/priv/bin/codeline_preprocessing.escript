@@ -22,7 +22,7 @@
 %%
 %% Created : 10 Sep 2008 by Lars Thorsen 
 %%----------------------------------------------------------------------
-
+-mode(compile).
 %%======================================================================
 %% External functions
 %%======================================================================
@@ -31,29 +31,24 @@
 %% Description:
 %%----------------------------------------------------------------------
 main([CPath, InFile, OutFile]) ->
-    InDev = 
+    InDev =
 	case file:open(InFile, [read]) of
 	    {ok,ID} ->
 		ID;
 	    _ ->
-		halt(5)
+                fail(5, "Could not open ~ts for reading", [InFile])
 	end,
-    OutDev = 
+    OutDev =
 	case file:open(OutFile, [write]) of
 	    {ok,OD} ->
 		OD;
 	    _ ->
-		halt(5)
+                fail(5, "Could not open ~ts for writing", [OutFile])
 	end,
-    case re:compile("<codeinclude(?:\040|\t)*file=\"([^\"]*)\"(?:(?:(?:\040|\t)*tag=\"([^\"]*)\".*)|(?:.*))(?:/>|/codeinclude>)") of
-	{ok, Mp} ->
-	    parse(InDev, OutDev, CPath, Mp);
-	_ ->
-	    halt(2)
-    end;
+    parse(InDev, OutDev, CPath);
 main(_) ->
     usage().
-        
+
 %%======================================================================
 %% Internal functions
 %%======================================================================
@@ -63,61 +58,76 @@ main(_) ->
 %% Description:
 %%----------------------------------------------------------------------
 usage() ->
-    io:format("usage:  codeline_preprocessing.escript <infile> <outfile>\n"),
-    halt(1).
+    fail("usage:  codeline_preprocessing.escript <infile> <outfile>\n").
 
 
 %%======================================================================
 %% Internal functions
 %%======================================================================
 
-parse(InDev, OutDev, CPath, Mp) ->
+parse(InDev, OutDev, CPath) ->
     case io:get_line(InDev, "") of
 	eof ->
 	    file:close(OutDev),
 	    file:close(InDev);
-	String ->
-	 case re:run(String, Mp,[{capture, [1,2], list}]) of
-	     {match,[File, []]} ->  
-		 case file:read_file(filename:join(CPath, File))of
-		     {ok, Bin} ->
-			 file:write(OutDev, "<code>\n<![CDATA[\n"),
-			 file:write(OutDev, Bin),
-			 file:write(OutDev, "]]></code>");
-		     _ ->
-			 halt(3) 
-		 end;
-	     {match,[File, Tag]} ->
-		 String2 = get_code(filename:join(CPath, File), Tag),
-		 file:write(OutDev, "<code>\n<![CDATA[\n"),
-		 file:write(OutDev, String2),
-		 file:write(OutDev, "]]></code>");
-		_ -> 
-		    file:write(OutDev, String)		    
-	    end,
-	    parse(InDev, OutDev, CPath, Mp)
+	Line ->
+            file:write(OutDev, parse_line(CPath, Line)),
+	    parse(InDev, OutDev, CPath)
     end.
- 	    
+
+
+parse_line(CPath, Line) ->
+    case re:run(Line, "<codeinclude([^>]*)>.*</codeinclude>", [{capture, [1], list}]) of
+        {match,[Attributes]} ->
+            File =
+                case re:run(Attributes,"file=\"([^\"]+)\"",[{capture, [1], list}]) of
+                    {match, [FileMatch]} ->
+                        FileMatch;
+                    nomatch ->
+                        fail("Did not find 'file' attribute in codeinclude")
+                end,
+            FileContent =
+                case file:read_file(filename:join(CPath, File)) of
+                    {ok, Bin} ->
+                        Bin;
+                    {error,Error} ->
+                        fail("Could not open file ~ts (~t)~n", [File, Error])
+                end,
+            Type =
+                case re:run(Attributes,"(type=\"[^\"]+\")",[{capture, [1], list}]) of
+                    {match,[TypeMatch]} ->
+                        TypeMatch;
+                    nomatch ->
+                        ""
+                end,
+            TaggedContent =
+                case re:run(Attributes,"tag=\"([^\"]+)\"",[{capture, [1], list}]) of
+                    {match,[Tag]} ->
+                        case re:run(FileContent,"^" ++ Tag ++ "\n((.|\n)*)\n" ++
+                                        Tag ++ "\$",[global, multiline, {capture, [1], binary}]) of
+                            {match,[[Match]]} ->
+                                Match;
+                            nomatch ->
+                                fail(4, "Could not find the tag ~p in ~ts",
+                                     [Tag, File])
+                        end;
+                    nomatch ->
+                        FileContent
+                end,
+            ["<code " ++ Type ++ ">\n<![CDATA[\n", TaggedContent, "]]></code>\n"];
+        nomatch ->
+            Line
+    end.
+
 %%----------------------------------------------------------------------
 %% Function: get_code/2
 %% Description:
 %%----------------------------------------------------------------------
-get_code(File, Tag) ->
-    case file:read_file(File) of
-	{ok, Bin} ->
-	    case re:run(Bin,"^" ++ Tag ++ "\n((.|\n)*)\n" ++ 
-			Tag ++ "\$",[global, multiline, {capture, [1], binary}]) of
-		{match,[[Match]]} -> 
-		    Match; 
-		nomatch ->
-                    io:format(standard_error,"Could not find the tag ~p in ~ts",
-                              [Tag, File]),
-		    halt(4) 
-	    end; 
-	E ->
-            io:format(standard_error,"Could not read ~ts (~p)",[File, E]),
-	    halt(3) 
-    end.
- 
 
-        
+fail(Fmt) ->
+    fail(Fmt, []).
+fail(Fmt, Args) ->
+    fail(1, Fmt, Args).
+fail(Reason, Fmt, Args) ->
+    io:format(standard_error, Fmt, Args),
+    halt(Reason).
