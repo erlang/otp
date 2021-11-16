@@ -643,7 +643,7 @@ void erts_usage(void)
 
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
-    erts_fprintf(stderr, "-JDperf bool   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperf bool   enable or disable support for perf on Linux\n");
     erts_fprintf(stderr, "\n");
 #endif
 
