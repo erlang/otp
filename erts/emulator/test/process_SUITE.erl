@@ -28,6 +28,14 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-ifndef(CT_PEER).
+-define(USE_PEER_FALLBACK, yes).
+-define(CT_PEER, start_node_fallback).
+-define(CT_STOP_PEER(Peer, Node), stop_node_fallback(Peer, Node)).
+-else.
+-define(CT_STOP_PEER(Peer, Node), peer:stop(Peer)).
+-endif.
+
 -define(heap_binary_size, 64).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -75,8 +83,9 @@
          spawn_request_link_parent_exit/1,
          spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
-         spawn_old_node/1,
-         spawn_new_node/1,
+         spawn_against_ei_node/1,
+         spawn_against_old_node/1,
+         spawn_against_new_node/1,
          spawn_request_reply_option/1,
          alias_bif/1,
          monitor_alias/1,
@@ -92,7 +101,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 2}}].
+     {timetrap, {minutes, 9}}].
 
 all() ->
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
@@ -120,8 +129,9 @@ all() ->
      spawn_request_link_parent_exit,
      spawn_request_abandon_bif,
      dist_spawn_monitor,
-     spawn_old_node,
-     spawn_new_node,
+     spawn_against_ei_node,
+     spawn_against_old_node,
+     spawn_against_new_node,
      spawn_request_reply_option,
      otp_6237,
      {group, processes_bif},
@@ -180,11 +190,11 @@ init_per_testcase(Func, Config)
     case erlang:system_info(build_type) of
         BT when BT =:= debug; BT =:= valgrind ->
             {skip, "Don't run in debug/valgrind"};
-        _ ->
-            Config
+        false ->
+            [{testcase, Func} | Config]
     end;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Config.
+    [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     %% Restore max_heap_size to default value.
@@ -1771,16 +1781,16 @@ processes_large_tab_test() ->
     chk_processes_bif_test_res(Res).
 
 processes_default_tab(Config) when is_list(Config) ->
-    sys_mem_cond_run(1024, fun () -> processes_default_tab_test(Config) end).
+    sys_mem_cond_run(1024, fun () -> processes_default_tab_test() end).
 
-processes_default_tab_test(Config) when is_list(Config) ->
+processes_default_tab_test() ->
     {ok, Peer, DefaultNode} = ?CT_PEER(),
     Res = rpc:call(DefaultNode, ?MODULE, processes_bif_test, []),
     stop_node(Peer, DefaultNode),
     chk_processes_bif_test_res(Res).
 
 processes_small_tab(Config) when is_list(Config) ->
-    {ok, Peer, SmallNode} = ?CT_PEER(["+P", "1024"]),
+    {ok, Peer, SmallNode} = ?CT_PEER(["+P","1024"]),
     Res    = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
     PBInfo = rpc:call(SmallNode, erts_debug, get_internal_state, [processes_bif_info]),
     stop_node(Peer, SmallNode),
@@ -1939,7 +1949,7 @@ processes_bif_test() ->
 	false ->
 	    ok;
 	true ->
-	    %% Do it again with a process suspended while
+	    %% Do it against with a process suspended while
 	    %% in the processes/0 bif.
 	    erlang:system_flag(multi_scheduling, block_normal),
 	    Suspendee = spawn_link(fun () ->
@@ -3124,58 +3134,87 @@ dist_spawn_monitor(Config) when is_list(Config) ->
     stop_node(Peer, Node),
     ok.
     
-spawn_old_node(Config) when is_list(Config) ->
-    Rel = "22_latest",
-    case ?CT_PEER(#{connection => 0}, Rel, proplists:get_value(priv_dir, Config)) of
+spawn_against_ei_node(Config) when is_list(Config) ->
+    %% Spawn against an ei node which does not support spawn
+    {ok, EiNode} = start_ei_node(Config),
+    try
+        %% First spawn triggering a new connection; which
+        %% will trigger hopeful data transcoding
+        %% of spawn requests...
+        io:format("~n~nDoing initial connect tests...~n", []),
+        spawn_ei_node_test(EiNode, true),
+        %% Spawns on an already existing connection...
+        io:format("~n~nDoing already connected tests...~n", []),
+        spawn_ei_node_test(EiNode, false),
+        ok
+    after
+        ok = stop_ei_node(EiNode)
+    end.
+
+spawn_against_old_node(Config) when is_list(Config) ->
+    %% Same spawn tests againts a two releases old node as against
+    %% ei node above
+    OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2),
+    OldRelName = OldRel ++ "_latest",
+    %% We clear all ERL_FLAGS for the old node as all options may not
+    %% be supported.
+    ClearEnv = lists:foldl(
+                 fun({Key,_Value}, Acc) ->
+                         case re:run(Key,"^ERL_.*FLAGS$") of
+                             {match,_} ->
+                                 [{Key,""}|Acc];
+                             nomatch ->
+                                 Acc
+                         end
+                 end, [], os:env()),
+    case ?CT_PEER(#{connection => 0, env => ClearEnv },
+                  OldRelName,
+                  proplists:get_value(priv_dir, Config)) of
 	not_available ->
-	    {skipped, "No OTP 22 available"};
+            {skipped, "No OTP "++OldRel++" available"};
         {ok, Peer, OldNode} ->
-            %% Spawns triggering a new connection; which
-            %% will trigger hopeful data transcoding
-            %% of spawn requests...
-            io:format("~n~nDoing initial connect tests...~n", []),
-            spawn_old_node_test(OldNode, true),
-            %% Spawns on an already existing connection...
-            io:format("~n~nDoing already connected tests...~n", []),
-            spawn_old_node_test(OldNode, false),
-            peer:stop(Peer)
+            try
+                %% Spawns triggering a new connection; which
+                %% will trigger hopeful data transcoding
+                %% of spawn requests...
+                io:format("~n~nDoing initial connect tests...~n", []),
+                spawn_node_test(OldNode, true),
+                io:format("~n~nDoing already connected tests...~n", []),
+                %% Spawns on an already existing connection...
+                spawn_node_test(OldNode, false),
+                ok
+            after
+                ?CT_STOP_PEER(Peer, OldNode)
+            end
     end.
 
-spawn_new_node(Config) when is_list(Config) ->
-    %% Test that the same operations as in spawn_old_node test
-    %% works as expected on current OTP...
+spawn_against_new_node(Config) when is_list(Config) ->
     {ok, Peer, CurrNode} = ?CT_PEER(#{connection => 0}),
-
-    %% Spawns triggering a new connection; which
-    %% will trigger hopeful data transcoding
-    %% of spawn requests...
-    io:format("~n~nDoing initial connect tests...~n", []),
-    spawn_current_node_test(CurrNode, true),
-    io:format("~n~nDoing already connected tests...~n", []),
-    %% Spawns on an already existing connection...
-    spawn_current_node_test(CurrNode, false),
-    peer:stop(Peer).
-
-disconnect_node(_Node, false) ->
-    ok;
-disconnect_node(Node, true) ->
-    lists:member(Node, nodes()) andalso begin
-        monitor_node(Node, true),
-        true = erlang:disconnect_node(Node),
-        receive {nodedown, Node} -> ok end
+    try
+        %% Spawns triggering a new connection; which
+        %% will trigger hopeful data transcoding
+        %% of spawn requests...
+        io:format("~n~nDoing initial connect tests...~n", []),
+        spawn_node_test(CurrNode, true),
+        io:format("~n~nDoing already connected tests...~n", []),
+        %% Spawns on an already existing connection...
+        spawn_node_test(CurrNode, false),
+        ok
+    after
+        ?CT_STOP_PEER(Peer, CurrNode)
     end.
 
-spawn_old_node_test(Node, Disconnect) ->
-    io:format("Testing spawn_request() on old node...", []),
+spawn_ei_node_test(Node, Disconnect) ->
+    io:format("Testing spawn_request() against ei node...", []),
     disconnect_node(Node, Disconnect),
-    R1 = spawn_request(Node, erlang, exit, [hej], [monitor, {reply_tag, a_tag}]),
+    Ref1 = spawn_request(Node, erlang, exit, [hej], [monitor, {reply_tag, a_tag}]),
     receive
-        {a_tag, R1, Err, Notsup} ->
+        {a_tag, Ref1, Err, Notsup} ->
             error = Err,
             notsup = Notsup,
             ok
     end,
-    io:format("Testing spawn_monitor() on old node...", []),
+    io:format("Testing spawn_monitor() against ei node...", []),
     disconnect_node(Node, Disconnect),
     try
         spawn_monitor(Node, erlang, exit, [hej])
@@ -3183,34 +3222,41 @@ spawn_old_node_test(Node, Disconnect) ->
         error:notsup ->
             ok
     end,
-    io:format("Testing spawn_opt() with monitor on old node...", []),
+    io:format("Testing spawn_opt() with monitor against ei node...", []),
     disconnect_node(Node, Disconnect),
-    try
-        spawn_opt(Node, erlang, exit, [hej], [monitor])
-    catch
-        error:badarg ->
-            ok
+    {P0, M0} = spawn_opt(Node, erlang, exit, [hej], [monitor]),
+    receive
+        {'DOWN', M0, process, P0, R0} ->
+            notsup = R0
     end,
-    io:format("Testing spawn_opt() with link on old node...", []),
+    io:format("Testing spawn_opt() with link against ei node...", []),
     disconnect_node(Node, Disconnect),
     process_flag(trap_exit, true),
     P1 = spawn_opt(Node, erlang, exit, [hej], [link]),
-    Node = node(P1),
     receive
-        {'EXIT', P1, hej} ->
-            ok
+        {'EXIT', P1, R1} ->
+            notsup = R1
     end,
-    io:format("Testing spawn_link() on old node...", []),
+    io:format("Testing spawn_link() against ei node...", []),
     disconnect_node(Node, Disconnect),
     P2 = spawn_link(Node, erlang, exit, [hej]),
-    Node = node(P2),
     receive
-        {'EXIT', P2, hej} ->
-            ok
+        {'EXIT', P2, R2} ->
+            notsup = R2
+    end,
+    ok.
+
+disconnect_node(_Node, false) ->
+    ok;
+disconnect_node(Node, true) ->
+    lists:member(Node, nodes([visible, hidden])) andalso begin
+        monitor_node(Node, true),
+        true = erlang:disconnect_node(Node),
+        receive {nodedown, Node} -> ok end
     end.
 
-spawn_current_node_test(Node, Disconnect) ->
-    io:format("Testing spawn_request() on new node...", []),
+spawn_node_test(Node, Disconnect) ->
+    io:format("Testing spawn_request()...", []),
     disconnect_node(Node, Disconnect),
     R1 = spawn_request(Node, erlang, exit, [hej], [monitor, {reply_tag, a_tag}]),
     receive
@@ -3220,21 +3266,21 @@ spawn_current_node_test(Node, Disconnect) ->
                 {'DOWN', R1, process, P1, hej} -> ok
             end
     end,
-    io:format("Testing spawn_monitor() on new node...", []),
+    io:format("Testing spawn_monitor()...", []),
     disconnect_node(Node, Disconnect),
     {P2, M2} = spawn_monitor(Node, erlang, exit, [hej]),
     receive
         {'DOWN', M2, process, P2, hej} -> ok
     end,
     Node = node(P2),
-    io:format("Testing spawn_opt() with monitor on new node...", []),
+    io:format("Testing spawn_opt() with monitor...", []),
     disconnect_node(Node, Disconnect),
     {P3, M3} = spawn_opt(Node, erlang, exit, [hej], [monitor]),
     receive
         {'DOWN', M3, process, P3, hej} -> ok
     end,
     Node = node(P3),
-    io:format("Testing spawn_opt() with link on new node...", []),
+    io:format("Testing spawn_opt() with link...", []),
     disconnect_node(Node, Disconnect),
     process_flag(trap_exit, true),
     P4 = spawn_opt(Node, erlang, exit, [hej], [link]),
@@ -3243,7 +3289,7 @@ spawn_current_node_test(Node, Disconnect) ->
         {'EXIT', P4, hej} ->
             ok
     end,
-    io:format("Testing spawn_link() on new node...", []),
+    io:format("Testing spawn_link()...", []),
     disconnect_node(Node, Disconnect),
     P5 = spawn_link(Node, erlang, exit, [hej]),
     Node = node(P5),
@@ -4413,7 +4459,7 @@ id(I) -> I.
 stop_node(Peer, Node) ->
     verify_nc(node()),
     verify_nc(Node),
-    peer:stop(Peer).
+    ?CT_STOP_PEER(Peer, Node).
 
 verify_nc(Node) ->
     P = self(),
@@ -4472,3 +4518,191 @@ total_memory() ->
 	_ : _ ->
 	    undefined
     end.
+
+start_ei_node(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    FwdNodeExe = filename:join(DataDir, "fwd_node"),
+    Name = atom_to_list(?MODULE)
+        ++ "-" ++ "ei_node"
+        ++ "-" ++ integer_to_list(erlang:system_time(second))
+        ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
+    Cookie = atom_to_list(erlang:get_cookie()),
+    HostName = get_hostname(),
+    Node = list_to_atom(Name++"@"++HostName),
+    Creation = integer_to_list(rand:uniform((1 bsl 15) - 4) + 3),
+    Parent = self(),
+    Pid = spawn_link(fun () ->
+                             register(cnode_forward_receiver, self()),
+                             process_flag(trap_exit, true),
+                             Args = ["-sname", Name,
+                                     "-cookie", Cookie,
+                                     "-creation", Creation],
+                             io:format("Starting ei_node: ~p ~p~n",
+                                       [FwdNodeExe, Args]),
+                             Port = erlang:open_port({spawn_executable, FwdNodeExe},
+                                                     [use_stdio, {args, Args}]),
+                             receive
+                                 {Port, {data, "accepting"}} -> ok
+                             end,
+                             ei_node_handler_loop(Node, Parent, Port)
+                     end),
+    put({ei_node_handler, Node}, Pid),
+    case check_ei_node(Node) of
+        ok -> {ok, Node};
+        Error -> Error
+    end.
+
+check_ei_node(Node) ->
+    Key = {ei_node_handler, Node},
+    case get(Key) of
+        undefined ->
+            {error, no_handler};
+        Pid when is_pid(Pid) ->
+            Pid ! {check_node, self()},
+            receive
+                {check_node, Pid, Res} ->
+                    Res
+            after 3000 ->
+                    {error, no_handler_response}
+            end
+    end.
+
+stop_ei_node(Node) ->
+    case check_ei_node(Node) of
+        ok ->
+            Key = {ei_node_handler, Node},
+            case get(Key) of
+                undefined ->
+                    {error, no_handler};
+                Pid when is_pid(Pid) ->
+                    Pid ! {stop_node, self()},
+                    receive
+                        {stop_node, Pid} ->
+                            put(Key, undefined),
+                            ok
+                    after 2000 ->
+                            {error, no_handler_response}
+                    end
+            end;
+        Error ->
+            Error
+    end.
+
+ei_node_handler_loop(Node, Parent, Port) ->
+    receive
+        {'EXIT', Parent, Reason} ->
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            exit(Reason);
+        {stop_node, Parent} ->
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            Parent ! {stop_node, self()},
+            exit(normal);
+        {check_node, Parent} ->
+            Ref = make_ref(),
+            {a_name, Node} ! Ref,
+            receive
+                Ref ->
+                    Parent ! {check_node, self(), ok}
+            after
+                2000 ->
+                    Parent ! {check_node, self(), {error, no_node_response}}
+            end;
+        Msg ->
+            Msgs = fetch_all_messages([Msg]),
+            erlang:disconnect_node(Node),
+            (catch port_close(Port)),
+            exit({ei_node_handler, Node, unexpected_messages, Msgs})
+    end,
+    ei_node_handler_loop(Node, Parent, Port).
+
+fetch_all_messages(Msgs) ->
+    receive
+        Msg ->
+            fetch_all_messages([Msg|Msgs])
+    after
+        0 ->
+            Msgs
+    end.
+
+get_hostname() ->
+    get_hostname(atom_to_list(node())).
+
+get_hostname([$@ | HostName]) ->
+    HostName;
+get_hostname([_ | Rest]) ->
+    get_hostname(Rest).
+
+-ifdef(USE_PEER_FALLBACK).
+
+make_nodename() ->
+    list_to_atom(atom_to_list(?MODULE)
+                 ++ "-"
+                 ++ integer_to_list(erlang:system_time(second))
+                 ++ "-"
+                 ++ integer_to_list(erlang:unique_integer([positive]))).
+
+make_args(slave, ArgsList) when is_list(ArgsList) ->
+    {args, lists:join(" ", ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList])};
+make_args(Type, OptMap) when is_map(OptMap) ->
+    ArgsList0 = maps:get(args, OptMap, []),
+    ArgsList1 = ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList0],
+    ArgsList2 = case maps:get(env, OptMap, undefined) of
+                    undefined ->
+                        ArgsList1;
+                    Env ->
+                        lists:foldl(fun ({Var, Val}, Acc) ->
+                                            ["-env", Var, "\""++Val++"\"" | Acc]
+                                    end,
+                                    [],
+                                    Env)
+                end,
+    ArgsList3 = case Type of
+                    slave ->
+                        ArgsList2;
+                    peer ->
+                        ["-setcookie", atom_to_list(erlang:get_cookie()) | ArgsList2]
+                end,
+    {args, lists:join(" ", ArgsList3)}.
+    
+test_server_start_node(Name, Type, OptList) ->
+    case test_server:start_node(Name, Type, OptList) of
+        {ok, Node} ->
+            {ok, fake_peer, Node};
+        Error ->
+            Error
+    end.
+
+start_node_fallback() ->
+    start_node_fallback([]).
+
+start_node_fallback(ArgsList) when is_list(ArgsList) ->
+    test_server_start_node(make_nodename(),
+                           slave,
+                           [make_args(slave, ArgsList)]);
+start_node_fallback(OptMap) when is_map(OptMap) ->
+    Type = case maps:get(connection, OptMap, undefined) of
+               undefined -> slave;
+               _ -> peer
+           end,
+    test_server_start_node(make_nodename(),
+                           Type,
+                           [make_args(Type, OptMap)]).
+
+start_node_fallback(OptMap, Rel, _Dir) when is_map(OptMap) ->
+    case test_server:is_release_available(Rel) of
+        false ->
+            not_available;
+        true ->
+            test_server_start_node(make_nodename(),
+                                   peer,
+                                   [make_args(peer, OptMap),
+                                    {erl, [{release, Rel}]}])
+    end.
+
+stop_node_fallback(fake_peer, Node) ->
+    test_server:stop_node(Node).
+
+-endif.
+
