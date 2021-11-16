@@ -106,6 +106,9 @@ init_per_suite(Config) when is_list(Config) ->
     %% Compile source files in the copy directory.
     Sources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*.erl'])),
     lists:foreach(fun compile_source/1, Sources),
+    %% Deal with subdirectories, if any
+    SubSources = filelib:wildcard(fname([CopyDir,'*','*','*','*','*','*.erl'])),
+    lists:foreach(fun compile_subsource/1, SubSources),
 
     [{copy_dir, CopyDir}, {cwd,Cwd}, {path,Path} | Config].
 
@@ -115,6 +118,16 @@ compile_source(File) ->
     %% file, so we must compile to a binary and write
     %% the output file ourselves.
     U = filename:dirname(filename:dirname(File)),
+    Base = filename:rootname(filename:basename(File)),
+    OutFile = filename:join([U,"ebin",Base++".beam"]),
+    OutFileTemp = OutFile ++ "#",
+    {ok,_,Code} = compile:file(File, [binary]),
+    ok = file:write_file(OutFileTemp, Code),
+    file:rename(OutFileTemp, OutFile).
+
+compile_subsource(File) ->
+    %% Same as compile_source/1 but works a subdirectory lower
+    U = filename:dirname(filename:dirname(filename:dirname(File))),
     Base = filename:rootname(filename:basename(File)),
     OutFile = filename:join([U,"ebin",Base++".beam"]),
     OutFileTemp = OutFile ++ "#",
