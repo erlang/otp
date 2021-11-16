@@ -882,7 +882,7 @@ mem_get() ->
     % Bif timer memory
     Ref = make_ref(),
     erlang:system_info({memory_internal, Ref, [fix_alloc]}),
-    mem_recv(erlang:system_info(schedulers), Ref, {0, 0}).
+    mem_recv(erts_internal:no_aux_work_threads()-1, Ref, {0, 0}).
 
 mem_recv(0, _Ref, AU) ->
     AU;

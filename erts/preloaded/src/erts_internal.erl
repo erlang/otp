@@ -113,6 +113,8 @@
 
 -export([prepare_loading/2, beamfile_chunk/2, beamfile_module_md5/1]).
 
+-export([no_aux_work_threads/0]).
+
 %%
 %% Await result of send to port
 %%
@@ -950,4 +952,9 @@ beamfile_chunk(_Bin, _Chunk) ->
 
 -spec beamfile_module_md5(binary()) -> binary() | undefined.
 beamfile_module_md5(_Bin) ->
+    erlang:nif_error(undefined).
+
+-spec no_aux_work_threads() -> pos_integer().
+
+no_aux_work_threads() ->
     erlang:nif_error(undefined).

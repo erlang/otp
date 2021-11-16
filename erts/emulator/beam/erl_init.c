@@ -837,6 +837,7 @@ early_init(int *argc, char **argv) /*
     int dirty_cpu_scheds_pctg = 100;
     int dirty_cpu_scheds_onln_pctg = 100;
     int dirty_io_scheds;
+    int aux_threads = 1;
     int max_reader_groups;
     int reader_groups;
     int max_decentralized_counter_groups;
@@ -1241,11 +1242,12 @@ early_init(int *argc, char **argv) /*
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
     no_dirty_cpu_schedulers_online = dirty_cpu_scheds_online;
     erts_no_dirty_io_schedulers = no_dirty_io_schedulers = dirty_io_scheds;
-    erts_early_init_scheduling(no_schedulers);
+    erts_early_init_scheduling(no_schedulers + 1 + dirty_cpu_scheds);
 
     alloc_opts.ncpu = ncpu;
     erts_alloc_init(argc, argv, &alloc_opts); /* Handles (and removes)
 						 -M flags. */
+    aux_threads += erts_no_dirty_alloc_instances;
     /* Require allocators */
 
     erts_init_check_io(argc, argv);
@@ -1255,7 +1257,7 @@ early_init(int *argc, char **argv) /*
      *
      * * Managed threads:
      * ** Scheduler threads (see erl_process.c)
-     * ** Aux thread (see erl_process.c)
+     * ** Aux threads (see erl_process.c)
      * ** Sys message dispatcher thread (see erl_trace.c)
      * ** IO Poll threads (see erl_check_io.c)
      *
@@ -1264,11 +1266,13 @@ early_init(int *argc, char **argv) /*
      * ** Dirty scheduler threads
      */
     erts_thr_progress_init(no_schedulers,
-			   no_schedulers+2+erts_no_poll_threads,
-			   erts_async_max_threads +
-			   erts_no_dirty_cpu_schedulers +
-			   erts_no_dirty_io_schedulers
-			   );
+			   (no_schedulers
+			    + aux_threads
+			    + 1
+			    + erts_no_poll_threads),
+			   (erts_async_max_threads
+			    + erts_no_dirty_cpu_schedulers
+			    + erts_no_dirty_io_schedulers));
     erts_thr_q_init();
     erts_init_utils();
     erts_early_init_cpu_topology(no_schedulers,

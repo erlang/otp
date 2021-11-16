@@ -259,9 +259,10 @@ typedef struct {
     struct alcu_blockscan *last;
 } ErtsAlcuBlockscanYieldData;
 
-int erts_handle_yielded_alcu_blockscan(struct ErtsSchedulerData_ *esdp,
-                                       ErtsAlcuBlockscanYieldData *yield);
-void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
+struct ErtsAuxWorkData_;
+
+int erts_handle_yielded_alcu_blockscan(struct ErtsAuxWorkData_ *awdp);
+void erts_alcu_blockscan_init(struct ErtsAuxWorkData_ *awdp);
 
 #endif /* !ERL_ALLOC_UTIL__ */
 

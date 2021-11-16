@@ -3271,12 +3271,21 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
 }
 
 int
-erts_handle_yielded_ets_all_request(ErtsSchedulerData *esdp,
-                                    ErtsEtsAllYieldData *eaydp)
+erts_handle_yielded_ets_all_request(ErtsAuxWorkData *awdp)
 {
-    int ix = (int) esdp->no - 1;
-    int yc = ERTS_ETS_ALL_TB_YCNT;
+    ErtsSchedulerData *esdp;
+    ErtsEtsAllYieldData *eaydp;
+    int ix, yc;
 
+    esdp = awdp->esdp;
+    /* only on normal scheduler threads... */
+    if (!esdp || esdp->type != ERTS_SCHED_NORMAL)
+        return 0;
+
+    eaydp = &awdp->yield.ets_all;
+    ix = (int) esdp->no - 1;
+    yc = ERTS_ETS_ALL_TB_YCNT;
+    
     while (1) {
         if (!eaydp->ongoing) {
             ErtsEtsAllReq *ongoing;
@@ -3323,7 +3332,7 @@ handle_ets_all_request(void *vreq)
             eayp->ongoing = req;
             eayp->hfrag = hf;
             eayp->tab = tb;
-            erts_notify_new_aux_yield_work(esdp);
+            erts_more_yield_aux_work(&esdp->aux_work_data);
         }
     }
     else {
@@ -3356,6 +3365,7 @@ BIF_RETTYPE ets_internal_request_all_0(BIF_ALIST_0)
 
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
+                                          1,
 					  erts_no_schedulers,
                                           handle_ets_all_request,
 					  (void *) req);
@@ -5440,7 +5450,7 @@ static void lcnt_update_db_locks_per_sched(void *enable) {
 }
 
 void erts_lcnt_update_db_locks(int enable) {
-    erts_schedule_multi_misc_aux_work(0, erts_no_schedulers,
+    erts_schedule_multi_misc_aux_work(0, 1, erts_no_schedulers,
         &lcnt_update_db_locks_per_sched, (void*)(UWord)enable);
 }
 #endif /* ERTS_ENABLE_LOCK_COUNT */

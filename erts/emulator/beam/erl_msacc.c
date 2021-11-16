@@ -364,20 +364,17 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     msaccrp->ref = STORE_NC(&hp, NULL, ref);
     msaccrp->req_sched = esdp->no;
 
-    *threads = erts_no_schedulers;
-    *threads += 1; /* aux thread */
+    *threads = erts_no_aux_work_threads;
 
     erts_atomic32_init_nob(&msaccrp->refc,(erts_aint32_t)*threads);
 
     erts_proc_add_refc(c_p, *threads);
 
-    if (erts_no_schedulers > 1)
-	erts_schedule_multi_misc_aux_work(1,
-                                          erts_no_schedulers,
-                                          reply_msacc,
-                                          (void *) msaccrp);
-    /* aux thread */
-    erts_schedule_misc_aux_work(0, reply_msacc, (void *) msaccrp);
+    erts_schedule_multi_misc_aux_work(1,
+                                      0,
+                                      erts_no_aux_work_threads-1,
+                                      reply_msacc,
+                                      (void *) msaccrp);
 
     /* Manage unmanaged threads */
     switch (action) {

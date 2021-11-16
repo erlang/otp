@@ -1716,7 +1716,7 @@ get_pref_allctr(void *extra)
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int pref_ix;
 
-    pref_ix = ERTS_ALC_GET_THR_IX();
+    pref_ix = erts_get_thr_alloc_ix();
 
     ERTS_CT_ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
     ASSERT(0 <= pref_ix && pref_ix < tspec->size);
@@ -6048,7 +6048,7 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
     Allctr_t *allctr;
     void *res;
 
-    ix = ERTS_ALC_GET_THR_IX();
+    ix = erts_get_thr_alloc_ix();
 
     ASSERT(0 <= ix && ix < tspec->size);
 
@@ -6175,7 +6175,7 @@ erts_alcu_free_thr_spec(ErtsAlcType_t type, void *extra, void *p)
     int ix;
     Allctr_t *allctr;
 
-    ix = ERTS_ALC_GET_THR_IX();
+    ix = erts_get_thr_alloc_ix();
 
     ASSERT(0 <= ix && ix < tspec->size);
 
@@ -6461,7 +6461,7 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
     Allctr_t *allctr;
     void *res;
 
-    ix = ERTS_ALC_GET_THR_IX();
+    ix = erts_get_thr_alloc_ix();
 
     ASSERT(0 <= ix && ix < tspec->size);
 
@@ -6498,7 +6498,7 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
     Allctr_t *allctr;
     void *res;
 
-    ix = ERTS_ALC_GET_THR_IX();
+    ix = erts_get_thr_alloc_ix();
 
     ASSERT(0 <= ix && ix < tspec->size);
 
@@ -7372,7 +7372,7 @@ static int blockscan_sweep_cpool(blockscan_t *state)
 }
 
 static int blockscan_get_specific_allocator(int allocator_num,
-                                            int sched_id,
+                                            int aux_work_tid,
                                             Allctr_t **out)
 {
     ErtsAllocatorInfo_t *ai;
@@ -7380,7 +7380,7 @@ static int blockscan_get_specific_allocator(int allocator_num,
 
     ASSERT(allocator_num >= ERTS_ALC_A_MIN &&
            allocator_num <= ERTS_ALC_A_MAX);
-    ASSERT(sched_id >= 0 && sched_id <= erts_no_schedulers);
+    ASSERT(0 <= aux_work_tid && aux_work_tid < erts_no_aux_work_threads);
 
     ai = &erts_allctrs_info[allocator_num];
 
@@ -7389,7 +7389,7 @@ static int blockscan_get_specific_allocator(int allocator_num,
     }
 
     if (!ai->thr_spec) {
-        if (sched_id != 0) {
+        if (aux_work_tid != 0) {
             /* Only thread-specific allocators can be scanned on a specific
              * scheduler. */
             return 0;
@@ -7400,9 +7400,9 @@ static int blockscan_get_specific_allocator(int allocator_num,
     } else {
         ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t*)ai->extra;
 
-        ASSERT(sched_id < tspec->size);
+        ASSERT(aux_work_tid < tspec->size);
 
-        allocator = tspec->allctr[sched_id];
+        allocator = tspec->allctr[aux_work_tid];
     }
 
     *out = allocator;
@@ -7412,14 +7412,9 @@ static int blockscan_get_specific_allocator(int allocator_num,
 
 static void blockscan_sched_trampoline(void *arg)
 {
-    ErtsAlcuBlockscanYieldData *yield;
-    ErtsSchedulerData *esdp;
-    blockscan_t *scanner;
-
-    esdp = erts_get_scheduler_data();
-    scanner = (blockscan_t*)arg;
-
-    yield = ERTS_SCHED_AUX_YIELD_DATA(esdp, alcu_blockscan);
+    ErtsAuxWorkData *awdp = erts_get_aux_work_data();
+    ErtsAlcuBlockscanYieldData *yield = &awdp->yield.alcu_blockscan;
+    blockscan_t *scanner = (blockscan_t*)arg;
 
     ASSERT((yield->last == NULL) == (yield->current == NULL));
 
@@ -7436,19 +7431,13 @@ static void blockscan_sched_trampoline(void *arg)
     scanner->scanner_queue = NULL;
     yield->last = scanner;
 
-    erts_notify_new_aux_yield_work(esdp);
+    erts_more_yield_aux_work(awdp);
 }
 
 static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
-                               Allctr_t *allocator, int sched_id)
+                               Allctr_t *allocator, int aux_work_tid)
 {
     ASSERT(erts_get_scheduler_id() != 0);
-
-    if (sched_id == 0) {
-        /* Global instances are always handled on the current scheduler. */
-        sched_id = ERTS_ALC_GET_THR_IX();
-        ASSERT(allocator->thread_safe);
-    }
 
     scanner->allocator = allocator;
     scanner->process = owner;
@@ -7465,21 +7454,19 @@ static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
         scanner->next_op = blockscan_sweep_mbcs;
     }
 
-    /* Aux yield jobs can only be set up while running on the scheduler that
-     * services them, so we move there before continuing.
+    /* Aux yield jobs can only be set up while running on the aux work
+     * thread that services them, so we move there before continuing.
      *
-     * We can't drive the scan itself through this since the scheduler will
+     * We can't drive the scan itself through this since the aux work thread will
      * always finish *all* misc aux work in one go which makes it impossible to
      * yield. */
-    erts_schedule_misc_aux_work(sched_id, blockscan_sched_trampoline, scanner);
+    erts_schedule_misc_aux_work(aux_work_tid, blockscan_sched_trampoline, scanner);
 }
 
-int erts_handle_yielded_alcu_blockscan(ErtsSchedulerData *esdp,
-                                       ErtsAlcuBlockscanYieldData *yield)
+int erts_handle_yielded_alcu_blockscan(ErtsAuxWorkData *awdp)
 {
+    ErtsAlcuBlockscanYieldData *yield = &awdp->yield.alcu_blockscan;
     blockscan_t *scanner = yield->current;
-
-    (void)esdp;
 
     ASSERT((yield->last == NULL) == (yield->current == NULL));
 
@@ -7509,14 +7496,10 @@ int erts_handle_yielded_alcu_blockscan(ErtsSchedulerData *esdp,
     return 0;
 }
 
-void erts_alcu_sched_spec_data_init(ErtsSchedulerData *esdp)
+void erts_alcu_blockscan_init(ErtsAuxWorkData *awdp)
 {
-    ErtsAlcuBlockscanYieldData *yield;
-
-    yield = ERTS_SCHED_AUX_YIELD_DATA(esdp, alcu_blockscan);
-
-    yield->current = NULL;
-    yield->last = NULL;
+    awdp->yield.alcu_blockscan.current = NULL;
+    awdp->yield.alcu_blockscan.last = NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -7822,7 +7805,7 @@ static void gather_ahist_abort(void *arg)
 }
 
 int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
-                                      int sched_id, int hist_width,
+                                      int aux_work_tid, int hist_width,
                                       UWord hist_start, Eterm ref)
 {
     gather_ahist_t *gather_state;
@@ -7832,7 +7815,7 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
     ASSERT(is_internal_ref(ref));
 
     if (!blockscan_get_specific_allocator(allocator_num,
-                                          sched_id,
+                                          aux_work_tid,
                                           &allocator)) {
         return 0;
     }
@@ -7853,7 +7836,7 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
     gather_state->hist_slot_count = hist_width;
     gather_state->process = p;
 
-    blockscan_dispatch(scanner, p, allocator, sched_id);
+    blockscan_dispatch(scanner, p, allocator, aux_work_tid);
 
     return 1;
 }
@@ -8148,7 +8131,7 @@ static void gather_cinfo_abort(void *arg)
 }
 
 int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
-                                  int sched_id, int hist_width,
+                                  int aux_work_tid, int hist_width,
                                   UWord hist_start, Eterm ref)
 {
     gather_cinfo_t *gather_state;
@@ -8158,7 +8141,7 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
     ASSERT(is_internal_ref(ref));
 
     if (!blockscan_get_specific_allocator(allocator_num,
-                                          sched_id,
+                                          aux_work_tid,
                                           &allocator)) {
         return 0;
     }
@@ -8180,7 +8163,7 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
     gather_state->hist_slot_count = hist_width;
     gather_state->process = p;
 
-    blockscan_dispatch(scanner, p, allocator, sched_id);
+    blockscan_dispatch(scanner, p, allocator, aux_work_tid);
 
     return 1;
 }
