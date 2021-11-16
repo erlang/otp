@@ -21,7 +21,8 @@
 -module(match_spec_SUITE).
 
 -export([all/0, suite/0]).
--export([test_1/1, test_2/1, test_3/1, caller_and_return_to/1, bad_match_spec_bin/1,
+-export([test_1/1, test_2/1, test_3/1, test_4a/1, test_4b/1, test_5a/1,
+         test_5b/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
@@ -34,6 +35,7 @@
 -export([runner/2, loop_runner/3]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
 -export([do_boxed_and_small/0]).
+-export([f1_test4/1, f2_test4/2, f3_test4/2]).
 
 % This test suite assumes that tracing in general works. What we test is
 % the match spec functionality.
@@ -45,7 +47,7 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [test_1, test_2, test_3, caller_and_return_to, bad_match_spec_bin,
+    [test_1, test_2, test_3, test_4a, test_4b, test_5a, test_5b, caller_and_return_to, bad_match_spec_bin,
      trace_control_word, silent, silent_no_ms, silent_test, ms_trace2,
      ms_trace3, ms_trace_dead, boxed_and_small, destructive_in_test_bif,
      guard_exceptions, unary_plus, unary_minus, fpe,
@@ -171,6 +173,64 @@ test_3(Config) when is_list(Config) ->
     collect(P2, [{trace, P2, call, {?MODULE, f2, [a, a]}, [true,
 							     {?MODULE,f3,2}]}]),
     collect(P1, [{trace, P1, call, {?MODULE, f2, [a, b]}, [true]}]),
+    ok.
+
+%% Test `caller_line` trace with `call` and `global`
+test_4a(Config) when is_list(Config) ->
+    Fun = fun() -> ?MODULE:f3_test4(a, b) end,
+    Pat = [{'_', [],[{message, {caller_line}}]}],
+    P = spawn(?MODULE, runner, [self(), Fun]),
+    erlang:trace(P, true, [call]),
+    %% `global` is implied but we still mention explictly
+    erlang:trace_pattern({?MODULE, f2_test4, 2}, Pat, [global]),
+    erlang:trace_pattern({?MODULE, f1_test4, 1}, Pat, [global]),
+    collect(P, [{trace, P, call, {?MODULE, f2_test4, [a, b]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}},
+                {trace, P, call, {?MODULE, f1_test4, [a]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}}]),
+    ok.
+
+%% Test `caller_line` trace with `return_trace`, `call` and `global`
+test_4b(Config) when is_list(Config) ->
+    Fun = fun() -> ?MODULE:f3_test4(a, b) end,
+    P = spawn(?MODULE, runner, [self(), Fun]),
+    Pat = [{'_', [], [{return_trace}, {message, {caller_line}}]}],
+    erlang:trace(P, true, [call]),
+    %% `global` is implied but we still mention explictly
+    erlang:trace_pattern({?MODULE, f2_test4, 2}, Pat, [global]),
+    erlang:trace_pattern({?MODULE, f1_test4, 1}, Pat, [global]),
+    collect(P, [{trace, P, call, {?MODULE, f2_test4, [a, b]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}},
+                {trace, P, call, {?MODULE, f1_test4, [a]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}},
+                {trace, P, return_from, {?MODULE, f1_test4, 1}, {a}},
+                {trace, P, return_from, {?MODULE, f2_test4, 2}, {a}}
+               ]),
+    ok.
+
+%% Test `caller_line` trace with `call` and `local`
+test_5a(Config) when is_list(Config) ->
+    Fun = fun() -> f3_test5(a, b) end,
+    Pat = [{'_', [],[{message, {caller_line}}]}],
+    P = spawn(?MODULE, runner, [self(), Fun]),
+    erlang:trace(P, true, [call]),
+    %% Notice `local` function tracing
+    erlang:trace_pattern({?MODULE, f2_test5, 2}, Pat, [local]),
+    erlang:trace_pattern({?MODULE, f1_test5, 1}, Pat, [local]),
+    collect(P, [{trace, P, call, {?MODULE, f2_test5, [a, b]}, {?MODULE, f3_test5, 2, {"test5.erl", 3}}},
+                {trace, P, call, {?MODULE, f1_test5, [a]}, {?MODULE, f3_test5, 2, {"test5.erl", 3}}}]),
+    ok.
+
+%% Test `caller_line` trace with `return_trace`, `call` and `local`
+test_5b(Config) when is_list(Config) ->
+    Fun = fun() -> f3_test5(a, b) end,
+    P = spawn(?MODULE, runner, [self(), Fun]),
+    Pat = [{'_', [], [{return_trace}, {message, {caller_line}}]}],
+    erlang:trace(P, true, [call]),
+    %% Notice `local` function tracing
+    erlang:trace_pattern({?MODULE, f2_test5, 2}, Pat, [local]),
+    erlang:trace_pattern({?MODULE, f1_test5, 1}, Pat, [local]),
+    collect(P, [{trace, P, call, {?MODULE, f2_test5, [a, b]}, {?MODULE, f3_test5, 2, {"test5.erl", 3}}},
+                {trace, P, call, {?MODULE, f1_test5, [a]}, {?MODULE, f3_test5, 2, {"test5.erl", 3}}},
+                {trace, P, return_from, {?MODULE, f1_test5, 1}, {a}},
+                {trace, P, return_from, {?MODULE, f2_test5, 2}, {a}}
+               ]),
     ok.
 
 %% Test that caller and return to work as they should
@@ -1152,3 +1212,25 @@ fbinmatch(<<>>, Acc) -> Acc.
 
 id(X) ->
     X.
+
+-file("test4.erl", 1).
+f3_test4(X,Y) ->
+    ?MODULE:f2_test4(X,Y), % Line 3 - This line number should remain stable
+    ok.
+
+f2_test4(X, _) ->
+    ?MODULE:f1_test4(X).
+
+f1_test4(X) ->
+    {X}.
+
+-file("test5.erl", 1).
+f3_test5(X,Y) ->
+    f2_test5(X,Y), % Line 3 - This line number should remain stable
+    ok.
+
+f2_test5(X, _) ->
+    f1_test5(X).
+
+f1_test5(X) ->
+    {X}.

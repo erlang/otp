@@ -293,7 +293,8 @@ typedef enum {
     matchSilent,
     matchSetSeqTokenFake,
     matchTrace2,
-    matchTrace3
+    matchTrace3,
+    matchCallerLine,
 } MatchOps;
 
 /*
@@ -2041,6 +2042,7 @@ Eterm db_prog_match(Process *c_p,
     Eterm *esp;
     MatchVariable* variables;
     const ErtsCodeMFA *cp;
+    FunctionInfo fi;
     const UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
@@ -2749,6 +2751,47 @@ restart:
 		ehp[3] = make_small((Uint) cp->arity);
 	    }
 	    break;
+        case matchCallerLine:
+            ASSERT(c_p == self);
+
+            /* Note that we can't use `erts_inspect_frame` here as the top of
+             * the stack could point at something other than a frame. */
+            if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+                t = c_p->stop[0];
+            } else {
+                ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+                t = c_p->stop[1];
+            }
+
+            if (is_not_CP(t)) {
+                *esp++ = am_undefined;
+                break;
+            }
+
+            erts_lookup_function_info(&fi, cp_val(t), 1);
+            if (!fi.mfa) {
+                *esp++ = am_undefined;
+            } else {
+                if (fi.loc == LINE_INVALID_LOCATION) {
+                    ehp = HAllocX(build_proc, 5, HEAP_XTRA);
+                } else {
+                    ehp = HAllocX(build_proc, 8, HEAP_XTRA);
+                }
+                *esp++ = make_tuple(ehp);
+                ehp[0] = make_arityval(4);
+                ehp[1] = fi.mfa->module;
+                ehp[2] = fi.mfa->function;
+                ehp[3] = make_small((Uint) fi.mfa->arity);
+                if (fi.loc == LINE_INVALID_LOCATION) {
+                    ehp[4] = am_undefined;
+                } else {
+                    ehp[4] = make_tuple(&ehp[5]);
+                    ehp[5] = make_arityval(2);
+                    ehp[6] = fi.fname_ptr[LOC_FILE(fi.loc)];
+                    ehp[7] = make_small(LOC_LINE(fi.loc));
+               }
+            }
+            break;
         case matchSilent:
             ASSERT(c_p == self);
 	    --esp;
@@ -4893,8 +4936,30 @@ static DMCRet dmc_caller(DMCContext *context,
     return retOk;
 }
 
+static DMCRet dmc_caller_line(DMCContext *context,
+                         DMCHeap *heap,
+                         DMC_STACK_TYPE(UWord) *text,
+                         Eterm t,
+                         int *constant)
+{
+    Eterm *p = tuple_val(t);
+    DMCRet ret;
 
-  
+    if (!check_trace("caller_line", context, constant,
+                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+        return ret;
+
+    if (p[0] != make_arityval(1)) {
+        RETURN_TERM_ERROR("Special form 'caller_line' called with "
+                          "arguments in %T.", t, context, *constant);
+    }
+    *constant = 0;
+    DMC_PUSH(*text, matchCallerLine); /* Creates binary */
+    if (++context->stack_used > context->stack_need)
+        context->stack_need = context->stack_used;
+    return retOk;
+}
+
 static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
@@ -4980,7 +5045,9 @@ static DMCRet dmc_fun(DMCContext *context,
     case am_trace:
 	return dmc_trace(context, heap, text, t, constant);
     case am_caller:
- 	return dmc_caller(context, heap, text, t, constant);
+	return dmc_caller(context, heap, text, t, constant);
+    case am_caller_line:
+	return dmc_caller_line(context, heap, text, t, constant);
     case am_silent:
  	return dmc_silent(context, heap, text, t, constant);
     case am_set_tcw:
@@ -6045,6 +6112,10 @@ void db_match_dis(Binary *bp)
  	    ++t;
  	    erts_printf("Caller\n");
  	    break;
+	case matchCallerLine:
+	    ++t;
+	    erts_printf("CallerLine\n");
+	    break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);
 	    ++t;
