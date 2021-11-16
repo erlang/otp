@@ -36,4 +36,5 @@
 	                       clause_i CDATA #IMPLIED
                                anchor CDATA #IMPLIED
 	                       since CDATA #IMPLIED
-                               n_vars CDATA #IMPLIED>
+                               n_vars CDATA #IMPLIED
+                               prefix CDATA #IMPLIED>

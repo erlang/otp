@@ -30,10 +30,11 @@
     <file>erlang.xml</file>
   </header>
   <module since="">erlang</module>
-  <modulesummary>The Erlang BIFs.</modulesummary>
+  <modulesummary>The Erlang BIFs and predefined types.</modulesummary>
   <description>
-    <p>By convention, most Built-In Functions (BIFs) are included
-      in this module. Some of the BIFs are viewed more
+    <p>By convention, most Built-In Functions (BIFs) and
+      all predefined types are included in this module.
+      Some of the BIFs and all of the predefined types are viewed more
       or less as part of the Erlang programming language and are
       <em>auto-imported</em>. Thus, it is not necessary to specify the
       module name. For example, the calls <c>atom_to_list(erlang)</c>
@@ -41,6 +42,12 @@
 
     <p>Auto-imported BIFs are listed without module prefix.
       BIFs listed with module prefix are not auto-imported.</p>
+
+    <p>Predefined types are listed in the
+      <seeerl marker="#Predefined datatypes">Predefined datatypes</seeerl>
+      section of this reference manual and in the
+      <seeguide marker="system/reference_manual:typespec">Types and Function Specifications</seeguide>
+      section of the Erlang Reference Manual.</p>
 
     <p>BIFs can fail for various reasons. All BIFs fail with
       reason <c>badarg</c> if they are called with arguments of an
@@ -52,22 +59,319 @@
   </description>
 
   <datatypes>
+    <datatype_title>Predefined datatypes</datatype_title>
     <datatype>
-      <name name="ext_binary"/>
+      <name name="any" n_vars="0"/>
+      <desc>
+        <p>All possible Erlang terms. Synonym for <c>term()</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="arity" n_vars="0"/>
+      <desc>
+        <p>The arity of a function or type.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="atom" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#atom">atom</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="binary" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#bit-strings-and-binaries">binary</seeguide>,
+          that is, a bitstring with a size divisible by 8.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="bitstring" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#bit-strings-and-binaries">bitstring</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="boolean" n_vars="0"/>
+      <desc>
+        <p>A <seeguide marker="system/reference_manual:data_types#boolean">boolean</seeguide> value.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="byte" n_vars="0"/>
+      <desc>
+        <p>A byte of data represented by an integer.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="char" n_vars="0"/>
+      <desc>
+        <p>An ASCII character or a <seeerl marker="stdlib:unicode">unicode</seeerl>
+          codepoint presented by an integer.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="float" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#number">float</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="function" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#fun">fun</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="identifier" n_vars="0"/>
+      <desc>
+        <p>An unique identifier for some entity, for example a <seeguide marker="system/reference_manual:processes">process</seeguide>, <seeguide marker="system/reference_manual:ports#ports">port</seeguide> or <seemfa marker="#monitor/2">monitor</seemfa>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="integer" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#number">integer</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="iodata" n_vars="0"/>
+      <desc>
+        <p>A binary or list containing bytes and/or iodata. This datatype is used to represent data
+          that is meant to be output using any I/O module.
+          For example: <seemfa marker="kernel:file#write/2">file:write/2</seemfa> or
+          <seemfa marker="kernel:gen_tcp#send/2">gen_tcp:send/2</seemfa>.
+        </p>
+        <p>To convert an iodata() term to binary() you can use <seemfa marker="#iolist_to_binary/1">
+          iolist_to_binary/2</seemfa>. To transcode a <seetype marker="#string">string()</seetype>
+          or <seetype marker="stdlib:unicode#chardata">unicode:chardata()</seetype> to iodata()
+          you can use <seemfa marker="stdlib:unicode#characters_to_binary/1">unicode:characters_to_binary/1</seemfa>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="iolist" n_vars="0"/>
+      <desc>
+        <p>A list containing bytes and/or iodata. This datatype is used to represent data
+          that is meant to be output using any I/O module.
+          For example: <seemfa marker="kernel:file#write/2">file:write/2</seemfa>
+          or <seemfa marker="kernel:gen_tcp#send/2">gen_tcp:send/2</seemfa>.</p>
+        <p>In most use cases you want to use <seetype marker="#iodata">iodata()</seetype>
+          instead of this type.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="list" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>
+          containing terms of any type.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="list" n_vars="1"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>
+          containing terms of the type <c><anno>ContentType</anno></c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="map" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#map">map</seeguide>
+          containing any number of key and value associations.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="maybe_improper_list" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>
+          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>, and where the
+          list elements can be of any type.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="maybe_improper_list" n_vars="2"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#list">list</seeguide>,
+          that is not guaranteed to end with a <seetype marker="#nil">[]</seetype>,
+          and where the list elements are of the type <c><anno>ContentType</anno></c>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="mfa" n_vars="0"/>
+      <desc>
+        <p>A three-tuple representing a <c>Module:Function/Arity</c> function signature.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="module" n_vars="0"/>
+      <desc>
+        <p>An Erlang module represented by an atom.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="neg_integer" n_vars="0"/>
+      <desc>
+        <p>A negative integer.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nil" n_vars="0"/>
+      <desc>
+        <p>The empty <seetype marker="#list">list()</seetype>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="no_return" n_vars="0"/>
+      <desc>
+        <p>The type used to show that a function will <em>never</em> return a value,
+          that is it will <em>always</em> throw an exception.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="node" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:distributed#nodes">node</seeguide>
+          represented by an atom.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="non_neg_integer" n_vars="0"/>
+      <desc>
+        <p>A non-negative integer, that is any positive integer or 0.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="none" n_vars="0"/>
+      <desc>
+        <p>This type is used to show that a function will <em>never</em> return a value;
+          that is it will <em>always</em> throw an exception. In a spec, use <c>no_return()</c>
+          for the sake of clarity.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_binary" n_vars="0"/>
+      <desc>
+        <p>A <seetype marker="#binary">binary()</seetype> that contains some data.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_bitstring" n_vars="0"/>
+      <desc>
+        <p>A <seetype marker="#bitstring">bitstring()</seetype> that contains some data.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_improper_list" n_vars="2"/>
+      <desc>
+        <p>A <seetype marker="#maybe_improper_list">maybe_improper_list/2</seetype> that contains some items.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_list" n_vars="0"/>
+      <desc>
+        <p>A <seetype marker="#list">list()</seetype> that contains some items.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_list" n_vars="1"/>
+      <desc>
+        <p>A <seetype marker="#list">list(ContentType)</seetype> that contains some items.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_maybe_improper_list" n_vars="0"/>
+      <desc>
+        <p>A <seetype marker="#maybe_improper_list">maybe_improper_list()</seetype> that contains some items.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_maybe_improper_list" n_vars="2"/>
+      <desc>
+        <p>A <seetype marker="#maybe_improper_list">maybe_improper_list(ContentType, TerminationType)</seetype>
+          that contains some items.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="nonempty_string" n_vars="0"/>
+      <desc>
+        <p>A <seetype marker="#string">string()</seetype> that contains some characters.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="number" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#number">number</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="pid" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#pid">process identifier</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="port" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#port-identifier">port identifier</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="pos_integer" n_vars="0"/>
+      <desc>
+        <p>An integer greater than zero.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="reference" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#reference">reference</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="string" n_vars="0"/>
+      <desc>
+        <p>A character string represented by a list of ASCII characters or unicode codepoints.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="term" n_vars="0"/>
+      <desc>
+        <p>All possible Erlang terms. Synonym for <c>any()</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout" n_vars="0"/>
+      <desc>
+        <p>A timeout value that can be passed to a <seeguide marker="system/reference_manual:expressions#receive">receive expression</seeguide>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="tuple" n_vars="0"/>
+      <desc>
+        <p>An Erlang <seeguide marker="system/reference_manual:data_types#tuple">tuple</seeguide>.</p>
+      </desc>
+    </datatype>
+
+    <datatype_title>Other Datatypes</datatype_title>
+    <datatype>
+      <name name="ext_binary" prefix="true"/>
       <desc>
         <p>A binary data object, structured according to
           the Erlang external term format.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="ext_iovec"/>
+      <name name="ext_iovec" prefix="true"/>
       <desc>
         <p>A term of type <seetype marker="#iovec"><c>iovec()</c></seetype>,
 	structured according to the Erlang external term format.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="iovec"/>
+      <name name="iovec" prefix="true"/>
       <desc>
         <p>A list of binaries. This datatype is useful to use
           together with <seecref marker="erl_nif#enif_inspect_iovec">
@@ -75,27 +379,27 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="message_queue_data"></name>
+      <name name="message_queue_data" prefix="true"/>
       <desc>
         <p>See <seeerl marker="#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="monitor_option"></name>
+      <name name="monitor_option" prefix="true"/>
       <desc>
         <p>See <seemfa marker="#monitor/3"><c>monitor/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="timestamp"></name>
+      <name name="timestamp" prefix="true"/>
       <desc>
         <p>See <seemfa marker="#timestamp/0">
           <c>erlang:timestamp/0</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="time_unit"></name>
+      <name name="time_unit" prefix="true"/>
       <desc>
         <marker id="type_time_unit"/>
         <p>Supported time unit representations:</p>
@@ -182,7 +486,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="deprecated_time_unit"></name>
+      <name name="deprecated_time_unit" prefix="true"/>
       <desc><marker id="type_deprecated_time_unit"/>
 	<p>The <seeerl marker="#type_time_unit"><c>time_unit()</c></seeerl>
 	type also consist of the following <em>deprecated</em> symbolic
@@ -204,14 +508,14 @@
     </datatype>
 
     <datatype>
-      <name name="dist_handle"></name>
+      <name name="dist_handle" prefix="true"/>
       <desc>
         <p>An opaque handle identifing a distribution channel.</p>
       </desc>
     </datatype>
 
     <datatype>
-      <name name="nif_resource"></name>
+      <name name="nif_resource" prefix="true"/>
       <desc>
         <p>An opaque handle identifing a
 	<seecref marker="erl_nif#resource_objects">NIF resource object
@@ -219,13 +523,13 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="spawn_opt_option"></name>
+      <name name="spawn_opt_option" prefix="true"/>
       <desc>
         <p>Options for <seemfa marker="#spawn_opt/4"><c>spawn_opt()</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="priority_level"></name>
+      <name name="priority_level" prefix="true"/>
       <desc>
         <p>Process priority level. For more info see
         <seeerl marker="#process_flag_priority"><c>process_flag(priority,
@@ -233,7 +537,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="max_heap_size"></name>
+      <name name="max_heap_size" prefix="true"/>
       <desc>
         <p>Process max heap size configuration. For more info see
         <seeerl marker="#process_flag_max_heap_size"><c>process_flag(max_heap_size,
@@ -241,7 +545,7 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="message_queue_data"></name>
+      <name name="message_queue_data" prefix="true"/>
       <desc>
         <p>Process message queue data configuration. For more information, see
         <seeerl marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
@@ -250,8 +554,8 @@
     </datatype>
 
     <datatype>
-      <name name="stacktrace"/>
-      <name name="stacktrace_extrainfo"/>
+      <name name="stacktrace" prefix="true"/>
+      <name name="stacktrace_extrainfo" prefix="true"/>
       <desc><p>An Erlang stacktrace as described by
       <seeguide marker="system/reference_manual:errors#stacktrace">Errors and Error Handling</seeguide>
       section in the Erlang Reference Manual.

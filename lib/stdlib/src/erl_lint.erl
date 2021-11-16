@@ -2895,7 +2895,8 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
                 CheckType = {type, nowarn(), product, [ProtoType|Args]},
                 check_type(CheckType, St#lint{types=NewDefs})
         end,
-    case is_default_type(TypePair) of
+    case is_default_type(TypePair) andalso
+        not member(no_auto_import_types, St0#lint.compile) of
         true ->
             case is_obsolete_builtin_type(TypePair) of
                 true -> StoreType(St0);
