@@ -4947,6 +4947,7 @@ erts_request_io_bytes(Process *c_p)
 
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
+                                          1,
 					  erts_no_schedulers,
 					  reply_io_bytes,
 					  (void *) req);

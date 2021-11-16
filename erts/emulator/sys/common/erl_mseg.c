@@ -193,7 +193,7 @@ static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
   (&aligned_mseg_allctr[(IX)].mseg_alloc)
 
 #define ERTS_MSEG_ALLCTR_SS() \
-  ERTS_MSEG_ALLCTR_IX((int) erts_get_scheduler_id())
+  ERTS_MSEG_ALLCTR_IX((int) erts_get_thr_alloc_ix())
 
 #define ERTS_MSEG_ALLCTR_OPT(OPT) \
   ((OPT)->sched_spec ? ERTS_MSEG_ALLCTR_SS() : ERTS_MSEG_ALLCTR_IX(0))
@@ -1391,8 +1391,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
     int i;
     UWord x;
 
-    no_mseg_allocators = init->nos + 1;
-
+    no_mseg_allocators = 1; /* Global instance */
+    no_mseg_allocators += init->nos; /* Scheduler specific instances */
+    no_mseg_allocators += init->ndai; /* Dirty alloc instances */
+    
     x = (UWord) malloc(sizeof(ErtsAlgndMsegAllctr_t)
 		       *no_mseg_allocators
 		       + (ERTS_CACHE_LINE_SIZE-1));
@@ -1423,7 +1425,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
 	ma->is_init_done = 0;
 
-	if (i != 0)
+	if (i != 0 && i <= init->nos)
 	    ma->is_thread_safe = 0;
 	else {
 	    ma->is_thread_safe = 1;

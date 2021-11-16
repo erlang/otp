@@ -106,6 +106,7 @@ extern Uint ERTS_WRITE_UNLIKELY(erts_no_total_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_cpu_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_io_schedulers);
 extern Uint ERTS_WRITE_UNLIKELY(erts_no_run_queues);
+extern int ERTS_WRITE_UNLIKELY(erts_no_aux_work_threads);
 extern int erts_sched_thread_suggested_stack_size;
 extern int erts_dcpu_sched_thread_suggested_stack_size;
 extern int erts_dio_sched_thread_suggested_stack_size;
@@ -558,8 +559,9 @@ typedef struct {
     erts_aint32_t aux_work;
 } ErtsDelayedAuxWorkWakeupJob;
 
-typedef struct {
-    int sched_id;
+typedef struct ErtsAuxWorkData_ {
+    int aux_work_tid;
+    ErtsThrAllocData alloc_data;
     ErtsSchedulerData *esdp;
     ErtsSchedulerSleepInfo *ssi;
     ErtsThrPrgrVal current_thr_prgr;
@@ -607,7 +609,8 @@ typedef struct {
 
 #define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
     (&(ESDP)->aux_work_data.yield.NAME)
-void erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp);
+void erts_more_yield_aux_work(ErtsAuxWorkData *);
+ErtsAuxWorkData *erts_get_aux_work_data(void);
 
 typedef enum {
     ERTS_DIRTY_CPU_SCHEDULER,
@@ -706,8 +709,6 @@ struct ErtsSchedulerData_ {
     Uint32 thr_id;
     Uint64 unique;
     Uint64 ref;
-
-    ErtsSchedAllocData alloc_data;
 
     struct {
 	Uint64 out;
@@ -1939,7 +1940,8 @@ void erts_schedule_misc_aux_work(int sched_id,
 				 void (*func)(void *),
 				 void *arg);
 void erts_schedule_multi_misc_aux_work(int ignore_self,
-				       int max_sched,
+                                       int min_tid,
+				       int max_tid,
 				       void (*func)(void *),
 				       void *arg);
 erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);

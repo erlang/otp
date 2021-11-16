@@ -5127,7 +5127,7 @@ static BIF_RETTYPE
 gather_histograms_helper(Process * c_p, Eterm arg_tuple,
                          int gather(Process *, int, int, int, UWord, Eterm))
 {
-    SWord hist_start, hist_width, sched_id;
+    SWord hist_start, hist_width, aux_work_tid;
     int msg_count, alloc_num;
     Eterm *args;
 
@@ -5147,15 +5147,15 @@ gather_histograms_helper(Process * c_p, Eterm arg_tuple,
         BIF_ERROR(c_p, BADARG);
     }
 
-    sched_id = signed_val(args[2]);
+    aux_work_tid = signed_val(args[2]);
     hist_width = signed_val(args[3]);
     hist_start = signed_val(args[4]);
 
-    if (sched_id < 0 || sched_id > erts_no_schedulers) {
+    if (aux_work_tid < 0 || erts_no_aux_work_threads <= aux_work_tid) {
         BIF_ERROR(c_p, BADARG);
     }
 
-    msg_count = gather(c_p, alloc_num, sched_id, hist_width, hist_start, args[5]);
+    msg_count = gather(c_p, alloc_num, aux_work_tid, hist_width, hist_start, args[5]);
 
     BIF_RET(make_small(msg_count));
 }

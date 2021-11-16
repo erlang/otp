@@ -2359,6 +2359,7 @@ trace_delivered_1(BIF_ALIST_1)
                                    (erts_aint32_t) erts_no_schedulers);
         erts_proc_add_refc(BIF_P, 1);
         erts_schedule_multi_misc_aux_work(0,
+                                          1,
                                           erts_no_schedulers,
                                           reply_trace_delivered_all,
                                           (void *) tdarp);
