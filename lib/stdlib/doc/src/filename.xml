@@ -136,7 +136,7 @@
         <p>Joins an absolute directory with a relative filename. Similar to
           <seemfa marker="#join/2"><c>join/2</c></seemfa>, but on platforms
           with tight restrictions on raw filename length and no support for
-          symbolic links (read: VxWorks), leading parent directory components
+          symbolic links, leading parent directory components
           in <c><anno>Filename</anno></c> are matched against trailing
           directory components in <c><anno>Dir</anno></c> so they can be
           removed from the result - minimizing its length.</p>

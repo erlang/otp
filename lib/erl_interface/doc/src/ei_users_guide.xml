@@ -298,7 +298,7 @@ pub = ei_publish(ec, port);    ]]></code>
       explicitly close the descriptor or if your node fails, it becomes
       unregistered from <c>epmd</c>.</p>
 
-    <p>Notice that on some systems (such as VxWorks), a failed node is
+    <p>Notice that on some systems a failed node is
       not detected by this mechanism, as the operating system does not
       automatically close descriptors that were left open when the node
       failed. If a node has failed in this way, <c>epmd</c>

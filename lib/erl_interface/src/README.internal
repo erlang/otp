@@ -12,10 +12,6 @@ Ei should be "reentrant" or "async safe", i.e. no locks should be set
 so that if an ei function is called inside an signal handler there
 could be a deadlock.
 
-VxWorks call the operating processes "tasks". These are to be handled the
-same way as Unix threads, i.e. there can only be one C node for all tasks
-using the old interface.
-
 Try to keep the documented functions, variables and symbols in sync
 between
 

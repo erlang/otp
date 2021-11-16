@@ -674,7 +674,7 @@ do_terminate(int erlin_fd, int reason) {
   case R_ERROR:
   default:
     {
-#if defined(__WIN32__) /* Not VxWorks */
+#if defined(__WIN32__)
 	if(!cmd[0]) {
 	    char *command = get_env(HEART_COMMAND_ENV);
 	    if(!command)

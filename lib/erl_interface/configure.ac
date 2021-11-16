@@ -20,8 +20,6 @@
 # Process this file with autoconf to produce a configure script.
 # The starting point for this file was the output from 'autoscan'.
 
-# Strange, VxWorks HAVE_SENS not set here, see "ei_resolve.h"
-
 # Find the erl_interface version number and set m4 macro to it.
 # We do this because AC_INIT can't handle shell variables. Still broken.
 dnl m4_define(EI_VERSION,`grep EI_VSN ../vsn.mk | sed 's/^.*=[ ]*//'`)

@@ -2581,9 +2581,7 @@ call_crash(Time,Crash,M,F,A) ->
 %%
 %% Slave and Peer:
 %% {remote, true}         - Start the node on a remote host. If not specified,
-%%                          the node will be started on the local host (with
-%%                          some exceptions, for instance VxWorks,
-%%                          where all nodes are started on a remote host).
+%%                          the node will be started on the local host.
 %% {args, Arguments}      - Arguments passed directly to the node.
 %% {cleanup, false}       - Nodes started with this option will not be killed
 %%                          by the test server after completion of the test case

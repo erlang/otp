@@ -373,7 +373,7 @@ OtpNode node = new OtpNode("gurka");    </code>
     <p>Java nodes can also register themselves with epmd if they want other
       nodes in the system to be able to find and connect to them.
       This is done by call to method <seefile marker="java/com/ericsson/otp/erlang/OtpEpmd#publishPort(com.ericsson.otp.erlang.OtpLocalNode)">OtpEpmd.publishPort()</seefile>.</p>
-    <p>Be aware that on some systems (such as VxWorks), a failed node will
+    <p>Be aware that on some systems a failed node will
       not be detected by this mechanism since the operating system does not
       automatically close descriptors that were left open when the node
       failed. If a node has failed in this way, epmd will prevent you from

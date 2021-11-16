@@ -24,9 +24,6 @@
 # We use both `rm' (Unix) and `del' (Windows) for removing files, but
 # with a `-' in front so that the error in not finding `rm' (`del') on
 # Windows (Unix) is ignored.
-#
-# VxWorks? XXX
-#
 
 .SUFFIXES:
 .SUFFIXES: .java
