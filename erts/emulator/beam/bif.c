@@ -4298,7 +4298,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-#       define HALT_MSG_SIZE 200
+#       define HALT_MSG_SIZE 1023
         static byte halt_msg[4*HALT_MSG_SIZE+1];
         Sint written;
 
