@@ -70,7 +70,7 @@ usage() ->
 
 call_edoc(FileSpec, InclFs, Dir) ->
     ReadOpts = [{includes, InclFs}, {preprocess, true}],
-    ExtractOpts = [{report_missing_type, false}],
+    ExtractOpts = [{report_missing_type, false}, {link_predefined_types, true}],
     LayoutOpts = [{pretty_printer, erl_pp}, {layout, docgen_otp_specs}],
     File = case FileSpec of
                {file, File0} -> File0;

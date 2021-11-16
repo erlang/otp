@@ -103,7 +103,7 @@ type_macro(S, Line, Env) ->
     S1 = "t()=" ++ S,
     Def = edoc_parser:parse_typedef(S1, Line),
     {#t_typedef{type = T}, _} = Def,
-    Txt = edoc_layout:type(edoc_data:type(T, Env)),
+    Txt = edoc_layout:type(edoc_data:type(T, Env, [])),
     lists:flatten(io_lib:fwrite("<code>~ts</code>", [Txt])).
 
 

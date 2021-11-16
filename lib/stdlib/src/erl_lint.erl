@@ -2910,7 +2910,8 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
                 St1 = St#lint{types=NewDefs, type_id={type, TypePair}},
                 check_type(CheckType, St1)
         end,
-    case is_default_type(TypePair) of
+    case is_default_type(TypePair) andalso
+        not member(no_auto_import_types, St0#lint.compile) of
         true ->
             case is_obsolete_builtin_type(TypePair) of
                 true -> StoreType(St0);

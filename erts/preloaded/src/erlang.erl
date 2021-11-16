@@ -74,7 +74,65 @@
 %% the correct function.
 -compile({inline, [badarg_with_info/1,error_with_info/2,
                    error_with_inherited_info/3,badarg_with_cause/2]}).
+-compile(no_auto_import_types).
 
+%% Built-in datatypes
+-type any() :: any().
+-type arity() :: arity().
+-type atom() :: atom().
+-type binary() :: <<_:_*8>>.
+-type bitstring() :: <<_:_*1>>.
+-type bool() :: boolean().
+-type boolean() :: true | false.
+-type byte() :: 0..255.
+-type char() :: 0..16#10FFFF.
+-type float() :: float().
+-type function() :: fun().
+-type identifier() :: pid() | port() | reference().
+-type integer() :: integer().
+-type iodata() :: iolist() | binary().
+-type iolist() :: maybe_improper_list(byte() | binary() | iolist(), binary() | []).
+-type list() :: list().
+-type list(ContentType) :: list(ContentType).
+-type map() :: #{ any() => any() }.
+-type maybe_improper_list() :: maybe_improper_list(any(), any()).
+-type maybe_improper_list(ContentType, TerminationType) :: maybe_improper_list(ContentType, TerminationType).
+-type mfa() :: {module(),atom(),arity()}.
+-type module() :: atom().
+-type neg_integer() :: neg_integer().
+-type nil() :: [].
+-type no_return() :: none().
+-type node() :: atom().
+-type non_neg_integer() :: non_neg_integer().
+-type none() :: none().
+-type nonempty_binary() :: <<_:8, _:_*8>>.
+-type nonempty_bitstring() :: <<_:1, _:_*1>>.
+-type nonempty_improper_list(ContentType, TerminationType) :: nonempty_improper_list(ContentType, TerminationType).
+-type nonempty_list() :: nonempty_list(any()).
+-type nonempty_list(ContentType) :: [ContentType, ...].
+-type nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any()).
+-type nonempty_maybe_improper_list(ContentType, TerminationType) :: nonempty_maybe_improper_list(ContentType, TerminationType).
+-type nonempty_string() :: nonempty_list(char()).
+-type number() :: integer() | float().
+-type pid() :: pid().
+-type port() :: port().
+-type pos_integer() :: pos_integer().
+-type reference() :: reference().
+-type string() :: [char()].
+-type term() :: any().
+-type timeout() :: 'infinity' | non_neg_integer().
+-type tuple() :: tuple().
+-export_type([any/0, arity/0, atom/0, binary/0, bitstring/0, bool/0, boolean/0, byte/0,
+              char/0, float/0, function/0, identifier/0, integer/0, iodata/0, iolist/0,
+              list/0, list/1, map/0, maybe_improper_list/0, maybe_improper_list/2, mfa/0,
+              module/0, neg_integer/0, nil/0, no_return/0, node/0, non_neg_integer/0,
+              none/0, nonempty_binary/0, nonempty_bitstring/0, nonempty_improper_list/2,
+              nonempty_list/0, nonempty_list/1, nonempty_maybe_improper_list/0,
+              nonempty_maybe_improper_list/2, nonempty_string/0, number/0, pid/0,
+              port/0, pos_integer/0, reference/0, string/0, term/0, timeout/0,
+              tuple/0]).
+
+%% Datatypes that need an erlang: prefix
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
 -export_type([deprecated_time_unit/0]).

@@ -583,7 +583,14 @@
 	</xsl:if>
 	<xsl:choose>
 	  <xsl:when test="$mode = ''">
-	    <xsl:apply-templates select="$type/typedecl"/>
+            <xsl:variable name="prefix">
+              <xsl:if test="@prefix = 'true'">
+                <xsl:value-of select="concat($curModule,':')"/>
+              </xsl:if>
+            </xsl:variable>
+	    <xsl:apply-templates select="$type/typedecl">
+              <xsl:with-param name="prefix" select="$prefix"/>
+            </xsl:apply-templates>
 	  </xsl:when>
 	  <xsl:when test="$mode = 'local_type'">
 	    <xsl:apply-templates select="$type/typedecl" mode="local_type">
@@ -600,7 +607,9 @@
   </xsl:template>
 
   <xsl:template match="typehead">
+    <xsl:param name="prefix"/>
     <span class="bold_code bc-4">
+      <xsl:value-of select="$prefix"/>
       <xsl:apply-templates/>
     </span><br/>
   </xsl:template>
