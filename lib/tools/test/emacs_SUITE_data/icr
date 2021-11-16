@@ -155,3 +155,42 @@ indent_receive() ->
             5*43
     end,
     ok.
+
+indent_maybe(1) ->
+    begin
+        maybe_should_be_indented_as_begin,
+    end,
+    maybe
+        1 = foo(X),
+        2 ?= asd(X),
+        line_with_break =
+            foo(X+1),
+        line_with_break ?=
+             foo(X+1)
+    end,
+    ok;
+indent_maybe(1) ->
+    maybe
+        2 ?= foo(X),
+        3 ?= bar(Y)
+    else
+        %% else indented as a standard icr (if-case-receive)
+        {error, Z} when Z == 1 ->
+            error1;
+        {error, Z}
+          when Z == 2 ->
+            error2
+    end;
+indent_maybe(3) ->
+    maybe
+        2 ?= foo(x),
+        maybe
+            nested ?= foo(y)
+        else
+            error ->
+                ok
+        end
+    else
+        error -> ok
+    end.
+
