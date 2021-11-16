@@ -737,7 +737,7 @@ alltrue([_|_]) ->
     false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Ensure that we cannot register throug a nonlocal connection
+%% Ensure that we cannot register through a nonlocal connection
 no_nonlocal_register(Config) when is_list(Config) ->
     case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
         {SSH,Name} when is_list(Name), is_list(SSH) ->
