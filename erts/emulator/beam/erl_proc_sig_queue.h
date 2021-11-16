@@ -1480,6 +1480,22 @@ ERTS_GLB_INLINE void erts_msgq_set_save_first(Process *c_p);
 
 /**
  *
+ * @brief Remove a message from the message queue and set
+ *        the save pointer to the start of the message queue.
+ *
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     msgp          A pointer to the message to
+ *                              remove from the message queue.
+ *
+ */
+ERTS_GLB_INLINE void erts_msgq_unlink_msg_set_save_first(Process *c_p,
+                                                         ErtsMessage *msgp);
+
+/**
+ *
  * @brief Advance the save pointer to the next message in the
  *        message queue.
  *
@@ -1904,6 +1920,21 @@ erts_msgq_set_save_first(Process *c_p)
     if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
 	erts_msgq_remove_leading_recv_markers(c_p);
     c_p->sig_qs.save = &c_p->sig_qs.first;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_unlink_msg_set_save_first(Process *c_p, ErtsMessage *msgp)
+{
+    ErtsMessage *sigp = msgp->next;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "before");
+    *c_p->sig_qs.save = sigp;
+    c_p->sig_qs.len--;
+    if (!sigp)
+        c_p->sig_qs.last = c_p->sig_qs.save;
+    else if (ERTS_SIG_IS_RECV_MARKER(sigp))
+        ((ErtsRecvMarker *) sigp)->prev_next = c_p->sig_qs.save;
+    erts_msgq_set_save_first(c_p);
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE__(c_p, 0, "after");
 }
 
 ERTS_GLB_INLINE void

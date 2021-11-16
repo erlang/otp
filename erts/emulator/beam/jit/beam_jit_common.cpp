@@ -1094,8 +1094,7 @@ Sint beam_jit_remove_message(Process *c_p,
                 tok_serial);
     }
 #endif
-    erts_msgq_unlink_msg(c_p, msgp);
-    erts_msgq_set_save_first(c_p);
+    erts_msgq_unlink_msg_set_save_first(c_p, msgp);
     CANCEL_TIMER(c_p);
 
     erts_save_message_in_proc(c_p, msgp);
