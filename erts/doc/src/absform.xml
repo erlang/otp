@@ -430,6 +430,21 @@
           <c>{match,ANNO,Rep(P),Rep(E_0)}</c>.</p>
       </item>
       <item>
+        <p>If E is a conditional match operator expression <c>P ?= E_0</c>,
+          where <c>P</c> is a pattern, then Rep(E) =
+          <c>{maybe_match,ANNO,Rep(P),Rep(E_0)}</c>.</p>
+      </item>
+      <item>
+        <p>If E is a maybe expression <c>maybe B end</c>,
+          where <c>B</c> is a body then Rep(E) =
+          <c>{'maybe',ANNO,Rep(B)}</c>.</p>
+      </item>
+      <item>
+        <p>If E is a maybe expression <c>maybe B else Ec_1 ; ... ; Ec_k end end</c>,
+          where <c>B</c> is a body and each <c>Ec_i</c> is an else clause then Rep(E) =
+          <c>{'maybe',ANNO,Rep(B),{'else',ANNO,[Rep(Ec_1), ..., Rep(Tc_k)]}}</c>.</p>
+      </item>
+      <item>
         <p>If E is nil, <c>[]</c>, then Rep(E) = <c>{nil,ANNO}</c>.</p>
       </item>
       <item>
