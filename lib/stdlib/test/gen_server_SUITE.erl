@@ -33,7 +33,8 @@
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
 	 otp_5854/1, hibernate/1, auto_hibernate/1, otp_7669/1, call_format_status/1,
-	 error_format_status/1, terminate_crash_format/1,
+	 error_format_status/1, terminate_crash_format/1, crash_in_format_status/1,
+         throw_in_format_status/1, format_all_status/1,
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
 	 undef_init/1, undef_code_change/1, undef_terminate1/1,
@@ -71,7 +72,7 @@ all() ->
      spec_init_local_registered_parent,
      spec_init_global_registered_parent, otp_5854, hibernate, auto_hibernate,
      otp_7669,
-     call_format_status, error_format_status, terminate_crash_format,
+     {group, format_status},
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
@@ -80,12 +81,18 @@ all() ->
 groups() -> 
     [{stop, [],
       [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
+     {format_status, [],
+      [call_format_status, error_format_status, terminate_crash_format,
+       crash_in_format_status, throw_in_format_status, format_all_status]},
      {undef_callbacks, [],
       [undef_handle_call, undef_handle_cast, undef_handle_info, undef_handle_continue,
        undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
 
 
 init_per_suite(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Server = filename:join(DataDir, "format_status_server.erl"),
+    {ok, format_status_server} = compile:file(Server),
     Config.
 
 end_per_suite(_Config) ->
@@ -1339,48 +1346,65 @@ do_otp_7669_stop() ->
 				       ?MODULE, stop, []),
     undefined = global:whereis_name(?MODULE).
 
-%% Verify that sys:get_status correctly calls our format_status/2 fun.
+%% Verify that sys:get_status correctly calls our format_status/1,2 fun.
 call_format_status(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    call_format_status(?MODULE, format_status_called),
+    call_format_status(format_status_server,{data,[{"State",format_status_called}]}),
+    process_flag(trap_exit, OldFl).
+call_format_status(Module, Match) when is_atom(Module) ->
+
     Parent = self(),
 
     {ok, Pid} = gen_server:start_link({local, call_format_status},
-				      ?MODULE, [], []),
+				      Module, [], []),
     Status1 = sys:get_status(call_format_status),
     {status, Pid, Mod, [_Pdict1, running, Parent, _, Data1]} = Status1,
-    [format_status_called | _] = lists:reverse(Data1),
+    [Match | _] = lists:reverse(Data1),
     Status2 = sys:get_status(call_format_status, 5000),
     {status, Pid, Mod, [_Pdict2, running, Parent, _, Data2]} = Status2,
-    [format_status_called | _] = lists:reverse(Data2),
+    [Match | _] = lists:reverse(Data2),
+    gen_server:call(Pid, stop),
+    receive {'EXIT',_,_} -> ok end,
 
     %% check that format_status can handle a name being a pid (atom is
     %% already checked by the previous test)
-    {ok, Pid3} = gen_server:start_link(gen_server_SUITE, [], []),
+    {ok, Pid3} = gen_server:start_link(Module, [], []),
     Status3 = sys:get_status(Pid3),
     {status, Pid3, Mod, [_PDict3, running, Parent, _, Data3]} = Status3,
-    [format_status_called | _] = lists:reverse(Data3),
+    [Match | _] = lists:reverse(Data3),
+    gen_server:call(Pid3, stop),
+    receive {'EXIT',_,_} -> ok end,
 
     %% check that format_status can handle a name being a term other than a
     %% pid or atom
     GlobalName1 = {global, "CallFormatStatus"},
-    {ok, Pid4} = gen_server:start_link(GlobalName1,
-				       gen_server_SUITE, [], []),
+    {ok, Pid4} = gen_server:start_link(GlobalName1, Module, [], []),
     Status4 = sys:get_status(Pid4),
     {status, Pid4, Mod, [_PDict4, running, Parent, _, Data4]} = Status4,
-    [format_status_called | _] = lists:reverse(Data4),
+    [Match | _] = lists:reverse(Data4),
+    gen_server:call(Pid4, stop),
+    receive {'EXIT',_,_} -> ok end,
     GlobalName2 = {global, {name, "term"}},
-    {ok, Pid5} = gen_server:start_link(GlobalName2,
-				       gen_server_SUITE, [], []),
+    {ok, Pid5} = gen_server:start_link(GlobalName2, Module, [], []),
     Status5 = sys:get_status(GlobalName2),
     {status, Pid5, Mod, [_PDict5, running, Parent, _, Data5]} = Status5,
-    [format_status_called | _] = lists:reverse(Data5),
+    [Match | _] = lists:reverse(Data5),
+    gen_server:call(Pid5, stop),
+    receive {'EXIT',_,_} -> ok end,
     ok.
 
-%% Verify that error termination correctly calls our format_status/2 fun.
+%% Verify that error termination correctly calls our format_status/1,2 fun.
 error_format_status(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    error_format_status(?MODULE),
+    error_format_status(format_status_server),
+    process_flag(trap_exit, OldFl);
+error_format_status(Module) when is_atom(Module) ->
+
     State = "called format_status",
-    {ok, Pid} = gen_server:start_link(?MODULE, {state, State}, []),
+    {ok, Pid} = gen_server:start_link(Module, {state, State}, []),
     {'EXIT',{crashed,_}} = (catch gen_server:call(Pid, crash)),
     receive
 	{'EXIT', Pid, crashed} ->
@@ -1396,19 +1420,24 @@ error_format_status(Config) when is_list(Config) ->
 			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
-	    io:format("Unexpected: ~p", [Other]),
+	    ct:pal("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     end,
-    process_flag(trap_exit, OldFl),
+    receive
+        {error_report,_,_} -> ok
+    end,
     ok.
 
-%% Verify that error when terminating correctly calls our format_status/2 fun
-%%
+%% Verify that error when terminating correctly calls our format_status/1,2 fun
 terminate_crash_format(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    terminate_crash_format(?MODULE),
+    terminate_crash_format(format_status_server),
+    process_flag(trap_exit, OldFl);
+terminate_crash_format(Module) when is_atom(Module) ->
     State = crash_terminate,
-    {ok, Pid} = gen_server:start_link(?MODULE, {state, State}, []),
+    {ok, Pid} = gen_server:start_link(Module, {state, State}, []),
     gen_server:call(Pid, stop),
     receive {'EXIT', Pid, {crash, terminate}} -> ok end,
     ClientPid = self(),
@@ -1427,8 +1456,166 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    io:format("Timeout: expected error logger msg", []),
 	    ct:fail(failed)
     end,
-    process_flag(trap_exit, OldFl),
+    receive
+        {error_report,_,_} -> ok
+    end,
     ok.
+
+crash_in_format_status(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    crash_in_format_status(?MODULE, "gen_server_SUITE:format_status/2 crashed"),
+    crash_in_format_status(format_status_server, "format_status_server:format_status/1 crashed"),
+    process_flag(trap_exit, OldFl).
+crash_in_format_status(Module, Match) when is_atom(Module) ->
+    State = fun(_) -> exit({crash,format_status}) end,
+    {ok, Pid} = gen_server:start_link(Module, {state, State}, []),
+
+    {status,Pid, _, [_,_,_,_,Info]} = sys:get_status(Pid),
+    {data,[{"State",Match}]} = lists:last(Info),
+
+    gen_server:call(Pid, stop),
+    receive {'EXIT', Pid, stopped} -> ok end,
+    ClientPid = self(),
+    receive
+	{error,_GroupLeader,
+         {Pid,
+          "** Generic server"++_,
+          [Pid, stop, Match, stopped,
+           ClientPid, [_|_] = _ClientStack]}} ->
+	    ok;
+	Other ->
+	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:fail(failed)
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ct:fail(failed)
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+    ok.
+
+throw_in_format_status(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    throw_in_format_status(?MODULE,{throw,format_status}),
+    throw_in_format_status(format_status_server,"format_status_server:format_status/1 crashed"),
+    process_flag(trap_exit, OldFl).
+throw_in_format_status(Module, Match) when is_atom(Module) ->
+    State = fun(_) -> throw({throw,format_status}) end,
+    {ok, Pid} = gen_server:start_link(Module, {state, State}, []),
+
+    {status,Pid, _, [_,_,_,_,Info]} = sys:get_status(Pid),
+    case lists:last(Info) of
+        {data,[{"State",Match}]} ->
+            ok;
+        Match ->
+            ok
+    end,
+
+    gen_server:call(Pid, stop),
+    receive {'EXIT', Pid, stopped} -> ok end,
+    ClientPid = self(),
+    receive
+	{error,_GroupLeader,
+         {Pid, "** Generic server"++_,
+          [Pid, stop, Match, stopped,
+           ClientPid, [_|_] = _ClientStack]}} ->
+	    ok;
+	Other ->
+	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:fail(failed)
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ct:fail(failed)
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+    ok.
+
+%% Test that the state, reason, message format status calls works as they should
+%% The test makes sure that both sys:get_status and the crash report works as they
+%% should and can be used to strip data from both the reason, message, state and the
+%% sys logger logs.
+
+%%%% The sys logger log messages that should be matched
+-define(LOG_MESSAGES,
+        {log,{in,{_,_,started_p}}},
+        {log,{out,ok,_,State}},
+        {log,{in,{_,_,{delayed_answer,10}}}},
+        {log,{noreply,{_,_,State}}},
+        {log,{in,timeout}},
+        {log,{noreply,State}}).
+
+format_all_status(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+
+    State = fun(M) ->
+                    maps:map(
+                      fun(log, Values) ->
+                              [{log, Value} || Value <- Values];
+                         (Key, Value) ->
+                              {Key, Value}
+                      end, M)
+            end,
+    {ok, Pid} = gen_server:start_link(format_status_server, {state, State}, []),
+    sys:log(Pid, true),
+    ok = gen_server:call(Pid, started_p),
+    delayed = gen_server:call(Pid, {delayed_answer, 10}),
+
+    {status,Pid, _, [_,_,_,_,Info]} = sys:get_status(Pid),
+    [{header, _Hdr},
+     {data, [_Status,_Parent,{"Logged events",LoggedEvents}]},
+     {data, [{"State",{state,State}}]}] = Info,
+
+    [?LOG_MESSAGES] = LoggedEvents,
+
+    ok = gen_server:call(Pid, stop),
+    receive {'EXIT', Pid, stopped} -> ok end,
+    ClientPid = self(),
+    receive
+	{error,_GroupLeader,
+         {Pid, "** Generic server"++_,
+          [Pid, {message, stop}, {state,State}, {reason, stopped},
+           ?LOG_MESSAGES, {log,{in,{_,_,stop}}},
+           ClientPid, [_|_] = _ClientStack]}} ->
+	    ok;
+	Other ->
+	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:fail(failed)
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ct:fail(failed)
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+
+    {ok, Pid2} = gen_server:start_link(format_status_server, {state, State}, []),
+    catch gen_server:call(Pid2, crash),
+    receive {'EXIT', Pid2, crashed} -> ok end,
+    receive
+	{error,_GroupLeader2,
+         {Pid2, "** Generic server"++_,
+          [Pid2, {message, crash}, {state,State},
+           {{reason, crashed},[_|_] = _ServerStack},
+           ClientPid, [_|_] = _ClientStack2]}} ->
+	    ok;
+	Other2 ->
+	    ct:pal("Unexpected: ~p", [Other2]),
+	    ct:fail(failed)
+    after 5000 ->
+	    io:format("Timeout: expected error logger msg", []),
+	    ct:fail(failed)
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+
+    process_flag(trap_exit, OldFl).
 
 %% Verify that sys:get_state correctly returns gen_server state
 get_state(Config) when is_list(Config) ->
@@ -1994,8 +2181,8 @@ init({state,State}) ->
 handle_call(started_p, _From, State) ->
     io:format("FROZ"),
     {reply,ok,State};
-handle_call({delayed_answer, T}, From, _State) ->
-    {noreply,{reply_to,From},T};
+handle_call({delayed_answer, T}, From, State) ->
+    {noreply,{reply_to,From,State},T};
 handle_call({call_within, T}, _From, _) ->
     {reply,ok,call_within,T};
 handle_call(next_call, _From, call_within) ->
@@ -2051,9 +2238,9 @@ handle_cast({From, stop}, State) ->
     io:format("BAZ"),
     {stop, {From,stopped}, State}.
 
-handle_info(timeout, {reply_to, From}) ->
+handle_info(timeout, {reply_to, From, State}) ->
     gen_server:reply(From, delayed),
-    {noreply, []};
+    {noreply, State};
 handle_info(timeout, hibernate_me) -> % Arrive here from 
 						% handle_info(hibernate_later,...)
     {noreply, [], hibernate};
@@ -2133,6 +2320,8 @@ terminate(_, {undef_in_terminate, {Mod, Fun}}) ->
 terminate(_Reason, _State) ->
     ok.
 
+format_status(_, [_PDict, Fun] = S) when is_function(Fun) ->
+    Fun(S);
 format_status(terminate, [_PDict, State]) ->
     {formatted, State};
 format_status(normal, [_PDict, _State]) ->

@@ -838,6 +838,77 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
+      <name since="OTP @OTP-17351@">Module:format_status(Status) -> NewStatus</name>
+      <fsummary>Optional function for providing a term describing the
+        current event handler state.</fsummary>
+      <type>
+        <v>Status = #{ state => State,</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        message => Message,</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        reason => Reason,</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        log => Log }</v>
+        <v>NewStatus = Status</v>
+        <v>State = Message = Reason = term()</v>
+        <v>Log = [<seetype marker="sys#system_event">sys:system_event()</seetype>]</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so event handler modules need
+            not export it. If a handler does not export this function,
+            the <c>gen_event</c> module uses the handler state directly for
+            the purposes described below.</p>
+          <p>
+	    If this callback is exported but fails, to hide possibly sensitive
+            data, the default function will instead return the fact that
+	    <c>format_status/1</c> has crashed.</p>
+        </note>
+        <p>This function is called by a <c>gen_event</c> process in the
+          following situations:</p>
+        <list type="bulleted">
+          <item>One of <seemfa marker="sys#get_status/1">
+            <c>sys:get_status/1,2</c></seemfa>
+            is invoked to get the <c>gen_event</c> status.</item>
+          <item>The event handler terminates abnormally and <c>gen_event</c>
+            logs an error.</item>
+        </list>
+        <p>This callback is to be used to limit the status of the event handler before
+          returned by <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa> or
+          sent to <seeerl marker="kernel:logger"><c>logger</c></seeerl>. The status
+          of the event handler is passed as a map with the following associations:
+        </p>
+        <taglist>
+          <tag><c>state => term()</c></tag>
+          <item>The internal state of the event handler.</item>
+          <tag><c>message => term()</c></tag>
+          <item>The message that caused the event handler to terminate.</item>
+          <tag><c>reason => term()</c></tag>
+          <item>The reason that caused the event handler to terminate.</item>
+          <tag><c>log => [</c><seetype marker="sys#system_event"><c>sys:system_event/0</c></seetype><c>]</c></tag>
+          <item>The <seemfa marker="sys#log/2">sys log</seemfa> of the server.</item>
+        </taglist>
+        <p>New associations may be added into the status map without prior notice.</p>
+        <p>The function is to return <c>NewStatus</c>, a map containing the same
+          associations as the input map.</p>
+        <p>Two possible use cases for this callback is to either remove
+          sensitive information from the state so that it not printed in log files,
+          or to remove large irrelevant terms of state that clutter the logs.</p>
+        <code type="erl"><![CDATA[
+format_status(Status) ->
+  maps:map(
+    fun(state,State) ->
+            maps:remove(private_key, State);
+       (message,{password, _Pass}) ->
+            {password, removed};
+       (_,Value) ->
+            Value
+    end, Status).
+]]></code>
+      </desc>
+    </func>
+    
+    <func>
       <name since="OTP R14B">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current event handler state.</fsummary>
@@ -848,6 +919,11 @@ gen_event:stop             ----->  Module:terminate/2
         <v>Status = term()</v>
       </type>
       <desc>
+        <warning>
+          <p>This callback is deprecated, in new code use <seemfa marker="#Module:format_status/1">
+          format_status/1</seemfa>. If a <seemfa marker="#Module:format_status/1">format_status/1</seemfa>
+            callback exists, then this function will never be called.</p>
+        </warning>
         <note>
           <p>This callback is optional, so event handler modules need
             not export it. If a handler does not export this function,

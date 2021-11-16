@@ -53,6 +53,7 @@ groups() ->
      {abnormal, [], tcs(abnormal)},
      {abnormal_handle_event, [], tcs(abnormal)},
      {sys, [], tcs(sys)},
+     {format_status, [], tcs(format_status)},
      {sys_handle_event, [], tcs(sys)},
      {undef_callbacks, [], tcs(undef_callbacks)},
      {format_log, [], tcs(format_log)}].
@@ -66,9 +67,10 @@ tcs(abnormal) ->
     [abnormal1, abnormal1clean, abnormal1dirty,
      abnormal2, abnormal3, abnormal4];
 tcs(sys) ->
-    [sys1, call_format_status,
-     error_format_status, terminate_crash_format,
-     get_state, replace_state];
+    [sys1, {group, format_status}, get_state, replace_state];
+tcs(format_status) ->
+    [call_format_status, error_format_status, terminate_crash_format,
+     format_all_status];
 tcs(undef_callbacks) ->
     [undef_code_change, undef_terminate1, undef_terminate2,
      pop_too_many];
@@ -89,6 +91,9 @@ init_per_group(GroupName, Config)
     [{callback_mode,handle_event_function}|Config];
 init_per_group(undef_callbacks, Config) ->
     compile_oc_statem(Config),
+    Config;
+init_per_group(sys, Config) ->
+    compile_format_status_statem(Config),
     Config;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -117,6 +122,12 @@ compile_oc_statem(Config) ->
     DataDir = ?config(data_dir, Config),
     StatemPath = filename:join(DataDir, "oc_statem.erl"),
     {ok, oc_statem} = compile:file(StatemPath),
+    ok.
+
+compile_format_status_statem(Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "format_status_statem.erl"),
+    {ok, format_status_statem} = compile:file(StatemPath),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1228,20 +1239,24 @@ code_change(_Config) ->
     stop_it(Pid).
 
 call_format_status(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    call_format_status(Config,?MODULE,format_status_called),
+    call_format_status(Config, format_status_statem,
+                       {data,[{"State",{format_status_called,format_data}}]}).
+call_format_status(Config, Module, Match) ->
+    {ok,Pid} = gen_statem:start(Module, start_arg(Config, []), []),
     Status = sys:get_status(Pid),
     {status,Pid,_Mod,[_PDict,running,_,_, Data]} = Status,
-    [format_status_called|_] = lists:reverse(Data),
+    [Match|_] = lists:reverse(Data),
     stop_it(Pid),
 
     %% check that format_status can handle a name being an atom (pid is
     %% already checked by the previous test)
     {ok, Pid2} =
 	gen_statem:start(
-	  {local, gstm}, ?MODULE, start_arg(Config, []), []),
+	  {local, gstm}, Module, start_arg(Config, []), []),
     Status2 = sys:get_status(gstm),
     {status,Pid2,Mod,[_PDict2,running,_,_,Data2]} = Status2,
-    [format_status_called|_] = lists:reverse(Data2),
+    [Match|_] = lists:reverse(Data2),
     stop_it(Pid2),
 
     %% check that format_status can handle a name being a term other than a
@@ -1249,47 +1264,54 @@ call_format_status(Config) ->
     GlobalName1 = {global,"CallFormatStatus"},
     {ok,Pid3} =
 	gen_statem:start(
-	  GlobalName1, ?MODULE, start_arg(Config, []), []),
+	  GlobalName1, Module, start_arg(Config, []), []),
     Status3 = sys:get_status(GlobalName1),
     {status,Pid3,Mod,[_PDict3,running,_,_,Data3]} = Status3,
-    [format_status_called|_] = lists:reverse(Data3),
+    [Match|_] = lists:reverse(Data3),
     stop_it(Pid3),
     GlobalName2 = {global,{name, "term"}},
     {ok,Pid4} =
 	gen_statem:start(
-	  GlobalName2, ?MODULE, start_arg(Config, []), []),
+	  GlobalName2, Module, start_arg(Config, []), []),
     Status4 = sys:get_status(GlobalName2),
     {status,Pid4,Mod,[_PDict4,running,_,_, Data4]} = Status4,
-    [format_status_called|_] = lists:reverse(Data4),
+    [Match|_] = lists:reverse(Data4),
     stop_it(Pid4),
 
     %% check that format_status can handle a name being a term other than a
     %% pid or atom
     dummy_via:reset(),
     ViaName1 = {via,dummy_via,"CallFormatStatus"},
-    {ok,Pid5} = gen_statem:start(ViaName1, ?MODULE, start_arg(Config, []), []),
+    {ok,Pid5} = gen_statem:start(ViaName1, Module, start_arg(Config, []), []),
     Status5 = sys:get_status(ViaName1),
     {status,Pid5,Mod, [_PDict5,running,_,_, Data5]} = Status5,
-    [format_status_called|_] = lists:reverse(Data5),
+    [Match|_] = lists:reverse(Data5),
     stop_it(Pid5),
     ViaName2 = {via,dummy_via,{name,"term"}},
     {ok, Pid6} =
 	gen_statem:start(
-	  ViaName2, ?MODULE, start_arg(Config, []), []),
+	  ViaName2, Module, start_arg(Config, []), []),
     Status6 = sys:get_status(ViaName2),
     {status,Pid6,Mod,[_PDict6,running,_,_,Data6]} = Status6,
-    [format_status_called|_] = lists:reverse(Data6),
+    [Match|_] = lists:reverse(Data6),
     stop_it(Pid6).
-
-
 
 error_format_status(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        error_format_status(Config,?MODULE,{formatted,idle,"called format_status"}),
+        error_format_status(Config,format_status_statem,
+                            {{formatted,idle},{formatted,"called format_status"}})
+    after
+            process_flag(trap_exit, OldFl),
+            error_logger_forwarder:unregister()
+    end.
+error_format_status(Config,Module,Match) ->
     Data = "called format_status",
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  Module, start_arg(Config, {data,Data}), []),
     %% bad return value in the gen_statem loop
     {{{bad_return_from_state_function,badreturn},_},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
@@ -1298,18 +1320,15 @@ error_format_status(Config) ->
 	 {Pid,
 	  "** State machine"++_,
 	  [Pid,{{call,_},badreturn},
-	   {formatted,idle,Data},
+	   Match,
 	   error,{bad_return_from_state_function,badreturn}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
-	    error_logger_forwarder:unregister(),
 	    ct:fail({unexpected,Other})
     after 1000 ->
-	    error_logger_forwarder:unregister(),
-	    ct:fail(timeout)
+	    ct:fail({timeout,(fun F() -> receive M -> [M|F()] after 0 -> [] end end)()})
     end,
-    process_flag(trap_exit, OldFl),
-    error_logger_forwarder:unregister(),
+
     receive
 	%% Comes with SASL
 	{error_report,_,{Pid,crash_report,_}} ->
@@ -1320,12 +1339,24 @@ error_format_status(Config) ->
     ok = verify_empty_msgq().
 
 terminate_crash_format(Config) ->
+    dbg:tracer(),
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        terminate_crash_format(Config,?MODULE,{formatted,idle,crash_terminate}),
+        terminate_crash_format(Config,format_status_statem,
+                               {{formatted,idle},{formatted,crash_terminate}})
+    after
+        dbg:stop_clear(),
+        process_flag(trap_exit, OldFl),
+        error_logger_forwarder:unregister()
+    end.
+
+terminate_crash_format(Config, Module, Match) ->
     Data = crash_terminate,
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  Module, start_arg(Config, {data,Data}), []),
     stop_it(Pid),
     Self = self(),
     receive
@@ -1334,18 +1365,14 @@ terminate_crash_format(Config) ->
 	  "** State machine"++_,
 	  [Pid,
 	   {{call,{Self,_}},stop},
-	   {formatted,idle,Data},
-	   exit,{crash,terminate}|_]}} ->
+	   Match,exit,{crash,terminate}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
-	    error_logger_forwarder:unregister(),
 	    ct:fail({unexpected,Other})
     after 1000 ->
-	    error_logger_forwarder:unregister(),
-	    ct:fail(timeout)
+	    ct:fail({timeout,flush()})
     end,
-    process_flag(trap_exit, OldFl),
-    error_logger_forwarder:unregister(),
+
     receive
 	%% Comes with SASL
 	{error_report,_,{Pid,crash_report,_}} ->
@@ -1355,6 +1382,67 @@ terminate_crash_format(Config) ->
     end,
     ok = verify_empty_msgq().
 
+%% We test that all of the different status items can be
+%% formatted by the format_status/1 callback.
+format_all_status(Config) ->
+    error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+
+    Data = fun(M) ->
+                   maps:map(
+                     fun(Key, Values) when Key =:= log;
+                                           Key =:= queue;
+                                           Key =:= postponed;
+                                           Key =:= timeouts ->
+                             [{Key, Value} || Value <- Values];
+                        (Key, Value) ->
+                             {Key, Value}
+                     end, M)
+           end,
+    {ok,Pid} =
+	gen_statem:start(
+	  format_status_statem, start_arg(Config, {data,Data}), []),
+    sys:log(Pid, true),
+    ok = gen_statem:cast(Pid, postpone_event),
+    ok = gen_statem:cast(Pid, {timeout, 100000}),
+
+    {status,Pid, _, [_,_,_,_,Info]} = sys:get_status(Pid),
+    [{header, _Hdr},
+     {data, [_Status,_Parent,_Modules,
+             {"Time-outs",{1,[{timeouts,_}]}},
+             {"Logged Events",[{log,_}|_]},
+             {"Postponed",[{postponed,_}]}]},
+     {data, [{"State",{{state,idle},{data,Data}}}]}] = Info,
+
+    %% bad return value in the gen_statem loop
+    {{{bad_return_from_state_function,badreturn},_},_} =
+	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
+    Self = self(),
+    receive
+	{error,_GroupLeader,
+	 {Pid,
+	  "** State machine"++_,
+	  [Pid,
+	   {queue,{{call,{Self,_}},badreturn}},
+	   {{state,idle},{data,Data}},error,
+           {reason,{bad_return_from_state_function,badreturn}},
+           __Modules,_StateFunctions,
+           [{postponed,{cast,postpone_event}}],
+           [_|_] = _Stacktrace,
+           {1,[{timeouts,{timeout,idle}}]},
+           [{log,_}|_] |_]}} ->
+	    ok;
+	Other when is_tuple(Other), element(1, Other) =:= error ->
+	    ct:fail({unexpected,Other})
+    after 1000 ->
+	    ct:fail({timeout,flush()})
+    end,
+    receive
+        {error_report,_,_} -> ok
+    end,
+    error_logger_forwarder:unregister(),
+    process_flag(trap_exit, OldFl),
+    ok.
 
 get_state(Config) ->
     State = self(),
@@ -2461,6 +2549,11 @@ idle({call,From}, {timeout,Time}, _Data) ->
     AbsTime = erlang:monotonic_time(millisecond) + Time,
     {next_state,timeout,{From,Time},
      {timeout,AbsTime,idle,[{abs,true}]}};
+idle(cast, {timeout,Time}, _Data) ->
+    AbsTime = erlang:monotonic_time(millisecond) + Time,
+    {keep_state_and_data,{timeout,AbsTime,idle,[{abs,true}]}};
+idle(cast, postpone_event, _Data) ->
+    {keep_state_and_data,postpone};
 idle(cast, next_event, _Data) ->
     {next_state,next_events,[a,b,c],
      [{next_event,internal,a},

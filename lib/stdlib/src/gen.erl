@@ -35,9 +35,11 @@
 
 -export([init_it/6, init_it/7]).
 
--export([format_status_header/2]).
+-export([format_status_header/2, format_status/4]).
 
 -define(default_timeout, 5000).
+
+-include("logger.hrl").
 
 %%-----------------------------------------------------------------
 
@@ -548,3 +550,41 @@ format_status_header(TagLine, RegName) when is_atom(RegName) ->
     lists:concat([TagLine, " ", RegName]);
 format_status_header(TagLine, Name) ->
     {TagLine, Name}.
+
+-spec format_status(Mod :: module(), Opt :: terminate | normal, Status, Args) ->
+          ReturnStatus when
+      Status :: #{ atom() => term() },
+      ReturnStatus :: #{ atom() => term(), '$status' => term()},
+      Args :: list(term()) | undefined.
+format_status(Mod, Opt, Status, Args) ->
+    case {erlang:function_exported(Mod, format_status, 1),
+          erlang:function_exported(Mod, format_status, 2)} of
+        {true, _} ->
+            try Mod:format_status(Status) of
+                NewStatus when is_map(NewStatus) ->
+                    MergedStatus = maps:merge(Status, NewStatus),
+                    case maps:size(MergedStatus) =:= maps:size(NewStatus) of
+                        true ->
+                            MergedStatus;
+                        false ->
+                            Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 returned a map with unknown keys" }
+                    end;
+                _ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 did not return a map" }
+            catch
+                _:_ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 crashed" }
+            end;
+        {false, true} when is_list(Args) ->
+            try Mod:format_status(Opt, Args) of
+                Result ->
+                    Status#{ '$status' => Result }
+            catch
+                throw:Result ->
+                    Status#{ '$status' => Result };
+                _:_ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/2 crashed" }
+            end;
+        {false, _} ->
+            Status
+    end.

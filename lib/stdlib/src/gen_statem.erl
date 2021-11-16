@@ -347,6 +347,8 @@
 %% often condensed way.  For StatusOption =:= 'normal' the preferred
 %% return term is [{data,[{"State",FormattedState}]}], and for
 %% StatusOption =:= 'terminate' it is just FormattedState.
+%%
+%% Deprecated
 -callback format_status(
 	    StatusOption,
 	    [ [{Key :: term(), Value :: term()}] |
@@ -355,8 +357,21 @@
     Status :: term() when
       StatusOption :: 'normal' | 'terminate'.
 
+%% Format the callback module status in some sensible that is
+%% often condensed way.
+-callback format_status(Status) -> NewStatus when
+      Status :: #{ state => state(),
+                   data => data(),
+                   reason => term(),
+                   queue => [{event_type(), term()}],
+                   postponed => [{event_type(), term()}],
+                   timeouts => [{timeout_event_type(), term()}],
+                   log => [sys:system_event()] },
+      NewStatus :: Status.
+
 -optional_callbacks(
-   [format_status/2, % Has got a default implementation
+   [format_status/1, % Has got a default implementation
+    format_status/2, % Has got a default implementation
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
@@ -902,22 +917,39 @@ system_replace_state(
 format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
-   {#params{name = Name, modules = Modules} = P,
-    #state{postponed = Postponed, timers = Timers} = S}]) ->
+   {#params{name = Name, modules = [Mod | _] = Modules},
+    #state{postponed = Postponed, timers = Timers,
+           state_data = {State,Data}}}]) ->
     Header = gen:format_status_header("Status for state machine", Name),
-    Log = sys:get_log(Debug),
+
+    {NumTimers, ListTimers} = list_timeouts(Timers),
+    StatusMap = #{ state => State, data => Data,
+                   postponed => Postponed, log => sys:get_log(Debug),
+                   timeouts => ListTimers
+                 },
+
+    NewStatusMap =
+        case gen:format_status(Mod, Opt, StatusMap, [PDict,State,Data]) of
+            #{ 'EXIT' := R } ->
+                Crashed = [{data,[{"State",{State,R}}]}],
+                StatusMap#{ '$status' => Crashed };
+            %% Status is set when the old format_status/2 is called,
+            %% so we do a little backwards compatibility dance here
+            #{ '$status' := L } = SM when is_list(L) -> SM;
+            #{ '$status' := T } = SM -> SM#{ '$status' := [T] };
+            #{ state := S, data := D } = SM ->
+                SM#{ '$status' => [{data,[{"State",{S,D}}]}]}
+        end,
+
     [{header,Header},
      {data,
       [{"Status",SysState},
        {"Parent",Parent},
        {"Modules",Modules},
-       {"Time-outs",list_timeouts(Timers)},
-       {"Logged Events",Log},
-       {"Postponed",Postponed}]} |
-     case format_status(Opt, PDict, update_parent(P, Parent), S) of
-	 L when is_list(L) -> L;
-	 T -> [T]
-     end].
+       {"Time-outs",{NumTimers,maps:get(timeouts,NewStatusMap)}},
+       {"Logged Events",maps:get(log,NewStatusMap)},
+       {"Postponed",maps:get(postponed,NewStatusMap)}]} |
+     maps:get('$status',NewStatusMap)].
 
 %% Update #params.parent only if it differs.  This should not
 %% be possible today (OTP-22.0), but could happen for example
@@ -2399,25 +2431,44 @@ error_info(
   Class, Reason, Stacktrace, Debug,
   #params{
      name = Name,
-     modules = Modules,
+     modules = [Mod|_] = Modules,
      callback_mode = CallbackMode,
-     state_enter = StateEnter} = P,
+     state_enter = StateEnter},
   #state{
      postponed = Postponed,
-     timers = Timers} = S,
+     timers = Timers,
+     state_data = {State,Data}},
   Q) ->
-    Log = sys:get_log(Debug),
+
+    {NumTimers,ListTimers} = list_timeouts(Timers),
+
+    Status =
+        gen:format_status(Mod, terminate,
+                          #{ reason => Reason,
+                             state => State,
+                             data => Data,
+                             queue => Q,
+                             postponed => Postponed,
+                             timeouts => ListTimers,
+                             log => sys:get_log(Debug)},
+                          [get(),State,Data]),
+    NewState = case maps:find('$status', Status) of
+                   error ->
+                       {maps:get(state,Status),maps:get(data,Status)};
+                   {ok, S} ->
+                       S
+               end,
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
                  name=>Name,
-                 queue=>Q,
-                 postponed=>Postponed,
+                 queue=>maps:get(queue,Status),
+                 postponed=>maps:get(postponed,Status),
                  modules=>Modules,
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
-                 state=>format_status(terminate, get(), P, S),
-                 timeouts=>list_timeouts(Timers),
-                 log=>Log,
-                 reason=>{Class,Reason,Stacktrace},
+                 state=>NewState,
+                 timeouts=>{NumTimers,maps:get(timeouts,Status)},
+                 log=>maps:get(log,Status),
+                 reason=>{Class,maps:get(reason,Status),Stacktrace},
                  client_info=>client_stacktrace(Q)},
                #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/2,
@@ -2750,34 +2801,6 @@ single(false) -> "".
 mod(latin1) -> "";
 mod(_) -> "t".
 
-%% Call Module:format_status/2 or return a default value
-format_status(
-  Opt, PDict,
-  #params{modules = [Module | _]},
-  #state{state_data = {State,Data} = State_Data}) ->
-    case erlang:function_exported(Module, format_status, 2) of
-	true ->
-	    try Module:format_status(Opt, [PDict,State,Data])
-	    catch
-		Result -> Result;
-		_:_ ->
-		    format_status_default(
-		      Opt,
-                      {State,
-                       atom_to_list(Module) ++ ":format_status/2 crashed"})
-	    end;
-	false ->
-	    format_status_default(Opt, State_Data)
-    end.
-
-%% The default Module:format_status/3
-format_status_default(Opt, State_Data) ->
-    case Opt of
-	terminate ->
-	    State_Data;
-	_ ->
-	    [{data,[{"State",State_Data}]}]
-    end.
 
 -compile({inline, [listify/1]}).
 listify(Item) when is_list(Item) ->
