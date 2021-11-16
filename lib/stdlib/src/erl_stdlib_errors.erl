@@ -296,7 +296,9 @@ format_re_error(compile, [_], _) ->
     [not_iodata];
 format_re_error(compile, [Re, _Options], Cause) ->
     ReError = try re:compile(Re) of
-                  _ -> []
+                  {ok, _} -> [];
+                  {error, Reason} ->
+                      {bad_regexp, Reason}
               catch
                   _:_ -> not_iodata
               end,
@@ -962,10 +964,21 @@ must_be_position(Pos) when is_integer(Pos) -> range;
 must_be_position(_) -> not_integer.
 
 must_be_regexp(Term) ->
-    try re:run("", Term) of
-        _ -> []
-    catch
-        error:_ -> not_regexp
+    %% First check if we can compile the regexp as this
+    %% returns better error messages
+    try re:compile(Term) of
+        {ok, _} ->
+            [];
+        {error, Reason} ->
+            {bad_regexp, Reason}
+    catch error:_ ->
+            %% Then check if we can run it as this also allows
+            %% compiled reg exps
+            try re:run("", Term) of
+                _ -> []
+            catch
+                error:_ -> not_regexp
+            end
     end.
 
 expand_error(already_owner) ->
@@ -1059,6 +1072,11 @@ expand_error(not_pid) ->
     <<"not a pid">>;
 expand_error(not_regexp) ->
     <<"neither an iodata term nor a compiled regular expression">>;
+expand_error({bad_regexp, {Reason,Column}}) ->
+    unicode:characters_to_binary(
+      io_lib:format("could not parse regular expression~n"
+                    "~ts on character ~p",
+                    [Reason, Column]));
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(not_tuple_or_list) ->
