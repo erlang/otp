@@ -20,7 +20,6 @@
 -module(release_handler_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_lib.hrl").
 
 -compile([export_all, nowarn_export_all]).
 -export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
@@ -2405,6 +2404,17 @@ create_p1g(Conf,TargetDir) ->
 	      filename:join([DataDir,lib,"installer-1.0",ebin])),
     copy_file(filename:join(DataDir, "../rh_test_lib.beam"),
 	      filename:join([DataDir,lib,"installer-1.0",ebin])),
+    copy_file(filename:join(DataDir, "../otp_vsns.beam"),
+	      filename:join([DataDir,lib,"installer-1.0",ebin])),
+
+    InstPrivDir = filename:join([DataDir,lib,"installer-1.0","priv"]),
+    case file:read_file_info(InstPrivDir) of
+        {ok, _} ->
+            ok;
+        _ ->
+            ok = file:make_dir(InstPrivDir)
+    end,
+    copy_file(filename:join(DataDir, "../otp_versions.table"), InstPrivDir),
 
     %% Create .rel, .script and .boot files
     RelName = "rel0",
@@ -2940,9 +2950,7 @@ modify_tar_win32(Conf, TarFileName) ->
 
 app_dir(App,Vsn) ->
     atom_to_list(App) ++ "-" ++ vsn(App,Vsn).
-vsn(erts,old) -> ?ertsvsn;
-vsn(kernel,old) -> ?kernelvsn;
-vsn(stdlib,old) -> ?stdlibvsn;
+vsn(App,old) -> rh_test_lib:old_app_vsn(App);
 vsn(erts,current) -> erlang:system_info(version);
 vsn(App,current) ->
     {ok,Vsn} = application:get_key(App,vsn),

@@ -12,6 +12,8 @@
 -export([clean_dir/1,
 	 clean_dir/2]).
 
+-export([old_app_vsn/1]).
+
 -include_lib("kernel/include/file.hrl").
 
 cmd(Cmd,Args,Env) ->
@@ -160,3 +162,23 @@ rm_rf([File|Files],Save) ->
     end;
 rm_rf([],_) ->
     ok.
+
+old_app_vsn(App) ->
+    %% Get oldest application version (erts, kernel, sasl,
+    %% stdlib) we support upgrade from, i.e., the first
+    %% application version in the release two releases
+    %% prior to current release...
+    State = case get('__otp_vsns_state__') of
+                undefined ->
+                    S = otp_vsns:read_state(),
+                    put('__otp_vsns_state__', S),
+                    S;
+                S ->
+                    S
+            end,
+    Rel = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2),
+    AppVsn = otp_vsns:app_vsn(State, "OTP-"++Rel++".0", atom_to_list(App)),
+    [_, Vsn] = string:lexemes(AppVsn, "-"),
+    Vsn.
+
+

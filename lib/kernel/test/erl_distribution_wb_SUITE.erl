@@ -802,13 +802,13 @@ split(Atom) ->
 
 %% Build a distribution message that will make rex answer
 build_rex_message(Cookie,OurName) ->
-    [$?,term_to_binary({6,self(),Cookie,rex}),
+    [?PASS_THROUGH,term_to_binary({6,self(),Cookie,rex}),
      term_to_binary({'$gen_cast',
 		     {cast,
-		      rpc,
-		      cast,
-		      [OurName, hello, world, []],
-		      self()} })].
+		      erlang,
+		      send,
+		      [{regname, OurName}, "hello world"],
+                      self()}})].
 
 %% Receive a distribution message    
 recv_message(Socket) ->
