@@ -171,7 +171,11 @@
          invalid_options_tls13/0,
          invalid_options_tls13/1,
          cookie/0,
-         cookie/1
+         cookie/1,
+	 warn_verify_none/0,
+	 warn_verify_none/1,
+	 suppress_warn_verify_none/0,
+         suppress_warn_verify_none/1
         ]).
 
 %% Apply export
@@ -192,6 +196,7 @@
          tls_close/1,
          no_recv_no_active/1,
          ssl_getstat/1,
+	 log/2,
          %%TODO Keep?
          run_error_server/1,
          run_error_server_close/1,
@@ -292,7 +297,9 @@ gen_api_tests() ->
      invalid_options,
      cb_info,
      log_alert,
-     getstat
+     getstat,
+     warn_verify_none,
+     suppress_warn_verify_none
     ].
 
 handshake_paus_tests() ->
@@ -2485,6 +2492,65 @@ cookie(Config) when is_list(Config) ->
     cookie_extension(Config, true),
     cookie_extension(Config, false).
 
+warn_verify_none() ->
+    [{doc, "Test that verify_none default generates warning."}].
+warn_verify_none(Config) when is_list(Config)->
+    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {options, ServerOpts},
+                                        {mfa, {ssl_test_lib, no_result, []}}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {from, self()},
+                                        {host, Hostname},
+	                                {options, ClientOpts},
+					{mfa, {ssl_test_lib, no_result, []}}]),
+    receive
+        warning_generated ->
+            ok = logger:remove_handler(?MODULE)
+    after 500 ->
+            ok = logger:remove_handler(?MODULE),
+            ct:fail(no_warning)
+    end,
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Server).
+
+suppress_warn_verify_none() ->
+    [{doc, "Test that explicit verify_none supresses warning."}].
+suppress_warn_verify_none(Config) when is_list(Config)->
+    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
+
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {options, ServerOpts},
+					    {mfa, {ssl_test_lib, no_result, []}}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {from, self()},
+				        {host, Hostname},
+				        {options, [{verify, verify_none} | ClientOpts]},
+			                {mfa, {ssl_test_lib, no_result, []}}]),
+     receive
+         warning_generated ->
+	     ok = logger:remove_handler(?MODULE),
+             ct:fail(warning)
+     after 500 ->
+	     ok = logger:remove_handler(?MODULE)
+     end,
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Server).
+
 %%% Checker functions
 connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
@@ -2909,3 +2975,8 @@ ssl_getstat(Socket) ->
         _  ->
             ok
     end.
+
+log(#{msg:={report,Report}},#{config:=Pid}) ->
+    Pid ! warning_generated;
+log(_,_) ->
+    ok.
