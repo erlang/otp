@@ -1419,7 +1419,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     erts_bin_offset = 8*sb->size + sb->bitsize;
     if (unit > 1) {
 	if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
-	    (erts_bin_offset % unit) != 0) {
+	    (unit != 8 && (erts_bin_offset % unit) != 0)) {
 	    goto badarg;
 	}
     }
@@ -1509,7 +1509,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	erts_bin_offset = 8*binary_size(bin) + bitsize;
 	if (unit > 1) {
 	    if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
-		(erts_bin_offset % unit) != 0) {
+		(unit != 8 && (erts_bin_offset % unit) != 0)) {
 		goto badarg;
 	    }
 	}
