@@ -589,12 +589,19 @@ format_erlang_error(node, [_], _) ->
     [not_pid];
 format_erlang_error(nodes, [_], _) ->
     [<<"not a valid node type">>];
-format_erlang_error(open_port, [Name,_Settings], Cause) ->
+format_erlang_error(open_port, [Name, Settings], Cause) ->
     case Cause of
         badopt ->
             [must_be_tuple(Name),bad_option];
+        _ when is_tuple(Name) ->
+            case lists:keysearch(args, 1, Settings) of
+                {value,_} when element(1,Name) =/= spawn_executable ->
+                    [<<"must be spawn_executable">>];
+                _ ->
+                    [<<"invalid port name">>]
+            end;
         _ ->
-            [must_be_tuple(Name, <<"invalid port name">>)]
+            must_be_tuple(Name)
     end;
 format_erlang_error(phash, [_,N], _) ->
     [must_be_pos_int(N)];
