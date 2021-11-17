@@ -35128,7 +35128,13 @@ do_ioctl_get_gifaddr(_State) ->
                  socket:close(Sock),
                  ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
              {error, eaddrnotavail = Reason} ->
-                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
+             {error, eperm = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
                  ignore;
              {error, Reason} ->
@@ -35224,6 +35230,7 @@ verify_gifdstaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
     verify_gifdstaddr(Sock, Prefix, IfNames).
 
 verify_gifdstaddr(Sock, Prefix, IfIdx, IfName) ->
+    {OsFam, OsName} = os:type(),
     case socket:ioctl(Sock, gifdstaddr, IfName) of
         {ok, #{family := Fam,
                addr   := Addr}} ->
@@ -35242,6 +35249,17 @@ verify_gifdstaddr(Sock, Prefix, IfIdx, IfName) ->
               "SKIP interface"
               "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
             ignore;
+	{error, eperm = Reason} ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+	{error, einval = Reason} when (OsFam =:= unix) andalso
+                                      (OsName =:= darwin) ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
         {error, Reason} ->
             i("<ERROR> got unexpected error for interface ~p (~w)"
               "~n      Reason: ~p", [IfName, IfIdx, Reason]),
@@ -35329,26 +35347,39 @@ verify_gifbrdaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
     verify_gifbrdaddr(Sock, Prefix, IfNames).
 
 verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName) ->
+    {OsFam, OsName} = os:type(),
     case socket:ioctl(Sock, gifbrdaddr, IfName) of
         {ok, #{family := Fam,
                addr   := Addr}} ->
-            i("got (expected) (broadcast) socket address for "
+            i("[~s] got (expected) (broadcast) socket address for "
               "interface ~p (~w): "
-              "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+              "~n      (~w) ~p", [Prefix, IfName, IfIdx, Fam, Addr]),
             ok;
         {ok, Crap} ->
             %% Oups?!
-            i("<ERROR> got unexpected result for interface ~p (~w)"
-              "~n      ~p", [IfName, IfIdx, Crap]),
+            i("<ERROR> [~s] got unexpected result for interface ~p (~w)"
+              "~n      ~p", [Prefix, IfName, IfIdx, Crap]),
             socket:close(Sock),
             ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
         {error, eaddrnotavail = Reason} ->
-            i("got unexpected error for interface ~p (~w) => SKIP interface"
-              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
             ignore;
+	{error, eperm = Reason} ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+	{error, einval = Reason} when (OsFam =:= unix) andalso
+                                      (OsName =:= darwin) ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
         {error, Reason} ->
-            i("<ERROR> got unexpected error for interface ~p (~w)"
-              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            i("<ERROR> [~s] got unexpected error for interface ~p (~w)"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
             socket:close(Sock),
             ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
     end.
@@ -35401,6 +35432,11 @@ do_ioctl_get_gifnetmask(_State) ->
                  i("got unexpected error for interface ~p (~w) => SKIP interface"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
                  ignore;
+	     {error, eperm = Reason} ->
+		 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
+		   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+		 ignore;
              {error, Reason} ->
                  i("<ERROR> got unexpected error for interface ~p (~w)"
                    "~n      Reason: ~p", [IfName, IfIdx, Reason]),
