@@ -22,9 +22,11 @@
 
 -record(hostent,
 	{
-	 h_name		  :: inet:hostname(),	%% official name of host
-	 h_aliases = []   :: [inet:hostname()],	%% alias list
-	 h_addrtype	  :: 'inet' | 'inet6',	%% host address type
-	 h_length	  :: non_neg_integer(),	%% length of address
-	 h_addr_list = [] :: [inet:ip_address()]%% list of addresses from name server
+	 h_name		  :: inet:hostname(),	 %% official name of host
+	 h_aliases = []   :: [inet:hostname()],	 %% alias list
+	 h_addrtype	  :: inet | inet6 | caa | cname | gid | hinfo | ns | mb | md | mg
+	               | mf | minfo | mx | naptr | null | ptr | soa | spf | srv | txt
+	               | uid | uinfo | unspec | uri | wks, %% host address type
+	 h_length	  :: non_neg_integer(),	 %% length of address
+	 h_addr_list = [] :: [inet:ip_address()] %% list of addresses from name server
 	}).
