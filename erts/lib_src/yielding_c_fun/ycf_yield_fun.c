@@ -994,7 +994,7 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
                    " * static int test(){ return 0;}\n"
                    " * YCF_GCC_DIAG_ON(unused-function)\n"
                    " *\n"
-                   " * These macros were orginally authored by Jonathan Wakely and has\n"
+                   " * These macros were originally authored by Jonathan Wakely and has\n"
                    " * been modified by Patrick Horgan.\n"
                    " *\n"
                    " * Source: http://dbp-consulting.com/tutorials/SuppressingGCCWarnings.html\n"
@@ -1653,7 +1653,7 @@ ycf_node* ast_get_ast_with_yieldified_function(ycf_node* source_tree,
   ycf_node_rename_function(&fun_change->u.function,
                            ycf_string_new("%s_ycf_gen_yielding",
                                           yielding_function_name));
-  /* Remove unecessary scopes */
+  /* Remove unnecessary scopes */
   ycf_node_remove_unecessary_scopes(&fun_change->u.function.body);
   /* Exit with error message if a function call to a yielding function
      is not transformed */

@@ -21,7 +21,7 @@
 
 /*
  * We keep this function alone in a separate file so the
- * compiler wont optimize it away.
+ * compiler won't optimize it away.
  */
 
 #ifdef HAVE_CONFIG_H
