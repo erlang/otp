@@ -528,7 +528,7 @@ supports() ->
 
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
-supports(ciphers)     -> cipher_algorithms();
+supports(ciphers)     -> add_cipher_aliases(cipher_algorithms());
 supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
@@ -986,6 +986,16 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %%% Cipher aliases
 %%%
 
+add_cipher_aliases(Ciphers) ->
+    Ciphers ++
+        lists:usort(
+          lists:foldl(fun(C, Acc) ->
+                              case alias1_rev(C) of
+                                  C -> Acc;
+                                  A -> [A|Acc]
+                              end
+                      end, [], Ciphers)).
+
 alias(aes_cbc, Key)    -> alias1(aes_cbc, iolist_size(Key));
 alias(aes_cfb8, Key)   -> alias1(aes_cfb8, iolist_size(Key));
 alias(aes_cfb128, Key) -> alias1(aes_cfb128, iolist_size(Key));
@@ -1025,6 +1035,37 @@ alias1(aes_ccm, 24)  -> aes_192_ccm;
 alias1(aes_ccm, 32)  -> aes_256_ccm;
 
 alias1(Alg, _) -> Alg.
+
+
+alias1_rev(aes_128_cbc)    -> aes_cbc;
+alias1_rev(aes_192_cbc)    -> aes_cbc;
+alias1_rev(aes_256_cbc)    -> aes_cbc;
+
+alias1_rev(aes_128_cfb8)   -> aes_cfb8;
+alias1_rev(aes_192_cfb8)   -> aes_cfb8;
+alias1_rev(aes_256_cfb8)   -> aes_cfb8;
+
+alias1_rev(aes_128_cfb128) -> aes_cfb128;
+alias1_rev(aes_192_cfb128) -> aes_cfb128;
+alias1_rev(aes_256_cfb128) -> aes_cfb128;
+
+alias1_rev(aes_128_ctr)    -> aes_ctr;
+alias1_rev(aes_192_ctr)    -> aes_ctr;
+alias1_rev(aes_256_ctr)    -> aes_ctr;
+
+alias1_rev(aes_128_ecb)    -> aes_ecb;
+alias1_rev(aes_192_ecb)    -> aes_ecb;
+alias1_rev(aes_256_ecb)    -> aes_ecb;
+
+alias1_rev(aes_128_gcm)    -> aes_gcm;
+alias1_rev(aes_192_gcm)    -> aes_gcm;
+alias1_rev(aes_256_gcm)    -> aes_gcm;
+
+alias1_rev(aes_128_ccm)    -> aes_ccm;
+alias1_rev(aes_192_ccm)    -> aes_ccm;
+alias1_rev(aes_256_ccm)    -> aes_ccm;
+
+alias1_rev(C) -> C.
 
 %%%================================================================
 %%%
