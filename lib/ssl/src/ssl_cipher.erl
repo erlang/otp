@@ -892,7 +892,7 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA384'}) ->
     ecdsa_secp384r1_sha384;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA512'}) ->
-    ecdsa_secp512r1_sha512;
+    ecdsa_secp521r1_sha512;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'sha-1WithRSAEncryption'}) ->
     rsa_pkcs1_sha1;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
