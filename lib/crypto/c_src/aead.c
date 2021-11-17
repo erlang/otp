@@ -92,6 +92,8 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
     if (! (cipherp->flags & AEAD_CIPHER) )
         {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
+    if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+        {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
     if ((cipher = cipherp->cipher.p) == NULL)
         {ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version"); goto done;}
 
