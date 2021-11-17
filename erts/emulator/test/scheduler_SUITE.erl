@@ -86,7 +86,7 @@ all() ->
 groups() -> 
     [{scheduler_bind, [],
       [scheduler_bind_types, cpu_topology, update_cpu_info,
-       sct_cmd, sbt_cmd]}].
+       sct_cmd, sbt_cmd, ssrct_cmd]}].
 
 init_per_suite(Config) ->
     [{schedulers_online, erlang:system_info(schedulers_online)} | Config].
