@@ -1047,8 +1047,14 @@ total_memory() ->
     end.
 
 run_when_enough_resources(Fun) ->
+    DemandGb = case erlang:system_info(build_type) of
+                   Gb when Gb =:= valgrind; Gb =:= asan ->
+                       30;
+                   _ ->
+                       15
+               end,
     case {total_memory(), erlang:system_info(wordsize)} of
-        {Mem, 8} when is_integer(Mem) andalso Mem >= 15 ->
+        {Mem, 8} when is_integer(Mem) andalso Mem >= DemandGb ->
             Fun();
         {Mem, WordSize} ->
             {skipped, 

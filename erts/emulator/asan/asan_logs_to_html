@@ -235,7 +235,7 @@ match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
             LogAcc1 =
                 case iolist_size(Unmatched1) > 500 of
                     true ->
-                        Txt = [io_format("<h2>WARNING!!! May be unmatched error reports"
+                        Txt = [io_format("<h2>Unrecognized error reports"
                                          " in file ~s:</h2>\n<pre>~s</pre>",
                                          [LogAcc0#logacc.srcfile, Unmatched1])],
                         log_error(Out, LogAcc0, Txt);
