@@ -23,7 +23,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-         bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,complex_relop/1]).
+         bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
+         complex_relop/1,unsafe_fusing/1]).
 
 -export([]).
 -import(lists, [foldl/3,flatmap/2]).
@@ -34,7 +35,7 @@ suite() ->
 
 all() -> 
     [bsl_bsr, logical, t_not, relop_simple, relop,
-     complex_relop].
+     complex_relop, unsafe_fusing].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -423,6 +424,31 @@ eval(E0) ->
         {'EXIT',Reason} -> {'EXIT',Reason};
         {value,Val,_Bs} -> Val
     end.
+
+unsafe_fusing(_Config) ->
+    0 = usec_to_seconds(id(1)),
+    234_567 = usec_to_seconds(id(1_234_567_890*1_000)),
+    ok.
+
+usec_to_seconds(Usec) when is_integer(Usec) ->
+    %% The introduction of typed operands caused the loader
+    %% to incorrectly fuse the following instrutions because
+    %% the result register ({x,0}) from the 'div' instruction
+    %% seemed to be distinct from both operands of the 'rem'
+    %% instruction:
+    %%
+    %% {gc_bif,'div',
+    %%         {f,0},
+    %%         1,
+    %%         [{tr,{x,0},{t_integer,any}},{integer,1000000}],
+    %%         {x,0}}.
+    %% {gc_bif,'rem',
+    %%         {f,0},
+    %%         1,
+    %%         [{tr,{x,0},{t_integer,any}},{integer,1000000}],
+    %%         {x,0}}.
+    Sec = Usec div 1000000,
+    Sec rem 1000000.
 
 unvalue(V) ->
     Abstr = erl_parse:abstract(V),

@@ -217,5 +217,12 @@ pred.map_key_sort(Size, Rest) {
 
 // Test that the two registers are distinct.
 pred.distinct(Reg1, Reg2) {
-    return Reg1.type != Reg2.type || Reg1.val != Reg2.val;
+    if (Reg1.type != Reg2.type) {
+        return 1;
+    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+        /* We must not compare the type indices (if any). */
+        return (Reg1.val & REG_MASK) != (Reg2.val & REG_MASK);
+    } else {
+        return Reg1.val != Reg2.val;
+    }
 }
