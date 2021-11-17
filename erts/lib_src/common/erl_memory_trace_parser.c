@@ -357,13 +357,13 @@ emtp_state_destroy(emtp_state *statep)
  * and parse_header.
  *
  * Note that some of them depend on function local variable names
- * and lables:
+ * and labels:
  *
  *  Variables:
  *  * result		-> the result to return
  *  * statep		-> pointer to the state
  *
- *  Lables:
+ *  Labels:
  *  * restore_return	-> restore then return result
  */
 
@@ -1681,7 +1681,7 @@ emtp_parse(emtp_state *statep,
 
     statep->force_return = 0;
 
-    if (statep->overflow_size) { /* Overflow from prevoius parse */
+    if (statep->overflow_size) { /* Overflow from previous parse */
 	sgnd_int_32 tsz;
 	sgnd_int_32 sz;
 

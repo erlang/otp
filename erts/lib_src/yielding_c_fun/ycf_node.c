@@ -897,7 +897,7 @@ void ycf_node_normalize_function(ycf_node* fun){
     ycf_node_insert_scopes_in_complex_statements(&fun->u.function.body);
     /* Move out declarations from for loops */
     ycf_node_normalize_for_var_declarations(&fun->u.function.body);
-    /* Move in code declations to top of scope */
+    /* Move in code declarations to top of scope */
     ycf_node_move_in_code_var_declarations_to_top(&fun->u.function.body);
     /* Normalize declarations */
     ycf_node_normalize_init_definitions_in_scope(&fun->u.function.body);

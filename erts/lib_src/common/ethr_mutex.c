@@ -1905,7 +1905,7 @@ rwmutex_freqread_rdrs_dec_chk_wakeup(ethr_rwmutex *rwmtx,
 		 * A writer that just enqueued (not seen by us
 		 * in flag field) may depend on someone else
 		 * completing the runlock. We just took over
-		 * that responsibilty since we modified reader
+		 * that responsibility since we modified reader
 		 * groups.
 		 */
 		rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);

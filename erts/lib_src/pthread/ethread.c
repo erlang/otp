@@ -146,7 +146,7 @@ ppc_init__(void)
 {
     int pid;
 
-    /* If anything what so ever failes we assume no lwsync for safety */
+    /* If anything what so ever fails we assume no lwsync for safety */
     ethr_runtime__.conf.have_lwsync = 0;
 
     /*
@@ -219,7 +219,7 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
 #endif
 #if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
     /*
-     * When position independet code is used in 32-bit mode, the B register
+     * When position independent code is used in 32-bit mode, the B register
      * is used for storage of global offset table address, and we may not
      * use it as input or output in an asm. We need to save and restore the
      * B register explicitly (for some reason gcc doesn't provide this
