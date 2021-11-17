@@ -1043,7 +1043,7 @@ otp_11286(doc) ->
     "OTP-11286. A Unicode filename bug; both Leex and Yecc.";
 otp_11286(suite) -> [];
 otp_11286(Config) when is_list(Config) ->
-    Node = start_node(otp_11286, "+fnu"),
+    {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     Dir = ?privdir,
     UName = [1024] ++ "u",
     UDir = filename:join(Dir, UName),
@@ -1087,7 +1087,7 @@ otp_11286(Config) when is_list(Config) ->
     {ok,_,_} = rpc:call(Node, compile, file,
                   [Scannerfile,[basic_validation,return]]),
 
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_13916(doc) ->
@@ -1127,8 +1127,6 @@ otp_13916(Config) when is_list(Config) ->
     ok.
 
 otp_14285(Config) ->
-    Dir = ?privdir,
-
     Ts = [{otp_14285_1,
            <<"%% encoding: latin-1\n"
              "Definitions.\n"
@@ -1209,17 +1207,6 @@ erlang:display({xrlfile,XrlFile}),
 erlang:display({erlfile,ErlFile}),
     {ok, compiler_warnings, []} = compile:file(ErlFile, [return]),
     ok.
-
-start_node(Name, Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    ct:log("Trying to start ~w@~s~n", [Name,Host]),
-    case test_server:start_node(Name, peer, [{args,Args}]) of
-	{error,Reason} ->
-	    ct:fail(Reason);
-	{ok,Node} ->
-	    ct:log("Node ~p started~n", [Node]),
-	    Node
-    end.
 
 unwritable(Fname) ->
     {ok, Info} = file:read_file_info(Fname),
