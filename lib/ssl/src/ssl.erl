@@ -1526,14 +1526,15 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
     
     %% Ensure all options are evaluated at startup
     SslOpts1 = add_missing_options(SslOpts0, ?RULES),
-    SslOpts = #{protocol := Protocol}
+    SslOpts2 = #{protocol := Protocol}
         = process_options(SslOpts1,
                           #{},
                           #{role => Role,
                             host => Host,
                             rules => ?RULES}),
     
-    maybe_client_warn_no_verify(SslOpts, Role),
+    maybe_client_warn_no_verify(SslOpts2, Role),
+    SslOpts = maps:without([warn_verify_none], SslOpts2),
     %% Handle special options
     {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
@@ -1862,7 +1863,7 @@ handle_option(user_lookup_fun = Option, Value0,
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    handle_verify_option(default_value(Option, Rules), OptionsMap);
+    handle_verify_option(default_value(Option, Rules), OptionsMap#{warn_verify_none => true});
 handle_option(verify = _Option, Value, OptionsMap, _Env) ->
     handle_verify_option(Value, OptionsMap);
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, #{rules := Rules})
@@ -2830,9 +2831,11 @@ add_filter(undefined, Filters) ->
 add_filter(Filter, Filters) ->
     [Filter | Filters].
 
-maybe_client_warn_no_verify(#{verify := verify_none, log_level := LogLevel}, client) ->
-    ssl_logger:log(warning, LogLevel, #{description => "Authenticity is not established by certificate path validation",
-                                        reason => "Option {verify, verify_peer} and cacertfile/cacerts is missing"}, #{});
+maybe_client_warn_no_verify(#{verify := verify_none,
+                             warn_verify_none := true,
+                             log_level := LogLevel}, client) ->
+            ssl_logger:log(warning, LogLevel, #{description => "Authenticity is not established by certificate path validation",
+                                                reason => "Option {verify, verify_peer} and cacertfile/cacerts is missing"}, #{});
 maybe_client_warn_no_verify(_,_) ->
-    %% Client certificate validation is optional in TLS 
+    %% Warning not needed. Note client certificate validation is optional in TLS
     ok.
