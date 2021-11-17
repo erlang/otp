@@ -361,18 +361,5 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
             }
     }
 
-    /* Add aliases: */
-#ifdef HAVE_GCM
-    hd = enif_make_list_cell(env, atom_aes_gcm, hd);
-#endif
-    hd = enif_make_list_cell(env, atom_aes_ecb, hd);
-    hd = enif_make_list_cell(env, atom_aes_ctr, hd);
-    hd = enif_make_list_cell(env, atom_aes_cfb8, hd);
-    hd = enif_make_list_cell(env, atom_aes_cfb128, hd);
-#ifdef HAVE_CCM
-    hd = enif_make_list_cell(env, atom_aes_ccm, hd);
-#endif
-    hd = enif_make_list_cell(env, atom_aes_cbc, hd);
-
     return hd;
 }
