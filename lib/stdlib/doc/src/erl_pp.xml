@@ -156,7 +156,7 @@
     </func>
 
     <func>
-      <name name="legalize_vars" arity="1" since=""/>
+      <name name="legalize_vars" arity="1" since="OTP @OTP-17742@"/>
       <fsummary>Ensure all variable names are valid.</fsummary>
       <desc>
         <p>The Erlang compiler will, when expanding records to tuples,
