@@ -485,7 +485,7 @@ version.
 </p>
 
 <note> <p> TLS-1.2 algorithms will not be negotiated for TLS-1.3, but TLS-1.3 RSASSA-PSS  <seetype marker="#rsassa_pss_scheme">rsassa_pss_scheme()</seetype>
-	 signature schemes may be negotiated also for TLS-1.2 from @OTP-16590@
+	 signature schemes may be negotiated also for TLS-1.2 from 24.1 (fully working from 24.1.3).
 	 However if TLS-1.3 is negotiated when both TLS-1.3 and TLS-1.2 is supported using defaults, the corresponding TLS-1.2 algorithms
          to the TLS-1.3 legacy signature schemes will be considered as the legacy schemes and applied only to certificate signatures.
 	 </p>
@@ -519,7 +519,7 @@ version.
 	<p>
 	  The client will send a <c>signature_algorithms_cert</c> extension
 	  (in the client hello message), if TLS version 1.2
-	  (back-ported to TLS 1.2 in @OTP-16590@) or later is used, and
+	  (back-ported to TLS 1.2 in 24.1) or later is used, and
 	  the signature_algs_cert option is explicitly specified. By
 	  default, only the <seetype
 	  marker="#signature_algs">signature_algs</seetype> extension
