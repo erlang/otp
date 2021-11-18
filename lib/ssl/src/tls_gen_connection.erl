@@ -442,14 +442,22 @@ encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
 
 send_alert(Alert, #state{static_env = #static_env{socket = Socket,
                                                   transport_cb = Transport},
-                         connection_env = #connection_env{negotiated_version = Version},
-                         ssl_options = #{log_level := LogLevel},
+                         connection_env = #connection_env{negotiated_version = Version0},
+                         ssl_options = #{log_level := LogLevel,
+                                         versions := Versions},
                          connection_states = ConnectionStates0} = StateData0) ->
+    Version = available_version(Version0, Versions),
     {BinMsg, ConnectionStates} =
         encode_alert(Alert, Version, ConnectionStates0),
     tls_socket:send(Transport, Socket, BinMsg),
     ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
+
+available_version(undefined, Versions) ->
+    [Version| _] = lists:reverse(Versions),
+    Version;
+available_version(NegotiatedVersion, _) ->
+    NegotiatedVersion.
 
 %% If an ALERT sent in the connection state, should cause the TLS
 %% connection to end, we need to synchronize with the tls_sender
@@ -539,13 +547,17 @@ next_tls_record(Data, StateName,
         %% After the version is negotiated all subsequent TLS records shall have
         %% the proper legacy_record_version (= negotiated_version).
         %% Note: TLS record version {3,4} is used internally in TLS 1.3 and at this
-        %% point it is the same as the negotiated protocol version.
-        %% TODO: Refactor state machine and introduce a record_protocol_version beside
-        %% the negotiated_version.
+        %% point it is the same as the negotiated protocol version. TLS-1.3
+        %% uses TLS-1.2 as record version.
         case StateName of
             State when State =:= hello orelse
                        State =:= start ->
-                [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS];
+                %% Allow any {03,XX} TLS record version for the hello message
+                %% for maximum interopability and compliance with TLS-1.2 spec.
+                %% This does not allow SSL-3.0 connections, that we do not support
+                %% or interfere with TLS-1.3 extensions to handle version negotiation.
+                AllHelloVersions = [ 'sslv3' | ?ALL_AVAILABLE_VERSIONS],
+                [tls_record:protocol_version(Vsn) || Vsn <- AllHelloVersions];
             _ ->
                 State0#state.connection_env#connection_env.negotiated_version
         end,
