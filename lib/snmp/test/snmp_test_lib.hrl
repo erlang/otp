@@ -103,9 +103,6 @@
 -define(PING(N),            ?LIB:ping(N)).
 -define(LNODES(),           ?LIB:local_nodes()).
 -define(NODES(H),           ?LIB:nodes_on(H)).
--define(START_NODE(N,A),    ?LIB:start_node(N,A)).
--define(STOP_NODE(N),       ?LIB:stop_node(N)).
-
 
 %% - Application and Crypto utility macros - 
 
@@ -158,3 +155,8 @@
 -define(FTS(),         snmp_misc:formated_timestamp()).
 -define(FTS(TS),       snmp_misc:format_timestamp(TS)).
 
+%% This needs to be a macro-definition to capture ?FUNCTION_NAME and ?MODULE.
+-define (START_PEER(Kind), ?CT_PEER(#{
+    name => ?CT_PEER_NAME(atom_to_list(?FUNCTION_NAME) ++ Kind),
+    args => ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"]
+})).
