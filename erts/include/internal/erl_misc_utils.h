@@ -35,7 +35,7 @@ typedef struct {
 
 erts_cpu_info_t *erts_cpu_info_create(void);
 void erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo);
-int erts_cpu_info_update(erts_cpu_info_t *cpuinfo);
+int erts_cpu_info_update(erts_cpu_info_t *cpuinfo, int skip_read_topology);
 int erts_get_cpu_configured(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_online(erts_cpu_info_t *cpuinfo);
 int erts_get_cpu_available(erts_cpu_info_t *cpuinfo);

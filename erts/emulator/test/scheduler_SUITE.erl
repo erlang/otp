@@ -52,6 +52,7 @@
 	 cpu_topology/1,
 	 update_cpu_info/1,
 	 sct_cmd/1,
+	 ssrct_cmd/1,
 	 sbt_cmd/1,
 	 scheduler_threads/1,
 	 scheduler_suspend_basic/1,
@@ -85,7 +86,7 @@ all() ->
 groups() -> 
     [{scheduler_bind, [],
       [scheduler_bind_types, cpu_topology, update_cpu_info,
-       sct_cmd, sbt_cmd]}].
+       sct_cmd, sbt_cmd, ssrct_cmd]}].
 
 init_per_suite(Config) ->
     [{schedulers_online, erlang:system_info(schedulers_online)} | Config].
@@ -783,6 +784,8 @@ cpu_topology_bif_test(Topology) ->
     {ok, Peer, Node} = ?CT_PEER(),
     _ = rpc:call(Node, erlang, system_flag, [cpu_topology, Topology]),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
     peer:stop(Peer),
     ok.
 
@@ -791,6 +794,10 @@ cpu_topology_cmdline_test(_Topology, false) ->
 cpu_topology_cmdline_test(Topology, Cmd) ->
     {ok, Peer, Node} = ?CT_PEER(Cmd),
     cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
+    cmp(undefined,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+    cmp(Topology,
+        rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
     peer:stop(Peer),
     ok.
 
@@ -976,6 +983,10 @@ sct_cmd(Config) when is_list(Config) ->
 	{ok, Peer, Node} = ?CT_PEER(?TOPOLOGY_A_CMD),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_info, [cpu_topology])),
+	cmp(undefined,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+	cmp(Topology,
+		  rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
 	cmp(Topology,
 		  rpc:call(Node, erlang, system_flag, [cpu_topology, Topology])),
 	cmp(Topology,
@@ -983,6 +994,22 @@ sct_cmd(Config) when is_list(Config) ->
 	peer:stop(Peer)
     after
 	restore_erl_rel_flags(OldRelFlags)
+    end,
+    ok.
+
+ssrct_cmd(Config) when is_list(Config) ->
+    OldRelFlags = clear_erl_rel_flags(),
+    try
+        {ok, Peer, Node} = ?CT_PEER(["+ssrct"]),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [cpu_topology])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, detected}])),
+        cmp(undefined,
+            rpc:call(Node, erlang, system_info, [{cpu_topology, defined}])),
+        peer:stop(Peer)
+    after
+        restore_erl_rel_flags(OldRelFlags)
     end,
     ok.
 
