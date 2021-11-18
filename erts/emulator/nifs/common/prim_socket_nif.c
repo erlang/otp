@@ -14000,6 +14000,7 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
 	   ("SOCKET", "encode_ioctl_ifconf -> all entries encoded\r\n", i) );
 
     result = esock_make_ok2(env, MKLA(env, array, len));
+    FREE(array);
 
   } else {
 

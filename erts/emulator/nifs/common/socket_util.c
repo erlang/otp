@@ -2303,10 +2303,12 @@ void make_sockaddr_ll(ErlNifEnv*    env,
 
 
 extern
-ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size) {
+ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size)
+{
     ERL_NIF_TERM term;
 
     sys_memcpy(enif_make_new_binary(env, size, &term), buf, size);
+
     return term;
 }
 
@@ -2325,7 +2327,8 @@ ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size) {
  *     badarg
  */
 extern
-BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term) {
+BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term)
+{
     double d;
 
     /* Test that it is a number() but not a float(),
