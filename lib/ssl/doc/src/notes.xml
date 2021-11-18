@@ -27,6 +27,30 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct typo of ECC curve name in signature algorithm
+	    handling. Will make the signature algorithm
+	    ecdsa_secp521r1_sha512 succeed.</p>
+          <p>
+	    Own Id: OTP-17756 Aux Id: GH-5383, PR-5397 </p>
+        </item>
+        <item>
+          <p>
+	    Suppress authenticity warning when option verify_none is
+	    explicitly supplied.</p>
+          <p>
+	    Own Id: OTP-17757 Aux Id: GH-5352, PR-5395 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
