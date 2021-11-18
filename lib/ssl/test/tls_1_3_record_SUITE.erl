@@ -36,7 +36,7 @@
 -export([encode_decode/0,
          encode_decode/1,
          finished_verify_data/0,
-          finished_verify_data/1,
+         finished_verify_data/1,
          '1_RTT_handshake'/0,
          '1_RTT_handshake'/1,
          '0_RTT_handshake'/0,

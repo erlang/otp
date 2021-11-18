@@ -452,8 +452,12 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{beast_mitigation := BeastMitigation,
       erl_dist := IsErlDist,
+      %% Use highest supported version for client/server random nonce generation
+      versions := [Version|_],
       client_renegotiation := ClientRenegotiation} = SSLOptions,
-    ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
+    ConnectionStates = tls_record:init_connection_states(Role,
+                                                         Version,
+                                                         BeastMitigation),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{

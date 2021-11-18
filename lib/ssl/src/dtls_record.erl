@@ -75,6 +75,9 @@ init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
     Initial = initial_connection_state(ConnectionEnd, BeastMitigation),
     Current = Initial#{epoch := 0},
+    %% No need to pass Version to ssl_record:empty_connection_state since
+    %% random nonce is generated with same algorithm for DTLS version
+    %% Might require a change for DTLS-1.3
     InitialPending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
     Pending = empty_connection_state(InitialPending),
     #{saved_read  => Current,
