@@ -37,6 +37,7 @@
 
 
 -define(HTTP_TOP, "https://www.khronos.org/registry/OpenGL-Refpages/").
+-define(IS_INT(N), N > 47, N < 58).
 
 gl_defines(Defs) ->
     open_write("../include/gl.hrl"),
@@ -229,10 +230,9 @@ gen_export2(#func{name=Name,params=As0, alt=Alt}) ->
     (get({doc_ref,DocN}) == undefined) andalso put({doc_ref, DocN}, Export),
     Export.
 
-gen_spec([#func{name=Name, params=Orig, alt={vector,VecPos,Vec}}]) ->
+gen_spec([#func{name=Name, alt={vector,VecPos,Vec}}]) ->
     #func{type=T,params=As} = get(Vec),
     {As1,As2} = lists:split(VecPos, As),
-    #arg{name=OrigName} = lists:last(Orig),
     SA1 = case spec_arg_types(As1) of [] -> []; E -> E++", " end,
     SA2 = spec_arg_types(As2),
     w("-spec ~s(~s{~s}) -> ~s.~n", [erl_func_name(Name), SA1, SA2, spec_return_types(T,As)]);
@@ -438,26 +438,72 @@ check_name("end") -> "'end'";
 check_name(Other) -> Other.
 
 doc_name(N="glGetBufferParameteriv", _) -> N;
+doc_name("glEnableVertexArrayAttrib", _) -> "glEnableVertexAttribArray";
+doc_name("glDisableVertexArrayAttrib", _) -> "glEnableVertexAttribArray";
+doc_name("glEndList",_) -> "glNewList";
 doc_name("glEnd"++What, _) -> "glBegin"++What;
+doc_name("glDisablei", _) -> "glEnable";
 doc_name("glDisable" ++ What, _) -> "glEnable" ++ What;
-doc_name("glPop" ++ What, _) -> "glPush" ++ What;
-doc_name("glGetBooleanv", _) -> "glGet";
-doc_name("glGetBooleani_v", _) -> "glGet";
-doc_name("glGetIntegerv", _) -> "glGet";
-doc_name("glGetIntegeri_v", _) -> "glGet";
-doc_name("glGetInteger64v", _) -> "glGet";
-doc_name("glGetInteger64i_v", _) -> "glGet";
-doc_name("glGetFloatv", _) -> "glGet";
-doc_name("glGetDoublev", _) -> "glGet";
-doc_name("glGetFloati_v", _) -> "glGet";
-doc_name("glGetDoublei_v", _) -> "glGet";
-doc_name("glUniformMatr" ++ _, _) -> "glUniform";
-doc_name("glTexSubImage" ++ _, _) -> "glTexSubImage";
+doc_name("glClearBuffer" ++ _, _) -> "glClearBuffer";
+doc_name("glCompressedTextureSubImage" ++ End, _) -> "glCompressedTexSubImage" ++ End;
 doc_name("glFramebufferText" ++ _, _) -> "glFramebufferTexture";
+doc_name("glFramebufferParameteri" ++ _, _) -> "glFramebufferParameteri";
+doc_name("glFlushMappedNamedBufferRange" ++ _, _) -> "glFlushMappedBufferRange";
+doc_name(N="glGetActiveUniformsiv", _) -> N;
+doc_name("glGetBoolean" ++ _, _) -> "glGet";
+doc_name("glGetInteger" ++ _, _) -> "glGet";
+doc_name("glGetFloat" ++ _, _) -> "glGet";
+doc_name("glGetDouble" ++ _, _) -> "glGet";
+doc_name("glGetBufferParameter" ++ _, _) -> "glGetBufferParameter";
+doc_name("glGetInternalformat" ++ _, _) -> "glGetInternalFormat";
+doc_name("glGetQueryObject" ++ _, _) -> "glGetQueryObject";
+doc_name("glGetQueryBuffer" ++ _, _) -> "glGetQueryObject";
+doc_name("glGetQueryIndexediv" ++ _, _) -> "glGetQueryIndexed";
+doc_name(N="glGetQuery" ++ _, _) -> N;
+doc_name("glGetVertexAttrib" ++ _, _) -> "glGetVertexAttrib";
+doc_name("glGenerateTextureMipmap",_) -> "glGenerateMipmap";
+doc_name("glMap" ++ [I,_], _) -> "glMap" ++ [I];
+doc_name("glMemoryBarrier" ++ _, _) -> "glMemoryBarrier";
+doc_name("glUniformMatr" ++ _, _) -> "glUniform";
+%%doc_name("glTexSubImage" ++ [I,, _) -> "glTexSubImage";
+doc_name("glPop" ++ What, _) -> "glPush" ++ What;
 doc_name("glProgramUniformMatr" ++ _, _) -> "glProgramUniform";
-doc_name(Name, {has_vector,_,_}) ->
+doc_name("glVertexArrayVertexBuffer" ++ S, _) -> "glBindVertexBuffer" ++ S;
+doc_name(N="glVertexArrayElementBuffer", _) -> N;
+doc_name("glVertexArray" ++ Rest, Alt) -> doc_name("glVertex"++Rest, Alt);
+doc_name("glVertexAttrib" ++ [_|"Format"], _) -> "glVertexAttribFormat";
+doc_name("glVertexAttrib" ++ [_|"Pointer"], _) -> "glVertexAttribFormat";
+doc_name("glVertexAttribL" ++ _, _) -> "glVertexAttrib";
+doc_name("glTexture" ++ Rest, _) ->
+    case Rest of
+        "Barrier" -> "glTextureBarrier";
+        "View" -> "glTextureView";
+         _ -> "glTex" ++ Rest
+    end;
+doc_name(Name, Alt) ->
+    WithoutLast = ["glBlendFunc", "glColorMask", "glClearDepth",
+                   "glCreateShaderProgram", "glDepthRangeArray",
+                   "glEdgeFlag", "glIsEnabled", "glTexEnv",
+                   "glViewportArray", "glScissorArray", "glScissorIndexed"
+                  ],
+    [Last|RevName] = lists:reverse(Name),
+    case lists:member(Last, [$i,$f,$v]) of
+        true ->
+            New = lists:reverse(RevName),
+            case lists:member(New, WithoutLast) of
+                true -> New;
+                false -> doc_name2(Name,Alt)
+            end;
+        false ->
+            doc_name2(Name,Alt)
+    end.
+
+doc_name2(Name, Alt) ->
+    doc_name_last(Name,Alt).
+
+doc_name_last(Name, {has_vector,_,_}) ->
     strip_hard(reverse(Name));
-doc_name(Name, _) ->
+doc_name_last(Name, _) ->
     reverse(strip(reverse(Name))).
 
 strip_hard(Rev) ->
@@ -467,57 +513,59 @@ strip_hard(Rev) ->
     end.
 
 strip("BRA"++R) -> "BRA"++strip(R);
-strip([$v,$b,$u,$N,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$i,$u,$N,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$s,$u,$N,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$b,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$i,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$s,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$d,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$f,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$b,$u,$N,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$b,$I,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$i,$I,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$s,$I,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$d,$I,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$f,$I,N|R]) when N > 47, N < 58 -> R;
-strip([$b,$u,$I,N|R]) when N > 47, N < 58 -> R;
+strip([$v,$b,$u,$N,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$i,$u,$N,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$s,$u,$N,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$b,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$i,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$s,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$d,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$f,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$b,$u,$N,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$b,$I,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$i,$I,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$s,$I,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$d,$I,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$f,$I,N|R]) when ?IS_INT(N) -> R;
+strip([$b,$u,$I,N|R]) when ?IS_INT(N) -> R;
 
-strip([$v,$b,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$v,$i,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$v,$s,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$v,$b,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$v,$i,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$v,$s,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$v,$d,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$v,$f,N,$I|R]) when N > 47, N < 58 -> R;
+strip([$v,$b,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$v,$i,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$v,$s,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$v,$b,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$v,$i,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$v,$s,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$v,$d,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$v,$f,N,$I|R]) when ?IS_INT(N) -> R;
 
-strip([$v,$b,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$i,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$s,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$v,$b,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$i,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$s,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$d,N|R]) when N > 47, N < 58 -> R;
-strip([$v,$f,N|R]) when N > 47, N < 58 -> R;
+strip([$v,$b,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$i,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$s,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$v,$b,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$i,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$s,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$d,N|R]) when ?IS_INT(N) -> R;
+strip([$v,$f,N|R]) when ?IS_INT(N) -> R;
 
-strip([$b,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$i,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$s,$u,N,$I|R]) when N > 47, N < 58 ->R;
-strip([$b,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$i,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$s,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$d,N,$I|R]) when N > 47, N < 58 -> R;
-strip([$f,N,$I|R]) when N > 47, N < 58 -> R;
+strip([$b,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$i,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$s,$u,N,$I|R]) when ?IS_INT(N) ->R;
+strip([$b,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$i,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$s,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$d,N,$I|R]) when ?IS_INT(N) -> R;
+strip([$f,N,$I|R]) when ?IS_INT(N) -> R;
 
-strip([$b,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$i,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$s,$u,N|R]) when N > 47, N < 58 ->R;
-strip([$b,N|R]) when N > 47, N < 58 -> R;
-strip([$i,N|R]) when N > 47, N < 58 -> R;
-strip([$s,N|R]) when N > 47, N < 58 -> R;
-strip([$d,N|R]) when N > 47, N < 58 -> R;
-strip([$f,N|R]) when N > 47, N < 58 -> R;
+strip([$b,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$i,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$s,$u,N|R]) when ?IS_INT(N) ->R;
+strip([$b,N|R]) when ?IS_INT(N) -> R;
+strip([$i,N|R]) when ?IS_INT(N) -> R;
+strip([$s,N|R]) when ?IS_INT(N) -> R;
+strip([$d,N|R]) when ?IS_INT(N) -> R;
+strip([$f,N|R]) when ?IS_INT(N) -> R;
+
+strip([$v,$i,$u,$I|R])  -> R;
 
 strip([$v,$b,$u|R])  -> R;
 strip([$v,$i,$u|R])  -> R;
@@ -529,7 +577,10 @@ strip([$v,$s|R])     -> R;
 strip([$v,$d|R])     -> R;
 strip([$v,$f|R])     -> R;
 
-strip(R = "delban" ++ _) -> R;
+strip(R = "delban" ++ _) -> R;  % E|enabled
+strip(R = "dexedn" ++ _) -> R;  % I|indexed
+strip(R = "decnatsn" ++ _) -> R;  % I|instanced
+
 strip([$d,$e|R]) -> [$e|R];
 strip([$f,$e|R]) -> [$e|R];
 strip([$i,$e|R]) -> [$e|R];
@@ -554,9 +605,9 @@ strip([$d,$n|R]) -> [$n|R];
 strip([$I|R]) -> R;
 strip([$L|R]) -> R;
 strip([$v,R]) -> R;
-strip([N|R]) when N > 47, N < 58 -> R;
-strip([_|R="tceRlg"]) -> R;
-strip([_|R="thgiLlg"]) -> R;
+strip([N|R]) when ?IS_INT(N) -> R;
+strip([_|R="tceRlg"]) -> R;   % glRect*
+strip([_|R="thgiLlg"]) -> R;  % glLight*
 strip(R) -> R.
 
 strip2([$b,$u|R])  -> R;

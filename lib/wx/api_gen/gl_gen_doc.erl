@@ -88,7 +88,7 @@ gen_gl(Name, GLDefs) ->
             end,
 
     ErlRef = {erlref,
-              [nl(0), {header, wx_gen_doc:gen_header(Name)},
+              [nl(0), {header, gen_header(Name)},
                nl(0), {module, [Name]},
                nl(0), {modulesummary, ["Erlang wrapper functions for OpenGL"]},
                nl(0), {description, Desc},
@@ -100,6 +100,28 @@ gen_gl(Name, GLDefs) ->
     w("~s~n",[unicode:characters_to_binary(Export)]),
     close(),
     ok.
+
+gen_header(Name) ->
+    Legal ="
+      Licensed under the Apache License, Version 2.0 (the \"License\");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an \"AS IS\" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+",
+
+    [nl(2), {copyright,
+             [nl(4), {year, ["2020"]},
+              nl(4), {holder, ["Ericsson AB. All Rights Reserved."]}]},
+     nl(2), {legalnotice, [Legal, nl(2)]},
+     nl(2), {title, [Name]},
+     nl(0)].
 
 merge_funcs(All) ->
     Get = fun(Name0) ->
@@ -119,14 +141,17 @@ gen_func({DocName, Fs}) ->
     put(current_func,DocName),
     Names0 = [{name, xml_func_name(F#func.name, args(F), 1), []} || F <- Fs],
     Names = [nl(4)|lists:join(nl(4),Names0)],
-    [{fsummary,_}=Fsum|Desc] = gen_doc(DocName),
-    check_doc([Fsum]),
-    check_doc(Desc),
-    erase(current_func),
-    All = [Names,
-           [nl(4), Fsum, nl(4)],
-           [{desc, Desc}, nl(2)]],
-    [nl(2), {func, lists:append(All)}].
+    case gen_doc(DocName, Names0) of
+        ignore -> [];
+        [{fsummary,_}=Fsum|Desc] ->
+            check_doc([Fsum]),
+            check_doc(Desc),
+            erase(current_func),
+            All = [Names,
+                   [nl(4), Fsum, nl(4)],
+                   [{desc, Desc}, nl(2)]],
+            [nl(2), {func, lists:append(All)}]
+    end.
 
 check_doc(Docs) ->
     try check_doc_1(Docs)
@@ -229,23 +254,20 @@ format_func(Func) ->
             Out(DocExport, Export)
     end.
 
-
-
-
-gen_doc(Name) ->
+gen_doc(Name, _Debug) ->
     case parse_doc(Name, Dir1 ="gl4", Dir2="gl2.1") of
         {error, _} when Name =:= "gluTesselate" ->
             tesselate_doc();
         {error, _} ->
             case reverse(Name) of
-                "BRA" ++ _ -> ok;
-                "TXE" ++ _ -> ok;
+                "BRA" ++ _ -> ignore;
+                "TXE" ++ _ -> ignore;
+                "RHK" ++ _ -> ignore;
                 _ ->
-                    %% io:format("Missing doc: no ~s.xml (~s) found in ~s or ~s~n",
-                    %% 	      [Name, Name0, Dir1, Dir2]),
-                    ok
-            end,
-            [{fsummary, []}, {p, ["No documentation available."]}];
+                    %% io:format("Missing doc: ~s not found in ~s or ~s~n   ~0.p~n",
+                    %%  	      [Name, Dir1, Dir2, _Debug]),
+                    [{fsummary, []}, {p, ["No documentation available."]}]
+            end;
         {Found, Doc} ->
             {Dir,Ext} = case Found of
                             Dir1 -> {"gl4/html", "xhtml"};
