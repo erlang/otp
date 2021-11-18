@@ -546,8 +546,8 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
     send_msg("debug", &msg);
   }
 
-  // pre-pass delete all dialogs first since they might crash erlang otherwise
-  for(int i=1; i < memenv->next; i++) {
+  // pre-pass delete all dialogs and DC's first since they might crash erlang otherwise
+  for(int i=memenv->next-1; i > 0; i--) {
     wxObject * ptr = (wxObject *) memenv->ref2ptr[i];
     if(ptr) {
       ptrMap::iterator it = ptr2ref.find(ptr);
@@ -555,23 +555,22 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl && refd->type == 2) {
 	  wxDialog *win = (wxDialog *) ptr;
-	  if(win->IsModal()) {
-	    win->EndModal(-1);
-	  }
+	  if(win->IsModal()) { win->EndModal(-1); }
 	  parent = win->GetParent();
 	  if(parent) {
 	    ptrMap::iterator parentRef = ptr2ref.find(parent);
-	    if(parentRef == ptr2ref.end()) {
-	      // The parent is already dead delete the parent ref
-	      win->SetParent(NULL);
-	    }
+            // if the parent is already dead delete the parent ref
+	    if(parentRef == ptr2ref.end()) { win->SetParent(NULL); }
 	  }
-	  if(recurse_level > 0) {
-	    // Delay delete until we are out of dispatch*
-	  } else {
-	    delete win;
-	  }
-	}
+          // Delay delete until we are out of dispatch*
+	  if(recurse_level == 0) { delete win; }
+	} else if(refd->alloc_in_erl && refd->type == 8) {
+	  if(delete_object(ptr, refd)) {
+	    // Delete refs for leaks and non overridden allocs
+	    delete refd;
+	    ptr2ref.erase(it);
+          }
+        }
       }
     }
   }

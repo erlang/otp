@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -826,11 +826,11 @@ void ecb_glCallLists(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei n;
   GLuint *lists;
+  std::vector <GLuint> lists_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5108,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5108, "lists")
   else {
     ERL_NIF_TERM lists_l, lists_h, lists_t;
-    std::vector <GLuint> lists_vec;
     GLuint lists_tmp;
     lists_l = argv[1];
     while(enif_get_list_cell(env, lists_l, &lists_h, &lists_t)) {
@@ -2890,11 +2890,11 @@ void ecb_glDeleteTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei n;
   GLuint *textures;
+  std::vector <GLuint> textures_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5272,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5272, "textures")
   else {
     ERL_NIF_TERM textures_l, textures_h, textures_t;
-    std::vector <GLuint> textures_vec;
     GLuint textures_tmp;
     textures_l = argv[1];
     while(enif_get_list_cell(env, textures_l, &textures_h, &textures_t)) {
@@ -2920,12 +2920,13 @@ void ecb_glPrioritizeTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
 {
   GLsizei n;
   GLuint *textures;
+  std::vector <GLuint> textures_vec;
   GLclampf *priorities;
+  std::vector <GLclampf> priorities_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5274,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5274, "textures")
   else {
     ERL_NIF_TERM textures_l, textures_h, textures_t;
-    std::vector <GLuint> textures_vec;
     GLuint textures_tmp;
     textures_l = argv[1];
     while(enif_get_list_cell(env, textures_l, &textures_h, &textures_t)) {
@@ -2938,7 +2939,6 @@ void ecb_glPrioritizeTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   if(!enif_is_list(env, argv[2])) Badarg(5274, "priorities")
   else {
     ERL_NIF_TERM priorities_l, priorities_h, priorities_t;
-    std::vector <GLclampf> priorities_vec;
     GLclampf priorities_tmp;
     priorities_l = argv[2];
     while(enif_get_list_cell(env, priorities_l, &priorities_h, &priorities_t)) {
@@ -2957,11 +2957,11 @@ void ecb_glAreTexturesResident(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   ERL_NIF_TERM reply;
   GLsizei n;
   GLuint *textures;
+  std::vector <GLuint> textures_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5275,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5275, "textures")
   else {
     ERL_NIF_TERM textures_l, textures_h, textures_t;
-    std::vector <GLuint> textures_vec;
     GLuint textures_tmp;
     textures_l = argv[1];
     while(enif_get_list_cell(env, textures_l, &textures_h, &textures_t)) {
@@ -4214,9 +4214,11 @@ void ecb_glMultiDrawArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLenum mode;
   ErlNifBinary first_bin;
   unsigned int first_len;
+  std::vector <GLint> first_vec;
   GLint *first;
   ErlNifBinary count_bin;
   unsigned int count_len;
+  std::vector <GLsizei> count_vec;
   GLsizei *count;
   GLsizei drawcount;
   if(!enif_get_uint(env, argv[0],  &mode)) Badarg(5359,"mode");
@@ -4235,7 +4237,6 @@ void ecb_glMultiDrawArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     first_len = first_bin.size / sizeof(GLint);
  } else {
     ERL_NIF_TERM first_l, first_h, first_t;
-    std::vector <GLint> first_vec;
     GLint first_tmp;
     first_l = argv[1];
     while(enif_get_list_cell(env, first_l, &first_h, &first_t)) {
@@ -4261,7 +4262,6 @@ void ecb_glMultiDrawArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     count_len = count_bin.size / sizeof(GLsizei);
  } else {
     ERL_NIF_TERM count_l, count_h, count_t;
-    std::vector <GLsizei> count_vec;
     GLsizei count_tmp;
     count_l = argv[2];
     while(enif_get_list_cell(env, count_l, &count_h, &count_t)) {
@@ -4586,11 +4586,11 @@ void ecb_glDeleteQueries(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei n;
   GLuint *ids;
+  std::vector <GLuint> ids_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5390,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5390, "ids")
   else {
     ERL_NIF_TERM ids_l, ids_h, ids_t;
-    std::vector <GLuint> ids_vec;
     GLuint ids_tmp;
     ids_l = argv[1];
     while(enif_get_list_cell(env, ids_l, &ids_h, &ids_t)) {
@@ -4686,11 +4686,11 @@ void ecb_glDeleteBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei n;
   GLuint *buffers;
+  std::vector <GLuint> buffers_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5398,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5398, "buffers")
   else {
     ERL_NIF_TERM buffers_l, buffers_h, buffers_t;
-    std::vector <GLuint> buffers_vec;
     GLuint buffers_tmp;
     buffers_l = argv[1];
     while(enif_get_list_cell(env, buffers_l, &buffers_h, &buffers_t)) {
@@ -4818,11 +4818,11 @@ void ecb_glDrawBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei n;
   GLenum *bufs;
+  std::vector <GLenum> bufs_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5408,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5408, "bufs")
   else {
     ERL_NIF_TERM bufs_l, bufs_h, bufs_t;
-    std::vector <GLenum> bufs_vec;
     GLenum bufs_tmp;
     bufs_l = argv[1];
     while(enif_get_list_cell(env, bufs_l, &bufs_h, &bufs_t)) {
@@ -5374,12 +5374,12 @@ void ecb_glUniform1fv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLint location;
   GLsizei count;
   GLfloat *value;
+  std::vector <GLfloat> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5450,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5450,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5450, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLfloat> value_vec;
     GLfloat value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -5472,12 +5472,12 @@ void ecb_glUniform1iv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLint location;
   GLsizei count;
   GLint *value;
+  std::vector <GLint> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5454,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5454,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5454, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLint> value_vec;
     GLint value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -6763,12 +6763,12 @@ void ecb_glUniform1uiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLint location;
   GLsizei count;
   GLuint *value;
+  std::vector <GLuint> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5531,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5531,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5531, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLuint> value_vec;
     GLuint value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -7044,11 +7044,11 @@ void ecb_glDeleteRenderbuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
 {
   GLsizei n;
   GLuint *renderbuffers;
+  std::vector <GLuint> renderbuffers_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5546,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5546, "renderbuffers")
   else {
     ERL_NIF_TERM renderbuffers_l, renderbuffers_h, renderbuffers_t;
-    std::vector <GLuint> renderbuffers_vec;
     GLuint renderbuffers_tmp;
     renderbuffers_l = argv[1];
     while(enif_get_list_cell(env, renderbuffers_l, &renderbuffers_h, &renderbuffers_t)) {
@@ -7128,11 +7128,11 @@ void ecb_glDeleteFramebuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
 {
   GLsizei n;
   GLuint *framebuffers;
+  std::vector <GLuint> framebuffers_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5552,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5552, "framebuffers")
   else {
     ERL_NIF_TERM framebuffers_l, framebuffers_h, framebuffers_t;
-    std::vector <GLuint> framebuffers_vec;
     GLuint framebuffers_tmp;
     framebuffers_l = argv[1];
     while(enif_get_list_cell(env, framebuffers_l, &framebuffers_h, &framebuffers_t)) {
@@ -7332,11 +7332,11 @@ void ecb_glDeleteVertexArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
 {
   GLsizei n;
   GLuint *arrays;
+  std::vector <GLuint> arrays_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5566,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5566, "arrays")
   else {
     ERL_NIF_TERM arrays_l, arrays_h, arrays_t;
-    std::vector <GLuint> arrays_vec;
     GLuint arrays_tmp;
     arrays_l = argv[1];
     while(enif_get_list_cell(env, arrays_l, &arrays_h, &arrays_t)) {
@@ -7474,13 +7474,13 @@ void ecb_glGetActiveUniformsiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   GLuint program;
   GLsizei uniformCount;
   GLuint *uniformIndices;
+  std::vector <GLuint> uniformIndices_vec;
   GLenum pname;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5576,"program");
   if(!enif_get_int(env, argv[1],  &uniformCount)) Badarg(5576,"uniformCount");
   if(!enif_is_list(env, argv[2])) Badarg(5576, "uniformIndices")
   else {
     ERL_NIF_TERM uniformIndices_l, uniformIndices_h, uniformIndices_t;
-    std::vector <GLuint> uniformIndices_vec;
     GLuint uniformIndices_tmp;
     uniformIndices_l = argv[2];
     while(enif_get_list_cell(env, uniformIndices_l, &uniformIndices_h, &uniformIndices_t)) {
@@ -7911,11 +7911,11 @@ void ecb_glDeleteSamplers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei count;
   GLuint *samplers;
+  std::vector <GLuint> samplers_vec;
   if(!enif_get_int(env, argv[0],  &count)) Badarg(5606,"count");
   if(!enif_is_list(env, argv[1])) Badarg(5606, "samplers")
   else {
     ERL_NIF_TERM samplers_l, samplers_h, samplers_t;
-    std::vector <GLuint> samplers_vec;
     GLuint samplers_tmp;
     samplers_l = argv[1];
     while(enif_get_list_cell(env, samplers_l, &samplers_h, &samplers_t)) {
@@ -7965,12 +7965,12 @@ void ecb_glSamplerParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   GLuint sampler;
   GLenum pname;
   GLint *param;
+  std::vector <GLint> param_vec;
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5610,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5610,"pname");
   if(!enif_is_list(env, argv[2])) Badarg(5610, "param")
   else {
     ERL_NIF_TERM param_l, param_h, param_t;
-    std::vector <GLint> param_vec;
     GLint param_tmp;
     param_l = argv[2];
     while(enif_get_list_cell(env, param_l, &param_h, &param_t)) {
@@ -7999,12 +7999,12 @@ void ecb_glSamplerParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   GLuint sampler;
   GLenum pname;
   GLfloat *param;
+  std::vector <GLfloat> param_vec;
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5612,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5612,"pname");
   if(!enif_is_list(env, argv[2])) Badarg(5612, "param")
   else {
     ERL_NIF_TERM param_l, param_h, param_t;
-    std::vector <GLfloat> param_vec;
     GLfloat param_tmp;
     param_l = argv[2];
     while(enif_get_list_cell(env, param_l, &param_h, &param_t)) {
@@ -8022,12 +8022,12 @@ void ecb_glSamplerParameterIiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   GLuint sampler;
   GLenum pname;
   GLint *param;
+  std::vector <GLint> param_vec;
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5613,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5613,"pname");
   if(!enif_is_list(env, argv[2])) Badarg(5613, "param")
   else {
     ERL_NIF_TERM param_l, param_h, param_t;
-    std::vector <GLint> param_vec;
     GLint param_tmp;
     param_l = argv[2];
     while(enif_get_list_cell(env, param_l, &param_h, &param_t)) {
@@ -8045,12 +8045,12 @@ void ecb_glSamplerParameterIuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM ar
   GLuint sampler;
   GLenum pname;
   GLuint *param;
+  std::vector <GLuint> param_vec;
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5614,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5614,"pname");
   if(!enif_is_list(env, argv[2])) Badarg(5614, "param")
   else {
     ERL_NIF_TERM param_l, param_h, param_t;
-    std::vector <GLuint> param_vec;
     GLuint param_tmp;
     param_l = argv[2];
     while(enif_get_list_cell(env, param_l, &param_h, &param_t)) {
@@ -8317,12 +8317,12 @@ void ecb_glUniform1dv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLint location;
   GLsizei count;
   GLdouble *value;
+  std::vector <GLdouble> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5636,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5636,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5636, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLdouble> value_vec;
     GLdouble value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -8803,12 +8803,12 @@ void ecb_glUniformSubroutinesuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   GLenum shadertype;
   GLsizei count;
   GLuint *indices;
+  std::vector <GLuint> indices_vec;
   if(!enif_get_uint(env, argv[0],  &shadertype)) Badarg(5654,"shadertype");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5654,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5654, "indices")
   else {
     ERL_NIF_TERM indices_l, indices_h, indices_t;
-    std::vector <GLuint> indices_vec;
     GLuint indices_tmp;
     indices_l = argv[2];
     while(enif_get_list_cell(env, indices_l, &indices_h, &indices_t)) {
@@ -8867,11 +8867,11 @@ void ecb_glPatchParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
 {
   GLenum pname;
   GLfloat *values;
+  std::vector <GLfloat> values_vec;
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5658,"pname");
   if(!enif_is_list(env, argv[1])) Badarg(5658, "values")
   else {
     ERL_NIF_TERM values_l, values_h, values_t;
-    std::vector <GLfloat> values_vec;
     GLfloat values_tmp;
     values_l = argv[1];
     while(enif_get_list_cell(env, values_l, &values_h, &values_t)) {
@@ -8897,11 +8897,11 @@ void ecb_glDeleteTransformFeedbacks(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
 {
   GLsizei n;
   GLuint *ids;
+  std::vector <GLuint> ids_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5660,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5660, "ids")
   else {
     ERL_NIF_TERM ids_l, ids_h, ids_t;
-    std::vector <GLuint> ids_vec;
     GLuint ids_tmp;
     ids_l = argv[1];
     while(enif_get_list_cell(env, ids_l, &ids_h, &ids_t)) {
@@ -9016,13 +9016,13 @@ void ecb_glShaderBinary(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLsizei count;
   GLuint *shaders;
+  std::vector <GLuint> shaders_vec;
   GLenum binaryformat;
   ErlNifBinary binary;
   if(!enif_get_int(env, argv[0],  &count)) Badarg(5671,"count");
   if(!enif_is_list(env, argv[1])) Badarg(5671, "shaders")
   else {
     ERL_NIF_TERM shaders_l, shaders_h, shaders_t;
-    std::vector <GLuint> shaders_vec;
     GLuint shaders_tmp;
     shaders_l = argv[1];
     while(enif_get_list_cell(env, shaders_l, &shaders_h, &shaders_t)) {
@@ -9167,11 +9167,11 @@ void ecb_glDeleteProgramPipelines(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
 {
   GLsizei n;
   GLuint *pipelines;
+  std::vector <GLuint> pipelines_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5682,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5682, "pipelines")
   else {
     ERL_NIF_TERM pipelines_l, pipelines_h, pipelines_t;
-    std::vector <GLuint> pipelines_vec;
     GLuint pipelines_tmp;
     pipelines_l = argv[1];
     while(enif_get_list_cell(env, pipelines_l, &pipelines_h, &pipelines_t)) {
@@ -9242,13 +9242,13 @@ void ecb_glProgramUniform1iv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   GLint location;
   GLsizei count;
   GLint *value;
+  std::vector <GLint> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5687,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5687,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5687,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5687, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLint> value_vec;
     GLint value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -9278,13 +9278,13 @@ void ecb_glProgramUniform1fv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   GLint location;
   GLsizei count;
   GLfloat *value;
+  std::vector <GLfloat> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5689,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5689,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5689,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5689, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLfloat> value_vec;
     GLfloat value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -9314,13 +9314,13 @@ void ecb_glProgramUniform1dv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   GLint location;
   GLsizei count;
   GLdouble *value;
+  std::vector <GLdouble> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5691,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5691,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5691,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5691, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLdouble> value_vec;
     GLdouble value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -9350,13 +9350,13 @@ void ecb_glProgramUniform1uiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   GLint location;
   GLsizei count;
   GLuint *value;
+  std::vector <GLuint> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5693,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5693,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5693,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5693, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLuint> value_vec;
     GLuint value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -11177,12 +11177,12 @@ void ecb_glInvalidateFramebuffer(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   GLenum target;
   GLsizei numAttachments;
   GLenum *attachments;
+  std::vector <GLenum> attachments_vec;
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5782,"target");
   if(!enif_get_int(env, argv[1],  &numAttachments)) Badarg(5782,"numAttachments");
   if(!enif_is_list(env, argv[2])) Badarg(5782, "attachments")
   else {
     ERL_NIF_TERM attachments_l, attachments_h, attachments_t;
-    std::vector <GLenum> attachments_vec;
     GLenum attachments_tmp;
     attachments_l = argv[2];
     while(enif_get_list_cell(env, attachments_l, &attachments_h, &attachments_t)) {
@@ -11200,6 +11200,7 @@ void ecb_glInvalidateSubFramebuffer(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   GLenum target;
   GLsizei numAttachments;
   GLenum *attachments;
+  std::vector <GLenum> attachments_vec;
   GLint x;
   GLint y;
   GLsizei width;
@@ -11209,7 +11210,6 @@ void ecb_glInvalidateSubFramebuffer(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   if(!enif_is_list(env, argv[2])) Badarg(5783, "attachments")
   else {
     ERL_NIF_TERM attachments_l, attachments_h, attachments_t;
-    std::vector <GLenum> attachments_vec;
     GLenum attachments_tmp;
     attachments_l = argv[2];
     while(enif_get_list_cell(env, attachments_l, &attachments_h, &attachments_t)) {
@@ -11490,6 +11490,7 @@ void ecb_glDebugMessageControl(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   GLenum severity;
   GLsizei count;
   GLuint *ids;
+  std::vector <GLuint> ids_vec;
   GLboolean enabled;
   if(!enif_get_uint(env, argv[0],  &source)) Badarg(5802,"source");
   if(!enif_get_uint(env, argv[1],  &type)) Badarg(5802,"type");
@@ -11498,7 +11499,6 @@ void ecb_glDebugMessageControl(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   if(!enif_is_list(env, argv[4])) Badarg(5802, "ids")
   else {
     ERL_NIF_TERM ids_l, ids_h, ids_t;
-    std::vector <GLuint> ids_vec;
     GLuint ids_tmp;
     ids_l = argv[4];
     while(enif_get_list_cell(env, ids_l, &ids_h, &ids_t)) {
@@ -11680,13 +11680,13 @@ void ecb_glBindBuffersBase(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLuint first;
   GLsizei count;
   GLuint *buffers;
+  std::vector <GLuint> buffers_vec;
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5815,"target");
   if(!enif_get_uint(env, argv[1],  &first)) Badarg(5815,"first");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5815,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5815, "buffers")
   else {
     ERL_NIF_TERM buffers_l, buffers_h, buffers_t;
-    std::vector <GLuint> buffers_vec;
     GLuint buffers_tmp;
     buffers_l = argv[3];
     while(enif_get_list_cell(env, buffers_l, &buffers_h, &buffers_t)) {
@@ -11705,15 +11705,17 @@ void ecb_glBindBuffersRange(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   GLuint first;
   GLsizei count;
   GLuint *buffers;
+  std::vector <GLuint> buffers_vec;
   GLintptr *offsets;
+  std::vector <GLintptr> offsets_vec;
   GLsizeiptr *sizes;
+  std::vector <GLsizeiptr> sizes_vec;
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5816,"target");
   if(!enif_get_uint(env, argv[1],  &first)) Badarg(5816,"first");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5816,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5816, "buffers")
   else {
     ERL_NIF_TERM buffers_l, buffers_h, buffers_t;
-    std::vector <GLuint> buffers_vec;
     GLuint buffers_tmp;
     buffers_l = argv[3];
     while(enif_get_list_cell(env, buffers_l, &buffers_h, &buffers_t)) {
@@ -11726,7 +11728,6 @@ void ecb_glBindBuffersRange(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   if(!enif_is_list(env, argv[4])) Badarg(5816, "offsets")
   else {
     ERL_NIF_TERM offsets_l, offsets_h, offsets_t;
-    std::vector <GLintptr> offsets_vec;
     GLintptr offsets_tmp;
     offsets_l = argv[4];
     while(enif_get_list_cell(env, offsets_l, &offsets_h, &offsets_t)) {
@@ -11739,7 +11740,6 @@ void ecb_glBindBuffersRange(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   if(!enif_is_list(env, argv[5])) Badarg(5816, "sizes")
   else {
     ERL_NIF_TERM sizes_l, sizes_h, sizes_t;
-    std::vector <GLsizeiptr> sizes_vec;
     GLsizeiptr sizes_tmp;
     sizes_l = argv[5];
     while(enif_get_list_cell(env, sizes_l, &sizes_h, &sizes_t)) {
@@ -11757,12 +11757,12 @@ void ecb_glBindTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLuint first;
   GLsizei count;
   GLuint *textures;
+  std::vector <GLuint> textures_vec;
   if(!enif_get_uint(env, argv[0],  &first)) Badarg(5817,"first");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5817,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5817, "textures")
   else {
     ERL_NIF_TERM textures_l, textures_h, textures_t;
-    std::vector <GLuint> textures_vec;
     GLuint textures_tmp;
     textures_l = argv[2];
     while(enif_get_list_cell(env, textures_l, &textures_h, &textures_t)) {
@@ -11780,12 +11780,12 @@ void ecb_glBindSamplers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLuint first;
   GLsizei count;
   GLuint *samplers;
+  std::vector <GLuint> samplers_vec;
   if(!enif_get_uint(env, argv[0],  &first)) Badarg(5818,"first");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5818,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5818, "samplers")
   else {
     ERL_NIF_TERM samplers_l, samplers_h, samplers_t;
-    std::vector <GLuint> samplers_vec;
     GLuint samplers_tmp;
     samplers_l = argv[2];
     while(enif_get_list_cell(env, samplers_l, &samplers_h, &samplers_t)) {
@@ -11803,12 +11803,12 @@ void ecb_glBindImageTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   GLuint first;
   GLsizei count;
   GLuint *textures;
+  std::vector <GLuint> textures_vec;
   if(!enif_get_uint(env, argv[0],  &first)) Badarg(5819,"first");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5819,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5819, "textures")
   else {
     ERL_NIF_TERM textures_l, textures_h, textures_t;
-    std::vector <GLuint> textures_vec;
     GLuint textures_tmp;
     textures_l = argv[2];
     while(enif_get_list_cell(env, textures_l, &textures_h, &textures_t)) {
@@ -11826,14 +11826,16 @@ void ecb_glBindVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   GLuint first;
   GLsizei count;
   GLuint *buffers;
+  std::vector <GLuint> buffers_vec;
   GLintptr *offsets;
+  std::vector <GLintptr> offsets_vec;
   GLsizei *strides;
+  std::vector <GLsizei> strides_vec;
   if(!enif_get_uint(env, argv[0],  &first)) Badarg(5820,"first");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5820,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5820, "buffers")
   else {
     ERL_NIF_TERM buffers_l, buffers_h, buffers_t;
-    std::vector <GLuint> buffers_vec;
     GLuint buffers_tmp;
     buffers_l = argv[2];
     while(enif_get_list_cell(env, buffers_l, &buffers_h, &buffers_t)) {
@@ -11846,7 +11848,6 @@ void ecb_glBindVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   if(!enif_is_list(env, argv[3])) Badarg(5820, "offsets")
   else {
     ERL_NIF_TERM offsets_l, offsets_h, offsets_t;
-    std::vector <GLintptr> offsets_vec;
     GLintptr offsets_tmp;
     offsets_l = argv[3];
     while(enif_get_list_cell(env, offsets_l, &offsets_h, &offsets_t)) {
@@ -11859,7 +11860,6 @@ void ecb_glBindVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   if(!enif_is_list(env, argv[4])) Badarg(5820, "strides")
   else {
     ERL_NIF_TERM strides_l, strides_h, strides_t;
-    std::vector <GLsizei> strides_vec;
     GLsizei strides_tmp;
     strides_l = argv[4];
     while(enif_get_list_cell(env, strides_l, &strides_h, &strides_t)) {
@@ -12184,15 +12184,17 @@ void ecb_glVertexArrayVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   GLuint first;
   GLsizei count;
   GLuint *buffers;
+  std::vector <GLuint> buffers_vec;
   GLintptr *offsets;
+  std::vector <GLintptr> offsets_vec;
   GLsizei *strides;
+  std::vector <GLsizei> strides_vec;
   if(!enif_get_uint(env, argv[0],  &vaobj)) Badarg(5845,"vaobj");
   if(!enif_get_uint(env, argv[1],  &first)) Badarg(5845,"first");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5845,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5845, "buffers")
   else {
     ERL_NIF_TERM buffers_l, buffers_h, buffers_t;
-    std::vector <GLuint> buffers_vec;
     GLuint buffers_tmp;
     buffers_l = argv[3];
     while(enif_get_list_cell(env, buffers_l, &buffers_h, &buffers_t)) {
@@ -12205,7 +12207,6 @@ void ecb_glVertexArrayVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   if(!enif_is_list(env, argv[4])) Badarg(5845, "offsets")
   else {
     ERL_NIF_TERM offsets_l, offsets_h, offsets_t;
-    std::vector <GLintptr> offsets_vec;
     GLintptr offsets_tmp;
     offsets_l = argv[4];
     while(enif_get_list_cell(env, offsets_l, &offsets_h, &offsets_t)) {
@@ -12218,7 +12219,6 @@ void ecb_glVertexArrayVertexBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   if(!enif_is_list(env, argv[5])) Badarg(5845, "strides")
   else {
     ERL_NIF_TERM strides_l, strides_h, strides_t;
-    std::vector <GLsizei> strides_vec;
     GLsizei strides_tmp;
     strides_l = argv[5];
     while(enif_get_list_cell(env, strides_l, &strides_h, &strides_t)) {
@@ -12608,11 +12608,11 @@ void ecb_glDeleteProgramsARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
 {
   GLsizei n;
   GLuint *programs;
+  std::vector <GLuint> programs_vec;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5877,"n");
   if(!enif_is_list(env, argv[1])) Badarg(5877, "programs")
   else {
     ERL_NIF_TERM programs_l, programs_h, programs_t;
-    std::vector <GLuint> programs_vec;
     GLuint programs_tmp;
     programs_l = argv[1];
     while(enif_get_list_cell(env, programs_l, &programs_h, &programs_t)) {
@@ -12959,12 +12959,12 @@ void ecb_glUniform1i64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLint location;
   GLsizei count;
   GLint64 *value;
+  std::vector <GLint64> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5897,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5897,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5897, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLint64> value_vec;
     GLint64 value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -13105,12 +13105,12 @@ void ecb_glUniform1ui64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   GLint location;
   GLsizei count;
   GLuint64 *value;
+  std::vector <GLuint64> value_vec;
   if(!enif_get_int(env, argv[0],  &location)) Badarg(5905,"location");
   if(!enif_get_int(env, argv[1],  &count)) Badarg(5905,"count");
   if(!enif_is_list(env, argv[2])) Badarg(5905, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLuint64> value_vec;
     GLuint64 value_tmp;
     value_l = argv[2];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -13294,13 +13294,13 @@ void ecb_glProgramUniform1i64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   GLint location;
   GLsizei count;
   GLint64 *value;
+  std::vector <GLint64> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5915,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5915,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5915,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5915, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLint64> value_vec;
     GLint64 value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -13456,13 +13456,13 @@ void ecb_glProgramUniform1ui64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   GLint location;
   GLsizei count;
   GLuint64 *value;
+  std::vector <GLuint64> value_vec;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5923,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5923,"location");
   if(!enif_get_int(env, argv[2],  &count)) Badarg(5923,"count");
   if(!enif_is_list(env, argv[3])) Badarg(5923, "value")
   else {
     ERL_NIF_TERM value_l, value_h, value_t;
-    std::vector <GLuint64> value_vec;
     GLuint64 value_tmp;
     value_l = argv[3];
     while(enif_get_list_cell(env, value_l, &value_h, &value_t)) {
@@ -14148,11 +14148,11 @@ void ecb_glMatrixIndexubvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
 {
   GLint size;
   GLubyte *indices;
+  std::vector <GLubyte> indices_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(5964,"size");
   if(!enif_is_list(env, argv[1])) Badarg(5964, "indices")
   else {
     ERL_NIF_TERM indices_l, indices_h, indices_t;
-    std::vector <GLubyte> indices_vec;
     GLubyte indices_tmp;
     indices_l = argv[1];
     while(enif_get_list_cell(env, indices_l, &indices_h, &indices_t)) {
@@ -14169,11 +14169,11 @@ void ecb_glMatrixIndexusvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
 {
   GLint size;
   GLushort *indices;
+  std::vector <GLushort> indices_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(5965,"size");
   if(!enif_is_list(env, argv[1])) Badarg(5965, "indices")
   else {
     ERL_NIF_TERM indices_l, indices_h, indices_t;
-    std::vector <GLushort> indices_vec;
     GLushort indices_tmp;
     indices_l = argv[1];
     while(enif_get_list_cell(env, indices_l, &indices_h, &indices_t)) {
@@ -14190,11 +14190,11 @@ void ecb_glMatrixIndexuivARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
 {
   GLint size;
   GLuint *indices;
+  std::vector <GLuint> indices_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(5966,"size");
   if(!enif_is_list(env, argv[1])) Badarg(5966, "indices")
   else {
     ERL_NIF_TERM indices_l, indices_h, indices_t;
-    std::vector <GLuint> indices_vec;
     GLuint indices_tmp;
     indices_l = argv[1];
     while(enif_get_list_cell(env, indices_l, &indices_h, &indices_t)) {
@@ -14737,11 +14737,11 @@ void ecb_glWeightbvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLbyte *weights;
+  std::vector <GLbyte> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6000,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6000, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLbyte> weights_vec;
     GLbyte weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14758,11 +14758,11 @@ void ecb_glWeightsvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLshort *weights;
+  std::vector <GLshort> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6001,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6001, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLshort> weights_vec;
     GLshort weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14779,11 +14779,11 @@ void ecb_glWeightivARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLint *weights;
+  std::vector <GLint> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6002,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6002, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLint> weights_vec;
     GLint weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14800,11 +14800,11 @@ void ecb_glWeightfvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLfloat *weights;
+  std::vector <GLfloat> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6003,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6003, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLfloat> weights_vec;
     GLfloat weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14821,11 +14821,11 @@ void ecb_glWeightdvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLdouble *weights;
+  std::vector <GLdouble> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6004,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6004, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLdouble> weights_vec;
     GLdouble weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14842,11 +14842,11 @@ void ecb_glWeightubvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLubyte *weights;
+  std::vector <GLubyte> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6005,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6005, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLubyte> weights_vec;
     GLubyte weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14863,11 +14863,11 @@ void ecb_glWeightusvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLushort *weights;
+  std::vector <GLushort> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6006,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6006, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLushort> weights_vec;
     GLushort weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
@@ -14884,11 +14884,11 @@ void ecb_glWeightuivARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   GLint size;
   GLuint *weights;
+  std::vector <GLuint> weights_vec;
   if(!enif_get_int(env, argv[0],  &size)) Badarg(6007,"size");
   if(!enif_is_list(env, argv[1])) Badarg(6007, "weights")
   else {
     ERL_NIF_TERM weights_l, weights_h, weights_t;
-    std::vector <GLuint> weights_vec;
     GLuint weights_tmp;
     weights_l = argv[1];
     while(enif_get_list_cell(env, weights_l, &weights_h, &weights_t)) {
