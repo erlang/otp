@@ -13626,6 +13626,7 @@ ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
   int           ifc_len = 0;
   int           buflen  = 100 * sizeof(struct ifreq);
   char         *buf     = MALLOC(buflen);
+  ERL_NIF_TERM  result;
 
   SSDBG( descP, ("SOCKET", "esock_ioctl_gifconf {%d} -> entry\r\n", descP->sock) );
 
@@ -13653,7 +13654,11 @@ ERL_NIF_TERM esock_ioctl_gifconf(ErlNifEnv*       env,
     buf     = (char *) REALLOC(buf, buflen);
   }
 
-  return encode_ioctl_ifconf(env, descP, &ifc);
+  result = encode_ioctl_ifconf(env, descP, &ifc);
+
+  FREE(ifc.ifc_buf);
+
+  return result;
 }
 
 
@@ -14053,7 +14058,7 @@ ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 struct sockaddr* addrP)
 {
   ERL_NIF_TERM eaddr;
-  unsigned int sz = sizeof(ESockAddress);
+  SOCKLEN_T    sz = sizeof(ESockAddress);
 
   esock_encode_hwsockaddr(env, (ESockAddress*) addrP, sz, &eaddr);
 
