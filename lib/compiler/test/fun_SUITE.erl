@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
-         duplicated_fun/1,unused_fun/1,coverage/1]).
+         duplicated_fun/1,unused_fun/1,parallel_scopes/1,
+         coverage/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -39,6 +40,7 @@ groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
        eep37_dup,badarity,badfun,duplicated_fun,unused_fun,
+       parallel_scopes,
        coverage]}].
 
 init_per_suite(Config) ->
@@ -296,6 +298,230 @@ unused_fun(_Config) ->
     catch _ -> ok end,
     ok.
 
+parallel_scopes(_Config) ->
+    1 = parallel_scopes_1a(),
+    1 = parallel_scopes_1b(),
+    {'EXIT',{{badmatch,99},_}} = catch parallel_scopes_1c(),
+
+    10 = parallel_scopes_2a(),
+    {'EXIT',{{badmatch,15},_}} = catch parallel_scopes_2b(),
+    500 = parallel_scopes_2c(500, 500),
+    {'EXIT',{{badmatch,1000},_}} = catch parallel_scopes_2c(500, 1000),
+    600 = parallel_scopes_2d(600, 600),
+    {'EXIT',{{badmatch,1000},_}} = catch parallel_scopes_2d(600, 1000),
+    {a,20} = parallel_scopes_2e(20, 20),
+    {'EXIT',{{badmatch,{a,25}},_}} = catch parallel_scopes_2e(20, 25),
+
+    {[42,2],42,a} = parallel_scopes_3(a),
+
+    42 = parallel_scopes_4a(id(42), id(42)),
+    {'EXIT',{{badmatch,77},_}} = catch parallel_scopes_4a(42, 77),
+    42 = parallel_scopes_4b(id(42), id(42)),
+    {'EXIT',{{badmatch,77},_}} = catch parallel_scopes_4b(42, 77),
+    [same,2,same,2] = parallel_scopes_4c(id(same), id(same)),
+    {'EXIT',{{badmatch,55},_}} = catch parallel_scopes_4c(42, 55),
+
+    33 = parallel_scopes_5(id(33), id(33)),
+    {'EXIT',{{badmatch,44},_}} = catch parallel_scopes_5(33, 44),
+
+    99 = parallel_scopes_6(id(99), id(99)),
+    {'EXIT',{{badmatch,88},_}} = catch parallel_scopes_6(77, 88),
+
+    99 = parallel_scopes_7(id(99), id(99)),
+    {'EXIT',{{badmatch,88},_}} = catch parallel_scopes_7(77, 88),
+
+    199 = parallel_scopes_8(id(199), id(199)),
+    {'EXIT',{{badmatch,200},_}} = catch parallel_scopes_8(id(199), id(200)),
+
+    {299,299+299} = parallel_scopes_9(id(299), id(299), id(299+299)),
+    {'EXIT',{{badmatch,300},_}} = catch parallel_scopes_9(id(299), id(300), id(0)),
+    {'EXIT',{{badmatch,0},_}} = catch parallel_scopes_9(id(299), id(299), id(0)),
+
+    999 = parallel_scopes_10(false, 999, ignored, 999),
+    {'EXIT',{{badmatch,999},_}} = catch parallel_scopes_10(false, 700, ignored, 700),
+    {'EXIT',{{badmatch,1000},_}} = catch parallel_scopes_10(false, 999, ignored, 1000),
+    999 = parallel_scopes_10(true, 999, 999, ignored),
+    333 = parallel_scopes_10(true, 333, 333, ignored),
+    {'EXIT',{{badmatch,901},_}} = catch parallel_scopes_10(true, 900, 901, ignored),
+
+    889 = parallel_scopes_11(889, 889, 889),
+    {'EXIT',{{badmatch,800},_}} = catch parallel_scopes_11(889, 800, 889),
+    {'EXIT',{{badmatch,810},_}} = catch parallel_scopes_11(889, 889, 810),
+    {'EXIT',{{badmatch,889},_}} = catch parallel_scopes_11(a, a, a),
+
+    333 = parallel_scopes_12(333, 333, 333),
+    {'EXIT',{{badmatch,other},_}} = catch parallel_scopes_12(333, other, 333),
+    {'EXIT',{{badmatch,nope},_}} = catch parallel_scopes_12(333, 333, nope),
+
+    [1,100] = parallel_scopes_13(99, 100),
+    {'EXIT',{{badmatch,no},_}} = catch parallel_scopes_13(no, 100),
+    {'EXIT',{{badmatch,nope},_}} = catch parallel_scopes_13(99, nope),
+
+    ok.
+
+parallel_scopes_1a() ->
+    (begin X=1, true end
+     and
+     begin F=(fun () -> X=2 end), F(), true end) andalso X.
+
+parallel_scopes_1b() ->
+    (begin X=1, true end
+     and
+     begin F=(fun () -> X=2 end), F(), true end) andalso (X = 1).
+
+parallel_scopes_1c() ->
+    (begin X=1, true end
+     and
+     begin F=(fun () -> X=2 end), F(), true end) andalso (X = 99).
+
+parallel_scopes_2a() ->
+    begin X=10, true end
+        and
+          begin F=(fun () -> X=20 end), F(), true end
+        and
+        begin X=10, true end andalso X.
+
+parallel_scopes_2b() ->
+    begin X=10, true end
+        and
+          begin F=(fun () -> X=20 end), F(), true end
+        and
+        begin X=15, true end andalso X.
+
+parallel_scopes_2c(A, B) ->
+    begin X=A, true end
+        and
+        begin F = (fun () -> X = make_ref() end), F(), true end
+        and
+        begin X=B, true end andalso X.
+
+parallel_scopes_2d(A, B) ->
+    begin X=A, true end
+        and
+        begin F = (fun () -> X = make_ref() end), F(), true end
+        and
+        begin X=B, true end andalso (X = A).
+
+parallel_scopes_2e(A, B) ->
+    begin X = {a,A}, true end
+        and
+        begin F=(fun () -> X = 20 end), F(), true end
+        and
+        begin X = {a,B}, true end andalso X.
+
+parallel_scopes_3(A) ->
+    L = [X = id(42),
+         fun() -> X = 2 end()],
+    {L,X,A}.
+
+parallel_scopes_4a(A, B) ->
+    4 = length([X = A,
+                fun() -> X = 2 end(),
+                X = B,
+                fun() -> X = 2 end()]),
+    X.
+
+parallel_scopes_4b(A, B) ->
+    4 = length([X = A,
+                case id(true) of
+                    true ->
+                        fun() -> X = 2 end()
+                end,
+                X = B,
+                case id(false) of
+                    false ->
+                        fun() -> X = 2 end()
+                end]),
+    X.
+
+parallel_scopes_4c(A, B) ->
+    [X = A,
+     fun() -> X = 2 end(),
+     X = B,
+     fun() -> X = 2 end()].
+
+parallel_scopes_5(A, B) ->
+    4 = length([X = A,
+                [fun() -> X = 2 end()],
+                X = B |
+                case id(false) of
+                    false ->
+                        [fun() -> X = 2 end()]
+                end]),
+    X.
+
+parallel_scopes_6(A, B) ->
+    4 = tuple_size({X = A,
+                    fun() -> X = 40 end(),
+                    X = B,
+                    fun() -> X = 50 end()}),
+    X.
+
+parallel_scopes_7(A, B) ->
+    4 = tuple_size({X = A,
+                    [fun() -> X = 40 end()],
+                    X = B,
+                    [fun() -> X = 50 end()]}),
+    X.
+
+parallel_scopes_8(A, B) ->
+    _ = [X = id(A),
+         begin fun() -> X = 2 end(), X = id(B) end],
+    X.
+
+parallel_scopes_9(A, B, C) ->
+    3 = length([begin X = id(A), Y = id(A+B) end,
+                fun() -> X = 2 end(),
+                X = id(B)]),
+    {X,Y=C}.
+
+parallel_scopes_10(Bool, A, B, C) ->
+    T = {X = A,
+         case id(Bool) of
+             true ->
+                 fun() -> X = 999 end(),
+                 X = B;
+             false ->
+                 X = C,
+                 fun() -> X = 999 end()
+         end},
+    2 = tuple_size(T),
+    X.
+
+parallel_scopes_11(A, B, C) ->
+    T = {X = A,
+         case id(true) of
+             true ->
+                 X = B,
+                 2 = length([X = C, X = C]),
+                 fun() -> X = 889 end();
+             false ->
+                 X = cannot_happen
+         end},
+    2 = tuple_size(T),
+    X.
+
+parallel_scopes_12(A, B, C) ->
+    T = {X = A,
+         case id(true) of
+             true ->
+                 fun() -> X = whatever end(),
+                 2 = length([X = B, X = B]),
+                 X = C;
+             false ->
+                 X = cannot_happen
+         end},
+    2 = tuple_size(T),
+    X.
+
+parallel_scopes_13(A, B) ->
+    [X = 1,
+     fun() ->
+             X = id(whatever),
+             99 = A,
+             100 = B
+     end()].
+
 coverage(_Config) ->
     ok = coverage_1(),
     ok.
@@ -308,7 +534,5 @@ coverage_1() ->
            ("abc") -> party
         end,
         ok.
-
-
 id(I) ->
     I.
