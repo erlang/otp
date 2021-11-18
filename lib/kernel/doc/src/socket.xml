@@ -1954,7 +1954,7 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="2" since="@OTP-17528@"/>
+      <name name="ioctl" arity="2" since="OTP @OTP-17528@"/>
       <fsummary>Control device.</fsummary>
       <desc>
         <p>Retrieve socket (device) parameters.</p>
@@ -1962,7 +1962,7 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="3" since="@OTP-17528@"/>
+      <name name="ioctl" arity="3" since="OTP @OTP-17528@"/>
       <fsummary>Control device.</fsummary>
       <desc>
 	<p>Retrieve socket (device) parameters.
@@ -2051,7 +2051,7 @@
     </func>
 
     <func>
-      <name name="ioctl" arity="4" since="@OTP-17528@"/>
+      <name name="ioctl" arity="4" since="OTP @OTP-17528@"/>
       <fsummary>Control device.</fsummary>
       <desc>
 	<p>Set socket (device) parameters.
