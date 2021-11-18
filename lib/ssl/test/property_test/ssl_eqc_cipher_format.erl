@@ -51,6 +51,8 @@
 -endif.
 -endif.
 
+-include_lib("public_key/include/public_key.hrl").
+
 -define('TLS_v1.3', 'tlsv1.3').
 -define('TLS_v1.2', 'tlsv1.2').
 -define('TLS_v1.1', 'tlsv1.1').
@@ -103,6 +105,11 @@ prop_tls_anon_cipher_suite_openssl_name() ->
 		_ ->
 		    false
 	    end
+	   ).
+
+prop_tls_signature_algs() ->
+    ?FORALL(SigAlg, ?LET(SigAlg, sig_alg(), SigAlg),
+            true = lists:member(ssl_cipher:signature_algorithm_to_scheme(SigAlg), sig_schemes())
 	   ).
 
 %%--------------------------------------------------------------------
@@ -272,3 +279,55 @@ openssl_legacy_names() ->
      "SRP-AES-128-CBC-SHA",
      "SRP-AES-256-CBC-SHA"
     ]. 
+
+
+sig_alg() ->
+    oneof([#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                 parameters =  #'RSASSA-PSS-params'{
+                                                  maskGenAlgorithm =
+                                                      #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                          parameters =  #'HashAlgorithm'{algorithm = ?'id-sha256'}}}},
+           #'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                 parameters =  #'RSASSA-PSS-params'{
+                                                  maskGenAlgorithm =
+                                                      #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                          parameters = #'HashAlgorithm'{algorithm = ?'id-sha384'}}}},
+
+           #'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                 parameters =  #'RSASSA-PSS-params'{
+                                                  maskGenAlgorithm =
+                                                      #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                          parameters = #'HashAlgorithm'{algorithm = ?'id-sha512'}}}},
+           #'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption},
+           #'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption},
+           #'SignatureAlgorithm'{algorithm = ?sha512WithRSAEncryption},
+           #'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA256'},
+           #'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA384'},
+           #'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA512'},
+           #'SignatureAlgorithm'{algorithm = ?'sha-1WithRSAEncryption'},
+           #'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA1'},
+           #'SignatureAlgorithm'{algorithm = ?'id-Ed25519'},
+           #'SignatureAlgorithm'{algorithm = ?'id-Ed448'},
+           #'SignatureAlgorithm'{algorithm = ?'rsaEncryption',
+                                 parameters = 'NULL'},
+           #'SignatureAlgorithm'{algorithm = ?'rsaEncryption'},
+           #'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'}]).
+
+sig_schemes() ->
+    [rsa_pss_pss_sha256,
+     rsa_pss_pss_sha384,
+     rsa_pss_pss_sha512,
+     rsa_pkcs1_sha256,
+     rsa_pkcs1_sha384,
+     rsa_pkcs1_sha512,
+     ecdsa_secp256r1_sha256,
+     ecdsa_secp384r1_sha384,
+     ecdsa_secp521r1_sha512,
+     rsa_pkcs1_sha1,
+     rsa_pkcs1_sha1,
+     ecdsa_sha1,
+     eddsa_ed25519,
+     eddsa_ed448,
+     rsa_pkcs1_sha1,
+     rsa_pss_rsae,
+     rsa_pss_pss].
