@@ -457,21 +457,21 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 
 
 extern
-void esock_encode_hwsockaddr(ErlNifEnv*    env,
-			     ESockAddress* sockAddrP,
-			     SOCKLEN_T     addrLen,
-			     ERL_NIF_TERM* eSockAddr)
+void esock_encode_hwsockaddr(ErlNifEnv*       env,
+			     struct sockaddr* sockAddrP,
+			     SOCKLEN_T        addrLen,
+			     ERL_NIF_TERM*    eSockAddr)
 {
   ERL_NIF_TERM efamily;
   int          family;
 
   // Sanity check
-  if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
+  if (addrLen < (char *)&sockAddrP->sa_data - (char *)sockAddrP) {
     // We got crap, cannot even know the address family
-    esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
+    esock_encode_sockaddr_broken(env, sockAddrP, addrLen, eSockAddr);
     return;
   }
-  family = sockAddrP->ss.ss_family;
+  family = sockAddrP->sa_family;
 
   UDBG( ("SUTIL", "esock_encode_hwsockaddr -> entry with"
 	 "\r\n   family:  %d"
@@ -532,8 +532,7 @@ void esock_encode_hwsockaddr(ErlNifEnv*    env,
     break;
   }
 
-  esock_encode_sockaddr_native(env, &sockAddrP->sa,
-			       addrLen, efamily, eSockAddr);
+  esock_encode_sockaddr_native(env, sockAddrP, addrLen, efamily, eSockAddr);
 }
 
 

@@ -14058,9 +14058,9 @@ ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 struct sockaddr* addrP)
 {
   ERL_NIF_TERM eaddr;
-  SOCKLEN_T    sz = sizeof(ESockAddress);
+  SOCKLEN_T    sz = sizeof(struct sockaddr);
 
-  esock_encode_hwsockaddr(env, (ESockAddress*) addrP, sz, &eaddr);
+  esock_encode_hwsockaddr(env, addrP, sz, &eaddr);
 
   SSDBG( descP, ("SOCKET", "encode_ioctl_ifraddr -> done with"
 		 "\r\n    Sock Addr: %T"
