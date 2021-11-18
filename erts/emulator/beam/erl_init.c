@@ -696,6 +696,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "               none | very_short | short | medium | long | very_long\n");
     erts_fprintf(stderr, "-scl bool      enable/disable compaction of scheduler load\n");
     erts_fprintf(stderr, "-sct cput      set cpu topology\n");
+    erts_fprintf(stderr, "-ssrct         skip reading cpu topology\n");
     erts_fprintf(stderr, "-secio bool    enable or disable eager check I/O scheduling\n");
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
     erts_fprintf(stderr, "-sub bool      enable or disable scheduler utilization balancing\n");
@@ -844,6 +845,7 @@ early_init(int *argc, char **argv) /*
     int decentralized_counter_groups;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
+    int skip_read_topology = 0;
 
     erts_save_emu_args(*argc, argv);
 
@@ -983,7 +985,18 @@ early_init(int *argc, char **argv) /*
 		    }
 		    break;
 		}
-
+		case 's' : {
+		    char *sub_param = argv[i]+2;
+		    if (has_prefix("srct", sub_param)) {
+			/* skip reading cpu topology */
+			skip_read_topology = 1;
+		    }
+		    else if (has_prefix("ct", sub_param)) {
+			/* cpu topology */
+			skip_read_topology = 1;
+		    }
+		    break;
+		}
 		case 'S' :
 		    if (argv[i][2] == 'P') {
 			int ptot, ponln;
@@ -1280,7 +1293,8 @@ early_init(int *argc, char **argv) /*
 				 max_reader_groups,
 				 &reader_groups,
                                  max_decentralized_counter_groups,
-                                 &decentralized_counter_groups);
+                                 &decentralized_counter_groups,
+                                 skip_read_topology);
     erts_flxctr_setup(decentralized_counter_groups);
     {
 	erts_thr_late_init_data_t elid = ERTS_THR_LATE_INIT_DATA_DEF_INITER;
@@ -2105,6 +2119,9 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		erts_runq_supervision_interval = val;
+	    }
+	    else if (has_prefix("srct", sub_param)) {
+		/* skip reading cpu topology, already handled */
 	    }
 	    else {
 		erts_fprintf(stderr, "bad scheduling option %s\n", argv[i]);

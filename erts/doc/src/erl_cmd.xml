@@ -1511,6 +1511,16 @@ $ <input>erl \
               <seeerl marker="erlang#system_info_cpu_topology">
               <c>erlang:system_info(cpu_topology)</c></seeerl>.</p>
           </item>
+          <tag><marker id="+ssrct"/><c>+ssrct</c></tag>
+          <item>
+            <p>Skips reading CPU topology.</p>
+            <note>
+              <p>Reading CPU topology slows down startup when starting many
+                parallel instances of ERTS on systems with large amount of
+                cores, using this flag might speed up execution in such
+                scenarios.</p>
+            </note>
+          </item>
           <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
           <item>
             <p>Sets scheduler-forced wakeup interval. All run queues are

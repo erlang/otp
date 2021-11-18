@@ -1678,8 +1678,10 @@ erts_early_init_cpu_topology(int no_schedulers,
 			     int max_reader_groups,
 			     int *reader_groups_p,
                              int max_decentralized_counter_groups,
-                             int *decentralized_counter_groups_p)
+                             int *decentralized_counter_groups_p,
+                             int skip_read_topology)
 {
+    erts_cpu_info_update(cpuinfo, skip_read_topology);
     user_cpudata = NULL;
     user_cpudata_size = 0;
 
@@ -1762,7 +1764,7 @@ erts_update_cpu_info(void)
 {
     int changed;
     erts_rwmtx_rwlock(&cpuinfo_rwmtx);
-    changed = erts_cpu_info_update(cpuinfo);
+    changed = erts_cpu_info_update(cpuinfo, 0);
     if (changed) {
 	erts_cpu_topology_t *cpudata;
 	int cpudata_size;

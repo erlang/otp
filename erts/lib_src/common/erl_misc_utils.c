@@ -234,7 +234,7 @@ erts_cpu_info_create(void)
     cpuinfo->online = -1;
     cpuinfo->available = -1;
     cpuinfo->quota = -1;
-    erts_cpu_info_update(cpuinfo);
+    erts_cpu_info_update(cpuinfo, 1);
     return cpuinfo;
 }
 
@@ -259,7 +259,8 @@ erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo)
 }
 
 int
-erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
+erts_cpu_info_update(erts_cpu_info_t *cpuinfo,
+                     int skip_read_topology)
 {
     int changed = 0;
     int configured = 0;
@@ -424,7 +425,9 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
     old_topology_size = cpuinfo->topology_size;
     cpuinfo->topology = NULL;
 
-    read_topology(cpuinfo);
+    if (!skip_read_topology) {
+        read_topology(cpuinfo);
+    }
 
     if (cpuinfo->topology_size != old_topology_size
 	|| (old_topology_size != 0
