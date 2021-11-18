@@ -60,7 +60,8 @@ groups() ->
                  logger_many_handlers_default_first,
                  logger_many_handlers_default_last,
                  logger_many_handlers_default_last_broken_filter,
-                 logger_proxy
+                 logger_proxy,
+                 logger_metadata
                 ]},
      {bad,[],[bad_error_logger,
               bad_level,
@@ -81,6 +82,7 @@ all() ->
 default(Config) ->
     {ok,#{primary:=P,handlers:=Hs,module_levels:=ML},_Node} = setup(Config,[]),
     notice = maps:get(level,P),
+    true = #{} == maps:get(metadata,P),
     #{module:=logger_std_h} = StdC = find(?STANDARD_HANDLER,Hs),
     all = maps:get(level,StdC),
     StdFilters = maps:get(filters,StdC),
@@ -552,6 +554,12 @@ logger_proxy(Config) ->
                         drop_mode_qlen:=2},
     Expected = rpc:call(Node,logger_olp,get_opts,[logger_proxy]),
     Expected = rpc:call(Node,logger,get_proxy_config,[]),
+
+    ok.
+
+logger_metadata(Config) ->
+    {ok,#{ primary := #{ metadata := #{ test := test } } }, _}
+        = setup(Config, [{logger_metadata,#{ test => test }}]),
 
     ok.
 
