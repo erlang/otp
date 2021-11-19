@@ -1530,20 +1530,20 @@ otp_10820(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, L++".erl"),
     C1 = <<"%% coding: utf-8\n -module(any).">>,
-    ok = do_otp_10820(File, C1, "+pc latin1"),
-    ok = do_otp_10820(File, C1, "+pc unicode"),
+    ok = do_otp_10820(File, C1, ["+pc", "latin1"]),
+    ok = do_otp_10820(File, C1, ["+pc", "unicode"]),
     C2 = <<"\n-module(any).">>,
-    ok = do_otp_10820(File, C2, "+pc latin1"),
-    ok = do_otp_10820(File, C2, "+pc unicode").
+    ok = do_otp_10820(File, C2, ["+pc", "latin1"]),
+    ok = do_otp_10820(File, C2, ["+pc", "unicode"]).
 
 do_otp_10820(File, C, PC) ->
-    {ok,Node} = start_node(erl_pp_helper, "+fnu " ++ PC),
+    {ok,Peer,Node} = ?CT_PEER(["+fnu"] ++ PC),
     ok = rpc:call(Node, file, write_file, [File, C]),
     {ok, Forms} = rpc:call(Node, epp, parse_file, [File, [],[]]),
     [{attribute,1,file,{File,1}},
      {attribute,2,module,any},
      {eof,2}] = unopaque_forms(Forms),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %% OTP_14285: Unicode atoms.
@@ -2117,8 +2117,3 @@ fail() ->
 
 message_compare(T, T) ->
     T =:= T.
-
-%% +fnu means a peer node has to be started; slave will not do
-start_node(Name, Xargs) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).

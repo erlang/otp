@@ -112,21 +112,23 @@ leap_years(Config) when is_list(Config) ->
 last_day_of_the_month(Config) when is_list(Config) ->
     check_last_day_of_the_month({?START_YEAR, 1}, {?END_YEAR, 1}).
 
-%% Tests local_time_to_universal_time_dst for MET.
+%% Tests local_time_to_universal_time_dst for CET/CEST/MET/MEST.
 local_time_to_universal_time_dst(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
 	    case os:cmd("date '+%Z'") of
-		"SAST"++_ ->
-		    {comment, "Spoky time zone with zero-set DST, skipped"};
+                "ME"++_ -> %% covers MET/MEST
+                    local_time_to_universal_time_dst_x(Config);
+                "CE"++_ -> %% covers CET/CEST
+                    local_time_to_universal_time_dst_x(Config);
 		_ ->
-		    local_time_to_universal_time_dst_x(Config)
+                    {skip, "This test runs only for MET/MEST/CET/CEST"}
 	    end;
 	_ ->
 	    local_time_to_universal_time_dst_x(Config)
     end.
 local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
-    %% Assumes MET (UTC+1 / UTC+2(dst)
+    %% Assumes CET (UTC+1 / UTC+2(dst) or MET (same as CET)
     LtW   = {{2003,01,15},{14,00,00}}, % Winter
     UtW   = {{2003,01,15},{13,00,00}}, %
     UtWd  = {{2003,01,15},{12,00,00}}, % dst

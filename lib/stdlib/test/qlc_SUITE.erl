@@ -1163,9 +1163,9 @@ append(Config) when is_list(Config) ->
 evaluator(Config) when is_list(Config) ->
     true = is_alive(),
     evaluator_2(Config, []),
-    {ok, Node} = start_node(qlc_SUITE_evaluator),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, evaluator_2, [Config, [compiler]]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 evaluator_2(Config, Apps) ->
@@ -1190,10 +1190,6 @@ evaluator_2(Config, Apps) ->
 
     _ = file:delete(FileName),
     ok.
-
-start_node(Name) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 %% string_to_handle/1,2.
 string_to_handle(Config) when is_list(Config) ->

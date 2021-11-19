@@ -366,20 +366,20 @@ stop7(_Config) ->
 
 %% Anonymous on remote node
 stop8(_Config) ->
-    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop8,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_fsm,start,[?MODULE,[],[]]),
     ok = gen_fsm:stop(Pid),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_fsm:stop(Pid)),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop(Pid)),
     ok.
 
 %% Registered name on remote node
 stop9(_Config) ->
-    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop9,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_fsm,start,[{local,to_stop},?MODULE,[],[]]),
@@ -387,13 +387,13 @@ stop9(_Config) ->
     undefined = rpc:call(Node,erlang,whereis,[to_stop]),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_fsm:stop({to_stop,Node})),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',{{nodedown,Node},_}} = (catch gen_fsm:stop({to_stop,Node})),
     ok.
 
 %% Globally registered name on remote node
 stop10(_Config) ->
-    {ok,Node} = test_server:start_node(gen_fsm_SUITE_stop10,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_fsm,start,[{global,to_stop},?MODULE,[],[]]),
@@ -401,7 +401,7 @@ stop10(_Config) ->
     ok = gen_fsm:stop({global,to_stop}),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',noproc} = (catch gen_fsm:stop({global,to_stop})),
     ok.
 

@@ -700,7 +700,7 @@ stop(_Config) ->
     false = erlang:is_process_alive(Pid7),
 
     %% Remote registered name
-    {ok,Node} = test_server:start_node(proc_lib_SUITE_stop,slave,[]),
+    {ok, Peer, Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     Pid8 = spawn(Node,SysMsgProc),
@@ -714,7 +714,7 @@ stop(_Config) ->
     {'EXIT',noproc} = (catch proc_lib:stop(to_stop)),
     {'EXIT',noproc} = (catch proc_lib:stop({to_stop,Node})),
 
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
 
     %% Remote registered name, but non-existing node
     {'EXIT',{{nodedown,Node},_}} = (catch proc_lib:stop({to_stop,Node})),

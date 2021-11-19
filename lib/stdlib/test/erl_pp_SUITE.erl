@@ -1118,14 +1118,14 @@ unicode_hook({foo,E}, I, P, H) ->
 %% OTP-10820. Unicode filenames.
 otp_10820(Config) when is_list(Config) ->
     C1 = <<"%% coding: utf-8\n -module(any).">>,
-    ok = do_otp_10820(Config, C1, "+pc latin1"),
-    ok = do_otp_10820(Config, C1, "+pc unicode"),
+    ok = do_otp_10820(Config, C1, ["+pc", "latin1"]),
+    ok = do_otp_10820(Config, C1, ["+pc", "unicode"]),
     C2 = <<"%% coding: latin-1\n -module(any).">>,
-    ok = do_otp_10820(Config, C2, "+pc latin1"),
-    ok = do_otp_10820(Config, C2, "+pc unicode").
+    ok = do_otp_10820(Config, C2, ["+pc", "latin1"]),
+    ok = do_otp_10820(Config, C2, ["+pc", "unicode"]).
 
 do_otp_10820(Config, C, PC) ->
-    {ok,Node} = start_node(erl_pp_helper, "+fnu " ++ PC),
+    {ok,Peer,Node} = ?CT_PEER(["+fnu"] ++ PC),
     L = [915,953,959,973,957,953,954,959,957,964],
     FileName = filename(L++".erl", Config),
     ok = rpc:call(Node, file, write_file, [FileName, C]),
@@ -1133,7 +1133,7 @@ do_otp_10820(Config, C, PC) ->
                             [FileName, [return,'P',{outdir,?privdir}]]),
     PFileName = filename(L++".P", Config),
     {ok, Bin} = rpc:call(Node, file, read_file, [PFileName]),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     true = file_attr_is_string(binary_to_list(Bin)),
     ok.
 
@@ -1558,11 +1558,6 @@ filename(Name, Config) ->
 
 fail() ->
     ct:fail(failed).
-
-%% +fnu means a peer node has to be started; slave will not do
-start_node(Name, Xargs) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).
 
 assert_same(Expected) when is_list(Expected) ->
     Actual = binary_to_list(iolist_to_binary(parse_and_pp_forms(Expected, []))),

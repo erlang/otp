@@ -117,18 +117,19 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote_n2;
 				     Case == call_remote_n3;
                                      Case == send_request ->
-    {ok,N} = start_node(hubba),
-    [{node,N} | Config];
+    {ok,Peer,Node} = ?CT_PEER(),
+    ok = global:sync(),
+    [{node,Node}, {peer, Peer} | Config];
 
 init_per_testcase(_Case, Config) ->
     Config.
 
 end_per_testcase(_Case, Config) ->
-    case proplists:get_value(node, Config) of
+    case proplists:get_value(peer, Config) of
 	undefined ->
 	    ok;
-	N ->
-	    test_server:stop_node(N)
+	Peer ->
+	    peer:stop(Peer)
     end,
     ok.
 
@@ -372,20 +373,20 @@ stop7(_Config) ->
 
 %% Anonymous on remote node
 stop8(_Config) ->
-    {ok,Node} = test_server:start_node(gen_server_SUITE_stop8,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_server,start,[?MODULE,[],[]]),
     ok = gen_server:stop(Pid),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_server:stop(Pid)),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop(Pid)),
     ok.
 
 %% Registered name on remote node
 stop9(_Config) ->
-    {ok,Node} = test_server:start_node(gen_server_SUITE_stop9,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_server,start,[{local,to_stop},?MODULE,[],[]]),
@@ -393,13 +394,13 @@ stop9(_Config) ->
     undefined = rpc:call(Node,erlang,whereis,[to_stop]),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_server:stop({to_stop,Node})),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',{{nodedown,Node},_}} = (catch gen_server:stop({to_stop,Node})),
     ok.
 
 %% Globally registered name on remote node
 stop10(_Config) ->
-    {ok,Node} = test_server:start_node(gen_server_SUITE_stop10,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     Dir = filename:dirname(code:which(?MODULE)),
     rpc:call(Node,code,add_path,[Dir]),
     {ok, Pid} = rpc:call(Node,gen_server,start,[{global,to_stop},?MODULE,[],[]]),
@@ -407,7 +408,7 @@ stop10(_Config) ->
     ok = gen_server:stop({global,to_stop}),
     false = rpc:call(Node,erlang,is_process_alive,[Pid]),
     {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     {'EXIT',noproc} = (catch gen_server:stop({global,to_stop})),
     ok.
 
@@ -643,15 +644,6 @@ read_replies() ->
 %% Test call to nonexisting processes on remote nodes
 %% --------------------------------------
 
-start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    N = test_server:start_node(Name, slave, [{args, " -pa " ++ Pa}]),
-    %% After starting a slave, it takes a little while until global knows
-    %% about it, even if nodes() includes it, so we make sure that global
-    %% knows about it before registering something on all nodes.
-    ok = global:sync(),
-    N.
-
 call_remote1(Config) when is_list(Config) ->
     N = hubba,
     Node = proplists:get_value(node,Config),
@@ -698,7 +690,7 @@ call_remote_n1(Config) when is_list(Config) ->
     Node = proplists:get_value(node,Config),
     {ok, _Pid} = rpc:call(Node, gen_server, start,
 			  [{global, N}, ?MODULE, [], []]),
-    _ = test_server:stop_node(Node),
+    peer:stop(proplists:get_value(peer,Config)),
     {'EXIT', {noproc, _}} =
 	(catch gen_server:call({global, N}, started_p, infinity)),
 
@@ -710,7 +702,7 @@ call_remote_n2(Config) when is_list(Config) ->
 
     {ok, Pid} = rpc:call(Node, gen_server, start,
 			 [{global, N}, ?MODULE, [], []]),
-    _ = test_server:stop_node(Node),
+    peer:stop(proplists:get_value(peer,Config)),
     {'EXIT', {{nodedown, Node}, _}} = (catch gen_server:call(Pid,
 							     started_p, infinity)),
 
@@ -721,7 +713,7 @@ call_remote_n3(Config) when is_list(Config) ->
 
     {ok, _Pid} = rpc:call(Node, gen_server, start,
 			  [{local, piller}, ?MODULE, [], []]),
-    _ = test_server:stop_node(Node),
+    peer:stop(proplists:get_value(peer,Config)),
     {'EXIT', {{nodedown, Node}, _}} = (catch gen_server:call({piller, Node},
 							     started_p, infinity)),
 
@@ -776,7 +768,11 @@ cast(Config) when is_list(Config) ->
 
 %% Test that cast really return immediately.
 cast_fast(Config) when is_list(Config) ->
-    {ok,Node} = start_node(hubba),
+    {ok,Peer,Node} = ?CT_PEER(),
+    %% After starting a slave, it takes a little while until global knows
+    %% about it, even if nodes() includes it, so we make sure that global
+    %% knows about it before registering something on all nodes.
+    ok = global:sync(),
     {_,"@"++Host} = lists:splitwith(fun ($@) -> false; (_) -> true end,
 				    atom_to_list(Node)),
     FalseNode = list_to_atom("hopp@"++Host),
@@ -786,7 +782,7 @@ cast_fast(Config) when is_list(Config) ->
     {Time,ok} = timer:tc(fun() ->
 				 gen_server:cast({hopp,FalseNode}, hopp)
 			 end),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     if Time > 1000000 ->       % Default listen timeout is about 7.0 s
 	    ct:fail(hanging_cast);
        true ->
