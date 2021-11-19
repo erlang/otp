@@ -64,8 +64,11 @@ start_link(Mod, StartArgs) ->
     gen_server:start_link(supervisor_bridge, [Mod, StartArgs, self], []).
 
 -spec start_link(SupBridgeName, Module, Args) -> Result when
-      SupBridgeName :: {local, Name} | {global, Name},
+      SupBridgeName :: {local, Name} | {global, GlobalName} |
+		       {via, Module, ViaName},
       Name :: atom(),
+      GlobalName :: term(),
+      ViaName :: term(),
       Module :: module(),
       Args :: term(),
       Result :: {ok, Pid} | ignore | {error, Error},
