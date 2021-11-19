@@ -45,11 +45,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -ifndef(CT_PEER).
--define(USE_PEER_FALLBACK, yes).
--define(CT_PEER, start_node_fallback).
--define(CT_STOP_PEER(Peer, Node), stop_node_fallback(Peer, Node)).
--else.
--define(CT_STOP_PEER(Peer, Node), peer:stop(Peer)).
+%% This module needs to compile on old nodes...
+-define(CT_PEER(), {ok, undefined, undefined}).
+-define(CT_PEER(Opts), {ok, undefined, undefined}).
+-define(CT_PEER(Opts, Release, PrivDir), {ok, undefined, undefined}).
 -endif.
 
 suite() ->
@@ -156,7 +155,7 @@ reqtmo_test(Test) ->
     after 0 -> ok
     end,
     
-    ?CT_STOP_PEER(Peer, Node),
+    peer:stop(Peer),
     
     {comment,
      "Timeout = " ++ integer_to_list(Timeout)
@@ -222,8 +221,8 @@ multicall_reqtmo(Config) when is_list(Config) ->
                                       Timeout)
           end,
     Res = reqtmo_test(Fun),
-    ?CT_STOP_PEER(Peer1, QuickNode1),
-    ?CT_STOP_PEER(Peer2, QuickNode2),
+    peer:stop(Peer1),
+    peer:stop(Peer2),
     Res.
 
 
@@ -259,8 +258,8 @@ multicall_dies(Config) when is_list(Config) ->
     {[{badrpc, {'EXIT', killed}}, {badrpc, {'EXIT', killed}}], []} =
 	do_multicall(Nodes, ?MODULE, suicide, [exit, kill]),
     %%
-    ?CT_STOP_PEER(P1, N1),
-    ?CT_STOP_PEER(P2, N2),
+    peer:stop(P1),
+    peer:stop(P2),
     ok.
 
 do_multicall(Nodes, Mod, Func, Args) ->
@@ -389,7 +388,7 @@ called_dies(Config) when is_list(Config) ->
        end, N, ?MODULE, suicide, [exit,kill]),
     %%
     [] = flush([]),
-    ?CT_STOP_PEER(P, N),
+    peer:stop(P),
     ok.
 
 rep(Fun, N, M, F, A) ->
@@ -485,7 +484,7 @@ called_throws(Config) when is_list(Config) ->
 		    {Tag,apply(rpc, Call, Args)}
 	end, N, erlang, throw, [{'EXIT',reason}]),
     %%
-    ?CT_STOP_PEER(P, N),
+    peer:stop(P),
     ok.
 
 
@@ -497,7 +496,7 @@ call_benchmark(Config) when is_list(Config) ->
 	       _ -> 500		     %Modified timing - spawn is slower
 	   end,
     Res = do_call_benchmark(Node, Iter),
-    ?CT_STOP_PEER(Peer, Node),
+    peer:stop(Peer),
     Res.
 
 do_call_benchmark(Node, M) when is_integer(M), M > 0 ->
@@ -546,7 +545,7 @@ call_against_old_node(Config) ->
 	    {skipped, "No OTP "++OldRel++" available"};
         {ok, PeerOld, NodeOld} ->
             NodeOld = rpc:call(NodeOld, erlang, node, []),
-            ?CT_STOP_PEER(PeerOld, NodeOld),
+            peer:stop(PeerOld),
             ok
     end.
 
@@ -565,7 +564,7 @@ multicall_mix(Config) ->
           end,
     {ok, _Peer4, Node4} = ?CT_PEER(),
     {ok, _Peer5, Node5} = ?CT_PEER(),
-    ?CT_STOP_PEER(Peer2, Node2),
+    peer:stop(Peer2),
     
     [] = flush([]),
 
@@ -889,75 +888,3 @@ test_on_old_node(Config, Test, NoOld, NoCurr) ->
             ok
     end,
     ok.
-
--ifdef(USE_PEER_FALLBACK).
-
-make_nodename() ->
-    list_to_atom(atom_to_list(?MODULE)
-                 ++ "-"
-                 ++ integer_to_list(erlang:system_time(second))
-                 ++ "-"
-                 ++ integer_to_list(erlang:unique_integer([positive]))).
-
-make_args(slave, ArgsList) when is_list(ArgsList) ->
-    {args, lists:join(" ", ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList])};
-make_args(Type, OptMap) when is_map(OptMap) ->
-    ArgsList0 = maps:get(args, OptMap, []),
-    ArgsList1 = ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList0],
-    ArgsList2 = case maps:get(env, OptMap, undefined) of
-                    undefined ->
-                        ArgsList1;
-                    Env ->
-                        lists:foldl(fun ({Var, Val}, Acc) ->
-                                            ["-env", Var, "\""++Val++"\"" | Acc]
-                                    end,
-                                    [],
-                                    Env)
-                end,
-    ArgsList3 = case Type of
-                    slave ->
-                        ArgsList2;
-                    peer ->
-                        ["-setcookie", atom_to_list(erlang:get_cookie()) | ArgsList2]
-                end,
-    {args, lists:join(" ", ArgsList3)}.
-    
-test_server_start_node(Name, Type, OptList) ->
-    case test_server:start_node(Name, Type, OptList) of
-        {ok, Node} ->
-            {ok, fake_peer, Node};
-        Error ->
-            Error
-    end.
-
-start_node_fallback() ->
-    start_node_fallback([]).
-
-start_node_fallback(ArgsList) when is_list(ArgsList) ->
-    test_server_start_node(make_nodename(),
-                           slave,
-                           [make_args(slave, ArgsList)]);
-start_node_fallback(OptMap) when is_map(OptMap) ->
-    Type = case maps:get(connection, OptMap, undefined) of
-               undefined -> slave;
-               _ -> peer
-           end,
-    test_server_start_node(make_nodename(),
-                           Type,
-                           [make_args(Type, OptMap)]).
-
-start_node_fallback(OptMap, Rel, _Dir) when is_map(OptMap) ->
-    case test_server:is_release_available(Rel) of
-        false ->
-            not_available;
-        true ->
-            test_server_start_node(make_nodename(),
-                                   peer,
-                                   [make_args(peer, OptMap),
-                                    {erl, [{release, Rel}]}])
-    end.
-
-stop_node_fallback(fake_peer, Node) ->
-    test_server:stop_node(Node).
-
--endif.

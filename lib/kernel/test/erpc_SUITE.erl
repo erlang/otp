@@ -46,11 +46,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -ifndef(CT_PEER).
--define(USE_PEER_FALLBACK, yes).
--define(CT_PEER, start_node_fallback).
--define(CT_STOP_PEER(Peer, Node), stop_node_fallback(Peer, Node)).
--else.
--define(CT_STOP_PEER(Peer, Node), peer:stop(Peer)).
+%% This module needs to compile on old nodes...
+-define(CT_PEER(), {ok, undefined, undefined}).
+-define(CT_PEER(Opts), {ok, undefined, undefined}).
+-define(CT_PEER(Opts, Release, PrivDir), {ok, undefined, undefined}).
 -endif.
 
 suite() ->
@@ -128,7 +127,7 @@ call_from_old_node(Config) when is_list(Config) ->
                 compile_and_load_on_node(Node),
                 ok = erpc:call(Node, ?MODULE, call_test, [undefined, node(), false, true])
             after
-                ?CT_STOP_PEER(Peer, Node)
+                peer:stop(Peer)
             end
     end.
 
@@ -456,7 +455,7 @@ reqtmo_test(Test) ->
     after 0 -> ok
     end,
     
-    ?CT_STOP_PEER(Peer, Node),
+    peer:stop(Peer),
     
     {comment,
      "Timeout = " ++ integer_to_list(Timeout)
@@ -958,7 +957,7 @@ multicall(Config) ->
                   compile_and_load_on_node(OldNode),
                   {true, OldNodeRes}
           end,
-    ?CT_STOP_PEER(Peer2, Node2),
+    peer:stop(Peer2),
     
     ThisNode = node(),
     Nodes = [ThisNode, Node1, Node2, Node3, Node4, Node5],
@@ -1303,8 +1302,8 @@ multicall_reqtmo(Config) when is_list(Config) ->
                                         Timeout)
           end,
     Res = reqtmo_test(Fun),
-    ?CT_STOP_PEER(Peer1, QuickNode1),
-    ?CT_STOP_PEER(Peer2, QuickNode2),
+    peer:stop(Peer1),
+    peer:stop(Peer2),
     Res.
 
 multicall_recv_opt(Config) when is_list(Config) ->
@@ -1324,8 +1323,8 @@ multicall_recv_opt(Config) when is_list(Config) ->
     Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    ?CT_STOP_PEER(Peer1, Node1),
-    ?CT_STOP_PEER(Peer2, Node2),
+    peer:stop(Peer1),
+    peer:stop(Peer2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1340,7 +1339,7 @@ multicall_recv_opt2(Config) when is_list(Config) ->
     HugeMsgQ = 500000,
     process_flag(message_queue_data, off_heap),
     {ok, Peer1, Node1} = ?CT_PEER(),
-    ?CT_STOP_PEER(Peer1, Node1),
+    peer:stop(Peer1),
     {ok, Peer2, Node2} = ?CT_PEER(),
     ExpRes = [{ok, node()}, {error, {erpc, noconnection}}, {ok, Node2}],
     Nodes = [node(), Node1, Node2],
@@ -1353,7 +1352,7 @@ multicall_recv_opt2(Config) when is_list(Config) ->
     Huge = time_multicall(ExpRes, Nodes, Fun, infinity, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    ?CT_STOP_PEER(Peer2, Node2),
+    peer:stop(Peer2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1368,7 +1367,7 @@ multicall_recv_opt3(Config) when is_list(Config) ->
     HugeMsgQ = 500000,
     process_flag(message_queue_data, off_heap),
     {ok, Peer1, Node1} = ?CT_PEER(),
-    ?CT_STOP_PEER(Peer1, Node1),
+    peer:stop(Peer1),
     {ok, Peer2, Node2} = ?CT_PEER(),
     Nodes = [node(), Node1, Node2],
     Fun = fun () -> erlang:node() end,
@@ -1380,7 +1379,7 @@ multicall_recv_opt3(Config) when is_list(Config) ->
     Huge = time_multicall(undefined, Nodes, Fun, 0, Loops),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(Huge, native, microsecond)]),
-    ?CT_STOP_PEER(Peer2, Node2),
+    peer:stop(Peer2),
     Q = Huge / Empty,
     HugeMsgQ = flush_msgq(),
     case Q > 10 of
@@ -1760,75 +1759,3 @@ fetch_all_messages(Msgs) ->
         0 ->
             Msgs
     end.
-
--ifdef(USE_PEER_FALLBACK).
-
-make_nodename() ->
-    list_to_atom(atom_to_list(?MODULE)
-                 ++ "-"
-                 ++ integer_to_list(erlang:system_time(second))
-                 ++ "-"
-                 ++ integer_to_list(erlang:unique_integer([positive]))).
-
-make_args(slave, ArgsList) when is_list(ArgsList) ->
-    {args, lists:join(" ", ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList])};
-make_args(Type, OptMap) when is_map(OptMap) ->
-    ArgsList0 = maps:get(args, OptMap, []),
-    ArgsList1 = ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList0],
-    ArgsList2 = case maps:get(env, OptMap, undefined) of
-                    undefined ->
-                        ArgsList1;
-                    Env ->
-                        lists:foldl(fun ({Var, Val}, Acc) ->
-                                            ["-env", Var, "\""++Val++"\"" | Acc]
-                                    end,
-                                    [],
-                                    Env)
-                end,
-    ArgsList3 = case Type of
-                    slave ->
-                        ArgsList2;
-                    peer ->
-                        ["-setcookie", atom_to_list(erlang:get_cookie()) | ArgsList2]
-                end,
-    {args, lists:join(" ", ArgsList3)}.
-    
-test_server_start_node(Name, Type, OptList) ->
-    case test_server:start_node(Name, Type, OptList) of
-        {ok, Node} ->
-            {ok, fake_peer, Node};
-        Error ->
-            Error
-    end.
-
-start_node_fallback() ->
-    start_node_fallback([]).
-
-start_node_fallback(ArgsList) when is_list(ArgsList) ->
-    test_server_start_node(make_nodename(),
-                           slave,
-                           [make_args(slave, ArgsList)]);
-start_node_fallback(OptMap) when is_map(OptMap) ->
-    Type = case maps:get(connection, OptMap, undefined) of
-               undefined -> slave;
-               _ -> peer
-           end,
-    test_server_start_node(make_nodename(),
-                           Type,
-                           [make_args(Type, OptMap)]).
-
-start_node_fallback(OptMap, Rel, _Dir) when is_map(OptMap) ->
-    case test_server:is_release_available(Rel) of
-        false ->
-            not_available;
-        true ->
-            test_server_start_node(make_nodename(),
-                                   peer,
-                                   [make_args(peer, OptMap),
-                                    {erl, [{release, Rel}]}])
-    end.
-
-stop_node_fallback(fake_peer, Node) ->
-    test_server:stop_node(Node).
-
--endif.

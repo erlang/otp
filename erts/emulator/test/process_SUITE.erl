@@ -28,14 +28,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--ifndef(CT_PEER).
--define(USE_PEER_FALLBACK, yes).
--define(CT_PEER, start_node_fallback).
--define(CT_STOP_PEER(Peer, Node), stop_node_fallback(Peer, Node)).
--else.
--define(CT_STOP_PEER(Peer, Node), peer:stop(Peer)).
--endif.
-
 -define(heap_binary_size, 64).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -3184,7 +3176,7 @@ spawn_against_old_node(Config) when is_list(Config) ->
                 spawn_node_test(OldNode, false),
                 ok
             after
-                ?CT_STOP_PEER(Peer, OldNode)
+                peer:stop(Peer)
             end
     end.
 
@@ -3201,7 +3193,7 @@ spawn_against_new_node(Config) when is_list(Config) ->
         spawn_node_test(CurrNode, false),
         ok
     after
-        ?CT_STOP_PEER(Peer, CurrNode)
+        peer:stop(Peer)
     end.
 
 spawn_ei_node_test(Node, Disconnect) ->
@@ -4459,7 +4451,7 @@ id(I) -> I.
 stop_node(Peer, Node) ->
     verify_nc(node()),
     verify_nc(Node),
-    ?CT_STOP_PEER(Peer, Node).
+    peer:stop(Peer).
 
 verify_nc(Node) ->
     P = self(),
@@ -4633,76 +4625,3 @@ get_hostname([$@ | HostName]) ->
     HostName;
 get_hostname([_ | Rest]) ->
     get_hostname(Rest).
-
--ifdef(USE_PEER_FALLBACK).
-
-make_nodename() ->
-    list_to_atom(atom_to_list(?MODULE)
-                 ++ "-"
-                 ++ integer_to_list(erlang:system_time(second))
-                 ++ "-"
-                 ++ integer_to_list(erlang:unique_integer([positive]))).
-
-make_args(slave, ArgsList) when is_list(ArgsList) ->
-    {args, lists:join(" ", ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList])};
-make_args(Type, OptMap) when is_map(OptMap) ->
-    ArgsList0 = maps:get(args, OptMap, []),
-    ArgsList1 = ["-pa", filename:dirname(code:which(?MODULE)) | ArgsList0],
-    ArgsList2 = case maps:get(env, OptMap, undefined) of
-                    undefined ->
-                        ArgsList1;
-                    Env ->
-                        lists:foldl(fun ({Var, Val}, Acc) ->
-                                            ["-env", Var, "\""++Val++"\"" | Acc]
-                                    end,
-                                    [],
-                                    Env)
-                end,
-    ArgsList3 = case Type of
-                    slave ->
-                        ArgsList2;
-                    peer ->
-                        ["-setcookie", atom_to_list(erlang:get_cookie()) | ArgsList2]
-                end,
-    {args, lists:join(" ", ArgsList3)}.
-    
-test_server_start_node(Name, Type, OptList) ->
-    case test_server:start_node(Name, Type, OptList) of
-        {ok, Node} ->
-            {ok, fake_peer, Node};
-        Error ->
-            Error
-    end.
-
-start_node_fallback() ->
-    start_node_fallback([]).
-
-start_node_fallback(ArgsList) when is_list(ArgsList) ->
-    test_server_start_node(make_nodename(),
-                           slave,
-                           [make_args(slave, ArgsList)]);
-start_node_fallback(OptMap) when is_map(OptMap) ->
-    Type = case maps:get(connection, OptMap, undefined) of
-               undefined -> slave;
-               _ -> peer
-           end,
-    test_server_start_node(make_nodename(),
-                           Type,
-                           [make_args(Type, OptMap)]).
-
-start_node_fallback(OptMap, Rel, _Dir) when is_map(OptMap) ->
-    case test_server:is_release_available(Rel) of
-        false ->
-            not_available;
-        true ->
-            test_server_start_node(make_nodename(),
-                                   peer,
-                                   [make_args(peer, OptMap),
-                                    {erl, [{release, Rel}]}])
-    end.
-
-stop_node_fallback(fake_peer, Node) ->
-    test_server:stop_node(Node).
-
--endif.
-
