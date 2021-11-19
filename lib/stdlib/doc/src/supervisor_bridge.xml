@@ -72,16 +72,16 @@
               <c><anno>Name</anno></c> using <c>register/2</c>.</p>
           </item>
           <item>
-            <p>If <c><anno>SupBridgeName</anno>={global,<anno>Name</anno>}</c>,
+            <p>If <c><anno>SupBridgeName</anno>={global,<anno>GlobalName</anno>}</c>,
               the supervisor bridge is registered globally as
-              <c><anno>Name</anno></c> using
+              <c><anno>GlobalName</anno></c> using
               <seemfa marker="kernel:global#register_name/2">
               <c>global:register_name/2</c></seemfa>.</p>
           </item>
           <item>
             <p>If
-            <c><anno>SupBridgeName</anno>={via,<anno>Module</anno>,<anno>Name</anno>}</c>,
-            the supervisor bridge is registered as <c><anno>Name</anno></c>
+            <c><anno>SupBridgeName</anno>={via,<anno>Module</anno>,<anno>ViaName</anno>}</c>,
+            the supervisor bridge is registered as <c><anno>ViaName</anno></c>
             using a registry represented by <anno>Module</anno>. The
             <c>Module</c> callback is to export functions
             <c>register_name/2</c>, <c>unregister_name/1</c>, and <c>send/2</c>,
