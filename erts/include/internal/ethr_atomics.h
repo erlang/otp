@@ -62,7 +62,7 @@
  * - read
  * - init
  *
- * Appart from a function implementing the atomic operation
+ * Apart from a function implementing the atomic operation
  * with unspecified memory barrier semantics, there are
  * functions implementing each operation with the following
  * implied memory barrier semantics:
