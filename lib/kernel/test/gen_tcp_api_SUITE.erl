@@ -571,37 +571,72 @@ do_t_fdconnect(Config) ->
             ?SKIPT("failed loading util nif lib")
     end,
     ?P("try create listen socket"),
-    L = case gen_tcp:listen(0,
-                            ?INET_BACKEND_OPTS(Config) ++ [{active, false}]) of
+    LOpts = ?INET_BACKEND_OPTS(Config) ++ [{active, false}],
+    L = try gen_tcp:listen(0, LOpts) of
             {ok, LSock} ->
                 LSock;
             {error, eaddrnotavail = LReason} ->
-                ?SKIPT(listen_failed_str(LReason))
+                ?SKIPT(listen_failed_str(LReason));
+            {error, LReason} ->
+                ?P("UNEXPECTED ERROR - listen error: "
+                   "~n      COpts:  ~p"
+                   "~n      Reason: ~p", [LReason]),
+                ct:fail({unexpected_listen_error, LReason, LOpts})
+        catch
+            LC : LE : LS ->
+                ?P("UNEXPECTED ERROR - catched listen: "
+                   "~n   LOpts: ~p"
+                   "~n   C:     ~p"
+                   "~n   E:     ~p"
+                   "~n   S:     ~p", [LOpts, LC, LE, LS]),
+                ct:fail({listen_failure, {LC, LE, LS}, LOpts})
         end,            
-    {ok, Port} = inet:port(L),
+    {ok, LPort} = inet:port(L),
     ?P("try create file descriptor"),
     FD = gen_tcp_api_SUITE:getsockfd(),
-    ?P("try connect using file descriptor ~w", [FD]),
-    Client = case gen_tcp:connect(localhost, Port,
-                                  ?INET_BACKEND_OPTS(Config) ++
-                                      [{fd,     FD},
-                                       {active, false}]) of
+    ?P("try connect (to port ~w) using file descriptor ~w", [LPort, FD]),
+    COpts = ?INET_BACKEND_OPTS(Config) ++ [{fd, FD}, {active, false}],
+    Client = try gen_tcp:connect(localhost, LPort, COpts) of
                  {ok, CSock} ->
                      CSock;
                  {error, eaddrnotavail = CReason} ->
                      gen_tcp:close(L),
                      gen_tcp_api_SUITE:closesockfd(FD),
-                     ?SKIPT(connect_failed_str(CReason))
+                     ?SKIPT(connect_failed_str(CReason));
+                 {error, CReason} ->
+                     ?P("UNEXPECTED ERROR - connect error: "
+                        "~n      COpts:  ~p"
+                        "~n      Reason: ~p", [COpts, CReason]),
+                     ct:fail({unexpected_connect_error, CReason, COpts})
+             catch
+                 CC : CE : CS ->
+                     ?P("UNEXPECTED ERROR - catched connect: "
+                        "~n   COpts: ~p"
+                        "~n   C:     ~p"
+                        "~n   E:     ~p"
+                        "~n   S:     ~p", [COpts, CC, CE, CS]),
+                     ct:fail({connect_failure, {CC, CE, CS}, COpts})
              end,                             
     ?P("try accept connection"),
-    Server = case gen_tcp:accept(L) of
+    Server = try gen_tcp:accept(L) of
                  {ok, ASock} ->
                      ASock;
                  {error, eaddrnotavail = AReason} ->
                      gen_tcp:close(Client),
                      gen_tcp:close(L),
                      gen_tcp_api_SUITE:closesockfd(FD),
-                     ?SKIPT(accept_failed_str(AReason))
+                     ?SKIPT(accept_failed_str(AReason));
+                 {error, AReason} ->
+                     ?P("UNEXPECTED ERROR - accept error: "
+                        "~n      Reason: ~p", [AReason]),
+                     ct:fail({unexpected_accept_error, AReason})
+             catch
+                 AC : AE : AS ->
+                     ?P("UNEXPECTED ERROR - catched accept: "
+                        "~n   C: ~p"
+                        "~n   E: ~p"
+                        "~n   S: ~p", [AC, AE, AS]),
+                     ct:fail({accept_failure, {AC, AE, AS}})
         end,                             
     ?P("begin validation"),
     ok = gen_tcp:send(Client, Question),
