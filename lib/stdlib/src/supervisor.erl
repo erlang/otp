@@ -926,6 +926,8 @@ shutdown(#child{pid=Pid, shutdown=brutal_kill} = Child) ->
             case unlink_flush(Pid, Reason0) of
                 killed ->
                     ok;
+                shutdown when not (?is_permanent(Child)) ->
+                    ok;
                 {shutdown, _} when not (?is_permanent(Child)) ->
                     ok;
                 normal when not (?is_permanent(Child)) ->
@@ -1036,6 +1038,10 @@ wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
           when is_map_key({Pid, Mon}, Pids) ->
             case unlink_flush(Pid, Reason0) of
                 killed ->
+                    wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
+                                          Sz-1, TRef, EStack);
+
+                shutdown when not (?is_permanent(Child)) ->
                     wait_dynamic_children(Child, maps:remove({Pid, Mon}, Pids),
                                           Sz-1, TRef, EStack);
 
