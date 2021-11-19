@@ -40,8 +40,8 @@ stop(_State) ->
 %% Description: Start SSL logger
 start_logger() ->
     Config = #{level => debug,
-               config => #{filter_default => stop,
-                           formatter => {ssl_logger, #{}}}},
+               filter_default => stop,
+               formatter => {ssl_logger, #{}}},
     Filter = {fun logger_filters:domain/2,{log,sub,[otp,ssl]}},
     logger:add_handler(ssl_handler, logger_std_h, Config),
     logger:add_handler_filter(ssl_handler, filter_non_ssl, Filter),
