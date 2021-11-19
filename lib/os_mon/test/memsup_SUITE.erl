@@ -722,14 +722,14 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
-improved_system_memory_data(Config) ->
-    {ok, Node} = start_node(Config),
+improved_system_memory_data(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, application, start, [sasl]),
     ok = rpc:call(Node, application, start, [os_mon]),
 
     ExtMemData = rpc:call(Node, memsup, get_system_memory_data, []),
 
-    stop_node(Node),
+    peer:stop(Peer),
 
     Tags = ?SYSTEM_MEMORY_DATA_TAGS,
     AvailableMemoryPresent
@@ -802,20 +802,3 @@ flush() ->
     after 0 ->
               ok
     end.
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
