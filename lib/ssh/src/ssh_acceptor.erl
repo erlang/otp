@@ -130,18 +130,27 @@ request_ownership(LSock, SockOwner) ->
     
 %%%----------------------------------------------------------------    
 acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
-    case accept(ListenSocket, AcceptTimeout, Opts) of
-        {ok,Socket} ->
-            {ok, {FromIP,FromPort}} = inet:peername(Socket), % Just in case of error in next line:
-            case handle_connection(SystemSup, Address, Port, Opts, Socket) of
-                {error,Error} ->
-                    catch close(Socket, Opts),
-                    handle_error(Error, Address, Port, FromIP, FromPort);
-                _ ->
-                    ok
-            end;
-        {error,Error} ->
-            handle_error(Error, Address, Port)
+    try
+        case accept(ListenSocket, AcceptTimeout, Opts) of
+            {ok,Socket} ->
+                case inet:peername(Socket) of
+                    {ok, {FromIP,FromPort}} ->
+                        case handle_connection(SystemSup, Address, Port, Opts, Socket) of
+                            {error,Error} ->
+                                catch close(Socket, Opts),
+                                handle_error(Error, Address, Port, FromIP, FromPort);
+                            _ ->
+                                ok
+                        end;
+                    {error,Error} ->
+                        handle_error(Error, Address, Port)
+                end;
+            {error,Error} ->
+                handle_error(Error, Address, Port)
+        end
+    catch
+        Class:Err:Stack ->
+            handle_error({error, {unhandled,Class,Err,Stack}}, Address, Port)
     end,
     ?MODULE:acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
 
