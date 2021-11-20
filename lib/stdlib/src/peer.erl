@@ -157,7 +157,7 @@ start_link(Options) ->
 -spec start(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
 start(Options) ->
-    start_it(Options, start_link).
+    start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
 -spec stop(gen_statem:server_ref()) -> ok.
