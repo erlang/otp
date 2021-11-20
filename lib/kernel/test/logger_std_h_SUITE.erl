@@ -51,8 +51,7 @@
 -define(domain,#{domain=>[?MODULE]}).
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report
@@ -841,7 +840,7 @@ write_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     File = lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"]),
     Log = filename:join(Dir, File),
-    Node = start_std_h_on_new_node(Config, Log),
+    {Peer, Node} = start_std_h_on_new_node(Config, Log),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -869,16 +868,13 @@ write_failure(Config) ->
     rpc:call(Node, logger_std_h, filesync, [?STANDARD_HANDLER]),
     ?check_no_log,
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, filesync_rep_int()),
-    ok.
-write_failure(cleanup, _Config) ->
-    Nodes = nodes(),
-    [test_server:stop_node(Node) || Node <- Nodes].
+    peer:stop(Peer).
 
 sync_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     File = lists:concat([?MODULE,"_",?FUNCTION_NAME,".log"]),
     Log = filename:join(Dir, File),
-    Node = start_std_h_on_new_node(Config, Log),
+    {Peer, Node} = start_std_h_on_new_node(Config, Log),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
@@ -907,20 +903,17 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_result, [file_datasync,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
     ?check_no_log,
-    ok.
-sync_failure(cleanup, _Config) ->
-    Nodes = nodes(),
-    [test_server:stop_node(Node) || Node <- Nodes].
+    peer:stop(Peer).
 
 start_std_h_on_new_node(Config, Log) ->
-    {ok,_,Node} =
+    {ok,_,Peer,Node} =
         logger_test_lib:setup(
           Config,
           [{logger,[{handler,default,logger_std_h,
                      #{ config => #{ type => {file,Log}}}}]}]),
     ok = rpc:call(Node,logger,set_handler_config,[?STANDARD_HANDLER,formatter,
                                                   {?MODULE,nl}]),
-    Node.
+    {Peer, Node}.
 
 %% functions for test hook macros to be called by rpc
 set_internal_log(_Mod, _Func) ->

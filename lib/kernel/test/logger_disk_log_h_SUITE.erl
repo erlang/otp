@@ -47,8 +47,7 @@
 -define(domain,#{domain=>[?MODULE]}).
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     timer:start(),                              % to avoid progress report

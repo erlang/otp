@@ -113,7 +113,6 @@ MODULES= \
 	cleanup \
 	ignore_cores \
 	zlib_SUITE \
-	loose_node \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \

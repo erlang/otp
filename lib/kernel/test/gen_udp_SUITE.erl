@@ -650,34 +650,23 @@ read_packets(Config) when is_list(Config) ->
 			   ok
 		   end
 	   end,
-    Pre  = fun() ->
-                   ?P("~w:pre -> try create node", [?FUNCTION_NAME]),
-                   {ok, Node} = start_node(gen_udp_SUITE_read_packets),
-                   ?P("~w:pre -> node created", [?FUNCTION_NAME]),
-                   Node
-           end,
-    TC   = fun(Node) ->
+    TC   = fun() ->
                    ?P("~w:tc -> begin", [?FUNCTION_NAME]),
-                   Res = do_read_packets(Config, Node),
+                   Res = do_read_packets(Config),
                    ?P("~w:tc -> done", [?FUNCTION_NAME]),
                    Res
            end,
-    Post = fun(Node) ->
-                   ?P("~w:post -> try stop node ~p", [?FUNCTION_NAME, Node]),
-                   stop_node(Node),
-                   ?P("~w:post -> done", [?FUNCTION_NAME]),
-                   ok
-           end,
-    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
-do_read_packets(Config, Node) when is_list(Config) ->
+do_read_packets(Config) when is_list(Config) ->
     N1   = 5,
     N2   = 1,
     Msgs = 30000,
     ?P("open socket (with read-packets: ~p)", [N1]),
     {ok, R}   = ?OPEN(Config, 0, [{read_packets,N1}]),
     {ok, RP}  = inet:port(R),
-
+    ?P("create slave node"),
+    {ok,Peer,Node} = ?CT_PEER(),
     %%
     ?P("perform read-packets test"),
     {V1, Trace1} = read_packets_test(Config, R, RP, Msgs, Node),
@@ -691,7 +680,8 @@ do_read_packets(Config, Node) when is_list(Config) ->
     ?P("verify read-packets (to ~w)", [N2]),
     {ok, [{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
-
+    ?P("stop slave node"),
+    peer:stop(Peer),
     ?P("dump trace 1"),
     dump_terms(Config, "trace1.terms", Trace1),
     ?P("dump trace 2"),
@@ -2896,15 +2886,6 @@ pi(Item) ->
 %%
 %% Utils
 %%
-
-start_node(Name) ->
-    ?START_NODE(Name, []).
-
-stop_node(Node) ->
-    ?STOP_NODE(Node).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 open_failed_str(Reason) ->
     ?F("Open failed: ~w", [Reason]).

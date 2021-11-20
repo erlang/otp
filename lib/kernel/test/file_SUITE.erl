@@ -820,7 +820,7 @@ untranslatable_names_1(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "untranslatable_names"),
     ok = file:make_dir(Dir),
-    Node = start_node(untranslatable_names, "+fnu"),
+    {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     try
 	ok = file:set_cwd(Dir),
 	[ok = file:write_file(F, F) || {_,F} <- untranslatable_names()],
@@ -841,7 +841,7 @@ untranslatable_names_1(Config) ->
 	io:format("ExpectedListDirAll: ~p\n", [ExpectedListDirAll]),
 	ExpectedListDirAll = call_and_sort(Node, file, list_dir_all, [Dir])
     after
-	catch test_server:stop_node(Node),
+	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
 	[file:delete(F) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
@@ -861,7 +861,7 @@ untranslatable_names_error_1(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "untranslatable_names_error"),
     ok = file:make_dir(Dir),
-    Node = start_node(untranslatable_names, "+fnue"),
+    {ok, Peer, Node} = ?CT_PEER(["+fnue"]),
     try
 	ok = file:set_cwd(Dir),
 	[ok = file:write_file(F, F) || {_,F} <- untranslatable_names()],
@@ -875,7 +875,7 @@ untranslatable_names_error_1(Config) ->
 	true = lists:keymember(BadFile, 2, untranslatable_names())
 
     after
-	catch test_server:stop_node(Node),
+	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
 	[file:delete(F) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
@@ -900,18 +900,6 @@ no_untranslatable_names() ->
 	{win32,_} -> true;
 	_ -> false
     end.
-
-start_node(Name, Args) ->
-    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
-    ct:log("Trying to start ~w@~s~n", [Name,Host]),
-    case test_server:start_node(Name, peer, [{args,Args}]) of
-	{error,Reason} ->
-	    ct:fail(Reason);
-	{ok,Node} ->
-	    ct:log("Node ~p started~n", [Node]),
-	    Node
-    end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -4003,7 +3991,7 @@ ok.
 
 %% OTP-10852. +fnu and latin1 filenames.
 otp_10852(Config) when is_list(Config) ->
-    Node = start_node(erl_pp_helper, "+fnu"),
+    {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     Dir = proplists:get_value(priv_dir, Config),
     B = filename:join(Dir, <<"\xE4">>),
     ok = rpc_call(Node, get_cwd, [B]),
@@ -4046,7 +4034,7 @@ otp_10852(Config) when is_list(Config) ->
             {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
             ok = rpc_call(Node, close, [Fd2])
     end,
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 rpc_call(N, F, As) ->

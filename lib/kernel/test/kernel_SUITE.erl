@@ -65,7 +65,7 @@ init_per_testcase(appup_test, Config) ->
         {ok,<<"DEVELOPMENT",_/binary>>} ->
             {skip, "This is a development version, test might fail "
              "because of incorrect version numbers"};
-        {ok,S} ->
+        {ok,_NotDev} ->
             Config
     end;
 init_per_testcase(_Case, Config) ->
