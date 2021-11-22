@@ -5247,13 +5247,13 @@ test_delete_table_while_size_snapshot(Config) when is_list(Config) ->
     %% Run test case in a slave node as other test suites in stdlib
     %% depend on that pids are ordered in creation order which is no
     %% longer the case when many processes have been started before
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     [ok = rpc:call(Node,
                    ?MODULE,
                    test_delete_table_while_size_snapshot_helper,
                    [TableType])
      || TableType <- [set, ordered_set]],
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 test_delete_table_while_size_snapshot_helper(TableType) ->
@@ -5289,13 +5289,6 @@ size_process(Table, Parent) ->
     catch
         E -> Parent ! {got_unexpected_exception, E}
     end.
-
-start_slave() ->
-    MicroSecs = erlang:monotonic_time(),
-    Name = "ets_" ++ integer_to_list(MicroSecs),
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(list_to_atom(Name), slave, [{args, "-pa " ++ Pa}]),
-    Node.
 
 repeat_par(FunToRepeat, NrOfTimes) ->
     repeat_par_help(FunToRepeat, NrOfTimes, NrOfTimes).

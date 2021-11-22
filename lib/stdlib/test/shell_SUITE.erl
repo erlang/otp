@@ -190,16 +190,15 @@ ok.
 
 %% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_1,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			       " -stdlib restricted_shell foo"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "-stdlib", "restricted_shell", "foo"]),
     "Warning! Restricted shell module foo not found: nofile"++_ =
 	t({Node, <<"begin m() end.">>}),
     "exception exit: restricted shell does not allow m()" =
 	comm_err({Node, <<"begin m() end.">>}),
     [ok] =
 	(catch scan({Node, <<"begin q() end.">>})),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted2.erl"),
     Contents = <<"-module(test_restricted2).
@@ -217,9 +216,8 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
                       {false,State}.
                  ">>,
     ok = compile_file(Config, Test, Contents, []),
-    {ok,Node2} = start_node(shell_suite_helper_2,
-				 "-pa "++proplists:get_value(priv_dir,Config)++
-				 " -stdlib restricted_shell test_restricted2"),
+    {ok, Peer2, Node2} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+				  "-stdlib", "restricted_shell", "test_restricted2"]),
     "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     "exception exit: restricted shell does not allow c(foo)" =
 	comm_err({Node2,<<"begin c(foo) end.">>}),
@@ -235,7 +233,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
 	comm_err({Node2,<<"begin shell:stop_restricted() end.">>}),
     [ok] =
 	scan({Node2, <<"begin q() end.">>}),
-    test_server:stop_node(Node2),
+    peer:stop(Peer2),
     ok.
 
 %% Tests calling local shell functions with spectacular arguments in
@@ -661,14 +659,10 @@ otp_5435(Config) when is_list(Config) ->
     true = <<103133.0:64/float>> =:=
         evaluate(<<"<<103133.0:64/float>> = <<103133:64/float>>.">>, []),
     true = is_alive(),
-    {ok, Node} = start_node(shell_SUITE_otp_5435),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, otp_5435_2, []),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
-
-start_node(Name) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 otp_5435_2() ->
     true = code:del_path(compiler),
@@ -2750,9 +2744,8 @@ prompt_err(B) ->
 
 %% OTP-10302. Unicode. Also OTP-14285, Unicode atoms.
 otp_10302(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_2,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2902,7 +2895,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n** exception error: undefined function "
     "shell_SUITE:'\x{447}\x{435}'/0.\n" =
         t({Node,Test17}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_13719(Config) when is_list(Config) ->
@@ -2919,9 +2912,8 @@ otp_13719(Config) when is_list(Config) ->
     ok.
 
 otp_14285(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_4,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+        "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2931,7 +2923,7 @@ otp_14285(Config) ->
            end.">>,
     "-record('\x{400}',{'\x{400}' = '\x{400}'}).\nok.\n" =
         t({Node,Test1}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_14296(Config) when is_list(Config) ->
@@ -3232,9 +3224,6 @@ filename(Name, Config) when is_atom(Name) ->
     filename(atom_to_list(Name), Config);
 filename(Name, Config) ->
     filename:join(proplists:get_value(priv_dir, Config), Name).
-
-start_node(Name, Xargs) ->
-    test_server:start_node(Name, slave, [{args, " " ++ Xargs}]).
 
 purge_and_delete(Module) ->
     (catch code:purge(Module)),

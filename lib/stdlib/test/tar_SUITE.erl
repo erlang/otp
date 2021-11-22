@@ -914,23 +914,20 @@ do_sparse([Name|Rest], DataDir, PrivDir) ->
 
 %% Test filenames with characters outside the US ASCII range.
 unicode(Config) when is_list(Config) ->
-    run_unicode_node(Config, "+fnu"),
+    run_unicode_node(Config, ["+fnu"]),
     case has_transparent_naming() of
 	true ->
-	    run_unicode_node(Config, "+fnl");
+	    run_unicode_node(Config, ["+fnl"]);
 	false ->
 	    ok
     end.
 
-run_unicode_node(Config, Option) ->
+run_unicode_node(Config, Args) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Pa = filename:dirname(code:which(?MODULE)),
-    Args = Option ++ " -pa "++Pa,
-    io:format("~s\n", [Args]),
-    Node = start_node(unicode, Args),
+    {ok, Peer, Node} = ?CT_PEER(Args),
     ok = rpc:call(Node, erlang, apply,
 		  [fun() -> do_unicode(PrivDir) end,[]]),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 has_transparent_naming() ->
@@ -1014,7 +1011,7 @@ roundtrip_metadata(Config) ->
 
 do_roundtrip_metadata(Dir, File) ->
     Tar = filename:join(Dir, atom_to_list(?FUNCTION_NAME)++".tar"),
-    BeamFile = code:which(compile),
+    BeamFile = code:which(?MODULE),
     {ok,Fd} = erl_tar:open(Tar, [write]),
     ok = erl_tar:add(Fd, BeamFile, File, []),
     ok = erl_tar:close(Fd),
@@ -1129,17 +1126,6 @@ make_temp_dir(Base, I) ->
     case file:make_dir(Name) of
 	ok -> Name;
 	{error,eexist} -> make_temp_dir(Base, I+1)
-    end.
-
-start_node(Name, Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    ct:log("Trying to start ~w@~s~n", [Name,Host]),
-    case test_server:start_node(Name, peer, [{args,Args}]) of
-	{error,Reason} ->
-	    ct:fail(Reason);
-	{ok,Node} ->
-	    ct:log("Node ~p started~n", [Node]),
-	    Node
     end.
 
 %% Test that the given tar file is a plain USTAR archive,

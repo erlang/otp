@@ -115,9 +115,9 @@ end_per_group(_GroupName, Config) ->
 %% OTP-3621
 newly_started(Config) when is_list(Config) ->
     true = is_alive(),
-    {ok, Node} = test_server:start_node(slave1, slave, []),
+    {ok, Peer, Node} = ?CT_PEER(),
     [] = rpc:call(Node, dets, all, []),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 basic(Config) when is_list(Config) ->
@@ -153,7 +153,7 @@ open(Config) when is_list(Config) ->
     %% Running this test twice means that the Dets server is restarted
     %% twice. dets_sup specifies a maximum of 4 restarts in an hour.
     %% If this becomes a problem, one should consider running this
-    %% test on a slave node.
+    %% test on a peer node.
 
     {Sets, Bags, Dups} = args(Config),
     
@@ -373,12 +373,7 @@ dirty_mark(Config) when is_list(Config) ->
 			   exit(other_process_dead)
 		   end
 	   end,
-    {ok, Node} = test_server:start_node(dets_dirty_mark,
-                                        slave,
-                                        [{linked, false},
-                                         {args, "-pa " ++
-                                              filename:dirname
-						(code:which(?MODULE))}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = ensure_node(20, Node),
     %% io:format("~p~n",[rpc:call(Node, code, get_path, [])]),
     %% io:format("~p~n",[rpc:call(Node, file, get_cwd, [])]),
@@ -387,7 +382,7 @@ dirty_mark(Config) when is_list(Config) ->
 			 [?MODULE, dets_dirty_loop, []]),
     {ok, Tab} = Call(Pid, [open, Tab, [{file, FName}]]),
     [{opel,germany}] = Call(Pid, [read,Tab,opel]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     {ok, Tab} = dets:open_file(Tab,[{file, FName},
                                     {repair,false}]),
     ok = dets:close(Tab),
@@ -421,12 +416,7 @@ dirty_mark2(Config) when is_list(Config) ->
 			   exit(other_process_dead)
 		   end
 	   end,
-    {ok, Node} = test_server:start_node(dets_dirty_mark2,
-                                        slave,
-                                        [{linked, false},
-                                         {args, "-pa " ++
-                                              filename:dirname
-						(code:which(?MODULE))}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = ensure_node(20, Node),
     Pid = rpc:call(Node,erlang, spawn,
                    [?MODULE, dets_dirty_loop, []]),
@@ -435,7 +425,7 @@ dirty_mark2(Config) when is_list(Config) ->
     timer:sleep(2100),
     %% Read something, just to give auto save time to finish.
     [{opel,germany}] = Call(Pid, [read,Tab,opel]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     {ok, Tab} = dets:open_file(Tab, [{file, FName}, {repair,false}]),
     ok = dets:close(Tab),
     file:delete(FName),
