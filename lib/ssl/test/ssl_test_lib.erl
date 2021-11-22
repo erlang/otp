@@ -409,7 +409,7 @@ run_where(_, ipv6) ->
     {ClientNode, ServerNode, Host}.
 
 node_to_hostip(Node, Role) ->
-    [_ , Host] = string:tokens(atom_to_list(Node), "@"),
+    Host = rpc:call(Node, net_adm, localhost, []),
     {ok, Address} = inet:getaddr(Host, inet),
     %% Convert client addresses in 127.0.0.0/24 subnet to the atom 'localhost'.
     %% This is a workaround for testcase problems caused by the fact that
