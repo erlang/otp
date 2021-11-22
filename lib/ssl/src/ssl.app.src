@@ -18,6 +18,7 @@
                tls_server_session_ticket_sup,
                tls_server_session_ticket,
                tls_sup,
+               tls_dyn_connection_sup,
 	       ssl_dh_groups,
 	       %% DTLS
 	       dtls_connection,

@@ -82,9 +82,10 @@ start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
-        {ok, Sender} = tls_sender:start(),
-	{ok, Pid} = tls_connection_sup:start_child([Role, Sender, Host, Port, Socket, 
-						    Opts, User, CbInfo]), 
+        {ok, DynSup} =  tls_connection_sup:start_child([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, []),
+	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
+                                                             Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
         ssl_gen_statem:handshake(SslSocket, Timeout)
     catch
@@ -96,9 +97,10 @@ start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Trackers} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
-        {ok, Sender} = tls_sender:start([{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]),
-	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Sender, Host, Port, Socket, 
-							 Opts, User, CbInfo]), 
+        {ok, DynSup} =  tls_connection_sup:start_child_dist([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]]),
+	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
+                                                                 Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
         ssl_gen_statem:handshake(SslSocket, Timeout)
     catch
@@ -320,9 +322,6 @@ handle_info({CloseTag, Socket}, StateName,
             %% is called after all data has been deliver.
             {next_state, StateName, State#state{protocol_specific = PS#{active_n_toggle => true}}, []}
     end;
-handle_info({'EXIT', Sender, Reason}, _,
-            #state{protocol_specific = #{sender := Sender}} = State) ->
-    {stop, {shutdown, {sender_died, Reason}}, State};
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 

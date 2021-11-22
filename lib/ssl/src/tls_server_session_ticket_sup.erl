@@ -59,18 +59,16 @@ sup_name(dist) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_O) ->
-    RestartStrategy = simple_one_for_one,
-    MaxR = 0,
-    MaxT = 3600,
-   
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {tls_server_session_ticket, start_link, []},
-    Restart = temporary, % E.g. should not be restarted
-    Shutdown = 4000,
-    Modules = [tls_server_session_ticket],
-    Type = worker,
-    
-    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
-
+init(_) ->
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>   0,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => undefined,
+                    start    => {tls_server_session_ticket, start_link, []},
+                    restart  => transient, 
+                    shutdown => 4000,
+                    modules  => [tls_server_session_ticket],
+                    type     => worker
+                   }], 
+    {ok, {SupFlags, ChildSpecs}}.

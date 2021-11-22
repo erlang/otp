@@ -43,16 +43,16 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
-    ListenTracker = listen_options_tracker_child_spec(),
-    SessionTracker = tls_server_session_child_spec(),
-    Pre_1_3SessionTracker = ssl_server_session_child_spec(),
-    
-    {ok, {{one_for_all, 10, 3600}, [ListenTracker, 
-				    SessionTracker,
-                                    Pre_1_3SessionTracker
-				   ]}}.
-
+init([]) ->  
+    SupFlags = #{strategy  => one_for_all,
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [listen_options_tracker_child_spec(), 
+                  tls_server_session_child_spec(),
+                  ssl_server_session_child_spec()],
+    {ok, {SupFlags, ChildSpecs}}.
+ 
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -61,29 +61,28 @@ init([]) ->
 %% Handles emulated options so that they inherited by the accept
 %% socket, even when setopts is performed on the listen socket
 listen_options_tracker_child_spec() ->
-    Name = dist_tls_socket,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_listen_tracker_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => dist_ssl_listen_tracker_sup,
+      start    => {ssl_listen_tracker_sup, start_link_dist, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_listen_tracker_sup],
+      type     => supervisor
+     }.
 
 tls_server_session_child_spec() ->
-    Name = dist_tls_server_session_ticket,  
-    StartFunc = {tls_server_session_ticket_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [tls_server_session_ticket_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => dist_tls_server_session_ticket,
+      start    => {tls_server_session_ticket_sup, start_link_dist, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [tls_server_session_ticket_sup],
+      type     => supervisor
+     }.
 
 ssl_server_session_child_spec() ->
-    Name = dist_ssl_server_session_cache_sup,
-    StartFunc = {ssl_upgrade_server_session_cache_sup, start_link_dist, []},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [ssl_server_session_cache_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id       => dist_ssl_upgrade_server_session_cache_sup,
+      start    => {ssl_upgrade_server_session_cache_sup, start_link_dist, []},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_upgrade_server_session_cache_sup],
+      type     => supervisor
+     }.

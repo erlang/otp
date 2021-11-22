@@ -44,24 +44,22 @@ start_link_dist() ->
 
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-    
+
 start_child_dist(Args) ->
     supervisor:start_child(tls_dist_connection_sup, Args).
     
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_O) ->
-    RestartStrategy = simple_one_for_one,
-    MaxR = 0,
-    MaxT = 3600,
-   
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssl_gen_statem, start_link, []},
-    Restart = temporary, % E.g. should not be restarted
-    Shutdown = 4000,
-    Modules = [ssl_gen_statem, tls_connection, tls_connection_1_3],
-    Type = worker,
-    
-    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
+init(_) ->
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>   0,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id      => undefined,
+                    restart => temporary,
+                    type    => supervisor,
+                    start   => {tls_dyn_connection_sup, start_link, []}}],
+    {ok, {SupFlags, ChildSpecs}}.
+
+

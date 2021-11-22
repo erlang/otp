@@ -51,20 +51,19 @@ start_child_dist(Args) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_O) ->
-    RestartStrategy = simple_one_for_one,
-    MaxR = 0,
-    MaxT = 3600,
-   
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {tls_socket, start_link, []},
-    Restart = temporary, % E.g. should not be restarted
-    Shutdown = 4000,
-    Modules = [tls_socket],
-    Type = worker,
-    
-    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
+init(_) ->
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>   0,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => undefined,
+                    start    => {tls_socket, start_link, []},
+                    restart  => temporary, 
+                    shutdown => 4000,
+                    modules  => [tls_socket],
+                    type     => worker
+                   }],    
+    {ok, {SupFlags, ChildSpecs}}.
 
 tracker_name(normal) ->
     ?MODULE;
