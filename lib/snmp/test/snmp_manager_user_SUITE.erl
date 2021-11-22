@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -195,6 +195,11 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
     snmp_test_global_sys_monitor:reset_events(),
     
+    ?IPRINT("init_per_testcase -> ensure (snmp) manager not running"),
+    Mod      = snmpm_supervisor,
+    Stopper = fun() -> Mod:stop() end,
+    ?ENSURE_NOT_RUNNING(Mod, Stopper, 1000),
+
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     CaseTopDir  = filename:join(SuiteTopDir, atom_to_list(Case)),
     ?line ok    = file:make_dir(CaseTopDir),
@@ -1291,7 +1296,7 @@ which_agents() ->
 
 
 write_manager_conf(Dir) ->
-    Port = "5000",
+    Port = "0",
     MMS  = "484",
     EngineID = "\"mgrEngine\"",
     Str = lists:flatten(
