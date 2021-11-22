@@ -229,12 +229,12 @@ ethr_native_su_dw_atomic_cmpxchg_acqb(ethr_native_dw_atomic_t *var,
 
 static ETHR_INLINE ETHR_NATIVE_SU_DW_SINT_T
 ethr_native_su_dw_atomic_cmpxchg_mb(ethr_native_dw_atomic_t *var,
-				    ETHR_NATIVE_SU_DW_SINT_T new,
+				    ETHR_NATIVE_SU_DW_SINT_T new_val,
 				    ETHR_NATIVE_SU_DW_SINT_T old)
 {
     ethr_native_dw_ptr_t p = (ethr_native_dw_ptr_t) ETHR_DW_NATMC_MEM__(var);
     ETHR_DW_DBG_ALIGNED__(p);
-    return __sync_val_compare_and_swap(p, old, new);
+    return __sync_val_compare_and_swap(p, old, new_val);
 }
 
 #endif /* ETHR_HAVE___sync_val_compare_and_swap */

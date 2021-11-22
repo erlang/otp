@@ -551,10 +551,10 @@ ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_mb)(ETHR_ATMC_T__ *var,
-			      ETHR_AINT_T__ new,
+			      ETHR_AINT_T__ new_val,
 			      ETHR_AINT_T__ old)
 {
-    return __sync_val_compare_and_swap(&var->value, old, new);
+    return __sync_val_compare_and_swap(&var->value, old, new_val);
 }
 
 #endif /* ETHR_HAVE___sync_val_compare_and_swap */
