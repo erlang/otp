@@ -303,10 +303,17 @@ do_init(Server, NoteStore) ->
              %% The 'inet-backend' option has to be first,
              %% so we might as well add it last.
 	     Socket = socket_open(IpPort, InetBackend ++ SocketOpts),
+	     PortInfoStr =
+		 case inet:port(Socket) of
+		     {ok, PortNo} when (IpPort =/= PortNo) ->
+			 lists:flatten(io_lib:format("~p (~w)", [IpPort, PortNo]));
+		     _ ->
+			 lists:flatten(io_lib:format("~p", [IpPort]))
+		 end,
              ?vtrace("socket created: "
-                     "~n      Ip Port:     ~p"
+                     "~n      Ip Port:     ~s"
                      "~n      Socket Opts: ~p"
-                     "~n      Socket:      ~p", [IpPort, SocketOpts, Socket]),
+                     "~n      Socket:      ~p", [PortInfoStr, SocketOpts, Socket]),
 	     #transport{socket       = Socket,
                         port_info    = IpPort,
                         opts         = SocketOpts,
@@ -340,7 +347,10 @@ socket_open(IpPort, SocketOpts) ->
 	    "~n      IpPort:     ~p"
 	    "~n      SocketOpts: ~p", [IpPort, SocketOpts]),
     case gen_udp:open(IpPort, SocketOpts) of
-	{error, _} = Error ->
+	{error, _Reason} = Error ->
+	    ?vlog("socket_open -> entry with"
+		  "~n      Options: ~p"
+		  "~n      Reason:  ~p", [SocketOpts, _Reason]),
 	    throw(Error);
 	{ok, Socket} ->
 	    Socket
