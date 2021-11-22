@@ -273,7 +273,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
                 On Linux:
                 Respects the os environment variable <c>XDG_CONFIG_DIRS</c>.</p>
 <pre>
-5> <input>filename:basedir(site_data, "my_application", #{os=>linux}).</input>
+5> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
 ["/usr/local/share/my_application",
  "/usr/share/my_application"]
 6> <input>os:getenv("XDG_CONFIG_DIRS").</input>
