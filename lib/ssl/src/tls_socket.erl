@@ -105,15 +105,7 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
             Tracker = proplists:get_value(option_tracker, Trackers),
             {ok, EmOpts} = get_emulated_opts(Tracker),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
-            {ok, Sender} = tls_sender:start(),
-            ConnArgs = [server, Sender, "localhost", Port, Socket,
-			{SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
-	    case tls_connection_sup:start_child(ConnArgs) of
-		{ok, Pid} ->
-		    ssl_gen_statem:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers);
-		{error, Reason} ->
-		    {error, Reason}
-	    end;
+            start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo);
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -398,6 +390,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
+
+start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
+    try
+        {ok, DynSup} = tls_connection_sup:start_child([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, []),
+        ConnArgs = [server, Sender, "localhost", Port, Socket,
+                    {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
+        {ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, ConnArgs),
+        ssl_gen_statem:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers)
+    catch
+	error:{badmatch, {error, _} = Error} ->
+            Error
+    end.
 
 split_options(Opts) ->
     split_options(Opts, emulated_options(), [], []).

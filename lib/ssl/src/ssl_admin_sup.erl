@@ -43,11 +43,15 @@ start_link() ->
 %%%  Supervisor callback
 %%%=========================================================================
 
-init([]) ->    
-    PEMCache = pem_cache_child_spec(),
-    SessionCertManager = session_and_cert_manager_child_spec(),
-    TicketStore = ticket_store_spec(),
-    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager, TicketStore]}}.
+init([]) ->
+    SupFlags = #{strategy  => rest_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [pem_cache_child_spec(), 
+                  session_and_cert_manager_child_spec(),
+                  ticket_store_spec()],    
+    {ok, {SupFlags, ChildSpecs}}.
 
 manager_opts() ->
     CbOpts = case application:get_env(ssl, session_cb) of
@@ -69,34 +73,33 @@ manager_opts() ->
 %%--------------------------------------------------------------------
 
 pem_cache_child_spec() ->
-    Name = ssl_pem_cache,  
-    StartFunc = {ssl_pem_cache, start_link, [[]]},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_pem_cache],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
+    #{id       => ssl_pem_cache,
+      start    => {ssl_pem_cache, start_link, [[]]},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_pem_cache],
+      type     => worker
+     }.
 session_and_cert_manager_child_spec() ->
     Opts = manager_opts(),
-    Name = ssl_manager,  
-    StartFunc = {ssl_manager, start_link, [Opts]},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_manager],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => ssl_manager,
+      start    => {ssl_manager, start_link, [Opts]},
+      restart  => permanent, 
+      shutdown => 4000,
+      modules  => [ssl_manager],
+      type     => worker
+     }.
 
 ticket_store_spec() ->
-    Name = tls_client_ticket_store,
     Size = client_session_ticket_store_size(),
     Lifetime = client_session_ticket_lifetime(),
-    StartFunc = {tls_client_ticket_store, start_link, [Size,Lifetime]},
-    Restart = permanent,
-    Shutdown = 4000,
-    Modules = [tls_client_ticket_store],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+    #{id       => tls_client_ticket_store,
+      start    => {tls_client_ticket_store, start_link, [Size, Lifetime]},
+      restart  => permanent,
+      shutdown => 4000,
+      modules  => [tls_client_ticket_store],
+      type     => worker
+     }.
 
 session_cb_init_args() ->
     case application:get_env(ssl, session_cb_init_args) of

@@ -76,18 +76,17 @@ register_listener(OwnerAndListner, IP, Port) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_O) ->
-    ets:new(dtls_listener_sup, [named_table, public, set]),
-    RestartStrategy = simple_one_for_one,
-    MaxR = 0,
-    MaxT = 3600,
-   
-    Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {dtls_packet_demux, start_link, []},
-    Restart = temporary, % E.g. should not be restarted
-    Shutdown = 4000,
-    Modules = [dtls_packet_demux],
-    Type = worker,
-    
-    ChildSpec = {Name, StartFunc, Restart, Shutdown, Type, Modules},
-    {ok, {{RestartStrategy, MaxR, MaxT}, [ChildSpec]}}.
+init(_) ->
+    ets:new(dtls_listener_sup, [named_table, public, set]),    
+    SupFlags = #{strategy  => simple_one_for_one, 
+                 intensity =>   0,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => undefined,
+                    start    => {dtls_packet_demux, start_link, []},
+                    restart  => temporary, 
+                    shutdown => 4000,
+                    modules  => [dtls_packet_demux],
+                    type     => worker
+                   }],     
+    {ok, {SupFlags, ChildSpecs}}.

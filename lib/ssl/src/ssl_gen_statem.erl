@@ -126,9 +126,8 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([_Role, Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+init([_Role, _Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
-    link(Sender),
     case ErlDist of
         true ->
             process_flag(priority, max);
@@ -1191,10 +1190,11 @@ call(FsmPid, Event) ->
 	    {error, closed};
 	exit:{normal, _} ->
 	    {error, closed};
+	exit:{shutdown,_} ->
+	    {error, closed};
 	exit:{{shutdown, _},_} ->
 	    {error, closed}
     end.
-
 
 check_hostname(_, "") ->
     ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, empty_sni);
