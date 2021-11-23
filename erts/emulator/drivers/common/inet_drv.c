@@ -1148,7 +1148,7 @@ typedef struct {
     unsigned long recv_cnt;     /* number of packets received */
     unsigned long recv_max;     /* maximum packet size received */
     double recv_avg;            /* average packet size received */
-    double recv_dvi;            /* avarage deviation from avg_size */
+    double recv_dvi;            /* average deviation from avg_size */
 #ifdef ARCH_64
     Uint64        send_oct;     /* number of octets sent, 64 bits */
 #else
@@ -1775,7 +1775,7 @@ static int load_inet_get_address
 #define INET_DRV_CACHE_LINE_MASK (INET_DRV_CACHE_LINE_SIZE - 1)
 
 /*
-** Binary Buffer Managment
+** Binary Buffer Management
 ** We keep a stack of usable buffers 
 */
 #define BUFFER_STACK_SIZE 14
@@ -3491,7 +3491,7 @@ static int compile_ancillary_data(struct msghdr *mhdr,
             break;
         }
         default:
-            /* Unknow socket option */
+            /* Unknown socket option */
             return 1;
         }
 #undef COMPILE_ANCILLARY_DATA_ITEM
@@ -5573,7 +5573,7 @@ static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
 	    else {
 		struct sockadd_in* ap;
 		/* emulate netmask,
-		 * (wasted stuff since noone uses classes)
+		 * (wasted stuff since no one uses classes)
 		 */
 		buf_check(sptr, s_end, 1);
 		*sptr++ = INET_IFOPT_NETMASK;
@@ -6982,7 +6982,7 @@ static char* sctp_get_initmsg(struct sctp_initmsg* ini, char* curr)
 }
 
 /*  "sctp_get_sendparams":
-**  Parses (from the command buffer) the 6 user-sprcified parms of
+**  Parses (from the command buffer) the 6 user-specified params of
 **  "sctp_sndrcvinfo":
 **	stream(u16),      flags(u16), ppid(u32), context(u32),
 **	timetoleave(u32), assoc_id
@@ -7510,7 +7510,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (pmtud_disable)			cflags |= SPP_PMTUD_DISABLE;
 
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
-	    /* The followings are missing in FreeBSD 7.1 */
+	    /* The following are missing in FreeBSD 7.1 */
 	    sackdelay_enable =eflags& SCTP_FLAG_SACDELAY_ENABLE;
 	    sackdelay_disable=eflags& SCTP_FLAG_SACDELAY_DISABLE;
 	    if (sackdelay_enable && sackdelay_disable)
@@ -8251,7 +8251,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	return (Errno);     \
     } while(0)
     
-    /* Spec is a name parmeter */
+    /* Spec is a name parameter */
 #   define PLACE_FOR(Spec, Index, N)                            \
     do {                                                        \
 	int need;                                               \
@@ -8789,7 +8789,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_INT	(spec, i, ap.spp_hbinterval);
 	    i = LOAD_INT	(spec, i, ap.spp_pathmaxrxt);
 	    
-	    /* The following fields are not suported in SOLARIS10,
+	    /* The following fields are not supported in SOLARIS10,
 	    ** so put 0s for "spp_pathmtu", "spp_sackdelay",
 	    ** and empty list for "spp_flags":
 	    */
@@ -11165,7 +11165,7 @@ static int winsock_event_select(inet_descriptor *desc, int flags, int on)
 	    return -1;
 	}
 
-	/* Now, WSAEventSelect() is trigged only when the queue goes from
+	/* Now, WSAEventSelect() is triggered only when the queue goes from
 	   full to empty or from empty to full; therefore we need an extra test 
 	   to see whether it is writeable, readable or closed... */
 	if ((desc->event_mask & FD_WRITE)) {
@@ -12099,7 +12099,7 @@ done:
 }
 #endif /* HAVE_SENDFILE */
 
-/* socket ready for ouput:
+/* socket ready for output:
 ** 1. INET_STATE_CONNECTING => non block connect ?
 ** 2. INET_STATE_CONNECTED  => write output
 */
@@ -12820,7 +12820,7 @@ static void packet_inet_timeout(ErlDrvData e)
 ** input should be: Family Address buffer .
 ** For UDP,  buffer (after Address) is just data to be sent.
 ** For SCTP, buffer contains a list representing 2 items:
-**   (1) 6 parms for sctp_sndrcvinfo, as in sctp_get_sendparams();
+**   (1) 6 params for sctp_sndrcvinfo, as in sctp_get_sendparams();
 **   (2) 0+ real data bytes.
 ** There is no destination address -- SCTP send is performed over
 ** an existing association, using "sctp_sndrcvinfo" specified.
