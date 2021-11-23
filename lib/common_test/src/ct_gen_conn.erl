@@ -83,6 +83,7 @@
            | {use_existing_connection, boolean()}
            | {reconnect, boolean()}
            | {forward_messages, boolean()}
+           | {old, boolean()}
       ;    (Name, Address, InitData, CallbackMod)
    -> {ok, handle()} | {error, Reason :: term()}
  when Name :: ct:target_name(),
