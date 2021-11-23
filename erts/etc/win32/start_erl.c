@@ -260,7 +260,7 @@ void parse_commandline(void)
 		fprintf(stderr, "NoConfig=TRUE\n");
 #endif
 	    } else {
-		fprintf(stderr, "Unkown option: '%S'\n", cmdline);
+		fprintf(stderr, "Unknown option: '%S'\n", cmdline);
 		exit_help("Unknown command line option");
 	    }
 	    break;

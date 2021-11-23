@@ -23,7 +23,7 @@
 ** erlang process is run as a service.
 ** Note that this entry point is only for 
 ** Console programs, Windowing programs can just route the WM_QUERYENDSESSION
-** and WM_ENDSESSION to the default window procedure to aquire the same 
+** and WM_ENDSESSION to the default window procedure to acquire the same 
 ** functionality.
 **
 ** Creator Patrik Nyblom

@@ -92,7 +92,7 @@ case :"$TARGET" in
     ## /usr/sbin/makewhatis -v $ERL_ROOT/man -c $ERL_ROOT/man > /dev/null 2>&1
 
     if [ ! -x /usr/bin/groff ]; then
-	echo "Cannot find groff - no formating of manual pages"
+	echo "Cannot find groff - no formatting of manual pages"
 	exit
     fi
 
