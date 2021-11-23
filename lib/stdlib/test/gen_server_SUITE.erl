@@ -26,7 +26,11 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([start/1, crash/1, call/1, send_request/1, cast/1, cast_fast/1,
+-export([start/1, crash/1, call/1, send_request/1,
+         send_request_receive_reqid_collection/1,
+         send_request_wait_reqid_collection/1,
+         send_request_check_reqid_collection/1,
+         cast/1, cast_fast/1,
 	 continue/1, info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1, calling_self/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
@@ -65,7 +69,9 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [start, {group,stop}, crash, call, send_request, cast, cast_fast, info, abcast,
+    [start, {group,stop}, crash, call, send_request,
+     send_request_receive_reqid_collection, send_request_wait_reqid_collection,
+     send_request_check_reqid_collection, cast, cast_fast, info, abcast,
      continue, multicall, multicall_down, call_remote1, call_remote2, calling_self,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -598,6 +604,323 @@ send_request(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
+send_request_receive_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_server:start_link({local, my_test_name1},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid2} = gen_server:start_link({local, my_test_name2},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid3} = gen_server:start_link({local, my_test_name3},
+                                       gen_server_SUITE, [], []),
+    send_request_receive_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3),
+    unlink(Pid1),
+    exit(Pid1, kill),
+    unlink(Pid2),
+    exit(Pid2, kill),
+    unlink(Pid3),
+    exit(Pid3, kill),
+    false = is_process_alive(Pid1),
+    false = is_process_alive(Pid2),
+    false = is_process_alive(Pid3),
+    ok.
+
+send_request_receive_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_server:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_server:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_server:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_server:receive_response(ReqIdC3, infinity, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_server:receive_response(ReqIdC4, 5678, true),
+    1 = gen_server:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_server:receive_response(ReqIdC5, 5000, true),
+    0 = gen_server:reqids_size(ReqIdC6),
+
+    no_request = gen_server:receive_response(ReqIdC6, 5000, true),
+
+    {reply, ok} = gen_server:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_server:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_server:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_server:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_server:receive_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    timeout = gen_server:receive_response(ReqIdC4, {abs, Deadline}, true),
+
+    Abandoned = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Abandoned = lists:sort(gen_server:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were abandoned...
+    timeout = gen_server:receive_response(ReqIdC4, {abs, Deadline+1000}, true),
+
+    {reply, ok} = gen_server:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_server:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    ReqIdC2 = gen_server:send_request(Pid2, stop_shutdown, req2, ReqIdC1),
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+    
+    {{error, {shutdown, _}}, req2, ReqIdC4} = gen_server:receive_response(ReqIdC3, 2000, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_server:receive_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_server:receive_response(ReqIdC4, infinity, false),
+
+    {reply, ok} = gen_server:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_server:start_link({local, my_test_name1},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid2} = gen_server:start_link({local, my_test_name2},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid3} = gen_server:start_link({local, my_test_name3},
+                                       gen_server_SUITE, [], []),
+    send_request_wait_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3),
+    unlink(Pid1),
+    exit(Pid1, kill),
+    unlink(Pid2),
+    exit(Pid2, kill),
+    unlink(Pid3),
+    exit(Pid3, kill),
+    false = is_process_alive(Pid1),
+    false = is_process_alive(Pid2),
+    false = is_process_alive(Pid3),
+    ok.
+
+send_request_wait_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_server:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_server:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_server:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_server:wait_response(ReqIdC3, infinity, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_server:wait_response(ReqIdC4, 5678, true),
+    1 = gen_server:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_server:wait_response(ReqIdC5, 5000, true),
+    0 = gen_server:reqids_size(ReqIdC6),
+
+    no_request = gen_server:wait_response(ReqIdC6, 5000, true),
+
+    {reply, ok} = gen_server:wait_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_server:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_server:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_server:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_server:wait_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    timeout = gen_server:wait_response(ReqIdC4, {abs, Deadline}, true),
+
+    Unhandled = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Unhandled = lists:sort(gen_server:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were not abandoned...
+    {{reply, delayed}, req3, ReqIdC4} = gen_server:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+    {{reply, delayed}, req1, ReqIdC4} = gen_server:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+
+    {reply, ok} = gen_server:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_server:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    ReqIdC2 = gen_server:send_request(Pid2, stop_shutdown, req2, ReqIdC1),
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+    
+    {{error, {shutdown, _}}, req2, ReqIdC4} = gen_server:wait_response(ReqIdC3, 2000, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_server:wait_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_server:wait_response(ReqIdC4, infinity, false),
+
+    {reply, ok} = gen_server:wait_response(ReqId0, infinity),
+
+    ok.
+
+send_request_check_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_server:start_link({local, my_test_name1},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid2} = gen_server:start_link({local, my_test_name2},
+                                       gen_server_SUITE, [], []),
+    {ok, Pid3} = gen_server:start_link({local, my_test_name3},
+                                       gen_server_SUITE, [], []),
+    send_request_check_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_check_reqid_collection_error(Pid1, Pid2, Pid3),
+    unlink(Pid1),
+    exit(Pid1, kill),
+    unlink(Pid2),
+    exit(Pid2, kill),
+    unlink(Pid3),
+    exit(Pid3, kill),
+    false = is_process_alive(Pid1),
+    false = is_process_alive(Pid2),
+    false = is_process_alive(Pid3),
+    ok.
+
+send_request_check_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqIdC1 = gen_server:send_request(Pid1, {delayed_answer,400}, req1, ReqIdC0),
+    1 = gen_server:reqids_size(ReqIdC1),
+
+    ReqId2 = gen_server:send_request(Pid2, {delayed_answer,1}),
+    ReqIdC2 = gen_server:reqids_add(ReqId2, req2, ReqIdC1),
+    2 = gen_server:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+    no_reply = gen_server:check_response(Msg0, ReqIdC3, true),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_server:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_server:check_response(next_msg(), ReqIdC4, true),
+    1 = gen_server:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_server:check_response(next_msg(), ReqIdC5, true),
+    0 = gen_server:reqids_size(ReqIdC6),
+
+    no_request = gen_server:check_response(Msg0, ReqIdC6, true),
+
+    {reply, ok} = gen_server:check_response(Msg0, ReqId0),
+
+    ok.
+    
+send_request_check_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_server:send_request(Pid1, started_p),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_server:reqids_new(),
+
+    ReqId1 = gen_server:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_server:reqids_add(ReqId1, req1, ReqIdC0),
+
+    unlink(Pid2),
+    ReqIdC2 = gen_server:send_request(Pid2, stop_shutdown, req2, ReqIdC1),
+
+    ReqIdC3 = gen_server:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_server:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+
+    no_reply = gen_server:check_response(Msg0, ReqIdC3, true),
+    
+    {{error, {shutdown, _}}, req2, ReqIdC4} = gen_server:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_server:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_server:check_response(next_msg(), ReqIdC4, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_server:check_response(next_msg(), ReqIdC4, false),
+
+    {reply, ok} = gen_server:check_response(Msg0, ReqId0),
+
+    ok.
+
+next_msg() ->
+    receive M -> M end.
 
 %% --------------------------------------
 %% Test handle_continue.

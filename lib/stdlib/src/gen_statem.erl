@@ -32,8 +32,12 @@
     start_monitor/3,start_monitor/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
-    send_request/2,wait_response/1,wait_response/2,
-    receive_response/1,receive_response/2,check_response/2,
+    send_request/2, send_request/4,
+    wait_response/1, wait_response/2, wait_response/3,
+    receive_response/1, receive_response/2, receive_response/3,
+    check_response/2, check_response/3,
+    reqids_new/0, reqids_size/1,
+    reqids_add/3, reqids_to_list/1,
     enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
@@ -72,7 +76,8 @@
     reply_action/0,
     enter_action/0,
     action/0,
-    request_id/0
+    request_id/0,
+    request_id_collection/0
    ]).
 %% Old types, not advertised
 -export_type(
@@ -283,6 +288,11 @@
 	 NewData :: DataType}.
 
 -opaque request_id() :: gen:request_id().
+
+-opaque request_id_collection() :: gen:request_id_collection().
+
+-type response_timeout() ::
+        timeout() | {abs, integer()}.
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
@@ -625,34 +635,189 @@ call(ServerRef, Request, Timeout) ->
     call_clean(ServerRef, Request, Timeout, Timeout).
 
 -spec send_request(ServerRef::server_ref(), Request::term()) ->
-        RequestId::request_id().
+        ReqId::request_id().
 send_request(Name, Request) ->
-    gen:send_request(Name, '$gen_call', Request).
+    try
+        gen:send_request(Name, '$gen_call', Request)
+    catch
+        error:badarg ->
+            error(badarg, [Name, Request])
+    end.
 
--spec wait_response(RequestId::request_id()) ->
-        {reply, Reply::term()} | {error, {term(), server_ref()}}.
-wait_response(RequestId) ->
-    gen:wait_response(RequestId, infinity).
+-spec send_request(ServerRef::server_ref(),
+                   Request::term(),
+                   Label::term(),
+                   ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
 
--spec wait_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
-wait_response(RequestId, Timeout) ->
-    gen:wait_response(RequestId, Timeout).
+send_request(ServerRef, Request, Label, ReqIdCol) ->
+    try
+        gen:send_request(ServerRef, '$gen_call', Request, Label, ReqIdCol)
+    catch
+        error:badarg ->
+            error(badarg, [ServerRef, Request, Label, ReqIdCol])
+    end.
 
--spec receive_response(RequestId::request_id()) ->
-        {reply, Reply::term()} | {error, {term(), server_ref()}}.
-receive_response(RequestId) ->
-    gen:receive_response(RequestId, infinity).
 
--spec receive_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
-receive_response(RequestId, Timeout) ->
-    gen:receive_response(RequestId, Timeout).
+-spec wait_response(ReqId) -> Result when
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()}
+                | {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
 
--spec check_response(Msg::term(), RequestId::request_id()) ->
-        {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
-check_response(Msg, RequestId) ->
-    gen:check_response(Msg, RequestId).
+wait_response(ReqId) ->
+    wait_response(ReqId, infinity).
+
+-spec wait_response(ReqId, WaitTime) -> Result when
+      ReqId :: request_id(),
+      WaitTime :: response_timeout(),
+      Response :: {reply, Reply::term()}
+                | {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
+
+wait_response(ReqId, WaitTime) ->
+    try
+        gen:wait_response(ReqId, WaitTime)
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, WaitTime])
+    end.
+
+-spec wait_response(ReqIdCollection, WaitTime, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      WaitTime :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+wait_response(ReqIdCol, WaitTime, Delete) ->
+    try
+        gen:wait_response(ReqIdCol, WaitTime, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, WaitTime, Delete])
+    end.
+
+-spec receive_response(ReqId) -> Result when
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
+
+receive_response(ReqId) ->
+    receive_response(ReqId, infinity).
+
+-spec receive_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
+
+receive_response(ReqId, Timeout) ->
+    try
+        gen:receive_response(ReqId, Timeout)
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, Timeout])
+    end.
+
+-spec receive_response(ReqIdCollection, Timeout, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+receive_response(ReqIdCol, Timeout, Delete) ->
+    try
+        gen:receive_response(ReqIdCol, Timeout, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, Timeout, Delete])
+    end.
+
+-spec check_response(Msg, ReqId) -> Result when
+      Msg :: term(),
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'no_reply'.
+
+check_response(Msg, ReqId) ->
+    try
+        gen:check_response(Msg, ReqId)
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqId])
+    end.
+
+-spec check_response(Msg, ReqIdCollection, Delete) -> Result when
+      Msg :: term(),
+      ReqIdCollection :: request_id_collection(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'no_reply'.
+
+check_response(Msg, ReqIdCol, Delete) ->
+    try
+        gen:check_response(Msg, ReqIdCol, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqIdCol, Delete])
+    end.
+
+-spec reqids_new() ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_new() ->
+    gen:reqids_new().
+
+-spec reqids_size(ReqIdCollection::request_id_collection()) ->
+          non_neg_integer().
+
+reqids_size(ReqIdCollection) ->
+    try
+        gen:reqids_size(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
+
+-spec reqids_add(ReqId::request_id(), Label::term(),
+                 ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_add(ReqId, Label, ReqIdCollection) ->
+    try
+        gen:reqids_add(ReqId, Label, ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
+    end.
+
+-spec reqids_to_list(ReqIdCollection::request_id_collection()) ->
+          [{ReqId::request_id(), Label::term()}].
+
+reqids_to_list(ReqIdCollection) ->
+    try
+        gen:reqids_to_list(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.

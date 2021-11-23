@@ -43,7 +43,9 @@ all() ->
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
      undef_in_terminate, {group, format_log},
-     reply_by_alias_with_payload].
+     reply_by_alias_with_payload,
+     send_request_receive_reqid_collection, send_request_wait_reqid_collection,
+     send_request_check_reqid_collection].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -2304,6 +2306,311 @@ reply_by_alias_with_payload(Config) when is_list(Config) ->
         {[[alias|Alias]|_] = Tag, Reply} ->
             ok
     end.
+
+send_request_receive_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_receive_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_receive_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, infinity, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:receive_response(ReqIdC4, 5678, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:receive_response(ReqIdC5, 5000, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:receive_response(ReqIdC6, 5000, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_statem:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_statem:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    timeout = gen_statem:receive_response(ReqIdC4, {abs, Deadline}, true),
+
+    Abandoned = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Abandoned = lists:sort(gen_statem:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were abandoned...
+    timeout = gen_statem:receive_response(ReqIdC4, {abs, Deadline+1000}, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:receive_response(ReqIdC3, 2000, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:receive_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:receive_response(ReqIdC4, infinity, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_wait_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_wait_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, infinity, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:wait_response(ReqIdC4, 5678, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:wait_response(ReqIdC5, 5000, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:wait_response(ReqIdC6, 5000, true),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,1000}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_statem:send_request(Pid3, {delayed_answer,500}),
+    ReqIdC3 = gen_statem:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    timeout = gen_statem:wait_response(ReqIdC4, {abs, Deadline}, true),
+
+    Unhandled = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Unhandled = lists:sort(gen_statem:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were not abandoned...
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0),
+
+    ok.
+    
+send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+ 
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:wait_response(ReqIdC3, 2000, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:wait_response(ReqIdC4, infinity, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:wait_response(ReqIdC4, infinity, false),
+
+    {reply, yes} = gen_statem:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_check_reqid_collection(Config) when is_list(Config) ->
+    {ok,Pid1} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid2} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid3} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    send_request_check_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_check_reqid_collection_error(Pid1, Pid2, Pid3),
+    stopped = gen_statem:call(Pid1, {stop,shutdown}),
+    stopped = gen_statem:call(Pid3, {stop,shutdown}),
+    check_stopped(Pid1),
+    check_stopped(Pid2),
+    check_stopped(Pid3),
+    ok.
+
+send_request_check_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqIdC1 = gen_statem:send_request(Pid1, {delayed_answer,400}, req1, ReqIdC0),
+    1 = gen_statem:reqids_size(ReqIdC1),
+
+    ReqId2 = gen_statem:send_request(Pid2, {delayed_answer,1}),
+    ReqIdC2 = gen_statem:reqids_add(ReqId2, req2, ReqIdC1),
+    2 = gen_statem:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+    no_reply = gen_statem:check_response(Msg0, ReqIdC3, true),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_statem:check_response(next_msg(), ReqIdC4, true),
+    1 = gen_statem:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_statem:check_response(next_msg(), ReqIdC5, true),
+    0 = gen_statem:reqids_size(ReqIdC6),
+
+    no_request = gen_statem:check_response(Msg0, ReqIdC6, true),
+
+    {reply, yes} = gen_statem:check_response(Msg0, ReqId0),
+
+    ok.
+    
+send_request_check_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_statem:send_request(Pid1, 'alive?'),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_statem:reqids_new(),
+
+    ReqId1 = gen_statem:send_request(Pid1, {delayed_answer,400}),
+    ReqIdC1 = gen_statem:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_statem:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_statem:send_request(Pid2, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqIdC3 = gen_statem:send_request(Pid3, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_statem:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+
+    no_reply = gen_statem:check_response(Msg0, ReqIdC3, true),
+    
+    {{error, {noproc, _}}, req2, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_statem:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC4, false),
+
+    {{reply, delayed}, req1, ReqIdC4} = gen_statem:check_response(next_msg(), ReqIdC4, false),
+
+    {reply, yes} = gen_statem:check_response(Msg0, ReqId0),
+
+    ok.
+
+next_msg() ->
+    receive M -> M end.
 
 %%
 %% Functionality check
