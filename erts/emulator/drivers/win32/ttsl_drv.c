@@ -489,7 +489,7 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 
     if (buf[0] == OP_PUTC_SYNC) {
         /* On windows we do a blocking write to the tty so we just
-           send the ack immidiately. If at some point in the future
+           send the ack immediately. If at some point in the future
            someone has a problem with tty output being blocking
            this has to be changed. */
         ErlDrvTermData spec[] = {
@@ -568,7 +568,7 @@ static int put_chars(byte *s, int l)
 }
 
 /*
- * Move the current postition forwards or backwards within the current
+ * Move the current position forwards or backwards within the current
  * line. We know about padding.
  */
 static int move_rel(int n)
