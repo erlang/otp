@@ -34,6 +34,15 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 
 basic(_Config) ->
+    undefined = scheduler:get_sample(),
+    undefined = scheduler:get_sample_all(),
+    false = erlang:system_flag(scheduler_wall_time, true),
+    GS1 = scheduler:get_sample(),
+    GS2 = scheduler:get_sample_all(),
+    check(scheduler:utilization(GS1, scheduler:get_sample())),
+    check(scheduler:utilization(GS2, scheduler:get_sample())),
+    true = erlang:system_flag(scheduler_wall_time, false),
+
     S1 = scheduler:sample(),
     S2 = scheduler:sample_all(),
 
