@@ -1932,11 +1932,12 @@ map_sort_key(Key, KeyMap) ->
 %% pat_bin([BinElement], State) -> [BinSeg].
 
 pat_bin(Ps0, St) ->
-    Ps = pat_bin_expand_strings(Ps0),
+    Ps = pat_bin_expand_strings(Ps0, St),
     pat_segments(Ps, St).
 
-pat_bin_expand_strings(Es0) ->
-    foldr(fun ({bin_element,Line,{string,_,[_|_]=S},default,default}, Es1) ->
+pat_bin_expand_strings(Es0, #core{dialyzer=Dialyzer}) ->
+    foldr(fun ({bin_element,Line,{string,_,[_|_]=S},default,default}, Es1)
+                when not Dialyzer ->
                   bin_expand_string(S, Line, 0, 0, Es1);
               ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
                   foldr(
