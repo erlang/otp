@@ -443,6 +443,11 @@ do {                                                    \
 # undef FIPS_SUPPORT
 #endif
 
+/* Disable FIPS for 3.0 temporaryly until the support is added */
+#if defined(FIPS_SUPPORT) &&                                            \
+    defined(HAS_3_0_API)
+# undef FIPS_SUPPORT
+#endif
 
 #if defined(FIPS_SUPPORT) && \
     defined(HAS_3_0_API)
