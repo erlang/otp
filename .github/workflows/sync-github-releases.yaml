@@ -34,6 +34,8 @@ jobs:
       - name: Docker login
         run: docker login https://docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
       - name: Sync releases
+        env:
+          ERLANG_ORG_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
         run: >
           .github/scripts/sync-github-releases.sh ${{ github.repository }}
           "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
