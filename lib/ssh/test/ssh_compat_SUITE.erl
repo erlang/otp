@@ -35,7 +35,9 @@
          init_per_suite/1,
          end_per_suite/1,
          init_per_group/2,
-         end_per_group/2
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2
         ]).
 
 -export([
@@ -192,6 +194,26 @@ end_per_group(G, Config) ->
         false ->
             ok
     end.
+
+
+init_per_testcase(TC, Config) when TC==login_otp_is_client ; 
+				   TC==all_algorithms_sftp_exec_reneg_otp_is_client ->
+    case proplists:get_value(ssh_version, Config) of
+        "openssh4.4p1-openssl0.9.8c"  -> {skip, "Not tested"};
+        "openssh4.5p1-openssl0.9.8m"  -> {skip, "Not tested"};
+        "openssh5.0p1-openssl0.9.8za" -> {skip, "Not tested"};
+        "openssh6.2p2-openssl0.9.8c"  -> {skip, "Not tested"};
+        "openssh6.3p1-openssl0.9.8zh" -> {skip, "Not tested"};
+        "openssh6.6p1-openssl1.0.2n"  -> {skip, "Not tested"};
+        _ ->
+            Config
+    end;
+init_per_testcase(_, Config) ->
+    Config.
+        
+
+end_per_testcase(_TC, _Config) ->
+    ok.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
