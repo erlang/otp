@@ -23,9 +23,11 @@
 -export([suite/0, all/0]).
 
 %% Test cases
--export([basic/1]).
+-export([basic/1,
+         utilization_disable/1]).
 
-all() -> [basic].
+all() -> [basic,
+          utilization_disable].
 
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -54,6 +56,16 @@ basic(_Config) ->
     U23 = remove_io(U23all),
     check(U23),
 
+    ok.
+
+%% OTP-17800: Test that utilization(Seconds) restores scheduler_wall_time flag
+%% even when it already was globally enabled.
+utilization_disable(_Config) ->
+    false = erlang:system_flag(scheduler_wall_time, true),
+    check(scheduler:utilization(1)),
+    true = erlang:system_flag(scheduler_wall_time, false),
+
+    undefined = scheduler:get_sample(),
     ok.
 
 

@@ -70,16 +70,11 @@ sample(Stats) ->
                  (Sample) -> sched_util_result() when
       Sample :: sched_sample().
 utilization(Seconds) when is_integer(Seconds), Seconds > 0 ->
-    OldFlag = erlang:system_flag(scheduler_wall_time, true),
+    _ = erlang:system_flag(scheduler_wall_time, true),
     T0 = sample(),
     receive after Seconds*1000 -> ok end,
     T1 = sample(),
-    case OldFlag of
-        false ->
-            erlang:system_flag(scheduler_wall_time, OldFlag);
-        true ->
-            ok
-    end,
+    _ = erlang:system_flag(scheduler_wall_time, false),
     utilization(T0,T1);
 
 utilization({Stats, _}=T0) when Stats =:= scheduler_wall_time;
