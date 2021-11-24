@@ -15807,6 +15807,74 @@ printf "%s\n" "#define ESOCK_USE_SOCKET_REGISTRY 1" >>confdefs.h
 fi
 
 
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_map" "ac_cv_member_struct_ifreq_ifr_map" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_map" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_MAP 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_USE_IFMAP /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_hwaddr" "ac_cv_member_struct_ifreq_ifr_hwaddr" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_hwaddr" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_HWADDR 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_USE_HWADDR /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_ifindex" "ac_cv_member_struct_ifreq_ifr_ifindex" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_ifindex" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_IFINDEX 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_USE_IFINDEX /**/" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_index" "ac_cv_member_struct_ifreq_ifr_index" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_index" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_INDEX 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_USE_INDEX /**/" >>confdefs.h
+
+fi
+
+
 
 #--------------------------------------------------------------------
 #	Check for the existence of the -lsocket and -lnsl libraries.

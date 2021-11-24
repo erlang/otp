@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -438,7 +438,6 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(idn);                       \
     LOCAL_ATOM_DECL(master);                    \
     LOCAL_ATOM_DECL(multicast);                 \
-    LOCAL_ATOM_DECL(name);                      \
     LOCAL_ATOM_DECL(namereqd);                  \
     LOCAL_ATOM_DECL(name_info);                 \
     LOCAL_ATOM_DECL(netmask);                   \
@@ -1219,9 +1218,9 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
     NDBG( ("NET", "enet_getifaddrs_process -> len: %d\r\n", len) );
 
     if (len > 0) {
-        ERL_NIF_TERM*   array = MALLOC(len * sizeof(ERL_NIF_TERM));
-        unsigned int    i     = 0;
-        struct ifaddrs* p     = ifap;
+      ERL_NIF_TERM*   array = MALLOC(len * sizeof(ERL_NIF_TERM));
+      unsigned int    i     = 0;
+      struct ifaddrs* p     = ifap;
 
         while (i < len) {
             ERL_NIF_TERM entry;
@@ -1328,7 +1327,7 @@ void encode_ifaddrs(ErlNifEnv*      env,
 static
 ERL_NIF_TERM encode_ifaddrs_name(ErlNifEnv* env, char* name)
 {
-    return ((name == NULL) ? esock_atom_undefined : MKS(env, name));
+  return ((name == NULL) ? esock_atom_undefined : MKS(env, name));
 }
 
 
@@ -1460,7 +1459,7 @@ void make_ifaddrs(ErlNifEnv*    env,
 
     /* *** Name *** */
     NDBG( ("NET", "make_ifaddrs -> name: %T\r\n", ename) );
-    keys[idx] = atom_name;
+    keys[idx] = esock_atom_name;
     vals[idx] = ename;
     idx++;
 
