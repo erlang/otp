@@ -106,7 +106,7 @@ instantaneously without the need of external function calls.
 
 The chosen solution is instead for tracing to use the technique of
 replication applied on the data structures for breakpoints. Two
-generations of breakpoints are kept and indentified by index of 0 and
+generations of breakpoints are kept and identified by index of 0 and
 1\. The global atomic variables `erts_active_bp_index` will determine
 which generation of breakpoints running code will use.
 
@@ -236,7 +236,7 @@ value of `erts_active_bp_index` at different times as it is read
 without any memory barrier. But this is the best we can do without
 more expensive thread synchronization.
 
-The waiting in step 8 is to make sure we dont't restore the original
+The waiting in step 8 is to make sure we don't restore the original
 bream instructions for disabled breakpoints until we know that no
 thread is still accessing the old enabled part of a disabled
 breakpoint.
