@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_typesig).
+-feature(maybe_expr, enable).
 
 -export([analyze_scc/7]).
 -export([get_safe_underapprox/2]).
@@ -464,21 +465,19 @@ traverse(Tree, DefinedVars, State) ->
 	    {NewEvars, TmpState} = lists:mapfoldl(Fun, State1, EVars),
 	    {TmpState, t_tuple(NewEvars)}
 	end,
-      case Elements of
-	[Tag|Fields] ->
-	  case cerl:is_c_atom(Tag) andalso is_literal_record(Tree) of
-	    true ->
-              %% Check if a record is constructed.
-              Arity = length(Fields),
-              case lookup_record(State2, cerl:atom_val(Tag), Arity) of
-                {error, State3} -> {State3, TupleType};
-                {ok, RecType, State3} ->
-                  State4 = state__store_conj(TupleType, sub, RecType, State3),
-                  {State4, TupleType}
-              end;
-	    false -> {State2, TupleType}
-          end;
-	[] -> {State2, TupleType}
+      maybe
+	[Tag|Fields] ?= Elements,
+        true ?= cerl:is_c_atom(Tag) andalso is_literal_record(Tree),
+        %% Check if a record is constructed.
+        Arity = length(Fields),
+        case lookup_record(State2, cerl:atom_val(Tag), Arity) of
+          {error, State3} -> {State3, TupleType};
+          {ok, RecType, State3} ->
+            State4 = state__store_conj(TupleType, sub, RecType, State3),
+            {State4, TupleType}
+        end
+      else
+	_ -> {State2, TupleType}
       end;
     map ->
       Entries = cerl:map_es(Tree),
