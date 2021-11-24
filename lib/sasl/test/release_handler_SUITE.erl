@@ -20,6 +20,8 @@
 -module(release_handler_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -compile([export_all, nowarn_export_all]).
 -export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
@@ -59,17 +61,16 @@ win32_cases() ->
 
 %% Cases that can be run on all platforms
 cases() ->
-    [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
-     otp_9395_check_old_code, otp_9395_check_and_purge,
-     otp_9395_update_many_mods, otp_9395_rm_many_mods,
+    [otp_9395_check_old_code,
      instructions, eval_appup, eval_appup_with_restart,
-     supervisor_which_children_timeout,
-     release_handler_which_releases, install_release_syntax_check,
-     upgrade_supervisor, upgrade_supervisor_fail, otp_9864,
-     otp_10463_upgrade_script_regexp, no_dot_erlang, unicode_upgrade].
+     install_release_syntax_check,
+     otp_10463_upgrade_script_regexp, no_dot_erlang,
+     {group, absolute}, {group, relative}].
 
 groups() ->
-    [{release,[],
+    [{absolute,[],root_dir_cases()},
+     {relative,[],root_dir_cases()},
+     {release,[],
       [
        {group,release_single},
        {group,release_gg}
@@ -85,6 +86,22 @@ groups() ->
       [
        upgrade_gg
       ]}].
+
+%% Testcases that are to be run with and without an absolute root dir
+root_dir_cases() ->
+    [supervisor_which_children_timeout,
+     release_handler_which_releases,
+     otp_2760,
+     otp_5761,
+     otp_9402,
+     otp_9417,
+     otp_9395_check_and_purge,
+     otp_9395_update_many_mods,
+     otp_9395_rm_many_mods,
+     otp_9864,
+     upgrade_supervisor,
+     upgrade_supervisor_fail,
+     unicode_upgrade].
 
 %% {group,release}
 %% Top group for all cases using run_erl
@@ -160,8 +177,10 @@ init_per_group(release_gg, Config0) ->
       Snames),
 
     test_server:timetrap_cancel(Dog),
-    [{snames,Snames}|Config].
-
+    [{snames,Snames}|Config];
+init_per_group(Group, Config) when Group =:= absolute;
+                                   Group =:= relative ->
+    [{root_dir, Group}|Config].
 
 end_per_group(release, Config) ->
     Dog = test_server:timetrap(?default_timeout),
@@ -833,7 +852,7 @@ supervisor_which_children_timeout(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,release_handler_timeouts]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{dummy,"0.1",LibDir}]),
 
     {ok, Node} = t_start_node(supervisor_which_children_timeout, Rel1, []),
     Proc = rpc:call(Node, erlang, whereis, [dummy_sup_2]),
@@ -872,7 +891,7 @@ release_handler_which_releases(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,release_handler_timeouts]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{dummy,"0.1",LibDir}]),
 
     {ok, Node} = t_start_node(release_handler_which_releases, Rel1, []),
     Releases0 = rpc:call(Node, release_handler, which_releases, []),
@@ -928,7 +947,7 @@ otp_2760(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,app1_app2,lib1]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{app1,"1.0",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{app1,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,"after",[],{[Rel1],[Rel1],[LibDir]}),
     Rel2Dir = filename:dirname(Rel2),
 
@@ -966,7 +985,7 @@ otp_5761(Conf) when is_list(Conf) ->
     LibDir2 = filename:join(RelDir, "lib2"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{app1,"1.0",LibDir1},
 						  {app2,"1.0",LibDir1}]),
     Rel2 = create_fake_upgrade_release(Dir,
@@ -1045,7 +1064,7 @@ otp_9402(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{a,"1.1",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1112,7 +1131,7 @@ otp_9417(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{b,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1225,7 +1244,7 @@ otp_9395_check_and_purge(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{b,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1291,7 +1310,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{many_mods,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1406,7 +1425,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{many_mods,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1518,7 +1537,7 @@ do_otp_9864(Conf) ->
     LibDir2 = filename:join(Dir, "lib2"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{app1,"1.0",LibDir1},
 						  {app2,"1.0",LibDir1}]),
     Rel2 = create_fake_upgrade_release(Dir,
@@ -1574,7 +1593,7 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     %% Create the releases
     Lib1 = [{a,"1.0",LibDir}],
     Lib2 = [{a,"9.0",LibDir}],
-    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,Lib1),
     Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
@@ -1631,7 +1650,7 @@ upgrade_supervisor_fail(Conf) when is_list(Conf) ->
     %% Create the releases
     Lib1 = [{a,"1.0",LibDir}],
     Lib2 = [{a,"9.1",LibDir}],
-    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,Lib1),
     Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
@@ -2141,7 +2160,7 @@ unicode_upgrade(Conf) ->
 
     %% Create the releases
     RelName = "unicode_rel_αβ",
-    Rel1 = create_and_install_fake_first_release(Dir,{RelName,"1"},
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,{RelName,"1"},
 						 [{u,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       {RelName,"2"},
@@ -3058,9 +3077,9 @@ cover_fun(Node,Func) ->
 %% current running OTP release. It includes kernel, stdlib and sasl,
 %% and possibly other applications if they are listed in AppDirs =
 %% [{App,Vsn,LibDir}]
-create_and_install_fake_first_release(Dir,AppDirs) ->
-    create_and_install_fake_first_release(Dir,init:script_id(),AppDirs).
-create_and_install_fake_first_release(Dir,{RelName,RelVsn},AppDirs) ->
+create_and_install_fake_first_release(Conf,Dir,AppDirs) ->
+    create_and_install_fake_first_release(Conf,Dir,init:script_id(),AppDirs).
+create_and_install_fake_first_release(Conf,Dir,{RelName,RelVsn},AppDirs) ->
     {Rel,_} = create_fake_release(Dir,RelName,RelVsn,AppDirs),
     ReleasesDir = filename:join(Dir, "releases"),
     RelDir = filename:dirname(Rel),
@@ -3073,13 +3092,21 @@ create_and_install_fake_first_release(Dir,{RelName,RelVsn},AppDirs) ->
     ok = copy_file(Rel++".boot",filename:join(RelVsnDir, "start.boot")),
     ok = copy_file(filename:join(RelDir,"sys.config"),RelVsnDir),
 
-    ok = release_handler:create_RELEASES(code:root_dir(),
-					 ReleasesDir,
-					 Rel++".rel",
-					 AppDirs),
-
+    case proplists:get_value(root_dir, Conf, relative) of
+        relative ->
+            ok = release_handler:create_RELEASES(
+                   ReleasesDir,
+                   Rel++".rel",
+                   AppDirs);
+        absolute ->
+            ok = release_handler:create_RELEASES(
+                   code:root_dir(),
+                   ReleasesDir,
+                   Rel++".rel",
+                   AppDirs)
+    end,
     Rel.
-    
+
 %% This function create a new release, including a relup file. It can
 %% be upgraded to from the release created by
 %% create_and_install_fake_first_release/2. Unpack first by calls to
