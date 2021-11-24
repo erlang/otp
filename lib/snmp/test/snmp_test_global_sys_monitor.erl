@@ -22,7 +22,7 @@
 
 -export([start/0, stop/0,
          reset_events/0,
-         events/0,
+         events/0, events/1,
          log/1]).
 -export([init/1]).
 
@@ -47,7 +47,10 @@ reset_events() ->
     call(reset_events, ?TIMEOUT).
 
 events() ->
-    call(events, ?TIMEOUT).
+    events(?TIMEOUT).
+
+events(Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
+    call(events, Timeout).
 
 log(Event) ->
     cast({node(), Event}).
@@ -229,10 +232,10 @@ call(Req, Timeout) when is_integer(Timeout) ->
 %% This peace of wierdness is because on some machines this call has
 %% hung (in a call during end_per_testcase, which had a 1 min timeout,
 %% or if that was the total time for the test case).
-%% But because it hung there, we don't really know what where it git stuck.
+%% But because it hung there, we don't really know where it got stuck.
 %% So, by making the call in a tmp process, that we supervise, we can
 %% keep control. Also, we change the default timeout from infinity to an
-%% actual time (16 seconds).
+%% actual time (6 seconds).
 call(Req, Timeout1, Timeout2) ->
     F = fun() ->
                 Ref = make_ref(),

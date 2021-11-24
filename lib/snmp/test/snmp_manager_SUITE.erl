@@ -797,12 +797,18 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     Conf2  = end_per_testcase2(Case, Conf1),
 
     ?IPRINT("end_per_testcase -> done with"
-            "~n   Condif: ~p"
+            "~n   Config: ~p"
             "~n   Nodes:  ~p", [Conf2, erlang:nodes()]),
 
     Conf2.
 
-end_per_testcase2(simple_v3_exchange = _Case, Config) ->
+end_per_testcase2(Case, Config)
+  when ((Case =:= simple_v3_exchange_md5)    orelse
+        (Case =:= simple_v3_exchange_sha)    orelse
+        (Case =:= simple_v3_exchange_sha224) orelse
+        (Case =:= simple_v3_exchange_sha256) orelse
+        (Case =:= simple_v3_exchange_sha384) orelse
+        (Case =:= simple_v3_exchange_sha512)) ->
     Conf1 = fin_mgr_user_data2(Config),
     Conf2 = fin_mgr_user(Conf1),
     Conf3 = fin_v3_manager(Conf2),
