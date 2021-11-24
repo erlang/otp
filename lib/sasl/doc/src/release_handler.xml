@@ -202,6 +202,7 @@
     </func>
 
     <func>
+      <name since="OTP @OTP-17730@">create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <name since="">create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <fsummary>Creates an initial <c>RELEASES</c> file.</fsummary>
       <type>
@@ -220,7 +221,7 @@
         <c>RELEASES</c> file is to be created (normally
         <c>$ROOT/releases</c>). <c>RelFile</c> is the name of the
         <c>.rel</c> file that describes the initial release, including
-        the extension <c>.rel</c>. If <c>Root</c> is an empty string,
+        the extension <c>.rel</c>. If <c>Root</c> is not given,
         the <c>RELEASES</c> file will be location independent (i.e, it
         will not contain absolute paths unless there are absolute
         paths in <c>AppDirs</c>). A <c>RELEASES</c> file should be

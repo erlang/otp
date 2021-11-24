@@ -24,7 +24,7 @@
 
 %% External exports
 -export([start_link/0,
-	 create_RELEASES/1, create_RELEASES/2, create_RELEASES/4,
+	 create_RELEASES/1, create_RELEASES/2, create_RELEASES/3, create_RELEASES/4,
 	 unpack_release/1,
 	 check_install_release/1, check_install_release/2,
 	 install_release/1, install_release/2, new_emulator_upgrade/2,
@@ -384,6 +384,8 @@ create_RELEASES([Root, RelFile | LibDirs]) ->
 create_RELEASES(Root, RelFile) ->
     create_RELEASES(Root, filename:join(Root, "releases"), RelFile, []).
 
+create_RELEASES(RelDir, RelFile, LibDirs) ->
+    create_RELEASES("", RelDir, RelFile, LibDirs).
 create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
     case catch check_rel(Root, RelFile, LibDirs, false) of
 	{error, Reason } ->
