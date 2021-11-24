@@ -207,3 +207,8 @@ th + td {
     color: #fff;
     background-color: #809FFF;
 }
+
+a.link-to-entry {
+    float: right;
+    text-decoration: none;
+}
