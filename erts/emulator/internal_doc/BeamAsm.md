@@ -391,7 +391,7 @@ you what you want.
 
 ### Annotate perf functions
 
-If you want to be able to use the `perf annotate` functionality (and in extention
+If you want to be able to use the `perf annotate` functionality (and in extension
 the annotate functionality in the `perf report` gui) you need to use a monotonic
 clock when calling `perf record`, i.e. `perf record -k mono`. So for a dialyzer
 run you would do this:

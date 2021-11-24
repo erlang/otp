@@ -89,7 +89,7 @@ same location in memory.
 
 The head contains pointers to beginning of the list (`head.first`), and
 to the first block which other threads may refer to
-(`head.unref_end`). Blocks between these pointers are only refered to
+(`head.unref_end`). Blocks between these pointers are only referred to
 by the head part of the data structure which is only used by the
 thread owning the allocator instance. When these two pointers are not
 equal the thread owning the allocator instance deallocate block after
@@ -137,7 +137,7 @@ If no new memory blocks are inserted into the list, it should
 eventually be emptied. All pointers to the list however expect to
 always point to something. This is solved by inserting an empty
 "marker" element, which only has to purpose of being there in the
-absense of other elements. That is when the list is empty it only
+absence of other elements. That is when the list is empty it only
 contains this "marker" element.
 
 ### Contention ###

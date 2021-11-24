@@ -77,7 +77,7 @@ following line:
     64: move/2
 
 This is a definition of an external generic BEAM instruction. Most
-importantly it specifices that the opcode is 64.  It also defines that
+importantly it specifies that the opcode is 64.  It also defines that
 it has two operands.  The BEAM assembler will use the opcode when
 creating `.beam` files.  The compiler does not really need the arity,
 but it will use it as an internal sanity check when assembling the
@@ -122,7 +122,7 @@ layout for the instruction `{move,{atom,id},{x,5}}`:
          +--------------------+--------------------+
 
 This example and all other examples in the document assumes a 64-bit
-archictecture, and furthermore that pointers to C code fit in 32 bits.
+architecture, and furthermore that pointers to C code fit in 32 bits.
 
 `I` in the BEAM virtual machine is the instruction pointer.  When BEAM
 executes an instruction, `I` points to the first word of the
@@ -322,7 +322,7 @@ in the code area for the module being loaded.
 * The loader translates each operand to a machine word and stores it
 in the code area.  The operand type for the selected specific
 instruction guides the translation.  For example, if the type is `e`,
-the value of the operand is an index into an arry of external
+the value of the operand is an index into an array of external
 functions and will be translated to a pointer to the export entry for
 the function to call.  If the type is `x`, the number of the X
 register will be multiplied by the word size to produce a byte offset.
@@ -382,7 +382,7 @@ The following output files will be generated in the output directory.
 instructions (including how to pack their operands), and
 transformation rules are all part of this file.
 
-* `beam_opcodes.h` - Miscellanous preprocessor definitions, mainly
+* `beam_opcodes.h` - Miscellaneous preprocessor definitions, mainly
 used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 
 * `beam_transform.c` - Implementation of guard constraints and generators
@@ -726,18 +726,18 @@ register as a port.  Therefore the literal term must not contain a
 port or pid.)
 
 * `S` - Tagged source register (X or Y).  The tag will be tested at
-runtime to retrieve the value from an X register or a Y register.  Slighly
+runtime to retrieve the value from an X register or a Y register.  Slightly
 cheaper than `s`.
 
 * `d` - Tagged destination register (X or Y).  The tag will be tested
 at runtime to set up a pointer to the destination register.  If the
-instruction performs a garbarge collection, it must use the
+instruction performs a garbage collection, it must use the
 `$REFRESH_GEN_DEST()` macro to refresh the pointer before storing to
 it (there are more details about that in a later section).
 
 * `j` - A failure label (combination of `f` and `p`).  If the branch target 0,
 an exception will be raised if instruction fails, otherwise control will be
-transfered to the target address.
+transferred to the target address.
 
 The types that follows are all applied to an operand that has the `u`
 type.
@@ -1616,7 +1616,7 @@ of the instruction, a pointer will be initialized to point to the X or
 Y register in question.
 
 If there is a garbage collection before the result is stored,
-the stack will move and if the `d` operand refered to a Y
+the stack will move and if the `d` operand referred to a Y
 register, the pointer will no longer be valid.  (Y registers are
 stored on the stack.)
 

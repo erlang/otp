@@ -113,7 +113,7 @@ the "thread progress" functionality in order to determine when it is
 safe to deallocate the process structure. We'll get back to this when
 describing deletion in the table.
 
-Using this new lookup approach we wont modify any memory at all which
+Using this new lookup approach we won't modify any memory at all which
 is important. A lookup conceptually only read memory, now this is true
 in the implementation also which is important from a scalability
 perspective. The previous implementation modified the cache line
@@ -282,7 +282,7 @@ single cache line containing the state of the rwlock even in the case
 we are only read locking. Instead of using such an rwlock, we have our
 own implementation of reader optimized rwlocks which keeps track of
 reader threads in separate thread specific cache lines. This in order
-to avoid contention on a singe cache line. As long as we only do read
+to avoid contention on a single cache line. As long as we only do read
 lock operations, threads only need to read a global cache line and
 modify its own cache line, and by this minimize communication between
 involved processors. The iterating BIFs are normally very infrequently
@@ -299,7 +299,7 @@ threads modify the table at the same time as we are trying to find the
 slot. The easy fix is to abort the operation if an empty slot could
 not be found in a finite number operation, and then restart the
 operation under a write lock. This will be implemented in next
-release, but furter work should be made trying to find a better
+release, but further work should be made trying to find a better
 solution.
 
 This and also previous implementation do not work well when the table
@@ -320,7 +320,7 @@ not require exclusive access to the table while reading a sequence of
 slots. In principle this should be rather easy, the code can handle
 sequences of variable sizes, so shrinking the sequence size of slots
 to one would solv the problem. This will, however, need some tweeks
-and modifications of not trival code, but is something that should be
+and modifications of not trivial code, but is something that should be
 looked at in the future.
 
 By increasing the size of identifiers, at least on 64-bit machines
