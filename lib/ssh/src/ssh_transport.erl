@@ -88,32 +88,44 @@ clear_default_algorithms_env() ->
                                   | no_return() %  error(Reason)
                                   .
 default_algorithms() ->
+    FipsMode = crypto:info_fips(),
     case application:get_env(ssh, ?DEFAULT_ALGS) of
         undefined ->
-            %% Not cached, have to build the default, connection independent
-            %% set of algorithms:
-            Opts = get_alg_conf(),
-            Algs1 =
-                case proplists:get_value(preferred_algorithms, Opts) of
-                    undefined ->
-                        [{K,default_algorithms1(K)} || K <- algo_classes()];
-                    Algs0 ->
-                        {true,Algs01} = ssh_options:check_preferred_algorithms(Algs0),
-                        Algs01
-                end,
-            Algs =
-                case proplists:get_value(modify_algorithms, Opts) of
-                    undefined ->
-                        Algs1;
-                    Modifications ->
-                        ssh_options:initial_default_algorithms(Algs1, Modifications)
-                end,
-            application:set_env(ssh, ?DEFAULT_ALGS, Algs),
+            Algs = build_cache(),
+            application:set_env(ssh, ?DEFAULT_ALGS, {FipsMode,Algs}),
             Algs;
 
-        {ok,Algs} ->
+        {ok,{FipsMode,Algs}} ->
+            %% Cached, and the FIPS mode is the same now as when it was cached.
+            Algs;
+
+        {ok,{_OtherFipsMode,_Algs}} ->
+            %% Cached, but the FIPS mode has changed.
+            Algs = build_cache(),
+            application:set_env(ssh, ?DEFAULT_ALGS, {FipsMode,Algs}),
             Algs
     end.
+
+build_cache() ->
+    Opts = get_alg_conf(),
+    Algs1 =
+        case proplists:get_value(preferred_algorithms, Opts) of
+            undefined ->
+                [{K,default_algorithms1(K)} || K <- algo_classes()];
+            Algs0 ->
+                {true,Algs01} = ssh_options:check_preferred_algorithms(Algs0),
+                Algs01
+        end,
+    Algs =
+        case proplists:get_value(modify_algorithms, Opts) of
+            undefined ->
+                Algs1;
+            Modifications ->
+                ssh_options:initial_default_algorithms(Algs1, Modifications)
+        end,
+    Algs.
+
+
 
 get_alg_conf() ->
     [{T,L} || T <- [preferred_algorithms, modify_algorithms],
@@ -139,10 +151,17 @@ algo_two_spec_class(_) -> false.
 
 
 default_algorithms(Tag) ->
+    FipsMode = crypto:info_fips(),
     case application:get_env(ssh, ?DEFAULT_ALGS) of
         undefined ->
             default_algorithms1(Tag);
-        {ok,Algs} ->
+        {ok,{FipsMode,Algs}} ->
+            %% Cached, and the FIPS mode is the same now as when it was cached.
+            proplists:get_value(Tag, Algs, []);
+        {ok,{_OtherFipsMode,_Algs}} ->
+            %% Cached, but the FIPS mode has changed.
+            Algs = build_cache(),
+            application:set_env(ssh, ?DEFAULT_ALGS, {FipsMode,Algs}),
             proplists:get_value(Tag, Algs, [])
     end.
     
@@ -356,7 +375,8 @@ s2c(Key, Algs) -> x2y(server2client, Key, Algs).
 
 x2y(DirectionKey, Key, Algs) -> to_strings(proplists:get_value(DirectionKey, get_algs(Key,Algs))).
 
-get_algs(Key, Algs) -> proplists:get_value(Key, Algs, default_algorithms(Key)).
+get_algs(Key, {_FipsMode,Algs}) when is_list(Algs) ->  proplists:get_value(Key, Algs, default_algorithms(Key));
+get_algs(Key, Algs) when is_list(Algs) -> proplists:get_value(Key, Algs, default_algorithms(Key)).
 
 to_strings(L) -> lists:map(fun erlang:atom_to_list/1, L).
 
