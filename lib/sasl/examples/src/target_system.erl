@@ -35,9 +35,9 @@ create(RelFileName,SystoolsOpts) ->
     Dir = filename:dirname(RelFileName),
     PlainRelFileName = filename:join(Dir,"plain"),
     PlainRelFile = PlainRelFileName ++ ".rel",
-    io:fwrite("Reading file: ~tp ...~n", [RelFile]),
+    io:fwrite("Reading file: ~ts ...~n", [RelFile]),
     {ok, [RelSpec]} = file:consult(RelFile),
-    io:fwrite("Creating file: ~tp from ~tp ...~n",
+    io:fwrite("Creating file: ~ts from ~ts ...~n",
               [PlainRelFile, RelFile]),
     {release,
      {RelName, RelVsn},
@@ -67,32 +67,32 @@ create(RelFileName,SystoolsOpts) ->
     make_script(RelFileName,SystoolsOpts),
 
     TarFileName = RelFileName ++ ".tar.gz",
-    io:fwrite("Creating tar file ~tp ...~n", [TarFileName]),
+    io:fwrite("Creating tar file ~ts ...~n", [TarFileName]),
     make_tar(RelFileName,SystoolsOpts),
 
     TmpDir = filename:join(Dir,"tmp"),
     io:fwrite("Creating directory ~tp ...~n",[TmpDir]),
     file:make_dir(TmpDir), 
 
-    io:fwrite("Extracting ~tp into directory ~tp ...~n", [TarFileName,TmpDir]),
+    io:fwrite("Extracting ~ts into directory ~ts ...~n", [TarFileName,TmpDir]),
     extract_tar(TarFileName, TmpDir),
 
     TmpBinDir = filename:join([TmpDir, "bin"]),
     ErtsBinDir = filename:join([TmpDir, "erts-" ++ ErtsVsn, "bin"]),
-    io:fwrite("Deleting \"erl\" and \"start\" in directory ~tp ...~n",
+    io:fwrite("Deleting \"erl\" and \"start\" in directory ~ts ...~n",
               [ErtsBinDir]),
     file:delete(filename:join([ErtsBinDir, "erl"])),
     file:delete(filename:join([ErtsBinDir, "start"])),
 
-    io:fwrite("Creating temporary directory ~tp ...~n", [TmpBinDir]),
+    io:fwrite("Creating temporary directory ~ts ...~n", [TmpBinDir]),
     file:make_dir(TmpBinDir),
 
-    io:fwrite("Copying file \"~ts.boot\" to ~tp ...~n",
+    io:fwrite("Copying file \"~ts.boot\" to ~ts ...~n",
               [PlainRelFileName, filename:join([TmpBinDir, "start.boot"])]),
     copy_file(PlainRelFileName++".boot",filename:join([TmpBinDir, "start.boot"])),
 
     io:fwrite("Copying files \"epmd\", \"run_erl\" and \"to_erl\" from \n"
-              "~tp to ~tp ...~n",
+              "~ts to ~ts ...~n",
               [ErtsBinDir, TmpBinDir]),
     copy_file(filename:join([ErtsBinDir, "epmd"]), 
               filename:join([TmpBinDir, "epmd"]), [preserve]),
@@ -104,15 +104,15 @@ create(RelFileName,SystoolsOpts) ->
     %% This is needed if 'start' script created from 'start.src' shall
     %% be used as it points out this directory as log dir for 'run_erl'
     TmpLogDir = filename:join([TmpDir, "log"]),
-    io:fwrite("Creating temporary directory ~tp ...~n", [TmpLogDir]),
+    io:fwrite("Creating temporary directory ~ts ...~n", [TmpLogDir]),
     ok = file:make_dir(TmpLogDir),
 
     StartErlDataFile = filename:join([TmpDir, "releases", "start_erl.data"]),
-    io:fwrite("Creating ~tp ...~n", [StartErlDataFile]),
+    io:fwrite("Creating ~ts ...~n", [StartErlDataFile]),
     StartErlData = io_lib:fwrite("~s ~s~n", [ErtsVsn, RelVsn]),
     write_file(StartErlDataFile, StartErlData),
     
-    io:fwrite("Recreating tar file ~tp from contents in directory ~tp ...~n",
+    io:fwrite("Recreating tar file ~ts from contents in directory ~ts ...~n",
 	      [TarFileName,TmpDir]),
     {ok, Tar} = erl_tar:open(TarFileName, [write, compressed]),
     %% {ok, Cwd} = file:get_cwd(),
@@ -125,14 +125,14 @@ create(RelFileName,SystoolsOpts) ->
     erl_tar:add(Tar, filename:join(TmpDir,"log"), "log", []),
     erl_tar:close(Tar),
     %% file:set_cwd(Cwd),
-    io:fwrite("Removing directory ~tp ...~n",[TmpDir]),
+    io:fwrite("Removing directory ~ts ...~n",[TmpDir]),
     remove_dir_tree(TmpDir),
     ok.
 
 
 install(RelFileName, RootDir) ->
     TarFile = RelFileName ++ ".tar.gz", 
-    io:fwrite("Extracting ~tp ...~n", [TarFile]),
+    io:fwrite("Extracting ~ts ...~n", [TarFile]),
     extract_tar(TarFile, RootDir),
     StartErlDataFile = filename:join([RootDir, "releases", "start_erl.data"]),
     {ok, StartErlData} = read_txt_file(StartErlDataFile),
