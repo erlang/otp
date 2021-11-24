@@ -1344,7 +1344,7 @@ eval_cond([[Cond|Actions]=H|T], Seen0) ->
 		    eval_cond(T, Seen);
 		true ->
 		    [['_'|Actions]];
-		maybe ->
+		'maybe' ->
 		    [H|eval_cond(T, Seen)]
 	    end;
 	true ->
@@ -1362,7 +1362,7 @@ eval_cond_1({ge,I,N}) when is_integer(I), is_integer(N) ->
     I >= N;
 eval_cond_1({lt,I,N}) when is_integer(I), is_integer(N) ->
     I < N;
-eval_cond_1(_) -> maybe.
+eval_cond_1(_) -> 'maybe'.
 
 prepend_to_cond([H|T], Code) ->
     [prepend_to_cond_1(H, Code)|prepend_to_cond(T, Code)];
@@ -2067,7 +2067,7 @@ enc_opt_cs([{Cond,Imm0}|T], St0) ->
 	true ->
 	    {Imm,#ost{t=Type}} = enc_opt(Imm0, St0),
 	    [{'_',Imm,Type}];
-	maybe ->
+	'maybe' ->
 	    St = update_type_info(Cond, St0),
 	    {Imm,#ost{t=Type}} = enc_opt(Imm0, St),
 	    [{Cond,Imm,Type}|enc_opt_cs(T, St0)]
@@ -2079,18 +2079,18 @@ eo_eval_cond('_', _) ->
 eo_eval_cond({Op,{var,_}=Var,Val}, St) ->
     Type = get_type(Var, St),
     case t_range(Type) of
-	any -> maybe;
+	any -> 'maybe';
 	{_,_}=Range -> eval_cond_range(Op, Range, Val)
     end;
-eo_eval_cond({_Op,{expr,_},_Val}, _St) -> maybe.
+eo_eval_cond({_Op,{expr,_},_Val}, _St) -> 'maybe'.
 
 eval_cond_range(lt, {Lb,Ub}, Val) ->
     if
 	Ub < Val -> true;
 	Val =< Lb -> false;
-	true -> maybe
+	true -> 'maybe'
     end;
-eval_cond_range(_Op, _Range, _Val) -> maybe.
+eval_cond_range(_Op, _Range, _Val) -> 'maybe'.
 
 update_type_info({ult,{var,_}=Var,Val}, St) ->
     Int = t_integer({0,Val-1}),
