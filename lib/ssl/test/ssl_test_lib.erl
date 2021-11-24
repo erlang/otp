@@ -108,6 +108,7 @@
          check_ok/1,
          check_result/4,
          check_result/2,
+         get_result/1,
          gen_check_result/4,
          basic_alert/4,
          session_id/1,
@@ -1121,9 +1122,20 @@ close(Pid, Timeout) ->
 	    exit(Pid, kill)
     end.
 
+get_result(Pids) ->
+    get_result(Pids, []).
+
+get_result([], Acc) ->
+    Acc;
+get_result([Pid | Tail], Acc) ->
+    receive
+	{Pid, Msg} ->
+	    get_result(Tail, [Msg | Acc])
+    end.
+
 check_result(Server, ServerMsg, Client, ClientMsg) ->
     {ClientIP, ClientPort} = get_ip_port(ServerMsg),
-    receive 
+    receive
 	{Server, ServerMsg} ->
 	    check_result(Client, ClientMsg);
         %% Workaround to accept local addresses (127.0.0.0/24)
