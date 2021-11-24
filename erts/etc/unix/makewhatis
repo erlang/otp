@@ -22,7 +22,7 @@
 # on my 486DX66).
 # 960401 - aeb: slight adaptation to work correctly with cat pages.
 # 960510 - added fixes by brennan@raven.ca.boeing.com, author of mawk.
-# 971012 - replaced "test -z" - it doesnt work on SunOS 4.1.3_U1.
+# 971012 - replaced "test -z" - it doesn't work on SunOS 4.1.3_U1.
 # 980710 - be more careful with TMPFILE
 #
 # Note for Slackware users: "makewhatis -v -w -c" will work.
@@ -40,7 +40,7 @@ DEFCATPATH=/usr/man/preformat:/usr/man
 # We try here to be careful (and avoid preconstructed symlinks)
 # in case makewhatis is run as root, by creating a subdirectory of /tmp.
 # If that fails we use $HOME.
-# The code below uses  test -O  which doesnt work on all systems.
+# The code below uses  test -O  which doesn't work on all systems.
 TMPFILE=$HOME/whatis$$
 TMPFILEDIR=/tmp/whatis$$
 if [ ! -d $TMPFILEDIR ]; then

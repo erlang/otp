@@ -1712,7 +1712,7 @@ static char **build_args_from_string(char *string, int allow_comments)
 {
     int argc = 0;
     char **argv = NULL;
-    int alloced = 0;
+    int allocated = 0;
     char **cur_s = NULL;	/* Initialized to avoid warning. */
     int s_alloced = 0;
     int s_pos = 0;
@@ -1731,15 +1731,15 @@ static char **build_args_from_string(char *string, int allow_comments)
 
     if (!p)
 	return NULL;
-    argv = emalloc(sizeof(char *) * (alloced = 10));
+    argv = emalloc(sizeof(char *) * (allocated = 10));
     state = Start;
     for(;;) {
 	switch (state) {
 	case Start:
 	    if (!*p)
 		goto done;
-	    if (argc >= alloced - 2) { /* Make room for extra NULL and "--" */
-		argv = erealloc(argv, (alloced += 10) * sizeof(char *));
+	    if (argc >= allocated - 2) { /* Make room for extra NULL and "--" */
+		argv = erealloc(argv, (allocated += 10) * sizeof(char *));
 	    }
 	    cur_s = argc + argv;
 	    *cur_s = NULL;

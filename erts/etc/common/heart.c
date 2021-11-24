@@ -63,7 +63,7 @@
  *  This program communicates with Erlang through the standard
  *  input and output file descriptors (0 and 1). These descriptors
  *  (and the standard error descriptor 2) must NOT be closed
- *  explicitely by this program at termination (in UNIX it is
+ *  explicitly by this program at termination (in UNIX it is
  *  taken care of by the operating system itself).
  *
  *  END OF FILE
@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
 	    AllocConsole();
 	    conh = freopen("CONOUT$","w",stderr);
 	    if (conh != NULL)
-		fprintf(conh,"console alloced\n");
+		fprintf(conh,"console allocated\n");
 	}
 	debugf("stderr\n");
     }
@@ -408,7 +408,7 @@ message_loop(erlin_fd, erlout_fd)
 #endif
     /*
      * Maybe heart beat time-out
-     * If we havn't got anything in 60 seconds we reboot, even if we may
+     * If we haven't got anything in 60 seconds we reboot, even if we may
      * have got something in the last 5 seconds. We may end up here if
      * the system clock is adjusted with more than 55 seconds, but we
      * regard this as en error and reboot anyway.

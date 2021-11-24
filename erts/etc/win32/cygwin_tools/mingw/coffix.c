@@ -43,7 +43,7 @@ static int v_printf(char *format, ...);
 
 
 char *progname;
-int verbouse = 0;
+int verbose = 0;
 
 int main(int argc, char **argv) 
 {
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 	    break;
 	case 'v':
 	case 'V':
-	    verbouse = 1;
+	    verbose = 1;
 	default:
 	    fprintf(stderr, "%s: unknown option %s\n", progname, argv[findex]);
 	    break;
@@ -152,7 +152,7 @@ static int v_printf(char *format, ...)
 {
     va_list ap;
     int ret = 0;
-    if (verbouse) {
+    if (verbose) {
 	va_start(ap, format);
 	ret = vfprintf(stdout, format, ap);
 	va_end(ap);

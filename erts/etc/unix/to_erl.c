@@ -487,7 +487,7 @@ int main(int argc, char **argv)
     }
 
     /* 
-     * Reset terminal characterstics 
+     * Reset terminal characteristics 
      * XXX
      */
     tcsetattr(0, TCSADRAIN, &tty_rmode);

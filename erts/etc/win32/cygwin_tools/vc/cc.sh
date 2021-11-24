@@ -38,7 +38,7 @@ ERR_FILE=/tmp/cl.exe.$$.2
 MD_FORCED=false
 # If we're preprocession (only) i.e. -E
 PREPROCESSING=false
-# If we're generating dependencies (implies preprocesing)
+# If we're generating dependencies (implies preprocessing)
 DEPENDENCIES=false
 # If this is supposed to be a debug build
 DEBUG_BUILD=false
@@ -297,7 +297,7 @@ if [ $LINKING = true ]; then
 	*)
 	    out_spec="-o $OUTFILE";;
     esac
-    # Descide which standard library to link against
+    # Decide which standard library to link against
     case $MD in
 	-ML)
 	    stdlib="-lLIBC";;

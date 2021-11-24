@@ -269,7 +269,7 @@ if [ $LINKING = true ]; then
 	*)
 	    out_spec="-o $OUTFILE";;
     esac
-    # Descide which standard library to link against
+    # Decide which standard library to link against
     case $MD in
 	-ML)
 	    stdlib="-lLIBC";;

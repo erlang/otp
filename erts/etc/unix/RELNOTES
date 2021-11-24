@@ -191,9 +191,9 @@ the 4.2 system, but there is a number of incompatibilities.
    could fail after a large series of printouts without any
    newlines "\n" at all.
 
--- Formating of floats: a '9' would sometimes become a ':'.
+-- Formatting of floats: a '9' would sometimes become a ':'.
 
--- Formating with the use of '*' and negativ size fields now work
+-- Formatting with the use of '*' and negative size fields now work
    as expected.
 
 -- The format of the 'EXIT' values is now ALWAYS the same
@@ -264,7 +264,7 @@ QNX
 -- The 4.3 system is not object code compatible with 4.2.
    This means that all source code has to be recompiled. It
    is not possible to load 4.2 object code. It is also not
-   possible to run distribution between 4.3 and erlier versions
+   possible to run distribution between 4.3 and earlier versions
    due to the new alive check.
 
 -- The external term format has been changed. This will only affect

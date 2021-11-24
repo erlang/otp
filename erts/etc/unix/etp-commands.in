@@ -1905,7 +1905,7 @@ document etp-stackdump
 % 
 % Take an Process* and print a stackdump for the process.
 % The stackdump consists of all pushed values on the stack.
-% All code continuation pointers are preceeded with a line
+% All code continuation pointers are preceded with a line
 % of dashes to make the stack frames more visible.
 %---------------------------------------------------------------------------
 end
@@ -3385,7 +3385,7 @@ document etp-disasm
 %---------------------------------------------------------------------------
 % etp-fds BeamInstr* (BeamInstr*)
 % 
-% Disassemble the instructions inbetween arg0 and arg1,
+% Disassemble the instructions between arg0 and arg1,
 % if no second argument is given only the current
 % instruction is printed.
 %---------------------------------------------------------------------------
@@ -4454,7 +4454,7 @@ define etp-lc-dump
       if 0 <= $etp_lc_dump_thread_locked->id && $etp_lc_dump_thread_locked->id < sizeof(erts_lock_order)/sizeof(erts_lc_lock_order_t)
         printf "  %s:", erts_lock_order[$etp_lc_dump_thread_locked->id].name
       else
-        printf "  unkown:"
+        printf "  unknown:"
       end
       if ($etp_lc_dump_thread_locked->extra & 0x3) == 0x3
         etp-1 $etp_lc_dump_thread_locked->extra
