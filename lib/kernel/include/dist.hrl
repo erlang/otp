@@ -69,7 +69,8 @@
              ?DFLAG_NEW_FLOATS bor
              ?DFLAG_UTF8_ATOMS bor
              ?DFLAG_MAP_TAG bor
-             ?DFLAG_BIG_CREATION)).
+             ?DFLAG_BIG_CREATION bor
+             ?DFLAG_HANDSHAKE_23)).
 
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...

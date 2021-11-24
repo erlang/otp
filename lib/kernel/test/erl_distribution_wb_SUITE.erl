@@ -140,6 +140,7 @@ whitebox(Config) when is_list(Config) ->
     {ok, Node} = start_node(?MODULE,""),
     Cookie = erlang:get_cookie(),
     {_,Host} = split(node()),
+    OurVersion = ?DIST_VER_HIGH,
     [begin
          io:format("Test OurVersion=~p and TrustEpmd=~p\n",
                    [OurVersion, TrustEpmd]),
@@ -150,8 +151,7 @@ whitebox(Config) when is_list(Config) ->
          ok = simultaneous_md5(Node, join(zzzzzzzzzzzzzz,Host),
                                OurVersion, TrustEpmd, Cookie)
      end
-     || OurVersion <- lists:seq(?DIST_VER_LOW, ?DIST_VER_HIGH),
-        TrustEpmd <- [true, false]],
+     || TrustEpmd <- [true, false]],
     stop_node(Node),
     ok.
 
@@ -411,7 +411,7 @@ missing_compulsory_dflags(Config) when is_list(Config) ->
                                          [{active,false},
                                           {packet,2}]),
          BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
-         send_name(SocketA,BadNode, Version, Version, 0),
+         send_name(SocketA,BadNode, ?DIST_VER_HIGH, Version, 0),
          not_allowed = recv_status(SocketA),
          gen_tcp:close(SocketA)
      end
@@ -663,13 +663,11 @@ send_name(Socket, MyNode0, OurVersion, AssumedVersion) ->
 
 send_name(Socket, MyNode0, OurVersion, AssumedVersion, Flags) ->
     MyNode = atom_to_list(MyNode0),
-    if (OurVersion =:= ?DIST_VER_LOW) or
-       (AssumedVersion =:= ?DIST_VER_LOW) ->
+    if (AssumedVersion =:= ?DIST_VER_LOW) ->
             OurFlags = our_flags(Flags,OurVersion),
             ok = ?to_port(Socket, [<<$n,OurVersion:16,OurFlags:32>>|MyNode]),
             $n;
 
-       (OurVersion > ?DIST_VER_LOW) and
        (AssumedVersion > ?DIST_VER_LOW) ->
             Creation = erts_internal:get_creation(),
             NameLen = length(MyNode),
@@ -678,8 +676,6 @@ send_name(Socket, MyNode0, OurVersion, AssumedVersion, Flags) ->
             $N
     end.
 
-our_flags(Flags, ?DIST_VER_LOW) ->
-    Flags;
 our_flags(Flags, OurVersion) when OurVersion > ?DIST_VER_LOW ->
     Flags bor ?DFLAG_HANDSHAKE_23.
 

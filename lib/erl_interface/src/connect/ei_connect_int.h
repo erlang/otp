@@ -117,7 +117,6 @@ typedef EI_ULONGLONG DistFlags;
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);
 const char* ei_getfdcookie(int fd);
-short       ei_thiscreation(const ei_cnode* ec);
 const char *ei_thiscookie(const ei_cnode* ec);
 
 int ei_do_receive_msg(int fd, int staticbuffer_p, 
