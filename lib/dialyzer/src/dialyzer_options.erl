@@ -105,12 +105,12 @@ adapt_get_warnings(Opts = #options{analysis_type = Mode,
   %% default.
   case is_plt_mode(Mode) of
     true ->
-      case Warns =:= maybe of
+      case Warns =:= 'maybe' of
 	true -> Opts#options{get_warnings = false};
 	false -> Opts
       end;
     false ->
-      case Warns =:= maybe of
+      case Warns =:= 'maybe' of
 	true -> Opts#options{get_warnings = true};
 	false -> Opts
       end
