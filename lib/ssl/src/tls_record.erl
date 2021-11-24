@@ -34,8 +34,8 @@
 
 %% Handling of incoming data
 -export([get_tls_records/5,
-         init_connection_states/2,
-         init_connection_states/3]).
+         init_connection_states/3,
+         init_connection_states/4]).
 
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
@@ -66,29 +66,35 @@
 %% Handling of incoming data
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init_connection_states(Role, BeastMitigation) ->
+-spec init_connection_states(Role, Version, BeastMitigation) ->
           ssl_record:connection_states() when
       Role :: client | server,
+      Version :: tls_version(),
       BeastMitigation :: one_n_minus_one | zero_n | disabled.
 
-%% 
+%%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role, BeastMitigation) ->
+init_connection_states(Role, Version, BeastMitigation) ->
     MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
-    init_connection_states(Role, BeastMitigation, MaxEarlyDataSize).
+    init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize).
 %%
--spec init_connection_states(Role, BeastMitigation, MaxEarlyDataSize) ->
+-spec init_connection_states(Role, Version, BeastMitigation,
+                             MaxEarlyDataSize) ->
           ssl_record:connection_states() when
       Role :: client | server,
+      Version :: tls_version(),
       BeastMitigation :: one_n_minus_one | zero_n | disabled,
       MaxEarlyDataSize :: non_neg_integer().
 
-init_connection_states(Role, BeastMitigation, MaxEarlyDataSize) ->
+init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
     Current = initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
-    Pending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd,
+                                                Version,
+                                                BeastMitigation,
+                                                MaxEarlyDataSize),
     #{current_read  => Current,
       pending_read  => Pending,
       current_write => Current,

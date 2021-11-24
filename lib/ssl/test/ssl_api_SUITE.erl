@@ -175,7 +175,9 @@
 	 warn_verify_none/0,
 	 warn_verify_none/1,
 	 suppress_warn_verify_none/0,
-         suppress_warn_verify_none/1
+         suppress_warn_verify_none/1,
+         check_random_nonce/0,
+         check_random_nonce/1
         ]).
 
 %% Apply export
@@ -197,6 +199,7 @@
          no_recv_no_active/1,
          ssl_getstat/1,
 	 log/2,
+         get_connection_information/3,
          %%TODO Keep?
          run_error_server/1,
          run_error_server_close/1,
@@ -299,7 +302,8 @@ gen_api_tests() ->
      log_alert,
      getstat,
      warn_verify_none,
-     suppress_warn_verify_none
+     suppress_warn_verify_none,
+     check_random_nonce
     ].
 
 handshake_paus_tests() ->
@@ -412,6 +416,10 @@ init_per_testcase(conf_signature_algs, Config) ->
         sha ->
             {skip, "Tests needs certs with sha256"}
     end;
+init_per_testcase(check_random_nonce, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 20}),
+    Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -2551,7 +2559,69 @@ suppress_warn_verify_none(Config) when is_list(Config)->
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Server).
 
+%%--------------------------------------------------------------------
+check_random_nonce() ->
+    [{doc,"Test random nonce - expecting 32B random for TLS1.3 and 4B UTC "
+      "epoch with 28B random for older version"}].
+check_random_nonce(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    N = 10,
+    F = fun (Id) -> establish_connection(Id,ServerNode, ServerOpts,
+                                         ClientNode, ClientOpts,
+                                         Hostname)
+        end,
+    ConnectionPairs = [F(Id) || Id <- lists:seq(1, N)],
+    Randoms = lists:flatten([ssl_test_lib:get_result([Server, Client]) ||
+                                {Server, Client} <- ConnectionPairs]),
+    Deltas = [abs(FourBytes - SecsSince) ||
+                 {_Id, {_, <<FourBytes:32, _/binary>>}, SecsSince} <- Randoms],
+    MeanDelta = lists:sum(Deltas) div N,
+    case ?config(version, Config) of
+        'tlsv1.3' ->
+            %% 4B "random" expected since TLS1.3
+            RndThreshold   = 10000,
+            true = MeanDelta > RndThreshold;
+        _ ->
+            %% 4 epoch based bytes expected pre TLS1.3
+            EpochThreshold = 10,
+            true = MeanDelta < EpochThreshold
+    end,
+    [begin
+         ssl_test_lib:close(Server),
+         ssl_test_lib:close(Client)
+     end || {Server, Client} <- ConnectionPairs].
+
+establish_connection(Id, ServerNode, ServerOpts, ClientNode, ClientOpts, Hostname) ->
+    Server =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {?MODULE, get_connection_information,
+                                          [Id, server_random]}},
+                                   {options, [{verify, verify_peer} | ServerOpts]}]),
+
+    ListenPort = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client([{node, ClientNode}, {port, ListenPort},
+                                   {host, Hostname},
+                                   {from, self()},
+                                   {mfa, {?MODULE, get_connection_information,
+                                          [Id, client_random]}},
+                                   {options,  [{verify, verify_peer} |ClientOpts]}]),
+
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+           [self(), Client, Server]),
+    {Server, Client}.
+
 %%% Checker functions
+get_connection_information(Socket, ConnectionId, InfoType) ->
+    {ok, [ConnectionInfo]} = ssl:connection_information(Socket, [InfoType]),
+    {ConnectionId, ConnectionInfo, secs_since_1970()}.
+secs_since_1970() ->
+    calendar:datetime_to_gregorian_seconds(
+        calendar:universal_time()) - 62167219200.
+
 connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
     case  length(Info) > 3 of
