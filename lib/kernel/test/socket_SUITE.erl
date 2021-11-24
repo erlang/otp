@@ -297,6 +297,22 @@
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
          sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
+         %% Socket IOCTL simple
+         ioctl_simple1/1,
+         %% Socket IOCTL get requests
+         ioctl_get_gifname/1,
+         ioctl_get_gifindex/1,
+         ioctl_get_gifaddr/1,
+         ioctl_get_gifdstaddr/1,
+         ioctl_get_gifbrdaddr/1,
+         ioctl_get_gifnetmask/1,
+         ioctl_get_gifmtu/1,
+         ioctl_get_gifhwaddr/1,
+         ioctl_get_giftxqlen/1,
+         ioctl_get_gifflags/1,
+         ioctl_get_gifmap/1,
+         %% ioctl_set_requests/1,
+
          %% *** Traffic ***
          traffic_send_and_recv_counters_tcp4/1,
          traffic_send_and_recv_counters_tcp6/1,
@@ -710,6 +726,7 @@ all() ->
     Groups = [{api,          "ESOCK_TEST_API",        include},
               {reg,          undefined,               include},
               {monitor,      undefined,               include},
+              {ioctl,        undefined,               include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
 	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
@@ -769,6 +786,10 @@ groups() ->
      {sc_local_close,              [], sc_lc_cases()},
      {sc_remote_close,             [], sc_rc_cases()},
      {sc_remote_shutdown,          [], sc_rs_cases()},
+     {ioctl,                       [], ioctl_cases()},
+     {ioctl_simple,                [], ioctl_simple_cases()},
+     {ioctl_get,                   [], ioctl_get_cases()},
+     {ioctl_set,                   [], ioctl_set_cases()},
      {traffic,                     [], traffic_cases()},
      {traffic_counters,            [], traffic_counters_cases()},
      {traffic_chunks,              [], traffic_chunks_cases()},
@@ -1204,6 +1225,41 @@ sc_rs_cases() ->
      sc_rs_recvmsg_send_shutdown_receive_tcp4,
      sc_rs_recvmsg_send_shutdown_receive_tcp6,
      sc_rs_recvmsg_send_shutdown_receive_tcpL
+    ].
+
+
+ioctl_cases() ->
+    [
+     {group, ioctl_simple},
+     {group, ioctl_get},
+     {group, ioctl_set}
+    ].
+
+
+ioctl_simple_cases() ->
+    [
+     ioctl_simple1
+    ].
+
+
+ioctl_get_cases() ->
+    [
+     ioctl_get_gifname,
+     ioctl_get_gifindex,
+     ioctl_get_gifaddr,
+     ioctl_get_gifdstaddr,
+     ioctl_get_gifbrdaddr,
+     ioctl_get_gifnetmask,
+     ioctl_get_gifmtu,
+     ioctl_get_gifhwaddr,
+     ioctl_get_giftxqlen,
+     ioctl_get_gifflags,
+     ioctl_get_gifmap
+    ].
+
+
+ioctl_set_cases() ->
+    [
     ].
 
 
@@ -34832,6 +34888,886 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
            end).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test "some" ioctl features.
+%%
+
+ioctl_simple1(suite) ->
+    [];
+ioctl_simple1(doc) ->
+    [];
+ioctl_simple1(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ioctl_requests(),
+                   has_support_ioctl_gifconf()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_simple(InitState)
+           end).
+
+
+do_ioctl_simple(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock1} = socket:open(inet, dgram, udp),
+    i("perform simple ioctl (expect success)"),
+    case socket:ioctl(Sock1, gifconf) of
+        {ok, IfConf1} when is_list(IfConf1) ->
+            i("=> success"),
+            ok;
+        {error, Reason1} ->
+            i("error: unexpected failure: "
+              "~n      ~p", [Reason1]),
+            exit({unexpected_ioctl_failure, dgram, Reason1});
+        Else11 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else11]),
+            exit({unexpected_ioctl_result, dgram, Else11})
+    end,
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock1),
+    i("perform simple ioctl (expect failure)"),
+    case socket:ioctl(Sock1, gifconf) of
+        {error, closed} ->
+            i("=> success"),
+            ok;
+        Else12 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else12]),
+            exit({unexpected_ioctl_result, dgram, Else12})
+    end,
+
+    i("create dummy stream:TCP socket"),
+    {ok, Sock2} = socket:open(inet, stream, tcp),
+    i("perform simple ioctl (expect success)"),
+    case socket:ioctl(Sock2, gifconf) of
+        {ok, IfConf2} when is_list(IfConf2) ->
+            i("=> success"),
+            ok;
+        {error, Reason2} ->
+            i("error: unexpected result: "
+              "~n      ~p", [Reason2]),
+            exit({unexpected_ioctl_failure, stream, Reason2});
+        Else21 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else21]),
+            exit({unexpected_ioctl_result, stream, Else21})
+    end,
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock2),
+    i("perform simple ioctl (expect failure)"),
+    case socket:ioctl(Sock2, gifconf) of
+        {error, closed} ->
+            i("=> success"),
+            ok;
+        Else22 ->
+            i("error: unexpected result: "
+              "~n      ~p", [Else22]),
+            exit({unexpected_ioctl_result, stream, Else22})
+    end,
+
+    i("done"),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% These test case(s) are intended to (simply) test "some" ioctl get
+%% request(s).
+%%
+
+ioctl_get_gifname(suite) ->
+    [];
+ioctl_get_gifname(doc) ->
+    [];
+ioctl_get_gifname(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifname()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifname(InitState)
+           end).
+
+
+do_ioctl_get_gifname(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if names: "
+      "~n      ~p", [IfNames]),
+    _ = [case socket:ioctl(Sock, gifname, IfIdx) of
+             {ok, IfName} ->
+                 i("got expected interface name ~p for index ~w", [IfName, IfIdx]),
+                 ok;
+             {ok, OtherName} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected interface name for index ~w"
+                   "~n      Expected: ~p"
+                   "~n      Received: ~p", [IfIdx, IfName, OtherName]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_interface_name, IfIdx, OtherName, IfName});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface index ~w"
+                   "~n      Reason: ~p", [IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+%% --- gifindex ---
+
+ioctl_get_gifindex(suite) ->
+    [];
+ioctl_get_gifindex(doc) ->
+    [];
+ioctl_get_gifindex(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifindex()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifindex(InitState)
+           end).
+
+
+do_ioctl_get_gifindex(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    _ = [case socket:ioctl(Sock, gifindex, IfName) of
+             {ok, IfIdx} ->
+                 i("got expected interface index ~w for interface ~p",
+                   [IfIdx, IfName]),
+                 ok;
+             {ok, OtherIdx} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected interface index for interface ~p"
+                   "~n      Expected: ~p"
+                   "~n      Received: ~p", [IfName, IfIdx, OtherIdx]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_interface_index, IfName, OtherIdx, IfIdx});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p"
+                   "~n      Reason: ~p", [IfName, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifaddr ---
+
+ioctl_get_gifaddr(suite) ->
+    [];
+ioctl_get_gifaddr(doc) ->
+    [];
+ioctl_get_gifaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifaddr()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifaddr(InitState)
+           end).
+
+
+do_ioctl_get_gifaddr(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifaddr, IfName) of
+             {ok, #{family := Fam,
+                    addr   := Addr}} ->
+                 i("got (expected) socket address for interface ~p (~w): "
+                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
+             {error, eperm = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifdstaddr ---
+
+ioctl_get_gifdstaddr(suite) ->
+    [];
+ioctl_get_gifdstaddr(doc) ->
+    [];
+ioctl_get_gifdstaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifdstaddr()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifdstaddr(InitState)
+           end).
+
+
+do_ioctl_get_gifdstaddr(_State) ->
+    Domain = inet,
+    LSA    = which_local_socket_addr(Domain),
+
+    i("create and init listen stream:TCP socket"),
+    {ok, LSock} = socket:open(inet, stream, tcp),
+    ok = socket:bind(LSock, LSA#{port => 0}),
+    ok = socket:listen(LSock),
+    {ok, #{port := LPort}} = socket:sockname(LSock),
+    
+    i("create and init connection stream:TCP socket"),
+    {ok, CSock} = socket:open(inet, stream, tcp),
+
+    i("attempt nowait connect"),
+    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
+        socket:connect(CSock, LSA#{port => LPort}, nowait),
+
+    i("attempt accept"),
+    {ok, ASock} = socket:accept(LSock),
+    
+    i("await connection ready"),
+    receive
+        {'$socket', CSock, select, SelectHandle} ->
+            ok
+    end,
+
+    i("attmpt complete connection"),
+    ok = socket:connect(CSock),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    verify_gifdstaddr(ASock, "accept",  IfNames),
+    verify_gifdstaddr(CSock, "connect", IfNames),
+    verify_gifdstaddr(LSock, "listen",  IfNames),
+
+    i("close socket(s)"),
+    _ = socket:close(CSock),
+    _ = socket:close(ASock),
+    _ = socket:close(LSock),
+
+    i("done"),
+    ok.
+
+
+
+verify_gifdstaddr(_Sock, _Prefix, []) ->
+    ok;
+verify_gifdstaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
+    i("[~s] attempt verify gifdstaddr for interface ~s (~w)",
+      [Prefix, IfName, IfIdx]),
+    verify_gifdstaddr(Sock, Prefix, IfIdx, IfName),
+    verify_gifdstaddr(Sock, Prefix, IfNames).
+
+verify_gifdstaddr(Sock, Prefix, IfIdx, IfName) ->
+    {OsFam, OsName} = os:type(),
+    case socket:ioctl(Sock, gifdstaddr, IfName) of
+        {ok, #{family := Fam,
+               addr   := Addr}} ->
+            i("[~s] got (expected) (dest) socket address "
+              "for interface ~p (~w): "
+              "~n      (~w) ~p", [Prefix, IfName, IfIdx, Fam, Addr]),
+            ok;
+        {ok, Crap} ->
+        %% Oups?!
+            i("<ERROR> [~s] got unexpected result for interface ~p (~w)"
+              "~n      ~p", [Prefix, IfName, IfIdx, Crap]),
+            socket:close(Sock),
+            ?FAIL({unexpected_addr, Prefix, IfName, IfIdx, Crap});
+        {error, eaddrnotavail = Reason} ->
+            i("[~s] got unexpected error for interface ~p (~w) => "
+              "SKIP interface"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+            ignore;
+	{error, eperm = Reason} ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+	{error, einval = Reason} when (OsFam =:= unix) andalso
+                                      ((OsName =:= darwin) orelse 
+				       (OsName =:= freebsd) orelse 
+				       (OsName =:= netbsd)) ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+        {error, Reason} ->
+            i("<ERROR> got unexpected error for interface ~p (~w)"
+              "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+            socket:close(Sock),
+            ?FAIL({unexpected_failure, Prefix, IfName, IfIdx, Reason})
+    end.
+    
+
+
+
+%% --- gifbrdaddr ---
+
+ioctl_get_gifbrdaddr(suite) ->
+    [];
+ioctl_get_gifbrdaddr(doc) ->
+    [];
+ioctl_get_gifbrdaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifbrdaddr()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifbrdaddr(InitState)
+           end).
+
+
+do_ioctl_get_gifbrdaddr(_State) ->
+    Domain = inet,
+    LSA    = which_local_socket_addr(Domain),
+
+    i("create and init listen stream:TCP socket"),
+    {ok, LSock} = socket:open(inet, stream, tcp),
+    ok = socket:bind(LSock, LSA#{port => 0}),
+    ok = socket:listen(LSock),
+    {ok, #{port := LPort}} = socket:sockname(LSock),
+    
+    i("create and init connection stream:TCP socket"),
+    {ok, CSock} = socket:open(inet, stream, tcp),
+
+    i("attempt nowait connect"),
+    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
+        socket:connect(CSock, LSA#{port => LPort}, nowait),
+
+    i("attempt accept"),
+    {ok, ASock} = socket:accept(LSock),
+    
+    i("await connection ready"),
+    receive
+        {'$socket', CSock, select, SelectHandle} ->
+            ok
+    end,
+
+    i("attmpt complete connection"),
+    ok = socket:connect(CSock),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    verify_gifbrdaddr(ASock, "accept",  IfNames),
+    verify_gifbrdaddr(CSock, "connect", IfNames),
+    verify_gifbrdaddr(LSock, "listen",  IfNames),
+
+    i("close socket(s)"),
+    _ = socket:close(CSock),
+    _ = socket:close(ASock),
+    _ = socket:close(LSock),
+
+    i("done"),
+    ok.
+
+
+verify_gifbrdaddr(_Sock, _Prefix, []) ->
+    ok;
+verify_gifbrdaddr(Sock, Prefix, [{IfIdx, IfName} | IfNames]) ->
+    i("[~s] attempt verify gifbrdaddr for interface ~s (~w)",
+      [Prefix, IfName, IfIdx]),
+    verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName),
+    verify_gifbrdaddr(Sock, Prefix, IfNames).
+
+verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName) ->
+    {OsFam, OsName} = os:type(),
+    case socket:ioctl(Sock, gifbrdaddr, IfName) of
+        {ok, #{family := Fam,
+               addr   := Addr}} ->
+            i("[~s] got (expected) (broadcast) socket address for "
+              "interface ~p (~w): "
+              "~n      (~w) ~p", [Prefix, IfName, IfIdx, Fam, Addr]),
+            ok;
+        {ok, Crap} ->
+            %% Oups?!
+            i("<ERROR> [~s] got unexpected result for interface ~p (~w)"
+              "~n      ~p", [Prefix, IfName, IfIdx, Crap]),
+            socket:close(Sock),
+            ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+        {error, eaddrnotavail = Reason} ->
+            i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+            ignore;
+	{error, eperm = Reason} ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+	{error, einval = Reason} when (OsFam =:= unix) andalso
+                                      ((OsName =:= darwin) orelse
+				       (OsName =:= freebsd) orelse
+				       (OsName =:= netbsd)) ->
+	    i("[~s] got unexpected error for interface ~p (~w) => "
+	      "SKIP interface"
+	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+	    ignore;
+        {error, Reason} ->
+            i("<ERROR> [~s] got unexpected error for interface ~p (~w)"
+              "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
+            socket:close(Sock),
+            ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+    end.
+
+
+
+%% --- gifnetmask ---
+
+ioctl_get_gifnetmask(suite) ->
+    [];
+ioctl_get_gifnetmask(doc) ->
+    [];
+ioctl_get_gifnetmask(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifnetmask()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifnetmask(InitState)
+           end).
+
+
+do_ioctl_get_gifnetmask(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifnetmask, IfName) of
+             {ok, #{family := Fam,
+                    addr   := Addr}} ->
+                 i("got (expected) (netmask) socket address for interface ~p (~w): "
+                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, eaddrnotavail = Reason} ->
+                 i("got unexpected error for interface ~p (~w) => SKIP interface"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 ignore;
+	     {error, eperm = Reason} ->
+		 i("got unexpected error for interface ~p (~w) => "
+		   "SKIP interface"
+		   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+		 ignore;
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifmtu ---
+
+ioctl_get_gifmtu(suite) ->
+    [];
+ioctl_get_gifmtu(doc) ->
+    [];
+ioctl_get_gifmtu(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifmtu()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifmtu(InitState)
+           end).
+
+
+do_ioctl_get_gifmtu(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifmtu, IfName) of
+             {ok, MTU} when is_integer(MTU) ->
+                 i("got (expected) MTU for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, MTU]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifhwaddr ---
+
+ioctl_get_gifhwaddr(suite) ->
+    [];
+ioctl_get_gifhwaddr(doc) ->
+    [];
+ioctl_get_gifhwaddr(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifhwaddr()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifhwaddr(InitState)
+           end).
+
+
+do_ioctl_get_gifhwaddr(_State) ->
+    i("create dummy dgram:UDP socket"),
+    {ok, Sock} = socket:open(inet, dgram, udp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifhwaddr, IfName) of
+             {ok, #{family := ArphdrFam,
+                    addr   := Addr}} when is_atom(ArphdrFam) ->
+                 case erlang:atom_to_list(ArphdrFam) of
+                     "arphrd_" ++ _ ->
+                         i("got (expected) (HW) socket address for "
+                           "interface ~p (~w): "
+                           "~n      (~w) ~p", [IfName, IfIdx, ArphdrFam, Addr]),
+                         ok;
+                     _ ->
+                         i("<ERROR> got unexpected family for interface ~p (~w)"
+                           "~n      ~p", [IfName, IfIdx, ArphdrFam]),
+                         socket:close(Sock),
+                         ?FAIL({unexpected_family, IfName, IfIdx, ArphdrFam})
+                 end;
+             {ok, #{family := Fam,
+                    addr   := Addr}} when is_integer(Fam) ->
+                 i("got (expected) socket address for interface ~p (~w): "
+                   "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                         i("<ERROR> got unexpected result for interface ~p (~w)"
+                           "~n      ~p", [IfName, IfIdx, Crap]),
+                         socket:close(Sock),
+                         ?FAIL({unexpected_addr, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy dgram:UDP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- giftxqlen ---
+
+ioctl_get_giftxqlen(suite) ->
+    [];
+ioctl_get_giftxqlen(doc) ->
+    [];
+ioctl_get_giftxqlen(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_giftxqlen()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_giftxqlen(InitState)
+           end).
+
+
+do_ioctl_get_giftxqlen(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, giftxqlen, IfName) of
+             {ok, QLen} when is_integer(QLen) ->
+                 i("got (expected) TX QLen for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, QLen]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifflags ---
+
+ioctl_get_gifflags(suite) ->
+    [];
+ioctl_get_gifflags(doc) ->
+    [];
+ioctl_get_gifflags(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifflags()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifflags(InitState)
+           end).
+
+
+do_ioctl_get_gifflags(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    AllFlags = [Flag || {Flag, Supported} <-
+                            socket:supports(ioctl_flags), Supported =:= true],
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifflags, IfName) of
+             {ok, Flags} when is_list(Flags) ->
+                 i("got  flags for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, Flags]),
+                 case Flags -- AllFlags of
+                     [] ->
+                         i("flags accounted for"),
+                         ok;
+                     ExtraFlags ->
+                         i("<ERROR> got superfluous flags for interface ~p (~w)"
+                           "~n      Received Flags:      ~p"
+                           "~n      Superfluous Flags:   ~p"
+                           "~n      All Supported Flags: ~p"
+                           "~n", [IfName, IfIdx, Flags, ExtraFlags, AllFlags]),
+                         socket:close(Sock),
+                         ?FAIL({unexpected_superfluous_flags,
+                                IfName, IfIdx, Flags, ExtraFlags, AllFlags})
+                 end;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+%% --- gifmap ---
+
+ioctl_get_gifmap(suite) ->
+    [];
+ioctl_get_gifmap(doc) ->
+    [];
+ioctl_get_gifmap(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_net_if_names(),
+                   has_support_ioctl_gifmap()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_ioctl_get_gifmap(InitState)
+           end).
+
+
+do_ioctl_get_gifmap(_State) ->
+    i("create dummy stream:TCP socket"),
+    {ok, Sock} = socket:open(inet, stream, tcp),
+
+    i("get if names"),
+    {ok, IfNames} = net:if_names(),
+
+    i("try ioctl all if indexes: "
+      "~n      ~p", [IfNames]),
+    %% This a *very* simple test...
+    %% ...just to check that we actually get an socket address
+    _ = [case socket:ioctl(Sock, gifmap, IfName) of
+             {ok, Map} when is_map(Map) ->
+                 i("got (expected) map for interface ~p (~w): "
+                   "~n      ~p", [IfName, IfIdx, Map]),
+                 ok;
+             {ok, Crap} ->
+                 %% Oups?!
+                 i("<ERROR> got unexpected result for interface ~p (~w)"
+                   "~n      ~p", [IfName, IfIdx, Crap]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_mtu, IfName, IfIdx, Crap});
+             {error, Reason} ->
+                 i("<ERROR> got unexpected error for interface ~p (~w)"
+                   "~n      Reason: ~p", [IfName, IfIdx, Reason]),
+                 socket:close(Sock),
+                 ?FAIL({unexpected_failure, IfName, IfIdx, Reason})
+         end || {IfIdx, IfName} <- IfNames],
+
+    i("close dummy stream:TCP socket"),
+    ok = socket:close(Sock),
+
+    i("done"),
+    ok.
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
@@ -48752,6 +49688,89 @@ has_support_sendfile() ->
         error : notsup ->
             skip("Not supported: socket")
     end.
+
+
+has_support_net_if_names() ->
+    try net:if_names() of
+        {ok, N} when is_list(N) ->
+            ok;
+        _ ->
+            skip("Not supported: net:if_names()")
+    catch
+        error : notsup ->
+            skip("Not supported: net")
+    end.
+
+has_support_ioctl_requests() ->
+    try socket:supports(ioctl_requests) of
+        Reqs when is_list(Reqs) ->
+            ok;
+        _ ->
+            skip("Not supported: ioctl_requests")
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
+
+has_support_ioctl_gifconf() ->
+    has_support_ioctl_request(gifconf).
+
+has_support_ioctl_gifname() ->
+    has_support_ioctl_request(gifname).
+
+has_support_ioctl_gifindex() ->
+    has_support_ioctl_request(gifindex).
+
+has_support_ioctl_gifaddr() ->
+    has_support_ioctl_request(gifaddr).
+
+has_support_ioctl_gifdstaddr() ->
+    has_support_ioctl_request(gifdstaddr).
+
+has_support_ioctl_gifbrdaddr() ->
+    has_support_ioctl_request(gifbrdaddr).
+
+has_support_ioctl_gifnetmask() ->
+    has_support_ioctl_request(gifnetmask).
+
+has_support_ioctl_gifmtu() ->
+    has_support_ioctl_request(gifmtu).
+
+has_support_ioctl_gifhwaddr() ->
+    has_support_ioctl_request(gifhwaddr).
+
+has_support_ioctl_giftxqlen() ->
+    has_support_ioctl_request(giftxqlen).
+
+has_support_ioctl_gifflags() ->
+    has_support_ioctl_request(gifflags).
+
+has_support_ioctl_gifmap() ->
+    has_support_ioctl_request(gifmap).
+
+has_support_ioctl_request(Req) when is_atom(Req) ->
+    try socket:is_supported(ioctl_requests, Req) of
+        true ->
+            ok;
+        false ->
+            skip(f("Not supported: ioctl_request: ~w", [Req]))
+    catch
+        error : notsup ->
+            skip("Not supported: socket")
+    end.
+
+
+%% has_support_ioctl_flags() ->
+%%     try socket:supports(ioctl_flags) of
+%%         Reqs when is_list(Reqs) ->
+%%             ok;
+%%         _ ->
+%%             skip("Not supported: ioctl_flags")
+%%     catch
+%%         error : notsup ->
+%%             skip("Not supported: socket")
+%%     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
