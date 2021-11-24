@@ -2514,6 +2514,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	default:
 	    ERTS_INTERNAL_ERROR("Invalid time warp mode");
 	}
+    } else if (BIF_ARG_1 == am_outstanding_system_requests_limit) {
+        Uint val = erts_get_outstanding_system_requests_limit();
+        BIF_RET(make_small(val));
     } else if (BIF_ARG_1 == am_allocated_areas) {
 	res = erts_allocated_areas(NULL, NULL, BIF_P);
 	BIF_RET(res);

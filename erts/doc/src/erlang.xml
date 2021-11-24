@@ -7555,6 +7555,50 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="11"
+            anchor="system_flag_outstanding_system_requests_limit"
+            since="OTP @OTP-17796@"/>
+      <fsummary>Set limit on outstanding requests for system processes.</fsummary>
+      <desc>
+        <p>
+          Sets a limit on the amount of outstanding requests made by
+          a system process orchestrating system wide changes. Currently
+          there are two such processes:
+        </p>
+        <taglist>
+          <tag>The Code Purger</tag>
+          <item><p>
+            The code purger orchestrates checking of references to old
+            code before old code is removed from the system.
+          </p></item>
+          <tag>The Literal Area Collector</tag>
+          <item><p>
+            The literal area collector orchestrates copying of references
+            from old literal areas before removal of such areas from the
+            system.
+          </p></item>
+        </taglist>
+        <p>
+          Each of these processes are allowed to have as many outstanding
+          requests as this limit is set to. By default this limit is set
+          to twice the amount of
+          <seealso marker="#system_info_schedulers">schedulers</seealso>
+          on the system. This will ensure that schedulers will have enough
+          work scheduled to perform these operations as quickly as possible
+          at the same time as other work will be interleaved with this work.
+          Currently used limit can be checked by calling
+          <seealso marker="#system_info_outstanding_system_requests_limit">
+            <c>erlang:system_info(outstanding_system_requests_limit)</c></seealso>.
+        </p>
+        <p>
+          This limit can also be set by passing the command line argument
+          <seealso marker="erts:erl#+zosrl"><c>+zosrl &lt;Limit&gt;</c></seealso>
+          to <c>erl</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_flag" arity="2" clause_i="12"
 	    anchor="system_flag_scheduler_bind_type" since=""/>
       <fsummary>Set system flag scheduler_bind_type.</fsummary>
       <type name="scheduler_bind_type"/>
@@ -7681,7 +7725,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="12"
+      <name name="system_flag" arity="2" clause_i="13"
 	    anchor="system_flag_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Set system flag scheduler_wall_time.</fsummary>
       <desc>
@@ -7694,7 +7738,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="13"
+      <name name="system_flag" arity="2" clause_i="14"
 	    anchor="system_flag_schedulers_online" since=""/>
       <fsummary>Set system flag schedulers_online.</fsummary>
       <desc>
@@ -7723,7 +7767,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="14" since="OTP 21.3"/>
+      <name name="system_flag" arity="2" clause_i="15" since="OTP 21.3"/>
       <fsummary>Set system logger process.</fsummary>
       <desc>
         <p>Sets the process that will receive the logging
@@ -7755,7 +7799,7 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="15" since=""/>
+      <name name="system_flag" arity="2" clause_i="16" since=""/>
       <fsummary>Set system flag trace_control_word.</fsummary>
       <desc>
         <p>Sets the value of the node trace control word to
@@ -7769,7 +7813,7 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="16"
+      <name name="system_flag" arity="2" clause_i="17"
 	    anchor="system_flag_time_offset" since="OTP 18.0"/>
       <fsummary>Finalize the time offset.</fsummary>
       <desc>
@@ -7918,6 +7962,7 @@ Metadata = #{ pid => pid(),
               <seealso marker="#system_info_modified_timing_level"><c>modified_timing_level</c></seealso>,
               <seealso marker="#system_info_nif_version"><c>nif_version</c></seealso>,
               <seealso marker="#system_info_otp_release"><c>otp_release</c></seealso>,
+              <seealso marker="#system_info_outstanding_system_requests_limit"><c>outstanding_system_requests_limit</c></seealso>,
               <seealso marker="#system_info_port_parallelism"><c>port_parallelism</c></seealso>,
               <seealso marker="#system_info_system_architecture"><c>system_architecture</c></seealso>,
               <seealso marker="#system_info_system_logger"><c>system_logger</c></seealso>,
@@ -9094,32 +9139,33 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="49" since=""/>  <!-- otp_release -->
       <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
       <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="52" since="OTP R16B"/>  <!-- port_parallelism -->
-      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_count -->
-      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_count -->
-      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="57"/>  procs -->
-      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bind_type -->
-      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bindings -->
-      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_id -->
-      <!-- <name name="system_info" arity="1" clause_i="61"/>  schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="62"/>  smp_support -->
-      <!-- <name name="system_info" arity="1" clause_i="63"/>  start_time -->
-      <name name="system_info" arity="1" clause_i="64" since=""/>  <!-- system_architecture -->
-      <name name="system_info" arity="1" clause_i="65" since="OTP 21.3"/>  <!-- system_logger -->
-      <name name="system_info" arity="1" clause_i="66" since=""/>  <!-- system_version -->
-      <!-- <name name="system_info" arity="1" clause_i="67"/>  threads -->
-      <!-- <name name="system_info" arity="1" clause_i="68"/>  thread_pool_size -->
-      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_correction -->
-      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_offset -->
-      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_warp_mode -->
-      <!-- <name name="system_info" arity="1" clause_i="72"/>  tolerant_timeofday -->
-      <name name="system_info" arity="1" clause_i="73" since=""/>  <!-- trace_control_word -->
-      <!-- <name name="system_info" arity="1" clause_i="74"/>  update_cpu_info -->
-      <name name="system_info" arity="1" clause_i="75" since=""/>  <!-- version -->
-      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="77"/>  overview -->
+      <name name="system_info" arity="1" clause_i="52" since="OTP @OTP-17796@"/>  <!-- outstanding_system_requests_limit -->
+      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_parallelism -->
+      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_count -->
+      <!-- <name name="system_info" arity="1" clause_i="55"/>  port_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_count -->
+      <!-- <name name="system_info" arity="1" clause_i="57"/>  process_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="58"/>  procs -->
+      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bind_type -->
+      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_bindings -->
+      <!-- <name name="system_info" arity="1" clause_i="61"/>  scheduler_id -->
+      <!-- <name name="system_info" arity="1" clause_i="62"/>  schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="63"/>  smp_support -->
+      <!-- <name name="system_info" arity="1" clause_i="64"/>  start_time -->
+      <name name="system_info" arity="1" clause_i="65" since=""/>  <!-- system_architecture -->
+      <name name="system_info" arity="1" clause_i="66" since="OTP 21.3"/>  <!-- system_logger -->
+      <name name="system_info" arity="1" clause_i="67" since=""/>  <!-- system_version -->
+      <!-- <name name="system_info" arity="1" clause_i="68"/>  threads -->
+      <!-- <name name="system_info" arity="1" clause_i="69"/>  thread_pool_size -->
+      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_correction -->
+      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_offset -->
+      <!-- <name name="system_info" arity="1" clause_i="72"/>  time_warp_mode -->
+      <!-- <name name="system_info" arity="1" clause_i="73"/>  tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="74" since=""/>  <!-- trace_control_word -->
+      <!-- <name name="system_info" arity="1" clause_i="75"/>  update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- version -->
+      <name name="system_info" arity="1" clause_i="77" since=""/>  <!-- wordsize -->
+      <!-- <name name="system_info" arity="1" clause_i="78"/>  overview -->
       <fsummary>Information about the system.</fsummary>
       <desc>
         <marker id="system_info_misc_tags"/>
@@ -9266,6 +9312,17 @@ Metadata = #{ pid => pid(),
               description of versions in
               <seealso marker="doc/system_principles:versions">
               System principles</seealso> in System Documentation.</p>
+          </item>
+          <tag><marker id="system_info_outstanding_system_requests_limit"/>
+            <c>outstanding_system_requests_limit</c></tag>
+          <item>
+            <p>
+              Returns the limit on the amount of outstanding requests
+              made by a system process orchestrating system wide changes.
+              See <seealso marker="#system_flag_outstanding_system_requests_limit">
+              <c>erlang:system_flag(outstanding_system_requests_limit, Limit)</c></seealso>
+              for more information.
+            </p>
           </item>
           <tag><marker id="system_info_port_parallelism"/>
             <c>port_parallelism</c></tag>
