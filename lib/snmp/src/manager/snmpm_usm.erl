@@ -394,8 +394,12 @@ encrypt(Data, PrivProtocol, PrivKey, SecLevel, EngineBoots, EngineTime) ->
 		{ok, ScopedPduData, MsgPrivParams} ->
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
 		{error, Reason} ->
+                    ?vlog("encrypt -> try encrypt error: "
+                          "~n      ~p", [Reason]),
 		    error(Reason);
-		_ ->
+		_Unexpected ->
+                    ?vlog("encrypt -> try encrypt unexpected failure: "
+                          "~n      ~p", [_Unexpected]),
 		    error(encryptionError)
 	    end
     end.
