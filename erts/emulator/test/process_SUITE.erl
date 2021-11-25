@@ -2308,6 +2308,8 @@ spawn_opt_max_heap_size(_Config) ->
     %% Test that ordinary case works as expected again
     max_heap_size_test(1024, 1024, true, true),
 
+    error_logger:delete_report_handler(?MODULE),
+
     ok.
 
 max_heap_size_test(Option, Size, Kill, ErrorLogger)
