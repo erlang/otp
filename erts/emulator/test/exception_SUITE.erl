@@ -1032,6 +1032,7 @@ error_info(_Config) ->
          {open_port, [{bad,name}, []]},
          {open_port, [{spawn, "no_command"}, bad_option_list]},
          {open_port, [{spawn, "no_command"}, [xyz]]},
+         {open_port, [{spawn, "no_command"}, [{args,[]}]],[{1,".*spawn_executable.*"}]},
 
          {port_call, 2},                        %Internal BIF.
 
