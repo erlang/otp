@@ -4407,5 +4407,5 @@ pbkdf2_hmac(Config) when is_list(Config) ->
       F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32)
   catch
     error:{notsup,{"pbkdf2_hmac.c", _}, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"} ->
-            {skip, "No Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"}
+            {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
