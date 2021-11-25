@@ -443,28 +443,29 @@ do {						\
 
 #define ESTACK_IS_STATIC(s) ((s).start == ESTK_DEF_STACK(s))
 
+#define ESTACK_RESERVE(s, push_cnt)             \
+do {					        \
+    if ((s).end - (s).sp < (Sint)(push_cnt)) {	\
+	erl_grow_estack(&(s), (push_cnt));	\
+    }					        \
+} while(0)
+
 #define ESTACK_PUSH(s, x)			\
 do {						\
-    if ((s).sp == (s).end) {			\
-	erl_grow_estack(&(s), 1); 		\
-    }						\
+    ESTACK_RESERVE(s, 1);                       \
     *(s).sp++ = (x);				\
 } while(0)
 
 #define ESTACK_PUSH2(s, x, y)			\
 do {						\
-    if ((s).sp > (s).end - 2) {			\
-	erl_grow_estack(&(s), 2);		\
-    }						\
+    ESTACK_RESERVE(s, 2);                       \
     *(s).sp++ = (x);				\
     *(s).sp++ = (y);				\
 } while(0)
 
 #define ESTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if ((s).sp > (s).end - 3) {			\
-	erl_grow_estack(&s, 3); 		\
-    }						\
+    ESTACK_RESERVE(s, 3);                       \
     *(s).sp++ = (x);				\
     *(s).sp++ = (y);				\
     *(s).sp++ = (z);				\
@@ -472,20 +473,11 @@ do {						\
 
 #define ESTACK_PUSH4(s, E1, E2, E3, E4)		\
 do {						\
-    if ((s).sp > (s).end - 4) {			\
-	erl_grow_estack(&s, 4);                 \
-    }						\
+    ESTACK_RESERVE(s, 4);                       \
     *(s).sp++ = (E1);				\
     *(s).sp++ = (E2);				\
     *(s).sp++ = (E3);				\
     *(s).sp++ = (E4);				\
-} while(0)
-
-#define ESTACK_RESERVE(s, push_cnt)             \
-do {					        \
-    if ((s).sp > (s).end - (push_cnt)) {	\
-	erl_grow_estack(&(s), (push_cnt));	\
-    }					        \
 } while(0)
 
 /* Must be preceded by ESTACK_RESERVE */
@@ -642,28 +634,29 @@ do {						\
 
 #define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s))
 
-#define WSTACK_PUSH(s, x)				\
-do {							\
-    if (s.wsp == s.wend) {				\
-	erl_grow_wstack(&s, 1); 	                \
-    }							\
-    *s.wsp++ = (x);					\
+#define WSTACK_RESERVE(s, push_cnt)             \
+do {						\
+    if (s.wend - s.wsp < (Sint)(push_cnt)) {    \
+	erl_grow_wstack(&s, (push_cnt));        \
+    }                                           \
+} while(0)
+
+#define WSTACK_PUSH(s, x)                       \
+do {                                            \
+    WSTACK_RESERVE(s, 1);                       \
+    *s.wsp++ = (x);				\
 } while(0)
 
 #define WSTACK_PUSH2(s, x, y)			\
 do {						\
-    if (s.wsp > s.wend - 2) {			\
-	erl_grow_wstack(&s, 2);                 \
-    }						\
+    WSTACK_RESERVE(s, 2);                       \
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
 } while(0)
 
 #define WSTACK_PUSH3(s, x, y, z)		\
 do {						\
-    if (s.wsp > s.wend - 3) {	                \
-	erl_grow_wstack(&s, 3);                 \
-    }						\
+    WSTACK_RESERVE(s, 3);                       \
     *s.wsp++ = (x);				\
     *s.wsp++ = (y);				\
     *s.wsp++ = (z);				\
@@ -671,9 +664,7 @@ do {						\
 
 #define WSTACK_PUSH4(s, A1, A2, A3, A4)		\
 do {						\
-    if (s.wsp > s.wend - 4) {	                \
-	erl_grow_wstack(&s, 4);                 \
-    }						\
+    WSTACK_RESERVE(s, 4);                       \
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
     *s.wsp++ = (A3);				\
@@ -682,9 +673,7 @@ do {						\
 
 #define WSTACK_PUSH5(s, A1, A2, A3, A4, A5)     \
 do {						\
-    if (s.wsp > s.wend - 5) {	                \
-	erl_grow_wstack(&s, 5);                 \
-    }						\
+    WSTACK_RESERVE(s, 5);                       \
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
     *s.wsp++ = (A3);				\
@@ -694,22 +683,13 @@ do {						\
 
 #define WSTACK_PUSH6(s, A1, A2, A3, A4, A5, A6) \
 do {						\
-    if (s.wsp > s.wend - 6) {	                \
-	erl_grow_wstack(&s, 6);                 \
-    }						\
+    WSTACK_RESERVE(s, 6);                       \
     *s.wsp++ = (A1);				\
     *s.wsp++ = (A2);				\
     *s.wsp++ = (A3);				\
     *s.wsp++ = (A4);				\
     *s.wsp++ = (A5);				\
     *s.wsp++ = (A6);				\
-} while(0)
-
-#define WSTACK_RESERVE(s, push_cnt)             \
-do {						\
-    if (s.wsp > s.wend - (push_cnt)) { 	        \
-	erl_grow_wstack(&s, (push_cnt));        \
-    }                                           \
 } while(0)
 
 /* Must be preceded by WSTACK_RESERVE */
