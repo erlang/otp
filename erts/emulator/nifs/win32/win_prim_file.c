@@ -85,7 +85,7 @@ typedef struct {
     efile_data_t common;
     HANDLE handle;
     /* The following field is only used when the handle has been
-       obtained from an already exisiting file descriptor (i.e.,
+       obtained from an already existing file descriptor (i.e.,
        prim_file:file_desc_to_ref/2). common.modes is set to
        EFILE_MODE_FROM_ALREADY_OPEN_FD when that is the case. It is
        needed because we can't close using handle in that case. */
@@ -428,7 +428,7 @@ static int is_path_root(const efile_path_t *path) {
         path_iterator++;
     }  while(path_iterator < path_end && !IS_SLASH(*path_iterator));
 
-    /* If we're past the end of the string and it didnt't end with a slash,
+    /* If we're past the end of the string and it didn't end with a slash,
      * then we're a root path. */
     return path_iterator >= path_end && !IS_SLASH(path_start[length - 1]);
 }
