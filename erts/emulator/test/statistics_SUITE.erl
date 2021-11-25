@@ -356,6 +356,9 @@ run_scheduler_wall_time_test(Type) ->
                 DirtyCPUSchedulers,
                 DirtyIOSchedulers]),
 
+        %% Assert that number of schedulers is the same as number of dirty schedulers
+        Schedulers = DirtyCPUSchedulers,
+
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
         %% Empty load
