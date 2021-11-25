@@ -1232,22 +1232,14 @@ info(Socket) ->
 -spec monitor(Socket) -> reference() when
       Socket :: socket().
 
-%% Should it be possible to specify a modification of the 'Socket' part
-%% of the DOWN-message? The point would be to make it possible for
-%% a gen_tcp_socket-socket to use this and get the proper 'socket'
-%% as part of the message.
-
 monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
     case prim_socket:setopt(SockRef, {otp, use_registry}, true) of
         ok ->
-            case socket_registry:monitor(Socket) of
-		{error, MReason} ->
-		    erlang:error({invalid, MReason});
-		MRef when is_reference(MRef) ->
-		    MRef
-	    end;
-        {error, SReason} ->
-	    erlang:error({invalid, SReason})
+            socket_registry:monitor(Socket);
+        {error, closed = SReason} ->
+            MRef = make_ref(),
+            self() ! {'DOWN', MRef, socket, Socket, SReason},
+	    MRef
     end;
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
