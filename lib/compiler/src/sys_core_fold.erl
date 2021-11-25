@@ -891,8 +891,9 @@ fold_lit_args(Call, Module, Name, Args0) ->
 	    end
     catch
 	error:Reason ->
-	    %% Evaluation of the function failed. Warn and replace
-	    %% the call with a call to erlang:error/1.
+            %% Evaluation of the function failed. Warn but keep
+            %% the call to ensure that extended error information
+            %% will be available at runtime.
 	    eval_failure(Call, Reason)
     end.
 
@@ -953,15 +954,12 @@ eval_append(Call, X, Y) ->
     Call#c_call{args=[X,Y]}.			%Rebuild call arguments.
 
 %% eval_failure(Call, Reason) -> Core.
-%%  Warn for a call that will fail and replace the call with
-%%  a call to erlang:error(Reason).
+%%  Warn for a call that will fail but keep the call.
 %%
 eval_failure(Call, Reason) ->
     Classified = classify_call(Call),
     add_warning(Call, {failed,{eval_failure,Classified,Reason}}),
-    Call#c_call{module=#c_literal{val=erlang},
-		name=#c_literal{val=error},
-		args=[#c_literal{val=Reason}]}.
+    Call.
 
 %% simplify_apply(Call0, Mod, Func, Args) -> Call
 %%  Simplify an apply/3 to a call if the number of arguments
