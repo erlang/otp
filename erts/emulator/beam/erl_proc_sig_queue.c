@@ -611,7 +611,7 @@ enqueue_signals(Process *rp, ErtsMessage *first,
         if (is_to_buffer) {
             /*
              * Check state first to avoid write overhead when it is
-             * unecessary.
+             * unnecessary.
              */
             if ( ! (state & ERTS_PSFLG_SIG_IN_Q)) {
                 state = erts_atomic32_read_bor_relb(&rp->state,
@@ -999,7 +999,7 @@ erts_proc_sig_fetch_msgq_len_offs__(Process *proc)
         proc->sig_inq.len = 0;
 
         /*
-         * Temorarily remove marker during fetch...
+         * Temporarily remove marker during fetch...
          */
 
         proc->sig_inq.first = marker->common.next;
@@ -1413,7 +1413,7 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
     
 
     if(ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(tag)) {
-        /* Retreive pointer to heap fragment (may not be NULL). */
+        /* Retrieve pointer to heap fragment (may not be NULL). */
         void *attached;
         (void) get_alias_msg_data(sig, NULL, NULL, NULL, &attached);
         sig->data.heap_frag = hfrag = (ErlHeapFragment *) attached;
@@ -2432,7 +2432,7 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
     ASSERT(is_atom(node));
 
     /*
-     * A respons message to a spawn_request() operation
+     * A response message to a spawn_request() operation
      * looks like this:
      *    {Tag, Ref, ok|error, Pid|ErrorAtom}
      *
@@ -6637,7 +6637,7 @@ handle_cla(Process *c_p,
             /*
              * If a literal to copy is found in the message, we make
              * an explicit copy of it in a heap fragment and attach
-             * that heap fragment to the messag. Each message needs
+             * that heap fragment to the message. Each message needs
              * to be self contained, we cannot save the literal at
              * any other place than in the message itself.
              */

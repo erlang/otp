@@ -275,7 +275,7 @@ i_get_tuple_element s P S
 get_two_tuple_elements s P S S
 
 #
-# Expection rasing instructions. Infrequently executed.
+# Exception raising instructions. Infrequently executed.
 #
 
 %cold
@@ -823,7 +823,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
 i_bs_get_float2 S f? t s t d
 
-# Miscellanous
+# Miscellaneous
 
 bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			skip_bits2(Fail, Ms, Sz, Unit, Flags)

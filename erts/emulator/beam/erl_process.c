@@ -1715,8 +1715,8 @@ haw_thr_prgr_current_check_progress(ErtsAuxWorkData *awdp)
     if (current != ERTS_THR_PRGR_INVALID
 	&& !erts_thr_progress_equal(current, erts_thr_progress_current())) {
 	/*
-	 * We have used a previouly read current value that isn't the
-	 * latest; need to poke ourselfs in order to guarantee no loss
+	 * We have used a previously read current value that isn't the
+	 * latest; need to poke ourselves in order to guarantee no loss
 	 * of wakeups.
 	 */
 	erts_sched_poke(awdp->ssi);
@@ -2657,7 +2657,7 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 
     /*
      * Handlers are *only* allowed to modify flags in return value
-     * and ssi flags that are explicity handled by the handler.
+     * and ssi flags that are explicitly handled by the handler.
      * Handlers are, e.g., not allowed to read the ssi flag field and
      * then unconditionally return that value.
      *
@@ -2667,7 +2667,7 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 
     /*
      * Keep ERTS_SSI_AUX_WORK flags in expected frequency order relative
-     * eachother. Most frequent first.
+     * each other. Most frequent first.
      */
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP,
 		    handle_delayed_aux_work_wakeup);
@@ -3698,7 +3698,7 @@ wake_scheduler(ErtsRunQueue *rq)
      * The unlocked run queue is not strictly necessary
      * from a thread safety or deadlock prevention
      * perspective. It will, however, cost us performance
-     * if it is locked during wakup of another scheduler,
+     * if it is locked during wakeup of another scheduler,
      * so all code *should* handle this without having
      * the lock on the run queue.
      */
@@ -6020,7 +6020,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 
 	rq->ix = ix;
 
-	/* make sure that the "extra" id correponds to the schedulers
+	/* make sure that the "extra" id corresponds to the schedulers
 	 * id if the esdp->no <-> ix+1 mapping change.
 	 */
 
@@ -6853,7 +6853,7 @@ change_proc_schedule_state(Process *p,
                      | ERTS_PSFLG_RUNNING_SYS
                      | ERTS_PSFLG_DIRTY_RUNNING
                      | ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
-	    /* We activated a prevously inactive process */
+	    /* We activated a previously inactive process */
 	    profile_runnable_proc(p, am_active);
 	}
 
@@ -6965,7 +6965,7 @@ active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
 		   | ERTS_PSFLG_DIRTY_RUNNING
 		   | ERTS_PSFLG_DIRTY_RUNNING_SYS))
 	    && (!(a & ERTS_PSFLG_ACTIVE) || (a & ERTS_PSFLG_SUSPENDED))) {
-	    /* We activated a prevously inactive process */
+	    /* We activated a previously inactive process */
 	    profile_runnable_proc(p, am_active);
 	}
     }
@@ -7501,7 +7501,7 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
 
         /*
          * Make sure to alternate between dirty types
-         * inbetween normal execution if highest 
+         * between normal execution if highest 
          * priorities are equal.
          */
 
@@ -9448,7 +9448,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     int actual_reds;
     int reds;
     Uint32 flags;
-    erts_aint32_t state = 0; /* Supress warning... */
+    erts_aint32_t state = 0; /* Suppress warning... */
     int is_normal_sched;
 
     ERTS_MSACC_DECLARE_CACHE();
@@ -11105,7 +11105,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
             return ret; /* signal sent... */
 	}
 	/*
-	 * schedule system task directly since we wont violate
+	 * schedule system task directly since we won't violate
 	 * signal order...
 	 */
     }
@@ -13826,7 +13826,7 @@ restart:
          *
          * - A non-immediate exit reason may refer to literals.
          * - A process executing dirty while terminated, might access
-         *   any term on the heap, and therfore literals, until it has
+         *   any term on the heap, and therefore literals, until it has
          *   stopped executing dirty.
          */
         if (!trap_state->block_rla_ref

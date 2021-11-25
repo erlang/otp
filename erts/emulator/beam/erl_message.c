@@ -1026,7 +1026,7 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
             /*
              * The flags are changed while holding the
-             * ERTS_PROC_LOCK_MSGQ lock so that it is garanteed that
+             * ERTS_PROC_LOCK_MSGQ lock so that it is guaranteed that
              * there are no messages in buffers if (c_p->sig_qs.flags
              * & FS_ON_HEAP_MSGQ) and the ERTS_PROC_LOCK_MSGQ is held.
              */

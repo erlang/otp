@@ -1322,7 +1322,7 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	return 0;
     } else {
     badarg:
-        /* Ensure intialization. */
+        /* Ensure initialization. */
 	*posp = 0;
 	*endp = 0;
 	return 1;

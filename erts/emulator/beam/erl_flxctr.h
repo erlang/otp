@@ -140,7 +140,7 @@ void erts_flxctr_dec(ErtsFlxCtr* c,
  * @param c The ErtsFlxCtr instance to operate on
  * @param counter_nr The number of the counter within c to operate on
  *
- * @return A snapshot of the specifed counter if c is centralized or a
+ * @return A snapshot of the specified counter if c is centralized or a
  *         possibly incorrect estimate of the counter value if c is
  *         decentralized
  */

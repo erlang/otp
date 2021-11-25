@@ -1701,7 +1701,7 @@ dsig_send_spawn_request(ErtsDSigSendContext *ctx, Eterm ref, Eterm from,
          * Present this as two messages for the sequence tracing.
          * All data except the argument list in the first message
          * and then the argument list as second message (which
-         * willl become an actual message). For more info see
+         * will become an actual message). For more info see
          * handling of seq-trace token in erl_create_process().
          */
         
@@ -3817,7 +3817,7 @@ erts_dist_command(Port *prt, int initial_reds)
 	/*
 	 * Everything that was buffered when we started have now been
 	 * written to the port. If port isn't busy but dist entry is
-	 * and we havn't got too muched queued on dist entry, set
+	 * and we haven't got too muched queued on dist entry, set
 	 * dist entry in a non-busy state and resume suspended
 	 * processes.
 	 */
@@ -4638,7 +4638,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     if (!is_node_name_atom(BIF_ARG_1))
 	goto error;
 
-    if (BIF_ARG_1 == am_Noname) /* cant use this name !! */
+    if (BIF_ARG_1 == am_Noname) /* can't use this name !! */
 	goto error;
     if (erts_is_alive)     /* must not be alive! */
 	goto error;

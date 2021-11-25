@@ -1259,7 +1259,7 @@ static void join_catree(DbTableCATree *tb,
                 neighbor_parent = leftmost_route_node(GET_RIGHT(parent));
             }
         }
-    } else { /* Symetric case */
+    } else { /* Symmetric case */
         ASSERT(GET_RIGHT(parent) == thiz);
         neighbor = rightmost_base_node(GET_LEFT_ACQB(parent));
         if (try_wlock_base_node(&neighbor->u.base)) {

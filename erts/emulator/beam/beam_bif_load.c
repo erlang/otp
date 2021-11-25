@@ -857,7 +857,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->on_load = 0;
 
 	/*
-	 * The on_load function succeded. Fix up export entries.
+	 * The on_load function succeeded. Fix up export entries.
 	 */
 	num_exps = export_list_size(code_ix);
 	for (i = 0; i < num_exps; i++) {
@@ -1236,7 +1236,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
  * - erts_internal:release_literal_area_switch() changes the set of
  *   counters that blocks release of literal areas
  * - The literal area collector process gets suspended waiting thread
- *   progress in order to ensure that the change of counters is visable
+ *   progress in order to ensure that the change of counters is visible
  *   by all schedulers.
  * - When the literal area collector process is resumed after thread
  *   progress has completed, erts_internal:release_literal_area_switch()

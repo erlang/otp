@@ -330,7 +330,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
     a.br(emit_call_fun());
 }
 
-/* Asssumes that:
+/* Assumes that:
  *   ARG3 = arity
  *   ARG4 = fun thing */
 arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,

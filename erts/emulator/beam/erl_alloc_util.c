@@ -1781,7 +1781,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
                      * This carrier has just been given back to us by writing
                      * to crr->allctr with a write barrier (see abandon_carrier).
                      *
-                     * We need a mathing read barrier to guarantee a correct view
+                     * We need a matching read barrier to guarantee a correct view
                      * of the carrier for deallocation work.
                      */
                     act = erts_atomic_cmpxchg_rb(&crr->allctr,
@@ -3080,7 +3080,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
     }
 
     if (cand_blk_sz < get_blk_sz) {
-	/* We wont fit in cand_blk get a new one */
+	/* We won't fit in cand_blk get a new one */
 
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 
@@ -3154,7 +3154,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 	    /*
 	     * Copy user-data then update new blocks in mbc_alloc_finalize().
 	     * mbc_alloc_finalize() may write headers at old location of
-	     * user data; therfore, order is important.
+	     * user data; therefore, order is important.
 	     */
 
 	    new_p = BLK2UMEM(new_blk);

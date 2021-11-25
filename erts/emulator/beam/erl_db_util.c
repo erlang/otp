@@ -1930,7 +1930,7 @@ restart:
     ** stack ---> +             +
     **              ..........
     **            +-------------+
-    ** The stack is expected to grow towards *higher* adresses.
+    ** The stack is expected to grow towards *higher* addresses.
     ** A special case is when the match expression is a single binding
     ** (i.e '$1').
     */

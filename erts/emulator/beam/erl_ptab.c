@@ -828,8 +828,8 @@ cleanup_ptab_list_bif_data(Binary *bp)
 
 	    if (ptdep->prev) {
 		/*
-		 * Only remove this bif invokation when we
-		 * have preceding invokations.
+		 * Only remove this bif invocation when we
+		 * have preceding invocations.
 		 */
 		ptdep->prev->next = ptdep->next;
 		if (ptdep->next)
@@ -851,7 +851,7 @@ cleanup_ptab_list_bif_data(Binary *bp)
 	    }
 	    else {
 		/*
-		 * Free all elements until next bif invokation
+		 * Free all elements until next bif invocation
 		 * is found.
 		 */
 		ERTS_PTAB_LIST_ASSERT(ptab->list.data.deleted.start == ptdep);
@@ -1477,7 +1477,7 @@ erts_debug_ptab_list(Process *c_p, ErtsPTab *ptab)
     hp = HAlloc(c_p, need); /* we need two heap words for each id */
     hp_end = hp + need;
      
-    /* make the list by scanning bakward */
+    /* make the list by scanning backward */
 
 
     for (i = ptab->r.o.max-1; i >= 0; i--) {

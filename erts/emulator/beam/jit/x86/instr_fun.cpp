@@ -315,7 +315,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
     a.jmp(target);
 }
 
-/* Asssumes that:
+/* Assumes that:
  *   ARG3 = arity
  *   ARG4 = fun thing */
 x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,

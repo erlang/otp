@@ -264,7 +264,7 @@ is_number Fail Literal=q => move Literal x | is_number Fail x
 jump f
 
 #
-# Expection rasing instructions. Infrequently executed.
+# Exception raising instructions. Infrequently executed.
 #
 
 %cold
@@ -1092,7 +1092,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
 i_bs_get_float2 xy f? t s t d
 
-# Miscellanous
+# Miscellaneous
 
 bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => skip_bits2(Fail, Ms, Sz, Unit, Flags)
 

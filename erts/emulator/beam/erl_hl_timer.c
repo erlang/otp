@@ -2182,7 +2182,7 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
              * callers message queue to the end of the queue.
              *
              * NOTE: It is of vital importance that the caller
-             *       immediately do a receive unconditionaly
+             *       immediately do a receive unconditionally
              *       waiting for the message with the reference;
              *       otherwise, next receive will *not* work
              *       as expected!

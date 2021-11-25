@@ -31,7 +31,7 @@
  *      The current 'active' code index is used to access the current running
  *      code. The 'staging' code index is used by the process that performs
  *      a code change operation. When a code change operation completes
- *      succesfully, the staging code index becomes the new active code index.
+ *      successfully, the staging code index becomes the new active code index.
  *
  *      The third code index is not explicitly used. It can be thought of as
  *      the "previous active" or the "next staging" index. It is needed to make

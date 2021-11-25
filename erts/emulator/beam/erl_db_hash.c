@@ -3273,7 +3273,7 @@ static void calc_shrink_limit(DbTableHash* tb)
         */
         /* square of z-score 95% confidence */
         /* const double z2 = 1.96*1.96; */
-        /* Estimated propotion used buckets */
+        /* Estimated proportion used buckets */
         /* const double p = 0.5; */
         /* margin of error */
         /* const double moe = 0.1; */
@@ -4010,7 +4010,7 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
     stats->avg_chain_len = (float)sum / NACTIVE(tb);	
     stats->std_dev_chain_len = sqrt((sq_sum - stats->avg_chain_len*sum) / NACTIVE(tb));
     /* Expected	standard deviation from a good uniform hash function, 
-       ie binomial distribution (not taking the linear hashing into acount) */
+       ie binomial distribution (not taking the linear hashing into account) */
     stats->std_dev_expected = sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));
     stats->kept_items = kept_items;
 }

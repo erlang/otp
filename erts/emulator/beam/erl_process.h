@@ -283,7 +283,7 @@ typedef enum {
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
- * order relative eachother. Most frequent at lowest at lowest
+ * order relative each other. Most frequent at lowest at lowest
  * index.
  *
  * ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX *need* to be
@@ -1065,7 +1065,7 @@ struct process {
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
 #ifdef USE_VM_PROBES
-    Eterm dt_utag;              /* Place to store the dynamc trace user tag */
+    Eterm dt_utag;              /* Place to store the dynamic trace user tag */
     Uint dt_utag_flags;         /* flag field for the dt_utag */
 #endif
     union {
@@ -1254,7 +1254,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_IN_RUNQ		ERTS_PSFLG_BIT(8)
 /* RUNNING - Executing in process_main() */
 #define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(9)
-/* SUSPENDED - Process suspended; supress active but
+/* SUSPENDED - Process suspended; suppress active but
    not active-sys nor dirty-active-sys */
 #define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(10)
 /* GC - gc */
@@ -2515,7 +2515,7 @@ erts_init_runq_proc(Process *p, ErtsRunQueue *rq, int bnd)
  * @param bndp[in,out]  Pointer to integer. On input non-zero
  *                      value causes the process to be bound to
  *                      the run-queue. On output, indicating
- *                      wether process previously was bound or
+ *                      whether process previously was bound or
  *                      not.
  * @return              Previous run-queue.
  */
@@ -2594,7 +2594,7 @@ erts_bind_runq_proc(Process *p, int bind)
 }
 
 /**
- * Determine wether a process is bound to a run-queue or not.
+ * Determine whether a process is bound to a run-queue or not.
  *
  * @return              Returns a non-zero value if bound,
  *                      and zero of not bound.
@@ -2616,7 +2616,7 @@ erts_proc_runq_is_bound(Process *p)
  *                      value if the process is bound to the
  *                      run-queue.
  * @return              Pointer to the normal run-queue that
- *                      the process currently is assigend to.
+ *                      the process currently is assigned to.
  *                      A process is always assigned to a
  *                      normal run-queue.
  */

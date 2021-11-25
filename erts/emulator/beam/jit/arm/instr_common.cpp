@@ -188,7 +188,7 @@ void BeamModuleAssembler::emit_test_heap(const ArgVal &Nh, const ArgVal &Live) {
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
-    /* This is implictly global; it does not normally appear in modules and
+    /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
     emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
@@ -210,7 +210,7 @@ void BeamModuleAssembler::emit_normal_exit() {
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
-    /* This is implictly global; it does not normally appear in modules and
+    /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>(0);

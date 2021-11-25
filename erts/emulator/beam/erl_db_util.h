@@ -521,7 +521,7 @@ typedef struct dmc_err_info {
 ** Compilation flags
 **
 ** The dialect is in the 3 least significant bits and are to be interspaced by
-** by at least 2 (decimal), thats why ((Uint) 2) isn't used. This is to be 
+** by at least 2 (decimal), that's why ((Uint) 2) isn't used. This is to be 
 ** able to add DBIF_GUARD or DBIF BODY to it to use in the match_spec bif
 ** table. The rest of the word is used like ordinary flags, one bit for each 
 ** flag. Note that DCOMP_TABLE and DCOMP_TRACE are mutually exclusive.

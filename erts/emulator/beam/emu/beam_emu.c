@@ -122,7 +122,7 @@ ErtsCodePtr beam_continue_exit;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
-**      for the referring variable (one of these), and rouge references
+**      for the referring variable (one of these), and rogue references
 **      will most likely cause chaos.
 */
 

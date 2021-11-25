@@ -33,7 +33,7 @@
  * 1. uint16_t and uint32_t have been rewritten to Uint16 and Uint32
  * 2. Mixed declarations were moved to the top to avoid warnings
  * 3. inline was rewritten as ERTS_INLINE
- * 4. UINT16_C(x) and UINT32_C(x) were rewriten to xU as we don't support 16bits platform
+ * 4. UINT16_C(x) and UINT32_C(x) were rewritten to xU as we don't support 16bits platform
  */
 
 static ERTS_INLINE float fp32_from_bits(Uint32 w) {
@@ -180,7 +180,7 @@ static ERTS_INLINE float fp16_ieee_to_fp32_value(Uint16 h) {
      * A normalized single-precision floating-point number is represented as:
      *    FP32 = (1 + mantissa * 2**(-23)) * 2**(exponent - 127)
      * Therefore, when the biased exponent is 126, a unit change in the mantissa of the input denormalized half-precision
-     * number causes a change of the constructud single-precision number by 2**(-24), i.e. the same ammount.
+     * number causes a change of the constructud single-precision number by 2**(-24), i.e. the same amount.
      *
      * The last step is to adjust the bias of the constructed single-precision number. When the input half-precision number
      * is zero, the constructed single-precision number has the value of

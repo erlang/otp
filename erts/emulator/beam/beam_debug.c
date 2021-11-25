@@ -1134,7 +1134,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 	    Eterm *hp, sz;
 	    Eterm cpy;
 	    /* We do not want this to be optimized,
-	       but rather the oposite... */
+	       but rather the opposite... */
 	    sz = size_object(arg2);
 	    hp = HAlloc(c_p, sz);
 	    cpy = copy_struct(arg2, sz, &hp, &c_p->off_heap);

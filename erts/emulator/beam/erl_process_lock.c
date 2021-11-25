@@ -31,7 +31,7 @@
  *   queues.
  *     The bit field contains of a number of lock flags (L1, L2, ...)
  *   and a number of wait flags (W1, W2, ...). Each lock flag has a
- *   corresponding wait flag. The bit field isn't guarranteed to be
+ *   corresponding wait flag. The bit field isn't guaranteed to be
  *   larger than 32-bits which sets a maximum of 16 different locks
  *   per process. Currently, only 4 locks per process are used. The
  *   bit field is operated on by use of atomic operations (custom
@@ -221,9 +221,9 @@ dequeue_waiter(erts_proc_lock_t *lck, int ix)
 }
 
 /*
- * Tries to aquire as many locks as possible in lock order,
+ * Tries to acquire as many locks as possible in lock order,
  * and sets the wait flag on the first lock not possible to
- * aquire.
+ * acquire.
  *
  * Note: We need the pix lock during this operation. Wait
  *       flags are only allowed to be manipulated under pix
@@ -274,7 +274,7 @@ try_aquire(erts_proc_lock_t *lck, erts_tse_t *wtr)
 /*
  * Transfer 'trnsfr_lcks' held by this executing thread to other
  * threads waiting for the locks. When a lock has been transferred
- * we also have to try to aquire as many lock as possible for the
+ * we also have to try to acquire as many lock as possible for the
  * other thread.
  */
 static int
@@ -416,7 +416,7 @@ wait_for_locks(Process *p,
     check_queue(&p->lock);
 #endif
 
-    /* Try to aquire locks one at a time in lock order and set wait flag */
+    /* Try to acquire locks one at a time in lock order and set wait flag */
     try_aquire(&p->lock, wtr);
 
     ASSERT((wtr->uflgs & ~ERTS_PROC_LOCKS_ALL) == 0);
@@ -444,7 +444,7 @@ wait_for_locks(Process *p,
 
 	    /*
 	     * Wait for needed locks. When we are woken all needed locks have
-	     * have been acquired by other threads and transfered to us.
+	     * have been acquired by other threads and transferred to us.
 	     * However, we need to be prepared for spurious wakeups.
 	     */
 	    do {

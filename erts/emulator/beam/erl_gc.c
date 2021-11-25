@@ -335,7 +335,7 @@ erts_next_heap_size(Uint size, Uint offset)
 /*
  * Return the next heap size to use. Make sure we never return
  * a smaller heap size than the minimum heap size for the process.
- * (Use of the erlang:hibernate/3 BIF could have shrinked the
+ * (Use of the erlang:hibernate/3 BIF could have shrunk the
  * heap below the minimum heap size.)
  */
 static Uint

@@ -474,7 +474,7 @@ shift.execute(Fail, Dst) {
             HRelease(c_p, hp_end, hp);
             if (ERTS_UNLIKELY(is_nil(Op1))) {
                 /*
-                 * This result must have been only slighty larger
+                 * This result must have been only slightly larger
                  * than allowed since it wasn't caught by the
                  * previous test.
                  */

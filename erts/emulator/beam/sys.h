@@ -267,7 +267,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
  * static int test(){ return 0;}
  * GCC_DIAG_ON(unused-function)
  *
- * These macros were orginally authored by Jonathan Wakely and has
+ * These macros were originally authored by Jonathan Wakely and has
  * been modified by Patrick Horgan.
  *
  * Source: http://dbp-consulting.com/tutorials/SuppressingGCCWarnings.html
@@ -346,7 +346,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 ** Eterm: A tagged erlang term (possibly 64 bits)
 ** BeamInstr: A beam code instruction unit, possibly larger than Eterm, not smaller.
 ** Uint:  An unsigned integer exactly as large as an Eterm.
-** Sint:  A signed integer exactly as large as an eterm and therefor large
+** Sint:  A signed integer exactly as large as an eterm and therefore large
 **        enough to hold the return value of the signed_val() macro.
 ** UWord: An unsigned integer at least as large as a void * and also as large
 **          or larger than an Eterm
