@@ -43,6 +43,8 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 -export([format_error/2]).
+-export([pbkdf2_hmac/5]).
+
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
@@ -552,6 +554,18 @@ enable_fips_mode(Enable) ->
     enable_fips_mode_nif(Enable).
 
 enable_fips_mode_nif(_) -> ?nif_stub.
+
+-spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
+          when Digest :: sha | sha224 | sha256 | sha384 | sha512,
+               Pass :: binary(),
+               Salt :: binary(),
+               Iter :: pos_integer(),
+               KeyLen :: pos_integer(),
+               Result :: binary().
+pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) ->
+  pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen).
+
+pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 
 %%%================================================================
 %%%
