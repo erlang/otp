@@ -37,6 +37,7 @@ struct digest_type_t {
 
 /* masks in the flags field if digest_type_t */
 #define NO_FIPS_DIGEST 1
+#define PBKDF2_ELIGIBLE_DIGEST 2
 
 #ifdef FIPS_SUPPORT
 # define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_MODE())

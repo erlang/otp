@@ -16,7 +16,6 @@
  * limitations under the License.
  *
  * %CopyrightEnd%
-
  */
 
 #include "common.h"
@@ -30,7 +29,6 @@ ERL_NIF_TERM pbkdf2_hmac_nif(ErlNifEnv* env, int argc,
     ErlNifBinary pass, salt, out;
     ErlNifUInt64 iter, keylen;
     struct digest_type_t* digp = NULL;
-    const EVP_MD* digest;
 
     ASSERT(argc == 5);
 
@@ -38,34 +36,8 @@ ERL_NIF_TERM pbkdf2_hmac_nif(ErlNifEnv* env, int argc,
         goto bad_arg;
     if (digp->md.p == NULL)
         goto bad_arg;
-
-    switch (EVP_MD_type(digp->md.p))
-    {
-    case NID_sha1:
-        digest = EVP_sha1();
-        break;
-#ifdef HAVE_SHA224
-    case NID_sha224:
-        digest = EVP_sha224();
-        break;
-#endif
-#ifdef HAVE_SHA256
-    case NID_sha256:
-        digest = EVP_sha256();
-        break;
-#endif
-#ifdef HAVE_SHA384
-    case NID_sha384:
-        digest = EVP_sha384();
-        break;
-#endif
-#ifdef HAVE_SHA512
-    case NID_sha512:
-        digest = EVP_sha512();
-        break;
-#endif
-    default:
-        goto err;
+    if ((digp->flags & PBKDF2_ELIGIBLE_DIGEST) == 0) {
+        goto bad_arg;
     }
 
     if (!enif_inspect_binary(env, argv[1], &pass))
@@ -87,7 +59,7 @@ ERL_NIF_TERM pbkdf2_hmac_nif(ErlNifEnv* env, int argc,
 
     if (!PKCS5_PBKDF2_HMAC((const char *)pass.data, pass.size,
                            salt.data, salt.size, iter,
-                           digest,
+                           digp->md.p,
                            keylen, out.data)) {
         enif_release_binary(&out);
         goto err;
