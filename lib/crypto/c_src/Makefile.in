@@ -111,7 +111,9 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/pkey$(TYPEMARKER).o \
 	$(OBJDIR)/rand$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o \
-	$(OBJDIR)/srp$(TYPEMARKER).o
+	$(OBJDIR)/srp$(TYPEMARKER).o \
+	$(OBJDIR)/pbkdf2_hmac$(TYPEMARKER).o
+
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(TYPEMARKER).o,$(CRYPTO_OBJS) $(CALLBACK_OBJS))
 

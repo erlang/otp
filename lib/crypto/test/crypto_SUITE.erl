@@ -110,6 +110,8 @@
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
          use_all_eddh_generate_compute/1,
+         pbkdf2_hmac/0,
+         pbkdf2_hmac/1,
 
          %% Others:
          aes_128_cbc/1,
@@ -191,7 +193,8 @@ all() ->
      rand_plugin_s,
      info,
      cipher_info,
-     hash_info
+     hash_info,
+     pbkdf2_hmac
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
@@ -4347,3 +4350,62 @@ try_enable_fips_mode(Config) ->
         not_supported ->
             {skip, "FIPS mode not supported"}
     end.
+
+pbkdf2_hmac() ->
+  [{doc, "Test the pbkdf2_hmac function"}].
+pbkdf2_hmac(Config) when is_list(Config) ->
+  try
+    F = fun (A, B, C, D) ->
+            binary:encode_hex(crypto:pbkdf2_hmac(sha, A, B, C, D))
+        end,
+    %% RFC 6070
+    <<"0C60C80F961F0E71F3A9B524AF6012062FE037A6">> =
+      F(<<"password">>, <<"salt">>, 1, 20),
+    <<"EA6C014DC72D6F8CCD1ED92ACE1D41F0D8DE8957">> =
+      F(<<"password">>, <<"salt">>, 2, 20),
+    <<"4B007901B765489ABEAD49D926F721D065A429C1">> =
+      F(<<"password">>, <<"salt">>, 4096, 20),
+    <<"EEFE3D61CD4DA4E4E9945B3D6BA2158C2634E984">> =
+      F(<<"password">>, <<"salt">>, 16777216, 20),
+    <<"3D2EEC4FE41C849B80C8D83662C0E44A8B291A964CF2F07038">> =
+      F(<<"passwordPASSWORDpassword">>, <<"saltSALTsaltSALTsaltSALTsaltSALTsalt">>, 4096, 25),
+    <<"56FA6AA75548099DCC37D7F03425E0C3">> =
+      F(<<"pass\0word">>, <<"sa\0lt">>, 4096, 16),
+
+    %% RFC 3962
+    <<"CDEDB5281BB2F801565A1122B2563515">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 16),
+    <<"CDEDB5281BB2F801565A1122B25635150AD1F7A04BB9F3A333ECC0E2E1F70837">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1, 32),
+    <<"01DBEE7F4A9E243E988B62C73CDA935D">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 16),
+    <<"01DBEE7F4A9E243E988B62C73CDA935DA05378B93244EC8F48A99E61AD799D86">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 2, 32),
+    <<"5C08EB61FDF71E4E4EC3CF6BA1F5512B">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 16),
+    <<"5C08EB61FDF71E4E4EC3CF6BA1F5512BA7E52DDBC5E5142F708A31E2E62B1E13">> =
+      F(<<"password">>, <<"ATHENA.MIT.EDUraeburn">>, 1200, 32),
+    <<"D1DAA78615F287E6A1C8B120D7062A49">> =
+      F(<<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 16),
+    <<"D1DAA78615F287E6A1C8B120D7062A493F98D203E6BE49A6ADF4FA574B6E64EE">> =
+      F(<<"password">>, binary:encode_unsigned(16#1234567878563412), 5, 32),
+    <<"139C30C0966BC32BA55FDBF212530AC9">> =
+      F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+        <<"pass phrase equals block size">>, 1200, 16),
+    <<"139C30C0966BC32BA55FDBF212530AC9C5EC59F1A452F5CC9AD940FEA0598ED1">> =
+      F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+        <<"pass phrase equals block size">>, 1200, 32),
+    <<"9CCAD6D468770CD51B10E6A68721BE61">> =
+      F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+        <<"pass phrase exceeds block size">>, 1200, 16),
+    <<"9CCAD6D468770CD51B10E6A68721BE611A8B4D282601DB3B36BE9246915EC82A">> =
+      F(<<"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">>,
+        <<"pass phrase exceeds block size">>, 1200, 32),
+    <<"6B9CF26D45455A43A5B8BB276A403B39">> =
+      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 16),
+    <<"6B9CF26D45455A43A5B8BB276A403B39E7FE37A0C41E02C281FF3069E1E94F52">> =
+      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32)
+  catch
+    error:{notsup,{"pbkdf2_hmac.c", _}, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"} ->
+            {skip, "No Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"}
+  end.
