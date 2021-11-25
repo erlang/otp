@@ -643,7 +643,7 @@ find_dep_in_rel_dir(Dep, RelDirRoot) ->
                     ErrorMessage =
                         io_lib:format("ERROR: Could not find ~p in ~p (where it is supposed to be)."
                                       "Found ~p~n", [Dep, RelDirRoot, DepPaths]),
-                    io:format(ErrorMessage),
+                    io:format(lists:flatten(ErrorMessage)),
                     ct:fail(ErrorMessage)
 
             end;
