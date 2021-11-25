@@ -29,7 +29,7 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
-.PHONY: valgrind asan
+.PHONY: valgrind asan test
 
 opt debug valgrind asan gcov gprof lcnt frmptr icount:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
