@@ -506,7 +506,9 @@ supports(rsa_opts)    -> rsa_opts_algorithms().
 info_lib() -> ?nif_stub.
 
 %% info/0 and info_nif/0 are experimental. May disapear or change without warning.
-info() -> info_nif().
+info() -> 
+    (info_nif())#{otp_crypto_version => crypto:version()}.
+
 info_nif() -> ?nif_stub.
 
 
