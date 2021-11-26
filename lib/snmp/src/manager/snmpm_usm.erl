@@ -388,8 +388,10 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
 encrypt(Data, PrivProtocol, PrivKey, SecLevel, EngineBoots, EngineTime) ->
     case snmp_misc:is_priv(SecLevel) of
 	false -> % 3.1.4b
+            ?vtrace("encrypt -> [3.1.4b]"),
 	    {Data, []};
 	true -> % 3.1.4a
+            ?vtrace("encrypt -> [3.1.4a]"),
 	    case (catch try_encrypt(PrivProtocol, PrivKey, Data, EngineBoots, EngineTime)) of
 		{ok, ScopedPduData, MsgPrivParams} ->
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
