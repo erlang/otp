@@ -2441,15 +2441,22 @@ no_epmd(Config) when is_list(Config) ->
 epmd_module(Config) when is_list(Config) ->
     %% We need a relay node to test this, since the test node uses the
     %% standard epmd module.
-    {ok, Peer1, Node1} = ?CT_PEER(#{connection => 0, args => ["-setcookie", "NONE", "-epmd_module", ?MODULE_STRING]}),
-    %% Ask what port it's listening on - it won't have registered with
-    %% epmd.
+    {ok, Peer1, Node1} = ?CT_PEER(
+                            #{connection => 0,
+                              name => "epmd_module_node1",
+                              host => "dummy",
+                              args => ["-setcookie", "NONE", "-epmd_module", ?MODULE_STRING]}),
+    %% Ask what port it's listening on - it won't have registered with epmd.
     {ok, Port1} = peer:call(Peer1, application, get_env, [kernel, dist_listen_port]),
 
-    %% Start a second node, passing the port number as a secret
-    %% argument.
-    {ok, Peer2, Node2} = ?CT_PEER(#{connection => 0,
-        args => ["-setcookie", "NONE", "-epmd_module", ?MODULE_STRING, "-other_node_port", integer_to_list(Port1)]}),
+    %% Start a second node, passing the port number as a secret argument.
+    {ok, Peer2, Node2} = ?CT_PEER(
+                            #{connection => 0,
+                              name => "epmd_module_node2",
+                              host => "dummy",
+                              args => ["-setcookie", "NONE", "-epmd_module", ?MODULE_STRING,
+                                       "-other_node_port", integer_to_list(Port1)]}),
+
     %% Node 1 can't ping node 2
     pang = peer:call(Peer1, net_adm, ping, [Node2]),
     [] = peer:call(Peer1, erlang, nodes, []),
@@ -2489,10 +2496,11 @@ port_please(_Name, _Ip) ->
 	    {port, Port, Version}
     end.
 
-address_please(_Name, _Address, _AddressFamily) ->
+address_please(_Name, "dummy", inet) ->
     %% Use localhost.
-    IP = {127,0,0,1},
-    {ok, IP}.
+    {ok, {127,0,0,1}};
+address_please(_Name, "dummy", inet6) ->
+    {ok, {0,0,0,0,0,0,0,1}}.
 
 hopefull_data_encoding(Config) when is_list(Config) ->
     test_hopefull_data_encoding(Config, true),

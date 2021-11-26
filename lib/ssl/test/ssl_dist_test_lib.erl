@@ -121,9 +121,7 @@ start_ssl_node(Name, Args) ->
 	    case await_ssl_node_up(Name, LSock) of
 		#node_handle{} = NodeHandle ->
 		    test_server:format("Ssl node ~s started.~n", [Name]),
-		    NodeName = list_to_atom(Name ++ "@" ++ host_name()),
-		    NodeHandle#node_handle{nodename = NodeName,
-                                           logfile = LogFilePath,
+		    NodeHandle#node_handle{logfile = LogFilePath,
                                            dumpfile = DumpFilePath};
 		Error ->
 		    exit({failed_to_start_node, Name, Error})
@@ -187,31 +185,36 @@ await_ssl_node_up(Name, LSock) ->
     end.
 
 check_ssl_node_up(Socket, Name, Bin) ->
+    NodeName =
+        case string:find(Name,"@") of
+            nomatch ->
+                list_to_atom(Name++"@"++host_name());
+            _ ->
+                list_to_atom(Name)
+        end,
     case catch binary_to_term(Bin) of
 	{'EXIT', _} ->
 	    gen_tcp:close(Socket),
 	    exit({bad_data_received_from_ssl_node, Name, Bin});
 	{ssl_node_up, NodeName} ->
-	    case list_to_atom(Name++"@"++host_name()) of
-		NodeName ->
-		    Parent = self(),
-		    Go = make_ref(),
-		    %% Spawn connection handler on test server side
-		    Pid = spawn(
-			    fun () ->
-                                    link(group_leader()),
-				    receive Go -> ok end,
-                                    process_flag(trap_exit, true),
-				    tstsrvr_con_loop(Name, Socket, Parent)
-			    end),
-		    ok = gen_tcp:controlling_process(Socket, Pid),
-		    Pid ! Go,
-		    #node_handle{connection_handler = Pid,
-				 socket = Socket,
-				 name = Name};
-		_ ->
-		    exit({unexpected_ssl_node_connected, NodeName})
-	    end;
+            Parent = self(),
+            Go = make_ref(),
+            %% Spawn connection handler on test server side
+            Pid = spawn(
+                    fun () ->
+                            link(group_leader()),
+                            receive Go -> ok end,
+                            process_flag(trap_exit, true),
+                            tstsrvr_con_loop(Name, Socket, Parent)
+                    end),
+            ok = gen_tcp:controlling_process(Socket, Pid),
+            Pid ! Go,
+            #node_handle{connection_handler = Pid,
+                         socket = Socket,
+                         nodename = NodeName,
+                         name = Name};
+        {ssl_node_up, OtherNodeName} ->
+            exit({unexpected_ssl_node_connected, OtherNodeName});
 	Msg ->
 	    exit({unexpected_msg_instead_of_ssl_node_up, Name, Msg})
     end.

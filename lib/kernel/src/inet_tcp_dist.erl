@@ -39,9 +39,6 @@
 
 -include("net_address.hrl").
 
-
-
-
 -include("dist.hrl").
 -include("dist_util.hrl").
 
@@ -54,10 +51,13 @@ select(Node) ->
     gen_select(inet_tcp, Node).
 
 gen_select(Driver, Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_, Host] ->
-	    case inet:getaddr(Host, Driver:family()) of
-                {ok,_} -> true;
+    case dist_util:split_node(Node) of
+	{node, Name, Host} ->
+            case call_epmd_function(
+                   net_kernel:epmd_module(), address_please,
+                   [Name, Host, Driver:family()]) of
+                {ok, _Addr} -> true;
+                {ok, _Addr, _Port, _Creation} -> true;
                 _ -> false
             end;
 	_ -> false
