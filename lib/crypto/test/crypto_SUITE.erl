@@ -686,35 +686,20 @@ make_crypto_key(String) ->
     {[K1,K2,K3],IVec,8}.
 %%--------------------------------------------------------------------
 %% Test that a spawned node has initialized the cache
--define(at_node, 
-        (fun(N, M, F, As) ->
-                 R = rpc:call(N, M, F, As),
-                 ct:log("~p ~p ~p:~p(~s) = ~p", [?LINE,N,M,F,args2list(As), R]),
-                 R
-         end) ).
-args2list(As) -> lists:join(", ", [io_lib:format("~p",[A]) || A <- As]).
 
 node_supports_cache(_Config) ->
     ECs = crypto:supports(curves),
-    {ok,Node} = start_slave_node(random_node_name(?MODULE)),
-    case ?at_node(Node, crypto, supports, [curves]) of
+    {ok,Peer,Node} = ?CT_PEER(),
+    case erpc:call(Node, crypto, supports, [curves]) of
         ECs ->
-            test_server:stop_node(Node);
+            peer:stop(Peer);
         OtherECs ->
+            peer:stop(Peer),
             ct:log("At master:~p~nAt slave:~p~n"
                    "Missing at slave: ~p~nmissing at master: ~p",
                    [ECs, OtherECs, ECs--OtherECs, OtherECs--ECs]),
             {fail, "different support at slave"}
     end.
-
-
-start_slave_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, " -pa " ++ Pa}]).
-
-random_node_name(BaseName) ->
-    L = integer_to_list(erlang:unique_integer([positive])),
-    lists:concat([BaseName,"___",L]).
 
 %%--------------------------------------------------------------------
 hash() ->
