@@ -539,8 +539,15 @@ supports(rsa_opts)    -> rsa_opts_algorithms().
                                                 VerStr :: binary() .
 info_lib() -> ?nif_stub.
 
-%% info/0 and info_nif/0 are experimental. May disapear or change without warning.
-info() -> info_nif().
+-spec info() -> #{compile_type := normal | debug | valgrind | asan,
+                 cryptolib_version_compiled => string() | undefined,
+                  cryptolib_version_linked := string(),
+                  link_type := dynamic | static,
+                  otp_crypto_version := string()
+                 }.
+info() -> 
+    (info_nif())#{otp_crypto_version => crypto:version()}.
+
 info_nif() -> ?nif_stub.
 
 
