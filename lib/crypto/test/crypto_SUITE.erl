@@ -448,10 +448,11 @@ init_per_suite(Config) ->
     try is_ok(crypto:start()) of
 	ok ->
             catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
-            catch ct:log("crypto:info_lib() -> ~p~n"
-                         "crypto:supports() -> ~p~n"
+            catch ct:log("crypto:info()     -> ~p~n"
+                         "crypto:info_lib() -> ~p~n"
                          "crypto:version()  -> ~p~n"
-                        ,[crypto:info_lib(), crypto:supports(), crypto:version()]),
+                         "crypto:supports() -> ~p~n"
+                        ,[crypto:info(), crypto:info_lib(), crypto:version(), crypto:supports()]),
 
 	    try crypto:strong_rand_bytes(1) of
 		_ ->
