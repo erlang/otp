@@ -1634,7 +1634,7 @@ config_file(Config) ->
             ct:log("c2.config:~n~s", [Cnfs]),
 
             %% Start the slave node with the configuration just made:
-            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+            {ok, Peer, Node} = ?CT_PEER(["-config", ConfFile]),
 
             R0 = rpc:call(Node, ssh, default_algorithms, []),
             ct:log("R0 = ~p",[R0]),
@@ -1679,7 +1679,7 @@ config_file(Config) ->
             {options,Os2} = rpc:call(Node, ssh, connection_info, [C2, options]),
             ct:log("C2 opts:~n~p~n~nalgorithms:~n~p~n~noptions:~n~p", [C2_Opts,As2,Os2]),
 
-            stop_node_nice(Node)
+            peer:stop(Peer)
     end.
     
 %%%----------------------------------------------------------------
@@ -1732,7 +1732,7 @@ config_file_modify_algorithms_order(Config) ->
             ct:log("c3.config:~n~s", [Cnfs]),
 
             %% Start the slave node with the configuration just made:
-            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+            {ok, Peer, Node} = ?CT_PEER(["-config", ConfFile]),
     
             R0 = rpc:call(Node, ssh, default_algorithms, []),
             ct:log("R0 = ~p",[R0]),
@@ -1772,7 +1772,7 @@ config_file_modify_algorithms_order(Config) ->
             %% And now, are all levels appied in right order:
             [K3,K2] = proplists:get_value(kex, ConnPrefAlgs),
 
-            stop_node_nice(Node)
+            peer:stop(Peer)
     end.
 
     
@@ -1780,21 +1780,6 @@ config_file_modify_algorithms_order(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-start_node(Name, ConfigFile) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, 
-                                          " -pa " ++ Pa ++ 
-                                          " -config " ++ ConfigFile}]).
-
-stop_node_nice(Node) when is_atom(Node) ->
-    test_server:stop_node(Node).
-
-random_node_name(BaseName) ->
-    L = integer_to_list(erlang:unique_integer([positive])),
-    lists:concat([BaseName,"___",L]).
-
-%%%----
-  
 expected_ssh_vsn(Str) ->
     try
 	{ok,L} = application:get_all_key(ssh),
