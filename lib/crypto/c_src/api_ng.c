@@ -739,7 +739,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                         goto err;
                     }
 
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef HAS_3_0_API
                 if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
                     ret = EXCP_ERROR(env, "Can't copy ctx_res");
                     goto err;

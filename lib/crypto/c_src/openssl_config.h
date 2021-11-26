@@ -51,6 +51,9 @@
 #include <openssl/err.h>
 #include "openssl_version.h"
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+# define HAS_3_0_API
+#endif
 
 /* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
  * with 1.0.1.
@@ -179,12 +182,12 @@
 #endif
 
 #if !defined(OPENSSL_NO_BF) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_BF
 #endif
 
 #if !defined(OPENSSL_NO_DES) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_DES
 #endif
 
@@ -205,7 +208,7 @@
 #endif
 
 #if !defined(OPENSSL_NO_MD4) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_MD4
 #endif
 
@@ -214,19 +217,19 @@
 #endif
 
 #if !defined(OPENSSL_NO_RC2) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_RC2
 #endif
 
 #if !defined(OPENSSL_NO_RC4) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_RC4
 #endif
 
 #if !defined(OPENSSL_NO_RMD160) && \
     !defined(OPENSSL_NO_RIPEMD160) && \
     !defined(OPENSSL_NO_RIPEMD) && \
-    OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    !defined(HAS_3_0_API)
 # define HAVE_RIPEMD160
 #endif
 
@@ -251,7 +254,7 @@
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c') \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    && !defined(HAS_3_0_API)
 # define HAVE_AES_IGE
 #endif
 
@@ -440,7 +443,7 @@ do {                                                    \
 
 
 /* This is not the final FIPS adaptation for 3.0, just making it compilable */
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifdef HAS_3_0_API
 # undef FIPS_SUPPORT
 #endif
 
