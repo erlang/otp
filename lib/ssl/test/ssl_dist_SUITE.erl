@@ -58,7 +58,9 @@
          verify_fun_fail/0,
          verify_fun_fail/1,
          verify_fun_pass/0,
-         verify_fun_pass/1
+         verify_fun_pass/1,
+         epmd_module/0,
+         epmd_module/1
          ]).
 
 %% Apply export
@@ -75,6 +77,12 @@
          verify_pass_always/3,
          verify_fail_always/3]).
 
+%% Epmd module export
+-export([start_link/0,
+         register_node/2,
+         register_node/3,
+         port_please/2,
+         address_please/3]).
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 -define(AWAIT_SSL_NODE_UP_TIMEOUT, 30000).
@@ -102,7 +110,8 @@ all() ->
      connect_options,
      use_interface,
      verify_fun_fail,
-     verify_fun_pass
+     verify_fun_pass,
+     epmd_module
     ].
 
 init_per_suite(Config0) ->
@@ -382,6 +391,53 @@ verify_fun_pass(Config) when is_list(Config) ->
     gen_dist_test(verify_fun_pass_test, [{tls_verify_opts, AddTLSVerifyOpts} | Config]).
 
 %%--------------------------------------------------------------------
+epmd_module() ->
+    [{doc,"Test that custom epmd_modules work"}].
+epmd_module(Config0) when is_list(Config0) ->
+    Config = [{hostname, "dummy"} | Config0],
+    NH1 = start_ssl_node(Config, "-epmd_module " ++ atom_to_list(?MODULE)),
+    NH2 = start_ssl_node(Config, "-epmd_module " ++ atom_to_list(?MODULE)),
+
+    {ok, Port1} = apply_on_ssl_node(NH1, fun() -> application:get_env(kernel, dist_listen_port) end),
+    {ok, Port2} = apply_on_ssl_node(NH2, fun() -> application:get_env(kernel, dist_listen_port) end),
+    apply_on_ssl_node(NH1, fun() -> application:set_env(kernel, dist_connect_port, Port2) end),
+    apply_on_ssl_node(NH2, fun() -> application:set_env(kernel, dist_connect_port, Port1) end),
+
+    try
+        basic_test(NH1, NH2, Config)
+    catch
+	_:Reason ->
+	    stop_ssl_node(NH1),
+	    stop_ssl_node(NH2),
+	    ct:fail(Reason)
+    end,
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),	
+    success(Config).
+
+start_link() ->
+    ignore.
+
+register_node(Name, Port) ->
+    register_node(Name, Port, inet_tcp).
+register_node(_Name, Port, _Driver) ->
+    %% Save the port number we're listening on.
+    application:set_env(kernel, dist_listen_port, Port),
+    Creation = rand:uniform(3),
+    {ok, Creation}.
+
+port_please(_Name, _Ip) ->
+    {ok, Port} = application:get_env(kernel, dist_connect_port),
+    {port, Port, 5}.
+
+address_please(_Name, "dummy", AddressFamily) ->
+    %% Use localhost.
+    {ok,Host} = inet:gethostname(),
+    inet:getaddr(Host, AddressFamily);
+address_please(_, _, _) ->
+    {error, nxdomain}.
+
+%%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
 gen_dist_test(Test, Config) ->
@@ -653,11 +709,17 @@ start_ssl_node(Config, XArgs) ->
 mk_node_name(Config) ->
     N = erlang:unique_integer([positive]),
     Case = proplists:get_value(testcase, Config),
+    Hostname =
+        case proplists:get_value(hostname, Config) of
+            undefined -> "";
+            Host -> "@" ++ Host
+        end,
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
 	++ "_"
-	++ integer_to_list(N).
+	++ integer_to_list(N) ++ Hostname.
+
 
 setup_certs(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

@@ -53,15 +53,7 @@ select(Node) ->
     gen_select(inet_tcp, Node).
 
 gen_select(Driver, Node) ->
-    case dist_util:split_node(Node) of
-        {node,_,Host} ->
-	    case Driver:getaddr(Host) of
-		{ok, _} -> true;
-		_ -> false
-	    end;
-        _ ->
-            false
-    end.
+    inet_tcp_dist:gen_select(Driver, Node).
 
 %% ------------------------------------------------------------
 %% Get the address family that this distribution uses
@@ -582,8 +574,8 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
     Opts =  trace(connect_options(get_ssl_options(client))),
     dist_util:reset_timer(Timer),
     case ssl:connect(
-        Address, TcpPort,
-        [binary, {active, false}, {packet, 4},
+        Ip, TcpPort,
+        [binary, {active, false}, {packet, 4}, {server_name_indication, Address},
             Driver:family(), {nodelay, true}] ++ Opts,
         net_kernel:connecttime()) of
     {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
