@@ -1037,21 +1037,23 @@ nc_refc_check(Node) when is_atom(Node) ->
     Ref = make_ref(),
     Self = self(),
     io:format("Starting reference count check of node ~w~n", [Node]),
-    spawn_link(Node,
-               fun () ->
-                       erts_test_utils:check_node_dist(
-                         fun (ErrMsg) ->
-                                 Self ! {Ref, ErrMsg, failed},
-                                 exit(normal)
-                         end),
-                       Self ! {Ref, succeded}
-               end),
+    Pid = spawn_link(
+            Node,
+            fun () ->
+                    erts_test_utils:check_node_dist(
+                      fun (ErrMsg) ->
+                              Self ! {Ref, ErrMsg, failed},
+                              exit(normal)
+                      end),
+                    Self ! {Ref, succeded}
+            end),
     receive
         {Ref, ErrorMsg, failed} ->
             io:format("~s~n", [ErrorMsg]),
             ct:fail(reference_count_check_failed);
         {Ref, succeded} ->
             io:format("Reference count check of node ~w succeded!~n", [Node]),
+            unlink(Pid),
             ok
     end.
 
