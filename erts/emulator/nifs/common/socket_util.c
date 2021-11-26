@@ -35,7 +35,10 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+
+#ifndef __IOS__
 #include <net/if_arp.h>
+#endif
 
 #include "socket_int.h"
 #include "sys.h"
