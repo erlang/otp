@@ -1960,7 +1960,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="pbkdf2_hmac" arity="5" since=""/>
+      <name name="pbkdf2_hmac" arity="5" since="OTP @OTP-17808@"/>
       <fsummary>PBKDF2 in combination with HMAC</fsummary>
       <desc>
         <p>
