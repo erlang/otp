@@ -1218,8 +1218,29 @@ yeccpre(Config) when is_list(Config) ->
                 ok.
            ">>,
            default,
+           ok},
+
+          {error_3, <<"
+            Nonterminals statement.
+            Terminals keyword string.
+            Rootsymbol statement.
+
+            statement -> keyword string.
+
+            Erlang code.
+
+            -export([t/0]).
+
+            t() ->
+                %% Never crash in yecctoken_to_string/1 or its helpers,
+                %% even if when tokens are not in the format that erl_scan
+                %% produces.
+                {error, _} = parse([{string, 1, <<\"foo\">>}]),
+                ok.
+           ">>,
+           default,
            ok}],
-       
+
     run(Config, Ts),
     ok.
 

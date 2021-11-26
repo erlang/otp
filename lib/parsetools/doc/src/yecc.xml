@@ -189,13 +189,13 @@
       text, and turns it into one or more lists of tokens. Each token
       should be a tuple containing information about syntactic
       category, position in the text (e.g. line number), and the
-      actual terminal symbol found in the text: <c>{Category, LineNumber, Symbol}</c>.</p>
+      actual terminal symbol found in the text: <c>{Category, Position, Symbol}</c>.</p>
     <p>If a terminal symbol is the only member of a category, and the
       symbol name is identical to the category name, the token format
-      may be <c>{Symbol, LineNumber}</c>.</p>
+      may be <c>{Symbol, Position}</c>.</p>
     <p>A list of tokens produced by the scanner should end with a
       special <c>end_of_input</c> tuple which the parser is looking
-      for. The format of this tuple should be <c>{Endsymbol, LastLineNumber}</c>, where <c>Endsymbol</c> is an identifier
+      for. The format of this tuple should be <c>{Endsymbol, EndPosition}</c>, where <c>Endsymbol</c> is an identifier
       that is distinguished from all the terminal and non-terminal
       categories of the syntax rules. The <c>Endsymbol</c> may be
       declared in the grammar file (see below).</p>
@@ -408,7 +408,7 @@ myparser:parse(myscanner:scan(Inport))    </code>
       default file <c>lib/parsetools/include/yeccpre.hrl</c>.</p>
     <p>With the standard prologue, this call will return either
       <c>{ok, Result}</c>, where <c>Result</c> is a structure that the
-      Erlang code of the grammar file has built, or <c>{error, {Line_number, Module, Message}}</c> if there was a syntax error
+      Erlang code of the grammar file has built, or <c>{error, {Position, Module, Message}}</c> if there was a syntax error
       in the input.</p>
     <p><c>Message</c> is something which may be converted into a
       string by calling <c>Module:format_error(Message)</c>
@@ -433,13 +433,13 @@ myparser:parse_and_scan({Mod, Tokenizer, Args})    </code>
     <p>The tokenizer used above has to be implemented so as to return
       one of the following:</p>
     <code type="none">
-{ok, Tokens, Endline}
-{eof, Endline}
-{error, Error_description, Endline}    </code>
+{ok, Tokens, EndPosition}
+{eof, EndPosition}
+{error, Error_description, EndPosition}    </code>
     <p>This conforms to the format used by the scanner in the Erlang
       <c>io</c> library module.</p>
-    <p>If <c>{eof, Endline}</c> is returned immediately, the call to
-      <c>parse_and_scan/1</c> returns <c>{ok, eof}</c>. If <c>{eof, Endline}</c> is returned before the parser expects end of input,
+    <p>If <c>{eof, EndPosition}</c> is returned immediately, the call to
+      <c>parse_and_scan/1</c> returns <c>{ok, eof}</c>. If <c>{eof, EndPosition}</c> is returned before the parser expects end of input,
       <c>parse_and_scan/1</c> will, of course, return an error message
       (see above). Otherwise <c>{ok, Result}</c> is returned.</p>
   </section>
@@ -541,7 +541,7 @@ line_of(Token) ->
         rules, and an error is thrown (and caught by the generated
         parser to produce an error message) when a test fails. The
         same effect can be achieved with a call to
-        <c>return_error(Error_line, Message_string)</c>, which is
+        <c>return_error(ErrorPosition, Message_string)</c>, which is
         defined in the <c>yeccpre.hrl</c> default header file.</p>
     </note>
   </section>
