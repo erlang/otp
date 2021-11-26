@@ -70,6 +70,8 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
     UsmSecParams =
 	case (catch snmp_pdus:dec_usm_security_parameters(SecParams)) of
 	    {'EXIT', Reason} ->
+                ?vlog("Failed decode USM security parameters: "
+                      "~n      ~p", [Reason]),
 		inc(snmpInASNParseErrs),
 		error({parseError, Reason}, []);
 	    Res ->
@@ -89,6 +91,8 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 	true ->
 	    ok;
 	false ->
+            ?vlog("Unknown USM engine id: "
+                  "~n      ~p", [MsgAuthEngineID]),
 	    SecData1 = [MsgUserName],
 	    error(usmStatsUnknownEngineIDs, 
 		  ?usmStatsUnknownEngineIDs_instance,
@@ -102,6 +106,9 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 	    {ok, User} ->
 		User;
 	    _ -> % undefined user
+                ?vlog("Unknown USM user: "
+                      "~n      Auth Engine ID: ~p"
+                      "~n      User Name:      ~p", [MsgAuthEngineID, MsgUserName]),
 		SecData2 = [MsgUserName],
 		error(usmStatsUnknownUserNames, 
 		      ?usmStatsUnknownUserNames_instance, %% OTP-3542
@@ -159,6 +166,8 @@ authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel) ->
 		true -> 
 		    ok;
 		false -> 
+                    ?vlog("Not authenticated: "
+                          "~n      Sec Name: ~p", [SecName]),
 		    error(usmStatsWrongDigests,
 			  ?usmStatsWrongDigests_instance, SecName)
 	    end;
@@ -170,6 +179,8 @@ authenticate_incoming(Packet, UsmSecParams, UsmUser, SecLevel) ->
 
 	    
 is_auth(usmNoAuthProtocol, _, _, _, SecName, _, _, _) -> % 3.2.5
+    ?vlog("auth: Unsupported security levels: "
+          "~n      Sec Name: ~p", [SecName]),
     error(usmStatsUnsupportedSecLevels,
 	  ?usmStatsUnsupportedSecLevels_instance, SecName);
 is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
@@ -200,6 +211,8 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 			    true;
 			%% OTP-4090 (OTP-3542)
 			false -> 
+                            ?vlog("Not in time window: "
+                                  "~n      Sec Name: ~p", [SecName]),
 			    error(usmStatsNotInTimeWindows,
 				  ?usmStatsNotInTimeWindows_instance,
 				  SecName,
@@ -282,6 +295,8 @@ do_decrypt(Data, #usm_user{sec_name = SecName,
     try_decrypt(PrivP, PrivKey, UsmSecParams, EncryptedPDU, SecName).
 
 try_decrypt(usmNoPrivProtocol, _, _, _, SecName) -> % 3.2.5
+    ?vlog("decrypt: Unsupported security levels: "
+          "~n      Sec Name: ~p", [SecName]),
     error(usmStatsUnsupportedSecLevels, 
 	  ?usmStatsUnsupportedSecLevels_instance, SecName);
 try_decrypt(usmDESPrivProtocol, 
@@ -290,7 +305,10 @@ try_decrypt(usmDESPrivProtocol,
     case (catch des_decrypt(PrivKey, MsgPrivParams, EncryptedPDU)) of
 	{ok, DecryptedData} ->
 	    DecryptedData;
-	_ ->
+	_Error ->
+            ?vlog("USM DES decrypt failed: "
+                  "~n      Sec Name: ~p"
+                  "~n      Error:    ~p", [SecName, _Error]),
 	    error(usmStatsDecryptionErrors, 
 		  ?usmStatsDecryptionErrors, SecName)
     end;
@@ -299,7 +317,10 @@ try_decrypt(usmAesCfb128Protocol,
     case (catch aes_decrypt(PrivKey, UsmSecParams, EncryptedPDU)) of
 	{ok, DecryptedData} ->
 	    DecryptedData;
-	_ ->
+	_Error ->
+            ?vlog("USM AES-CFB-128 decrypt failed: "
+                  "~n      Sec Name: ~p"
+                  "~n      Error:    ~p", [SecName, _Error]),
 	    error(usmStatsDecryptionErrors, 
 		  ?usmStatsDecryptionErrors, SecName)
     end.
@@ -336,7 +357,9 @@ generate_outgoing_msg(Message, SecEngineID, SecName, SecData, SecLevel) ->
 			 User#usm_user.priv,
  			 User#usm_user.priv_key};
 		    _ ->
-                        ?vlog("generate_outgoing_msg -> (usm) user not found"),
+                        ?vlog("[outgoing] Failed get USM User from sec name: "
+                              "~n      Sec Engine ID: ~p"
+                              "~n      Sec Name:      ~p", [SecEngineID, SecName]),
 			error(unknownSecurityName)
 		end;
 	    [MsgUserName] ->
@@ -396,17 +419,22 @@ encrypt(Data, PrivProtocol, PrivKey, SecLevel, EngineBoots, EngineTime) ->
 		{ok, ScopedPduData, MsgPrivParams} ->
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
 		{error, Reason} ->
-                    ?vlog("encrypt -> try encrypt error: "
-                          "~n      ~p", [Reason]),
+                    ?vlog("try encrypt error: "
+                          "~n      Protocol: ~p"
+                          "~n      Reason:   ~p", [PrivProtocol, Reason]),
 		    error(Reason);
-		_Unexpected ->
-                    ?vlog("encrypt -> try encrypt unexpected failure: "
-                          "~n      ~p", [_Unexpected]),
+		_Error ->
+                    ?vlog("try encrypt unexpected failure: "
+                          "~n      Protocol: ~p"
+                          "~n      Error:    ~p", [PrivProtocol, _Error]),
 		    error(encryptionError)
 	    end
     end.
 
 try_encrypt(usmNoPrivProtocol, _PrivKey, _Data, _EngineBoots, _EngineTime) -> % 3.1.2
+    ?vlog("encrypt: Unsupported security levels: "
+          "~n      Engine Boots: ~p"
+          "~n      Engine Time:  ~p", [_EngineBoots, _EngineTime]),
     error(unsupportedSecurityLevel);
 try_encrypt(usmDESPrivProtocol, PrivKey, Data, _EngineBoots, _EngineTime) ->
     des_encrypt(PrivKey, Data);
