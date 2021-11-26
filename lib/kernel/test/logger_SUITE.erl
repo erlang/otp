@@ -1005,7 +1005,7 @@ app_config(Config) ->
 
     ok.
 
-%% This test case is maintly to see code coverage. Note that
+%% This test case is mainly to see code coverage. Note that
 %% logger_env_var_SUITE tests a lot of the same, and checks the
 %% functionality more thoroughly, but since it all happens at node
 %% start, it is not possible to see code coverage in that test.

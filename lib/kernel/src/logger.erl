@@ -988,11 +988,19 @@ get_logger_level() ->
     end.
 
 get_primary_metadata() ->
-    case application:get_env(kernel,logger_default_metadata,#{}) of
-        Meta when is_map(Meta) ->
+    case application:get_env(kernel,logger_metadata) of
+        {ok, Meta} when is_map(Meta) ->
             Meta;
-        Meta ->
-            throw({logger_metadata, Meta})
+        {ok, Meta} ->
+            throw({logger_metadata, Meta});
+        undefined ->
+            %% This case is here to keep bug compatability. Can be removed in OTP 25.
+            case application:get_env(kernel,logger_default_metadata,#{}) of
+                Meta when is_map(Meta) ->
+                    Meta;
+                Meta ->
+                    throw({logger_metadata, Meta})
+            end
     end.
 
 get_primary_filter_default(Env) ->
