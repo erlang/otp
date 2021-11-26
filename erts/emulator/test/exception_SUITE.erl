@@ -145,6 +145,12 @@ pending({badarg,[{erlang,Bif,BifArgs,Loc1},
   when is_atom(Bif), is_list(BifArgs), length(Args) =:= Arity,
        is_list(Loc1), is_list(Loc2) ->
     ok;
+pending({badarith,[{erlang,Bif,BifArgs,Loc1},
+                   {?MODULE,Func,Arity,Loc2}|_]},
+        Func, Args, _Code)
+  when is_atom(Bif), is_list(BifArgs), length(Args) =:= Arity,
+       is_list(Loc1), is_list(Loc2) ->
+    ok;
 pending({undef,[{non_existing_module,foo,[],Loc}|_]}, _, _, _)
   when is_list(Loc) ->
     ok;
