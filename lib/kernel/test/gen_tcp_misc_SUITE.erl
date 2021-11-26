@@ -6573,7 +6573,7 @@ delay_send_error(Config, L, PortNum, Active) ->
           "localhost", PortNum,
           [{packet, 1}, {active, Active}, {delay_send, true}]),
     ?P("try accept"),
-    {ok, S} = gen_tcp:accept(L),
+    {ok, A} = gen_tcp:accept(L),
     %% Do a couple of sends first to see that it works
     ?P("send data"),
     ok = gen_tcp:send(C, "hello"),
@@ -6600,6 +6600,9 @@ delay_send_error(Config, L, PortNum, Active) ->
                     ?P("closed (expected)"),
             ok
     end,
+    ?P("close accepted socket"),
+    ok = gen_tcp:close(A),
+    ?P("close connected socket"),
     ok = gen_tcp:close(C).
 
 
