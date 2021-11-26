@@ -1153,6 +1153,27 @@
     </func>
 
     <func>
+      <name name="info" arity="0" since="OTP @OTP-17603@"/>
+      <fsummary>Provides information about crypto and the library used by crypto.</fsummary>
+      <desc>
+        <p>Provides a map with information about the compilation and linking of crypto.
+	</p>
+	<p>Example:</p>
+	<code>
+1> crypto:info().
+#{compile_type => normal,
+  cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
+  cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
+  link_type => dynamic,
+  otp_crypto_version => "5.0.2"}
+2>
+	</code>
+	<p>More association types than documented may be present in the map.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="info_lib" arity="0" since=""/>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <desc>
