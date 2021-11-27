@@ -255,9 +255,11 @@ or
     %% Code that will work in OTP 22 or higher
   -elif(?OTP_RELEASE >= 21).
     %% Code that will work in OTP 21 or higher
+  -else.
+    %% OTP 20 or lower.
   -endif.
 -else.
-  %% OTP 20 or lower.
+  %% OTP_RELEASE is not defined.
 -endif.
 ...</code>
     <p>The code uses the <c>OTP_RELEASE</c> macro to conditionally
