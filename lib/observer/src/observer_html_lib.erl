@@ -147,7 +147,7 @@ stackdump_table(Tab,{Label0,Term0},Even, Colors) ->
                    %% Return address or catch tag. It is known to be a
                    %% flat list, shortish, possibly containing characters
                    %% greater than 255.
-                   href_proc_port(Term0)
+                   href_proc_port(lists:flatten(io_lib:format("~tp", [Term0])))
            end,
     tr(color(Even, Colors), [td("VALIGN=center",pre(Label)), td(pre(Term))]).
 
