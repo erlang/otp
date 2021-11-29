@@ -182,6 +182,7 @@ groups() ->
      {all,                  [], all_cases()},
      {start_and_stop_tests, [], start_and_stop_tests_cases()},
      {misc_tests,           [], misc_tests_cases()},
+     {usm_priv_aes_tests,   [], usm_priv_aes_tests_cases()},
      {user_tests,           [], user_tests_cases()},
      {agent_tests,          [], agent_tests_cases()},
      {request_tests,        [], request_tests_cases()},
@@ -212,16 +213,17 @@ inet_backend_socket_cases() ->
 
 all_cases() -> 
     [
-     {group, start_and_stop_tests}, 
-     {group, misc_tests}, 
-     {group, user_tests}, 
-     {group, agent_tests}, 
-     {group, request_tests}, 
-     {group, request_tests_mt}, 
-     {group, event_tests}, 
-     {group, event_tests_mt}, 
-     discovery, 
-     {group, tickets}, 
+     {group, start_and_stop_tests},
+     {group, misc_tests},
+     {group, usm_priv_aes_tests},
+     {group, user_tests},
+     {group, agent_tests},
+     {group, request_tests},
+     {group, request_tests_mt},
+     {group, event_tests},
+     {group, event_tests_mt},
+     discovery,
+     {group, tickets},
      {group, ipv6},
      {group, ipv6_mt},
      {group, v3}
@@ -241,6 +243,11 @@ start_and_stop_tests_cases() ->
 misc_tests_cases() ->
     [
      info,
+     {group, usm_priv_aes_tests}
+    ].
+
+usm_priv_aes_tests_cases() ->
+    [
      usm_priv_aes,
      usm_sha224_priv_aes,
      usm_sha256_priv_aes,
@@ -480,6 +487,14 @@ init_per_group2(ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config);
 %% init_per_group2(v3 = GroupName, Config) ->
 %%     ?LIB:init_group_top_dir(GroupName, Config);
+init_per_group2(usm_priv_aes_tests = GroupName, Config) ->
+    %% Check crypto support
+    case snmp_misc:is_crypto_supported(aes_128_cfb128) of
+        true ->
+            ?LIB:init_group_top_dir(GroupName, Config);
+        false ->
+            throw({skip, {not_supported, aes_128_cfb128}})
+    end;
 init_per_group2(GroupName, Config) ->
     ?LIB:init_group_top_dir(GroupName, Config).
 
