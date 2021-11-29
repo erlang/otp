@@ -142,7 +142,7 @@ wx_filter(Undef) ->
     end.
 
 diameter_filter(Undef) ->
-    %% Filter away function calls that are catched.
+    %% Filter away function calls that are caught.
     filter(fun({{diameter_lib,_,_},{erlang,convert_time_unit,3}}) ->
                    false;
               ({{diameter_lib,_,_},{erlang,monotonic_time,0}}) ->
@@ -625,7 +625,7 @@ get_runtime_deps(App) ->
 %% Given a release dir find the path to the given dependency
 find_dep_in_rel_dir(Dep, RelDirRoot) ->
     %% The dependencies that we have found are cached to avoid
-    %% searching through the file system unecessary many times
+    %% searching through the file system unnecessary many times
     CacheId = runtime_dep_test_cache,
     DepCache =
         case erlang:get(CacheId) of
@@ -716,7 +716,7 @@ find_rel_root(Rel) ->
         OtpRelErl -> filename:dirname(filename:dirname(OtpRelErl))
     end.
 
-%% Find the absoulte paths to RuntimeDeps
+%% Find the absolute paths to RuntimeDeps
 get_paths_to_dependencies(App, RuntimeDeps) ->
     FirstAvailableOTPRel = first_available_otp_rel(),
     FirstAvailableRel = erlang:list_to_integer(FirstAvailableOTPRel),
@@ -753,7 +753,7 @@ get_paths_to_dependencies(App, RuntimeDeps) ->
 test_app_runtime_deps_versions(AppPath, App, IgnoredUndefinedFunctions) ->
     %% Get a list of all runtime dependencies for app
     RuntimeDeps = get_runtime_deps(App),
-    %% Get paths to the found runtime dependices
+    %% Get paths to the found runtime dependencies
     DepPaths = get_paths_to_dependencies(App, RuntimeDeps),
     XRefSName = test_app_runtime_deps_versions_server,
     %% Start xref server and do the test
