@@ -704,8 +704,8 @@ release_driver_data(DriverData* dp)
     else
 #endif
     {
-	/* This is a workaround for the fact that CancelIo cant cancel
-	   requests issued by another thread and that we cant use
+	/* This is a workaround for the fact that CancelIo can't cancel
+	   requests issued by another thread and that we can't use
 	   CancelIoEx as that's only available in Vista etc.
 	   R14: Avoid scheduler deadlock by only wait for 10ms, and then spawn
 	    a thread that will keep waiting in in order to close handles. */
@@ -1020,7 +1020,7 @@ async_read_file(AsyncIo* aio, LPVOID buf, DWORD numToRead)
 	aio->async_io_active = 1; /* Will get 0 when the event actually happened */
 	if (ReadFile(aio->fd, buf, numToRead,
 		     &aio->bytesTransferred, &aio->ov)) {
-	    DEBUGF(("async_read_file: ReadFile() suceeded: %d bytes\n",
+	    DEBUGF(("async_read_file: ReadFile() succeeded: %d bytes\n",
 		    aio->bytesTransferred));
 #ifdef HARD_POLL_DEBUG
 	    poll_debug_async_immediate(aio->ov.hEvent, aio->bytesTransferred);
@@ -1068,7 +1068,7 @@ async_write_file(AsyncIo* aio,		/* Pointer to async control block. */
 	aio->async_io_active = 1; /* Will get 0 when the event actually happened */
 	if (WriteFile(aio->fd, buf, numToWrite,
 		      &aio->bytesTransferred, &aio->ov)) {
-	    DEBUGF(("async_write_file: WriteFile() suceeded: %d bytes\n",
+	    DEBUGF(("async_write_file: WriteFile() succeeded: %d bytes\n",
 		    aio->bytesTransferred));
 	    aio->async_io_active = 0; /* The event will not be signalled */
 	    ResetEvent(aio->ov.hEvent);
@@ -1137,7 +1137,7 @@ get_overlapped_result(AsyncIo* aio,		/* Pointer to async control block. */
 	DEBUGF(("get_overlapped_result: pending error: %s\n",
 		win32_errorstr(error)));
 	return error;
-    } else if (aio->flags & DF_OVR_READY) { /* Operation succeded. */
+    } else if (aio->flags & DF_OVR_READY) { /* Operation succeeded. */
 	aio->flags &= ~DF_OVR_READY;
 	*pBytesRead = aio->bytesTransferred;
 	ResetEvent(aio->ov.hEvent);
@@ -1749,7 +1749,7 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
     Uint calls;
 
     /*
-     * If we should't use named pipes, create anonmous pipes.
+     * If we shouldn't use named pipes, create anonmous pipes.
      */
 
     if (!use_named_pipes) {
@@ -2052,7 +2052,7 @@ threaded_writer(LPVOID param)
 		aio->pendingError = 0;
 		aio->bytesTransferred = numToWrite;
 	    } else if (aio->pendingError == ERROR_NOT_ENOUGH_MEMORY) {
-		/* This could be a console, which limits utput to 64kbytes, 
+		/* This could be a console, which limits output to 64kbytes, 
 		   which might translate to less on a unicode system. 
 		   Try 16k chunks and see if it works before giving up. */
 		int done = 0;
@@ -2215,7 +2215,7 @@ static void fd_stop(ErlDrvData data)
   /*
    * There's no way we can terminate an fd port in a consistent way.
    * Instead we let it live until it's opened again (which it is,
-   * as the only FD-drivers are for 0,1 and 2 adn the only time they
+   * as the only FD-drivers are for 0,1 and 2 and the only time they
    * get closed is by init:reboot).
    * So - just deselect them and let everything be as is. 
    * They get woken up in fd_start again, where the DriverData is

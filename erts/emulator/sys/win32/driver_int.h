@@ -18,7 +18,7 @@
  * %CopyrightEnd%
  */
 /*----------------------------------------------------------------------
-** Purpose : System dependant driver declarations
+** Purpose : System dependent driver declarations
 **---------------------------------------------------------------------- */
 
 #ifndef __DRIVER_INT_H__
