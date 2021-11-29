@@ -46,9 +46,9 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
-    {{"sha"}, 0, {&EVP_sha1}},
+    {{"sha"}, PBKDF2_ELIGIBLE_DIGEST, {&EVP_sha1}},
 
-    {{"sha224"}, 0,
+    {{"sha224"}, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA224
      {&EVP_sha224}
 #else
@@ -56,7 +56,7 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
-    {{"sha256"}, 0,
+    {{"sha256"}, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA256
      {&EVP_sha256}
 #else
@@ -64,7 +64,7 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
-    {{"sha384"}, 0,
+    {{"sha384"}, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA384
      {&EVP_sha384}
 #else
@@ -72,7 +72,7 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
-    {{"sha512"}, 0,
+    {{"sha512"}, PBKDF2_ELIGIBLE_DIGEST,
 #ifdef HAVE_SHA512
      {&EVP_sha512}
 #else
