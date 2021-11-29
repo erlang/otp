@@ -422,6 +422,8 @@ Some of the available `configure` options are:
     and scalability compared to the default clock sources chosen.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
+*   `--enable-ei-dynamic-lib` - Make erl\_interface build a shared library in addition
+    to the archive normally built.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.

@@ -3083,9 +3083,18 @@ case $host_os in
 		DED_LDFLAGS="-Bshareable"
 	;;
 	darwin*)
-		# Mach-O linker: a shared lib and a loadable
-		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
+                  # EI sets this variable when building its .so file as beam.smp
+                  # has not been built yet and any ei lib will not
+                  # link to beam.smp anyways
+		  DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+                else
+                  # Cannot use flat namespaces for drivers/nifs as that may cause
+                  # symbols to collide during loading
+		  DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+                fi
 		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
 		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
 		# been built yet...

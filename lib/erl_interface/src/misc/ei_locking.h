@@ -32,7 +32,7 @@
 
 #ifdef HAVE_MIT_PTHREAD_H
 #include <pthread/mit/pthread.h>
-#elif HAVE_PTHREAD_H 
+#elif defined(HAVE_PTHREAD_H) && HAVE_PTHREAD_H
 #include <pthread.h>
 #endif
 
