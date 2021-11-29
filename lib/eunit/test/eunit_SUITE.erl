@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,eunit_test/1,surefire_utf8_test/1,surefire_latin_test/1,
 	 surefire_c0_test/1, surefire_ensure_dir_test/1,
-	 stacktrace_at_timeout_test/1]).
+	 stacktrace_at_timeout_test/1, eunit_duplicates_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -31,7 +31,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_test, appup_test, eunit_test, surefire_utf8_test, surefire_latin_test,
-     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test].
+     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test,
+     eunit_duplicates_test].
 
 groups() ->
     [].
@@ -90,6 +91,32 @@ stacktrace_at_timeout_test(Config) when is_list(Config) ->
             ct:fail(missing_stacktrace_in_surefire);
         _ ->
             ok
+    end.
+
+eunit_duplicates_test(Config) when is_list(Config) ->
+    LogFile = "eunit-events-duplicates.log",
+    ok = file:set_cwd(code:lib_dir(eunit)),
+    Tests = [[eunit, eunit_tests, eunit], eunit, eunit_tests, [eunit],
+             [eunit_tests], [eunit, eunit], [eunit, eunit_tests],
+             [eunit_tests, eunit], [eunit_tests, eunit_tests]],
+    case eunit_duplicates(LogFile, Tests) of
+    ok ->
+        ok;
+    {error, Test, Log} ->
+        ct:fail("Test point ~p must have only one event in:~n~p", [Test, Log])
+    end.
+
+eunit_duplicates(LogFile, []) ->
+    ok = file:delete(LogFile),
+    ok;
+eunit_duplicates(LogFile, [H|T]) ->
+    ok = eunit:test(H, [{event_log, LogFile}]),
+    {ok, Events} = file:consult(LogFile),
+    case [Event || Event = {_, [Count], _} <- Events, Count /= 1] of
+    [] ->
+        eunit_duplicates(LogFile, T);
+    [_|_] ->
+        {error, H, Events}
     end.
 
 check_surefire(Module) ->

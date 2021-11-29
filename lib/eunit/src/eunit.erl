@@ -145,7 +145,8 @@ test(Tests, Options) ->
 
 %% @private
 %% @doc See {@link test/2}.
-test(Server, Tests, Options) ->
+test(Server, Tests0, Options) ->
+    Tests = delete_duplicates(Tests0),
     Listeners = listeners(Options),
     Serial = eunit_serial:start(Listeners),
     case eunit_server:start_test(Server, Serial, Tests, Options) of
@@ -219,7 +220,7 @@ listeners(Options) ->
 start_listeners([P | Ps]) when is_pid(P) ; is_atom(P) ->
     [P | start_listeners(Ps)];
 start_listeners([{Mod, Opts} | Ps]) when is_atom(Mod) ->
-    [Mod:start(Opts) | start_listeners(Ps)];	    
+    [Mod:start(Opts) | start_listeners(Ps)];
 start_listeners([]) ->
     [].
 
@@ -264,4 +265,40 @@ all_options(Opts) ->
 	    end
     catch
 	_:_ -> Opts
+    end.
+
+%% Delete duplicates of tests
+
+delete_duplicates([]) ->
+    [];
+delete_duplicates([H|T]) when is_atom(H) ->
+    case is_module(H) of
+        true ->
+            C = prepare_candidate(H),
+            [C | [X || X <- delete_duplicates(T), C /= X]];
+        false ->
+            [H | delete_duplicates(T)]
+    end;
+delete_duplicates([H|T]) ->
+    [H | delete_duplicates(T)];
+delete_duplicates(Tests) ->
+    Tests.
+
+is_module(M) ->
+    try M:module_info(exports) of
+        _ ->
+            true
+    catch
+        error:undef ->
+            false
+    end.
+
+prepare_candidate(Test) ->
+    Name = atom_to_list(Test),
+    case lists:suffix(?DEFAULT_TESTMODULE_SUFFIX, Name) of
+        true ->
+            Index = length(Name) - length(?DEFAULT_TESTMODULE_SUFFIX),
+            list_to_atom(lists:sublist(Name, Index));
+        false ->
+            list_to_atom(Name)
     end.
