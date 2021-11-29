@@ -243,7 +243,7 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 
 -spec pem_entry_decode(PemEntry, Password) -> term() when
       PemEntry :: pem_entry(),
-      Password :: string() | fun(() -> string()).
+      Password :: iodata() | fun(() -> iodata()).
 pem_entry_decode(PemEntry, PasswordFun) when is_function(PasswordFun) ->
      pem_entry_decode(PemEntry, PasswordFun());
 pem_entry_decode({Asn1Type, Der, not_encrypted}, _) when is_atom(Asn1Type),
@@ -313,7 +313,7 @@ pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
                                                Entity :: term(),
                                                InfoPwd :: {CipherInfo,Password},
                                                CipherInfo :: cipher_info(),
-                                               Password :: string() .
+                                               Password :: iodata() .
 pem_entry_encode(Asn1Type, Entity, {{Cipher, #'PBES2-params'{}} = CipherInfo, 
 				    Password}) when is_atom(Asn1Type) andalso
 						    is_list(Password) andalso

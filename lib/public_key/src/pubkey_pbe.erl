@@ -33,7 +33,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec encode(binary(), string(), string(), term()) -> binary().
+-spec encode(binary(), iodata(), string(), term()) -> binary().
 %%
 %% Description: Performs password based encoding
 %%--------------------------------------------------------------------
@@ -57,7 +57,7 @@ encode(Data, Password, "AES-256-CBC"= Cipher, KeyDevParams) ->
     crypto:crypto_one_time(aes_256_cbc, Key, IV,  pbe_pad(Data, block_size(aes_256_cbc)), true).
 
 %%--------------------------------------------------------------------
--spec decode(binary(), string(), string(), term()) -> binary().
+-spec decode(binary(), iodata(), string(), term()) -> binary().
 %%
 %% Description: Performs password based decoding
 %%--------------------------------------------------------------------

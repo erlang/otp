@@ -72,7 +72,7 @@ encode(PemEntries) ->
 -spec decipher({public_key:pki_asn1_type(), DerEncrypted::binary(),
 		{Cipher :: string(), Salt :: iodata() | #'PBES2-params'{} 
 					   | {#'PBEParameter'{}, atom()}}},
-	       string()) -> Der::binary().
+	       iodata()) -> Der::binary().
 %%
 %% Description: Deciphers a decrypted pem entry.
 %%--------------------------------------------------------------------
@@ -82,7 +82,7 @@ decipher({_, DecryptDer, {Cipher, KeyDevParams}}, Password) ->
 %%--------------------------------------------------------------------
 -spec cipher(Der::binary(), {Cipher :: string(), Salt :: iodata() | #'PBES2-params'{} 
 						       | {#'PBEParameter'{}, atom()}}, 
-	     string()) -> binary().
+	     iodata()) -> binary().
 %%
 %% Description: Ciphers a PEM entry
 %%--------------------------------------------------------------------

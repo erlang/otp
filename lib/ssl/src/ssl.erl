@@ -349,7 +349,7 @@
                                        key_id := crypto:key_id(), 
                                        password => crypto:password()}. % exported
 -type key_pem()                   :: file:filename().
--type key_password()              :: string() | fun(() -> string()).
+-type key_password()              :: iodata() | fun(() -> iodata()).
 -type cipher_suites()             :: ciphers().    
 -type ciphers()                   :: [erl_cipher_suite()] |
                                      string(). % (according to old API) exported
@@ -2290,7 +2290,7 @@ validate_option(partial_chain, Value, _)
   when is_function(Value) ->
     Value;
 validate_option(password, Value, _)
-  when is_list(Value) ->
+  when is_list(Value); is_binary(Value) ->
     Value;
 validate_option(password, Value, _)
   when is_function(Value, 0) ->
