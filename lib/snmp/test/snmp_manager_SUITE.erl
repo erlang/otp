@@ -5869,8 +5869,8 @@ mgr_user_which_own_agents(Node) ->
 mgr_user_load_mib(Node, Mib) ->
     rcall(Node, snmp_manager_user, load_mib, [Mib]).
 
-mgr_user_sync_get2(Node, TargetName, Oids) when is_list(TargetName) ->
-    mgr_user_sync_get2(Node, TargetName, Oids, []).
+%% mgr_user_sync_get2(Node, TargetName, Oids) when is_list(TargetName) ->
+%%     mgr_user_sync_get2(Node, TargetName, Oids, []).
 
 mgr_user_sync_get2(Node, TargetName, Oids, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get2, [TargetName, Oids, SendOpts]).
