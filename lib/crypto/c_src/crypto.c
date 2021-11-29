@@ -46,6 +46,7 @@
 #include "hmac.h"
 #include "info.h"
 #include "math.h"
+#include "pbkdf2_hmac.h"
 #include "pkey.h"
 #include "rand.h"
 #include "rsa.h"
@@ -94,6 +95,7 @@ static ErlNifFunc nif_funcs[] = {
 
     {"hash_equals_nif", 2, hash_equals_nif, 0},
     
+    {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},

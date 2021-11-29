@@ -1969,6 +1969,19 @@ FloatValue = rand:uniform().     % again
         <p>
           Returns true if the binaries are identical, false if they are of the same length but not identical.
           The function raises an <c>error:badarg</c> exception if the binaries are of different size.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pbkdf2_hmac" arity="5" since="OTP @OTP-17808@"/>
+      <fsummary>PBKDF2 in combination with HMAC</fsummary>
+      <desc>
+        <p>
+          PKCS #5 PBKDF2 (Password-Based Key Derivation Function 2) in combination with HMAC.
+        </p>
+        <p>
+          The function raises a <c>error:badarg</c> if the parameters are in wrong format.
         </p>
       </desc>
     </func>
