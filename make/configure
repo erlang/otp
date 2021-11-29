@@ -621,7 +621,6 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 DED_OSTYPE
-DED_THR_DEFS
 DED_LIBS
 DED_WERRORFLAGS
 DED_WARN_FLAGS
@@ -633,6 +632,7 @@ DED_SYS_INCLUDE
 DED_EXT
 DED_GCC
 DED_CC
+DED_THR_DEFS
 EGREP
 GREP
 DEFAULT_VERBOSITY
@@ -1527,7 +1527,7 @@ Some influential environment variables:
   CXX         C++ compiler
   CXXFLAGS    C++ compiler flags
   LD          linker (is often overridden by configure)
-  LDFLAGS     linker flags (can be risky to set since LD may be overriden by
+  LDFLAGS     linker flags (can be risky to set since LD may be overridden by
               configure)
   LIBS        libraries
   DED_LD      linker for Dynamic Erlang Drivers (set all DED_LD* variables or
@@ -5082,9 +5082,6 @@ done
 
 
 
-USER_LD=$LD
-USER_LDFLAGS="$LDFLAGS"
-
 
 
 NEED_NPTL_PTHREAD_H=no
@@ -5535,6 +5532,19 @@ fi
 
 
 
+if test "$THR_DEFS" = ""; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$THR_DEFS"
+fi
+
+
+
+
+
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+
 DED_CC=$CC
 DED_GCC=$GCC
 
@@ -5549,7 +5559,6 @@ case $host_os in
      *)
         ;;
 esac
-
 
 DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
 case "$host_cpu" in
@@ -5694,12 +5703,6 @@ $as_echo "no" >&6; }
 DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
 DED_INCLUDE=$DED_SYS_INCLUDE
 
-if test "$THR_DEFS" = ""; then
-    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
-else
-    DED_THR_DEFS="$THR_DEFS"
-fi
-# DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
 if test "x$GCC" = xyes; then
     # Use -fno-common for gcc, that is link error if multiple definitions of
@@ -6036,6 +6039,7 @@ else
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
 $as_echo "not found" >&6; }
 fi
+
 
 
 
