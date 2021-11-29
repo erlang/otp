@@ -195,7 +195,7 @@ user_env(Config) when is_list(Config) ->
     remove_service(Name),
     ok.
 
-%% Check that services are stopped and started syncronous and that
+%% Check that services are stopped and started synchronous and that
 %% failed stopactions kill the erlang machine anyway.
 synced(Config) when is_list(Config) ->
     Name0 = "test_service_4",

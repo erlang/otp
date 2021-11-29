@@ -79,7 +79,7 @@ argument_separation(Config) when is_list(Config) ->
     {ok,[[]]} = rpc:call(SName,init,get_argument,[atest]),
     {ok,[[]]} = rpc:call(SName,init,get_argument,[cmd_test]),
     {ok,[[]]} = rpc:call(SName,init,get_argument,[test]),
-    error = rpc:call(SName,init,get_argument,[unkown]),
+    error = rpc:call(SName,init,get_argument,[unknown]),
     ["cmd_param","env_param","zenv_param"] = rpc:call(SName,init,get_plain_arguments,[]),
     ok = cleanup_nodes(),
     ok.
