@@ -2317,6 +2317,8 @@ spawn_opt_max_heap_size(_Config) ->
     %% Test that ordinary case works as expected again
     max_heap_size_test(1024, 1024, true, true),
 
+    error_logger:delete_report_handler(?MODULE),
+
     ok.
 
 max_heap_size_test(Option, Size, Kill, ErrorLogger)
@@ -3133,7 +3135,7 @@ dist_spawn_monitor(Config) when is_list(Config) ->
     end,
     stop_node(Peer, Node),
     ok.
-    
+
 spawn_against_ei_node(Config) when is_list(Config) ->
     %% Spawn against an ei node which does not support spawn
     {ok, EiNode} = start_ei_node(Config),

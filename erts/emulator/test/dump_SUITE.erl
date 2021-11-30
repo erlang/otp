@@ -68,19 +68,29 @@ signal_abort(Config) ->
 
     {ok, _Peer, Node} = ?CT_PEER(),
 
-    SO = rpc:call(Node, erlang, system_info, [schedulers_online]),
+    false = rpc:call(Node, erts_debug, set_internal_state,
+                     [available_internal_state, true]),
 
-    Iter = lists:seq(0, 5),
+    Iter = lists:seq(2, 3),
 
-    [spawn_opt(Node, ?MODULE, load, [self()], [{scheduler, (I rem SO) + 1}])
-     || I <- Iter],
+    spawn_opt(Node,
+              fun() ->
+                      os:putenv("ERL_CRASH_DUMP", Dump),
+                      code:ensure_loaded(timer),
 
-    %% Make sure that each process is started
-    [receive ok -> ok end || _ <- Iter],
-    timer:sleep(500),
+                      %% We spread the load on all schedulers except scheduler 1
+                      [spawn_opt(?MODULE, load, [self()], [{scheduler, I}])
+                       || I <- Iter],
 
-    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
-    rpc:call(Node, erlang, halt, ["dump"]),
+                      %% Make sure that each process is started
+                      [receive ok -> ok end || _ <- Iter],
+                      timer:sleep(500),
+                      erlang:halt("dump")
+              end,
+              [{scheduler,1},{priority,high}, monitor]),
+    receive
+        M -> ct:pal("~p",[M])
+    end,
 
     {ok, Bin} = get_dump_when_done(Dump),
 
@@ -98,7 +108,8 @@ load(Parent) ->
     Parent ! ok,
     load().
 load() ->
-    lists:seq(1,10000),
+    %% We generate load by sleeping
+    erts_debug:set_internal_state(sleep, 10),
     load().
 
 
@@ -214,7 +225,7 @@ get_dump_when_done(Dump) ->
 get_dump_when_done(Dump, Sz) ->
     timer:sleep(1000),
     case file:read_file_info(Dump) of
-        {ok, #file_info{ size = Sz }} ->
+        {ok, #file_info{ size = Sz }} when Sz > 1000 ->
             {ok, Bin} = file:read_file(Dump),
             ct:log("~s",[Bin]),
             {ok, Bin};
