@@ -2363,10 +2363,15 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
                 {no, Reason} ->
                     ?SKIP({unsupported_encryption, Reason});
                 yes ->
-                    ok
+                    case snmp_misc:is_crypto_supported(aes_cfb128) of
+                        true ->
+                            ok;
+                        false ->
+                            ?SKIP({unsupported_crypto, aes_cfb128})
+                    end
             end;
         {error, Reason} ->
-            ?SKIP({failed_starting_crypto, Reason})
+                    ?SKIP({failed_starting_crypto, Reason})
     end,
      
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -2509,7 +2514,12 @@ update_usm_user_info(Conf) when is_list(Conf) ->
                 {no, Reason} ->
                     ?SKIP({unsupported_encryption, Reason});
                 yes ->
-                    ok
+                    case snmp_misc:is_crypto_supported(aes_cfb128) of
+                        true ->
+                            ok;
+                        false ->
+                            ?SKIP({unsupported_crypto, aes_cfb128})
+                    end
             end;
         {error, Reason} ->
             ?SKIP({failed_starting_crypto, Reason})
