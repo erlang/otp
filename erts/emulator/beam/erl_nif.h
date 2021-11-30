@@ -335,6 +335,10 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
+#ifdef STATIC_ERLANG_NIF_LIBNAME
+#  define STATIC_ERLANG_NIF
+#endif
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER) && !defined(STATIC_ERLANG_NIF)
 #  define ERL_NIF_API_FUNC_MACRO(NAME) (WinDynNifCallbacks.NAME)
 #  include "erl_nif_api_funcs.h"
@@ -365,11 +369,22 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  endif
 #endif
 
+
 #ifdef STATIC_ERLANG_NIF
-#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME ## _nif_init(ERL_NIF_INIT_ARGS)
+#  ifdef STATIC_ERLANG_NIF_LIBNAME
+#    define ERL_NIF_INIT_NAME(MODNAME) ERL_NIF_INIT_NAME2(STATIC_ERLANG_NIF_LIBNAME)
+#    define ERL_NIF_INIT_NAME2(LIB) ERL_NIF_INIT_NAME3(LIB)
+#    define ERL_NIF_INIT_NAME3(LIB) LIB ## _nif_init
+#  else
+#    define ERL_NIF_INIT_NAME(MODNAME) MODNAME ## _nif_init
+#  endif
+#  define ERL_NIF_INIT_DECL(MODNAME) \
+          ErlNifEntry* ERL_NIF_INIT_NAME(MODNAME)(ERL_NIF_INIT_ARGS)
 #else
-#  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+#  define ERL_NIF_INIT_DECL(MODNAME) \
+          ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
+
 
 #ifdef __cplusplus
 }

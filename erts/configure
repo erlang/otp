@@ -1564,11 +1564,10 @@ Optional Features:
                           into the main binary. It is also possible to give a
                           list of nifs that should be linked statically. The
                           list should be a comma separated and contain the
-                          absolute path to a .a archive for each nif that is
-                          to be statically linked. The name of the .a archive
-                          has to be the same as the name of the nif. Note that
-                          you have to link any external dependencies that the
-                          nifs have to the main binary, so for the crypto nif
+                          absolute path to a .a archive for each nif lib
+                          that is to be statically linked. Note that you have
+                          to link any external dependencies, that the nifs have,
+                          to the main binary. So for the crypto nifs
                           you want to pass LIBS=-lcrypto to configure.
   --enable-static-drivers comma separated list of linked-in drivers to link
                           statically with the main binary. The list should

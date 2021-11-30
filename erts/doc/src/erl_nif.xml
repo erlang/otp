@@ -599,9 +599,15 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
        <p>The fourth argument <c>NULL</c> is ignored. It
           was earlier used for the deprecated <c>reload</c> callback
           which is no longer supported since OTP 20.</p>
-        <p>If compiling a NIF for static inclusion through
-          <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
-           before the <c>ERL_NIF_INIT</c> declaration.</p>
+        <p>If compiling a NIF lib for static inclusion through
+           <c>--enable-static-nifs</c>, then the macro
+           <c>STATIC_ERLANG_NIF_LIBNAME</c> must be defined as the name of the
+           archive file (excluding file extension .a) without string
+           quotations. It must only contain characters allowed in a C
+           indentifier. The macro must be defined before <c>erl_nif.h</c> is
+           included. If the older macro <c>STATIC_ERLANG_NIF</c> is instead
+           used, then the name of the archive file must match the name of the
+           module.</p>
       </item>
       <tag><marker id="load"/><c>int (*load)(ErlNifEnv* caller_env, void** priv_data,
         ERL_NIF_TERM load_info)</c></tag>

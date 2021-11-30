@@ -88,7 +88,7 @@ struct erl_module_nif {
     ErtsThrPrgrLaterOp lop;
 
     void* priv_data;
-    void* handle;             /* "dlopen" */
+    void* handle;             /* "dlopen", NULL for static linked */
     struct enif_entry_t entry;
     erts_refc_t dynlib_refc;  /* References to loaded native code
                                  +1 erl_module_instance
@@ -2268,6 +2268,8 @@ static void deref_nifmod(struct erl_module_nif* lib)
     }
 }
 
+static ErtsStaticNif* is_static_nif_module(Eterm mod_atom);
+
 static void close_dynlib(struct erl_module_nif* lib)
 {
     ASSERT(lib != NULL);
@@ -2281,10 +2283,11 @@ static void close_dynlib(struct erl_module_nif* lib)
 	lib->entry.unload(&msg_env.env, lib->priv_data);
         post_nif_noproc(&msg_env);
     }
-    if (!erts_is_static_nif(lib->handle))
+    if (lib->handle) {
       erts_sys_ddll_close(lib->handle);
+      lib->handle = NULL;
+    }
 
-    lib->handle = NULL;
     deref_nifmod(lib);
 }
 
@@ -4403,13 +4406,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     int i, err, encoding;
     Module* module_p;
     Eterm mod_atom;
-    const Atom* mod_atomp;
     Eterm f_atom;
     const ErtsCodeMFA* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
-    int taint = 1;
+    int is_static = 0;
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
@@ -4435,24 +4437,11 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     module_p = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(module_p != NULL);
 
-    mod_atomp = atom_tab(atom_val(mod_atom));
     {
-        ErtsStaticNifEntry* sne;
-        sne = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
-        if (sne == NULL) {
-            /* Second lookup in the static nif table based on the filename */
-            /* this allows Elixir modules which always have dots '.' in their */
-            /* module names to be loaded */
-            char *basename = strrchr(lib_name, '/');
-            if (basename) {
-                basename++;
-                sne = erts_static_nif_get_nif_init(basename, strlen(basename));
-            }
-        }        
+        ErtsStaticNif* sne = is_static_nif_module(mod_atom);
         if (sne != NULL) {
-            init_func = sne->nif_init;
-            handle = init_func;
-            taint = sne->taint;
+            entry = sne->entry;
+            is_static = 1;
         }
     }
     this_mi = &module_p->curr;
@@ -4475,7 +4464,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         ret = load_nif_error(c_p,"reload","NIF library already loaded"
                              " (reload disallowed since OTP 20).");
     }
-    else if (init_func == NULL &&
+    else if (!is_static &&
              (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
@@ -4485,14 +4474,15 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 	    ret = load_nif_error(c_p, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
 	}
     }
-    else if (init_func == NULL &&
+    else if (!is_static &&
 	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
 	ret  = load_nif_error(c_p, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
 	
     }
-    else if ((taint ? erts_add_taint(mod_atom) : 0,
-	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
+    else if (!is_static &&
+             (erts_add_taint(mod_atom),
+              (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(c_p, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major > ERL_NIF_MAJOR_VERSION
@@ -4711,7 +4701,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             }
 	    erts_free(ERTS_ALC_T_NIF, lib);
 	}
-	if (handle != NULL && !erts_is_static_nif(handle)) {
+	if (handle != NULL) {
 	    erts_sys_ddll_close(handle);
 	}
 	erts_sys_ddll_free_error(&errdesc);
@@ -4965,6 +4955,29 @@ static void erase_hashed_stubs(ErtsNifFinish* fin)
     erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
 }
 
+static void static_nifs_init(void)
+{
+    ErtsStaticNif* p;
+
+    for (p = erts_static_nif_tab; p->nif_init != NULL; p++) {
+        ASSERT(p->entry == NULL && p->mod_atom == THE_NON_VALUE);
+        p->entry = erts_sys_ddll_call_nif_init(p->nif_init);
+        p->mod_atom = mkatom(p->entry->name);
+        if (p->taint)
+            erts_add_taint(p->mod_atom);
+    }
+}
+
+static ErtsStaticNif* is_static_nif_module(Eterm mod_atom)
+{
+    ErtsStaticNif* p;
+    for (p = erts_static_nif_tab; p->nif_init != NULL; p++)
+        if (mod_atom == p->mod_atom)
+            return p;
+    return NULL;
+}
+
+
 void
 erts_unload_nif(struct erl_module_nif* lib)
 {
@@ -5019,6 +5032,7 @@ void erl_nif_init()
     resource_type_list.name = THE_NON_VALUE;
 
     nif_call_table_init();
+    static_nifs_init();
 }
 
 int erts_nif_get_funcs(struct erl_module_nif* mod,

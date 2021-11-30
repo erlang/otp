@@ -396,11 +396,10 @@ Some of the available `configure` options are:
     that do not support dynamic linking of libraries it is possible to statically
     link nifs and drivers with the main Erlang VM binary. This is done by passing
     a comma separated list to the archives that you want to statically link. e.g.
-    `--enable-static-nifs=/home/$USER/my_nif.a`. The path has to be absolute and the
-    name of the archive has to be the same as the module, i.e. `my_nif` in the
-    example above. This is also true for drivers, but then it is the driver name
-    that has to be the same as the filename. You also have to define
-    `STATIC_ERLANG_{NIF,DRIVER}` when compiling the .o files for the nif/driver.
+    `--enable-static-nifs=/home/$USER/my_nif.a`. The paths have to be absolute.
+    For drivers, the driver name has to be the same as the filename. You also
+    have to define `STATIC_ERLANG_NIF_LIBNAME` (see `erl_nif` documentation) or
+    `STATIC_ERLANG_DRIVER` when compiling the .o files for the nif/driver.
     If your nif/driver depends on some other dynamic library, you now have to link
     that to the Erlang VM binary. This is easily achieved by passing `LIBS=-llibname`
     to configure.

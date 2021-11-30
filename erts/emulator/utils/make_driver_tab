@@ -130,38 +130,19 @@ foreach (@static_nifs) {
 }
 
 # The array itself
-print "static ErtsStaticNifEntry static_nif_tab[] =\n{\n";
+print "ErtsStaticNif erts_static_nif_tab[] =\n{\n";
 
 foreach (@emu_nifs) {
     my $d = ${_};
     $d =~ s/\.debug//; # strip .debug
-    print "    {\"${_}\", &".$d."_nif_init, 0},\n";
+    print "    {&".$d."_nif_init, 0, THE_NON_VALUE, NULL},\n";
 }
 foreach (@static_nifs) {
     my $d = ${_};
     $d =~ s/\.debug//; # strip .debug
-    print "    {\"${_}\", &".$d."_nif_init, 1},\n";
+    print "    {&".$d."_nif_init, 1, THE_NON_VALUE, NULL},\n";
 }
 
-print "    {NULL,NULL}\n};\n";
-
-print <<EOF;
-ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len) {
-    ErtsStaticNifEntry* p;
-    for (p = static_nif_tab; p->nif_name != NULL; p++)
-        if (strncmp(p->nif_name, name, len) == 0 && p->nif_name[len] == 0)
-            return p;
-    return NULL;
-}
-
-int erts_is_static_nif(void *handle) {
-    ErtsStaticNifEntry* p;
-    for (p = static_nif_tab; p->nif_name != NULL; p++)
-        if (((void*)p->nif_init) == handle)
-            return 1;
-    return 0;
-}
-
-EOF
+print "    {NULL}\n};\n";
 
 # That's it
