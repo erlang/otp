@@ -89,7 +89,7 @@ get_tick_count(void)
 
 /* 
  * init timers, chose a tick length, and return it.
- * Unix is priviliged when it comes to time, as erl_time_sup.c 
+ * Unix is privileged when it comes to time, as erl_time_sup.c 
  * does almost everything. Other platforms have to
  * emulate Unix in this sense.
  */

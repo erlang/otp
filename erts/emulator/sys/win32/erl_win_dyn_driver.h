@@ -262,7 +262,7 @@ typedef struct {
   /* Add new calls here */
 } TWinDynDriverCallbacks;   
 
-/* This header is included explicitly by the ddll static driver, it musn't define things then */ 
+/* This header is included explicitly by the ddll static driver, it mustn't define things then */ 
 #ifndef STATIC_ERLANG_DRIVER
 
 extern TWinDynDriverCallbacks WinDynDriverCallbacks;

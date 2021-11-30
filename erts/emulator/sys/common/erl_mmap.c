@@ -327,7 +327,7 @@ struct ErtsMemMapper_ {
      * Super unaligned area is located above super aligned
      * area. That is, `sa.bot` is beginning of the super
      * carrier, `sua.top` is the end of the super carrier,
-     * and sa.top and sua.bot moves towards eachother.
+     * and sa.top and sua.bot moves towards each other.
      */
     struct {
 	char *top;
@@ -2587,10 +2587,10 @@ static void print_tree(enum SortOrder order, RBTNode*);
 
 /*
  * Checks that the order between parent and children are correct,
- * and that the Red-Black Tree properies are satisfied. if size > 0,
+ * and that the Red-Black Tree properties are satisfied. if size > 0,
  * check_tree() returns the node that satisfies "address order first fit"
  *
- * The Red-Black Tree properies are:
+ * The Red-Black Tree properties are:
  *   1. Every node is either red or black.
  *   2. Every leaf (NIL) is black.
  *   3. If a node is red, then both its children are black.

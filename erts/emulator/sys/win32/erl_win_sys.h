@@ -95,7 +95,7 @@
 #define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
 
 /*
- * Practial Windows specific macros.
+ * Practical Windows specific macros.
  */
 
 #define CreateAutoEvent(state) CreateEvent(NULL, FALSE, state, NULL)
@@ -273,7 +273,7 @@ extern volatile int erl_fp_exception;
 
 #include <float.h>
 /* I suspect this test isn't right, it might depend on the version of GCC
-   rather than if it's a MINGW gcc, but I havent been able to pinpoint the
+   rather than if it's a MINGW gcc, but I haven't been able to pinpoint the
    exact point where _finite was added to the headers in cygwin... */
 #if defined (__GNUC__) && !defined(__MINGW32__)
 int _finite(double x);

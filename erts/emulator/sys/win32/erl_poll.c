@@ -320,7 +320,7 @@ static void *threaded_waiter(void *param);
 static void *break_waiter(void *param);
 
 /*
- * Sychronization macros and functions
+ * Synchronization macros and functions
  */
 #define START_WAITER(PS, w) \
     SetEvent((w)->go_ahead)
@@ -435,7 +435,7 @@ wake_poller(ErtsPollSet *ps, int io_ready)
 	/*
 	 * Since we don't know the internals of SetEvent() we issue
 	 * a memory barrier as a safety precaution ensuring that
-	 * the store we just made to wakeup_state wont be reordered
+	 * the store we just made to wakeup_state won't be reordered
 	 * with loads in SetEvent().
 	 */
 	ERTS_THR_MEMORY_BARRIER;
@@ -769,7 +769,7 @@ event_happened:
 	    notify_io_ready(ps);
 
 	    /*
-	     * The main thread wont start working on our arrays until we're
+	     * The main thread won't start working on our arrays until we're
 	     * stopped, so we can work in peace although the main thread runs
 	     */
 	    ASSERT(i >= WAIT_OBJECT_0+1);
@@ -1044,7 +1044,7 @@ int erts_poll_wait(ErtsPollSet *ps,
     /*
      * Since we don't know the internals of ResetEvent() we issue
      * a memory barrier as a safety precaution ensuring that
-     * the load of wakeup_state wont be reordered with stores made
+     * the load of wakeup_state won't be reordered with stores made
      * by ResetEvent().
      */
     ERTS_THR_MEMORY_BARRIER;
@@ -1287,7 +1287,7 @@ void erts_poll_late_init(void)
 }
 
 /*
- * Non windows friendly interface, not used when fd's are not continous
+ * Non windows friendly interface, not used when fd's are not continuous
  */
 void  erts_poll_get_selected_events(ErtsPollSet *ps,
 				    ErtsPollEvents ev[],
