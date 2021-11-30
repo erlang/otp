@@ -341,9 +341,9 @@ run_scheduler_wall_time_test(Type) ->
                                     Schedulers + DirtyCPUSchedulers
                         end,
 
-        Env = [io_lib:format("~s~n",[KV]) || KV <- os:getenv()],
+        Env = [io_lib:format("~ts~n",[KV]) || KV <- os:getenv()],
 
-        ct:log("Env:~n~s",[Env]),
+        ct:log("Env:~n~ts",[Env]),
 
         ct:log("Schedulers:               ~p~n"
                "SchedulersOnline:         ~p~n"
