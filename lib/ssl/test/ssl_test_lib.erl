@@ -2602,7 +2602,7 @@ openssl_tls_version_support(Version, Config0) ->
                     close_port(OpensslPort),
                     false;
                 {error, timeout} ->
-                    ct:pal("Timed out conntion to OpenSSL", []),
+                    ct:pal("Timed out connection to OpenSSL", []),
                     close_port(OpensslPort),
                     false
             end
