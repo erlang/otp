@@ -797,12 +797,18 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     Conf2  = end_per_testcase2(Case, Conf1),
 
     ?IPRINT("end_per_testcase -> done with"
-            "~n   Condif: ~p"
+            "~n   Config: ~p"
             "~n   Nodes:  ~p", [Conf2, erlang:nodes()]),
 
     Conf2.
 
-end_per_testcase2(simple_v3_exchange = _Case, Config) ->
+end_per_testcase2(Case, Config)
+  when ((Case =:= simple_v3_exchange_md5)    orelse
+        (Case =:= simple_v3_exchange_sha)    orelse
+        (Case =:= simple_v3_exchange_sha224) orelse
+        (Case =:= simple_v3_exchange_sha256) orelse
+        (Case =:= simple_v3_exchange_sha384) orelse
+        (Case =:= simple_v3_exchange_sha512)) ->
     Conf1 = fin_mgr_user_data2(Config),
     Conf2 = fin_mgr_user(Conf1),
     Conf3 = fin_v3_manager(Conf2),
@@ -1646,7 +1652,7 @@ usm_sha224_priv_aes(Config) when is_list(Config) ->
                    ?SLEEP(1000), % Give it time to settle
                    ok
            end,
-    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+    ?TC_TRY(usm_sha224_priv_aes, Pre, Case, Post).
 
 
 %%======================================================================
@@ -1679,7 +1685,7 @@ usm_sha256_priv_aes(Config) when is_list(Config) ->
                    ?SLEEP(1000), % Give it time to settle
                    ok
            end,
-    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+    ?TC_TRY(usm_sha256_priv_aes, Pre, Case, Post).
 
 
 %%======================================================================
@@ -1712,7 +1718,7 @@ usm_sha384_priv_aes(Config) when is_list(Config) ->
                    ?SLEEP(1000), % Give it time to settle
                    ok
            end,
-    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+    ?TC_TRY(usm_sha384_priv_aes, Pre, Case, Post).
 
 
 %%======================================================================
@@ -1745,7 +1751,7 @@ usm_sha512_priv_aes(Config) when is_list(Config) ->
                    ?SLEEP(1000), % Give it time to settle
                    ok
            end,
-    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
+    ?TC_TRY(usm_sha512_priv_aes, Pre, Case, Post).
 
 
 select_auth_proto(md5)    -> usmHMACMD5AuthProtocol;

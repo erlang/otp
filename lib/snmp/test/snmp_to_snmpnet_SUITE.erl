@@ -52,7 +52,7 @@
 
 expected(?sysDescr_instance = Oid, get) ->
     OidStr = oid_str(Oid),
-    iolist_to_binary([OidStr | " = STRING: \"Erlang SNMP agent\""]).
+    lists:flatten([OidStr | " = STRING: \"Erlang SNMP agent\""]).
 
 
 %%--------------------------------------------------------------------
@@ -402,8 +402,19 @@ erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     Expected = expected(Oid, get),
     try
         begin
-            [Expected = snmpget(Oid, Transport, Config)
-             || Transport <- Transports],
+            [case snmpget(Oid, Transport, Config) of
+                 Expected ->
+                     ct:pal("Received expected", []),
+                     ok;
+                 "Timeout: " ++ Rest ->
+                     ct:pal("Received unexpected timeout: "
+                            "~n   ~s", [Rest]),
+                     throw({skip, Rest});
+                 Any ->
+                     ct:pal("Received unexpected reponse: "
+                            "~n   ~p", [Any]),
+                     exit({unexpected, Any})
+             end || Transport <- Transports],
             ok
         end
     catch
@@ -513,7 +524,7 @@ snmpget(Oid, Transport, Config) ->
         ProgHandle ->
             {_, line, Line} = get_program_output(ProgHandle),
             stop_program(ProgHandle),
-            Line
+            binary_to_list(Line)
     end.
 
 start_snmptrapd(Mibs, Config) ->
