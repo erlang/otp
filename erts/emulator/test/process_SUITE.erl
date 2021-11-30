@@ -2308,6 +2308,8 @@ spawn_opt_max_heap_size(_Config) ->
     %% Test that ordinary case works as expected again
     max_heap_size_test(1024, 1024, true, true),
 
+    error_logger:delete_report_handler(?MODULE),
+
     ok.
 
 max_heap_size_test(Option, Size, Kill, ErrorLogger)
@@ -3128,6 +3130,17 @@ dist_spawn_monitor(Config) when is_list(Config) ->
 spawn_old_node(Config) when is_list(Config) ->
     Cookie = atom_to_list(erlang:get_cookie()),
     Rel = "22_latest",
+    %% We clear all ERL_FLAGS for the old node as all options may not
+    %% be supported.
+    ClearEnv = lists:foldl(
+                 fun({Key,_Value}, Acc) ->
+                         case re:run(Key,"^ERL_.*FLAGS$") of
+                             {match,_} ->
+                                 [{Key,""}|Acc];
+                             nomatch ->
+                                 Acc
+                         end
+                 end, [], os:env()),
     case test_server:is_release_available(Rel) of
 	false ->
 	    {skipped, "No OTP 22 available"};
@@ -3135,6 +3148,7 @@ spawn_old_node(Config) when is_list(Config) ->
 	    {ok, OldNode} = test_server:start_node(make_nodename(Config),
                                                    peer,
                                                    [{args, " -setcookie "++Cookie},
+                                                    {env, ClearEnv},
                                                     {erl, [{release, Rel}]}]),
             try
                 %% Spawns triggering a new connection; which

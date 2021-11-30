@@ -30,7 +30,8 @@ all() ->
     [symbols, annotate].
 
 init_per_suite(Config) ->
-    case os:find_executable("perf") of
+    case erlang:system_info(emu_flavor) =:= jit andalso
+        os:find_executable("perf") =/= false of
         false ->
             {skip, "perf not found"};
         _Perf ->

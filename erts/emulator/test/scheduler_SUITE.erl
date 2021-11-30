@@ -94,6 +94,7 @@ end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
     SchedOnln = proplists:get_value(schedulers_online, Config),
     erlang:system_flag(schedulers_online, SchedOnln),
+    erlang:system_flag(dirty_cpu_schedulers_online, SchedOnln),
     Config.
 
 init_per_testcase(update_cpu_info, Config) ->
@@ -1248,10 +1249,12 @@ scheduler_suspend_basic(Config) when is_list(Config) ->
 	    {skip, "Nothing to test"};
 	_ ->
 	    Onln = erlang:system_info(schedulers_online),
+	    DirtyOnln = erlang:system_info(dirty_cpu_schedulers_online),
 	    try
 		scheduler_suspend_basic_test()
 	    after
-		erlang:system_flag(schedulers_online, Onln)
+		erlang:system_flag(schedulers_online, Onln),
+		erlang:system_flag(dirty_cpu_schedulers_online, DirtyOnln)
 	    end
     end.
 

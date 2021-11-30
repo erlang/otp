@@ -341,9 +341,9 @@ run_scheduler_wall_time_test(Type) ->
                                     Schedulers + DirtyCPUSchedulers
                         end,
 
-        Env = [io_lib:format("~s~n",[KV]) || KV <- os:getenv()],
+        Env = [io_lib:format("~ts~n",[KV]) || KV <- os:getenv()],
 
-        ct:log("Env:~n~s",[Env]),
+        ct:log("Env:~n~ts",[Env]),
 
         ct:log("Schedulers:               ~p~n"
                "SchedulersOnline:         ~p~n"
@@ -355,6 +355,9 @@ run_scheduler_wall_time_test(Type) ->
                 erlang:system_info(dirty_cpu_schedulers),
                 DirtyCPUSchedulers,
                 DirtyIOSchedulers]),
+
+        %% Assert that number of schedulers is the same as number of dirty schedulers
+        Schedulers = DirtyCPUSchedulers,
 
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
