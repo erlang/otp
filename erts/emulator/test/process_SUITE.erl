@@ -180,7 +180,7 @@ init_per_testcase(Func, Config)
     case erlang:system_info(build_type) of
         BT when BT =:= debug; BT =:= valgrind ->
             {skip, "Don't run in debug/valgrind"};
-        false ->
+        _ ->
             [{testcase, Func} | Config]
     end;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
