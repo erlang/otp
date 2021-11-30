@@ -65,6 +65,7 @@ all() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    ct:timetrap({seconds, 20}),
     ct_property_test:init_per_suite(Config).
 end_per_suite(Config) ->
     Config.

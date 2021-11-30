@@ -326,7 +326,7 @@ working_openssl_client() ->
     end.
 
 init_per_group_openssl(GroupName, Config0) ->
-    case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
+    case is_protocol_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
             Config = clean_protocol_version(Config0),
 	    case openssl_tls_version_support(GroupName, Config)
@@ -347,7 +347,7 @@ init_per_group_openssl(GroupName, Config0) ->
     end.
 
 end_per_group(GroupName, Config) ->
-  case is_tls_version(GroupName) of
+  case is_protocol_version(GroupName) of
       true ->
           clean_protocol_version(Config);
       false ->
@@ -374,6 +374,8 @@ openssl_ciphers() ->
 
 openssl_support_rsa_kex() ->
     case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 3." ++ _Rest ->
+            false;
         "OpenSSL 1.1.1" ++ _Rest ->
             false;
         _ ->
@@ -2039,8 +2041,8 @@ accepters(Acc, N) ->
 basic_test(COpts, SOpts, Config) ->
     SType = proplists:get_value(server_type, Config, erlang),
     CType = proplists:get_value(client_type, Config, erlang),
-    {Server, Port} = start_server(SType, COpts, SOpts, Config),
-    Client = start_client(CType, Port, COpts, Config),
+    {Server, Port} = start_server(SType,  COpts, ssl_options(SOpts, Config), Config),
+    Client = start_client(CType, Port, ssl_options(COpts, Config), Config),
     gen_check_result(Server, SType, Client, CType),
     stop(Server, Client).    
 
@@ -2577,31 +2579,48 @@ openssl_tls_version_support(Version, Config0) ->
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Exe = "openssl",
-    Args0 = ["s_server", "-accept", 
-            integer_to_list(Port), "-CAfile", CaCertFile,
-            "-cert", CertFile,"-key", KeyFile],
+    {Proto, Opts} = case is_tls_version(Version) of
+                        true ->
+                            {tls, [{protocol,tls}, {versions, [Version]}]};
+                        false ->
+                            {dtls, [{protocol,dtls}, {versions, [Version]}]}
+                    end,
+    Args0 = case Proto of
+                tls ->
+                    ["s_server", "-accept",
+                     integer_to_list(Port), "-CAfile", CaCertFile,
+                     "-cert", CertFile,"-key", KeyFile];
+                dtls ->
+                    ["s_server", "-accept",
+                     integer_to_list(Port), "-dtls", "-CAfile", CaCertFile,
+                     "-cert", CertFile,"-key", KeyFile]
+            end,
     Args = maybe_force_ipv4(Args0),
     OpensslPort = portable_open_port(Exe, Args),
 
-    try wait_for_openssl_server(Port, tls) of
+    try wait_for_openssl_server(Port, Proto) of
         ok ->
-            case  ssl:connect("localhost", Port, [{versions, [Version]}]) of
+            case  ssl:connect("localhost", Port, Opts, 5000) of
                 {ok, Socket} ->
                     ssl:close(Socket),
                     close_port(OpensslPort),
                     true;
                 {error, {tls_alert, {protocol_version, _}}} ->
-                    ct:pal("Openssl does not support ~p", [Version]),
+                    ct:pal("OpenSSL does not support ~p", [Version]),
                     close_port(OpensslPort),
                     false;
                 {error, {tls_alert, Alert}} ->
-                    ct:pal("Openssl returned alert ~p", [Alert]),
+                    ct:pal("OpenSSL returned alert ~p", [Alert]),
+                    close_port(OpensslPort),
+                    false;
+                {error, timeout} ->
+                    ct:pal("Timed out connection to OpenSSL", []),
                     close_port(OpensslPort),
                     false
             end
     catch
         _:_ ->
-            ct:pal("Openssl does not support ~p", [Version]),
+            ct:pal("OpenSSL does not support ~p", [Version]),
             close_port(OpensslPort),
             false
     end.
@@ -3112,7 +3131,9 @@ check_sane_openssl_renegotiate(Config) ->
     end.
 
 openssl_allows_client_renegotiate(Config) ->
-     case portable_cmd("openssl", ["version"]) of
+    case portable_cmd("openssl", ["version"]) of
+        "OpenSSL 3" ++ _ ->
+            {skip, "OpenSSL does not allow client renegotiation"};
 	"OpenSSL 1.1" ++ _ ->
 	    {skip, "OpenSSL does not allow client renegotiation"};
 	"LibreSSL" ++ _ ->
@@ -3136,8 +3157,11 @@ enough_openssl_crl_support(_) -> true.
 wait_for_openssl_server(Port, tls) ->
     do_wait_for_openssl_tls_server(Port, 10);
 wait_for_openssl_server(_Port, dtls) ->
+    ct:sleep(?SLEEP),
     ok. %% No need to wait for DTLS over UDP server
         %% client will retransmitt until it is up.
+        %% But wait a little for openssl debug printing
+
 
 do_wait_for_openssl_tls_server(_, 0) ->
     exit(failed_to_connect_to_openssl);
@@ -3880,6 +3904,14 @@ default_ciphers(Version) ->
         case portable_cmd("openssl", ["version"]) of
             "OpenSSL 0.9" ++ _ ->
                 ssl:cipher_suites(all,Version);
+            "OpenSSL 3." ++ _ ->
+                ssl:filter_cipher_suites(ssl:cipher_suites(default, Version),
+                                         [{mac,
+                                           fun(sha) ->
+                                                   false;
+                                              (_) ->
+                                                   true
+                                           end}]);
             _ ->
                 ssl:cipher_suites(default, Version)
         end, 

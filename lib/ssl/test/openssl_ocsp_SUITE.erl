@@ -145,12 +145,12 @@ ocsp_stapling_basic(Config)
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {cacertfile, CACertsFile},
-                  {server_name_indication, disable},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, false}] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {cacertfile, CACertsFile},
+                                           {server_name_indication, disable},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, false}], Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -175,12 +175,12 @@ ocsp_stapling_with_nonce(Config)
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {cacertfile, CACertsFile},
-                  {server_name_indication, disable},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, true}] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {cacertfile, CACertsFile},
+                                           {server_name_indication, disable},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, true}], Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -212,13 +212,13 @@ ocsp_stapling_with_responder_cert(Config)
     [{'Certificate', Der, _IsEncrypted}] =
         public_key:pem_decode(ResponderCert),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {cacertfile, CACertsFile},
-                  {server_name_indication, disable},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, true},
-                  {ocsp_responder_certs, [Der]}] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {cacertfile, CACertsFile},
+                                           {server_name_indication, disable},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, true},
+                                           {ocsp_responder_certs, [Der]}], Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
@@ -244,13 +244,13 @@ ocsp_stapling_revoked(Config)
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {server_name_indication, disable},
-                  {cacertfile, CACertsFile},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, true}
-                 ] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {server_name_indication, disable},
+                                           {cacertfile, CACertsFile},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, true}
+                                          ], Config),
     
     Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
                                               {host, Hostname}, {from, self()},
@@ -275,13 +275,13 @@ ocsp_stapling_undetermined(Config)
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {server_name_indication, disable},
-                  {cacertfile, CACertsFile},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, true}
-                 ] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {server_name_indication, disable},
+                                           {cacertfile, CACertsFile},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, true}
+                                          ], Config),
 
     Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
                                               {host, Hostname}, {from, self()},
@@ -307,13 +307,13 @@ ocsp_stapling_no_staple(Config)
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = [{log_level, debug},
-                  {verify, verify_peer},
-                  {server_name_indication, disable},
-                  {cacertfile, CACertsFile},
-                  {ocsp_stapling, true},
-                  {ocsp_nonce, true}
-                 ] ++ dtls_client_opt(GroupName),
+    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
+                                           {verify, verify_peer},
+                                           {server_name_indication, disable},
+                                           {cacertfile, CACertsFile},
+                                           {ocsp_stapling, true},
+                                           {ocsp_nonce, true}
+                                          ], Config),
 
     Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
                                               {host, Hostname}, {from, self()},
@@ -382,7 +382,3 @@ get_free_port() ->
     ok = gen_tcp:close(Listen),
     Port.
 
-dtls_client_opt('dtlsv1.2') ->
-    [{protocol, dtls}];
-dtls_client_opt(_Other) ->
-    [].
