@@ -84,6 +84,8 @@ all() ->
 %% If this is major release X, then this test performs an upgrade from
 %% major release X-1 to the current release.
 major(Config) ->
+    put(verbose, true),
+    p("major -> get current major release"),
     Current = erlang:system_info(otp_release),
     PreviousMajor = previous_major(Current),
     upgrade_test(PreviousMajor,Current,Config).
@@ -91,6 +93,8 @@ major(Config) ->
 %% If this is major release X, then this test performs an upgrade from
 %% major release X-2 to the current release.
 ancient_major(Config) ->
+    put(verbose, true),
+    p("ancient_major -> get current major release"),
     Current = erlang:system_info(otp_release),
     PreviousPreviousMajor = previous_major(previous_major(Current)),
     upgrade_test(PreviousPreviousMajor,Current,Config).
@@ -258,23 +262,32 @@ target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
 upgrade_system(FromVsn, FromRel, ToRelName0, ToVsn,
 	       CreateDir, InstallDir) ->
 
+    p("upgrade_system -> create relfile"),
     {RelName,Apps,_} = create_relfile(node(),CreateDir,ToRelName0,ToVsn),
     FromPath = filename:join([InstallDir,lib,"*",ebin]),
 
+    p("upgrade_system -> make script"),
     ok = systools:make_script(RelName),
+    p("upgrade_system -> make relup"),
     ok = systools:make_relup(RelName,[FromRel],[FromRel],
 			     [{path,[FromPath]},
 			      {outdir,CreateDir}]),
+
     case {FromVsn,ToVsn} of
-        {"20"++_,"21"++_} -> fix_relup_inets_ftp(filename:dirname(RelName));
+        {"20"++_,"21"++_} ->
+            p("upgrade_system -> try fix relup (with regards to inets ftp)"),
+            fix_relup_inets_ftp(filename:dirname(RelName));
         _ -> ok
     end,
 
+    p("upgrade_system -> write system conf file"),
     SysConfig = filename:join([CreateDir, "sys.config"]),
     write_file(SysConfig, "[]."),
 
+    p("upgrade_system -> make tar"),
     ok = systools:make_tar(RelName,[{erts,code:root_dir()}]),
 
+    p("upgrade_system -> done"),
     {RelName,Apps}.
 
 %% In OTP-21, ftp and tftp were split out from inets and formed two
