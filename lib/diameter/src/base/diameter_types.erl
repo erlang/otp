@@ -242,19 +242,335 @@
 'Address'(encode, zero, _) ->
     <<0:48>>;
 
+%% IPv4, IPv6
 'Address'(decode, <<A:16, B/binary>>, _)
   when 1 == A,  4 == size(B);
        2 == A, 16 == size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
-
-'Address'(decode, B, _) ->
-    ?INVALID_LENGTH(B);
-
-'Address'(encode, T, _) ->
+'Address'(encode, T, _)
+  when is_tuple(T), (4 == tuple_size(T); 8 == tuple_size(T)) ->
     Ns = tuple_to_list(diameter_lib:ipaddr(T)),  %% length 4 or 8
     A = length(Ns) div 4,                        %% 1 or 2
     B = << <<N:A/unit:8>> || N <- Ns >>,
-    <<A:16, B/binary>>.
+    <<A:16, B/binary>>;
+
+%% ISO/IEC 8348
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 3 == A, 20 =< size(B) ->
+    {nsap, B};
+'Address'(encode, {nsap, B}, _) ->
+    <<3:16, B/binary>>;
+
+%% ISO/IEC 13239
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 4 == A, 1 == size(B) ->
+    {hdlc, B};
+'Address'(encode, {hdlc, B}, _) ->
+    <<4:16, B/binary>>;
+
+%% RFC 802
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 5 == A, 4 == size(B) ->
+    {bbn1822, B};
+'Address'(encode, {bbn1822, B}, _) ->
+    <<5:16, B/binary>>;
+
+%% IEEE 802
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 6 == A ->
+    {all802, B};
+'Address'(encode, {all802, B}, _) ->
+    <<6:16, B/binary>>;
+
+%% ITU-T E.163
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 7 == A ->
+    {e163, B};
+'Address'(encode, {e163, B}, _) ->
+    <<7:16, B/binary>>;
+
+%% ITU-T E.164
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 8 == A, 15 =< size(B) ->
+    {e164, B};
+'Address'(encode, {e164, B}, _) ->
+    <<8:16, B/binary>>;
+
+%% ITU-T F.69
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 9 == A, 12 =< size(B) ->
+    {f69, B};
+'Address'(encode, {f69, B}, _) ->
+    <<9:16, B/binary>>;
+
+%% ITU-T X.121
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 10 == A, 5 >= size(B), 14 =< size(B) ->
+    {x121, B};
+'Address'(encode, {x121, B}, _) ->
+    <<10:16, B/binary>>;
+
+%% IPX (Internet Protocol Exchange)
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 11 == A ->
+    {ipx, B};
+'Address'(encode, {ipx, B}, _) ->
+    <<11:16, B/binary>>;
+
+%% Apple Talk
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 12 == A ->
+    {appleTalk, B};
+'Address'(encode, {appleTalk, B}, _) ->
+    <<12:16, B/binary>>;
+
+%% DEC Net Phase IV
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 13 == A, 2 == size(B) ->
+    {decnetIV, B};
+'Address'(encode, {decnetIV, B}, _) ->
+    <<13:16, B/binary>>;
+
+%% Banyan Vines
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 14 == A ->
+    {banyanVines, B};
+'Address'(encode, {banyanVines, B}, _) ->
+    <<14:16, B/binary>>;
+
+%% E.164 with NSAP format subaddress
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 15 == A ->
+    {e164withNsap, B};
+'Address'(encode, {e164withNsap, B}, _) ->
+    <<15:16, B/binary>>;
+
+%% Domain Name System
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16 == A ->
+    {dns, B};
+'Address'(encode, {dns, B}, _) ->
+    <<16:16, B/binary>>;
+
+%% Distinguished Name, per X.500
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 17 == A ->
+    {distinguishedName, B};
+'Address'(encode, {distinguishedName, B}, _) ->
+    <<17:16, B/binary>>;
+
+%% 16-bit quantity, per the AS number space
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 18 == A ->
+    {asNumber, B};
+'Address'(encode, {asNumber, B}, _) ->
+    <<18:16, B/binary>>;
+
+%% XTP over IP version 4
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 19 == A ->
+    {xtpOverIpv4, B};
+'Address'(encode, {xtpOverIpv4, B}, _) ->
+    <<19:16, B/binary>>;
+
+%% XTP over IP version 6
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 20 == A ->
+    {xtpOverIpv6, B};
+'Address'(encode, {xtpOverIpv6, B}, _) ->
+    <<20:16, B/binary>>;
+
+%% XTP native mode XTP
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 21 == A ->
+    {xtpNativeModeXTP, B};
+'Address'(encode, {xtpNativeModeXTP, B}, _) ->
+    <<21:16, B/binary>>;
+
+%% Fibre Channel World-Wide Port Name
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 22 == A ->
+    {fibreChannelWWPN, B};
+'Address'(encode, {fibreChannelWWPN, B}, _) ->
+    <<22:16, B/binary>>;
+
+%% Fibre Channel World-Wide Node Name
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 23 == A ->
+    {fibreChannelWWNN, B};
+'Address'(encode, {fibreChannelWWNN, B}, _) ->
+    <<23:16, B/binary>>;
+
+%% Gateway Identifier
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 24 == A ->
+    {gwid, B};
+'Address'(encode, {gwid, B}, _) ->
+    <<24:16, B/binary>>;
+
+%% AFI for L2VPN information
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 25 == A ->
+    {afi, B};
+'Address'(encode, {afi, B}, _) ->
+    <<25:16, B/binary>>;
+
+%% MPLS-TP Section Endpoint Identifier
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 26 == A ->
+    {mplsTpSectionEndpointIdentifier, B};
+'Address'(encode, {mplsTpSectionEndpointIdentifier, B}, _) ->
+    <<26:16, B/binary>>;
+
+%% MPLS-TP LSP Endpoint Identifier
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 27 == A ->
+    {mplsTpLspEndpointIdentifier, B};
+'Address'(encode, {mplsTpLspEndpointIdentifier, B}, _) ->
+    <<27:16, B/binary>>;
+
+%% MPLS-TP Pseudowire Endpoint Identifier
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 28 == A ->
+    {mplsTpPseudowireEndpointIdentifier, B};
+'Address'(encode, {mplsTpPseudowireEndpointIdentifier, B}, _) ->
+    <<28:16, B/binary>>;
+
+%% MT IP: Multi-Topology IP version 4
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 29 == A ->
+    {mtIpMultiTopologyIpVersion4, B};
+'Address'(encode, {mtIpMultiTopologyIpVersion4, B}, _) ->
+    <<29:16, B/binary>>;
+
+%% MT IPv6: Multi-Topology IP version 6
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 30 == A ->
+    {mtIpv6MultiTopologyIpVersion6, B};
+'Address'(encode, {mtIpv6MultiTopologyIpVersion6, B}, _) ->
+    <<30:16, B/binary>>;
+
+%% BGP SFC
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 31 == A ->
+    {bgpSfc, B};
+'Address'(encode, {bgpSfc, B}, _) ->
+    <<31:16, B/binary>>;
+
+%% EIGRP Common Service Family
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16384 == A ->
+    {eigrpCommonServiceFamily, B};
+'Address'(encode, {eigrpCommonServiceFamily, B}, _) ->
+    <<16384:16, B/binary>>;
+
+%% EIGRP IPv4 Service Family
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16385 == A ->
+    {eigrpIpv4ServiceFamily, B};
+'Address'(encode, {eigrpIpv4ServiceFamily, B}, _) ->
+    <<16385:16, B/binary>>;
+
+%% EIGRP IPv6 Service Family
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16386 == A ->
+    {eigrpIpv6ServiceFamily, B};
+'Address'(encode, {eigrpIpv6ServiceFamily, B}, _) ->
+    <<16386:16, B/binary>>;
+
+%% LISP Canonical Address Format (LCAF)
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16387 == A ->
+    {lispCanonicalAddressFormat, B};
+'Address'(encode, {lispCanonicalAddressFormat, B}, _) ->
+    <<16387:16, B/binary>>;
+
+%% BGP-LS
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16388 == A ->
+    {bgpLs, B};
+'Address'(encode, {bgpLs, B}, _) ->
+    <<16388:16, B/binary>>;
+
+%% 48-bit MAC
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16389 == A ->
+    {fortyeightBitMacBitMac, B};
+'Address'(encode, {fortyeightBitMacBitMac, B}, _) ->
+    <<16389:16, B/binary>>;
+
+%% 64-bit MAC
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16390 == A ->
+    {sixtyfourBitMac, B};
+'Address'(encode, {sixtyfourBitMac, B}, _) ->
+    <<16390:16, B/binary>>;
+
+%% OUI
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16391 == A ->
+    {oui, B};
+'Address'(encode, {oui, B}, _) ->
+    <<16391:16, B/binary>>;
+
+%% MAC/24
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16392 == A ->
+    {mac24, B};
+'Address'(encode, {mac24, B}, _) ->
+    <<16392:16, B/binary>>;
+
+%% MAC/40
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16393 == A ->
+    {mac40, B};
+'Address'(encode, {mac40, B}, _) ->
+    <<16393:16, B/binary>>;
+
+%% IPv6/64
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16394 == A ->
+    {ipv664, B};
+'Address'(encode, {ipv664, B}, _) ->
+    <<16394:16, B/binary>>;
+
+%% RBridge Port ID
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16395 == A ->
+    {rBridgePortID, B};
+'Address'(encode, {rBridgePortID, B}, _) ->
+    <<16395:16, B/binary>>;
+
+%% TRILL Nickname
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16396 == A ->
+    {trillNickname, B};
+'Address'(encode, {trillNickname, B}, _) ->
+    <<16396:16, B/binary>>;
+
+%% Universally Unique Identifier (UUID)
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16397 == A ->
+    {universallyUniqueIdentifier, B};
+'Address'(encode, {universallyUniqueIdentifier, B}, _) ->
+    <<16397:16, B/binary>>;
+
+%% Routing Policy AFI
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16398 == A ->
+    {routingPolicyAfi, B};
+'Address'(encode, {routingPolicyAfi, B}, _) ->
+    <<16398:16, B/binary>>;
+
+%% MPLS Namespaces
+'Address'(decode, <<A:16, B/binary>>, _)
+  when 16399 == A ->
+    {mplsNamespaces, B};
+'Address'(encode, {mplsNamespaces, B}, _) ->
+    <<16399:16, B/binary>>;
+
+'Address'(decode, B, _) ->
+    ?INVALID_LENGTH(B).
 
 %% --------------------
 
