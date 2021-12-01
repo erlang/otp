@@ -248,7 +248,8 @@
        2 == A, 16 == size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
 'Address'(encode, T, _)
-  when is_tuple(T), (4 == tuple_size(T); 8 == tuple_size(T)) ->
+  when is_tuple(T), 4 == tuple_size(T);
+       is_tuple(T), 8 == tuple_size(T) ->
     Ns = tuple_to_list(diameter_lib:ipaddr(T)),  %% length 4 or 8
     A = length(Ns) div 4,                        %% 1 or 2
     B = << <<N:A/unit:8>> || N <- Ns >>,
