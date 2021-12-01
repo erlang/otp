@@ -733,14 +733,14 @@ validate_size(A, B) ->
 %%======================================================================
 
 log_writer_start(Name, File, Size, Repair, Factor) ->
-    Pid = spawn_link(?MODULE, log_writer_main, 
-		     [Name, File, Size, Repair, self(), Factor]),
+    {Pid, _} = spawn_monitor(?MODULE, log_writer_main, 
+		             [Name, File, Size, Repair, self(), Factor]),
     receive
 	{log, Log, Pid} ->
 	    {ok, Log, Pid};
-	{'EXIT', Pid, Reason} ->
+	{'DOWN', _MRef, process, Pid, Reason} ->
 	    {error, Reason}
-    after 60000 ->
+    after 30000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
 	    Info = (catch process_info(Pid)),
 	    exit({failed_starting_writer, timeout, Msg, Info})
@@ -750,14 +750,18 @@ log_writer_stop(Pid) ->
     Pid ! {stop, self()},
     _T1 = snmp_misc:now(ms),
     receive
-	{'EXIT', Pid, normal} ->
+	{'DOWN', _MRef, process, Pid, normal} ->
 	    _T2 = snmp_misc:now(ms),
 	    ?IPRINT("it took ~w ms to stop the writer", [_T2 - _T1]),
 	    ok
     after 60000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
 	    Info = (catch process_info(Pid)),
-	    exit({failed_stopping_writer, timeout, Msg, Info})
+	    ?IPRINT("failed stop writer - kill it: "
+	    	    "~n      Msg:  ~p"
+	    	    "~n      Info: ~p", [Msg, Info]),
+	    exit(Pid, kill),
+	    ok
     end.
 
 log_writer_info(Pid) ->
@@ -771,11 +775,16 @@ log_writer_sleep(Pid, Time) ->
 	    _T2 = snmp_misc:now(ms),
 	    ?IPRINT("it took ~w ms to put the writer to sleep", [_T2 - _T1]),
 	    ok;
-	{'EXIT', Pid, Reason} ->
+	{'DOWN', _MRef, process, Pid, Reason} ->
+	    _T2 = snmp_misc:now(ms),
+	    ?IPRINT("writer error while attempting to put it to sleep (~w): "
+	            "~n      ~p", [_T2 - _T1, Reason]),
 	    {error, Reason}
     after 60000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
 	    Info = (catch process_info(Pid)),
+	    ?IPRINT("failed to put writer to sleep - kill it"),
+	    exit(Pid, kill),
 	    exit({failed_put_writer_to_sleep, timeout, Msg, Info})
     end.
 
