@@ -1106,7 +1106,7 @@ group_leader_prio_test(Dirty) ->
                    end,
                    100};
               true ->
-                  %% These processes wont handle incoming signals by
+                  %% These processes won't handle incoming signals by
                   %% them selves since they are stuck on dirty schedulers
                   %% when we try to change group leader. A dirty process
                   %% signal handler process (system process) will be notified

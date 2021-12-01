@@ -2326,7 +2326,7 @@ send_bad_ctl(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
     spawn_link(BadNode,
                fun () ->
                        pong = net_adm:ping(ToNode),
-                       %% We creat a valid ctl msg and replace an
+                       %% We create a valid ctl msg and replace an
                        %% atom with an invalid atom cache reference
                        <<131,Replace/binary>> = term_to_binary(replace),
                        Ctl = dmsg_ext({?DOP_REG_SEND,
@@ -2383,7 +2383,7 @@ set_internal_state(Op, Val) ->
 dmsg_hdr() ->
     [131, % Version Magic
      $D,  % Dist header
-     0].  % No atom cache referenses
+     0].  % No atom cache references
 
 dmsg_bad_hdr() ->
     [131, % Version Magic

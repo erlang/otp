@@ -801,7 +801,7 @@ open_ports(Name, Settings) ->
     case os:type() of
         {unix, freebsd} ->
             %% FreeBsd has issues with sendmsg/recvmsg in fork
-            %% implementation and we therefor have to spawn
+            %% implementation and we therefore have to spawn
             %% slower to make sure that we always hit the same
             %% make roof.
             test_server:sleep(10);
@@ -1318,11 +1318,11 @@ otp_3906(Config, OSName) ->
                              {failed, Reason};
                          {emulator_pid, EmPid} ->
                              case otp_3906_wait_result(FS, 0, 0) of
-                                 {succeded,
+                                 {succeeded,
                                   ?OTP_3906_CHILDREN,
                                   ?OTP_3906_CHILDREN} ->
-                                     succeded;
-                                 {succeded, Forked, Exited} ->
+                                     succeeded;
+                                 {succeeded, Forked, Exited} ->
                                      otp_3906_list_defunct(EmPid, OSName),
                                      {failed,
                                       {mismatch,
@@ -1337,7 +1337,7 @@ otp_3906(Config, OSName) ->
             process_flag(priority, OP),
             peer:stop(Peer),
             case Result of
-                succeded ->
+                succeeded ->
                     ok;
                 _ ->
                     ct:fail(Result)
@@ -1401,8 +1401,8 @@ otp_3906_wait_result(ForkerStarter, F, E) ->
             otp_3906_wait_result(ForkerStarter, F, E+1);
         tick ->
             otp_3906_wait_result(ForkerStarter, F, E);
-        succeded ->
-            {succeded, F, E}
+        succeeded ->
+            {succeeded, F, E}
     after
         ?OTP_3906_TICK_TIMEOUT ->
             unlink(ForkerStarter),
@@ -1439,7 +1439,7 @@ otp_3906_start_forker_starter(N, RefList, Sup, Prog) ->
 otp_3906_forker_starter(0, RefList, Sup, _) ->
     otp_3906_collect(RefList, Sup),
     unlink(Sup),
-    Sup ! succeded;
+    Sup ! succeeded;
 otp_3906_forker_starter(N, RefList, Sup, Prog)
   when length(RefList) >= ?OTP_3906_MAX_CONC_OSP ->
     otp_3906_forker_starter(N, otp_3906_collect_one(RefList, Sup), Sup, Prog);
@@ -1761,7 +1761,7 @@ test_bat_file(Dir) ->
     [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   [default,"hello","world"]),
-    %% The arg0 argumant should be ignored when running batch files
+    %% The arg0 argument should be ignored when running batch files
     [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   ["knaskurt","hello","world"]),

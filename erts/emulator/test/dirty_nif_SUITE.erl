@@ -644,7 +644,7 @@ nif_whereis(Config) when is_list(Config) ->
 
 nif_whereis_parallel(Config) when is_list(Config) ->
 
-    %% try to be at least a little asymetric
+    %% try to be at least a little asymmetric
     NProcs = trunc(3.5 * erlang:system_info(schedulers)),
     NSeq = lists:seq(1, NProcs),
     Names = [list_to_atom("dirty_nif_whereis_proc_" ++ integer_to_list(N))

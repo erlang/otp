@@ -1042,14 +1042,14 @@ nc_refc_check(Node) when is_atom(Node) ->
                               Self ! {Ref, ErrMsg, failed},
                               exit(normal)
                       end),
-                    Self ! {Ref, succeded}
+                    Self ! {Ref, succeeded}
             end),
     receive
         {Ref, ErrorMsg, failed} ->
             io:format("~s~n", [ErrorMsg]),
             ct:fail(reference_count_check_failed);
-        {Ref, succeded} ->
-            io:format("Reference count check of node ~w succeded!~n", [Node]),
+        {Ref, succeeded} ->
+            io:format("Reference count check of node ~w succeeded!~n", [Node]),
             unlink(Pid),
             ok
     end.
