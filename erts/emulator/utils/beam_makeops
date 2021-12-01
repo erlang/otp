@@ -2044,7 +2044,7 @@ sub do_pack_one {
         # to the left of the current micro instruction. If that is the
         # case, it is essential that we generate stacking and
         # unstacking instructions even when no packing is
-        # possible. (build_pack_spec() will remove any unecessary
+        # possible. (build_pack_spec() will remove any unnecessary
         # stacking and unstacking operations.)
         #
         # Here is an example. Say that we have this instruction:
@@ -2952,7 +2952,7 @@ sub group_tr {
     my($lref) = @_;
 
     #
-    # Group tranformations (while keeping the order) that all match the same
+    # Group transformations (while keeping the order) that all match the same
     # second instruction.
     #
     for (my $i = 0; $i < @$lref; $i++) {

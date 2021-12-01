@@ -24,7 +24,7 @@
 main(_) ->
     DisDir = "./dis",
     ok = filelib:ensure_dir(filename:join(DisDir, "dummy")),
-    io:format("Dissambling to ~s\n", [DisDir]),
+    io:format("Disassembling to ~s\n", [DisDir]),
     ok = file:set_cwd(DisDir),
     Path = code:get_path() -- ["."],
     Beams0 = [filelib:wildcard(filename:join(Dir, "*.beam")) ||
@@ -98,7 +98,7 @@ increment(Key, Inc) ->
     end.
 
 %%%
-%%% Counting sempahore to limit the number of processes that
+%%% Counting semaphore to limit the number of processes that
 %%% can run concurrently.
 %%%
 
