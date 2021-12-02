@@ -726,7 +726,20 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         /* We have an IV in this call. Make a copy of the context */
         ErlNifBinary ivec_bin;
 
+        /* First check the IV provided in the call of this function: */
+        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
+            {
+                ret = EXCP_BADARG_N(env, 2, "Bad iv type");
+                goto err;
+            }
+        if (ctx_res->iv_len != ivec_bin.size)
+            {
+                ret = EXCP_BADARG_N(env, 2, "Bad iv size");
+                goto err;
+            }
+
         memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
+
 #if !defined(HAVE_EVP_AES_CTR)
         if (ctx_res_copy.state == atom_undefined)
             /* Not going to use aes_ctr compat functions */
@@ -745,18 +758,6 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                 }
             }
 
-        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
-            {
-                ret = EXCP_BADARG_N(env, 2, "Bad iv type");
-                goto err;
-            }
-
-        if (ctx_res_copy.iv_len != ivec_bin.size)
-            {
-                ret = EXCP_BADARG_N(env, 2, "Bad iv size");
-                goto err;
-            }
-        
 #if !defined(HAVE_EVP_AES_CTR)
         if ((ctx_res_copy.state != atom_undefined) ) {
             /* replace the iv in state with argv[2] */
