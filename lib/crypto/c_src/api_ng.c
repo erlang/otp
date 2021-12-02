@@ -739,44 +739,10 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                         goto err;
                     }
 
-#ifndef HAS_3_0_API
                 if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
                     ret = EXCP_ERROR(env, "Can't copy ctx_res");
                     goto err;
                 }
-#else
-
-                if (!EVP_CipherInit_ex(ctx_res_copy.ctx,
-                                       EVP_CIPHER_CTX_cipher(ctx_res->ctx),
-                                       NULL, NULL, NULL, ctx_res->encflag))
-                    {
-                        ret = EXCP_ERROR(env, "Can't initialize context, step 1");
-                        goto err;
-                    }
-
-
-                if (!EVP_CIPHER_CTX_set_key_length(ctx_res_copy.ctx,
-                                                   ctx_res->key_bin.size))
-                    {
-                        ret = EXCP_ERROR(env, "Can't initialize context, key_length");
-                        goto err;
-                    }
-
-
-                if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL,
-                                       ctx_res->key_bin.data,
-                                       NULL, -1))
-                    {
-                        ret = EXCP_ERROR(env, "Can't initialize key or iv");
-                        goto err;
-                    }
-
-                if ((ctx_res->padding == atom_undefined) ||
-                    (ctx_res->padding == atom_none) ||
-                    (ctx_res->padding == atom_zero) ||
-                    (ctx_res->padding == atom_random) )
-                    EVP_CIPHER_CTX_set_padding(ctx_res_copy.ctx, 0);
-#endif
             }
 
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
