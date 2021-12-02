@@ -553,7 +553,16 @@ init_per_testcase(generate, Config) ->
 init_per_testcase(hmac, Config) ->
     configure_mac(hmac, proplists:get_value(type,Config), Config);
 init_per_testcase(_Name,Config) ->
-    Config.
+    Skip =
+        lists:member(_Name, [%%i_ng_tls
+%%                            , node_supports_cache
+                            ]) andalso
+        asan == maps:get(compile_type, crypto:info(), undefined) andalso
+        lists:prefix("OpenSSL 3.0.0 ", maps:get(cryptolib_version_linked, crypto:info(), "")),
+    case Skip of
+        true -> {skip, "Coredumps 3.0.0 asan"};
+        false -> Config
+    end.
 
 end_per_testcase(info, Config) ->
     Config;
@@ -4314,11 +4323,11 @@ bad_combo(_Config) ->
 
 bad_key_length(_Config) ->
     ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<1>>, true),
-                  error:{error,{"api_ng.c",_},"Can't initialize context, key_length"}).
+                  error:{error,{"api_ng.c",_},"Can't initialize context, key_length"++_}).
 
 bad_cipher_name(_Config) ->
     ?chk_api_name(crypto:crypto_init(foobar, <<1:128>>, true),
-                  error:{badarg,{"api_ng.c",_Line},"Unknown cipher"}).
+                  error:{badarg,{"api_ng.c",_Line},"Unknown cipher"++_}).
 
 bad_generate_key_name(_Config) ->
     ?chk_api_name(crypto:generate_key(foobar, [1024]),

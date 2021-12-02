@@ -457,6 +457,17 @@ do {                                                    \
 # define FIPS_MODE() 0
 #endif
 
+#ifdef HAS_3_0_API
+/* Set CRYPTO_DEVELOP_ERRORS to make error messages more verbose,
+   that is, include the error msg from cryptolib.
+   Example:
+      {error,{"api_ng.c",750},"Can't copy ctx_res"}
+   becomes
+      {error,{"api_ng.c",750},"Can't copy ctx_res: error:030000BE:digital envelope routines::not able to copy ctx"}
+   which enables the developer to locate more in detail where in the cryptolib code a test failed.
+*/
 
+//# define CRYPTO_DEVELOP_ERRORS
+#endif
 
 #endif /* E_OPENSSL_CONFIG_H__ */
