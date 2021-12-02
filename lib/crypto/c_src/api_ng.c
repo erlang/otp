@@ -733,7 +733,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 #endif
             {
                 ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
-                if (! ctx_res->ctx)
+                if (! ctx_res_copy.ctx)
                     {
                         ret = EXCP_ERROR(env, "Can't allocate context");
                         goto err;
