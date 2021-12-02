@@ -36,10 +36,10 @@
 %% Test cases
 -export([erlang_client_bad_openssl_server/0,
          erlang_client_bad_openssl_server/1,
-         ssl2_erlang_server_openssl_client/0,
-         ssl2_erlang_server_openssl_client/1,
-         ssl3_erlang_server_openssl_client/0,
-         ssl3_erlang_server_openssl_client/1
+         erlang_server_reject_sslv2/0,
+         erlang_server_reject_sslv2/1,
+         erlang_server_reject_sslv3/0,
+         erlang_server_reject_sslv3/1
         ]).
 
 %% Apply export
@@ -55,13 +55,16 @@
 %%--------------------------------------------------------------------
 
 all() -> 
-    [{group, 'tlsv1.2'},
+    [{group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'}
      ].
 
 groups() ->
-    [{'tlsv1.2', [], all_versions_tests()},
+    [
+     {'tlsv1.3', [], all_versions_tests()},
+     {'tlsv1.2', [], all_versions_tests()},
      {'tlsv1.1', [], all_versions_tests()},
      {'tlsv1', [], all_versions_tests()}
     ].
@@ -69,8 +72,8 @@ groups() ->
 all_versions_tests() ->
     [
      erlang_client_bad_openssl_server,
-     ssl2_erlang_server_openssl_client,
-     ssl3_erlang_server_openssl_client
+     erlang_server_reject_sslv2,
+     erlang_server_reject_sslv3
     ].
 
 init_per_suite(Config0) ->
@@ -104,15 +107,15 @@ init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 10}),
     special_init(TestCase, Config).
 
-special_init(ssl2_erlang_server_openssl_client, Config) ->
-    case ssl_test_lib:supports_ssl_tls_version(sslv2) of
+special_init(erlang_server_reject_sslv2, Config) ->
+    case ssl_test_lib:check_sane_openssl_version(sslv2) of
         true ->
             Config;
         false ->
             {skip, "sslv2 not supported by openssl"}
      end;
-special_init(ssl3_erlang_server_openssl_client, Config) ->
-    case ssl_test_lib:supports_ssl_tls_version(sslv3) of
+special_init(erlang_server_reject_sslv3, Config) ->
+    case ssl_test_lib:check_sane_openssl_version(sslv3) of
         true ->
             Config;
         false ->
@@ -180,10 +183,10 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
-ssl2_erlang_server_openssl_client() ->
+erlang_server_reject_sslv2() ->
     [{doc,"Test that ssl v2 clients are rejected"}].
 
-ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
+erlang_server_reject_sslv2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
@@ -202,14 +205,14 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     ssl_test_lib:consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_server_alert(Server, bad_record_mac),
+    ssl_test_lib:check_server_alert(Server, unexpected_message),
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
-ssl3_erlang_server_openssl_client() ->
+erlang_server_reject_sslv3() ->
     [{doc,"Test that ssl v3 clients are rejected"}].
 
-ssl3_erlang_server_openssl_client(Config) when is_list(Config) ->
+erlang_server_reject_sslv3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
@@ -228,7 +231,7 @@ ssl3_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     ssl_test_lib:consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_server_alert(Server, bad_record_mac),
+    ssl_test_lib:check_server_alert(Server, protocol_version),
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
