@@ -1,0 +1,5 @@
+-define(FORMAT, "(~s ~p:~p in ~p) ").
+-define(ARGS, [erlang:pid_to_list(self()), ?MODULE, ?LINE, ?FUNCTION_NAME]).
+-define(LOG(F, Args), ct:log(?FORMAT ++ F, ?ARGS ++ Args, [esc_chars])).
+-define(PAL(F, Args), ct:pal(?FORMAT ++ F, ?ARGS ++ Args)).
+-define(FAIL(F, Args), ct:fail(?FORMAT ++ F, ?ARGS ++ Args)).

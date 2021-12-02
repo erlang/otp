@@ -102,6 +102,7 @@ MODULES = \
 ERL_FILES = $(MODULES:%=%.erl)
 
 HRL_FILES = \
+	ssl_test_lib.hrl\
 	ssl_dist_test_lib.hrl
 
 HRL_FILES_SRC = \

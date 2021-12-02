@@ -23,6 +23,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
@@ -453,7 +454,7 @@ run_server(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, format_options(Options)]),
+    ?LOG("~nssl:listen(~p, ~p)~n", [Port, format_options(Options)]),
     %% {ok, ListenSocket} = Transport:listen(Port, Options),
     case Transport:listen(Port, Options) of
         {ok, ListenSocket} ->
@@ -477,11 +478,11 @@ run_server(ListenSocket, Opts, N) ->
     run_server(ListenSocket, Opts, N-1).
 
 do_run_server(_, {error, _} = Result, Opts)  ->
-    ct:log("Server error result ~p~n", [Result]),
+    ?LOG("Server error result ~p~n", [Result]),
     Pid = proplists:get_value(from, Opts),
     Pid ! {self(), Result};
 do_run_server(_, ok = Result, Opts) ->
-    ct:log("Server cancel result ~p~n", [Result]),
+    ?LOG("Server cancel result ~p~n", [Result]),
     Pid = proplists:get_value(from, Opts),
     Pid ! {self(), Result};
 do_run_server(ListenSocket, AcceptSocket, Opts) ->
@@ -492,7 +493,7 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	no_result_msg ->
 	    ok;
 	Msg ->
-	    ct:log("~p:~p~nServer Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+	    ?LOG("~nServer Msg: ~p ~n", [Msg]),
 	    Pid ! {self(), Msg}
     end,
     do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid).
@@ -500,22 +501,22 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 server_apply_mfa(_, undefined) ->
     no_result_msg;
 server_apply_mfa(AcceptSocket, {Module, Function, Args}) ->
-    ct:log("~p:~p~nServer: apply(~p,~p,~p)~n",
-           [?MODULE,?LINE, Module, Function, [AcceptSocket | Args]]),
+    ?LOG("~nServer: apply(~p,~p,~p)~n",
+           [Module, Function, [AcceptSocket | Args]]),
     apply(Module, Function, [AcceptSocket | Args]).
 
 client_apply_mfa(_, undefined) ->
     no_result_msg;
 client_apply_mfa(AcceptSocket, {Module, Function, Args}) ->
-    ct:log("~p:~p~nClient: apply(~p,~p,~p)~n",
-           [?MODULE,?LINE, Module, Function, [AcceptSocket | Args]]),
+    ?LOG("~nClient: apply(~p,~p,~p)~n",
+           [Module, Function, [AcceptSocket | Args]]),
     apply(Module, Function, [AcceptSocket | Args]).
 
 
 do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
     receive
         {data, Data} ->
-            ct:log("[server] Send: ~p~n", [Data]),
+            ?LOG("[server] Send: ~p~n", [Data]),
             case Transport:send(AcceptSocket, Data) of
                 ok ->
                     Pid ! {self(), ok};
@@ -526,17 +527,17 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
         {active_receive, Data} ->
             case active_recv(AcceptSocket, length(Data)) of
                 ReceivedData ->
-                    ct:log("[server] Received: ~p~n", [Data]),
+                    ?LOG("[server] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
         {update_keys, Type} ->
             case ssl:update_keys(AcceptSocket, Type) of
                 ok ->
-                    ct:log("[server] Update keys: ~p", [Type]),
+                    ?LOG("[server] Update keys: ~p", [Type]),
                     Pid ! {self(), ok};
                 {error, Reason} ->
-                    ct:log("[server] Update keys failed: ~p", [Type]),
+                    ?LOG("[server] Update keys failed: ~p", [Type]),
                     Pid ! {self(), Reason}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
@@ -548,10 +549,10 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
 	{listen, MFA} ->
 	    run_server(ListenSocket, [MFA | proplists:delete(mfa, Opts)]);
 	close ->
-	    ct:log("~p:~p~nServer closing  ~p ~n", [?MODULE,?LINE, self()]),
+	    ?LOG("~nServer closing~n", []),
 	    Result = Transport:close(AcceptSocket),
 	    Result1 = Transport:close(ListenSocket),
-	    ct:log("~p:~p~nResult ~p : ~p ~n", [?MODULE,?LINE, Result, Result1])
+	    ?LOG("~nResult ~p : ~p ~n", [Result, Result1])
     end.
 
 %%% To enable to test with s_client -reconnect
@@ -570,35 +571,35 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
 	  AcceptSocket
     end;
 connect(ListenSocket, _Opts) ->
-    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
+    ?LOG("~ngen_tcp:accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
     AcceptSocket.
 
 connect(_, _, 0, AcceptSocket, _, _, _) ->
     AcceptSocket;
 connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
-    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, format_options(SslOpts),Timeout]),
+    ?LOG("~nssl:handshake(~p,~p,~p)~n", [AcceptSocket, format_options(SslOpts),Timeout]),
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
-            ct:log("Ext ~p:~n", [Ext]),            
-            ct:log("~p:~p~nssl:handshake_cancel(~p)~n", [?MODULE,?LINE, Socket0]),            
+            ?LOG("Ext ~p:~n", [Ext]),
+            ?LOG("~nssl:handshake_cancel(~p)~n", [Socket0]),
             ssl:handshake_cancel(Socket0);
         Result ->
-	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    ?LOG("~nssl:handshake@~p ret ~p",[Node,Result]),
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
-    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("~p:~p~nssl:handshake(~p,~p,~p)~n", [?MODULE,?LINE, AcceptSocket, SslOpts,Timeout]),
+    ?LOG("~nssl:handshake(~p,~p,~p)~n", [AcceptSocket, SslOpts,Timeout]),
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
             [_|_] = maps:get(sni, Ext),
-            ct:log("Ext ~p:~n", [Ext]),            
+            ?LOG("Ext ~p:~n", [Ext]),
             ContOpts = case lists:keytake(want_ext, 1, ContOpts0) of
                            {value, {_, WantExt}, ContOpts1} ->
                                if is_pid(WantExt) ->
@@ -610,34 +611,34 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
                            _ ->
                                ContOpts0
                        end,
-            ct:log("~p:~p~nssl:handshake_continue(~p,~p,~p)~n", [?MODULE,?LINE, Socket0, ContOpts,Timeout]),
+            ?LOG("~nssl:handshake_continue(~p,~p,~p)~n", [Socket0, ContOpts,Timeout]),
             case ssl:handshake_continue(Socket0, ContOpts, Timeout) of
                 {ok, Socket} ->
                     connect(ListenSocket, Node, N-1, Socket, Timeout, SslOpts, ContOpts0);
                 Error ->
-                    ct:log("~p:~p~nssl:handshake_continue@~p ret ~p",[?MODULE,?LINE, Node,Error]),
+                    ?LOG("~nssl:handshake_continue@~p ret ~p",[Node,Error]),
                     Error
             end;
 	Result ->
-	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    ?LOG("~nssl:handshake@~p ret ~p",[Node,Result]),
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
-    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("~p:~p~nssl:handshake(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
+    ?LOG("~nssl:handshake(~p, ~p)~n", [AcceptSocket, Timeout]),
 
     case ssl:handshake(AcceptSocket, Timeout) of
 	{ok, Socket} ->
 	    connect(ListenSocket, Node, N-1, Socket, Timeout, [], ContOpts);
 	Result ->
-	    ct:log("~p:~p~nssl:handshake@~p ret ~p",[?MODULE,?LINE, Node,Result]),
+	    ?LOG("~nssl:handshake@~p ret ~p",[Node,Result]),
 	    Result
     end;
 connect(ListenSocket, _Node, _, _, Timeout, Opts, _) ->
-    ct:log("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ct:log("ssl:handshake(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
+    ?LOG("ssl:handshake(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
     ssl:handshake(AcceptSocket, Opts, Timeout),
     AcceptSocket.
 
@@ -663,7 +664,7 @@ transport_accept_abuse(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
+    ?LOG("~nssl:listen(~p, ~p)~n", [Port, Options]),
     {ok, ListenSocket} = Transport:listen(Port, Options),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
@@ -677,7 +678,7 @@ transport_switch_control(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
+    ?LOG("~nssl:listen(~p, ~p)~n", [Port, Options]),
     {ok, ListenSocket} = Transport:listen(Port, Options),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
@@ -802,36 +803,34 @@ openssl_server_loop(Pid, SslPort, Args) ->
         {data, Data} ->
             case port_command(SslPort, Data, [nosuspend]) of
                 true ->
-                    ct:log("(~p) [openssl server] Send data: ~p~n",
-                           [self(), Data]),
+                    ?LOG("[openssl server] Send data: ~p~n", [Data]),
                     Pid ! {self(), ok};
                 _Else ->
-                    ct:log("(~p) [openssl server] Send failed, data: ~p~n",
-                           [self(), Data]),
+                    ?LOG("[openssl server] Send failed, data: ~p~n", [Data]),
                     Pid ! {self(), {error, port_command_failed}}
             end,
             openssl_server_loop(Pid, SslPort, Args);
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
-                    ct:log("(~p) [openssl server] Received: ~p~n", [self(), Data]),
+                    ?LOG("[openssl server] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_server_loop(Pid, SslPort, Args);
         {update_keys, Type} ->
             case Type of
                 write ->
-                    ct:log("[openssl server] Update keys: ~p", [Type]),
+                    ?LOG("[openssl server] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "k", [nosuspend]),
                     Pid ! {self(), ok};
                 read_write ->
-                    ct:log("[openssl server] Update keys: ~p", [Type]),
+                    ?LOG("[openssl server] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "K", [nosuspend]),
                     Pid ! {self(), ok}
             end,
             openssl_server_loop(Pid, SslPort, Args);
         close ->
-            ct:log("~p:~p~n[openssl server] Server closing~n", [?MODULE,?LINE]),
+            ?LOG("~n[openssl server] Server closing~n", []),
             catch port_close(SslPort);
         {ssl_closed, _Socket} ->
             %% TODO
@@ -876,37 +875,35 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
         {data, Data} ->
             case port_command(SslPort, Data, [nosuspend]) of
                 true ->
-                    ct:log("(~p) [openssl client] Send data: ~p~n",
-                           [self(), Data]),
+                    ?LOG("[openssl client] Send data: ~p~n", [Data]),
                     Pid ! {self(), ok};
                 _Else ->
-                    ct:log("(~p) [openssl client] Send failed, data: ~p~n",
-                           [self(), Data]),
+                    ?LOG("[openssl client] Send failed, data: ~p~n", [Data]),
                     Pid ! {self(), {error, port_command_failed}}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
-                    ct:log("(~p) [openssl client] Received: ~p~n   (forward to PID=~p)~n",
-                           [self(), Data, Pid]),
+                    ?LOG("[openssl client] Received: ~p~n   (forward to PID=~p)~n",
+                           [Data, Pid]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         {update_keys, Type} ->
             case Type of
                 write ->
-                    ct:log("[openssl client] Update keys: ~p", [Type]),
+                    ?LOG("[openssl client] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "k", [nosuspend]),
                     Pid ! {self(), ok};
                 read_write ->
-                    ct:log("[openssl client] Update keys: ~p", [Type]),
+                    ?LOG("[openssl client] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "K", [nosuspend]),
                     Pid ! {self(), ok}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         close ->
-            ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
+            ?LOG("~nClient closing~n", []),
             catch port_close(SslPort);
         {ssl_closed, _Socket} ->
             %% TODO
@@ -950,8 +947,8 @@ run_client(Opts) ->
     Transport =  proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
     ContOpts = proplists:get_value(continue_options, Opts, []),
-    ct:log("~p:~p~n~p:connect(~p, ~p)@~p~n", [?MODULE,?LINE, Transport, Host, Port, Node]),
-    ct:log("SSLOpts: ~p", [format_options(Options)]),
+    ?LOG("~n~p:connect(~p, ~p)@~p~n", [Transport, Host, Port, Node]),
+    ?LOG("SSLOpts: ~p", [format_options(Options)]),
     case ContOpts of
         [] ->
             client_loop(Node, Host, Port, Pid, Transport, Options, Opts);
@@ -963,7 +960,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
     case Transport:connect(Host, Port, Options) of
 	{ok, Socket} ->
 	    Pid ! {connected, Socket},
-	    ct:log("~p:~p~nClient: connected~n", [?MODULE,?LINE]),
+	    ?LOG("~nClient: connected~n", []),
 	    %% In special cases we want to know the client port, it will
 	    %% be indicated by sending {port, 0} in options list!
 	    send_selected_port(Pid,  proplists:get_value(port, Options), Socket),
@@ -972,7 +969,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 		no_result_msg ->
 		    ok;
 		Msg ->
-		    ct:log("~p:~p~nClient Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+		    ?LOG("~nClient Msg: ~p ~n", [Msg]),
 		    Pid ! {self(), Msg}
 	    end,
             client_loop_core(Socket, Pid, Transport);
@@ -983,35 +980,35 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
                 _ ->
                     case get(retries) of
                         N when N < 5 ->
-                            ct:log("~p:~p~neconnrefused retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
+                            ?LOG("~neconnrefused retries=~p sleep ~p",[N,?SLEEP]),
                             put(retries, N+1),
                             ct:sleep(?SLEEP),
                             run_client(Opts);
                         _ ->
-                            ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+                            ?LOG("~nClient faild several times: connection failed: ~p ~n", [Reason]),
                             Pid ! {self(), {error, Reason}}
                     end
             end;
 	{error, econnreset = Reason} ->
 	      case get(retries) of
 		N when N < 5 ->
-		    ct:log("~p:~p~neconnreset retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
+		    ?LOG("~neconnreset retries=~p sleep ~p",[N,?SLEEP]),
 		    put(retries, N+1),
 		    ct:sleep(?SLEEP),
 		    run_client(Opts);
 	       _ ->
-		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+		    ?LOG("~nClient faild several times: connection failed: ~p ~n", [Reason]),
 		    Pid ! {self(), {error, Reason}}
 	    end;
 	{error, Reason} ->
-	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+	    ?LOG("~nClient: connection failed: ~p ~n", [Reason]),
 	    Pid ! {connect_failed, Reason}
     end.
 
 client_loop_core(Socket, Pid, Transport) ->
     receive
         {data, Data} ->
-            ct:log("[client] Send: ~p~n", [Data]),
+            ?LOG("[client] Send: ~p~n", [Data]),
             case Transport:send(Socket, Data) of
                 ok ->
                     Pid ! {self(), ok};
@@ -1022,17 +1019,17 @@ client_loop_core(Socket, Pid, Transport) ->
         {active_receive, Data} ->
             case active_recv(Socket, length(Data)) of
                 ReceivedData ->
-                    ct:log("[client] Received: ~p~n", [Data]),
+                    ?LOG("[client] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             client_loop_core(Socket, Pid, Transport);
         {update_keys, Type} ->
             case ssl:update_keys(Socket, Type) of
                 ok ->
-                    ct:log("[client] Update keys: ~p", [Type]),
+                    ?LOG("[client] Update keys: ~p", [Type]),
                     Pid ! {self(), ok};
                 {error, Reason} ->
-                    ct:log("[client] Update keys failed: ~p", [Type]),
+                    ?LOG("[client] Update keys failed: ~p", [Type]),
                     Pid ! {self(), Reason}
             end,
             client_loop_core(Socket, Pid, Transport);
@@ -1040,7 +1037,7 @@ client_loop_core(Socket, Pid, Transport) ->
             Pid ! {self(), {socket, Socket}},
             client_loop_core(Socket, Pid, Transport);
         close ->
-            ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
+            ?LOG("~nClient closing~n", []),
             Transport:close(Socket);
         {ssl_closed, Socket} ->
             ok;
@@ -1060,10 +1057,10 @@ client_cont_loop(_Node, Host, Port, Pid, Transport, Options, cancel, _Opts) ->
     case Transport:connect(Host, Port, Options) of
         {ok, Socket, _} ->
            Result = Transport:handshake_cancel(Socket),
-            ct:log("~p:~p~nClient: Cancel: ~p ~n", [?MODULE,?LINE, Result]),
+            ?LOG("~nClient: Cancel: ~p ~n", [Result]),
             Pid ! {connect_failed, Result};
         {error, Reason} ->
-	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+	    ?LOG("~nClient: connection failed: ~p ~n", [Reason]),
 	    Pid ! {connect_failed, Reason}
     end;
 
@@ -1081,45 +1078,44 @@ client_cont_loop(_Node, Host, Port, Pid, Transport, Options, ContOpts0, Opts) ->
                            _ ->
                                ContOpts0
                        end,
-            ct:log("~p:~p~nClient: handshake_continue(~p, ~p, infinity) ~n", [?MODULE, ?LINE, Socket0, ContOpts]),
+            ?LOG("~nClient: handshake_continue(~p, ~p, infinity) ~n", [Socket0, ContOpts]),
             case Transport:handshake_continue(Socket0, ContOpts) of
                 {ok, Socket} ->
                     Pid ! {connected, Socket},
                     {Module, Function, Args} = proplists:get_value(mfa, Opts),
-                    ct:log("~p:~p~nClient: apply(~p,~p,~p)~n",
-                           [?MODULE,?LINE, Module, Function, [Socket | Args]]),
+                    ?LOG("~nClient: apply(~p,~p,~p)~n",
+                           [Module, Function, [Socket | Args]]),
                     case apply(Module, Function, [Socket | Args]) of
                         no_result_msg ->
                             ok;
                         Msg ->
-                            ct:log("~p:~p~nClient Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+                            ?LOG("~nClient Msg: ~p ~n", [Msg]),
                             Pid ! {self(), Msg}
                     end
 	    end;
         {error, Reason} ->
-            ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+            ?LOG("~nClient: connection failed: ~p ~n", [Reason]),
             Pid ! {connect_failed, Reason}
     end.
             
 close(Pid) ->
-    ct:log("~p:~p~nClose ~p ~n", [?MODULE,?LINE, Pid]),
+    ?LOG("~nClose ~p ~n", [Pid]),
     Monitor = erlang:monitor(process, Pid),
     Pid ! close,
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
-		
+	    ?LOG("~nPid: ~p down due to:~p ~n", [Pid, Reason])
     end.
 
 close(Pid, Timeout) ->
-    ct:log("~p:~p~n Close ~p ~n", [?MODULE,?LINE, Pid]),
+    ?LOG("~n Close ~p ~n", [Pid]),
     Monitor = erlang:monitor(process, Pid),
     Pid ! close,
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
+	    ?LOG("~nPid: ~p down due to:~p ~n", [Pid, Reason])
     after 
 	Timeout ->
 	    exit(Pid, kill)
@@ -1147,13 +1143,13 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	{Client, ClientMsg} ->
 	    check_result(Server, ServerMsg);
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ?LOG("~n Openssl ~s~n",[Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
         {Port,closed} when is_port(Port) ->
-            ct:log("~p:~p~n Openssl port closed ~n",[?MODULE,?LINE]),
+            ?LOG("~n Openssl port closed ~n",[]),
             check_result(Server, ServerMsg, Client, ClientMsg);
         {'EXIT', epipe} ->
-            ct:log("~p:~p~n Openssl port died ~n",[?MODULE,?LINE]),
+            ?LOG("~n Openssl port died ~n",[]),
             check_result(Server, ServerMsg, Client, ClientMsg);
 	Unexpected ->
 	    Reason = {{expected, {Client, ClientMsg}},
@@ -1170,10 +1166,10 @@ check_result(Pid, Msg) ->
         {Pid, {ok, {{127,_,_,_}, ClientPort}}} when ClientIP =:= localhost ->
             ok;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ?LOG("~n Openssl ~s~n",[Debug]),
 	    check_result(Pid,Msg);
         {Port,closed} when is_port(Port)->
-            ct:log("~p:~p Openssl port closed ~n",[?MODULE,?LINE]),
+            ?LOG(" Openssl port closed ~n",[]),
             check_result(Pid, Msg);
 	Unexpected ->
 	    Reason = {{expected, {Pid, Msg}}, 
@@ -1271,7 +1267,7 @@ wait_for_result(Server, ServerMsg, Client, ClientMsg) ->
 		%%     Unexpected
 	    end;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ?LOG("~nopenssl ~s~n",[Debug]),
 	    wait_for_result(Server, ServerMsg, Client, ClientMsg)
 	%% Unexpected ->
 	%%     Unexpected
@@ -1292,7 +1288,7 @@ wait_for_result(Pid, Msg) ->
 	{Pid, Msg} -> 
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
+	    ?LOG("~nopenssl ~s~n",[Debug]),
 	    wait_for_result(Pid,Msg)
 	%% Unexpected ->
 	%%     Unexpected
@@ -1862,31 +1858,31 @@ run_upgrade_server(Opts) ->
     SslOptions = proplists:get_value(ssl_options, Opts),
     Pid = proplists:get_value(from, Opts),
 
-    ct:log("~p:~p~ngen_tcp:listen(~p, ~p)~n", [?MODULE,?LINE, Port, TcpOptions]),
+    ?LOG("~ngen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
     {ok, ListenSocket} = gen_tcp:listen(Port, TcpOptions),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
-    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
+    ?LOG("~ngen_tcp:accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
 
     try
 	{ok, SslAcceptSocket} = case TimeOut of
 				    infinity ->
-					ct:log("~p:~p~nssl:handshake(~p, ~p)~n",
-							   [?MODULE,?LINE, AcceptSocket, SslOptions]),
+					?LOG("~nssl:handshake(~p, ~p)~n",
+							   [AcceptSocket, SslOptions]),
 					ssl:handshake(AcceptSocket, SslOptions);
 				    _ ->
-					ct:log("~p:~p~nssl:handshake(~p, ~p, ~p)~n",
-							   [?MODULE,?LINE, AcceptSocket, SslOptions, TimeOut]),
+					?LOG("~nssl:handshake(~p, ~p, ~p)~n",
+							   [AcceptSocket, SslOptions, TimeOut]),
 					ssl:handshake(AcceptSocket, SslOptions, TimeOut)
 				end,
 	{Module, Function, Args} = proplists:get_value(mfa, Opts),
 	Msg = apply(Module, Function, [SslAcceptSocket | Args]),
-	ct:log("~p:~p~nUpgrade Server Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+	?LOG("~nUpgrade Server Msg: ~p ~n", [Msg]),
 	Pid ! {self(), Msg},
 	receive
 	    close ->
-		ct:log("~p:~p~nUpgrade Server closing~n", [?MODULE,?LINE]),
+		?LOG("~nUpgrade Server closing~n", []),
 		ssl:close(SslAcceptSocket)
 	end
     catch error:{badmatch, Error} ->
@@ -1904,24 +1900,24 @@ run_upgrade_client(Opts) ->
     TcpOptions = proplists:get_value(tcp_options, Opts),
     SslOptions = proplists:get_value(ssl_options, Opts),
     
-    ct:log("~p:~p~ngen_tcp:connect(~p, ~p, ~p)~n",
-		       [?MODULE,?LINE, Host, Port, TcpOptions]),
+    ?LOG("~ngen_tcp:connect(~p, ~p, ~p)~n",
+		       [Host, Port, TcpOptions]),
     {ok, Socket} = gen_tcp:connect(Host, Port, TcpOptions),
 
     send_selected_port(Pid, Port, Socket),
 
-    ct:log("~p:~p~nssl:connect(~p, ~p)~n", [?MODULE,?LINE, Socket, SslOptions]),
+    ?LOG("~nssl:connect(~p, ~p)~n", [Socket, SslOptions]),
     {ok, SslSocket} = ssl:connect(Socket, SslOptions),
 
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
-    ct:log("~p:~p~napply(~p, ~p, ~p)~n",
-		       [?MODULE,?LINE, Module, Function, [SslSocket | Args]]),
+    ?LOG("~napply(~p, ~p, ~p)~n",
+		       [Module, Function, [SslSocket | Args]]),
     Msg = apply(Module, Function, [SslSocket | Args]),
-    ct:log("~p:~p~nUpgrade Client Msg: ~p ~n", [?MODULE,?LINE, Msg]),
+    ?LOG("~nUpgrade Client Msg: ~p ~n", [Msg]),
     Pid ! {self(), Msg},
     receive 
 	close ->
-	    ct:log("~p:~p~nUpgrade Client closing~n", [?MODULE,?LINE]),
+	    ?LOG("~nUpgrade Client closing~n", []),
 	    ssl:close(SslSocket)
     end.
 
@@ -1940,20 +1936,20 @@ run_upgrade_server_error(Opts) ->
     SslOptions = proplists:get_value(ssl_options, Opts),
     Pid = proplists:get_value(from, Opts),
 
-    ct:log("~p:~p~ngen_tcp:listen(~p, ~p)~n", [?MODULE,?LINE, Port, TcpOptions]),
+    ?LOG("~ngen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
     {ok, ListenSocket} = gen_tcp:listen(Port, TcpOptions),
     Pid ! {listen, up},
     send_selected_port(Pid, Port, ListenSocket),
-    ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
+    ?LOG("~ngen_tcp:accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = gen_tcp:accept(ListenSocket),
     Error = case TimeOut of
 		infinity ->
-		    ct:log("~p:~p~nssl:handshake(~p, ~p)~n",
-				       [?MODULE,?LINE, AcceptSocket, SslOptions]),
+		    ?LOG("~nssl:handshake(~p, ~p)~n",
+				       [AcceptSocket, SslOptions]),
 		    ssl:handshake(AcceptSocket, SslOptions);
 		_ ->
-		    ct:log("~p:~p~nssl:ssl_handshake(~p, ~p, ~p)~n",
-				       [?MODULE,?LINE, AcceptSocket, SslOptions, TimeOut]),
+		    ?LOG("~nssl:ssl_handshake(~p, ~p, ~p)~n",
+				       [AcceptSocket, SslOptions, TimeOut]),
 		    ssl:handshake(AcceptSocket, SslOptions, TimeOut)
 	    end,
     Pid ! {self(), Error}.
@@ -1970,26 +1966,26 @@ run_server_error(Opts) ->
     Options = proplists:get_value(options, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
+    ?LOG("~nssl:listen(~p, ~p)~n", [Port, Options]),
     case Transport:listen(Port, Options) of
 	{ok, #sslsocket{} = ListenSocket} ->
 	    %% To make sure error_client will
 	    %% get {error, closed} and not {error, connection_refused}
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    ct:log("~p:~p~nssl:transport_accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
+	    ?LOG("~nssl:transport_accept(~p)~n", [ListenSocket]),
 	    case Transport:transport_accept(ListenSocket) of
 		{error, _} = Error ->
 		    Pid ! {self(), Error};
 		{ok, AcceptSocket} ->
-		    ct:log("~p:~p~nssl:handshake(~p)~n", [?MODULE,?LINE, AcceptSocket]),
+		    ?LOG("~nssl:handshake(~p)~n", [AcceptSocket]),
 		    Error = ssl:handshake(AcceptSocket),
 		    Pid ! {self(), Error}
 	    end;
 	{ok, ListenSocket} ->
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
-	    ct:log("~p:~p~n~p:accept(~p)~n", [?MODULE,?LINE, Transport, ListenSocket]),
+	    ?LOG("~n~p:accept(~p)~n", [Transport, ListenSocket]),
 	     case Transport:accept(ListenSocket) of
 		{error, _} = Error ->
 		     Pid ! {self(), Error}
@@ -2011,7 +2007,7 @@ run_client_error(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport = proplists:get_value(transport, Opts, ssl),
     Options = proplists:get_value(options, Opts),
-    ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
+    ?LOG("~nssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
     Error = Transport:connect(Host, Port, Options),
     case Error of
         {error, _} ->
@@ -2512,7 +2508,7 @@ der_to_pem(File, Entries) ->
 cipher_result(Socket, Result) ->
     {ok, Info} = ssl:connection_information(Socket),
     Result = {ok, {proplists:get_value(protocol, Info), proplists:get_value(selected_cipher_suite, Info)}},
-    ct:log("~p:~p~nSuccessfull connect: ~p~n", [?MODULE,?LINE, Result]),
+    ?LOG("~nSuccessfull connect: ~p~n", [Result]),
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
     Hello = "Hello\n",
@@ -2607,21 +2603,21 @@ openssl_tls_version_support(Version, Config0) ->
                     close_port(OpensslPort),
                     true;
                 {error, {tls_alert, {protocol_version, _}}} ->
-                    ct:pal("OpenSSL does not support ~p", [Version]),
+                    ?PAL("OpenSSL does not support ~p", [Version]),
                     close_port(OpensslPort),
                     false;
                 {error, {tls_alert, Alert}} ->
-                    ct:pal("OpenSSL returned alert ~p", [Alert]),
+                    ?PAL("OpenSSL returned alert ~p", [Alert]),
                     close_port(OpensslPort),
                     false;
                 {error, timeout} ->
-                    ct:pal("Timed out connection to OpenSSL", []),
+                    ?PAL("Timed out connection to OpenSSL", []),
                     close_port(OpensslPort),
                     false
             end
     catch
         _:_ ->
-            ct:pal("OpenSSL does not support ~p", [Version]),
+            ?PAL("OpenSSL does not support ~p", [Version]),
             close_port(OpensslPort),
             false
     end.
@@ -2672,20 +2668,20 @@ check_key_exchange_send_active(Socket, KeyEx) ->
     send_recv_result_active(Socket).
 
 check_key_exchange({KeyEx,_, _}, KeyEx, _) ->
-    ct:pal("Kex: ~p", [KeyEx]),
+    ?LOG("Kex: ~p", [KeyEx]),
     true;
 check_key_exchange({KeyEx,_,_,_}, KeyEx, _) ->
-    ct:pal("Kex: ~p", [KeyEx]),
+    ?LOG("Kex: ~p", [KeyEx]),
     true;
 check_key_exchange(KeyEx1, KeyEx2, Version) ->
-    ct:pal("Kex: ~p ~p", [KeyEx1, KeyEx2]),
+    ?LOG("Kex: ~p ~p", [KeyEx1, KeyEx2]),
     case Version of
         'tlsv1.2' ->
             v_1_2_check(element(1, KeyEx1), KeyEx2);
         'dtlsv1.2' ->
             v_1_2_check(element(1, KeyEx1), KeyEx2);
         _ ->       
-            ct:pal("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
+            ?PAL("Negotiated ~p  Expected ~p", [KeyEx1, KeyEx2]),
             false
     end.
 
@@ -2729,11 +2725,10 @@ check_active_receive(Pid, Data) ->
 check_active_receive_loop(Pid, Data) ->
     receive
         {Pid, Data} ->
-            ct:log("(~p) Received: ~p~n   (from ~p)~n", [self(), Data, Pid]),
+            ?LOG("Received: ~p~n   (from ~p)~n", [Data, Pid]),
             Data;
         {Pid, Data2} ->
-            ct:log("(~p) Received unexpected message: ~p~n   (from ~p)~n",
-                   [self(), Data2, Pid]),
+            ?LOG("Received unexpected message: ~p~n   (from ~p)~n", [Data2, Pid]),
             check_active_receive_loop(Pid, Data)
     end.
 
@@ -2767,16 +2762,16 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
     case ssl:connection_information(Socket, [session_resumption]) of
         {ok, [{session_resumption, SessionResumption}]} ->
             Msg = boolean_to_log_msg(SessionResumption),
-            ct:log("~p:~p~nSession resumption verified! (expected ~p, got ~p)!",
-                   [?MODULE, ?LINE, Msg, Msg]);
+            ?LOG("~nSession resumption verified! (expected ~p, got ~p)!",
+                   [Msg, Msg]);
         {ok, [{session_resumption, Got0}]} ->
             Expected = boolean_to_log_msg(SessionResumption),
             Got = boolean_to_log_msg(Got0),
-            ct:fail("~p:~p~nFailed to verify session resumption! (expected ~p, got ~p)",
-                    [?MODULE, ?LINE, Expected, Got]);
+            ?FAIL("~nFailed to verify session resumption! (expected ~p, got ~p)",
+                    [Expected, Got]);
         {error, Reason} ->
-            ct:fail("~p:~p~nFailed to verify session resumption! Reason: ~p",
-                    [?MODULE, ?LINE, Reason])
+            ?FAIL("~nFailed to verify session resumption! Reason: ~p",
+                    [Reason])
     end,
 
     Data =  "Hello world",
@@ -2787,7 +2782,7 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
         no_reply ->
             ok;
         Else1 ->
-            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
+            ?FAIL("~nFaulty parameter: ~p", [Else1])
     end,
     Tickets =
         case TicketOption of
@@ -2796,7 +2791,7 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
             no_tickets ->
                 ok;
             Else2 ->
-                ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else2])
+                ?FAIL("~nFaulty parameter: ~p", [Else2])
         end,
     case EarlyData of
         {verify_early_data, Atom} ->
@@ -2804,29 +2799,29 @@ verify_active_session_resumption(Socket, SessionResumption, WaitForReply, Ticket
                 ok ->
                     Tickets;
                 Else ->
-                    ct:fail("~p:~p~nFailed to verify early_data! (expected ~p, got ~p)",
-                            [?MODULE, ?LINE, Atom, Else])
+                    ?FAIL("~nFailed to verify early_data! (expected ~p, got ~p)",
+                            [Atom, Else])
             end;
         no_early_data ->
             Tickets;
         Else3 ->
-            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else3])
+            ?FAIL("~nFaulty parameter: ~p", [Else3])
     end.
 
 verify_server_early_data(Socket, WaitForReply, EarlyData) ->
     case ssl:connection_information(Socket, [session_resumption]) of
         {ok, [{session_resumption, true}]} ->
             Msg = boolean_to_log_msg(true),
-            ct:log("~p:~p~nSession resumption verified! (expected ~p, got ~p)!",
-                   [?MODULE, ?LINE, Msg, Msg]);
+            ?LOG("~nSession resumption verified! (expected ~p, got ~p)!",
+                   [Msg, Msg]);
         {ok, [{session_resumption, Got0}]} ->
             Expected = boolean_to_log_msg(true),
             Got = boolean_to_log_msg(Got0),
-            ct:fail("~p:~p~nFailed to verify session resumption! (expected ~p, got ~p)",
-                    [?MODULE, ?LINE, Expected, Got]);
+            ?FAIL("~nFailed to verify session resumption! (expected ~p, got ~p)",
+                    [Expected, Got]);
         {error, Reason} ->
-            ct:fail("~p:~p~nFailed to verify session resumption! Reason: ~p",
-                    [?MODULE, ?LINE, Reason])
+            ?FAIL("~nFailed to verify session resumption! Reason: ~p",
+                    [Reason])
     end,
     Data =  "Hello world",
     ssl:send(Socket, Data),
@@ -2837,14 +2832,14 @@ verify_server_early_data(Socket, WaitForReply, EarlyData) ->
             _ ->
                 binary_to_list(EarlyData) ++ Data
         end,
-    ct:log("Expected Reply: ~p~n", [Reply]),
+    ?LOG("Expected Reply: ~p~n", [Reply]),
     case WaitForReply of
         wait_reply ->
             Reply = active_recv(Socket, length(Reply));
         no_reply ->
             ok;
         Else1 ->
-            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
+            ?FAIL("~nFaulty parameter: ~p", [Else1])
     end,
     ok.
 
@@ -2855,11 +2850,11 @@ verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
                                          indication = Size}}}} = Ticket0,
       case Size of
           MaxEarlyDataSize ->
-              ct:log("~p:~p~nmax_early_data_size verified! (expected ~p, got ~p)!",
-                     [?MODULE, ?LINE, MaxEarlyDataSize, Size]);
+              ?LOG("~nmax_early_data_size verified! (expected ~p, got ~p)!",
+                     [MaxEarlyDataSize, Size]);
           Else ->
-              ct:log("~p:~p~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
-                     [?MODULE, ?LINE, MaxEarlyDataSize, Else])
+              ?LOG("~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
+                     [MaxEarlyDataSize, Else])
       end.
 
 update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
@@ -2867,8 +2862,8 @@ update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
                    extensions = #{early_data :=
                                       #early_data_indication_nst{
                                          indication = Size}}}} = Ticket,
-    ct:log("~p:~p~nOverwrite max_early_data_size (from ~p to ~p)!",
-                     [?MODULE, ?LINE, Size, MaxEarlyDataSize]),
+    ?LOG("~nOverwrite max_early_data_size (from ~p to ~p)!",
+                     [Size, MaxEarlyDataSize]),
     #{ticket := #new_session_ticket{
                    extensions = #{early_data := Extensions0}} = NST0} = Ticket,
     Extensions = #{early_data => #early_data_indication_nst{
@@ -2898,17 +2893,18 @@ check_tickets(Client) ->
             Tickets
     after
         5000 ->
-            ct:fail("~p:~p~nNo tickets received!", [?MODULE, ?LINE])
+            ?FAIL("~nNo tickets received!", [])
     end.
 
 active_recv_loop(Pid, SslPort, Data) ->
     case active_recv(SslPort, length(Data)) of
         Data ->
-            ct:log("(~p) [openssl server] Received: ~p~n   (forward to PID=~p)~n",
-                   [self(), Data, Pid]),
+            ?LOG("[openssl server] Received: ~p~n   (forward to PID=~p)~n",
+                   [Data, Pid]),
             Pid ! {self(), Data};
         Unexpected ->
-            ct:log("(~p) [openssl server] Received unexpected: ~p~n   (dropping message)~n", [self(), Unexpected]),
+            ?LOG("[openssl server] Received unexpected: ~p~n   (dropping message)~n",
+                 [Unexpected]),
             active_recv_loop(Pid, SslPort, Data)
     end.
 
@@ -3201,28 +3197,28 @@ close_port(Port) ->
 close_loop(Port, Time, SentClose) ->
     receive 
 	{Port, {data,Debug}} when is_port(Port) ->
-	    ct:log("openssl ~s~n",[Debug]),
+	    ?LOG("openssl ~s~n",[Debug]),
 	    close_loop(Port, Time, SentClose);	
 	{ssl,_,Msg} ->
-	    ct:log("ssl Msg ~s~n",[Msg]),
+	    ?LOG("ssl Msg ~s~n",[Msg]),
 	    close_loop(Port, Time, SentClose);	
 	{Port, closed} -> 
-	    ct:log("Port Closed~n",[]),
+	    ?LOG("Port Closed~n",[]),
 	    ok;
 	{'EXIT', Port, Reason} ->
-	    ct:log("Port Closed ~p~n",[Reason]),
+	    ?LOG("Port Closed ~p~n",[Reason]),
 	    ok;
 	Msg ->
-	    ct:log("Port Msg ~p~n",[Msg]),
+	    ?LOG("Port Msg ~p~n",[Msg]),
 	    close_loop(Port, Time, SentClose)
     after Time ->
 	    case SentClose of
 		false -> 
-		    ct:log("Closing port ~n",[]),
+		    ?LOG("Closing port ~n",[]),
 		    catch erlang:port_close(Port),
 		    close_loop(Port, Time, true);
 		true ->
-		    ct:log("Timeout~n",[])
+		    ?LOG("Timeout~n",[])
 	    end
     end.
 
@@ -3234,7 +3230,7 @@ portable_open_port("openssl" = Exe, Args0) ->
     case IsWindows andalso os:getenv("WSLENV") of
         false ->
             AbsPath = os:find_executable(Exe),
-            ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
+            ?LOG("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
                    [AbsPath, Args0]),
             open_port({spawn_executable, AbsPath},
                       [{args, Args0}, stderr_to_stdout]);
@@ -3251,13 +3247,13 @@ portable_open_port("openssl" = Exe, Args0) ->
 	    Args1 = [Translate(Arg) || Arg <- Args0],
 	    Args = ["/C","wsl","openssl"| Args1] ++ ["2>&1"],
 	    Cmd =  os:find_executable("cmd"),
-	    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [Cmd,Args]),
+	    ?LOG("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [Cmd,Args]),
 	    open_port({spawn_executable, Cmd},
 		      [{args, Args}, stderr_to_stdout, hide])
     end;
 portable_open_port(Exe, Args) ->
     AbsPath = os:find_executable(Exe),
-    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
+    ?LOG("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
     open_port({spawn_executable, AbsPath},
 	      [{args, Args}, stderr_to_stdout]).
 
@@ -3313,7 +3309,7 @@ do_supports_ssl_tls_version(Port, Acc) ->
                 "s_client: Option unknown" ++ _->
                     false;
                 Info when length(Info) >= 24 ->
-                    ct:pal("~p", [Info]),
+                    ?LOG("~p", [Info]),
                     true;
                 _ ->
                     do_supports_ssl_tls_version(Port, Acc ++ Data)
@@ -3379,9 +3375,9 @@ protocol_options(Config, Options) ->
 ct_log_supported_protocol_versions(Config) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
-	    ct:log("DTLS version ~p~n ", [dtls_record:supported_protocol_versions()]);
+	    ?LOG("DTLS version ~p~n ", [dtls_record:supported_protocol_versions()]);
 	_ ->
-	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
+	    ?LOG("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
     end.
 
 clean_env() ->
@@ -3574,10 +3570,10 @@ client_msg(Client, ClientMsg) ->
 	{Client, ClientMsg} ->
 	    ok;
 	{Client, {error,closed}} ->
-	    ct:log("client got close"),
+	    ?LOG("client got close", []),
 	    ok;
 	{Client, {error, Reason}} ->
-	    ct:log("client got econnaborted: ~p", [Reason]),
+	    ?LOG("client got econnaborted: ~p", [Reason]),
 	    ok;
 	Unexpected ->
 	    ct:fail(Unexpected)
@@ -3587,10 +3583,10 @@ server_msg(Server, ServerMsg) ->
 	{Server, ServerMsg} ->
 	    ok;
 	{Server, {error,closed}} ->
-	    ct:log("server got close"),
+	    ?LOG("server got close", []),
 	    ok;
 	{Server, {error, Reason}} ->
-	    ct:log("server got econnaborted: ~p", [Reason]),
+	    ?LOG("server got econnaborted: ~p", [Reason]),
 	    ok;
 	Unexpected ->
 	    ct:fail(Unexpected)
@@ -3761,7 +3757,7 @@ new_config(PrivDir, ServerOpts0) ->
     ServerOpts = proplists:delete(keyfile, ServerOpts2),
 
     {ok, PEM} = file:read_file(NewCaCertFile),
-    ct:log("CA file content: ~p~n", [public_key:pem_decode(PEM)]),
+    ?LOG("CA file content: ~p~n", [public_key:pem_decode(PEM)]),
 
     [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
      {keyfile, NewKeyFile} | ServerOpts].
@@ -3880,11 +3876,11 @@ openssl_dtls_maxfraglen_support() ->
 
 assert_mfl(Socket, undefined) ->
     InfoMFL = ssl:connection_information(Socket, [max_fragment_length]),
-    ct:log("Connection MFL ~p, Expecting: [] ~n", [InfoMFL]),
+    ?LOG("Connection MFL ~p, Expecting: [] ~n", [InfoMFL]),
     {ok, []} = InfoMFL;
 assert_mfl(Socket, MFL) ->
     InfoMFL = ssl:connection_information(Socket, [max_fragment_length]),
-    ct:log("Connection MFL ~p, Expecting: ~p ~n", [InfoMFL, MFL]),
+    ?LOG("Connection MFL ~p, Expecting: ~p ~n", [InfoMFL, MFL]),
     {ok, [{max_fragment_length, ConnMFL}]} = InfoMFL,
     ConnMFL = MFL.
 -define(BIG_BUF, 10000000).
