@@ -610,6 +610,8 @@ benefits_from_type_anno(is_tagged_tuple, _Args) ->
     true;
 benefits_from_type_anno(call, [#b_var{} | _]) ->
     true;
+benefits_from_type_anno({float,convert}, _Args) ->
+    true;
 benefits_from_type_anno(_Op, _Args) ->
     false.
 

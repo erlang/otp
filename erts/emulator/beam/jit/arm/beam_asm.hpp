@@ -1491,29 +1491,27 @@ protected:
         }
     }
 
-    void mov_var(const Variable<arm::Gp> &to, const Variable<arm::Gp> &from) {
+    template<typename Reg>
+    void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
         mov_var(to.reg, from);
     }
 
-    void mov_var(const Variable<arm::Gp> &to, arm::Gp from) {
+    template<typename Reg>
+    void mov_var(const Variable<Reg> &to, Reg from) {
         if (to.reg != from) {
             a.mov(to.reg, from);
         }
     }
 
-    void mov_var(arm::Gp to, const Variable<arm::Gp> &from) {
+    template<typename Reg>
+    void mov_var(Reg to, const Variable<Reg> &from) {
         if (to != from.reg) {
             a.mov(to, from.reg);
         }
     }
 
-    void flush_var(const Variable<arm::Gp> &to) {
-        if (to.mem.hasBase()) {
-            a.str(to.reg, to.mem);
-        }
-    }
-
-    void flush_var(const Variable<arm::VecD> &to) {
+    template<typename Reg>
+    void flush_var(const Variable<Reg> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }

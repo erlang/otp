@@ -88,42 +88,97 @@ void BeamModuleAssembler::emit_fstore(const ArgVal &Src, const ArgVal &Dst) {
     flush_var(dst);
 }
 
-static double handle_fconv(Eterm src) {
-    if (is_small(src)) {
-        return (double)signed_val(src);
-    } else if (is_float(src)) {
-        double res;
-        GET_DOUBLE(src, *(FloatDef *)&res);
-        return res;
-    } else if (is_big(src)) {
-        double res;
-        if (big_to_double(src, &res) < 0) {
-            return NAN;
-        }
-        return res;
-    } else {
-        return NAN;
-    }
-}
-
+/* ARG1 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
+    Label error = a.newLabel();
+
+    /* Is the source a bignum? */
+    {
+        emit_is_boxed(error, ARG1);
+
+        emit_untag_ptr(TMP1, ARG1);
+        a.ldr(TMP1, arm::Mem(TMP1));
+
+        /* The mask (0b111011) cannot be encoded as an immediate operand for
+         * 'and'. */
+        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
+        a.and_(TMP2, TMP1, TMP2);
+        a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
+        a.cond_ne().b(error);
+    }
+
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<1>(handle_fconv);
+    /* ARG1 already contains the source term. */
+    lea(ARG2, TMP_MEM1q);
+    runtime_call<2>(big_to_double);
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
 
-    a.b(labels[check_float_error]);
+    a.tbnz(ARG1.w(), imm(31), error);
+
+    a.ldr(a64::d0, TMP_MEM1q);
+    a.ret(a64::x30);
+
+    a.bind(error);
+    {
+        mov_imm(ARG4, 0);
+        mov_imm(TMP1, EXC_BADARITH);
+        a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+        a.b(labels[raise_exception]);
+    }
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
-    auto dst = init_destination(Dst, a64::d0);
+    Label next = a.newLabel(), not_small = a.newLabel(),
+          fallback = a.newLabel();
 
-    mov_arg(ARG1, Src);
-    fragment_call(ga->get_fconv_shared());
-    a.mov(dst.reg, a64::d0);
+    auto dst = init_destination(Dst, a64::d0);
+    auto src = load_source(Src, ARG1);
+
+    a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP1, imm(_TAG_IMMED1_MASK));
+    a.cond_ne().b(not_small);
+
+    a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
+    a.scvtf(dst.reg, TMP1);
+    a.b(next);
+
+    a.bind(not_small);
+    {
+        if (masked_types(Src, BEAM_TYPE_FLOAT) == BEAM_TYPE_NONE) {
+            comment("skipped float path since source cannot be a float");
+        } else {
+            /* If the source is always a number, we can skip the box test when
+             * it's not a small. */
+            if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+                comment("skipped box test since source is always a number");
+            } else {
+                emit_is_boxed(fallback, Src, src.reg);
+            }
+
+            emit_untag_ptr(TMP1, src.reg);
+
+            /* Speculatively load the float value, this is safe since all boxed
+             * terms are at least two words long. */
+            a.ldr(dst.reg, arm::Mem(TMP1, sizeof(Eterm)));
+
+            a.ldr(TMP1, arm::Mem(TMP1));
+            a.cmp(TMP1, imm(HEADER_FLONUM));
+            a.cond_eq().b(next);
+        }
+
+        a.bind(fallback);
+        {
+            mov_var(ARG1, src);
+            fragment_call(ga->get_fconv_shared());
+            mov_var(dst, a64::d0);
+        }
+    }
+
+    a.bind(next);
     flush_var(dst);
 }
 

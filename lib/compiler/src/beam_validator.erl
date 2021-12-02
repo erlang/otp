@@ -985,7 +985,9 @@ vi({bs_set_position, Ctx, Pos}, Vst0) ->
 %%
 %% Floating-point instructions (excluding BIFs)
 %%
-vi({fconv,Src,{fr,_}=Dst}, Vst) ->
+vi({fconv,Src0,{fr,_}=Dst}, Vst) ->
+    Src = unpack_typed_arg(Src0),
+
     assert_term(Src, Vst),
     branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
