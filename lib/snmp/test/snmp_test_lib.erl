@@ -2415,7 +2415,10 @@ crypto_start() ->
     end.
  
 crypto_support() ->
-    crypto_support([md5, sha], []).
+    crypto_support([md5, sha, sha224, sha256, sha384, sha512,
+                    des_cbc,
+                    aes_cfb128, aes_128_cfb128, aes_192_cfb128, aes_256_cfb128],
+                   []).
  
 crypto_support([], []) ->
     yes;
