@@ -20,8 +20,6 @@
 
 -module(ssl_dist_test_lib).
 
--behaviour(ct_suite).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssl_dist_test_lib.hrl").

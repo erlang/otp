@@ -793,7 +793,7 @@ transport_close(Config) when is_list(Config) ->
 transport_close_in_inital_hello() ->
     [{doc, "Test what happens if server dies after calling transport_accept but before initiating handshake."}].
 transport_close_in_inital_hello(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    _ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, _, Hostname} = ssl_test_lib:run_where(Config),
     process_flag(trap_exit, true),

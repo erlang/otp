@@ -21,8 +21,6 @@
 %%
 -module(ssl_cert_tests).
 
--behaviour(ct_suite).
-
 -include_lib("public_key/include/public_key.hrl").
 
 %% Test cases
@@ -196,9 +194,9 @@ client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
 
-    PartialChain =  fun(_CertChain) ->
-                            true = false %% crash on purpose
-		    end,
+    PartialChain = fun(_CertChain) ->
+                           error(crash_on_purpose)
+                   end,
     ServerOpts = [{cacerts, [IntermidiateCA]},
                   {partial_chain, PartialChain} |
                   proplists:delete(cacertfile, ServerOpts0)],

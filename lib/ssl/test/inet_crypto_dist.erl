@@ -960,7 +960,8 @@ init_msg(
     MsgLen = byte_size(R1A) + TagLen + iolist_size(Plaintext),
     AAD = [<<MsgLen:32>>, R1A],
     {Ciphertext, Tag} =
-        crypto:block_encrypt(AeadCipher, Key1A, IV1A, {AAD, Plaintext, TagLen}),
+        crypto:crypto_one_time(AeadCipher, Key1A, IV1A,
+                               {AAD, Plaintext, TagLen}, true),
     Msg = [R1A, Tag, Ciphertext],
     {R2A, R3A, Msg}.
 %%
@@ -981,8 +982,8 @@ init_msg(
             MsgLen = byte_size(Msg),
             AAD = [<<MsgLen:32>>, R1B],
             case
-                crypto:block_decrypt(
-                  AeadCipher, Key1B, IV1B, {AAD, Ciphertext, Tag})
+                crypto:crypto_one_time(
+                  AeadCipher, Key1B, IV1B, {AAD, Ciphertext, Tag}, false)
             of
                 <<R2B:RLen/binary, R3B:RLen/binary, PubKeyB/binary>> ->
                     SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
@@ -999,9 +1000,8 @@ init_msg(
                     StartMsgLen = TagLen + iolist_size(StartCleartext),
                     StartAAD = <<StartMsgLen:32>>,
                     {StartCiphertext, StartTag} =
-                        crypto:block_encrypt(
-                          AeadCipher, Key2A, IV2A,
-                          {StartAAD, StartCleartext, TagLen}),
+                        crypto:crypto_one_time(AeadCipher, Key2A, IV2A,
+                                             {StartAAD, StartCleartext, TagLen}, true),
                     StartMsg = [StartTag, StartCiphertext],
                     %%
                     {Key2B, IV2B} =
@@ -1032,8 +1032,8 @@ start_msg(
             MsgLen = byte_size(Msg),
             AAD = <<MsgLen:32>>,
             case
-                crypto:block_decrypt(
-                  AeadCipher, Key2B, IV2B, {AAD, Ciphertext, Tag})
+                crypto:crypto_one_time(
+                  AeadCipher, Key2B, IV2B, {AAD, Ciphertext, Tag}, false)
             of
                 <<R2A:RLen/binary, R3A:RLen/binary, RekeyCountB:32>>
                   when RekeyCountA =< (RekeyCountB bsl 2),
@@ -1044,7 +1044,7 @@ start_msg(
 
 hmac_key_iv(HmacAlgo, MacKey, Data, KeyLen, IVLen) ->
     <<Key:KeyLen/binary, IV:IVLen/binary>> =
-        crypto:hmac(HmacAlgo, MacKey, Data, KeyLen + IVLen),
+        crypto:macN(HmacAlgo, MacKey, Data, KeyLen + IVLen),
     {Key, IV}.
 
 %% -------------------------------------------------------------------------
@@ -1455,7 +1455,8 @@ encrypt_chunk(
     AAD = <<Seq:32, ChunkLen:32>>,
     IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
     {Ciphertext, CipherTag} =
-        crypto:block_encrypt(AeadCipher, Key, IVBin, {AAD, Cleartext, TagLen}),
+        crypto:crypto_one_time(AeadCipher, Key, IVBin,
+                               {AAD, Cleartext, TagLen}, true),
     Chunk = [Ciphertext,CipherTag],
     Chunk.
 
@@ -1488,8 +1489,7 @@ block_decrypt(
      rekey_key = #key_pair{public = PubKeyA} = KeyPair,
      rekey_count = RekeyCount} = Params,
   Seq, AeadCipher, Key, IV, Data) ->
-    %%
-    case crypto:block_decrypt(AeadCipher, Key, IV, Data) of
+    case crypto:crypto_one_time(AeadCipher, Key, IV, Data, false) of
         <<?REKEY_CHUNK, Rest/binary>> ->
             PubKeyLen = byte_size(PubKeyA),
             case Rest of
