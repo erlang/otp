@@ -475,15 +475,22 @@ sendreceive(Config) when is_list(Config) ->
     try_tc(sendreceive, Pre, Case, Post).
 
 do_sendreceive(Config, [ServerNode, ClientNode]) ->
-    %% Create command sequences
-    p("create command sequences"),
-    ServerPort = ?SERVER_PORT(Config, 2), % 2944,
-    ServerCmds = sendreceive_server_commands(Config, ServerPort),
+    p("retrieve server info (host and port)"),
+    ServerPort       = ?SERVER_PORT(Config, 2), % 2944,
     {ok, ServerHost} = inet:gethostname(),
+
+    %% Create command sequences
+    p("create server command sequence: "
+      "~n      Server Port: ~p"
+      "~n      Server Host: ~p", [ServerPort, ServerHost]),
+    ServerCmds = sendreceive_server_commands(Config, ServerPort, ServerHost),
+    p("create client command sequence: "
+      "~n      Server Port: ~p"
+      "~n      Server Host: ~p", [ServerPort, ServerHost]),
     ClientCmds = sendreceive_client_commands(Config, ServerPort, ServerHost),
 
     %% Start the test procs used in the test-case, one for each node
-    p("start command handlers"),
+    p("start command handler(s)"),
     Server = server_start_command_handler(ServerNode, ServerCmds),
     p("server command handler started: ~p", [Server]),
     Client = client_start_command_handler(ClientNode, ClientCmds),
@@ -496,8 +503,8 @@ do_sendreceive(Config, [ServerNode, ClientNode]) ->
     ok.
 
 
-sendreceive_server_commands(Config, Port) ->
-    Opts = [{port, Port}], 
+sendreceive_server_commands(Config, Port, Host) ->
+    Opts = [{host, Host}, {port, Port}], 
     Self = self(),
     [
      #{id   => 1,

@@ -217,14 +217,14 @@ connect(SupPid, Parameters) ->
 		{error, Reason} ->
 		    ?d1("connect -> failed connecting: "
 			"~n   Reason: ~p", [Reason]),
-		    Error = {error, {gen_tcp_connect, Reason}},
+		    Error = {error, {gen_tcp_connect, Reason, {Host, Port, IpOpt}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error;
 
 		{'EXIT', _Reason} = Exit ->
 		    ?d1("connect -> connect exited: "
 			"~n   Exit: ~p", [Exit]),
-		    Error = {error, {gen_tcp_connect, Exit}},
+		    Error = {error, {gen_tcp_connect, Exit, {Host, Port, IpOpt}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error
 
