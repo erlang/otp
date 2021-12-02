@@ -140,8 +140,8 @@ InsertSubscriberDataArg ::= SEQUENCE {
 -- compiler. Instead of this line the complete definition of 
 -- "Subscriberdata" has been inserted.
 --
--- This results in the same behaviour of the deocder/encoder but
--- means only a replication of the ASN.1 definiton here.
+-- This results in the same behaviour of the decoder/encoder but
+-- means only a replication of the ASN.1 definition here.
 --
     msisdn              [1]  ISDN-AddressString       OPTIONAL,
     category            [2]  Category                 OPTIONAL,

@@ -172,7 +172,7 @@ EntryExtensionSet       EXTENSION       ::=     { reasonCode |
                                                 invalidityDate |
                                                 certificateIssuer }
 
-         -- information object classes used in the defintion --
+         -- information object classes used in the definition --
                     -- of certificates and CRLs --
 
 -- Parameterized Type SIGNED --

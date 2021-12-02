@@ -51,7 +51,7 @@ term(Term) ->
 %%______________________________________________________________________
 %% pretty_format:term(Term, Indent} -> {Indent', Chars}
 %%   Format <Term> -- use <Indent> to indent the *next* line
-%%     Note: Indent' is a new indentaion level (sometimes printing <Term>
+%%     Note: Indent' is a new indentation level (sometimes printing <Term>
 %%     the next line to need an "extra" indent!).
 
 term([], Indent) ->
