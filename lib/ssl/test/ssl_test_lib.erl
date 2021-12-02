@@ -127,7 +127,8 @@
          hardcode_rsa_key/1,
          bigger_buffers/0,
          stop/2,
-         working_openssl_client/0
+         working_openssl_client/0,
+         hostname_format/1
         ]).
 
 -export([basic_test/3,
