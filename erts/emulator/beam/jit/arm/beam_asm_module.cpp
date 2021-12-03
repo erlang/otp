@@ -88,43 +88,6 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     embed_zeros(sizeof(BeamCodeHeader) +
                 sizeof(ErtsCodeInfo *) * num_functions);
 
-    /* Setup the early_nif/breakpoint trampoline. */
-    genericBPTramp = a.newLabel();
-    a.bind(genericBPTramp);
-    {
-        Label bp_and_nif = a.newLabel(), bp_only = a.newLabel(),
-              nif_only = a.newLabel();
-
-        a.cmp(ARG1, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
-        a.cond_eq().b(bp_and_nif);
-        ERTS_CT_ASSERT((1 << 0) == ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
-        a.tbnz(ARG1, imm(0), nif_only);
-        ERTS_CT_ASSERT((1 << 1) == ERTS_ASM_BP_FLAG_BP);
-        a.tbnz(ARG1, imm(1), bp_only);
-        a.ret(a64::x30);
-
-        a.bind(bp_and_nif);
-        {
-            emit_enter_runtime_frame();
-            a.bl(resolve_fragment(ga->get_generic_bp_local(), disp128MB));
-            emit_leave_runtime_frame();
-
-            a.b(nif_only);
-        }
-
-        a.bind(bp_only);
-        {
-            emit_enter_runtime_frame();
-            a.bl(resolve_fragment(ga->get_generic_bp_local(), disp128MB));
-            emit_leave_runtime_frame();
-
-            a.ret(a64::x30);
-        }
-
-        a.bind(nif_only);
-        a.b(resolve_fragment(ga->get_call_nif_early(), disp128MB));
-    }
-
 #ifdef DEBUG
     last_stub_check_offset = a.offset();
 #endif
@@ -214,6 +177,43 @@ void BeamModuleAssembler::emit_i_nif_padding() {
     }
 }
 
+void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
+    Label bp_and_nif = a.newLabel(), bp_only = a.newLabel(),
+          nif_only = a.newLabel();
+
+    a.cmp(ARG1, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
+    a.cond_eq().b(bp_and_nif);
+    ERTS_CT_ASSERT((1 << 0) == ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+    a.tbnz(ARG1, imm(0), nif_only);
+    ERTS_CT_ASSERT((1 << 1) == ERTS_ASM_BP_FLAG_BP);
+    a.tbnz(ARG1, imm(1), bp_only);
+    a.ret(a64::x30);
+
+    a.bind(bp_and_nif);
+    {
+        emit_enter_runtime_frame();
+        a.bl(labels[generic_bp_local]);
+        emit_leave_runtime_frame();
+
+        /* !! FALL THROUGH !! */
+    }
+
+    a.bind(nif_only);
+    {
+        /* call_nif_early returns on its own, unlike generic_bp_local. */
+        a.b(labels[call_nif_early]);
+    }
+
+    a.bind(bp_only);
+    {
+        emit_enter_runtime_frame();
+        a.bl(labels[generic_bp_local]);
+        emit_leave_runtime_frame();
+
+        a.ret(a64::x30);
+    }
+}
+
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     /* This little prologue is used by nif loading and tracing to insert
      * alternative instructions. */
@@ -228,8 +228,9 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     /* This instruction is updated with the current flag. */
     a.movz(ARG1, imm(ERTS_ASM_BP_FLAG_NONE));
 
-    if (genericBPTramp.isValid()) {
-        a.bl(resolve_label(genericBPTramp, disp128MB));
+    if (codeHeader.isValid()) {
+        a.bl(resolve_fragment(ga->get_i_breakpoint_trampoline_shared(),
+                              disp128MB));
     } else {
         /* NIF or BIF stub; we're not going to use this trampoline as-is, but
          * we need to reserve space for it. */
@@ -602,18 +603,13 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
 
 const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
                                                    enum Displacement disp) {
-    Label target;
-
     auto it = _dispatchTable.find(fragment);
 
-    if (it != _dispatchTable.end()) {
-        target = it->second;
-    } else {
-        target = a.newLabel();
-        _dispatchTable.emplace(fragment, target);
+    if (it == _dispatchTable.end()) {
+        it = _dispatchTable.emplace(fragment, a.newLabel()).first;
     }
 
-    return resolve_label(target, disp);
+    return resolve_label(it->second, disp);
 }
 
 arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,

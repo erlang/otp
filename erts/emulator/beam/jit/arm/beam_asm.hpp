@@ -846,6 +846,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bor_body_shared)                                                       \
     _(i_bif_body_shared)                                                       \
     _(i_bif_guard_shared)                                                      \
+    _(i_breakpoint_trampoline_shared)                                          \
     _(i_bsr_body_shared)                                                       \
     _(i_bsl_body_shared)                                                       \
     _(i_func_info_shared)                                                      \
@@ -987,9 +988,8 @@ class BeamModuleAssembler : public BeamAssembler {
     /* Used by emit to populate the labelToMFA map */
     Label currLabel;
 
-    /* Special shared fragments that must reside in each module. */
+    /* The offset of our BeamCodeHeader, if any. */
     Label codeHeader;
-    Label genericBPTramp;
 
     /* The module's on_load function, if any. */
     Label on_load;
@@ -1359,7 +1359,7 @@ protected:
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
     template<typename Any>
-    void fragment_call(Any Target) {
+    void fragment_call(Any target) {
         emit_assert_redzone_unused();
 
 #if defined(JIT_HARD_DEBUG)
@@ -1372,7 +1372,7 @@ protected:
         a.bind(next);
 #endif
 
-        a.bl(resolve_fragment((void (*)())Target, disp128MB));
+        a.bl(resolve_fragment((void (*)())target, disp128MB));
     }
 
     template<typename T>
