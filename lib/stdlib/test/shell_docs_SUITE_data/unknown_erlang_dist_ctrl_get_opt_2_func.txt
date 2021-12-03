@@ -19,7 +19,7 @@
 
   This function is used when implementing an alternative
   distribution carrier using processes as distribution controllers. [;;4m[0m
-  [;;4mDHandle[0m is retrived via the callback [;;4mf_handshake_complete[0m. More
-  information can be found in the documentation of ERTS User's
+  [;;4mDHandle[0m is retrieved via the callback [;;4mf_handshake_complete[0m.
+  More information can be found in the documentation of ERTS User's
   Guide ➜ How to implement an Alternative Carrier for the Erlang
   Distribution ➜ Distribution Module.

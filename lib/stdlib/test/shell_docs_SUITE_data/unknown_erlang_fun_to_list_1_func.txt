@@ -59,7 +59,7 @@
     {#Fun<test.2.107738983>,#Fun<test.3.107738983>}
 
   Explanation: The string representations differ because the funs
-  come from different fun experssions.
+  come from different fun expressions.
 
     > {fun() -> 1 end, fun() -> 1 end}. > 
     {#Fun<erl_eval.45.97283095>,#Fun<erl_eval.45.97283095>}

@@ -1,0 +1,5 @@
+
+  [;1m-type char() :: 0..1114111.[0m
+
+  An ASCII character or a unicode codepoint presented by an
+  integer.

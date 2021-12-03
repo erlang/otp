@@ -10,7 +10,7 @@
   supervision tree, because OTP assumes the group leader of their
   processes is their application master.
 
-  Setting the group leader follows the signal ordering guarentees
+  Setting the group leader follows the signal ordering guarantees
   described in the Processes Chapter in the Erlang Reference
   Manual.
 

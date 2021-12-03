@@ -1,0 +1,4 @@
+
+  [;1m-type nonempty_binary() :: <<_:8, _:_*8>>.[0m
+
+  A binary() that contains some data.

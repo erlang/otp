@@ -1,0 +1,4 @@
+
+  [;1m-type node() :: atom().[0m
+
+  An Erlang node represented by an atom.

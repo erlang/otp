@@ -1,0 +1,4 @@
+
+  [;1m-type timeout() :: infinity | non_neg_integer().[0m
+
+  A timeout value that can be passed to a receive expression.

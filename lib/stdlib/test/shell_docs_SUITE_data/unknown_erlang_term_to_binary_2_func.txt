@@ -58,9 +58,13 @@
 
   [;;4m[;;4m2[0m[0m:
     Drops usage of the latin1 atom encoding and unconditionally
-    use utf8 encoding for all atoms. This will be changed to the
-    default in a future major release of Erlang/OTP. Erlang/OTP
-    systems as of R16B can decode this representation.
+    use utf8 encoding for all atoms. Erlang/OTP systems as of R16B
+    can decode this representation.
+
+    Note:
+      In Erlang/OTP 26, the default [;;4mminor_version[0m is planned
+      to change from 1 to 2. See Upcoming Potential
+      Incompatibilities .
 
   Option [;;4mdeterministic[0m (introduced in OTP 24.1) can be used to
   ensure that within the same major release of Erlang/OTP, the same

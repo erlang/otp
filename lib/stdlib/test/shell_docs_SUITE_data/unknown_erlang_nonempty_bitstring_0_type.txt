@@ -1,0 +1,4 @@
+
+  [;1m-type nonempty_bitstring() :: <<_:1, _:_*1>>.[0m
+
+  A bitstring() that contains some data.
