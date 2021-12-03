@@ -738,11 +738,15 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                 goto err;
             }
 
+
+        /* Now start to copy from ctx_res* to ctx_res_copy */
+
         memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
 
 #if !defined(HAVE_EVP_AES_CTR)
+        /* a check of we are to use the special old aes_ctr compat functions */
         if (ctx_res_copy.state == atom_undefined)
-            /* Not going to use aes_ctr compat functions */
+            /* Not going to use aes_ctr compat functions because they have a state =/= atom_undefined */
 #endif
             {
                 ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
@@ -752,6 +756,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                         goto err;
                     }
 
+                /* The standard copying of the EVP_CIPHER_CTX (without IV) */
                 if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
                     ret = EXCP_ERROR(env, "Can't copy ctx_res");
                     goto err;
