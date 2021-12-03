@@ -256,7 +256,7 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
                                          Eterm _mod,
                                          int num_labels,
-                                         BeamFile *file)
+                                         const BeamFile *file)
         : BeamAssembler(getAtom(_mod)), beam(file), ga(_ga), mod(_mod) {
     rawLabels.reserve(num_labels + 1);
 
