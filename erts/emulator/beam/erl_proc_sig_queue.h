@@ -1736,7 +1736,7 @@ Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
 void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
 ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
 					  ErtsMessage **markpp);
-void erts_msgq_remove_leading_recv_markers(Process *c_p);
+void erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p);
 
 #define ERTS_RECV_MARKER_IX__(BLKP, MRKP) \
     ((int) ((MRKP) - &(BLKP)->marker[0]))
@@ -2112,8 +2112,9 @@ erts_msgq_set_save_first(Process *c_p)
      * anymore...
      */
     if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
-	erts_msgq_remove_leading_recv_markers(c_p);
-    c_p->sig_qs.save = &c_p->sig_qs.first;
+	erts_msgq_remove_leading_recv_markers_set_save_first(c_p);
+    else
+        c_p->sig_qs.save = &c_p->sig_qs.first;
 }
 
 ERTS_GLB_INLINE void

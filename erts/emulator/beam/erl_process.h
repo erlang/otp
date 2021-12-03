@@ -1568,6 +1568,7 @@ extern int erts_system_profile_ts_type;
 #define F_TRAP_EXIT          (1 << 22) /* Trapping exit */
 #define F_FRAGMENTED_SEND    (1 << 23) /* Process is doing a distributed fragmented send */
 #define F_DBG_FORCED_TRAP    (1 << 24) /* DEBUG: Last BIF call was a forced trap */
+#define F_DIRTY_CHECK_CLA    (1 << 25) /* Check if copy literal area GC scheduled */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
@@ -1934,7 +1935,7 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
-void erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id);
+void erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check);
 struct db_fixation;
 void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
 void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);

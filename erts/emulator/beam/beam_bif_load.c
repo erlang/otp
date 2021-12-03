@@ -975,12 +975,39 @@ set_default_trace_pattern(Eterm module)
 }
 
 int
+erts_check_copy_literals_gc_need_max_reds(Process *c_p)
+{
+    Uint64 words, reds;
+
+    /*
+     * Calculate maximum amount of words that needs
+     * to be scanned...
+     */
+    words = 1; /* fvalue */
+    words += c_p->hend - c_p->stop; /* stack */
+    words += c_p->htop - c_p->heap; /* new heap */
+    if (c_p->abandoned_heap)
+        words += c_p->heap_sz; /* abandoned heap */
+    words += c_p->old_htop - c_p->old_heap; /* old heap */
+    if (c_p->dictionary) {
+	Eterm* start = ERTS_PD_START(c_p->dictionary);
+	Eterm* end = start + ERTS_PD_SIZE(c_p->dictionary);
+
+        words += end - start; /* dictionary */
+    }
+    words += c_p->mbuf_sz; /* heap and message fragments */
+
+    /* Convert to reductions... */
+    reds = ((words - 1)/ERTS_CLA_SCAN_WORDS_PER_RED) + 1;
+    if (reds > CONTEXT_REDS)
+        return CONTEXT_REDS+1;
+    return (int) reds;
+}
+
+int
 erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
                                  char *literals, Uint lit_bsize)
 {
-    /*
-     * TODO: Implement yielding support!
-     */
     ErlHeapFragment *hfrag;
     ErtsMessage *mfp;
     Uint64 scanned = 0;
@@ -1529,22 +1556,30 @@ erts_literal_area_collector_send_copy_request_3(BIF_ALIST_3)
 
     req_id = TUPLE3(&tmp_heap[0], BIF_ARG_2, BIF_ARG_3, BIF_ARG_1);
 
-    if (BIF_ARG_3 == am_false) {
+    switch (BIF_ARG_3) {
+
+    case am_init:
         /*
-         * Will handle signal queue and check if GC if needed. If
-         * GC is needed operation will be continued by a GC (below).
+         * Will handle signal queue and if possible check if GC if needed.
+         * If GC is needed or needs to be checked the operation will be
+         * restarted later in the 'check_gc' or 'need_gc' case below...
          */
         erts_proc_sig_send_cla_request(BIF_P, BIF_ARG_1, req_id);
-    }
-    else if (BIF_ARG_3 == am_true) {
+        break;
+
+    case am_check_gc:
+    case am_need_gc:
         /*
-         * Will perform a literal GC. Note that this assumes that
-         * signal queue already has been handled...
+         * Will check and/or perform a literal GC. Note that this assumes that
+         * signal queue already has been handled by 'init' case above...
          */
-        erts_schedule_cla_gc(BIF_P, BIF_ARG_1, req_id);
-    }
-    else
+        erts_schedule_cla_gc(BIF_P, BIF_ARG_1, req_id,
+                             BIF_ARG_3 == am_check_gc);
+        break;
+
+    default:
         BIF_ERROR(BIF_P, BADARG);
+    }
 
     BIF_RET(am_ok);
 }
