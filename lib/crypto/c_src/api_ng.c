@@ -768,6 +768,48 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                         goto err;
                     }
 
+#if OPENSSL_VERSION_NUMBER == PACKED_OPENSSL_VERSION_PLAIN(3,0,0) || \
+    OPENSSL_VERSION_NUMBER == PACKED_OPENSSL_VERSION_PLAIN(3,0,1)
+                /* Temporary work-around for EVP_CIPHER_CTX_copy since it fails for chacha20 in 3.0.[01] */
+                if (EVP_CIPHER_type(EVP_CIPHER_CTX_get0_cipher(ctx_res->ctx)) == NID_undef)
+                    /* The work-around is only for chacha20.  The EVP_CIPHER_type(..) is NID_undef for chacha20 (!) afaik.
+                       Since  EVP_CIPHER_CTX_copy doesn't work, we greate a new EVP_CIPHER_CTX for the current
+                       function.
+                       This code is the same as for ng_crypto_init, except that no testing is needed of
+                       the already tested parameters
+                    */
+                    {
+                        const EVP_CIPHER *cipher_p = EVP_CIPHER_CTX_get0_cipher(ctx_res->ctx);
+
+                        if (!EVP_CipherInit_ex(ctx_res_copy.ctx, cipher_p, NULL, NULL, NULL, ctx_res_copy.encflag))
+                            {
+                                ret = EXCP_ERROR(env, "Can't initialize context, step 1");
+                                goto err;
+                            }
+
+                        if (!EVP_CIPHER_CTX_set_key_length(ctx_res_copy.ctx, (int)ctx_res->key_bin.size))
+                            {
+                                ret = EXCP_ERROR(env, "Can't initialize context, key_length");
+                                goto err;
+                            }
+# ifdef HAVE_RC2
+                        /* Who knows, we might need this as in ng_crypto_init (but I don't know how that would happen) */
+                        if ((EVP_CIPHER_type(cipher_p) == NID_rc2_cbc) &&
+                            !EVP_CIPHER_CTX_ctrl(ctx_res_copy.ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)ctx_res->key_bin.size * 8, NULL))
+                            {
+                                ret = EXCP_ERROR(env, "ctrl rc2_cbc key");
+                                goto err;
+                            }
+# endif
+                        if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, ctx_res->key_bin.data, NULL, -1))
+                            {
+                                ret = EXCP_ERROR(env, "Can't initialize key");
+                                goto err;
+                            }
+                    }
+                /* End of temporary work-around */
+                else
+#endif
                 /* The standard copying of the EVP_CIPHER_CTX (without IV) */
                 if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
                     ret = EXCP_ERROR(env, "Can't copy ctx_res");
