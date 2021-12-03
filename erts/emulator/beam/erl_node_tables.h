@@ -200,7 +200,7 @@ Accs = lists:foldl(fun({V,<<"ERL_NODE_INC">>,_},M) -> Val = maps:get(V,M,0), M#{
 lists:usort(lists:filter(fun({V,N}) -> N /= 0 end, maps:to_list(Accs))).
 
  * There are bound to be bugs in the the instrumentation code, but
- * atleast this is a place to start when hunting refc bugs.
+ * at least this is a place to start when hunting refc bugs.
  *
  */
 #ifdef ERL_NODE_BOOKKEEP

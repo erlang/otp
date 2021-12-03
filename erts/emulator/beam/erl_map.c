@@ -535,14 +535,14 @@ static Eterm hashmap_from_validated_list(Process *p,
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
     {
         if (hxns != NULL) {
-            /* Execution of this function got destoyed while yielding in
+            /* Execution of this function got destroyed while yielding in
                the loop above */
             erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
         }
     }
     YCF_SPECIAL_CODE_END();
     erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
-    /* Memory managment depends on the line below */
+    /* Memory management depends on the line below */
     hxns = NULL;
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
     
@@ -897,7 +897,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
     {
         if (tmp != NULL) {
-            /* Execution of this function got destoyed while yielding in
+            /* Execution of this function got destroyed while yielding in
                the loop above */
             erts_free(temp_memory_allocator, (void *) tmp);
         }
@@ -2813,7 +2813,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
     }
 
 unroll:
-    /* the size is bounded and atleast one less than the previous size */
+    /* the size is bounded and at least one less than the previous size */
     size -= 1;
     n     = hashmap_size(map) - 1;
 

@@ -23,7 +23,7 @@
  *
  * Instructions that use 32-bit registers (e.g. eax) are generally
  * one byte shorter than instructions that use 64-bits registers
- * (e.g. rax). This does not apply to registers r8-r15 beacuse they'll
+ * (e.g. rax). This does not apply to registers r8-r15 because they'll
  * always need a rex prefix. The `and`, `or`, and `cmp` instructions
  * are even shorter when operating on the RETb (al) register. The
  * `test` instruction with an immediate second operand is shorter
@@ -228,7 +228,7 @@ void BeamModuleAssembler::emit_test_heap(const ArgVal &Nh, const ArgVal &Live) {
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
-    /* This is implictly global; it does not normally appear in modules and
+    /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
@@ -247,7 +247,7 @@ void BeamModuleAssembler::emit_normal_exit() {
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
-    /* This is implictly global; it does not normally appear in modules and
+    /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();

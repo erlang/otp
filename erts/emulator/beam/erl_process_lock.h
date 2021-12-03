@@ -229,7 +229,7 @@ typedef struct erts_proc_lock_t_ {
 #ifndef ERTS_PROC_LOCK_LOCK_CHECK__
 #define  ERTS_PROC_LOCK_LOCK_CHECK__
 
-/* Lock counter implemetation */
+/* Lock counter implementation */
 
 #ifdef ERTS_ENABLE_LOCK_POSITION
 #define erts_proc_lock__(P,I,L) erts_proc_lock_x__(P,I,L,__FILE__,__LINE__)

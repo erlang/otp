@@ -258,8 +258,8 @@ make_btid(DbTable *tb)
     erts_atomic_init_nob(tbref, (erts_aint_t) tb);
     tb->common.btid = btid;
     /*
-     * Table and magic indirection refer eachother,
-     * and table is refered once by being alive...
+     * Table and magic indirection refer each other,
+     * and table is referred once by being alive...
      */
     erts_refc_init(&tb->common.refc, 2);
     erts_refc_inc(&btid->intern.refc, 1);
@@ -2456,7 +2456,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	status |= DB_FREQ_READ;
 
     /* we create table outside any table lock
-     * and take the unusal cost of destroy table if it
+     * and take the unusual cost of destroy table if it
      * fails to find a slot
      */
     {
@@ -3178,7 +3178,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
      * - save_sched_table() inserts at end of circular list.
      *
      * - This function scans from the end so we know that
-     *   the amount of tables to scan wont grow even if we
+     *   the amount of tables to scan won't grow even if we
      *   yield.
      *
      * - remove_sched_table() updates the table we yielded
@@ -4434,7 +4434,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     }
 
     /*
-     * We don't have ony hard limit for number of tables anymore,                                                                            .
+     * We don't have only hard limit for number of tables anymore,                                                                            .
      * but we use 'db_max_tabs' to determine size of name hash table.
      */
     meta_name_tab_mask = (((Uint) 1)<<bits) - 1;

@@ -431,7 +431,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
         break;
     }
     default:
-        ERTS_INTERNAL_ERROR("Unkown link type");
+        ERTS_INTERNAL_ERROR("Unknown link type");
         t = am_undefined;
         break;
     }
@@ -1300,7 +1300,7 @@ send_signal: {
         flags |= ERTS_PI_FLAG_REQUEST_FOR_OTHER;
         need_msgq_len = (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         /*
-         * Set save pointer to the end of the message queue so we wont
+         * Set save pointer to the end of the message queue so we won't
          * have to scan the whole* message queue for the result. Note
          * that caller unconditionally has to enter a receive only
          * matching messages containing 'ref', or restore save pointer.

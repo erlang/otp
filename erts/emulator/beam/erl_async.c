@@ -528,7 +528,7 @@ unsigned int driver_async_port_key(ErlDrvPort port)
 **      key            pointer to secedule queue (NULL means round robin)
 **      async_invoke   function to run in thread
 **      async_data     data to pass to invoke function
-**      async_free     function for relase async_data in case of failure
+**      async_free     function for release async_data in case of failure
 */
 long driver_async(ErlDrvPort ix, unsigned int* key,
 		  void (*async_invoke)(void*), void* async_data,

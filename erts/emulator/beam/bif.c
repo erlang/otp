@@ -2645,7 +2645,7 @@ done:
 
 /**********************************************************************/
 
-/* returns the head of a list - this function is unecessary
+/* returns the head of a list - this function is unnecessary
    and is only here to keep Robert happy (Even more, since it's OP as well) */
 BIF_RETTYPE hd_1(BIF_ALIST_1)
 {
@@ -3395,7 +3395,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 {
   /* Bif implementation is about 50% faster than pure erlang,
      and since we have erts_chars_to_integer now it is simpler
-     as well. This could be optmized further if we did not have to
+     as well. This could be optimized further if we did not have to
      copy the list to buf. */
     Sint i;
     Eterm res, dummy;
@@ -4452,7 +4452,7 @@ BIF_RETTYPE port_to_list_1(BIF_ALIST_1)
 
 /**********************************************************************/
 
-/* convert a list of ascii characeters of the form
+/* convert a list of ascii characters of the form
    <node.number.serial> to a PID
 */
 

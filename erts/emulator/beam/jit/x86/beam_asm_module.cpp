@@ -311,7 +311,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
      * this particular function.
      *
      * We make a relative call to a trampoline in the module header because this
-     * needs to fit into a word, and an directy call to `i_func_info_shared`
+     * needs to fit into a word, and an directly call to `i_func_info_shared`
      * would be too large. */
     if (funcInfo.isValid()) {
         a.call(funcInfo);

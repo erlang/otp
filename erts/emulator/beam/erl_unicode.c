@@ -478,7 +478,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	} /* is_list(ioterm) */
 	
 	if (!is_list(ioterm) && !is_nil(ioterm)) {
-	    /* inproper list end */
+	    /* improper list end */
 	    if (is_binary(ioterm)) {
 		Sint x; 
 		if (latin1) {
@@ -764,7 +764,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	} /* is_list(ioterm) */
 
 	if ((*left) && !is_list(ioterm) && !is_nil(ioterm)) {
-	    /* inproper list end */
+	    /* improper list end */
 	    if (is_binary(ioterm)) {
 		ioterm = do_build_utf8(p,ioterm,left,latin1,target,pos,characters,err,leftover,num_leftovers);
 		if ((*err) != 0) {
@@ -2379,7 +2379,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    if (x <= 0xffff) { 
 				need += 2;
 				break;
-			    } /* else fall throug to error */
+			    } /* else fall through to error */
 			default:
 			    DESTROY_ESTACK(stack);
 			    return ((Sint) -1);
@@ -2420,7 +2420,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	} /* is_list(ioterm) */
 	
 	if (!is_list(ioterm) && !is_nil(ioterm)) {
-	    /* inproper list end */
+	    /* improper list end */
 	    DESTROY_ESTACK(stack);
 	    return ((Sint) -1);
 	}

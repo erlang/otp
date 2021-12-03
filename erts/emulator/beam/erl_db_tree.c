@@ -3097,7 +3097,7 @@ static TreeDbTerm *find_next(DbTableCommon *tb, TreeDbTerm *root,
 	for (;;) {
 	    PUSH_NODE(stack, this);
 	    if (( c = cmp_key(tb,key,this) ) > 0) {
-		if (this->right == NULL) /* We are at the previos 
+		if (this->right == NULL) /* We are at the previous 
 					    and the element does
 					    not exist */
 		    break;
@@ -4273,7 +4273,7 @@ static void check_slot_pos(DbTableTree *tb)
 	return;
     t = traverse_until(tb->root, &pos, tb->stack.slot);
     if (t != tb->stack.array[tb->stack.pos - 1]) {
-	erts_fprintf(stderr, "Slot position does not correspont with stack, "
+	erts_fprintf(stderr, "Slot position does not correspond with stack, "
 		   "element position %d is really 0x%08X, when stack says "
 		   "it's 0x%08X\n", tb->stack.slot, t, 
 		   tb->stack.array[tb->stack.pos - 1]);

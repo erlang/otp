@@ -408,7 +408,7 @@ EXTERN ErlDrvBinary* driver_alloc_binary(ErlDrvSizeT size);
 EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
 
-/* Referenc count on driver binaries */
+/* Reference count on driver binaries */
 EXTERN ErlDrvSInt driver_binary_get_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);

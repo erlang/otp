@@ -33,7 +33,7 @@
 #define ERTS_MSG_COPY_WORDS_PER_REDUCTION 64
 #endif
 
-/* The number of buffers have to be 64 or less because we currenlty
+/* The number of buffers have to be 64 or less because we currently
    use a single word to implement a bitset with information about
    non-empty buffers */
 #ifdef DEBUG
@@ -236,7 +236,7 @@ struct erl_mesg {
 /*
  * The ErtsMessage struct is only one special type
  * of signal. All signal structs have a common
- * begining and can be differentiated by looking
+ * beginning and can be differentiated by looking
  * at the ErtsSignal 'common.tag' field.
  *
  * - An ordinary message will have a value

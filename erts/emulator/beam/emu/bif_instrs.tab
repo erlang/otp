@@ -307,7 +307,7 @@ call_light_bif(Bif, Exp) {
 
 //
 // Call a BIF tail-recursively, storing the result in x(0) and doing
-// a return to the continuation poiner.
+// a return to the continuation pointer.
 //
 call_light_bif_only(Bif, Exp) {
     ErlHeapFragment *live_hf_end;

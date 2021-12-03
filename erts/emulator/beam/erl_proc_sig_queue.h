@@ -822,7 +822,7 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
  * @param[in]     item_ix       Info index array to pass to
  *                              erts_process_info()
  *
- * @param[in]     len           Lenght of info index array
+ * @param[in]     len           Length of info index array
  *
  * @param[in]     need_msgq_len Non-zero if message queue
  *                              length is needed; otherwise,
@@ -1612,7 +1612,7 @@ erts_proc_sig_fetch(Process *proc)
             erts_atomic64_read_nob(&buffers->nonmsg_slots)) {
             /*
              * We may have raced with a thread inserting into a buffer
-             * when reseting the flag ERTS_PSFLG_SIG_IN_Q in one of
+             * when resetting the flag ERTS_PSFLG_SIG_IN_Q in one of
              * the fetch functions above so we have to make sure that
              * it is set when there is a nonmsg signal in the buffers.
             */

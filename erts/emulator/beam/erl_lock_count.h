@@ -78,7 +78,7 @@ typedef struct {
 } erts_lcnt_time_t;
 
 typedef struct {
-    /** @brief log2 array of nano seconds occurences */
+    /** @brief log2 array of nano seconds occurrences */
     Uint32 ns[ERTS_LCNT_HISTOGRAM_SLOT_SIZE];
 } erts_lcnt_hist_t;
 

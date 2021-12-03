@@ -809,7 +809,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 **  h(0) = <initial hash> 
 **  h(i) = h(i-1)*X + B(i-1)
 ** The above should hold regardless of internal representation.
-** Pids are hashed like small numbers but with differrent constants, as are
+** Pids are hashed like small numbers but with different constants, as are
 ** ports.
 ** References are hashed like ports but only on the least significant byte.
 ** Binaries are hashed on all bytes (not on the 15 first as in 

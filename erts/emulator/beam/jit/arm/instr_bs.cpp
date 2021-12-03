@@ -1377,7 +1377,7 @@ void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
 /*
  * ARG1 = term
  *
- * If the term in ARG1 is a binary on enty, on return
+ * If the term in ARG1 is a binary on entry, on return
  * ARG1 will contain the size of the binary in bits and
  * sign flag will be cleared.
  *

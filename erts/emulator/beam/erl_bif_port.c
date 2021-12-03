@@ -104,7 +104,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         port->async_open_port->to = BIF_P->common.id;
 
         /*
-         * We unconditionaly *must* do a receive on a message
+         * We unconditionally *must* do a receive on a message
          * containing the reference after this...
          */
         erts_msgq_set_save_end(BIF_P);
@@ -1000,7 +1000,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    name = tp[1];
 	    encoding = erts_get_native_filename_encoding();
 	    /* Do not convert the command to utf-16le yet, do that in win32 specific code */
-	    /* since the cmd is used for comparsion with drivers names and copied to port info */
+	    /* since the cmd is used for comparison with drivers names and copied to port info */
 	    if (encoding == ERL_FILENAME_WIN_WCHAR) {
 		encoding = ERL_FILENAME_UTF8;
 	    }

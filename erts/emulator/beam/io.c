@@ -1176,7 +1176,7 @@ erts_schedule_proc2port_signal(Process *c_p,
 	 * callers message queue to the end of the queue.
 	 *
 	 * NOTE: It is of vital importance that the caller
-	 *       immediately do a receive unconditionaly
+	 *       immediately do a receive unconditionally
 	 *       waiting for the message with the reference;
 	 *       otherwise, next receive will *not* work
 	 *       as expected!
@@ -1643,7 +1643,7 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
         ErlDrvSizeT ERTS_DECLARE_DUMMY(r);
 
 	/*
-	 * Apperently there exist code that write 1 byte to
+	 * Apparently there exist code that write 1 byte to
 	 * much in buffer. Where it resides I don't know, but
 	 * we can live with one byte extra allocated...
 	 */
@@ -1977,7 +1977,7 @@ erts_port_output(Process *c_p,
 	ErlDrvSizeT r;
 
 	/*
-	 * Apperently there exist code that write 1 byte to
+	 * Apparently there exist code that write 1 byte to
 	 * much in buffer. Where it resides I don't know, but
 	 * we can live with one byte extra allocated...
 	 */
@@ -3196,7 +3196,7 @@ static int flush_linebuf(LineBufContext *bp)
  * Returns: LINEBUF_EMPTY if there is no more data that can be
  *   determined as a line (only part of a line left), LINEBUF_EOL if a whole
  *   line could be delivered and LINEBUF_NOEOL if the buffer size has been
- *   exceeded. The data and the data length can be accesed through the 
+ *   exceeded. The data and the data length can be accessed through the 
  *   LINEBUF_DATA and the LINEBUF_DATALEN macros applied to the LineBufContext.
  * Parameters: 
  * bp - A LineBufContext that is initialized with 
@@ -3310,7 +3310,7 @@ deliver_result(Port *prt, Eterm sender, Eterm pid, Eterm res)
 
 /* 
  * Deliver a "read" message.
- * hbuf -- byte that are always formated as a list
+ * hbuf -- byte that are always formatted as a list
  * hlen -- number of byte in header
  * buf  -- data 
  * len  -- length of data

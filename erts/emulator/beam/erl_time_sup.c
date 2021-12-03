@@ -2361,7 +2361,7 @@ erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
 {
     ErtsMonotonicTime ffreq, tfreq, denom;
     /*
-     * Convertion between time units using floor function.
+     * Conversion between time units using floor function.
      *
      * Note that this needs to work also for negative
      * values. Ordinary integer division on a negative
@@ -2461,7 +2461,7 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 
     /*
      * Mega seconds is the only value that potentially
-     * ever could be a bignum. However, that wont happen
+     * ever could be a bignum. However, that won't happen
      * during at least the next 4 million years...
      *
      * (System time will also have wrapped in the

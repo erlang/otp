@@ -913,7 +913,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         else {
             /* Pending spawn_request() */
             pending_flag = ERTS_ML_FLG_SPAWN_PENDING;
-            /* Prepare for storage of exteral pid */
+            /* Prepare for storage of external pid */
             tsz = EXTERNAL_PID_HEAP_SIZE;
             /* name contains tag */
             

@@ -230,7 +230,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	if (!left) {
 #ifdef ALLOW_BYTE_TAIL
 	    if (is_byte(ioterm)) {
-		/* inproper list with byte tail*/
+		/* improper list with byte tail*/
 		Eterm *hp;
 		hp = HAlloc(p, 2);
 		ioterm = CONS(hp, ioterm, NIL);
@@ -239,7 +239,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 	    ;
 #endif
 	} else if (!is_list(ioterm) && !is_nil(ioterm)) {
-	    /* inproper list end */
+	    /* improper list end */
 #ifdef ALLOW_BYTE_TAIL
 	    if (is_byte(ioterm)) {
 		unsigned char b[1];

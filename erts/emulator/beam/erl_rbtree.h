@@ -359,7 +359,7 @@
  *                        int indent,
  *                        (void)(*print_node)(ERTS_RBT_T *));
  *         Prints the tree. Note that this function is recursive.
- *         Should only be used for debuging.
+ *         Should only be used for debugging.
  */
 
 #ifdef ERTS_RBT_CMP_KEYS
