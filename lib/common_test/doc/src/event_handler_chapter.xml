@@ -290,7 +290,7 @@
 	<p><c>FailedCaseInSequence = atom()</c>, the name of a case that failed in a sequence.</p>
         <p><c>RunTimeError = term()</c>, a runtime error, for example <c>badmatch</c> or
 	<c>undef</c>.</p>
-        <p><c>StackTrace = list()</c>, list of function calls preceeding a runtime error.</p>
+        <p><c>StackTrace = list()</c>, list of function calls preceding a runtime error.</p>
         <p><c>UserTerm = term()</c>, any data specified by user, or <c>exit/1</c> information.</p>
         <p>This event is sent for every test case or configuration function that <c>Common Test</c>
 	has skipped automatically because of either a failed <c>init_per_suite</c> or 

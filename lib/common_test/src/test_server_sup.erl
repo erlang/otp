@@ -510,8 +510,8 @@ check_change({advanced, _}) -> ok;
 check_change(Change)        -> throw({error, {bad_change, Change}}).
 
 %% Given two sorted lists, L1 and L2, returns {NotInL2, NotInL1},
-%% NotInL2 is the elements of L1 which don't occurr in L2,
-%% NotInL1 is the elements of L2 which don't ocurr in L1.
+%% NotInL2 is the elements of L1 which don't occur in L2,
+%% NotInL1 is the elements of L2 which don't occur in L1.
 
 common(L1, L2) ->
     common(L1, L2, [], []).

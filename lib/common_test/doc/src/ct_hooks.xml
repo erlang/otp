@@ -679,7 +679,7 @@
         <list type="bulleted">
           <item><p>If <c>init_per_suite</c> fails, this function is called after
             <seemfa marker="#Module:post_init_per_suite/4"><c>post_init_per_suite</c></seemfa>.</p></item>
-          <item><p>If a test case fails, this funcion is called after
+          <item><p>If a test case fails, this function is called after
           <seemfa marker="#Module:post_end_per_testcase/5"><c>post_end_per_testcase</c></seemfa>.</p></item>
         </list>
 

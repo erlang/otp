@@ -1943,7 +1943,7 @@ indent_line("></"++Rest,Indent,Line) ->
 	    {Indent++lists:reverse(Line)++">","</"++Rest,Indent--"  "}
     end;
 indent_line("><"++Rest,Indent,Line) ->
-    %% Stop tag completed, and new tag comming -> keep indentation
+    %% Stop tag completed, and new tag coming -> keep indentation
     {Indent++lists:reverse(Line)++">","<"++Rest,"  "++Indent};
 indent_line("</"++Rest,Indent,Line) ->
     %% Stop tag starting -> search for end of this tag

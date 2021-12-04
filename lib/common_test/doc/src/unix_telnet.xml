@@ -75,7 +75,7 @@
 
     <p>The <c>{port,PortNum}</c> tuple is optional and if omitted, default 
       Telnet port 23 is used. Also the <c>keep_alive</c> tuple is optional,
-      and the value defauls to <c>true</c> (enabled).</p>
+      and the value default to <c>true</c> (enabled).</p>
   </description>
 
   <funcs>

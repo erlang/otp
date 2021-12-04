@@ -75,9 +75,9 @@
 %%%			 system running in a git repository/source tree.
 %%% ts_make		 Interface to run the `make' program on Unix
 %%%			 and other platforms.
-%%% ts_make_erl		 A corrected version of the standar Erlang module
+%%% ts_make_erl		 A corrected version of the standard Erlang module
 %%%			 make (used for rebuilding test suites).
-%%% ts_lib		 Miscellanous utility functions, each used by several
+%%% ts_lib		 Miscellaneous utility functions, each used by several
 %%%			 other modules.
 %%% ts_benchmark         Supervises otp benchmarks and collects results.
 %%%----------------------------------------------------------------------
@@ -310,7 +310,7 @@ cl_run([App,Cat|Options0]) when is_atom(App) ->
 	    false ->
 		Options0 -- [batch]
 	end,
-    %% Make sure there is exactly one occurence of 'batch'
+    %% Make sure there is exactly one occurrence of 'batch'
     Options2 = [batch|Options1],
 
     Result =
@@ -871,7 +871,7 @@ run_test(File, Args, Options, Vars) ->
 %% r(Mod, Case, Opts)
 %%	Each of these functions starts the test server if it
 %%	isn't already running, then runs the test case(s) selected
-%%	by the aguments.
+%%	by the arguments.
 %%      SpecOrMod can be a module name or the name of a test spec file,
 %%      with the extension .spec or .spec.OsType. The module Mod will 
 %%	be reloaded before running the test cases.

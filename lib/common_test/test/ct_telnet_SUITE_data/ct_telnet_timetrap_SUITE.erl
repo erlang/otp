@@ -53,7 +53,7 @@ end_per_testcase(_,_Config) ->
 %% The long timetrap timeout and timeout option in the expect call
 %% also causes the telnet client to hang so long that the attempt at
 %% closing it (in end_per_testcase) will time out (close timeout is 5
-%% sec) without a timetrap timeout occuring in end_per_testcase.
+%% sec) without a timetrap timeout occurring in end_per_testcase.
 %%
 %% The point is to see that the connection is thoroughly removed and
 %% unregistered anyway so that the next test case can successfully

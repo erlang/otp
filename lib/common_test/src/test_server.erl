@@ -361,7 +361,7 @@ stick_all_sticky(Node,Sticky) ->
 %% TimetrapData = {MultiplyTimetrap,ScaleTimetrap}, which indicates a
 %% possible extension of all timetraps. Timetraps will be multiplied by
 %% MultiplyTimetrap. If it is infinity, no timetraps will be started at all.
-%% ScaleTimetrap indicates if test_server should attemp to automatically
+%% ScaleTimetrap indicates if test_server should attempt to automatically
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
 
@@ -1890,7 +1890,7 @@ capture_stop() ->
 %% Note that since output arrive as messages to the process, it takes
 %% a short while from the call to io:format until all output is available
 %% by capture_get/0. It is not necessary to call capture_stop/0 before
-%% retreiving the output.
+%% retrieving the output.
 capture_get() ->
     test_server_sup:capture_get([]).
 
@@ -2554,10 +2554,10 @@ m_out_of_n(M,N,Fun) ->
 %%	Time  - integer() in milliseconds.
 %%	Crash - term()
 %%
-%%	Spaws a new process that calls MFA. The call is considered
+%%	Spawns a new process that calls MFA. The call is considered
 %%      successful if the call crashes with the given reason (Crash),
 %%      or any other reason if Crash is not specified.
-%%	** The call must terminate withing the given Time (defaults
+%%	** The call must terminate within the given Time (defaults
 %%      to infinity), or it is considered a failure (exit with reason
 %%      'call_crash_timeout' is generated).
 
@@ -2576,7 +2576,7 @@ call_crash(Time,Crash,M,F,A) ->
 %% Type = slave | peer
 %% Options = [{tuple(), term()}]
 %%
-%% OptionList is a tuplelist wich may contain one
+%% OptionList is a tuplelist which may contain one
 %% or more of these members:
 %%
 %% Slave and Peer:

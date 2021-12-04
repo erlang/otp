@@ -347,7 +347,7 @@ get_config(KeyOrName,Default,Opts) when is_atom(KeyOrName) ->
 	    Else
     end;
 
-%% This useage of get_config is only used by internal ct functions
+%% This usage of get_config is only used by internal ct functions
 %% and may change at any time
 get_config({DeepKey,SubKey}, Default, Opts) when is_tuple(DeepKey) ->
     get_config(erlang:append_element(DeepKey, SubKey), Default, Opts);

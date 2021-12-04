@@ -219,7 +219,7 @@
         <item>
           <p>
 	    A race condition could cause ct_netconfc:open/* to return
-	    a disfunctional handle, resulting in errors when invoking
+	    a dysfunctional handle, resulting in errors when invoking
 	    other api functions on it, and making it impossible to
 	    establish a new connection to the server in question.
 	    Similar symptoms were possible with open/* in modules
@@ -2233,7 +2233,7 @@
 	    <c>{end_per_group,GroupName}</c>.</item> <item>When
 	    <c>require</c> fails in an info function, such as suite/0
 	    or group/1, the init configuration function is now
-	    reported as <c>auto_skipped</c> intead of <c>skipped</c>,
+	    reported as <c>auto_skipped</c> instead of <c>skipped</c>,
 	    with the <c>tc_done</c> event.</item> <item>When
 	    <c>require</c> fails in an info function because of a
 	    configuration name already in use, the <c>tc_done</c>
@@ -2534,7 +2534,7 @@
       <list>
         <item>
           <p>
-	    Removed depricated run_test program, use ct_run instead.</p>
+	    Removed deprecated run_test program, use ct_run instead.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -3027,7 +3027,7 @@
 	    reference manual pages for details about which keys are
 	    allowed.</p>
           <p>
-	    This change introduces a backwards incompatability in the
+	    This change introduces a backwards incompatibility in the
 	    <c>ct:require/2</c> interface. Previously when doing
 	    <c>ct:require(a_name,{key,subkey})</c>, a_name would be
 	    associated with key. This has been changed to that
@@ -3374,7 +3374,7 @@
 	    Common Test will now print error information (with a time
 	    stamp) in the test case log file immediately when a test
 	    case fails. This makes it easier to see when, in time,
-	    the fault actually occured, and aid the job of locating
+	    the fault actually occurred, and aid the job of locating
 	    relevant trace and debug printouts in the log.</p>
           <p>
 	    Own Id: OTP-9904 Aux Id: seq11985, OTP-9900 </p>
@@ -3660,7 +3660,7 @@
         </item>
         <item>
           <p>
-	    If a timetrap timeout occured during execution of of a
+	    If a timetrap timeout occurred during execution of of a
 	    function in a lib module (i.e. a function called directly
 	    or indirectly from a test case), the Suite argument in
 	    the end_tc/3 framework callback function would not
@@ -3927,11 +3927,11 @@
         <item>
           <p>
 	    Alpha release of Common Test Hooks (CTH). CTHs allow the
-	    users of common test to abtract out common behaviours
+	    users of common test to abstract out common behaviours
 	    from test suites in a much more elegant and flexible way
 	    than was possible before. Note that the addition of this
 	    feature may introduce minor changes in the undocumented
-	    behaviour of the interface inbetween common_test and
+	    behaviour of the interface between common_test and
 	    test_server.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
@@ -4079,7 +4079,7 @@
           <p>
 	    It is now possible for the user to provide specific
 	    callback modules that handle test configuration data, so
-	    that data on arbitray form can be accessed (e.g. by
+	    that data on arbitrary form can be accessed (e.g. by
 	    reading files or by communicating with a configuration
 	    server process). Two default callback modules have been
 	    introduced in Common Test: ct_config_plain and
@@ -4500,7 +4500,7 @@
 	    definitions). The properties make it possible to execute
 	    test cases in parallel, in sequence and in shuffled
 	    order. It is also possible to repeat test cases according
-	    to different criterias. The properties can be combined,
+	    to different criteria. The properties can be combined,
 	    making it possible to e.g. repeat a conf case a certain
 	    number of times and execute the test cases in different
 	    (random) order every time. Available properties are:

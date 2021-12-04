@@ -683,7 +683,7 @@ handle_call({finish,Fini}, _From, State) ->
 %% handle_call({idle_notify,Fun}, From, State) -> {ok,Pid}
 %%
 %% Lets a test client subscribe to receive a notification when the
-%% test server becomes idle (can be used to syncronize jobs).
+%% test server becomes idle (can be used to synchronize jobs).
 %% test_server calls Fun(From) when idle.
 
 handle_call({idle_notify,Fun}, {Cli,_Ref}, State) ->
@@ -708,7 +708,7 @@ handle_call({start_get_totals,Fun}, {Cli,_Ref}, State) ->
 %% handle_call(stop_get_totals, From, State) -> ok
 %%
 %% Lets a test client subscribe to receive a notification when the
-%% test server becomes idle (can be used to syncronize jobs).
+%% test server becomes idle (can be used to synchronize jobs).
 %% test_server calls Fun(From) when idle.
 
 handle_call(stop_get_totals, {_Cli,_Ref}, State) ->
@@ -1240,12 +1240,12 @@ do_spec(SpecName, TimetrapSpec) when is_list(SpecName) ->
 %% cannot be granted during the test run. Skip has the syntax specified
 %% by collect_cases/3.
 %%
-%% {nodes,Nodes} Lists node names avaliable to the test suites. Nodes have
+%% {nodes,Nodes} Lists node names available to the test suites. Nodes have
 %% the syntax specified by collect_cases/3.
 %%
 %% {require_nodenames, Num} Specifies how many nodenames the test suite will
-%% need. Theese are automaticly generated and inserted into the Config by the
-%% test_server. The caller may specify other hosts to run theese nodes by
+%% need. These are automatically generated and inserted into the Config by the
+%% test_server. The caller may specify other hosts to run these nodes by
 %% using the {hosts, Hosts} option. If there are no hosts specified, all
 %% nodenames will be generated from the local host.
 %%
@@ -1256,7 +1256,7 @@ do_spec(SpecName, TimetrapSpec) when is_list(SpecName) ->
 %% all hosts given in this Hosts list. The hostnames are given as atoms or
 %% strings.
 %%
-%% {diskless, true}</c></tag> is kept for backwards compatiblilty and
+%% {diskless, true}</c></tag> is kept for backwards compatibility and
 %% should not be used. Use a configuration test case instead.
 %%
 %% This function is meant to be called by a process created by
@@ -2606,7 +2606,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		case get_repeat(Props) of
 		    undefined ->
 			%% we *must* have a status entry for every conf since we
-			%% will continously update status with test case results
+			%% will continuously update status with test case results
 			%% without knowing the Ref (but update hd(Status))
 			{false,new_status(Ref, Status1),Cases1,?void_fun};
 		    {_RepType,N} when N =< 1 ->
@@ -4675,7 +4675,7 @@ update_config(Config, []) ->
 %% Configuration manipulation functions are called with the current
 %% configuration list as only argument, and are expected to return a new
 %% configuration list. Such a pair of function may, for example, start a
-%% server and stop it after a serie of test cases.
+%% server and stop it after a series of test cases.
 %%
 %% SkipCases is expected to be in the format:
 %%
@@ -5361,7 +5361,7 @@ check_cross([]) ->
 %% This analysis is executed on the target node once the test is
 %% completed for an application. This is not the same as the cross
 %% cover analysis, which can be executed on any node after the tests
-%% are finshed.
+%% are finished.
 %%
 %% This per application analysis writes the file cover.html in the
 %% application's run.<timestamp> directory.

@@ -120,7 +120,7 @@ open_success(Node,Dir) ->
     open_success(Node,Dir,[]).
 
 %% Open a netconf session which is not specified in a config file, and
-%% give som extra options in addition to the test defaults.
+%% give some extra options in addition to the test defaults.
 open_success(Node,Dir,ExtraOpts) when is_list(Dir), is_list(ExtraOpts) ->
     ns(Node,hello,[1]), % tell server to send hello with session id 1
     ns(Node,expect,[hello]), % tell server to expect a hello message from client

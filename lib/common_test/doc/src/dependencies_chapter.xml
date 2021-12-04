@@ -78,7 +78,7 @@
     </list>
 
     <p>There are obvious dependencies between the listed functions. The server cannot 
-      be configured if it has not first been started, a client connot be connectd until 
+      be configured if it has not first been started, a client cannot be connected until 
       the server is properly configured, and so on. If we want to have one test 
       case for each function, we might be tempted to try to always run the
       test cases in the stated order and carry possible data (identities, handles,
