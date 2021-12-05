@@ -616,7 +616,7 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The key position.</p>
           </item>
-          <tag><c>{memory, integer() >= 0</c></tag>
+          <tag><c>{memory, integer() >= 0}</c></tag>
           <item>
             <p>The number of words allocated to the table.</p>
           </item>
@@ -642,7 +642,7 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The table access rights.</p>
           </item>
-          <tag><c>{size, integer() >= 0</c></tag>
+          <tag><c>{size, integer() >= 0}</c></tag>
           <item>
             <p>The number of objects inserted in the table.</p>
           </item>
