@@ -108,7 +108,7 @@ convopts(Opts) ->
 			%% This undocumented clause uses an undocumented 
 			%% feature of the TIPC socket interface that takes 
 			%% advantage of some gory internals of the protocol. 
-			%% It is protocol implementation dependant and 
+			%% It is protocol implementation dependent and 
 			%% breaks the whole idea of location transparency 
 			%% for name addressed messages. Therefore it should 
 			%% only be used when all other possibilities are 

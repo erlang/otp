@@ -1071,7 +1071,7 @@
         <item>
 	    <p>The type optimization pass of the compiler could hang
 	    or loop for a long time when analyzing a
-	    <c>setelement/3</c> call with a varible position.</p>
+	    <c>setelement/3</c> call with a variable position.</p>
           <p>
 	    Own Id: OTP-15828 Aux Id: ERL-948 </p>
         </item>
@@ -1788,7 +1788,7 @@
         <item>
 	    <p>The compiler could issue an incorrect internal
 	    consistency failure diagnostic for some complicated bit
-	    syntax maches.</p>
+	    syntax matches.</p>
           <p>
 	    Own Id: OTP-14640 Aux Id: ERL-490 </p>
         </item>
@@ -3529,7 +3529,7 @@
 	    Own Id: OTP-8579</p>
         </item>
         <item>
-	    <p>The undocumented, unsupport, and deprecated function
+	    <p>The undocumented, unsupported, and deprecated function
 	    <c>lists:flat_length/1</c> has been removed.</p>
           <p>
 	    Own Id: OTP-8584</p>
@@ -3578,7 +3578,7 @@
         <item>
           <p>
 	    Using complex boolean expressions in ifs could cause the
-	    compiler to either crash or teminate with an internal
+	    compiler to either crash or terminate with an internal
 	    error. (Thanks to Simon Cornish.)</p>
           <p>
 	    Own Id: OTP-8338</p>
@@ -3778,7 +3778,7 @@
             <p>Using <c>andalso</c>/<c>orelse</c> or record access in
             a <c>try</c>...<c>catch</c> could cause a compiler
             crash.</p>
-            <p>Som large and complex functions could require
+            <p>Some large and complex functions could require
             extremely long compilation times (hours or days).</p>
           <p>
             Own Id: OTP-7905</p>
@@ -4678,7 +4678,7 @@
             string could cause the compiler to generate dangerous
             code that could cause a crash at run-time (e.g.
             <c><![CDATA[R#r{a="abc",b=1}]]></c>). (Thanks to Mikael Karlsson.)</p>
-          <p>Unecessary tests (such as a 'case' with two case
+          <p>Unnecessary tests (such as a 'case' with two case
             branches that were identical) could cause the compiler to
             crash. (Thanks to Fredrik Thulin.)</p>
           <p>The validation pass of the compiler could generate an

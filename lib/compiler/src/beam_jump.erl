@@ -107,7 +107,7 @@
 %%% Note: This modules depends on (almost) all branches and jumps only
 %%% going forward, so that we can remove instructions (including definition
 %%% of labels) after any label that has not been referenced by the code
-%%% preceeding the labels. Regarding the few instructions that have backward
+%%% preceding the labels. Regarding the few instructions that have backward
 %%% references to labels, we assume that they only transfer control back
 %%% to an instruction that has already been executed. That is, code such as
 %%%
@@ -411,7 +411,7 @@ unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
     case erl_bifs:is_exit_bif(M, F, A) of
         true ->
             %% beam_validator requires that the size of the stack
-            %% frame is unambigously known when a function is called.
+            %% frame is unambiguously known when a function is called.
             %%
             %% That means that we must be careful when sharing function
             %% calls.
@@ -421,7 +421,7 @@ unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
             %% rare circumstances. (See the undecided_allocation_1/1
             %% function in beam_jump_SUITE.)
             %%
-            %% To ensure that the frame size is unambigous, only allow
+            %% To ensure that the frame size is unambiguous, only allow
             %% sharing of a call to exit BIFs if the call is followed
             %% by an instruction that indicates the size of the stack
             %% frame (that is almost always the case in real-world
@@ -471,7 +471,7 @@ is_shareable([]) -> true.
 %%
 %% Classify labels according to where the instructions that branch to
 %% the labels are located. Each label is assigned a set of scope
-%% identifers (but usually just one). If two labels have different
+%% identifiers (but usually just one). If two labels have different
 %% scope identfiers, sharing a sequence that raises an exception
 %% between the labels may not be safe, because one label is inside a
 %% try/catch, and the other label is outside. Note that we don't care
@@ -708,7 +708,7 @@ collect_labels_1(Is, _Label, _Entry, Acc, St) ->
 
 %% label_defined(Is, Label) -> true | false.
 %%  Test whether the label Label is defined at the start of the instruction
-%%  sequence, possibly preceeded by other label definitions.
+%%  sequence, possibly preceded by other label definitions.
 %%
 is_label_defined([{label,L}|_], L) -> true;
 is_label_defined([{label,_}|Is], L) -> is_label_defined(Is, L);
@@ -821,7 +821,7 @@ drop_upto_label([]) -> [].
 
 %% unshare([Instruction]) -> [Instruction].
 %%  Replace a jump to a return sequence (a `return` instruction
-%%  optionally preced by a `deallocate` instruction) with the return
+%%  optionally precede by a `deallocate` instruction) with the return
 %%  sequence. This always saves execution time and may also save code
 %%  space (depending on the architecture). Eliminating `jump`
 %%  instructions also gives beam_trim more opportunities to trim the

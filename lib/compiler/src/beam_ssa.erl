@@ -602,7 +602,7 @@ between(From, To, Preds, Blocks) ->
     %% skipping the blocks that don't precede `To`.
     %%
     %% As an optimization we initialize the predecessor set with `From` to stop
-    %% gathering once seen since we're only interested in the blocks inbetween.
+    %% gathering once seen since we're only interested in the blocks in between.
     %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
     %% but that has no effect on the final result.
     Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),

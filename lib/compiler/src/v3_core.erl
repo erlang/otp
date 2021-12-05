@@ -204,7 +204,7 @@ form({attribute,_,module,Mod}, Module, _Opts) ->
 form({attribute,_,file,{File,_Line}}=F, #imodule{attrs=As}=Module, _Opts) ->
     Module#imodule{file=File, attrs=[attribute(F)|As]};
 form({attribute,_,import,_}, Module, _Opts) ->
-    %% Ignore. We have no futher use for imports.
+    %% Ignore. We have no further use for imports.
     Module;
 form({attribute,_,export,Es}, #imodule{exports=Exp0}=Module, _Opts) ->
     Exp = ordsets:union(ordsets:from_list(Es), Exp0),
@@ -282,7 +282,7 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
     catch
 	throw:nomatch ->
             %% This pattern can't possibly match. If we simply remove
-            %% the clause, varibles that are used later might not be
+            %% the clause, variables that are used later might not be
             %% bound. Therefore, we must keep the clause, but rewrite
             %% the pattern to a pattern that will bind the same
             %% variables and ensure that the clause can't be executed
@@ -303,7 +303,7 @@ head(Ps, St) ->
     pattern_list(Ps, St).
 
 %% guard([Expr], State) -> {[Cexpr],State}.
-%%  Build an explict and/or tree of guard alternatives, then traverse
+%%  Build an explicit and/or tree of guard alternatives, then traverse
 %%  top-level and/or tree and "protect" inner tests.
 
 guard([], St) -> {[],St};
@@ -422,7 +422,7 @@ gexpr_not(A, Bools0, St0, Line) ->
             %% which will produce the same result, but may eliminate
             %% redundant is_boolean/1 tests (see unforce/3).
             %%
-            %% Note that this tranformation would not be safe if the
+            %% Note that this transformation would not be safe if the
             %% original expression had been:
             %%
             %%    not(Expr =:= true)

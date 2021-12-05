@@ -255,7 +255,7 @@ module.beam: module.erl \
 
           <tag><c>makedep_side_effect</c></tag>
           <item>
-	    <p>The dependecies are created as a side effect to the
+	    <p>The dependencies are created as a side effect to the
 	    normal compilation process. This means that the object
 	    file will also be produced. This option override the
 	    <c>makedep</c> option.

@@ -428,7 +428,7 @@ makedep_canonicalize_result(Mf, DataDir) ->
     %% Replace the Datadir by "$(srcdir)".
     Mf1 = re:replace(Mf0, DataDir, "$(srcdir)/",
       [global,multiline,{return,list}]),
-    %% Long lines are splitted, put back everything on one line.
+    %% Long lines are split, put back everything on one line.
     Mf2 = re:replace(Mf1, "\\\\\n  ", "", [global,multiline,{return,list}]),
     list_to_binary(Mf2).
 
@@ -774,7 +774,7 @@ install_crypto_key(Key) ->
 	end,
     ok = beam_lib:crypto_key_fun(F).
 
-%% Miscellanous tests, mainly to get better coverage.
+%% Miscellaneous tests, mainly to get better coverage.
 debug_info(erlang_v1, Module, ok, _Opts) ->
     {ok, [Module]};
 debug_info(erlang_v1, _Module, error, _Opts) ->

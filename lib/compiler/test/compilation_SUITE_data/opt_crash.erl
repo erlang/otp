@@ -45,7 +45,7 @@ test() ->
             nil},
          {query,nil}}} = URI_Before,
 
-   %% ... some funky code ommitted, not relevant ...
+   %% ... some funky code omitted, not relevant ...
 
    {absoluteURI,
       {scheme,_},

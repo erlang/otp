@@ -2382,7 +2382,7 @@ wl_changed(#worklist{counter=Same}, #worklist{counter=Same}) -> false;
 wl_changed(#worklist{}, #worklist{}) -> true.
 
 %% Adds the given elements to the back of the worklist, skipping the elements
-%% that are already present. This lets us append elements arbitrarly after the
+%% that are already present. This lets us append elements arbitrarily after the
 %% current front without changing the work order.
 wl_defer_list(Elements, #worklist{counter=Counter,elements=Es,indexes=Is}) ->
     wl_defer_list_1(Elements, Counter, Es, Is).
