@@ -3308,6 +3308,8 @@ do_supports_ssl_tls_version(Port, Acc) ->
                     false;
                 "s_client: Option unknown" ++ _->
                     false;
+                "s_client: Unknown option: " ++ _->
+                    false;
                 Info when length(Info) >= 24 ->
                     ?LOG("~p", [Info]),
                     true;
