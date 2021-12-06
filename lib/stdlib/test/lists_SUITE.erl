@@ -54,6 +54,7 @@
 	 ufunsort_1/1, ufunsort_stable/1, ufunsort_rand/1,
 	 ufunsort_error/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
+	 transpose/1,
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
@@ -122,7 +123,8 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, enumerate, error_info]}
+			 hof, droplast, search, enumerate, error_info,
+			 transpose]}
     ].
 
 init_per_suite(Config) ->
@@ -2332,6 +2334,27 @@ flatten_2(Config) when is_list(Config) ->
 %% flatten/2 error cases.
 flatten_2_e(Config) when is_list(Config) ->
     ok.
+
+%% Test lists:transpose/1.
+transpose(Config) when is_list(Config) ->
+    [] = lists:transpose([]),
+    [] = lists:transpose([[], [], [], []]),
+    [[a0, b0, c0], [a1, b1, c1], [a2, b2, c2]] =
+        lists:transpose([[a0, a1, a2], [b0, b1, b2], [c0, c1, c2]]),
+    [[a0, b0], [a1, b1], [a2, b2]] =
+        lists:transpose([[a0, a1, a2], [b0, b1, b2]]),
+    _ = [begin
+             Matrix = [[make_ref() || _ <- lists:seq(1, M)] ||
+                          _ <- lists:seq(1, N)],
+             Matrix = lists:transpose(lists:transpose(Matrix))
+         end || N <- lists:seq(1, 10), M <- lists:seq(1, 10)],
+
+    %% Error cases.
+    {'EXIT',{badarg,_}} = (catch lists:transpose([[], [b]])),
+    {'EXIT',{badarg,_}} = (catch lists:transpose([[a], []])),
+    {'EXIT',{badarg,_}} = (catch lists:transpose([[a], [b,c]])),
+    ok.
+
 
 %% Test lists:zip/2, lists:unzip/1.
 zip_unzip(Config) when is_list(Config) ->

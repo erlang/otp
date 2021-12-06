@@ -1068,6 +1068,23 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
+      <name name="transpose" arity="1" since=""/>
+      <fsummary>Transpose a list of lists.</fsummary>
+      <desc>
+        <p>Transposes a matrix (list of lists) into one list of lists
+          where the first element of each resulting list is taken from the first
+          list and the rest of elements are taken from the first element of the
+          following lists.</p>
+        <p>That is, if we have a matrix of 3x2 and we transpose it, we
+          obtain a matrix of 2x3.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>lists:transpose([[1,2,3], [4,5,6]]).</input>
+[[1,4],[2,5],[3,6]]</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="zip" arity="2" since=""/>
       <fsummary>Zip two lists into a list of two-tuples.</fsummary>
       <desc>
@@ -1075,6 +1092,9 @@ splitwith(Pred, List) ->
           where the first element of each tuple is taken from the first
           list and the second element is taken from the corresponding
           element in the second list.</p>
+        <p>If you need to transpose a list of lists instead of "zips"
+          together two lists, see
+          <seemfa marker="#transpose/1"><c>transpose/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1087,6 +1107,9 @@ splitwith(Pred, List) ->
           from the first list, the second element is taken from
           the corresponding element in the second list, and the third
           element is taken from the corresponding element in the third list.</p>
+        <p>If you need to transpose a list of lists instead of "zips"
+          together three lists, see
+          <seemfa marker="#transpose/1"><c>transpose/1</c></seemfa>.</p>
       </desc>
     </func>
 

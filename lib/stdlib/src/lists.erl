@@ -27,6 +27,7 @@
 	 seq/2, seq/3, sum/1, duplicate/2, min/1, max/1, sublist/2, sublist/3,
 	 delete/2,
 	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
+	 transpose/1,
 	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
 	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
 	 concat/1, flatten/1, flatten/2, flatlength/1,
@@ -390,6 +391,35 @@ delete(_, []) -> [].
 
 zip([X | Xs], [Y | Ys]) -> [{X, Y} | zip(Xs, Ys)];
 zip([], []) -> [].
+
+%% Return [{A0, ..., Z0}, ..., {An, ..., Zn}] for lists [A0, ..., An],
+%% [B0, ..., Bn], ..., [Z0, ..., Zn].
+
+-spec transpose(Lists) -> Lists when
+      Lists :: [[A]],
+      A :: term().
+
+transpose([]) -> [];
+transpose([List|Tail] = Lists) ->
+    ListLen = length(List),
+    case all(fun(ListN) -> ListLen =:= length(ListN) end, Tail) of
+        true -> transpose(Lists, true, []);
+        false -> erlang:error(badarg, Lists)
+    end.
+
+transpose([[] | _], _MustReverse, Acc) -> reverse(Acc);
+transpose(Lists, MustReverse, Acc) ->
+    {Row, NewLists} = transpose_lists(Lists, [], []),
+    NewRow = case MustReverse of
+                 true -> reverse(Row);
+                 false -> Row
+             end,
+    transpose(NewLists, not MustReverse, [NewRow|Acc]).
+
+transpose_lists([[H|T]|List], Row, Acc) ->
+    transpose_lists(List, [H|Row], [T|Acc]);
+transpose_lists([], Row, Acc) ->
+    {Row, Acc}.
 
 %% Return {[X0, X1, ..., Xn], [Y0, Y1, ..., Yn]}, for a list [{X0, Y0},
 %% {X1, Y1}, ..., {Xn, Yn}].
