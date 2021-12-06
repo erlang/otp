@@ -10916,8 +10916,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 
     if (signal) {
         erts_aint32_t state;
-	if (priority_req != am_inherit)
-	    goto badarg;
         state = erts_atomic32_read_acqb(&rp->state);
         if (state & fail_state & ERTS_PSFLG_EXITING)
             goto noproc;
@@ -10926,11 +10924,12 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
              * Send rpc request signal without reply,
              * and reply from the system task...
              */
-            Eterm res = erts_proc_sig_send_rpc_request(c_p,
-                                                       target,
-                                                       0, /* no reply */
-                                                       sched_sig_sys_task,
-                                                       (void *) st);
+            Eterm res = erts_proc_sig_send_rpc_request_prio(c_p,
+                                                            target,
+                                                            0, /* no reply */
+                                                            sched_sig_sys_task,
+                                                            (void *) st,
+                                                            prio);
             if (is_non_value(res))
                 goto noproc;
             return ret; /* signal sent... */

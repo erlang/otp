@@ -50,6 +50,9 @@ handle_request({finish_after_on_load, {Mod,Keep}, From, Ref}, Reqs)
 handle_request({test_purge, Mod, From, Type, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
     NewReqs = do_test_purge(Mod, From, Type, Ref, Reqs),
     check_requests(NewReqs);
+handle_request({change_prio, From, Ref, Prio}, Reqs) ->
+    change_prio(From, Ref, Prio),
+    check_requests(Reqs);    
 handle_request(_Garbage, Reqs) ->
     check_requests(Reqs).
 
@@ -189,36 +192,50 @@ do_finish_after_on_load(Mod, Keep, Reqs) ->
 
 -define(MAX_CPC_NO_OUTSTANDING_KILLS, 10).
 
--record(cpc_static, {hard, module, tag, purge_requests}).
+-record(cpc_static, {hard, module, tag, purge_requests, oreq_limit}).
 
 -record(cpc_kill, {outstanding = [],
 		   no_outstanding = 0,
+                   outstanding_limit = ?MAX_CPC_NO_OUTSTANDING_KILLS,
 		   waiting = [],
 		   killed = false}).
 
 check_proc_code(Pids, Mod, Hard, PReqs) ->
     Tag = erlang:make_ref(),
+    OReqLim = erlang:system_info(outstanding_system_requests_limit),
     CpcS = #cpc_static{hard = Hard,
 		       module = Mod,
 		       tag = Tag,
-		       purge_requests = PReqs},
-    cpc_receive(CpcS, cpc_init(CpcS, Pids, 0), #cpc_kill{}, []).
+		       purge_requests = PReqs,
+                       oreq_limit = OReqLim},
+    KillLimit = if ?MAX_CPC_NO_OUTSTANDING_KILLS < OReqLim ->
+                        ?MAX_CPC_NO_OUTSTANDING_KILLS;
+                   true ->
+                        OReqLim
+                end,
+    KS = #cpc_kill{outstanding_limit = KillLimit},
+    cpc_receive(CpcS, cpc_make_requests(CpcS, KS, 0, Pids), KS, []).
 
 cpc_receive(#cpc_static{hard = true} = CpcS,
-	    0,
+	    {0, []},
 	    #cpc_kill{outstanding = [], waiting = [], killed = Killed},
 	    PReqs) ->
     %% No outstanding cpc requests. We did a hard check, so result is
     %% whether or not we killed any processes...
     cpc_result(CpcS, PReqs, Killed);
-cpc_receive(#cpc_static{hard = false} = CpcS, 0, _KillState, PReqs) ->
+cpc_receive(#cpc_static{hard = false} = CpcS, {0, []}, _KillState, PReqs) ->
     %% No outstanding cpc requests and we did a soft check that succeeded...
     cpc_result(CpcS, PReqs, complete);
-cpc_receive(#cpc_static{tag = Tag} = CpcS, NoReq, KillState0, PReqs) ->
+cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
+            KillState0, PReqs) ->
     receive
 	{check_process_code, {Tag, _Pid}, false} ->
 	    %% Process not referring the module; done with this process...
-	    cpc_receive(CpcS, NoReq-1, KillState0, PReqs);
+	    cpc_receive(CpcS,
+                        cpc_make_requests(CpcS, KillState0,
+                                          NoReq-1, PidsLeft),
+                        KillState0,
+                        PReqs);
 	{check_process_code, {Tag, Pid}, true} ->
 	    %% Process referring the module...
 	    case CpcS#cpc_static.hard of
@@ -231,19 +248,32 @@ cpc_receive(#cpc_static{tag = Tag} = CpcS, NoReq, KillState0, PReqs) ->
 		true ->
 		    %% ... and hard check; schedule kill of it...
 		    KillState1 = cpc_sched_kill(Pid, KillState0),
-		    cpc_receive(CpcS, NoReq-1, KillState1, PReqs)
+		    cpc_receive(CpcS,
+                                cpc_make_requests(CpcS, KillState1,
+                                                  NoReq-1, PidsLeft),
+                                KillState1,
+                                PReqs)
 	    end;
 	{'DOWN', MonRef, process, _, _} ->
 	    KillState1 = cpc_handle_down(MonRef, KillState0),
-	    cpc_receive(CpcS, NoReq, KillState1, PReqs);
+	    cpc_receive(CpcS,
+                        cpc_make_requests(CpcS, KillState1,
+                                          NoReq, PidsLeft),
+                        KillState1,
+                        PReqs);
 	PReq when element(1, PReq) == purge;
 		  element(1, PReq) == soft_purge;
 		  element(1, PReq) == test_purge ->
 	    %% A new purge request; save it until later...
-	    cpc_receive(CpcS, NoReq, KillState0, [PReq | PReqs]);
+	    cpc_receive(CpcS, ReqInfo, KillState0, [PReq | PReqs]);
+
+        {change_prio, From, Ref, Prio} ->
+            change_prio(From, Ref, Prio),
+            cpc_receive(CpcS, ReqInfo, KillState0, PReqs);
+
 	_Garbage ->
 	    %% Garbage message; ignore it...
-	    cpc_receive(CpcS, NoReq, KillState0, PReqs)
+	    cpc_receive(CpcS, ReqInfo, KillState0, PReqs)
     end.
 
 cpc_result(#cpc_static{purge_requests = PReqs}, NewPReqs, Res) ->
@@ -286,8 +316,9 @@ cpc_sched_kill_waiting(#cpc_kill{outstanding = Rs,
 		       waiting = Ps,
 		       killed = true}.
 
-cpc_sched_kill(Pid, #cpc_kill{no_outstanding = N, waiting = Pids} = KillState)
-  when N >= ?MAX_CPC_NO_OUTSTANDING_KILLS ->
+cpc_sched_kill(Pid, #cpc_kill{no_outstanding = N,
+                              outstanding_limit = Limit,
+                              waiting = Pids} = KillState) when N >= Limit ->
     KillState#cpc_kill{waiting = [Pid|Pids]};
 cpc_sched_kill(Pid,
 	       #cpc_kill{outstanding = Rs, no_outstanding = N} = KillState) ->
@@ -298,13 +329,30 @@ cpc_sched_kill(Pid,
 		       killed = true}.
 
 cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid) ->
-    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid}}]).
+    erts_internal:request_system_task(Pid, normal,
+                                      {check_process_code, {Tag, Pid}, Mod}).
 
-cpc_init(_CpcS, [], NoReqs) ->
-    NoReqs;
-cpc_init(CpcS, [Pid|Pids], NoReqs) ->
+cpc_make_requests(#cpc_static{}, #cpc_kill{}, NoCpcReqs, []) ->
+    {NoCpcReqs, []};
+cpc_make_requests(#cpc_static{oreq_limit = Limit},
+                  #cpc_kill{no_outstanding = NoKillReqs},
+                  NoCpcReqs, Pids) when Limit =< NoCpcReqs + NoKillReqs ->
+    {NoCpcReqs, Pids};
+cpc_make_requests(#cpc_static{} = CpcS, #cpc_kill{} = KS,
+                  NoCpcReqs, [Pid|Pids]) ->
     cpc_request(CpcS, Pid),
-    cpc_init(CpcS, Pids, NoReqs+1).
+    cpc_make_requests(CpcS, KS, NoCpcReqs+1, Pids).
+
+change_prio(From, Ref, Prio) ->
+    try
+        OldPrio = process_flag(priority, Prio),
+        _ = From ! {Ref, OldPrio},
+        ok
+    catch
+        _:_ ->
+            _ = From ! {Ref, error},
+            ok
+    end.
 
 % end of check_proc_code() implementation.
 
