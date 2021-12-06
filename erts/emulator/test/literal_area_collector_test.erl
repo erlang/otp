@@ -19,62 +19,61 @@
 %%
 -module(literal_area_collector_test).
 
--export([check_idle/1]).
+-export([check_idle/0, check_idle/1]).
+
+check_idle() ->
+    check_idle(5000).
 
 check_idle(Timeout) when is_integer(Timeout) > 0 ->
+    ScaledTimeout = Timeout*test_server:timetrap_scale_factor(),
+    Pid = find_literal_area_collector(),
     Start = erlang:monotonic_time(millisecond),
-    LAC = find_lac(),
-    wait_until(fun () ->
-                       case process_info(LAC, [status,
-                                               current_function,
-                                               current_stacktrace,
-                                               message_queue_len]) of
-                           [{status,waiting},
-                            {current_function,
-                             {erts_literal_area_collector,msg_loop,4}},
-                            {current_stacktrace,
-                             [{erts_literal_area_collector,msg_loop,4,_}]},
-                            {message_queue_len,0}] ->
-                               true;
-                           CurrState ->
-                               Now = erlang:monotonic_time(millisecond),
-                               case Now - Start > Timeout of
-                                   true ->
-                                       exit({non_idle_literal_area_collecor,
-                                             CurrState});
-                                   false ->
-                                       false
-                               end
-                       end
-               end),
-    ok.
-    
-
-find_lac() ->
     try
-        lists:foreach(fun (P) ->
-                              case process_info(P, initial_call) of
-                                  {initial_call,
-                                   {erts_literal_area_collector,start,0}} ->
-                                      throw({lac, P});
-                                  _ ->
-                                      ok
-                              end
-                      end, processes()),
-        exit(no_literal_area_collector)
+        wait_for_idle_literal_collector(Pid, Start, ScaledTimeout, -1, 0)
     catch
-        throw:{lac, LAC} ->
-            LAC
+        throw:done ->
+            ok
     end.
-                                  
 
-wait_until(Fun) ->
-    Res = try
-              Fun()
-          catch
-              T:R -> {T,R}
-          end,
-    case Res of
-        true -> ok;
-        false -> wait_until(Fun)
+wait_for_idle_literal_collector(Pid, Start, Timeout, NWaiting, WRedsStart) ->
+    {W, R} = case process_info(Pid, [status, reductions]) of
+                 [{status, waiting}, {reductions, Reds}] ->
+                     %% Assume that reds aren't bumped more than
+                     %% 2 in order to service this process info
+                     %% request...
+                     case {NWaiting > 100, Reds - WRedsStart =< 2*NWaiting} of
+                         {true, true} ->
+                             throw(done);
+                         {false, true} ->
+                             {NWaiting+1, WRedsStart};
+                         _ ->
+                             {0, Reds}
+                     end;
+                 _ ->
+                     {-1, 0}
+             end,
+    Now = erlang:monotonic_time(millisecond),
+    if Now - Start > Timeout ->
+            error({busy_literal_area_collecor_timout, Timeout});
+       true ->
+            ok
+    end,
+    receive after 1 -> ok end,
+    wait_for_idle_literal_collector(Pid, Start, Timeout, W, R).
+    
+find_literal_area_collector() ->
+    case get('__literal_area_collector__') of
+        Pid when is_pid(Pid) ->
+            Pid;
+        _ ->
+            find_save_literal_area_collector(processes()),
+            find_literal_area_collector()
+    end.
+
+find_save_literal_area_collector([P|Ps]) ->
+    case process_info(P, initial_call) of
+        {initial_call,{erts_literal_area_collector,start,0}} ->
+            put('__literal_area_collector__', P); 
+        _ ->
+            find_save_literal_area_collector(Ps)
     end.
