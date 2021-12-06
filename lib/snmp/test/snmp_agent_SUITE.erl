@@ -2307,13 +2307,14 @@ init_v3(Config) when is_list(Config) ->
     ?DBG("start_agent -> start crypto app",[]),
     case ?CRYPTO_START() of
 	ok ->
+            ?IPRINT("crypto started - check support"),
 	    case ?CRYPTO_SUPPORT() of
 		{no, Reason} ->
                     ?WPRINT("crypto support not sufficient:"
                             "~n      ~p", [Reason]),
 		    ?SKIP({unsupported_encryption, Reason});
 		yes ->
-                    ?IPRINT("crypto started"),
+                    ?IPRINT("crypto supported"),
 		    ok
 	    end;
 	{error, Reason} ->
