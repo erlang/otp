@@ -21,10 +21,8 @@
 %%
 -module(tls_api_SUITE).
 
--define(CORRECT_PASSWORD, "hello test").
--define(INCORRECT_PASSWORD, "hello").
-
 -include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
@@ -62,10 +60,12 @@
          tls_client_closes_socket/1,
          tls_closed_in_active_once/0,
          tls_closed_in_active_once/1,
-         tls_password_fun/0,
-         tls_password_fun/1,
-         tls_password/0,
-         tls_password/1,
+         tls_password_incorrect/0,
+         tls_password_incorrect/1,
+         tls_password_correct/0,
+         tls_password_correct/1,
+         tls_password_badarg/0,
+         tls_password_badarg/1,
          tls_reset_in_active_once/0,
          tls_reset_in_active_once/1,
          tls_monitor_listener/0,
@@ -108,6 +108,9 @@
         ]).
 
 -define(SLEEP, 500).
+-define(CORRECT_PASSWORD, "hello test").
+-define(INCORRECT_PASSWORD, "hello").
+-define(BADARG_PASSWORD, hello).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -139,9 +142,9 @@ api_tests() ->
      tls_shutdown_write,
      tls_shutdown_both,
      tls_shutdown_error,
-     tls_password,
-     tls_password_fun,
-     tls_password,
+     tls_password_correct,
+     tls_password_incorrect,
+     tls_password_badarg,
      tls_client_closes_socket,
      tls_closed_in_active_once,
      tls_reset_in_active_once,
@@ -987,6 +990,104 @@ reuseaddr(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
+tls_password_correct() ->
+    [{doc, "Test that connection is possible with a correct password"}].
+tls_password_correct(Config) when is_list(Config) ->
+    F = fun (P) ->
+                ProtectedClientOpts = get_protected_clientfile_opts("tls_password_client.pem", Config),
+                ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+                {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+                Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                                    {from, self()},
+                                                    {mfa, {?MODULE, tls_shutdown_result, [server]}},
+                                                    {options, [{exit_on_close, false},
+                                                               {active, false} | ServerOpts]}]),
+                Port = ssl_test_lib:inet_port(Server),
+                Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                                    {host, Hostname},
+                                                    {from, self()},
+                                                    {mfa,
+                                                     {?MODULE, tls_shutdown_result, [client]}},
+                                                    {options,
+                                                     [{exit_on_close, false},
+                                                      {verify, verify_none},
+                                                      {active, false},
+                                                      {password, P} | ProtectedClientOpts]}]),
+                ssl_test_lib:check_result(Server, ok, Client, ok),
+                ssl_test_lib:close(Server),
+                ssl_test_lib:close(Client)
+        end,
+    F(?CORRECT_PASSWORD),
+    F(fun() -> ?CORRECT_PASSWORD end).
+
+%%--------------------------------------------------------------------
+tls_password_incorrect() ->
+    [{doc, "Test that connection is not possible with wrong password"}].
+tls_password_incorrect(Config) when is_list(Config) ->
+    F = fun (P) ->
+                ProtectedClientOpts = get_protected_clientfile_opts("tls_password_client.pem", Config),
+                ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+                {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+                Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                                          {from, self()},
+                                                          {mfa, ssl_test_lib, no_result},
+                                                          {options, [{active, false} | ServerOpts]}]),
+                Port = ssl_test_lib:inet_port(Server),
+                Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                                          {host, Hostname},
+                                                          {from, self()},
+                                                          {mfa, ssl_test_lib, no_result},
+                                                          {options,
+                                                           [{active, false},
+                                                            {verify, verify_none},
+                                                            {password, P} | ProtectedClientOpts]}]),
+                Results = ssl_test_lib:get_result([Server, Client]),
+                Pred = fun({Pid, {error, closed}}) ->
+                               Server == Pid;
+                          ({Pid, {error, {options, {keyfile, _, {error, _}}}}}) ->
+                               Client == Pid;
+                          (_) -> false
+                       end,
+                true = lists:all(Pred, Results)
+        end,
+    F(?INCORRECT_PASSWORD),
+    F(fun() -> ?INCORRECT_PASSWORD end).
+
+%%--------------------------------------------------------------------
+tls_password_badarg() ->
+    [{doc, "Test that connection is not possible with badarg password"}].
+tls_password_badarg(Config) when is_list(Config) ->
+    F = fun (P, ServerError, ClientError) ->
+                ProtectedClientOpts = get_protected_clientfile_opts("tls_password_client.pem", Config),
+                ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+                {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+                Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                                          {from, self()},
+                                                          {mfa, ssl_test_lib, no_result},
+                                                          {timeout, 100},
+                                                          {options, [{active, false} | ServerOpts]}]),
+                Port = ssl_test_lib:inet_port(Server),
+                Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                                          {host, Hostname},
+                                                          {from, self()},
+                                                          {mfa, ssl_test_lib, no_result},
+                                                          {options,
+                                                           [{active, false},
+                                                            {verify, verify_none},
+                                                            {password, P} | ProtectedClientOpts]}]),
+                ssl_test_lib:check_result(Server, ServerError, Client, ClientError)
+        end,
+    %% {options error comes from ssl app
+    F(?BADARG_PASSWORD, {error, timeout},
+      {error, {options, {password, ?BADARG_PASSWORD}}}),
+    %% {keyfile, badarg} error comes from crypto:macN, also handhsake is initiated
+    %% so different server error is observed
+    F(fun() -> ?BADARG_PASSWORD end, {error, closed},
+      {error, {keyfile,badarg}}).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -1073,64 +1174,6 @@ receive_msg(_) ->
 	   Msg
     end.
 
-tls_password() ->
-    [{doc, "Test that password could be sent as an  option to connect API"}].
-tls_password(Config) when is_list(Config) ->
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ProtectedClientOpts = get_protected_clientfile_opts("tls_password_client.pem",Config),
-    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    TcpOpts = [binary, {reuseaddr, true}],
-    Port = ssl_test_lib:inet_port(node()),
-    process_flag(trap_exit, true),
-    run_server(ServerOpts,TcpOpts,Port),
-
-    %% First we test that we can connect using the correct password
-    case ssl:connect(Hostname, Port,
-                     [{password, ?CORRECT_PASSWORD} | ProtectedClientOpts]) of
-        {ok, Socket}  -> ssl:close(Socket);
-        ElseSuccess -> ct:fail(ElseSuccess)
-    end,
-    receive {'EXIT',_,_} -> ok end,
-
-    %% %% Then we test that we are rejected if we use an incorrect password
-    run_server(ServerOpts,TcpOpts,Port),
-    case ssl:connect(Hostname, Port,
-                   [{password, ?INCORRECT_PASSWORD} | ProtectedClientOpts]) of
-        {error,_} ->
-            ok;
-        ElseFail -> ct:fail(ElseFail)
-    end,
-    receive {'EXIT',_,_} -> ok end,
-    ok.
-tls_password_fun() ->
-    [{doc, "Test that password_fun could be sent as an  option to connect API"}].
-tls_password_fun(Config) when is_list(Config) ->
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ProtectedClientOpts = get_protected_clientfile_opts("tls_password_fun_client.pem",Config),
-    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    TcpOpts = [binary, {reuseaddr, true}],
-    Port = ssl_test_lib:inet_port(node()),
-    process_flag(trap_exit, true),
-    %% First we test that we can connect using the correct password
-    run_server(ServerOpts,TcpOpts,Port),
-    case ssl:connect(Hostname, Port,
-                      [{password,fun() -> ?CORRECT_PASSWORD end} | ProtectedClientOpts]) of
-        {ok, Socket}  -> ssl:close(Socket);
-        ElseSuccess -> ct:fail(ElseSuccess)
-    end,
-    receive {'EXIT',_,_} -> ok end,
-
-    %% %% Then we test that we are rejected if we use an incorrect password
-    run_server(ServerOpts,TcpOpts,Port),
-    case ssl:connect(Hostname, Port,
-                    [{password,fun() -> ?INCORRECT_PASSWORD end} | ProtectedClientOpts]) of
-        {error,_} ->
-            ok;
-        ElseFail -> ct:fail(ElseFail)
-    end,
-    receive {'EXIT',_,_} -> ok end,
-    ok.
-
 tls_socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set emulated opts
     {ok, DefaultValues} = ssl:getopts(Socket, Options),
@@ -1172,21 +1215,6 @@ session_info(_) ->
 
 count_children(ChildType, SupRef) ->
     proplists:get_value(ChildType, supervisor:count_children(SupRef)).
-run_server(ServerOpts,TcpOpts,Port) ->
-    process_flag(trap_exit, true),
-    Server = fun() ->
-                     {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
-                     {ok, TcpServerSocket} = gen_tcp:accept(Listen),
-                     case ssl:handshake(TcpServerSocket, ServerOpts) of
-                        {error, closed} ->
-                            erlang:exit(handshake_failed);
-                        {ok, ServerSocket} ->
-                            ssl:close(ServerSocket)
-                    end
-%                     {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
-                     %ssl:close(ServerSocket)
-             end,
-    spawn_link(Server).
 
 get_protected_clientfile_opts(FileNameString,Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
@@ -1195,13 +1223,13 @@ get_protected_clientfile_opts(FileNameString,Config) ->
     Params = {"DES-CBC",
               {'PBES2-params',
                {'PBES2-params_keyDerivationFunc',
-                {1,2,840,113549,1,5,12},
+                ?'id-PBKDF2',
                 {'PBKDF2-params',
                  {specified,<<125,96,67,95,2,233,224,174>>},
                  2048,asn1_NOVALUE,
-                 {'PBKDF2-params_prf',{1,2,840,113549,2,7},'NULL'}}},
+                 {'PBKDF2-params_prf', ?'id-hmacWithSHA1','NULL'}}},
                {'PBES2-params_encryptionScheme',
-                {1,3,14,3,2,7},
+                ?'desCBC',
                 {asn1_OPENTYPE,<<4,8,154,8,95,192,188,232,16,233>>}}}},
     ProtectedPemEntry = public_key:pem_entry_encode(
                           'PrivateKeyInfo',public_key:pem_entry_decode(PemEntry),
@@ -1210,5 +1238,4 @@ get_protected_clientfile_opts(FileNameString,Config) ->
                                proplists:get_value(priv_dir,Config),
                                FileNameString),
     file:write_file(ProtectedClientKeyFile,public_key:pem_encode([ProtectedPemEntry])),
-    ProtectedClientOpts = [{keyfile,ProtectedClientKeyFile} | ClientOpts],
-    ProtectedClientOpts.
+    [{keyfile,ProtectedClientKeyFile} | ClientOpts].

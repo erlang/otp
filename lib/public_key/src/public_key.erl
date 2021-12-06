@@ -243,7 +243,7 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 
 -spec pem_entry_decode(PemEntry, Password) -> term() when
       PemEntry :: pem_entry(),
-      Password :: string() | fun().
+      Password :: string() | fun(() -> string()).
 pem_entry_decode(PemEntry, PasswordFun) when is_function(PasswordFun) ->
      pem_entry_decode(PemEntry, PasswordFun());
 pem_entry_decode({Asn1Type, Der, not_encrypted}, _) when is_atom(Asn1Type),

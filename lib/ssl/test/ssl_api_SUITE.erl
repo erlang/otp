@@ -2576,7 +2576,8 @@ check_random_nonce(Config) when is_list(Config) ->
     Randoms = lists:flatten([ssl_test_lib:get_result([Server, Client]) ||
                                 {Server, Client} <- ConnectionPairs]),
     Deltas = [abs(FourBytes - SecsSince) ||
-                 {_Id, {_, <<FourBytes:32, _/binary>>}, SecsSince} <- Randoms],
+                 {_FromPid,
+                  {_Id, {_, <<FourBytes:32, _/binary>>}, SecsSince}} <- Randoms],
     MeanDelta = lists:sum(Deltas) div N,
     case ?config(version, Config) of
         'tlsv1.3' ->

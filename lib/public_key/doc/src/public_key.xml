@@ -418,6 +418,7 @@
     entries. Notice that if the PEM entry is of type
     'SubjectPublickeyInfo', it is further decoded to an
     <c>rsa_public_key()</c> or <c>dsa_public_key()</c>.</p>
+    <p>Password can be either an octet string or function which returns same type.</p>
   </desc> 
   </func>
 
@@ -433,7 +434,6 @@
       and this function creates the appropriate
       <c>'SubjectPublicKeyInfo'</c> entry.
       </p>
-      <p>Password can be either a string or function which returns password string. </p>
     </desc> 
   </func>
 

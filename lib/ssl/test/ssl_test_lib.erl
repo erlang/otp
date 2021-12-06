@@ -1129,7 +1129,7 @@ get_result([], Acc) ->
 get_result([Pid | Tail], Acc) ->
     receive
 	{Pid, Msg} ->
-	    get_result(Tail, [Msg | Acc])
+	    get_result(Tail, [{Pid, Msg} | Acc])
     end.
 
 check_result(Server, ServerMsg, Client, ClientMsg) ->
@@ -1967,6 +1967,7 @@ run_server_error(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     ?LOG("~nssl:listen(~p, ~p)~n", [Port, Options]),
+    Timeout = proplists:get_value(timeout, Opts, infinity),
     case Transport:listen(Port, Options) of
 	{ok, #sslsocket{} = ListenSocket} ->
 	    %% To make sure error_client will
@@ -1974,7 +1975,7 @@ run_server_error(Opts) ->
 	    Pid ! {listen, up},
 	    send_selected_port(Pid, Port, ListenSocket),
 	    ?LOG("~nssl:transport_accept(~p)~n", [ListenSocket]),
-	    case Transport:transport_accept(ListenSocket) of
+	    case Transport:transport_accept(ListenSocket, Timeout) of
 		{error, _} = Error ->
 		    Pid ! {self(), Error};
 		{ok, AcceptSocket} ->

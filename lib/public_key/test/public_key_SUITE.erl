@@ -62,10 +62,10 @@
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
          ec_pem_encode_generated/1,
-         encrypted_pem/0,
-         encrypted_pem/1,
-         encrypted_pem2/1,
-         encrypted_pem2/1,
+         encrypted_pem_pwdstring/0,
+         encrypted_pem_pwdstring/1,
+         encrypted_pem_pwdfun/0,
+         encrypted_pem_pwdfun/1,
          dh_pem/0,
          dh_pem/1,
          pkcs10_pem/0,
@@ -160,13 +160,13 @@ all() ->
     ].
 
 groups() -> 
-    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem, encrypted_pem,
-			      encrypted_pem2, dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem,
+			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
-                              eddsa_priv_pkcs8, eddsa_priv_rfc5958,
-                              ec_pem_encode_generated,
-                              gen_ec_param_prime_field, gen_ec_param_char_2_field
-                             ]},
+			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
+			      ec_pem_encode_generated, gen_ec_param_prime_field,
+			      gen_ec_param_char_2_field]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify]}
     ].
 %%-------------------------------------------------------------------
@@ -453,42 +453,17 @@ ec_pem_encode_generated(_Config) ->
 
 %%--------------------------------------------------------------------
 
-encrypted_pem() ->
-    [{doc, "Encrypted PEM-file decode/encode"}].
-encrypted_pem(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
+encrypted_pem_pwdstring() ->
+    [{doc, "Encrypted PEM-file decode/encode with password string used"}].
+encrypted_pem_pwdstring(Config) when is_list(Config) ->
+    encrypted_pem(Config, "1234abcd", "4567efgh").
 
-    [{'RSAPrivateKey', DerRSAKey, not_encrypted}] =
-	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
+encrypted_pem_pwdfun() ->
+    [{doc, "Encrypted PEM-file decode/encode with password fun used"}].
+encrypted_pem_pwdfun(Config) when is_list(Config) ->
+    encrypted_pem(Config, fun() -> "1234abcd" end, fun() -> "4567efgh" end).
 
-    RSAKey = public_key:der_decode('RSAPrivateKey', DerRSAKey),
-
-    Salt0 = crypto:strong_rand_bytes(8),
-    Entry0 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
-					 {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
-    RSAKey = public_key:pem_entry_decode(Entry0,"1234abcd"),
-    Des3KeyFile = filename:join(Datadir, "des3_client_key.pem"),
-    erl_make_certs:der_to_pem(Des3KeyFile, [Entry0]),
-    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] =
-	erl_make_certs:pem_to_der(Des3KeyFile),
-
-    Salt1 = crypto:strong_rand_bytes(8),
-    Entry1 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
-					   {{"DES-CBC", Salt1}, "4567efgh"}),
-    DesKeyFile = filename:join(Datadir, "des_client_key.pem"),
-    erl_make_certs:der_to_pem(DesKeyFile, [Entry1]),
-    [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry2] =
-	erl_make_certs:pem_to_der(DesKeyFile),
-    {ok, Pem} = file:read_file(DesKeyFile),
-    check_encapsulated_header(Pem),
-    true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
-			     'RSAPrivateKey').
-
-
-%%--------------------------------------------------------------------
-encrypted_pem2() ->
-    [{doc, "Encrypted PEM-file decode/encode"}].
-encrypted_pem2(Config) when is_list(Config) ->
+encrypted_pem(Config, Password1, Password2) ->
     Datadir = proplists:get_value(data_dir, Config),
 
     [{'RSAPrivateKey', DerRSAKey, not_encrypted}] =
@@ -499,7 +474,7 @@ encrypted_pem2(Config) when is_list(Config) ->
     Salt0 = crypto:strong_rand_bytes(8),
     Entry0 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
                                          {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
-    RSAKey = public_key:pem_entry_decode(Entry0,fun()-> "1234abcd" end),
+    RSAKey = public_key:pem_entry_decode(Entry0, Password1),
     Des3KeyFile = filename:join(Datadir, "des3_client_key.pem"),
     erl_make_certs:der_to_pem(Des3KeyFile, [Entry0]),
     [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] =
@@ -514,9 +489,9 @@ encrypted_pem2(Config) when is_list(Config) ->
         erl_make_certs:pem_to_der(DesKeyFile),
     {ok, Pem} = file:read_file(DesKeyFile),
     check_encapsulated_header(Pem),
-    true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
+    true = check_entry_type(public_key:pem_entry_decode(Entry2, Password2),
                              'RSAPrivateKey').
-    
+
 %%--------------------------------------------------------------------
 
 dh_pem() ->
@@ -818,7 +793,7 @@ pkix_path_validation(Config) when is_list(Config) ->
     % RsaPssKey = {public_key:generate_key({rsa, 1024, 65537}), pss_params(sha256)},
     RsaPssKey = {hardcode_rsa_key(1), pss_params(sha256)},
 
-    CaKPSS = {TrustedPSSCert,_} = erl_make_certs:make_cert([{key, RsaPssKey},
+    _CaKPSS = {TrustedPSSCert,_} = erl_make_certs:make_cert([{key, RsaPssKey},
                  {subject, [
                     {name, "RSASSA-PSS Public Key"},
                     {?'id-at-name', {printableString, "public_key"}},
@@ -829,7 +804,7 @@ pkix_path_validation(Config) when is_list(Config) ->
                     {org_unit, "testing dep"}
                        ]}
                 ]),
-    ChainPSSCert = {CertPSS, _} = erl_make_certs:make_cert([{issuer, {TrustedPSSCert,RsaPssKey}}]),
+    _ChainPSSCert = {CertPSS, _} = erl_make_certs:make_cert([{issuer, {TrustedPSSCert,RsaPssKey}}]),
     {ok, _} = public_key:pkix_path_validation(TrustedPSSCert, [CertPSS], []).
 
 pkix_path_validation_root_expired() ->
