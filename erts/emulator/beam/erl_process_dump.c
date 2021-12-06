@@ -48,8 +48,8 @@ static void dump_process_info(fmtfn_t to, void *to_arg, Process *p);
 static void dump_element(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep);
 static void dump_element_nl(fmtfn_t to, void *to_arg, Eterm x);
-static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp,
-			      int yreg);
+static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp,
+                               Uint yreg);
 static void stack_trace_dump(fmtfn_t to, void *to_arg, Eterm* sp);
 static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
@@ -223,7 +223,7 @@ static void
 dump_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
-    int yreg = -1;
+    Uint yreg = 0;
 
     if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE)
         return;
@@ -403,8 +403,8 @@ erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *p)
 
 }
 
-static int
-stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
+static Uint
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
 {
     Eterm x = *sp;
 

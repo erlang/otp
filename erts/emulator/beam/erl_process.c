@@ -558,7 +558,7 @@ do {									\
 
 static void exec_misc_ops(ErtsRunQueue *);
 static void print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x);
-static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg);
+static Uint stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg);
 
 static void aux_work_timeout(void *unused);
 static void aux_work_timeout_early_init(int max_no_aux_work_threads);
@@ -14303,7 +14303,7 @@ void
 erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
-    int yreg = -1;
+    Uint yreg = 0;
 
     if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE) {
 	return;
@@ -14370,12 +14370,12 @@ print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
     }
 }
 
-static int
-stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
+static Uint
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, Uint yreg)
 {
     Eterm x = *sp;
 
-    if (yreg < 0 || is_CP(x)) {
+    if (is_CP(x)) {
         erts_print(to, to_arg, "\n%p ", sp);
     } else {
         char sbuf[16];
