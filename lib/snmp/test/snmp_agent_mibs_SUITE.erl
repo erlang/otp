@@ -809,9 +809,8 @@ cache_gc_verify(ID, GC, ExpectedGc) ->
         {ok, OtherGc} ->
             ?IPRINT("cache_gc_verify -> [~w] invalid GC limit: "
                     "~n      Expected: ~p"
-                    "~n      Got:      ~p"
-                    "~n      ~p",
-                    [ID, 0, OtherGc]),
+                    "~n      Got:      ~p",
+                    [ID, ExpectedGc, OtherGc]),
             exit({ID, invalid_gc_limit, {ExpectedGc, OtherGc}});
         Unexpected ->
             ?IPRINT("cache_gc_verify -> [~w] unexpected: "
