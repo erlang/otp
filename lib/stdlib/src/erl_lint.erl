@@ -2261,12 +2261,16 @@ is_guard_test(Expression, Forms) ->
 
 is_guard_test(Expression, Forms, IsOverridden) ->
     RecordAttributes = [A || A = {attribute, _, record, _D} <- Forms],
+    is_guard_test1(set_file(Expression, "nofile"), RecordAttributes, IsOverridden).
+
+is_guard_test1(NoFileExpression, [], IsOverridden) ->
+    is_guard_test2(NoFileExpression, {maps:new(),IsOverridden});
+is_guard_test1(NoFileExpression, RecordAttributes, IsOverridden) ->
     St0 = foldl(fun(Attr0, St1) ->
                         Attr = set_file(Attr0, "none"),
                         attribute_state(Attr, St1)
                 end, start(), RecordAttributes),
-    is_guard_test2(set_file(Expression, "nofile"),
-		   {St0#lint.records,IsOverridden}).
+    is_guard_test2(NoFileExpression, {St0#lint.records,IsOverridden}).
 
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Anno,{atom,Ar,record},[E,A]}, Info) ->
