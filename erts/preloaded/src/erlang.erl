@@ -2700,6 +2700,10 @@ subtract(_,_) ->
                         (multi_scheduling, BlockState) -> OldBlockState when
       BlockState :: block | unblock | block_normal | unblock_normal,
       OldBlockState :: blocked | disabled | enabled;
+                        (outstanding_system_requests_limit, NewLimit) ->
+          OldLimit when
+      NewLimit :: 1..134217727,
+      OldLimit :: 1..134217727;
                         (scheduler_bind_type, How) -> OldBindType when
       How :: scheduler_bind_type() | default_bind,
       OldBindType :: scheduler_bind_type();
@@ -2899,6 +2903,7 @@ tuple_to_list(_Tuple) ->
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
+         (outstanding_system_requests_limit) -> 1..134217727;
          (port_parallelism) -> boolean();
          (port_count) -> non_neg_integer();
          (port_limit) -> pos_integer();

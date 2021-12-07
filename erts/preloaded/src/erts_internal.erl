@@ -58,7 +58,8 @@
 
 -export([time_unit/0, perf_counter_unit/0]).
 
--export([is_system_process/1]).
+-export([is_system_process/1,
+         set_code_and_literal_cleaner_prio/1]).
 
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
@@ -485,6 +486,26 @@ perf_counter_unit() ->
 
 is_system_process(_Pid) ->
     erlang:nif_error(undefined).
+
+set_code_and_literal_cleaner_prio(Prio) ->
+    Ref1 = make_ref(),
+    erts_code_purger ! {change_prio, self(), Ref1, Prio},
+    Ref2 = make_ref(),
+    LAC = find_lac(),
+    LAC ! {change_prio, self(), Ref2, Prio},
+    [{code_purger, receive {Ref1, OP1} -> OP1 end},
+     {literal_area_collector, receive {Ref2, OP2} -> OP2 end}].
+
+find_lac() ->
+    find_lac(erlang:processes()).
+
+find_lac([Pid|Pids]) ->
+    case process_info(Pid, initial_call) of
+        {initial_call, {erts_literal_area_collector, start, 0}} ->
+            Pid;
+        _ ->
+            find_lac(Pids)
+    end.
 
 -spec await_microstate_accounting_modifications(Ref, Result, Threads) -> boolean() when
       Ref :: reference(),

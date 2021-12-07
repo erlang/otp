@@ -385,6 +385,9 @@ delete(Config) when is_list(Config) ->
     ok.
 
 purge(Config) when is_list(Config) ->
+    run_purge_test(fun purge_test/1, Config).
+
+purge_test(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:purge({})),
@@ -401,6 +404,9 @@ purge_many_exits() ->
     [{timetrap, {minutes, 2}}].
 
 purge_many_exits(Config) when is_list(Config) ->
+    run_purge_test(fun purge_many_exits_test/1, Config).
+
+purge_many_exits_test(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
     code:purge(code_b_test),
@@ -450,6 +456,9 @@ purge_many_exits_do(PurgeF) ->
 
 
 soft_purge(Config) when is_list(Config) ->
+    run_purge_test(fun soft_purge_test/1, Config).
+
+soft_purge_test(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:soft_purge(23)),
@@ -938,6 +947,9 @@ where_is_file(Config) when is_list(Config) ->
 
 %% Test that stacktrace is deleted when purging a referred module.
 purge_stacktrace(Config) when is_list(Config) ->
+    run_purge_test(fun purge_stacktrace_test/1, Config).
+    
+purge_stacktrace_test(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
     catch
@@ -946,7 +958,7 @@ purge_stacktrace(Config) when is_list(Config) ->
 	    case Stacktrace of
 		      [{?MODULE,_,[a],_},
 		       {code_b_test,call,2,_},
-		       {?MODULE,purge_stacktrace,1,_}|_] ->
+		       {?MODULE,purge_stacktrace_test,1,_}|_] ->
 			  false = code:purge(code_b_test)
 		  end
     end,
@@ -956,7 +968,7 @@ purge_stacktrace(Config) when is_list(Config) ->
 	    code:load_file(code_b_test),
 	    case Stacktrace2 of
 		      [{code_b_test,call,[nofun,2],_},
-		       {?MODULE,purge_stacktrace,1,_}|_] ->
+		       {?MODULE,purge_stacktrace_test,1,_}|_] ->
 			  false = code:purge(code_b_test)
 		  end
     end,
@@ -967,7 +979,7 @@ purge_stacktrace(Config) when is_list(Config) ->
 	    code:load_file(code_b_test),
 	    case Stacktrace3 of
 		      [{code_b_test,call,Args,_},
-		       {?MODULE,purge_stacktrace,1,_}|_] ->
+		       {?MODULE,purge_stacktrace_test,1,_}|_] ->
 			  false = code:purge(code_b_test)
 		  end
     end,
@@ -1590,8 +1602,10 @@ flush() ->
     after 100 -> []
     end.
 
+on_load_purge(Config) when is_list(Config) ->
+    run_purge_test(fun on_load_purge_test/1, Config).
 
-on_load_purge(_Config) ->
+on_load_purge_test(Config) when is_list(Config) ->
     Mod = ?FUNCTION_NAME,
     register(Mod, self()),
     Tree = ?Q(["-module('@Mod@').\n",
@@ -1620,7 +1634,9 @@ on_load_purge(_Config) ->
 	    after 10000 ->
 		    ct:fail(no_down_message)
 	    end
-    end.
+    end,
+    unregister(Mod),
+    ok.
 
 on_load_self_call(_Config) ->
     Mod = ?FUNCTION_NAME,
@@ -1983,6 +1999,42 @@ terminate(_Reason, State) ->
 %%%
 %%% Common utility functions.
 %%%
+
+run_purge_test(Test, Config) ->
+    OSRL = erlang:system_info(outstanding_system_requests_limit),
+    
+    TestLowOSRL = case OSRL < 10 of
+                      true -> 1;
+                      false -> 5
+                  end,
+
+    io:format("Running with the default outstanding request limit of ~p~n", [OSRL]),
+    Res1 = Test(Config),
+    io:format("Result: ~p~n", [Res1]),
+    try
+        %% Run again with low limit and many processes...
+        Procs = case erlang:system_info(process_limit) of
+                    PLim when PLim < 20000 ->
+                        erlang:system_info(process_limit) div 2;
+                    _ ->
+                        10000
+                end,
+        erlang:system_flag(outstanding_system_requests_limit, TestLowOSRL),
+        io:format("Running with outstanding request limit of ~p~n", [TestLowOSRL]),
+        Ps = lists:map(fun (_) ->
+                               spawn_link(fun () -> receive after infinity -> ok end end)
+                       end, lists:seq(1, Procs)),
+        Res2 = Test(Config),
+        lists:foreach(fun (P) ->
+                              unlink(P),
+                              exit(P, kill)
+                      end, Ps),
+        lists:foreach(fun (P) -> is_process_alive(P) end, Ps),
+        io:format("Result: ~p~n", [Res2]),
+        {Res1, Res2}
+    after
+        TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
+    end.
 
 start_node(Name, Param) ->
     test_server:start_node(Name, slave, [{args, Param}]).

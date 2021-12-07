@@ -530,7 +530,7 @@ literal_area(Config) when is_list(Config) ->
                   0
           end,
     receive after TMO -> ok end,
-    literal_area_collector_test:check_idle(100),
+    literal_area_collector_test:check_idle(5000),
     {comment, "Waited "++integer_to_list(TMO)++" milliseconds after purge"}.
 
 %%
