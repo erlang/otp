@@ -522,53 +522,45 @@ start_node(Start,ExpStatus,ExpVsn,ExpApps) ->
         Port when is_port(Port) ->
             unlink(Port),
             erlang:port_close(Port),
-	    wait_node_up(ExpStatus,ExpVsn,ExpApps);
+	    wait_node_up(ExpStatus, ExpVsn, ExpApps);
         Error ->
             Error
     end.
 
-wait_node_up(ExpStatus,ExpVsn,ExpApps0) ->
+wait_node_up(ExpStatus, ExpVsn, ExpApps0) ->
     ExpApps = [{A,V} || {A,V,_T} <- ExpApps0],
     Node    = node_name(?upgr_sname),
-    erlang:monitor_node(Node, true),
-    wait_node_up(Node,ExpStatus,ExpVsn,lists:keysort(1,ExpApps),60).
+    wait_node_up(Node, ExpStatus, ExpVsn, lists:keysort(1,ExpApps), 60).
 
-wait_node_up(Node,ExpStatus,ExpVsn,ExpApps,0) ->
+wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, 0) ->
     p("wait_node_up -> fail"),
-    erlang:monitor_node(Node, false),
     ct:fail({app_check_failed,ExpVsn,ExpApps,
 	     rpc:call(Node, release_handler, which_releases,     [ExpStatus]),
 	     rpc:call(Node, application,     which_applications, [])});
-wait_node_up(Node,ExpStatus,ExpVsn,ExpApps,N) ->
-    receive
-	{nodedown, Node} ->
-	    p("wait_node_up -> [~w] got unexpected (~p) nodedown", [N, Node]),
-	    ct:fail({app_check_failed, ExpVsn, ExpApps, nodedown, Node, N})
-    after 2000 -> 	    
-	    p("wait_node_up -> [~w] get release vsn and apps", [N]),
-	    case {rpc:call(Node, release_handler, which_releases,     [ExpStatus]),
-		  rpc:call(Node, application,     which_applications, [])} of
-		{[{_,ExpVsn,_,_}],Apps} when is_list(Apps) ->
-		    p("wait_node_up -> [~w] expected release vsn", [N]),
-		    case [{A,V} || {A,_,V} <- lists:keysort(1,Apps)] of
-			ExpApps ->
-			    p("wait_node_up -> [~w] expected apps", [N]),
-			    erlang:monitor_node(Node, false),
-			    {ok, Node};
-			UnexpApps ->
-			    p("wait_node_up -> [~w] still wrong apps:"
-			      "~n      ~p", [N, UnexpApps]),
-			    wait_node_up(Node,ExpStatus,ExpVsn,ExpApps,N-1)
-		    end;
-		{[{_,Vsn,_,_}],_} ->
-		    p("wait_node_up -> [~w] still wrong release vsn:"
-		      "~n      ~p", [N, Vsn]),
-		    wait_node_up(Node,ExpStatus,ExpVsn,ExpApps,N-1);
-		X ->
-		    p("wait_node_up -> [~w] unexpected results:"
-		      "~n      ~p", [N, X]),
-		    wait_node_up(Node,ExpStatus,ExpVsn,ExpApps,N-1)
-	    end
+wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N) ->
+    timer:sleep(2000),
+    p("wait_node_up -> [~w] get release vsn and apps", [N]),
+    case {rpc:call(Node, release_handler, which_releases,     [ExpStatus]),
+          rpc:call(Node, application,     which_applications, [])} of
+        {[{_,ExpVsn,_,_}],Apps} when is_list(Apps) ->
+            p("wait_node_up -> [~w] expected release vsn - check apps", [N]),
+            case [{A,V} || {A,_,V} <- lists:keysort(1,Apps)] of
+                ExpApps ->
+                    p("wait_node_up -> [~w] expected apps", [N]),
+                    {ok, Node};
+                UnexpApps ->
+                    p("wait_node_up -> [~w] still wrong apps:"
+                      "~n      ~p", [N, UnexpApps]),
+                    wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N-1)
+            end;
+        {[{_,Vsn,_,_}],_} ->
+            p("wait_node_up -> [~w] still wrong release vsn:"
+              "~n      ~p", [N, Vsn]),
+            wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N-1);
+        X ->
+            p("wait_node_up -> [~w] unexpected results:"
+              "~n      ~p", [N, X]),
+            wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N-1)
     end.
 
 node_name(Sname) ->
