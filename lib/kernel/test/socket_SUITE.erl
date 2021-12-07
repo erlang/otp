@@ -35479,21 +35479,24 @@ do_ioctl_get_gifdstaddr(_State) ->
     i("create and init connection stream:TCP socket"),
     {ok, CSock} = socket:open(inet, stream, tcp),
 
-    i("attempt nowait connect"),
-    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
-        socket:connect(CSock, LSA#{port => LPort}, nowait),
+    i("attempt connect (nowait)"),
+    {ok, ASock} =
+        case socket:connect(CSock, LSA#{port => LPort}, nowait) of
+            ok ->
+                i("connected - accept connection"),
+                socket:accept(LSock);
+            {select, {select_info, _Tag, SelectHandle} = _SelectInfo} ->
+                i("selected - attempt accept"),
+                {ok, AS} = socket:accept(LSock),
 
-    i("attempt accept"),
-    {ok, ASock} = socket:accept(LSock),
-    
-    i("await connection ready"),
-    receive
-        {'$socket', CSock, select, SelectHandle} ->
-            ok
-    end,
-
-    i("attmpt complete connection"),
-    ok = socket:connect(CSock),
+                i("await connection ready"),
+                receive
+                    {'$socket', CSock, select, SelectHandle} ->
+                        i("select info - attempt complete connection"),
+                        ok = socket:connect(CSock),
+                        {ok, AS}
+                end
+        end,
 
     i("get if names"),
     {ok, IfNames} = net:if_names(),
@@ -35599,21 +35602,24 @@ do_ioctl_get_gifbrdaddr(_State) ->
     i("create and init connection stream:TCP socket"),
     {ok, CSock} = socket:open(inet, stream, tcp),
 
-    i("attempt nowait connect"),
-    {select, {select_info, _Tag, SelectHandle} = _SelectInfo} =
-        socket:connect(CSock, LSA#{port => LPort}, nowait),
+    i("attempt connect (nowait)"),
+    {ok, ASock} =
+        case socket:connect(CSock, LSA#{port => LPort}, nowait) of
+            ok ->
+                i("connected - accept connection"),
+                socket:accept(LSock);
+            {select, {select_info, _Tag, SelectHandle} = _SelectInfo} ->
+                i("selected - attempt accept"),
+                {ok, AS} = socket:accept(LSock),
 
-    i("attempt accept"),
-    {ok, ASock} = socket:accept(LSock),
-    
-    i("await connection ready"),
-    receive
-        {'$socket', CSock, select, SelectHandle} ->
-            ok
-    end,
-
-    i("attmpt complete connection"),
-    ok = socket:connect(CSock),
+                i("await connection ready"),
+                receive
+                    {'$socket', CSock, select, SelectHandle} ->
+                        i("select info - attempt complete connection"),
+                        ok = socket:connect(CSock),
+                        {ok, AS}
+                end
+        end,
 
     i("get if names"),
     {ok, IfNames} = net:if_names(),
