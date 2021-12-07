@@ -2467,9 +2467,11 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
 	ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
                ((APPROX_MEM_CONSUMED(tb)
                  == (sizeof(DbTable) +
+                     (!DB_LOCK_FREE(tb) ? erts_rwmtx_size(&tb->common.rwlock) : 0) +
                      erts_flxctr_nr_of_allocated_bytes(&tb->common.counters))) ||
                 (APPROX_MEM_CONSUMED(tb)
                  == (sizeof(DbTable) +
+                     (!DB_LOCK_FREE(tb) ? erts_rwmtx_size(&tb->common.rwlock) : 0) +
                      sizeof(DbFixation) +
                      erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)))));
     }

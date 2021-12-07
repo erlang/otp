@@ -375,8 +375,9 @@ void erl_db_hash_adapt_number_of_locks(DbTable* tb) {
                                                               (DbTable *) tb,
                                                               sizeof(DbTableHashFineLockSlot) * tbl->nlocks);
         for (i=0; i < tbl->nlocks; i++) {
-            erts_rwmtx_init_opt(&tbl->locks[i].u.lck_ctr.lck, &rwmtx_opt,
+            erts_rwmtx_init_opt(GET_LOCK(tbl, i), &rwmtx_opt,
                                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+            ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(GET_LOCK(tbl,i)));
             tbl->locks[i].u.lck_ctr.nitems =
                 get_lock_nitems_form_prev_lock_array(i, tbl->nlocks, old_number_of_locks, old_locks);
             tbl->locks[i].u.lck_ctr.lck_stat = 0;
@@ -403,6 +404,7 @@ void erl_db_hash_adapt_number_of_locks(DbTable* tb) {
         erts_atomic_set_nob(&tbl->lock_array_resize_state, DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
         erts_rwmtx_rwunlock(&tb->common.rwlock);
         for (i = 0; i < old_number_of_locks; i++) {
+            ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&old_locks[i].u.lck_ctr.lck), 0);
             erts_rwmtx_destroy(&old_locks[i].u.lck_ctr.lck);
         }
         erts_db_free(ERTS_ALC_T_DB_SEG, tb, old_locks, sizeof(DbTableHashFineLockSlot) * old_number_of_locks);
@@ -1037,8 +1039,10 @@ int db_create_hash(Process *p, DbTable *tbl)
                                                              (DbTable *) tb,
                                                              sizeof(DbTableHashFineLockSlot) * tb->nlocks);
 	for (i=0; i<tb->nlocks; ++i) {
-            erts_rwmtx_init_opt(&tb->locks[i].u.lck_ctr.lck, &rwmtx_opt,
+            erts_rwmtx_init_opt(
+                GET_LOCK(tb,i), &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+            ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(GET_LOCK(tb,i)));
             tb->locks[i].u.lck_ctr.nitems = 0;
             tb->locks[i].u.lck_ctr.lck_stat = 0;
 	}
@@ -3065,14 +3069,15 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
     if (tb->locks != NULL) {
 	int i;
 	for (i=0; i<tb->nlocks; ++i) {
-	    erts_rwmtx_destroy(GET_LOCK(tb,i)); 
+            ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(GET_LOCK(tb,i)), 0);
+	    erts_rwmtx_destroy(GET_LOCK(tb,i));
 	}
 	erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
 		     (void*)tb->locks, tb->nlocks * sizeof(DbTableHashFineLockSlot));
 	tb->locks = NULL;
     }
     ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
-           ((sizeof(DbTable) +
+           ((sizeof(DbTable) + (!DB_LOCK_FREE(tb) ? erts_rwmtx_size(&tb->common.rwlock) : 0) +
              erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)) ==
             erts_flxctr_read_approx(&tb->common.counters,
                                     ERTS_DB_TABLE_MEM_COUNTER_ID)));

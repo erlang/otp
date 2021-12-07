@@ -450,15 +450,17 @@ free_dbtable(void *vtb)
     erts_flxctr_add(&tb->common.counters,
                     ERTS_DB_TABLE_MEM_COUNTER_ID,
                     -((Sint)erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)));
-    ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
-           sizeof(DbTable) == DB_GET_APPROX_MEM_CONSUMED(tb));
-
-    ASSERT(is_immed(tb->common.heir_data));
 
     if (!DB_LOCK_FREE(tb)) {
+        ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&tb->common.rwlock), 0);
         erts_rwmtx_destroy(&tb->common.rwlock);
         erts_mtx_destroy(&tb->common.fixlock);
     }
+
+    ASSERT(is_immed(tb->common.heir_data));
+
+    ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
+           sizeof(DbTable) == DB_GET_APPROX_MEM_CONSUMED(tb));
 
     if (tb->common.btid)
         erts_bin_release(tb->common.btid);
@@ -644,6 +646,7 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
     if (!DB_LOCK_FREE(tb)) {
         erts_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
                             tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+        ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(&tb->common.rwlock));
         erts_mtx_init(&tb->common.fixlock, "db_tab_fix",
                       tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
