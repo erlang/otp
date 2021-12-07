@@ -7468,9 +7468,19 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
 			break;
 		    /* Fall through... */
                 case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
-                case ERTS_SIG_Q_OP_ALIAS_MSG:
                     debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
                     break;
+
+                case ERTS_SIG_Q_OP_ALIAS_MSG: {
+                    ErlHeapFragment *hfp;
+                    if (type == ERTS_SIG_Q_TYPE_OFF_HEAP)
+                        hfp = &sig->hfrag;
+                    else if (type == ERTS_SIG_Q_TYPE_HEAP_FRAG)
+                        hfp = sig->data.heap_frag;
+                    else
+                        break; /* on heap */
+                    debug_foreach_sig_heap_frags(hfp, oh_func, arg);
+                }
 
                 case ERTS_SIG_Q_OP_DEMONITOR:
                     if (type == ERTS_SIG_Q_TYPE_DIST_PROC_DEMONITOR) {
