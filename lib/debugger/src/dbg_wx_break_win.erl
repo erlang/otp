@@ -214,9 +214,9 @@ handle_event(#wx{id=?wxID_OK},#winInfo{win=Win,text=Text, entries=Es, trigger=Tr
     %% Non function box
     Mod = wxComboBox:getValue(Text),
     Data = check_input(Es),
-    Trigged = get_trigger(Trigger),
+    Triggered = get_trigger(Trigger),
     wxDialog:destroy(Win),    
-    {break, [[list_to_atom(Mod)|Data]], Trigged};
+    {break, [[list_to_atom(Mod)|Data]], Triggered};
 
 handle_event(_WxEvent, _WinInfo) ->
     %% io:format("Ev: ~p ~n", [_WxEvent]),

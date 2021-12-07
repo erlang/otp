@@ -900,7 +900,7 @@ record_pattern(_, _, _, _, _, Acc) -> lists:reverse(Acc).
 
 %% The debugger converts both strings "abc" and lists [67, 68, 69]
 %% into {value, Line, [67, 68, 69]}, making it impossible to later
-%% distingish one or the other inside binaries when evaluating. To
+%% distinguish one or the other inside binaries when evaluating. To
 %% avoid <<[67, 68, 69]>> from evaluating, we convert strings into
 %% chars to avoid the ambiguity.
 bin_expand_strings(Es) ->

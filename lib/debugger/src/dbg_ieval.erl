@@ -84,7 +84,7 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
 %%--------------------------------------------------------------------
 %% eval_expr(Expr, Bs, Ieval) -> {value, Value, Bs}
 %%
-%% Evalute a shell expression in the real process.
+%% Evaluate a shell expression in the real process.
 %% Called (dbg_icmd) in response to a user request.
 %%--------------------------------------------------------------------
 eval_expr(Expr0, Bs, Ieval) ->
@@ -266,7 +266,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 			      end,
 		    do_exception(Class, Reason, MakeStk, Bs, Ieval);
 
-		%% Error must have occured within a re-entry to
+		%% Error must have occurred within a re-entry to
 		%% interpreted code, simply raise the exception
 		_ ->
 		    erlang:Class(Reason)
@@ -669,7 +669,7 @@ expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
 
 %% Record update
 expr({record_update,Line,Es},Bs,#ieval{level=Le}=Ieval0) ->
-    %% Incr Level, we don't need to step (next) trough temp
+    %% Incr Level, we don't need to step (next) through temp
     %% variables creation and matching
     Ieval = Ieval0#ieval{top=false, line=Line, level=Le+1},
     Seq = fun(E, {_, _, Bs1}) -> expr(E, Bs1, Ieval) end,

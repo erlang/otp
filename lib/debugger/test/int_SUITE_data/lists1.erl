@@ -156,7 +156,7 @@ sublist([H|T], L) when L > 0 ->
 sublist(List, L) -> [].
 
 %% delete(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete(Item, [Item|Rest]) -> Rest;
 delete(Item, [H|Rest]) ->
@@ -221,7 +221,7 @@ flatten([], [H|Cont], Tail) ->
 flatten([], [], Tail) ->
     Tail.
 
-%% flat_length(List) (undocumented can be rmove later)
+%% flat_length(List) (undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length(List) -> flatlength(List).

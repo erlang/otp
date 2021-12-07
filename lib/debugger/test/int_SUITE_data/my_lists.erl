@@ -157,7 +157,7 @@ sublist([H|T], L) when L > 0 ->
 sublist(List, L) -> [].
 
 %% delete(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete(Item, [Item|Rest]) -> Rest;
 delete(Item, [H|Rest]) ->
@@ -222,7 +222,7 @@ flatten([], [H|Cont], Tail) ->
 flatten([], [], Tail) ->
     Tail.
 
-%% flat_length(List) (undocumented can be rmove later)
+%% flat_length(List) (undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length(List) -> flatlength(List).
@@ -618,7 +618,7 @@ sublist_1([H|T], L) when L > 0 ->
 sublist_1(List, L) -> [].
 
 %% delete(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete_1(Item, [Item|Rest]) -> Rest;
 delete_1(Item, [H|Rest]) ->
@@ -683,7 +683,7 @@ flatten_1([], [H|Cont], Tail) ->
 flatten_1([], [], Tail) ->
     Tail.
 
-%% flat_length(List) (undocumented can be rmove later)
+%% flat_length(List) (undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length_1(List) -> flatlength_1(List).
@@ -1082,7 +1082,7 @@ sublist_2([H|T], L) when L > 0 ->
 sublist_2(List, L) -> [].
 
 %% delete_2(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete_2(Item, [Item|Rest]) -> Rest;
 delete_2(Item, [H|Rest]) ->
@@ -1147,7 +1147,7 @@ flatten_2([], [H|Cont], Tail) ->
 flatten_2([], [], Tail) ->
     Tail.
 
-%% flat_length_2(List) _2(undocumented can be rmove later)
+%% flat_length_2(List) _2(undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length_2(List) -> flatlength_2(List).
@@ -1544,7 +1544,7 @@ sublist_3([H|T], L) when L > 0 ->
 sublist_3(List, L) -> [].
 
 %% delete_3(Item, List) -> List'
-%%  Delete the first occurance of Item from the list L.
+%%  Delete the first occurrence of Item from the list L.
 
 delete_3(Item, [Item|Rest]) -> Rest;
 delete_3(Item, [H|Rest]) ->
@@ -1609,7 +1609,7 @@ flatten_3([], [H|Cont], Tail) ->
 flatten_3([], [], Tail) ->
     Tail.
 
-%% flat_length_3(List) _3(undocumented can be rmove later)
+%% flat_length_3(List) _3(undocumented can be removed later)
 %%  Calculate the length of a list of lists.
 
 flat_length_3(List) -> flatlength_3(List).
