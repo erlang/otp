@@ -389,28 +389,18 @@ init_per_suite(Config0) when is_list(Config0) ->
             ?IPRINT("init_per_suite -> common init done"
                     "~n      Config1: ~p", [Config1]),
 
-            %% Preferably this test SUITE should be divided into groups
-            %% so that if crypto does not work only v3 tests that
-            %% need crypto will be skipped, but as this is only a
-            %% problem with one legacy test machine, we will procrastinate
-            %% until we have a more important reason to fix this. 
-            case ?LIB:crypto_start() of
-                ok ->
-                    %% We need one on this node also
-                    snmp_test_sys_monitor:start(),
+            %% We need one on this node also
+            snmp_test_sys_monitor:start(),
 
-                    Config2   = ?LIB:init_suite_top_dir(?MODULE, Config1), 
-                    Config3   = ?LIB:fix_data_dir(Config2),
-                    %% Mib-dirs
-                    %% data_dir is trashed by the test-server / common-test
-                    %% so there is no point in fixing it...
-                    MibDir    = ?LIB:lookup(data_dir, Config3),
-                    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-                    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3];
+            Config2   = ?LIB:init_suite_top_dir(?MODULE, Config1), 
+            Config3   = ?LIB:fix_data_dir(Config2),
+            %% Mib-dirs
+            %% data_dir is trashed by the test-server / common-test
+            %% so there is no point in fixing it...
+            MibDir    = ?LIB:lookup(data_dir, Config3),
+            StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+            [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3]
 
-                _ ->
-                    {skip, "Crypto did not start"}
-            end
     end.
 
 end_per_suite(Config0) when is_list(Config0) ->
@@ -485,8 +475,24 @@ init_per_group2(ipv6_mt = GroupName, Config) ->
                         [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
 init_per_group2(ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config);
-%% init_per_group2(v3 = GroupName, Config) ->
-%%     ?LIB:init_group_top_dir(GroupName, Config);
+init_per_group2(v3 = GroupName, Config) ->
+    case ?CRYPTO_START() of
+	ok ->
+            ?IPRINT("crypto started - check support"),
+            case ?CRYPTO_SUPPORT() of
+                {no, Reason} ->
+                    ?WPRINT("crypto support not sufficient:"
+                            "~n      ~p", [Reason]),
+                    {skip, {unsupported_encryption, Reason}};
+                yes ->
+                    ?IPRINT("crypto supported"),
+                    ?LIB:init_group_top_dir(GroupName, Config)
+                end;
+	{error, Reason} ->
+            ?IPRINT("crypto not started:"
+                    "~n      ~p", [Reason]),
+	    {skip, {failed_starting_crypto, Reason}}
+    end;
 init_per_group2(usm_priv_aes_tests = GroupName, Config) ->
     %% Check crypto support
     case snmp_misc:is_crypto_supported(aes_128_cfb128) of
