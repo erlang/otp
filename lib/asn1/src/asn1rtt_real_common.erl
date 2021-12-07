@@ -222,7 +222,7 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 	First =:= 2#01000000 -> {'PLUS-INFINITY', Buffer2};
 	First =:= 2#01000001 -> {'MINUS-INFINITY', Buffer2};
 	First =:= 1 orelse First =:= 2 orelse First =:= 3 ->
-	    %% charcter string encoding of base 10
+	    %% character string encoding of base 10
 	    {NRx,Rest} = split_binary(Buffer2,Len-1),
 	    {binary_to_list(NRx),Rest,Len};
 	true ->

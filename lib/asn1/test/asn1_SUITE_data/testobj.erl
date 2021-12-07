@@ -427,7 +427,7 @@ run_sm_cmd() ->
 	  {_ProtIEField2,11,_Crit2,DecEI},
 	  {_ProtIEField3,75,_Crit3,DecKS}],
 	 _ASN1novalue} ->
-	    io:format("Integrity Protection Algoritm: ~w~n~n", [DecIPI]),
+	    io:format("Integrity Protection Algorithm: ~w~n~n", [DecIPI]),
 	    io:format("Encryption Information: ~w~n~n", [DecEI]),
 	    io:format("Key Status: ~w~n~n", [DecKS])
     end,
@@ -452,7 +452,7 @@ run_sm_cmp() ->
 	 [{_ProtIEField1,6,_Crit1,DecIPA},
 	  {_ProtIEField2,5,_Crit2,DecEI}],
 	 _ASN1novalue} ->
-	    io:format("Integrity Protection Algoritm: ~w~n~n", [DecIPA]),
+	    io:format("Integrity Protection Algorithm: ~w~n~n", [DecIPA]),
 	    io:format("Encryption Information: ~w~n~n", [DecEI])
     end,
     ok.
@@ -480,7 +480,7 @@ run_sm_rej() ->
 % 	    io:format("Value2: ~w~n~n", [Value2]),
 % 	    {ok,DecIPA} = wrapper_decode(?ranap, 'IntegrityProtectionAlgorithm', Value1),
 % 	    {ok,DecEI} = wrapper_decode(?ranap, 'EncryptionAlgorithm', Value2),
-% 	    io:format("Integrity Protection Algoritm: ~w~n~n", [DecIPA]),
+% 	    io:format("Integrity Protection Algorithm: ~w~n~n", [DecIPA]),
 % 	    io:format("Encryption Information: ~w~n~n", [DecEI])
 %     end,
     ok.
@@ -563,7 +563,7 @@ run_reset() ->
 
 run_reset_res() ->
     IUP = reset_res([12,13,14,15,16,17,18,19,20]),
-    io:format("Reset Rsource: ~w~n~n", [IUP]),
+    io:format("Reset Resource: ~w~n~n", [IUP]),
     RanapIUP = ranap_pdu_contents(IUP, 27),            % 27 = Reset Res
     {ok, Tmp2} = wrapper_encode(?ranap, 'RANAP-PDU', RanapIUP),
     EncRanapIUP = lists:flatten(Tmp2),
@@ -1390,7 +1390,7 @@ reset_res_ack(IuSCId) ->
 reset_res_ack_ies(IuSCId) ->
     [
      cn_domain_ind()       % Se initial Ue
-     ,reset_res_list(IuSCId)     % Se Reset Ressource
+     ,reset_res_list(IuSCId)     % Se Reset Resource
     ].
 
 

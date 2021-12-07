@@ -2100,7 +2100,7 @@ LocationInformation ::= SEQUENCE {
 -- sai-Present indicates that the cellGlobalIdOrServiceAreaIdOrLAI parameter contains
 -- a Service Area Identity.
 -- currentLocationRetrieved shall be present 
--- if the location information were retrieved after a successfull paging.
+-- if the location information were retrieved after a successful paging.
 
 LocationInformationGPRS ::= SEQUENCE {
 	cellGlobalIdOrServiceAreaIdOrLAI	[0] CellGlobalIdOrServiceAreaIdOrLAI OPTIONAL,

@@ -523,7 +523,7 @@ maybe_legacy_bit_string(BitStrType,SizeConstraint) ->
 %%===========================================================================
 %% Generate DECODING
 %%===========================================================================
-%% dummy functions beause we don't generate anything special for decode 
+%% dummy functions because we don't generate anything special for decode 
 %%===========================================================================
 
 gen_decode(_,_) -> ok.

@@ -774,7 +774,7 @@ do_encode_named_bit_string(Size, [FirstVal | RestVal], NamedBitList, TagIn) ->
 %%
 %% bitstring NamedBitList
 %% Val can be  of:
-%% - [identifiers] where only named identifers are set to one,
+%% - [identifiers] where only named identifiers are set to one,
 %%   the Constraint must then have some information of the
 %%   bitlength.
 %% - [list of ones and zeroes] all bits
@@ -1133,7 +1133,7 @@ e_object_identifier(V) when is_tuple(V) ->
     e_object_identifier(tuple_to_list(V));
 
 %%%%%%%%%%%%%%%
-%% e_object_identifier([List of Obect Identifiers]) ->
+%% e_object_identifier([List of Object Identifiers]) ->
 %% {[Encoded Octetlist of ObjIds], IntLength}
 %%
 e_object_identifier([E1,E2|Tail]) ->

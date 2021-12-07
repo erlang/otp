@@ -1106,7 +1106,7 @@ parse_ObjectAssignment([#identifier{pos=L1,val=ObjName}|Rest]) ->
 %% Ret       = {object,_} | {object, _, _}
 parse_Object(Tokens) ->
     %% The ObjectFromObject production is not included here,
-    %% since it will have been catched by the ValueFromObject
+    %% since it will have been caught by the ValueFromObject
     %% before we reach this point.
     Flist = [fun parse_ObjectDefn/1,
 	     fun parse_DefinedObject/1],
