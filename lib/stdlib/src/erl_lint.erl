@@ -31,6 +31,7 @@
 -export([check_format_string/1]).
 
 -export_type([error_info/0, error_description/0]).
+-export_type([fun_used_vars/0]). % Used from erl_eval.erl.
 
 -import(lists, [all/2,any/2,
                 foldl/3,foldr/3,
@@ -103,6 +104,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type used_type() :: #used_type{}.
 
+-type fun_used_vars() :: #{erl_parse:abstract_expr() => {[atom()], fun_used_vars()}}.
+
 %% Usage of records, functions, and imports. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
@@ -151,6 +154,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
                called= [] :: [{fa(),anno()}],   %Called functions
+               fun_used_vars = undefined        %Funs used vars
+                   :: fun_used_vars() | undefined,
                usage = #usage{}		:: #usage{},
                specs = maps:new()               %Type specifications
                    :: #{mfa() => anno()},
@@ -529,10 +534,9 @@ used_vars(Exprs, BindingsList) ->
 		  ({V,_Val}, Vs0) -> [{V,{bound,unused,[]}} | Vs0]
 	       end, [], BindingsList),
     Vt = orddict:from_list(Vs),
-    {Evt,_St} = exprs(set_file(Exprs, "nofile"), Vt, start()),
-    {ok, foldl(fun({V,{_,used,_}}, L) -> [V | L];
-                  (_, L) -> L
-	       end, [], Evt)}.
+    St0 = (start())#lint{fun_used_vars=maps:new()},
+    {_Evt,St1} = exprs(Exprs, Vt, St0),
+    St1#lint.fun_used_vars.
 
 %% module([Form]) ->
 %% module([Form], FileName) ->
@@ -3613,7 +3617,20 @@ handle_bitstring_gen_pat(_,St) ->
 %% unless it was introduced in a fun or an lc. Only if pat_var finds
 %% such variables can the correct line number be given.
 
+%% If fun_used_vars is set, we want to compute the tree of used
+%% vars across functions. This is by erl_eval to compute used vars
+%% without having to traverse the tree multiple times.
+
+fun_clauses(Cs, Vt, #lint{fun_used_vars=(#{}=FUV)} = St) ->
+    {Uvt, St0} = fun_clauses1(Cs, Vt, St#lint{fun_used_vars=maps:new()}),
+    #lint{fun_used_vars=InnerFUV} = St0,
+    UsedVars = [V || {V, {_, used, _}} <- Uvt],
+    OuterFUV = maps:put(Cs, {UsedVars, InnerFUV}, FUV),
+    {Uvt, St0#lint{fun_used_vars=OuterFUV}};
 fun_clauses(Cs, Vt, St) ->
+    fun_clauses1(Cs, Vt, St).
+
+fun_clauses1(Cs, Vt, St) ->
     OldRecDef = St#lint.recdef_top,
     {Bvt,St2} = foldl(fun (C, {Bvt0, St0}) ->
                               {Cvt,St1} = fun_clause(C, Vt, St0),
