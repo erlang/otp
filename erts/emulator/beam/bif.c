@@ -49,6 +49,7 @@
 #include "ryu.h"
 #include "jit/beam_asm.h"
 #include "erl_global_literals.h"
+#include "beam_load.h"
 
 Export *erts_await_result;
 static Export await_exit_trap;
@@ -5178,6 +5179,14 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 		  threads);
       }
 #endif
+    } else if (BIF_ARG_1 == am_outstanding_system_requests_limit) {
+        Uint val;
+	if (!term_to_Uint(BIF_ARG_2, &val))
+            goto error;
+        val = erts_set_outstanding_system_requests_limit(val);
+        if (!val)
+            goto error;
+        BIF_RET(make_small(val));
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))

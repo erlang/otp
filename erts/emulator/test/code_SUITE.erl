@@ -217,12 +217,18 @@ literal_leak(_Config) ->
     ok.
 
 call_purged_fun_code_gone(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_gone_test/1, Config).
+
+call_purged_fun_code_gone_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     call_purged_fun_test(Priv, Data, code_gone),
     ok.
 
 call_purged_fun_code_reload(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_reload_test/1, Config).
+
+call_purged_fun_code_reload_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     Path = code:get_path(),
@@ -235,6 +241,9 @@ call_purged_fun_code_reload(Config) when is_list(Config) ->
     ok.
 
 call_purged_fun_code_there(Config) when is_list(Config) ->
+    run_sys_proc_test(fun call_purged_fun_code_there_test/1, Config).
+
+call_purged_fun_code_there_test(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     call_purged_fun_test(Priv, Data, code_there),
@@ -250,6 +259,9 @@ call_purged_fun_test(Priv, Data, Type) ->
 
 
 multi_proc_purge(Config) when is_list(Config) ->
+    run_sys_proc_test(fun multi_proc_purge_test/1, Config).
+
+multi_proc_purge_test(Config) when is_list(Config) ->
     %%
     %% Make sure purge requests aren't lost when
     %% purger process is working.
@@ -396,6 +408,9 @@ module_md5_ok(Code) ->
 
 
 constant_pools(Config) when is_list(Config) ->
+    run_sys_proc_test(fun constant_pools_test/1, Config).
+
+constant_pools_test(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
@@ -472,7 +487,7 @@ constant_pools(Config) when is_list(Config) ->
     false = erlang:check_process_code(Hib, literals),
     erlang:check_process_code(self(), literals),
     erlang:purge_module(literals),
-    receive after 1000 -> ok end,
+    literal_area_collector_test:check_idle(5000),
     [{heap_size,HeapSz},
      {total_heap_size,TotHeapSz}] = process_info(Hib, [heap_size,
 						       total_heap_size]),
@@ -487,7 +502,6 @@ constant_pools(Config) when is_list(Config) ->
     end,
     HeapSz = TotHeapSz, %% Ensure restored to hibernated state...
     true = HeapSz > OldHeapSz,
-    literal_area_collector_test:check_idle(5000),
     ok.
 
 no_old_heap(Parent) ->
@@ -554,6 +568,9 @@ create_old_heap() ->
     end.
 
 constant_refc_binaries(Config) when is_list(Config) ->
+    run_sys_proc_test(fun constant_refc_binaries_test/1, Config).
+
+constant_refc_binaries_test(Config) when is_list(Config) ->
     wait_for_memory_deallocations(),
     Bef = memory_binary(),
     io:format("Binary data (bytes) before test: ~p\n", [Bef]),
@@ -579,6 +596,7 @@ constant_refc_binaries(Config) when is_list(Config) ->
 
     %% Calculate the change in allocated binary data.
     erlang:garbage_collect(),
+    literal_area_collector_test:check_idle(5000),
     wait_for_memory_deallocations(),
     Aft = memory_binary(),
     io:format("Binary data (bytes) after test: ~p", [Aft]),
@@ -688,6 +706,7 @@ fake_literals(_Config) ->
         _ = code:purge(Mod),
         _ = code:delete(Mod)
     end,
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 do_fake_literals(Mod) ->
@@ -737,6 +756,9 @@ get_external_terms() ->
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
 %% to a module in a process. (Thanks to Richard Carlsson.)
 false_dependency(Config) when is_list(Config) ->
+    run_sys_proc_test(fun false_dependency_test/1, Config).
+
+false_dependency_test(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "cpbugx"),
     {ok,cpbugx,Code} = compile:file(File, [binary,report]),
@@ -819,6 +841,9 @@ compile_load(Mod, Src, Ver) ->
 
 
 t_copy_literals(Config) when is_list(Config) ->
+    run_sys_proc_test(fun t_copy_literals_test/1, Config).
+
+t_copy_literals_test(Config) when is_list(Config) ->
     %% Compile the the literals module.
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
@@ -837,11 +862,21 @@ t_copy_literals(Config) when is_list(Config) ->
     %% cleanup
     Rel ! done,
     Sat ! done,
+    %% Trap exit. We don't want to be killed if/when our spawned
+    %% processes fail when we remove the literals module...
+    process_flag(trap_exit, true),
+    catch erlang:purge_module(literals),
+    catch erlang:delete_module(literals),
+    catch erlang:purge_module(literals),
+    literal_area_collector_test:check_idle(5000),
     ok  = flush(),
     ok.
 
 -define(mod, t_copy_literals_frags).
 t_copy_literals_frags(Config) when is_list(Config) ->
+    run_sys_proc_test(fun t_copy_literals_frags_test/1, Config).
+
+t_copy_literals_frags_test(Config) when is_list(Config) ->
     Bin = gen_lit(?mod,[{a,{1,2,3,4,5,6,7}},
                         {b,"hello world"},
                         {c, <<"hello world">>},
@@ -882,6 +917,10 @@ t_copy_literals_frags(Config) when is_list(Config) ->
     receive {Switcher, ok} -> ok end,
     Recv ! {self(), done},
     receive {Recv, ok} -> ok end,
+    catch erlang:purge_module(?mod),
+    catch erlang:delete_module(?mod),
+    catch erlang:purge_module(?mod),
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 literal_receiver() ->
@@ -1172,3 +1211,39 @@ flush() ->
 
 id(I) -> I.
 
+
+run_sys_proc_test(Test, Config) ->
+    OSRL = erlang:system_info(outstanding_system_requests_limit),
+    
+    TestLowOSRL = case OSRL < 10 of
+                      true -> 1;
+                      false -> 5
+                  end,
+
+    io:format("Running with the default outstanding request limit of ~p~n", [OSRL]),
+    Res1 = Test(Config),
+    io:format("Result: ~p~n", [Res1]),
+    try
+        %% Run again with low limit and many processes...
+        Procs = case erlang:system_info(process_limit) of
+                    PLim when PLim < 20000 ->
+                        erlang:system_info(process_limit) div 2;
+                    _ ->
+                        10000
+                end,
+        erlang:system_flag(outstanding_system_requests_limit, TestLowOSRL),
+        io:format("Running with outstanding request limit of ~p~n", [TestLowOSRL]),
+        Ps = lists:map(fun (_) ->
+                               spawn_link(fun () -> receive after infinity -> ok end end)
+                       end, lists:seq(1, Procs)),
+        Res2 = Test(Config),
+        lists:foreach(fun (P) ->
+                              unlink(P),
+                              exit(P, kill)
+                      end, Ps),
+        lists:foreach(fun (P) -> is_process_alive(P) end, Ps),
+        io:format("Result: ~p~n", [Res2]),
+        {Res1, Res2}
+    after
+        TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
+    end.

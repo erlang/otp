@@ -69,6 +69,8 @@ static void delete_code(Module* modp);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 
+static erts_atomic_t sys_proc_outstanding_req_limit;
+
 static void
 init_purge_state(void)
 {
@@ -95,10 +97,35 @@ static void
 init_release_literal_areas(void);
 
 void
-erts_beam_bif_load_init(void)
+erts_beam_bif_load_init(Uint sys_proc_outst_req_lim)
 {
+    if (sys_proc_outst_req_lim < 1 || ERTS_MAX_PROCESSES < sys_proc_outst_req_lim)
+        ERTS_INTERNAL_ERROR("invalid system process outstanding requests limit");
+    erts_atomic_init_nob(&sys_proc_outstanding_req_limit,
+                         (erts_aint_t) sys_proc_outst_req_lim);
     init_release_literal_areas();
     init_purge_state();
+}
+
+Uint
+erts_set_outstanding_system_requests_limit(Uint new_val)
+{
+    erts_aint_t old_val;
+
+    if (new_val < 1 || ERTS_MAX_PROCESSES < new_val)
+        return 0;
+
+    old_val = erts_atomic_xchg_nob(&sys_proc_outstanding_req_limit,
+                                   (erts_aint_t) new_val);
+    return (Uint) old_val;
+}
+
+Uint
+erts_get_outstanding_system_requests_limit(void)
+{
+    erts_aint_t val = erts_atomic_read_nob(&sys_proc_outstanding_req_limit);
+    ASSERT(0 < val && val <= MAX_SMALL);
+    return (Uint) val;
 }
 
 static int read_iff_list(Eterm iff_list, Uint *res) {

@@ -865,7 +865,7 @@ void erts_proc_sig_send_pending(ErtsSchedulerData* esdp)
 }
 
 static int
-maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
+maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
 {
     /*
      * returns:
@@ -875,22 +875,29 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
      */
     int res;
     Process *rp;
-    erts_aint32_t state, my_prio, other_prio;
 
     rp = erts_proc_lookup_raw(other);
     if (!rp)
         res = 0;
     else {
+        erts_aint32_t state, min_prio, other_prio;
         res = -1;
-        state = erts_atomic32_read_nob(&c_p->state);
-        my_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
+        if (prio >= 0)
+            min_prio = prio;
+        else {
+            /* inherit from caller... */
+            state = erts_atomic32_read_nob(&c_p->state);
+            min_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
+        }
+
+        ASSERT(PRIORITY_MAX <= min_prio && min_prio <= PRIORITY_LOW);
 
         state = erts_atomic32_read_nob(&rp->state);
         other_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
 
-        if (other_prio > my_prio) {
-            /* Others prio is lower than mine; elevate it... */
-            res = !!erts_sig_prio(other, my_prio);
+        if (other_prio > min_prio) {
+            /* Others prio is lower than min prio; elevate it... */
+            res = !!erts_sig_prio(other, min_prio);
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
@@ -900,7 +907,7 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
                  * in erl_process.c.
                  */
                 if (state & ERTS_PSFLG_DIRTY_RUNNING)
-                    erts_make_dirty_proc_handled(other, state, my_prio);
+                    erts_make_dirty_proc_handled(other, state, min_prio);
             }
         }
     }
@@ -2245,7 +2252,7 @@ erts_proc_sig_send_group_leader(Process *c_p, Eterm to, Eterm gl, Eterm ref)
         destroy_sig_group_leader(sgl);
     else if (c_p) {
         erts_aint_t flags, rm_flags = ERTS_SIG_GL_FLG_SENDER;
-        int prio_res = maybe_elevate_sig_handling_prio(c_p, to);
+        int prio_res = maybe_elevate_sig_handling_prio(c_p, -1, to);
         if (!prio_res)
             rm_flags |= ERTS_SIG_GL_FLG_ACTIVE;
         flags = erts_atomic_read_band_nob(&sgl->flags, ~rm_flags);
@@ -2294,7 +2301,7 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to, Eterm ref)
                                                   0);
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_IS_ALIVE)) {
-        (void) maybe_elevate_sig_handling_prio(c_p, to);
+        (void) maybe_elevate_sig_handling_prio(c_p, -1, to);
         return !0;
     }
     else {
@@ -2353,7 +2360,7 @@ erts_proc_sig_send_process_info_request(Process *c_p,
     res = proc_queue_signal(c_p, to, (ErtsSignal *) pis,
                             ERTS_SIG_Q_OP_PROCESS_INFO);
     if (res)
-        (void) maybe_elevate_sig_handling_prio(c_p, to);
+        (void) maybe_elevate_sig_handling_prio(c_p, -1, to);
     else
         erts_free(ERTS_ALC_T_SIG_DATA, pis);
     return res;
@@ -2400,7 +2407,7 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to, Eterm tag, Eterm reply)
                                                   0);
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_SYNC_SUSPEND))
-        (void) maybe_elevate_sig_handling_prio(c_p, to);
+        (void) maybe_elevate_sig_handling_prio(c_p, -1, to);
     else {
         Eterm *tp;
         /* It wasn't alive; reply to ourselves... */
@@ -2518,6 +2525,17 @@ erts_proc_sig_send_rpc_request(Process *c_p,
                                Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
                                void *arg)
 {
+    return erts_proc_sig_send_rpc_request_prio(c_p, to, reply, func, arg, -1);
+}
+
+Eterm
+erts_proc_sig_send_rpc_request_prio(Process *c_p,
+                                    Eterm to,
+                                    int reply,
+                                    Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
+                                    void *arg,
+                                    int prio)
+{
     Eterm res;
     ErtsProcSigRPC *sig = erts_alloc(ERTS_ALC_T_SIG_DATA,
                                      sizeof(ErtsProcSigRPC));
@@ -2545,7 +2563,7 @@ erts_proc_sig_send_rpc_request(Process *c_p,
     }
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) sig, ERTS_SIG_Q_OP_RPC))
-        (void) maybe_elevate_sig_handling_prio(c_p, to);
+        (void) maybe_elevate_sig_handling_prio(c_p, prio, to);
     else {
         erts_free(ERTS_ALC_T_SIG_DATA, sig);
         res = THE_NON_VALUE;

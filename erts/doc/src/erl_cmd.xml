@@ -1748,6 +1748,17 @@ $ <input>erl \
               parameter determines. The lingering prevents repeated
               deletions and insertions in the tables from occurring.</p>
           </item>
+          <tag><marker id="+zosrl"/><c>+zosrl limit</c></tag>
+          <item>
+            <p>
+              Sets a limit on the amount of outstanding requests made by
+              a system process orchestrating system wide changes. Valid
+              range of this limit is <c>[1, 134217727]</c>. See
+              <seeerl marker="erts:erlang#system_flag_outstanding_system_requests_limit">
+              <c>erlang:system_flag(outstanding_system_requests_limit, Limit)</c></seeerl>
+              for more information.
+            </p>
+          </item>
         </taglist>
       </item>
     </taglist>
