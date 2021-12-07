@@ -259,16 +259,16 @@ seq_loop(0, _, L) ->
       Incr :: integer(),
       Seq :: [integer()].
 
-seq(First, Last, Inc) 
-    when is_integer(First), is_integer(Last), is_integer(Inc) -> 
-    if
-        Inc > 0, First - Inc =< Last;
-        Inc < 0, First - Inc >= Last ->
-            N = (Last - First + Inc) div Inc,
-            seq_loop(N, Inc*(N-1)+First, Inc, []);
-        Inc =:= 0, First =:= Last ->
-            seq_loop(1, First, Inc, [])
-    end.
+seq(First, Last, Inc)
+    when is_integer(First), is_integer(Last), is_integer(Inc),
+        (Inc > 0 andalso First - Inc =< Last) orelse
+        (Inc < 0 andalso First - Inc >= Last) ->
+    N = (Last - First + Inc) div Inc,
+    seq_loop(N, Inc * (N - 1) + First, Inc, []);
+seq(Same, Same, 0) when is_integer(Same) ->
+    [Same];
+seq(First, Last, Inc) ->
+    erlang:error(badarg, [First, Last, Inc], [{error_info, #{module => erl_stdlib_errors}}]).
 
 seq_loop(N, X, D, L) when N >= 4 ->
      Y = X-D, Z = Y-D, W = Z-D,
