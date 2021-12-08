@@ -228,8 +228,11 @@ is_tuple Fail=f Src | test_arity Fail Src Arity => \
 
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
-is_tuple NotTupleFail Tuple | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
-   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom | current_tuple Tuple
+is_tuple NotTupleFail Src | \
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom | \
+  equal(Src, Tuple) => \
+   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom | \
+   current_tuple Src
 
 is_tagged_tuple Fail Tuple Arity Atom => \
    i_is_tagged_tuple Fail Tuple Arity Atom | typed_current_tuple Tuple

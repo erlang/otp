@@ -226,3 +226,16 @@ pred.distinct(Reg1, Reg2) {
         return Reg1.val != Reg2.val;
     }
 }
+
+// Test that two registers are equal when disregarding types. Opposite of the
+// `distinct` predicate.
+pred.equal(Reg1, Reg2) {
+    if (Reg1.type != Reg2.type) {
+        return 0;
+    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+        /* We must not compare the type indices (if any). */
+        return (Reg1.val & REG_MASK) == (Reg2.val & REG_MASK);
+    } else {
+        return Reg1.val == Reg2.val;
+    }
+}

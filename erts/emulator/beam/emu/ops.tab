@@ -668,8 +668,10 @@ test_arity f? xy A
 
 test_arity_get_tuple_element f? x A P x
 
-is_tuple NotTupleFail Tuple=x | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
-   is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom
+is_tuple NotTupleFail Src=x | \
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom | \
+  equal(Src, Tuple) => \
+   is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom
 
 is_tagged_tuple_ff f? f? rx A a
 
