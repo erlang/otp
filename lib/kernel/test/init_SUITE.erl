@@ -397,7 +397,7 @@ restart(Config) when is_list(Config) ->
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
-    MsgFlags = lists:sort(rpc:call(Node, socket, supports, [msg_flags])),
+    MsgFlags = fetch_socket_msg_flags(Node),
     MaxPid = lists:last(Procs),
     ok = rpc:call(Node, init, restart, []),
     receive
@@ -445,8 +445,13 @@ restart(Config) when is_list(Config) ->
     PrimFileP = pid_to_list(PrimFilePid1),
 
     %% and same socket_registry helper process!
-    ESockRegP = pid_to_list(ESockRegPid),
-    ESockRegP = pid_to_list(ESockRegPid1),
+    if ESockRegPid =:= undefined, ESockRegPid1 =:= undefined ->
+            %% No socket registry on either node
+            ok;
+       true ->
+            ESockRegP = pid_to_list(ESockRegPid),
+            ESockRegP = pid_to_list(ESockRegPid1)
+    end,
 
     NewProcs0 = rpc:call(Node, erlang, processes, []),
     NewProcs = NewProcs0 -- SysProcs1,
@@ -459,7 +464,7 @@ restart(Config) when is_list(Config) ->
     end,
 
     %% Check that socket tables has been re-initialized; check one
-    MsgFlags = lists:sort(rpc:call(Node, socket, supports, [msg_flags])),
+    MsgFlags = fetch_socket_msg_flags(Node),
 
     %% Test that, for instance, the same argument still exists.
     case rpc:call(Node, init, get_argument, [c]) of
@@ -554,6 +559,14 @@ check_processes(NewProcs, MaxPid) ->
 apid(Pid) ->
     [N,P,I] = string:tokens(pid_to_list(Pid),"<>."),
     [list_to_integer(N),list_to_integer(P),list_to_integer(I)].
+
+fetch_socket_msg_flags(Node) ->
+    case code:is_loaded(prim_socket) of
+        {file,preloaded} ->
+            lists:sort(rpc:call(Node, socket, supports, [msg_flags]));
+        _ ->
+            ok
+    end.
 
 %% ------------------------------------------------
 %% Just test that the system is halted here.
