@@ -427,27 +427,12 @@ split_path(URI) ->
           query := Query} ->
             {Path, Query};
         #{path := Path} ->            
-            split_path(Path, [])
+            {Path, []}
     end.
 
 add_hashmark(Query, Fragment) ->
     Query ++ "#" ++ Fragment.
    
-split_path([],SoFar) ->
-    {lists:reverse(SoFar),[]};
-split_path([$/|Rest],SoFar) ->
-    Path=lists:reverse(SoFar),
-    case file:read_file_info(Path) of
-	{ok,FileInfo} when FileInfo#file_info.type =:= regular ->
-	    {Path,[$/|Rest]};
-	{ok, _FileInfo} ->
-	    split_path(Rest,[$/|SoFar]);
-	{error, _Reason} ->
-	    split_path(Rest,[$/|SoFar])
-    end;
-split_path([C|Rest],SoFar) ->
-    split_path(Rest,[C|SoFar]).
-
 %% split_script_path, URI has been decoded once when validate
 %% and should only be decoded once(RFC3986, 2.4).
 
@@ -460,10 +445,9 @@ split_script_path(URI) ->
             not_a_script;
         #{path := Path,
           query := Query} ->
-            {Script, PathInfo} = split_path(Path, []),
-            {Script, {PathInfo, Query}};
+            {Path, {[], Query}};
         #{path := Path} ->            
-            split_path(Path, [])
+            {Path, []}
     end.
 
 %% suffix

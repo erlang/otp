@@ -157,7 +157,8 @@ http_get() ->
      max_header,
      max_content_length,
      ignore_invalid_header,
-     ipv6
+     ipv6,
+     same_file_name_dir_name
     ].
 
 
@@ -766,6 +767,21 @@ ipv6(Config) when is_list(Config) ->
 	 false ->
 	     {skip, "Host does not support IPv6"}
      end.
+
+%%-------------------------------------------------------------------------
+same_file_name_dir_name() ->
+    [{doc,"Test that URI path that has a filename in it is not interprated as the file"}].
+same_file_name_dir_name(Config) when is_list(Config) ->
+    Version = proplists:get_value(http_version, Config),
+    Host = proplists:get_value(host, Config),
+    Type = proplists:get_value(type, Config),
+    ok = httpd_test_lib:verify_request(Type, Host,
+                                       proplists:get_value(port, Config),
+                                       transport_opts(Type, Config),
+                                       proplists:get_value(node, Config),
+                                       http_request("GET /index.html/foo.html ", Version, Host),
+                                       [{statuscode, 404},
+                                        {version, Version}]).
 
 %%-------------------------------------------------------------------------
 chunked_post() ->
