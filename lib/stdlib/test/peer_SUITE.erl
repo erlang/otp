@@ -412,8 +412,7 @@ ssh(Config) when is_list(Config) ->
         {ErlPath, SshPath} ->
             Name = peer:random_name(?FUNCTION_NAME),
             {ok, Peer, _Node} = peer:start_link(#{exec => {SshPath, ["localhost", ErlPath]},
-                connection => standard_io, name => Name,
-                args => ["-env", "BINDIR", os:getenv("BINDIR")], host => "localhost"}),
+                connection => standard_io, name => Name, host => "localhost"}),
             %% TODO: how to check it really goes over SSH?
             %% ssh-ed node is not distributed
             ?assertEqual(list_to_atom(Name ++ "@localhost"), peer:call(Peer, erlang, node, [])),
