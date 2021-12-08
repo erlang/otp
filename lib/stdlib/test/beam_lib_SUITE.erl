@@ -393,11 +393,12 @@ strip(Conf) when is_list(Conf) ->
 	beam_lib:strip_files([BeamFileD1, BeamFile2D1, BeamFile3D1, BeamFile4D1]),
 
     %% strip a complex module
-    OrigSofsPath = code:which(sofs),
+    OrigSofsPath = code:where_is_file("sofs.beam"),
     BeamFileSofs = filename:join(PrivDir,"sofs.beam"),
     file:copy(OrigSofsPath, BeamFileSofs),
     {ok, {sofs,_}} = beam_lib:strip(BeamFileSofs),
     code:unstick_mod(sofs),
+    false = code:purge(sofs),
 
     %% check that each module can be loaded.
     {module, simple} = code:load_abs(filename:rootname(BeamFileD1)),
@@ -470,17 +471,19 @@ strip_add_chunks(Conf) when is_list(Conf) ->
 	beam_lib:strip_files([BeamFileD1, BeamFile2D1, BeamFile3D1, BeamFile4D1], ExtraChunks),
 
     %% strip a complex module
-    OrigSofsPath = code:which(sofs),
+    OrigSofsPath = code:where_is_file("sofs.beam"),
     BeamFileSofs = filename:join(PrivDir,"sofs.beam"),
     file:copy(OrigSofsPath, BeamFileSofs),
     {ok, {sofs,_}} = beam_lib:strip(BeamFileSofs, ExtraChunks),
     code:unstick_mod(sofs),
+    false = code:purge(sofs),
 
     %% check that each module can be loaded.
     {module, simple} = code:load_abs(filename:rootname(BeamFileD1)),
     {module, simple2} = code:load_abs(filename:rootname(BeamFile2D1)),
     {module, make_fun} = code:load_abs(filename:rootname(BeamFile3D1)),
     {module, constant} = code:load_abs(filename:rootname(BeamFile4D1)),
+    {module, sofs} = code:load_abs(filename:rootname(BeamFileSofs)),
 
     %% check that line number information is still present after stripping
     {module, lines} = code:load_abs(filename:rootname(BeamFile5D1)),
@@ -498,7 +501,8 @@ strip_add_chunks(Conf) when is_list(Conf) ->
 		  Source2D1, BeamFile2D1,
 		  Source3D1, BeamFile3D1,
 		  Source4D1, BeamFile4D1,
-		  Source5D1, BeamFile5D1]),
+		  Source5D1, BeamFile5D1,
+                  BeamFileSofs]),
 
     false = code:purge(sofs),
     {module, sofs} = code:load_file(sofs),

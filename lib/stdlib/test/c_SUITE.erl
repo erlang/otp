@@ -180,7 +180,7 @@ ls(Config) when is_list(Config) ->
     ok = c:ls(File),
     ok = c:ls([[[[File]]]]),
     ok = c:ls("no_such_file"),
-    ok = c:ls(list_to_atom(code:which(c))),
+    ok = c:ls(code:where_is_file("c.beam")),
     ok.
 
 %% Check that c:memory/[0,1] returns consistent results.
