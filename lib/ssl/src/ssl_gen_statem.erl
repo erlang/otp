@@ -1233,12 +1233,18 @@ is_hostname_recognized(_, _) ->
 handle_sni_hostname(Hostname,
                     #state{static_env = #static_env{role = Role} = InitStatEnv0,
                            handshake_env = HsEnv,
-                           connection_env = CEnv} = State0) ->
-    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+                           connection_env = CEnv,
+                           ssl_options = Opts} = State0) ->
+    NewOptions = update_ssl_options_from_sni(Opts, Hostname),
     case NewOptions of
 	undefined ->
-	    State0;
-	_ ->
+            case maps:get(server_name_indication, Opts) of
+                disable when Role == client->
+                    State0;
+                _ ->
+                    State0#state{handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}}
+            end;
+        _ ->
 	    {ok, #{cert_db_ref := Ref,
                    cert_db_handle := CertDbHandle,
                    fileref_db_handle := FileRefHandle,
