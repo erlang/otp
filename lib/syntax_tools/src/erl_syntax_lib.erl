@@ -1106,7 +1106,7 @@ collect_attribute(file, _, Info) ->
     Info;
 collect_attribute(record, {R, L}, Info) ->
     finfo_add_record(R, L, Info);
-collect_attribute(_, {N, V}, Info) ->
+collect_attribute(N, V, Info) ->
     finfo_add_attribute(N, V, Info).
 
 %% Abstract datatype for collecting module information.
@@ -1335,7 +1335,8 @@ analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
 analyze_attribute(_, Node) ->
     %% A "wild" attribute (such as e.g. a `compile' directive).
-    analyze_wild_attribute(Node).
+    {_, Info} = analyze_wild_attribute(Node),
+    Info.
 
 
 %% =====================================================================
