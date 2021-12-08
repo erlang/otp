@@ -346,13 +346,13 @@ check_no_unexpected_messages() ->
     end.
 
 alias_signals_in_gc(Config) when is_list(Config) ->
-    %% Make sure alias signals in rootset wont cause
+    %% Make sure alias signals in rootset won't cause
     %% crashes...
     process_flag(scheduler, 1),
     process_flag(priority, normal),
     process_flag(message_queue_data, on_heap),
     Alias = alias(),
-    %% We deactive the alias since it is no point converting
+    %% We deactivate the alias since it is no point converting
     %% the alias signals into messages for this test...
     unalias(Alias), 
     Pid = spawn_opt(fun () ->

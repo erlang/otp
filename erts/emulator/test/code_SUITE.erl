@@ -1096,9 +1096,9 @@ erl_544(Config) when is_list(Config) ->
                 File = proplists:get_value(file, Info2),
                 StackFun = fun(_, _, _) -> false end,
                 FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
-                Formated =
+                Formatted =
                     erl_error:format_stacktrace(1, Stack, StackFun, FormatFun),
-                true = is_list(Formated),
+                true = is_list(Formatted),
                 ok
             after
                 ok = file:set_cwd(CWD)

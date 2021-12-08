@@ -238,7 +238,7 @@ compare_local_and_universal(Times) when Times > 0 ->
 	Diff when abs(Diff) < AcceptableDiff ->
 	    ok;
 	Diff ->
-	    io:format("More than ~p seconds difference betwen "
+	    io:format("More than ~p seconds difference between "
 		      "local and universal time", [Diff]),
 	    ct:fail(huge_diff)
     end.

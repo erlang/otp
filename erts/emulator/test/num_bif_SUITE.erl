@@ -671,7 +671,7 @@ t_string_to_integer(Config) when is_list(Config) ->
                   ]),
 
     %% log2 calculation overflow bug in do_integer_to_list (OTP-12624).
-    %% Would crash with segementation fault.
+    %% Would crash with segmentation fault.
     0 = list_to_integer(lists:duplicate(10000000,$0)),
 
     ok.

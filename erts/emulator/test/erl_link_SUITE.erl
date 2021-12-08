@@ -1238,7 +1238,7 @@ dctrl(Node) when is_atom(Node) ->
 dmsg_hdr() ->
     [131, % Version Magic
      $D,  % Dist header
-     0].  % No atom cache referenses
+     0].  % No atom cache references
 
 dmsg_ext(Term) ->	
     <<131, Res/binary>> = term_to_binary(Term),

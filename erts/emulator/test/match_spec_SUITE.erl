@@ -181,7 +181,7 @@ test_4a(Config) when is_list(Config) ->
     Pat = [{'_', [],[{message, {caller_line}}]}],
     P = spawn(?MODULE, runner, [self(), Fun]),
     erlang:trace(P, true, [call]),
-    %% `global` is implied but we still mention explictly
+    %% `global` is implied but we still mention explicitly
     erlang:trace_pattern({?MODULE, f2_test4, 2}, Pat, [global]),
     erlang:trace_pattern({?MODULE, f1_test4, 1}, Pat, [global]),
     collect(P, [{trace, P, call, {?MODULE, f2_test4, [a, b]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}},
@@ -194,7 +194,7 @@ test_4b(Config) when is_list(Config) ->
     P = spawn(?MODULE, runner, [self(), Fun]),
     Pat = [{'_', [], [{return_trace}, {message, {caller_line}}]}],
     erlang:trace(P, true, [call]),
-    %% `global` is implied but we still mention explictly
+    %% `global` is implied but we still mention explicitly
     erlang:trace_pattern({?MODULE, f2_test4, 2}, Pat, [global]),
     erlang:trace_pattern({?MODULE, f1_test4, 1}, Pat, [global]),
     collect(P, [{trace, P, call, {?MODULE, f2_test4, [a, b]}, {?MODULE, f3_test4, 2, {"test4.erl", 3}}},

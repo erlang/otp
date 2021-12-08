@@ -22,7 +22,7 @@
  *
  * Description: Implementation of a driver that fakes driver version. It
  *              is used for checking that version mismatches are handled
- *              correct by the emulator. The following makros have to be
+ *              correct by the emulator. The following macros have to be
  *		defined before it can be used:
  *		* VSN_MISMATCH_DRV_NAME_STR
  *		* VSN_MISMATCH_DRV_NAME

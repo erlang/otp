@@ -383,7 +383,7 @@ t_list_to_tuple(Config) when is_list(Config) ->
 t_list_to_upper_boundry_tuple(Config) when is_list(Config) ->
     sys_mem_cond_run(2048,
 		    fun () ->
-			    %% test upper boundry, 16777215 elements
+			    %% test upper boundary, 16777215 elements
 			    MaxSize  = 1 bsl 24 - 1,
 			    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
 			    MaxSize  = size(MaxTuple),
@@ -432,7 +432,7 @@ t_make_tuple_2(Config) when is_list(Config) ->
 t_make_upper_boundry_tuple_2(Config) when is_list(Config) ->
     sys_mem_cond_run(2048,
 		     fun () ->
-			     %% test upper boundry, 16777215 elements
+			     %% test upper boundary, 16777215 elements
 			     t_make_tuple(1 bsl 24 - 1, a)
 		     end).
 
@@ -525,7 +525,7 @@ t_append_element(Config) when is_list(Config) ->
 t_append_element_upper_boundry(Config) when is_list(Config) ->
     sys_mem_cond_run(2048,
 		     fun () ->
-			     %% test upper boundry, 16777215 elements
+			     %% test upper boundary, 16777215 elements
 			     MaxSize  = 1 bsl 24 - 1,
 			     MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
 			     {'EXIT',{badarg,_}} = (catch erlang:append_element(MaxTuple, a)),
@@ -597,7 +597,7 @@ get_two_tuple_elements(Config) ->
     true = code:delete(GTTEMod),
     code:purge(GTTEMod),
 
-    %% Compile from the pre-generated BEAM assmebly code file. (In case that the
+    %% Compile from the pre-generated BEAM assembly code file. (In case that the
     %% compiler's code generation has changed.)
     {ok,GTTEMod,Code2} = compile:file(GTTETestsFile, [from_asm,binary,report,time]),
     {module,GTTEMod} = code:load_binary(GTTEMod, GTTEMod, Code2),

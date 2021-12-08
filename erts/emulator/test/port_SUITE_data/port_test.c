@@ -559,7 +559,7 @@ char* spec;			/* Specification for reply. */
 
     buf = (char *) malloc(total_size);
     if (buf == NULL) {
-	fprintf(stderr, "%s: insufficent memory for reply buffer of size %d\n",
+	fprintf(stderr, "%s: insufficient memory for reply buffer of size %d\n",
 		port_data->progname, (int)total_size);
 	exit(1);
     }

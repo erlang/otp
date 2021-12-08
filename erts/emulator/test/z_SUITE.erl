@@ -169,7 +169,7 @@ schedulers_alive(Config) when is_list(Config) ->
               enabled -> ok
           end,
           erts_debug:set_internal_state(available_internal_state, true),
-          %% node_and_dist_references will use emulator interal thread blocking...
+          %% node_and_dist_references will use emulator internal thread blocking...
           erts_debug:get_internal_state(node_and_dist_references), 
           erts_debug:set_internal_state(available_internal_state, false),
           io:format("Testing not blocked~n"),
@@ -346,7 +346,7 @@ lc_graph(Config) when is_list(Config) ->
     ok.
 
 leaked_processes(Config) when is_list(Config) ->
-    %% Replace the defualt timetrap with a timetrap with
+    %% Replace the default timetrap with a timetrap with
     %% known pid.
     test_server:timetrap_cancel(),
     Dog = test_server:timetrap(test_server:minutes(5)),

@@ -150,7 +150,7 @@ main(int argc, char *argv[])
                 usage2("Invalid creation", argv[i]);
         }
         else {
-            usage2("Unkown parameter", argv[i]);
+            usage2("Unknown parameter", argv[i]);
         }
         i++;
     }

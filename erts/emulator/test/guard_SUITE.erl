@@ -310,7 +310,7 @@ guard_bifs(Config) when is_list(Config) ->
     Big = -237849247829874297658726487367328971246284736473821617265433,
     Float = 387924.874,
 
-    %% Succeding use of guard bifs.
+    %% Succeeding use of guard bifs.
 
     try_gbif('abs/1', Big, -Big),
     try_gbif('float/1', Big, float(Big)),
