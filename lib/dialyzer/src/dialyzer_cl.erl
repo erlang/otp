@@ -47,7 +47,7 @@
          indent_opt      = ?INDENT_OPT    :: iopt(),
          error_location  = ?ERROR_LOCATION :: error_location(),
 	 output_plt      = none           :: 'none' | file:filename(),
-	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
+	 plt_info        = none           :: 'none' | #plt_info{},
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
 	 stored_warnings = []             :: [raw_warning()]
@@ -73,7 +73,7 @@ build_plt(Opts) ->
   Opts1 = init_opts_for_build(Opts),
   Files = get_files_from_opts(Opts1),
   Md5 = dialyzer_plt:compute_md5_from_files(Files),
-  PltInfo = {Md5, dict:new()},
+  PltInfo = #plt_info{files = Md5, mod_deps = dict:new()},
   do_analysis(Files, Opts1, dialyzer_plt:new(), PltInfo).
 
 init_opts_for_build(Opts) ->
@@ -200,7 +200,7 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
       end,
       {?RET_NOTHING_SUSPICIOUS, []};
     {old_version, Md5} ->
-      PltInfo = {Md5, dict:new()},
+      PltInfo = #plt_info{files = Md5, mod_deps = dict:new()},
       Files = [F || {F, _} <- Md5],
       do_analysis(Files, Opts, dialyzer_plt:new(), PltInfo);
     {differ, Md5, DiffMd5, ModDeps} ->
@@ -212,10 +212,10 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
 	true ->
 	  %% Only removed stuff. Just write the PLT.
 	  dialyzer_plt:to_file(Opts#options.output_plt, Plt, ModDeps, 
-			       {Md5, ModDeps}),
+                         #plt_info{files = Md5, mod_deps = ModDeps}),
 	  {?RET_NOTHING_SUSPICIOUS, []};
 	false ->
-	  do_analysis(AnalFiles, Opts, Plt, {Md5, ModDeps1})
+	  do_analysis(AnalFiles, Opts, Plt, #plt_info{files = Md5, mod_deps = ModDeps1})
       end;
     {error, no_such_file} ->
       Msg = io_lib:format("Could not find the PLT: ~ts\n~s",

@@ -25,7 +25,8 @@
 	 %% get_contract_signature/1,
 	 is_overloaded/1,
 	 process_contract_remote_types/1,
-	 store_tmp_contract/6]).
+	 store_tmp_contract/6,
+   constraint_form_to_remote_modules/1]).
 
 %% For dialyzer_worker.
 -export([process_contract_remote_types_module/2]).
@@ -1019,3 +1020,13 @@ blame_remote_list([CArg|CArgs], [NRArg|NRArgs], [SArg|SArgs], Opaques) ->
 is_subtype(T1, T2, Opaques) ->
   Inf = erl_types:t_inf(T1, T2, Opaques),
   erl_types:t_is_equal(T1, Inf).
+
+-spec constraint_form_to_remote_modules(Constraint :: term()) -> [module()].
+
+constraint_form_to_remote_modules([]) ->
+  [];
+
+constraint_form_to_remote_modules([{type, _, constraint, [{atom, _, _}, Types]}|Rest]) ->
+  ModulesFromTypes = erl_types:type_form_to_remote_modules(Types),
+  ModulesFromSubsequentConstraints = constraint_form_to_remote_modules(Rest),
+  lists:usort(lists:append(ModulesFromTypes, ModulesFromSubsequentConstraints)).

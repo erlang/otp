@@ -15,7 +15,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_callgraph.erl
 %%% Author  : Tobias Lindahl <tobiasl@it.uu.se>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created : 30 Mar 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
@@ -35,7 +35,8 @@
 	 lookup_label/2,
 	 lookup_name/2,
 	 modules/1,
-	 module_deps/1,
+	 module_call_deps/1,
+	 merge_module_deps/2,
 	 %% module_postorder/1,
 	 module_postorder_from_funs/2,
 	 new/0,
@@ -63,10 +64,10 @@
 %%-----------------------------------------------------------------------------
 %% A callgraph is a directed graph where the nodes are functions and a
 %% call between two functions is an edge from the caller to the callee.
-%% 
+%%
 %% calls	-  A mapping from call site (and apply site) labels
 %%		   to the possible functions that can be called.
-%% digraph	-  A digraph representing the callgraph. 
+%% digraph	-  A digraph representing the callgraph.
 %%		   Nodes are represented as MFAs or labels.
 %% esc		-  A set of all escaping functions as reported by dialyzer_dep.
 %% letrec_map	-  A dict mapping from letrec bound labels to function labels.
@@ -129,7 +130,7 @@ all_nodes(#callgraph{digraph = DG}) ->
 
 -spec lookup_rec_var(label(), callgraph()) -> 'error' | {'ok', mfa()}.
 
-lookup_rec_var(Label, #callgraph{rec_var_map = RecVarMap}) 
+lookup_rec_var(Label, #callgraph{rec_var_map = RecVarMap})
   when is_integer(Label) ->
   ets_lookup_dict(Label, RecVarMap).
 
@@ -216,7 +217,7 @@ find_non_local_calls([{{M,_,_}, {M,_,_}}|Left], Set) ->
 find_non_local_calls([{{M1,_,_}, {M2,_,_}} = Edge|Left], Set) when M1 =/= M2 ->
   find_non_local_calls(Left, sets:add_element(Edge, Set));
 find_non_local_calls([{{_,_,_}, Label}|Left], Set) when is_integer(Label) ->
-  find_non_local_calls(Left, Set);  
+  find_non_local_calls(Left, Set);
 find_non_local_calls([{Label, {_,_,_}}|Left], Set) when is_integer(Label) ->
   find_non_local_calls(Left, Set);
 find_non_local_calls([{Label1, Label2}|Left], Set) when is_integer(Label1),
@@ -225,6 +226,7 @@ find_non_local_calls([{Label1, Label2}|Left], Set) when is_integer(Label1),
 find_non_local_calls([], Set) ->
   sets:to_list(Set).
 
+%% Only considers call dependencies, not type dependencies, which are dealt with elsewhere
 -spec get_depends_on(scc() | module(), callgraph()) -> [scc()].
 
 get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In, Maps}}) ->
@@ -281,10 +283,11 @@ edge_fold({{M1,_,_},{M2,_,_}}, Set) ->
 edge_fold(_, Set) -> Set.
 
 
-%% The module deps of a module are modules that depend on the module
--spec module_deps(callgraph()) -> mod_deps().
+%% The module call deps of a module are modules that depend on the module to
+%% make function calls
+-spec module_call_deps(callgraph()) -> mod_deps().
 
-module_deps(#callgraph{digraph = DG}) ->
+module_call_deps(#callgraph{digraph = DG}) ->
   Edges = lists:foldl(fun edge_fold/2, sets:new([{version, 2}]), digraph_edges(DG)),
   Modules = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
@@ -295,6 +298,17 @@ module_deps(#callgraph{digraph = DG}) ->
 	  || N <- Modules],
   digraph_delete(MDG),
   dict:from_list(Deps).
+
+-spec merge_module_deps(mod_deps(), mod_deps()) -> mod_deps().
+merge_module_deps(Left, Right) ->
+    dict:merge(
+      fun (_Mod, L, R) ->
+        gb_sets:to_list(gb_sets:union(
+          gb_sets:from_list(L),
+          gb_sets:from_list(R)))
+      end,
+      Left,
+      Right).
 
 -spec strip_module_deps(mod_deps(), sets:set(module())) -> mod_deps().
 
@@ -369,10 +383,10 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
   true = ets:insert(ETSEsc, [{E} || E <- EscapingFuns]),
 
   LabelEdges = get_edges_from_deps(Deps0),
-  
+
   %% Find the self recursive functions. Named functions get both the
   %% key and their name for convenience.
-  SelfRecs0 = lists:foldl(fun({Key, Key}, Acc) -> 
+  SelfRecs0 = lists:foldl(fun({Key, Key}, Acc) ->
 			      case ets_lookup_dict(Key, ETSNameMap) of
 				error      -> [Key|Acc];
 				{ok, Name} -> [Key, Name|Acc]
@@ -380,9 +394,9 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 			     (_, Acc) -> Acc
 			  end, [], LabelEdges),
   true = ets:insert(ETSSelfRec, [{S} || S <- SelfRecs0]),
-  
+
   NamedEdges1 = name_edges(LabelEdges, ETSNameMap),
-  
+
   %% We need to scan for inter-module calls since these are not tracked
   %% by dialyzer_dep. Note that the caller is always recorded as the
   %% top level function. This is OK since the included functions are
@@ -404,7 +418,7 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 
 build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap, ETSLetrecMap) ->
   %% We only care about the named (top level) functions. The anonymous
-  %% functions will be analysed together with their parents. 
+  %% functions will be analysed together with their parents.
   Defs = cerl:module_defs(Tree),
   Mod = cerl:atom_val(cerl:module_name(Tree)),
   Fun =
@@ -427,7 +441,7 @@ get_edges_from_deps(Deps) ->
   %% this information.
   Edges = dict:fold(fun(external, _Set, Acc) -> Acc;
 		       (Caller, Set, Acc)    ->
-			[[{Caller, Callee} || Callee <- Set, 
+			[[{Caller, Callee} || Callee <- Set,
 					      Callee =/= external]|Acc]
 		    end, [], Deps),
   lists:flatten(Edges).
@@ -469,9 +483,9 @@ scan_one_core_fun(TopTree, FunName) ->
 		    CalleeF = cerl:call_name(Tree),
 		    CalleeArgs = cerl:call_args(Tree),
 		    A = length(CalleeArgs),
-		    case (cerl:is_c_atom(CalleeM) andalso 
+		    case (cerl:is_c_atom(CalleeM) andalso
 			  cerl:is_c_atom(CalleeF)) of
-		      true -> 
+		      true ->
 			M = cerl:atom_val(CalleeM),
 			F = cerl:atom_val(CalleeF),
 			case erl_bif_types:is_known(M, F, A) of
@@ -500,7 +514,7 @@ scan_one_core_fun(TopTree, FunName) ->
 			    end;
 			  false -> [{FunName, {M, F, A}}|Acc]
 			end;
-		      false -> 
+		      false ->
 			%% We cannot handle run-time bindings
 			Acc
 		    end;
@@ -556,7 +570,7 @@ digraph_confirm_vertices([MFA|Left], DG) ->
   digraph_confirm_vertices(Left, DG);
 digraph_confirm_vertices([], _DG) ->
   ok.
-  
+
 digraph_remove_external(DG) ->
   Vertices = digraph:vertices(DG),
   Unconfirmed = remove_unconfirmed(Vertices, DG),
@@ -598,7 +612,7 @@ digraph_in_neighbours(V, DG) ->
     List -> List
   end.
 
-digraph_reaching_subgraph(Funs, DG) ->  
+digraph_reaching_subgraph(Funs, DG) ->
   Vertices = digraph_utils:reaching(Funs, DG),
   digraph_utils:subgraph(DG, Vertices).
 
@@ -616,7 +630,7 @@ to_dot(#callgraph{digraph = DG, esc = Esc} = CG, File) ->
 	      {ok, Name} -> Name
 	    end
 	end,
-  Escaping = [{Fun(L), {color, red}} 
+  Escaping = [{Fun(L), {color, red}}
 	      || L <- [E || {E} <- ets:tab2list(Esc)], L =/= external],
   Vertices = digraph_edges(DG),
   dialyzer_dot:translate_list(Vertices, File, "CG", Escaping).

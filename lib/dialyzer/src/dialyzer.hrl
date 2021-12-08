@@ -168,6 +168,7 @@
 -define(ERROR_LOCATION, column).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
+-record(plt_info, {files :: [dialyzer_plt:file_md5()], mod_deps :: dict:dict()}).
 
 -record(analysis, {analysis_pid			   :: pid() | 'undefined',
 		   type		  = succ_typings   :: anal_type(),

@@ -67,6 +67,7 @@ MODULES = \
 	dialyzer_succ_typings \
 	dialyzer_timing \
 	dialyzer_typesig \
+	dialyzer_typegraph \
 	dialyzer_coordinator \
 	dialyzer_worker \
 	dialyzer_utils \
@@ -150,6 +151,7 @@ $(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
 $(EBIN)/dialyzer_races.beam: dialyzer.hrl
 $(EBIN)/dialyzer_succ_typings.beam: dialyzer.hrl
 $(EBIN)/dialyzer_typesig.beam: dialyzer.hrl
+$(EBIN)/dialyzer_typegraph.beam: dialyzer.hrl
 $(EBIN)/dialyzer_utils.beam: dialyzer.hrl
 
 # ----------------------------------------------------

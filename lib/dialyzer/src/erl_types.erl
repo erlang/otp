@@ -217,7 +217,9 @@
 	 is_erl_type/1,
 	 atom_to_string/1,
 	 var_table__new/0,
-	 cache__new/0
+	 cache__new/0,
+	 module_type_deps_of_type_defs/1,
+   type_form_to_remote_modules/1
 	]).
 
 -compile({no_auto_import,[min/2,max/2,map_get/2]}).
@@ -360,15 +362,15 @@
 
 -type file_line()    :: {file:name(), erl_anno:line()}.
 -type record_key()   :: {'record', atom()}.
--type type_key()     :: {'type' | 'opaque', mfa()}.
+-type type_key()     :: {'type' | 'opaque', {atom(), arity()}}.
 -type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
 -type record_value() :: {file_line(),
                          [{RecordSize :: non_neg_integer(), [field()]}]}.
 -type type_value()   :: {{module(), file_line(),
                           erl_parse:abstract_type(), ArgNames :: [atom()]},
                          erl_type()}.
--type type_table() :: #{record_key() | type_key() =>
-                        record_value() | type_value()}.
+-type type_table() :: #{record_key() => record_value()} |
+                        #{type_key() => type_value()}.
 
 -type var_name() :: atom() | integer().
 -type var_table() :: #{ var_name() => erl_type() }.
@@ -5705,3 +5707,130 @@ handle_base(Unit, Neg) ->
 
 var_table__new() ->
   maps:new().
+
+%%=============================================================================
+%%
+%% Utilities for finding a module's type dependencies
+%%
+%%=============================================================================
+
+
+-spec module_type_deps_of_type_defs(type_table()) -> [module()].
+
+module_type_deps_of_type_defs(TypeTable) ->
+  ModuleTypeDependencies =
+    [module_type_deps_of_entry(TypeTableEntry)
+      || TypeTableEntry <- maps:to_list(TypeTable)],
+  lists:append(ModuleTypeDependencies).
+
+-spec module_type_deps_of_entry(
+  {type_key(), type_value()}
+  | {record_key(), record_value()}) -> [module()].
+
+module_type_deps_of_entry({{'type', _TypeName, _A}, {{_FromM, _FileLine, AbstractType, _ArgNames}, _}}) ->
+  type_form_to_remote_modules(AbstractType);
+
+module_type_deps_of_entry({{'opaque', _TypeName, _A}, {{_FromM, _FileLine, AbstractType, _ArgNames}, _}}) ->
+  type_form_to_remote_modules(AbstractType);
+
+module_type_deps_of_entry({{'record', _Name}, {_FileLine, SizesAndFields}}) ->
+  AllFields = lists:append([Fields || {_Size, Fields} <- SizesAndFields]),
+  FieldTypes = [AbstractType || {_, AbstractType, _} <- AllFields],
+  type_form_to_remote_modules(FieldTypes).
+
+%% Whilst this function is depth-limited, it should be limited in precisely
+%% the same way as Dialyzer's other analyses - i.e. it should only ignore
+%% sub-components of types Diaylzer wouldn't explore anyway
+-spec type_form_to_remote_modules(parse_form() | [parse_form()]) -> [module()].
+
+type_form_to_remote_modules([]) ->
+  [];
+
+type_form_to_remote_modules([_|_] = Forms) ->
+  D = ?EXPAND_DEPTH,
+  L = ?EXPAND_LIMIT,
+  {_, Mods} = list_get_modules_mentioned(Forms, D, L, []),
+  lists:usort(Mods);
+
+type_form_to_remote_modules(Form) ->
+  D = ?EXPAND_DEPTH,
+  L = ?EXPAND_LIMIT,
+  {_, Mods} = get_modules_mentioned(Form, D, L, []),
+  lists:usort(Mods).
+
+-spec get_modules_mentioned(TypeForm :: parse_form(), expand_depth(), expand_limit(), Acc :: [module()]) -> {expand_depth(), [module()]}.
+
+get_modules_mentioned(_, D, L, Acc) when D =< 0 ; L =< 0 ->
+  {L, Acc};
+get_modules_mentioned({var, _L, '_'}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({var, _L, _Name}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({ann_type, _L, [_Var, Type]}, D, L, Acc) ->
+  get_modules_mentioned(Type, D, L, Acc);
+get_modules_mentioned({paren_type, _L, [Type]}, D, L, Acc) ->
+  get_modules_mentioned(Type, D, L, Acc);
+get_modules_mentioned({atom, _L, _Atom}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({integer, _L, _Int}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({char, _L, _Char}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({op, _L, _Op, _Arg}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({op, _L, _Op, _Arg1, _Arg2}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({type, _L, 'fun', [{type, _, any}, Range]}, D, L, Acc) ->
+  get_modules_mentioned(Range, D - 1, L - 1, Acc);
+get_modules_mentioned({type, _L, 'fun', [{type, _, product, Domain}, Range]}, D, L, Acc) ->
+  {L1, Acc1} = list_get_modules_mentioned(Domain, D, L, Acc),
+  get_modules_mentioned(Range, D, L1, Acc1);
+get_modules_mentioned({type, _L, list, [Type]}, D, L, Acc) ->
+  get_modules_mentioned(Type, D - 1, L - 1, Acc);
+get_modules_mentioned({type, _L, map, any}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({type, _L, map, List}, D0, L, Acc) ->
+  fun PairsFromForm(_, L1, Acc1) when L1 =< 0 -> Acc1;
+      PairsFromForm([], L1, Acc1) -> {L1, Acc1};
+      PairsFromForm([{type, _, _Oper, [KF, VF]}|T], L1, Acc1) ->
+        D = D0 - 1,
+        {L2, Acc2} = get_modules_mentioned(KF, D, L1, Acc1),
+        {L3, Acc3} = get_modules_mentioned(VF, D, L2, Acc2),
+        PairsFromForm(T, L3 - 1, Acc3)
+  end(List, L, Acc);
+get_modules_mentioned({type, _L, nonempty_list, [Type]}, D, L, Acc) ->
+  get_modules_mentioned(Type, D, L - 1, Acc);
+get_modules_mentioned({type, _L, nonempty_improper_list, [Cont, Term]}, D, L, Acc) ->
+  {L1, Acc1} = get_modules_mentioned(Cont, D, L - 1, Acc),
+  get_modules_mentioned(Term, D, L1, Acc1);
+get_modules_mentioned({type, _L, nonempty_maybe_improper_list, [Cont, Term]}, D, L, Acc) ->
+  {L1, Acc1} = get_modules_mentioned(Cont, D, L - 1, Acc),
+  get_modules_mentioned(Term, D, L1, Acc1);
+get_modules_mentioned({type, _L, maybe_improper_list, [Content, Termination]}, D, L, Acc) ->
+  {L1, Acc1} = get_modules_mentioned(Content, D, L - 1, Acc),
+  get_modules_mentioned(Termination, D, L1, Acc1);
+get_modules_mentioned({type, _L, product, Elements}, D, L, Acc) ->
+  list_get_modules_mentioned(Elements, D - 1, L, Acc);
+get_modules_mentioned({type, _L, range, [_From, _To]}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({type, _L, tuple, any}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({type, _L, tuple, Args}, D, L, Acc) ->
+  list_get_modules_mentioned(Args, D - 1, L, Acc);
+get_modules_mentioned({type, _L, union, Args}, D, L, Acc) ->
+  list_get_modules_mentioned(Args, D, L, Acc);
+get_modules_mentioned({remote_type, _L, [{atom, _, Module}, {atom, _, _Type}, Args]}, D, L, Acc) ->
+  Acc1 = [Module|Acc],
+  list_get_modules_mentioned(Args, D, L, Acc1);
+get_modules_mentioned({user_type, _L, _Name, Args}, D, L, Acc) ->
+  list_get_modules_mentioned(Args, D, L, Acc);
+get_modules_mentioned({type, _L, _Name, []}, _D, L, Acc) ->
+  {L, Acc};
+get_modules_mentioned({type, _L, _Name, Args}, D, L, Acc) ->
+  list_get_modules_mentioned(Args, D, L, Acc).
+
+list_get_modules_mentioned([], _D, L, Acc) ->
+  {L, Acc};
+list_get_modules_mentioned([H|Tail], D, L, Acc) ->
+  {L1, Acc1} = get_modules_mentioned(H, D, L - 1, Acc),
+  list_get_modules_mentioned(Tail, D, L1, Acc1).

@@ -50,13 +50,16 @@
 	 get_specs/1,
 	 get_specs/4,
 	 to_file/4,
-         delete/1
+   delete/1,
+   get_all_types/1,
+   get_all_contracts/1,
+   get_all_callbacks/1
 	]).
 
 %% Debug utilities
 -export([pp_non_returning/0, pp_mod/1]).
 
--export_type([plt/0, plt_info/0]).
+-export_type([plt/0, file_md5/0]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -89,7 +92,6 @@
 -include("dialyzer.hrl").
 
 -type file_md5() :: {file:filename(), binary()}.
--type plt_info() :: {[file_md5()], dict:dict()}.
 
 -record(file_plt, {version = ""                :: string(),
 		   file_md5_list = []          :: [file_md5()],
@@ -240,7 +242,7 @@ get_default_plt() ->
     UserSpecPlt -> UserSpecPlt
   end.
 
--spec plt_and_info_from_file(file:filename()) -> {plt(), plt_info()}.
+-spec plt_and_info_from_file(file:filename()) -> {plt(), #plt_info{}}.
 
 plt_and_info_from_file(FileName) ->
   from_file(FileName, true).
@@ -296,8 +298,8 @@ from_file1(Plt, FileName, ReturnInfo) ->
 	  case ReturnInfo of
 	    false -> {ok, Plt};
 	    true ->
-	      PltInfo = {Rec#file_plt.file_md5_list,
-			 Rec#file_plt.mod_deps},
+	      PltInfo = #plt_info{files = Rec#file_plt.file_md5_list,
+                            mod_deps = Rec#file_plt.mod_deps},
 	      {ok, {Plt, PltInfo}}
 	  end
       end;
@@ -407,8 +409,8 @@ find_duplicates(List) ->
   ModList = [filename:basename(E) || E <- List],
   SortedList = lists:usort(ModList),
   lists:usort(ModList -- SortedList).
-  
--spec to_file(file:filename(), plt(), mod_deps(), {[file_md5()], mod_deps()}) -> 'ok'.
+
+-spec to_file(file:filename(), plt(), mod_deps(), #plt_info{}) -> 'ok'.
 
 %% Write the PLT to file, and delete the PLT.
 to_file(FileName, Plt, ModDeps, MD5_OldModDeps) ->
@@ -423,7 +425,7 @@ to_file(FileName, Plt, ModDeps, MD5_OldModDeps) ->
 to_file1(FileName,
 	#plt{info = ETSInfo, types = ETSTypes, contracts = ETSContracts,
 	     callbacks = ETSCallbacks, exported_types = ETSExpTypes},
-	ModDeps, {MD5, OldModDeps}) ->
+	ModDeps, #plt_info{files = MD5, mod_deps = OldModDeps}) ->
   NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) ->
 			      ordsets:union(OldVal, NewVal)
 			  end,
@@ -845,3 +847,24 @@ pp_mod(Mod) when is_atom(Mod) ->
       io:format("dialyzer: Found no module named '~s' in the PLT\n", [Mod])
   end,
   delete(Plt).
+
+
+%% Returns all contracts stored in the PLT
+-spec get_all_contracts(plt()) -> #{mfa() => #contract{}}.
+get_all_contracts(#plt{contracts = ETSContracts}) ->
+  maps:from_list(ets:tab2list(ETSContracts)).
+
+%% Returns all callbacks stored in the PLT
+-spec get_all_callbacks(plt()) -> #{mfa() => #contract{}}.
+get_all_callbacks(#plt{callbacks = ETSCallbacks}) ->
+  CallbacksList =
+      [Cb ||
+        {_M, Cbs} <- ets:tab2list(ETSCallbacks),
+        Cb <- Cbs],
+  maps:from_list(CallbacksList).
+
+%% Returns all types stored in the PLT
+-spec get_all_types(plt()) -> #{module() => erl_types:type_table()}.
+get_all_types(#plt{types = ETSTypes}) ->
+  Types = ets:tab2list(ETSTypes),
+  maps:from_list(Types).
