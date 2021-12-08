@@ -1206,8 +1206,18 @@ fmt_port(N, Proto) ->
 -spec info() -> info().
 %%
 info() ->
-    prim_socket:info().
-
+    try
+        prim_socket:info()
+    catch error:undef:ST ->
+            case ST of
+                %% We rewrite errors coming from prim_socket not existing
+                %% to enotsup.
+                [{prim_socket,info,[],_}|_] ->
+                    erlang:raise(error,notsup,ST);
+                _ ->
+                    erlang:raise(error,undef,ST)
+            end
+    end.
 
 -spec info(Socket) -> socket_info() when
 					Socket :: socket().
