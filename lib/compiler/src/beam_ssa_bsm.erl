@@ -422,7 +422,7 @@ is_var_in_args(_Var, []) -> false.
 %%% Subpasses
 %%%
 
-%% Removes superflous chained bs_start_match instructions in the same
+%% Removes superfluous chained bs_start_match instructions in the same
 %% function. When matching on an extracted tail binary, or on a binary we've
 %% already matched on, we reuse the original match context.
 %%

@@ -938,7 +938,7 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
             %% 'xor' is almost never used in practice.
             not_possible();
         #b_set{op={bif,'not'}} ->
-            %% This is suprisingly rare. The previous attempt to
+            %% This is surprisingly rare. The previous attempt to
             %% optimize it was broken, which wasn't noticed because
             %% very few test cases triggered this code.
             not_possible();
@@ -1030,7 +1030,7 @@ eaten_by_phi(V, G) ->
 %% order_args([Arg1,Arg2], G, St) -> {First,Second}.
 %%  Order arguments for a boolean operator so that there is path in the
 %%  digraph from the instruction referered to by the first operand to
-%%  the instruction refered to by the second operand.
+%%  the instruction referred to by the second operand.
 
 order_args([#b_var{}=VarA,#b_var{}=VarB], G, St) ->
     {VA,VB} = {get_vertex(VarA, St),get_vertex(VarB, St)},

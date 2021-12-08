@@ -1071,7 +1071,7 @@ cse_suitable(#b_set{}) -> false.
 %%% will take special care to keep not using them in guards.  Using
 %%% them in guards would require a new version of the 'fconv'
 %%% instruction that would take a failure label.  Since it is unlikely
-%%% that using float instructions in guards would be benefical, why
+%%% that using float instructions in guards would be beneficial, why
 %%% bother implementing a new instruction?
 %%%
 
@@ -1123,7 +1123,7 @@ float_opt_1(L, #b_blk{is=Is0}=Blk0, Bs0, Count0, Fs0) ->
     end.
 
 %% Split out {float,convert} instructions into separate blocks, number
-%% the blocks, and add {succeded,body} in each {float,convert} block.
+%% the blocks, and add {succeeded,body} in each {float,convert} block.
 float_fixup_conv(L, Is, Blk, Count0) ->
     Split = float_split_conv(Is, Blk),
     {Blks,Count} = float_number(Split, L, Count0),
@@ -1420,7 +1420,7 @@ live_opt_is([], Live, Acc) ->
 %%%
 %%% try/catch optimization.
 %%%
-%%% Attemps to rewrite try/catches as guards when we know the exception won't
+%%% Attempts to rewrite try/catches as guards when we know the exception won't
 %%% be inspected in any way, and removes try/catches whose expressions will
 %%% never throw.
 %%%
@@ -2931,8 +2931,8 @@ unfold_arg(Expr, _LitMap, _X) -> Expr.
 %%%      ret @ssa_ret
 %%%
 %%% The beam_ssa_codegen pass will not recognize this code as a tail
-%%% call and will generate an unncessary stack frame. It may also
-%%% generate unecessary `kill` instructions.
+%%% call and will generate an unnecessary stack frame. It may also
+%%% generate unnecessary `kill` instructions.
 %%%
 %%% To avoid those extra instructions, this optimization will
 %%% eliminate the `succeeded:body` and `br` instructions and insert

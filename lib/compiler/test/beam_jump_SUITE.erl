@@ -169,7 +169,7 @@ expects_h(7, Atom) ->
     ok.
 
 %% When compiled with +no_copt, beam_validator would complain about
-%% ambigous try/catch state.
+%% ambiguous try/catch state.
 ambiguous_catch_try_state_1(<<42:false>>) ->
     %% The beam_ssa_bsm pass will duplicate the entire second clause.
     %% beam_jump will share the blocks with the build_stacktrace

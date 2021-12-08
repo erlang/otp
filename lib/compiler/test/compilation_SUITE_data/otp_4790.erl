@@ -32,7 +32,7 @@
 % 		causing a crash at run-time.
 
 % 		The same error could cause tuple tests to be removed,
-% 		but that would propbably only cause a crash if the
+% 		but that would probably only cause a crash if the
 % 		Erlang code was incorrect or if it depended on a catch
 % 		to catch exceptions. Therefore, I consider it unlikely
 % 		that Erlang programs that don't use floating point
