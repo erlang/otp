@@ -3070,16 +3070,24 @@ write_concurrency(Config) when is_list(Config) ->
 
     true = YesMem > YesTreeMem,
 
-    case erlang:system_info(schedulers) > 1 of
-        true ->
-            true = YesMem > NoHashMem,
-            true = YesMem > NoTreeMem,
-            true = YesTreeMem > NoTreeMem,
-            true = YesYesTreeMem > YesTreeMem;
-        _ ->
+    case erlang:system_info(schedulers) of
+        1 ->
             YesMem = NoHashMem,
             YesTreeMem = NoTreeMem,
-            YesYesTreeMem = YesTreeMem
+            YesYesTreeMem = YesTreeMem;
+        NoSchedulers ->
+            true = YesMem > NoHashMem,
+            true = YesMem > NoTreeMem,
+
+            %% The memory of ordered_set with write concurrency is
+            %% smaller than without write concurrency on systems with
+            %% few schedulers.
+            if NoSchedulers > 6 ->
+                    true = YesTreeMem >= NoTreeMem;
+               true ->
+                    true = YesTreeMem < NoTreeMem
+            end,
+            true = YesYesTreeMem > YesTreeMem
     end,
 
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
