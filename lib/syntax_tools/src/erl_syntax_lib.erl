@@ -1335,7 +1335,8 @@ analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
 analyze_attribute(_, Node) ->
     %% A "wild" attribute (such as e.g. a `compile' directive).
-    analyze_wild_attribute(Node).
+    {_, Info} = analyze_wild_attribute(Node),
+    Info.
 
 
 %% =====================================================================
