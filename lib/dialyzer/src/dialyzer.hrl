@@ -52,7 +52,6 @@
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CALLGRAPH, warn_callgraph).
 -define(WARN_UNMATCHED_RETURN, warn_umatched_return).
--define(WARN_RACE_CONDITION, warn_race_condition).
 -define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
@@ -71,7 +70,7 @@
                        | ?WARN_FUN_APP | ?WARN_MAP_CONSTRUCTION
                        | ?WARN_MATCHING | ?WARN_NON_PROPER_LIST
                        | ?WARN_NOT_CALLED | ?WARN_OPAQUE
-                       | ?WARN_RACE_CONDITION | ?WARN_RETURN_NO_RETURN
+                       | ?WARN_RETURN_NO_RETURN
                        | ?WARN_RETURN_ONLY_EXIT | ?WARN_UNDEFINED_CALLBACK
                        | ?WARN_UNKNOWN | ?WARN_UNMATCHED_RETURN.
 
@@ -126,7 +125,6 @@
                        | 'no_undefined_callbacks'
                        | 'no_underspecs'
                        | 'no_unused'
-                       | 'race_conditions'
                        | 'underspecs'
                        | 'unknown'
                        | 'unmatched_returns'
@@ -180,7 +178,6 @@
 		   start_from     = byte_code	   :: start_from(),
 		   plt                             :: dialyzer_plt:plt(),
 		   use_contracts  = true           :: boolean(),
-		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),

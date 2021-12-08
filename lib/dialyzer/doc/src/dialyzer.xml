@@ -372,13 +372,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Suppress warnings for unused functions.</p>
       </item>
-      <tag><c>-Wrace_conditions</c> (***)</tag>
-      <item>
-        <p>Include warnings for possible race conditions. Notice that the
-          analysis that finds data races performs intra-procedural data flow
-          analysis and can sometimes explode in time. Enable it at your own
-          risk.</p>
-      </item>
       <tag><c>-Wunderspecs</c> (***)</tag>
       <item>
         <p>Warn about underspecified functions (the specification is strictly

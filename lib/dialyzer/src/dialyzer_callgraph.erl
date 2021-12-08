@@ -42,21 +42,12 @@
 	 get_depends_on/2,
 	 %% get_required_by/2,
 	 in_neighbours/2,
-	 renew_race_info/4,
-	 renew_race_code/2,
-	 renew_race_public_tables/2,
 	 reset_from_funs/2,
 	 scan_core_tree/2,
 	 strip_module_deps/2,
 	 remove_external/1,
 	 to_dot/2,
 	 to_ps/3]).
-
--export([cleanup/1, get_digraph/1, get_named_tables/1, get_public_tables/1,
-         get_race_code/1, get_race_detection/1, race_code_new/1,
-         put_digraph/2, put_race_code/2, put_race_detection/2,
-         put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
-	 get_behaviour_api_calls/1, dispose_race_server/1, duplicate/1]).
 
 -export_type([callgraph/0, mfa_or_funlbl/0, callgraph_edge/0, mod_deps/0]).
 
@@ -89,24 +80,15 @@
 %%		   whenever applicable.
 %%-----------------------------------------------------------------------------
 
-%% Types with comment 'race' are due to dialyzer_races.erl.
 -record(callgraph, {digraph        = digraph:new() :: digraph:graph(),
-		    active_digraph                 :: active_digraph()
-                                                    | 'undefined', % race
-                    esc	                           :: ets:tid()
-                                                    | 'undefined', % race
-                    letrec_map                     :: ets:tid()
-                                                    | 'undefined', % race
+		    active_digraph                 :: active_digraph() | 'undefined',
+                    esc	                           :: ets:tid(),
+                    letrec_map                     :: ets:tid(),
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
-                    rec_var_map                    :: ets:tid()
-                                                    | 'undefined', % race
-                    self_rec	                   :: ets:tid()
-                                                    | 'undefined', % race
-                    calls                          :: ets:tid()
-                                                    | 'undefined', % race
-                    race_detection = false         :: boolean(),
-		    race_data_server = dialyzer_race_data_server:new() :: pid()}).
+                    rec_var_map                    :: ets:tid(),
+                    self_rec	                   :: ets:tid(),
+                    calls                          :: ets:tid()}).
 
 %% Exported Types
 
@@ -619,134 +601,6 @@ digraph_in_neighbours(V, DG) ->
 digraph_reaching_subgraph(Funs, DG) ->  
   Vertices = digraph_utils:reaching(Funs, DG),
   digraph_utils:subgraph(DG, Vertices).
-
-%%----------------------------------------------------------------------
-%% Races
-%%----------------------------------------------------------------------
-
--spec renew_race_info(callgraph(), dict:dict(), [label()], [string()]) ->
-        callgraph().
-
-renew_race_info(#callgraph{race_data_server = RaceDataServer} = CG,
-		RaceCode, PublicTables, NamedTables) ->
-  ok = dialyzer_race_data_server:cast(
-	 {renew_race_info, {RaceCode, PublicTables, NamedTables}},
-	 RaceDataServer),
-  CG.
-
--spec renew_race_code(dialyzer_races:races(), callgraph()) -> callgraph().
-
-renew_race_code(Races, #callgraph{race_data_server = RaceDataServer} = CG) ->
-  Fun = dialyzer_races:get_curr_fun(Races),
-  FunArgs = dialyzer_races:get_curr_fun_args(Races),
-  Code = lists:reverse(dialyzer_races:get_race_list(Races)),
-  ok = dialyzer_race_data_server:cast(
-	 {renew_race_code, {Fun, FunArgs, Code}},
-	 RaceDataServer),
-  CG.
-
--spec renew_race_public_tables(label(), callgraph()) -> callgraph().
-
-renew_race_public_tables(VarLabel,
-			 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok =
-    dialyzer_race_data_server:cast({renew_race_public_tables, VarLabel}, RaceDataServer),
-  CG.
-
--spec cleanup(callgraph()) -> callgraph().
-
-cleanup(#callgraph{digraph = Digraph,
-                   name_map = NameMap,
-                   rev_name_map = RevNameMap,
-		   race_data_server = RaceDataServer}) ->
-  #callgraph{digraph = Digraph,
-	     name_map = NameMap,
-             rev_name_map = RevNameMap,
-	     race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
-
--spec duplicate(callgraph()) -> callgraph().
-
-duplicate(#callgraph{race_data_server = RaceDataServer} = Callgraph) ->
-  Callgraph#callgraph{
-    race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
-
--spec dispose_race_server(callgraph()) -> ok.
-
-dispose_race_server(#callgraph{race_data_server = RaceDataServer}) ->
-  dialyzer_race_data_server:stop(RaceDataServer).
-
--spec get_digraph(callgraph()) -> digraph:graph().
-
-get_digraph(#callgraph{digraph = Digraph}) ->
-  Digraph.
-
--spec get_named_tables(callgraph()) -> [string()].
-
-get_named_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  dialyzer_race_data_server:call(get_named_tables, RaceDataServer).
-
--spec get_public_tables(callgraph()) -> [label()].
-
-get_public_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  dialyzer_race_data_server:call(get_public_tables, RaceDataServer).
-
--spec get_race_code(callgraph()) -> dict:dict().
-
-get_race_code(#callgraph{race_data_server = RaceDataServer}) ->
-  dialyzer_race_data_server:call(get_race_code, RaceDataServer).
-
--spec get_race_detection(callgraph()) -> boolean().
-
-get_race_detection(#callgraph{race_detection = RD}) ->
-  RD.
-
--spec get_behaviour_api_calls(callgraph()) -> [{mfa(), mfa()}].
-
-get_behaviour_api_calls(#callgraph{race_data_server = RaceDataServer}) ->
-  dialyzer_race_data_server:call(get_behaviour_api_calls, RaceDataServer).
-
--spec race_code_new(callgraph()) -> callgraph().
-
-race_code_new(#callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = dialyzer_race_data_server:cast(race_code_new, RaceDataServer),
-  CG.
-
--spec put_digraph(digraph:graph(), callgraph()) -> callgraph().
-
-put_digraph(Digraph, Callgraph) ->
-  Callgraph#callgraph{digraph = Digraph}.
-
--spec put_race_code(dict:dict(), callgraph()) -> callgraph().
-
-put_race_code(RaceCode, #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = dialyzer_race_data_server:cast({put_race_code, RaceCode}, RaceDataServer),
-  CG.
-
--spec put_race_detection(boolean(), callgraph()) -> callgraph().
-
-put_race_detection(RaceDetection, Callgraph) ->
-  Callgraph#callgraph{race_detection = RaceDetection}.
-
--spec put_named_tables([string()], callgraph()) -> callgraph().
-
-put_named_tables(NamedTables,
-		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = dialyzer_race_data_server:cast({put_named_tables, NamedTables}, RaceDataServer),
-  CG.
-
--spec put_public_tables([label()], callgraph()) -> callgraph().
-
-put_public_tables(PublicTables,
-		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = dialyzer_race_data_server:cast({put_public_tables, PublicTables}, RaceDataServer),
-  CG.
-
--spec put_behaviour_api_calls([{mfa(), mfa()}], callgraph()) -> callgraph().
-
-put_behaviour_api_calls(Calls,
-		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = dialyzer_race_data_server:cast({put_behaviour_api_calls, Calls}, RaceDataServer),
-  CG.
 
 %%=============================================================================
 %% Utilities for 'dot'

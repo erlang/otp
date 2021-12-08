@@ -31,9 +31,8 @@
 -define(menuID_WARN_ERROR_HANDLING_FUN, 206).
 -define(menuID_WARN_NO_RETURN_FUN, 207).
 -define(menuID_WARN_UNEXPORTED_FUN, 208).
--define(menuID_WARN_RACE_CONDITIONS, 209).
--define(menuID_WARN_WRONG_CONTRACTS, 210).
--define(menuID_WARN_CONTRACT_SYNTAX, 211).
+-define(menuID_WARN_WRONG_CONTRACTS, 209).
+-define(menuID_WARN_CONTRACT_SYNTAX, 210).
 
 -define(menuID_PLT_INIT_EMPTY, 300).
 -define(menuID_PLT_SHOW_CONTENTS, 301).

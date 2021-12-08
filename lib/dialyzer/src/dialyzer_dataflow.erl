@@ -24,16 +24,6 @@
 
 -export([get_fun_types/5, get_warnings/5, format_args/3]).
 
-%% Data structure interfaces.
--export([state__add_warning/2, state__cleanup/1,
-	 state__duplicate/1, dispose_state/1,
-         state__get_callgraph/1, state__get_races/1,
-         state__get_records/1, state__put_callgraph/2,
-         state__put_races/2, state__records_only/1,
-         state__find_function/2]).
-
--export_type([state/0]).
-
 -include("dialyzer.hrl").
 
 -import(erl_types,
@@ -89,31 +79,19 @@
 
 -define(BITS, 128).
 
-%% Types with comment 'race' are due to dialyzer_races.erl.
--record(state, {callgraph            :: dialyzer_callgraph:callgraph()
-                                      | 'undefined', % race
-                codeserver           :: dialyzer_codeserver:codeserver()
-                                      | 'undefined', % race
-		envs                 :: env_tab()
-                                      | 'undefined', % race
-		fun_tab		     :: fun_tab()
-                                      | 'undefined', % race
-                fun_homes            :: dict:dict(label(), mfa())
-                                      | 'undefined', % race
-                reachable_funs       :: sets:set(label())
-                                      | 'undefined', % race
-		plt		     :: dialyzer_plt:plt()
-                                      | 'undefined', % race
-		opaques              :: [type()]
-                                      | 'undefined', % race
-		races = dialyzer_races:new() :: dialyzer_races:races(),
+-record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
+                codeserver           :: dialyzer_codeserver:codeserver(),
+                envs                 :: env_tab(),
+                fun_tab		     :: fun_tab(),
+                fun_homes            :: dict:dict(label(), mfa()),
+                reachable_funs       :: sets:set(label()),
+                plt		     :: dialyzer_plt:plt(),
+                opaques              :: [type()],
 		records = dict:new() :: types(),
-		tree_map	     :: dict:dict(label(), cerl:cerl())
-                                      | 'undefined', % race
+                tree_map	     :: dict:dict(label(), cerl:cerl()),
 		warning_mode = false :: boolean(),
 		warnings = []        :: [raw_warning()],
-		work                 :: {[_], [_], sets:set()}
-                                      | 'undefined', % race
+                work                 :: {[_], [_], sets:set()},
 		module               :: module(),
                 curr_fun             :: curr_fun()
                }).
@@ -132,9 +110,7 @@
 -type type_tab()  :: #{key() => type()}.
 -type subst_tab() :: #{key() => cerl:cerl()}.
 
-%% Exported Types
-
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 %%--------------------------------------------------------------------
 
@@ -149,8 +125,7 @@
 get_warnings(Tree, Plt, Callgraph, Codeserver, Records) ->
   State1 = analyze_module(Tree, Plt, Callgraph, Codeserver, Records, true),
   State2 = state__renew_warnings(state__get_warnings(State1), State1),
-  State3 = state__get_race_warnings(State2),
-  {State3#state.warnings, state__all_fun_types(State3)}.
+  {State2#state.warnings, state__all_fun_types(State2)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
                     dialyzer_callgraph:callgraph(),
@@ -172,15 +147,13 @@ analyze_module(Tree, Plt, Callgraph, Codeserver, Records, GetWarnings) ->
   Module = cerl:atom_val(cerl:module_name(Tree)),
   TopFun = cerl:ann_c_fun([{label, top}], [], Tree),
   State = state__new(Callgraph, Codeserver, TopFun, Plt, Module, Records),
-  State1 = state__race_analysis(not GetWarnings, State),
-  State2 = analyze_loop(State1),
+  State1 = analyze_loop(State),
   case GetWarnings of
     true ->
-      State3 = state__set_warning_mode(State2),
-      State4 = analyze_loop(State3),
-      dialyzer_races:race(State4);
+      State2 = state__set_warning_mode(State1),
+      analyze_loop(State2);
     false ->
-      State2
+      State1
   end.
 
 analyze_loop(State) ->
@@ -209,32 +182,16 @@ analyze_loop(State) ->
 	      Vars = cerl:fun_vars(Fun),
 	      Map1 = enter_type_lists(Vars, ArgTypes, Map),
 	      Body = cerl:fun_body(Fun),
-              FunLabel = get_label(Fun),
-	      IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
-              NewState3 =
-                case IsRaceAnalysisEnabled of
-                  true ->
-                    NewState2 = state__renew_curr_fun(
-                      state__lookup_name(FunLabel, NewState1), FunLabel,
-                      NewState1),
-                    state__renew_race_list([], 0, NewState2);
-		  false -> NewState1
-                end,
-	      {NewState4, _Map2, BodyType} =
-		traverse(Body, Map1, NewState3),
+	      {NewState2, _Map2, BodyType} =
+		traverse(Body, Map1, NewState1),
 	      ?debug("Done analyzing: ~w:~ts\n",
 		     [NewState1#state.curr_fun,
 		      t_to_string(t_fun(ArgTypes, BodyType))]),
-              NewState5 =
-                case IsRaceAnalysisEnabled of
-                  true -> renew_race_code(NewState4);
-                  false -> NewState4
-                end,
-              NewState6 =
-                state__update_fun_entry(Fun, ArgTypes, BodyType, NewState5),
+              NewState3 =
+                state__update_fun_entry(Fun, ArgTypes, BodyType, NewState2),
               ?debug("done adding stuff for ~tw\n",
                      [state__lookup_name(get_label(Fun), State)]),
-              analyze_loop(NewState6)
+              analyze_loop(NewState3)
 	  end
       end
   end.
@@ -544,16 +501,6 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   ?debug("ContrRet: ~ts\n", [erl_types:t_to_string(ContrRet)]),
   ?debug("LocalRet: ~ts\n", [erl_types:t_to_string(LocalRet)]),
 
-  State1 =
-    case is_race_analysis_enabled(State) of
-      true ->
-        Ann = cerl:get_ann(Tree),
-        File = get_file(Ann, State),
-        Location = get_location(Tree),
-        dialyzer_races:store_race_call(Fun, ArgTypes, Args,
-                                       {File, Location}, State);
-      false -> State
-    end,
   FailedConj = any_none([RetWithoutLocal|NewArgTypes]),
   IsFailBif = t_is_none(BifRange(BifArgs)),
   IsFailSig = t_is_none(SigRange),
@@ -575,7 +522,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 	    %% This Msg will be post_processed by dialyzer_succ_typings
 	    Msg =
 	      {contract_range, [Contract, M1, F1, A1, ArgStrings, CRet]},
-	    state__add_warning(State1, ?WARN_CONTRACT_RANGE, Tree, Msg);
+	    state__add_warning(State, ?WARN_CONTRACT_RANGE, Tree, Msg);
 	  false ->
 	    FailedSig = any_none(NewArgsSig),
 	    FailedContract =
@@ -586,7 +533,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 	    FailReason =
 	      apply_fail_reason(FailedSig, FailedBif, FailedContract),
 	    Msg = get_apply_fail_msg(Fun, Args, ArgTypes, NewArgTypes, InfSig,
-				     Contr, CArgs, State1, FailReason, Opaques),
+				     Contr, CArgs, State, FailReason, Opaques),
 	    WarnType = case Msg of
 			 {call, _} -> ?WARN_FAILING_CALL;
 			 {apply, _} -> ?WARN_FAILING_CALL;
@@ -608,9 +555,9 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
                           Tree
 		       end,
             Frc = {erlang, is_record, 3} =:= state__lookup_name(Fun, State),
-	    state__add_warning(State1, WarnType, LocTree, Msg, Frc)
+	    state__add_warning(State, WarnType, LocTree, Msg, Frc)
 	end;
-      false -> State1
+      false -> State
     end,
   State3 =
     case TypeOfApply of
@@ -1001,17 +948,9 @@ handle_case(Tree, Map, State) ->
   case t_is_none_or_unit(ArgType) of
     true -> SMA;
     false ->
-      State2 =
-        case is_race_analysis_enabled(State) of
-          true ->
-	    {RaceList, RaceListSize} = get_race_list_and_size(State1),
-            state__renew_race_list([beg_case|RaceList],
-                                   RaceListSize + 1, State1);
-          false -> State1
-        end,
       Map2 = join_maps_begin(Map1),
       {MapList, State3, Type, Warns} =
-	handle_clauses(Clauses, Arg, ArgType, ArgType, State2,
+	handle_clauses(Clauses, Arg, ArgType, ArgType, State1,
 		       [], Map2, [], [], []),
       %% Non-Erlang BEAM languages, such as Elixir, expand language constructs
       %% into case statements. In that case, we do not want to warn on
@@ -1048,45 +987,22 @@ handle_cons(Tree, Map, State) ->
 %%----------------------------------------
 
 handle_let(Tree, Map, State) ->
-  IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
   Arg = cerl:let_arg(Tree),
   Vars = cerl:let_vars(Tree),
   {Map0, State0} =
     case cerl:is_c_var(Arg) of
       true ->
 	[Var] = Vars,
-	{enter_subst(Var, Arg, Map),
-         case IsRaceAnalysisEnabled of
-           true ->
-	    {RaceList, RaceListSize} = get_race_list_and_size(State),
-             state__renew_race_list(
-               [dialyzer_races:let_tag_new(Var, Arg)|RaceList],
-               RaceListSize + 1, State);
-           false -> State
-         end};
+	{enter_subst(Var, Arg, Map), State};
       false -> {Map, State}
     end,
   Body = cerl:let_body(Tree),
   {State1, Map1, ArgTypes} = SMA = traverse(Arg, Map0, State0),
-  State2 =
-    case IsRaceAnalysisEnabled andalso cerl:is_c_call(Arg) of
-      true ->
-        Mod = cerl:call_module(Arg),
-        Name = cerl:call_name(Arg),
-        case cerl:is_literal(Mod) andalso
-             cerl:concrete(Mod) =:= ets andalso
-             cerl:is_literal(Name) andalso
-             cerl:concrete(Name) =:= new of
-          true -> renew_race_public_tables(Vars, State1);
-          false -> State1
-        end;
-      false -> State1
-    end,
   case t_is_none_or_unit(ArgTypes) of
     true -> SMA;
     false ->
       Map2 = enter_type_lists(Vars, t_to_tlist(ArgTypes), Map1),
-      traverse(Body, Map2, State2)
+      traverse(Body, Map2, State1)
   end.
 
 %%----------------------------------------
@@ -1263,62 +1179,24 @@ field_name(Elements, ErrorPat, FieldNames) ->
 %% Clauses
 %%
 handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
-	       Acc, ClauseAcc, WarnAcc0) ->
-  IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
-  State1 =
-    case IsRaceAnalysisEnabled of
-      true ->
-	{RaceList, RaceListSize} = get_race_list_and_size(State),
-        state__renew_race_list(
-          [dialyzer_races:beg_clause_new(Arg, cerl:clause_pats(C),
-                                         cerl:clause_guard(C))|
-           RaceList], RaceListSize + 1,
-          State);
-      false -> State
-    end,
-  {State2, ClauseMap, BodyType, NewArgType, WarnAcc} =
-    do_clause(C, Arg, ArgType, OrigArgType, MapIn, State1, WarnAcc0),
-  {NewClauseAcc, State3} =
-    case IsRaceAnalysisEnabled of
-      true ->
-	{RaceList1, RaceListSize1} = get_race_list_and_size(State2),
-        EndClause = dialyzer_races:end_clause_new(Arg, cerl:clause_pats(C),
-                                                  cerl:clause_guard(C)),
-        {[EndClause|ClauseAcc],
-         state__renew_race_list([EndClause|RaceList1],
-                                RaceListSize1 + 1, State2)};
-      false -> {ClauseAcc, State2}
-    end,
+	       Acc, NewClauseAcc, WarnAcc0) ->
+  {State1, ClauseMap, BodyType, NewArgType, WarnAcc} =
+    do_clause(C, Arg, ArgType, OrigArgType, MapIn, State, WarnAcc0),
   {NewCaseTypes, NewAcc} =
     case t_is_none(BodyType) of
       true -> {CaseTypes, Acc};
       false -> {[BodyType|CaseTypes], [ClauseMap|Acc]}
     end,
-  handle_clauses(Left, Arg, NewArgType, OrigArgType, State3,
+  handle_clauses(Left, Arg, NewArgType, OrigArgType, State1,
 		 NewCaseTypes, MapIn, NewAcc, NewClauseAcc, WarnAcc);
 handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
-	       ClauseAcc, WarnAcc) ->
-  State1 =
-    case is_race_analysis_enabled(State) of
-      true ->
-	{RaceList, RaceListSize} = get_race_list_and_size(State),
-        state__renew_race_list(
-          [dialyzer_races:end_case_new(ClauseAcc)|RaceList],
-	  RaceListSize + 1, State);
-      false -> State
-    end,
-  {lists:reverse(Acc), State1, t_sup(CaseTypes), WarnAcc}.
+	       _ClauseAcc, WarnAcc) ->
+  {lists:reverse(Acc), State, t_sup(CaseTypes), WarnAcc}.
 
 do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
   Pats = cerl:clause_pats(C),
   Guard = cerl:clause_guard(C),
   Body = cerl:clause_body(C),
-  State1 =
-    case is_race_analysis_enabled(State) of
-      true ->
-        state__renew_fun_args(Pats, State);
-      false -> State
-    end,
   Map0 = mark_as_fresh(Pats, Map),
   Map1 = bind_subst(Arg, Pats, Map0),
   BindRes =
@@ -1331,15 +1209,15 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 	    true -> [ArgType0 || _ <- Pats];
 	    false -> t_to_tlist(ArgType0)
 	  end,
-	bind_pat_vars(Pats, ArgTypes, [], Map1, State1)
+	bind_pat_vars(Pats, ArgTypes, [], Map1, State)
     end,
   case BindRes of
     {error, ErrorType, NewPats, Type, OpaqueTerm} ->
       ?debug("Failed binding pattern: ~ts\nto ~ts\n",
-	     [cerl_prettypr:format(C), format_type(ArgType0, State1)]),
-      case state__warning_mode(State1) of
+	     [cerl_prettypr:format(C), format_type(ArgType0, State)]),
+      case state__warning_mode(State) of
         false ->
-	  {State1, Map, t_none(), ArgType0, Warns};
+	  {State, Map, t_none(), ArgType0, Warns};
 	true ->
 	  {Msg, Force} =
 	    case t_is_none(ArgType0) of
@@ -1352,9 +1230,9 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 		    false -> t_to_tlist(OrigArgType)
 		  end,
                 PatString = format_patterns(Pats),
-                ArgTypeString = format_type(OrigArgType, State1),
+                ArgTypeString = format_type(OrigArgType, State),
                 BindResOrig =
-                  bind_pat_vars(Pats, OrigArgTypes, [], Map1, State1),
+                  bind_pat_vars(Pats, OrigArgTypes, [], Map1, State),
 		Tag =
 		  case BindResOrig of
 		    {error,   bind, _, _, _} -> pattern_match;
@@ -1365,7 +1243,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
                 PatTypes = case BindResOrig of
                              {error, opaque, _, _, OpaqueType} ->
                                [PatString, ArgTypeString,
-                                format_type(OpaqueType, State1)];
+                                format_type(OpaqueType, State)];
                              _ -> [PatString, ArgTypeString]
                            end,
                 {{Tag, PatTypes}, false};
@@ -1409,10 +1287,10 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
                     opaque -> format_patterns(NewPats)
                   end,
 		PatTypes = case ErrorType of
-			     bind -> [PatString, format_type(ArgType0, State1)];
-			     record -> [PatString, format_type(Type, State1)];
-			     opaque -> [PatString, format_type(Type, State1),
-					format_type(OpaqueTerm, State1)]
+			     bind -> [PatString, format_type(ArgType0, State)];
+			     record -> [PatString, format_type(Type, State)];
+			     opaque -> [PatString, format_type(Type, State),
+					format_type(OpaqueTerm, State)]
 			   end,
 		FailedTag = case ErrorType of
 			      bind  -> pattern_match;
@@ -1427,20 +1305,20 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 		       {record_match, _} -> ?WARN_MATCHING;
 		       {pattern_match_cov, _} -> ?WARN_MATCHING
 		     end,
-	  {State1, Map, t_none(), ArgType0, [{WarnType, C, Msg, Force}|Warns]}
+	  {State, Map, t_none(), ArgType0, [{WarnType, C, Msg, Force}|Warns]}
       end;
     {Map2, PatTypes} ->
       %% Try to bind the argument. Will only succeed if
       %% it is a simple structured term.
       Map3 =
         case bind_pat_vars_reverse([Arg], [t_product(PatTypes)],
-                                   [], Map2, State1) of
+                                   [], Map2, State) of
           {error, _, _, _, _} -> Map2;
           {NewMap, _} -> NewMap
 	end,
       GenType = dialyzer_typesig:get_safe_underapprox(Pats, Guard),
       NewArgType = t_subtract(t_product(t_to_tlist(ArgType0)), GenType),
-      case bind_guard(Guard, Map3, State1) of
+      case bind_guard(Guard, Map3, State) of
 	{error, Reason} ->
 	  ?debug("Failed guard: ~ts\n",
 		 [cerl_prettypr:format(C, [{hook, cerl_typean:pp_hook()}])]),
@@ -1449,7 +1327,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 	    case Pats =:= [] of
 	      true -> {guard_fail, []};
 	      false ->
-		{guard_fail_pat, [PatString, format_type(ArgType0, State1)]}
+		{guard_fail_pat, [PatString, format_type(ArgType0, State)]}
 	    end,
 	  Warn =
 	    case Reason of
@@ -1467,9 +1345,9 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
 		    {?WARN_MATCHING, C, Msg, false}
 		end
 	    end,
-	  {State1, Map, t_none(), NewArgType, [Warn|Warns]};
+	  {State, Map, t_none(), NewArgType, [Warn|Warns]};
         Map4 ->
-          {RetState, RetMap, BodyType} = traverse(Body, Map4, State1),
+          {RetState, RetMap, BodyType} = traverse(Body, Map4, State),
           {RetState, RetMap, BodyType, NewArgType, Warns}
       end
   end.
@@ -3014,7 +2892,7 @@ state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
 		    dict:new(), Funs),
   #state{callgraph = Callgraph, codeserver = Codeserver,
          envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
-	 plt = Plt, races = dialyzer_races:new(), records = Records,
+	 plt = Plt, records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
 	 module = Module, reachable_funs = sets:new([{version, 2}])}.
 
@@ -3022,7 +2900,7 @@ state__warning_mode(#state{warning_mode = WM}) ->
   WM.
 
 state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
-                               races = Races, callgraph = Callgraph,
+                               callgraph = Callgraph,
                                reachable_funs = ReachableFuns} = State) ->
   ?debug("==========\nStarting warning pass\n==========\n", []),
   Funs = dict:fetch_keys(TreeMap),
@@ -3032,36 +2910,10 @@ state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
       dialyzer_callgraph:lookup_name(Fun, Callgraph) =/= error orelse
         sets:is_element(Fun, ReachableFuns)],
   State#state{work = init_work(Work),
-	      fun_tab = FunTab, warning_mode = true,
-              races = dialyzer_races:put_race_analysis(true, Races)}.
-
-state__race_analysis(Analysis, #state{races = Races} = State) ->
-  State#state{races = dialyzer_races:put_race_analysis(Analysis, Races)}.
-
-state__renew_curr_fun(CurrFun, CurrFunLabel,
-                      #state{races = Races} = State) ->
-  State#state{races = dialyzer_races:put_curr_fun(CurrFun, CurrFunLabel,
-                                                  Races)}.
-
-state__renew_fun_args(Args, #state{races = Races} = State) ->
-  case state__warning_mode(State) of
-    true -> State;
-    false ->
-      State#state{races = dialyzer_races:put_fun_args(Args, Races)}
-  end.
-
-state__renew_race_list(RaceList, RaceListSize,
-                       #state{races = Races} = State) ->
-  State#state{races = dialyzer_races:put_race_list(RaceList, RaceListSize,
-                                                   Races)}.
+	      fun_tab = FunTab, warning_mode = true}.
 
 state__renew_warnings(Warnings, State) ->
   State#state{warnings = Warnings}.
-
--spec state__add_warning(raw_warning(), state()) -> state().
-
-state__add_warning(Warn, #state{warnings = Warnings} = State) ->
-  State#state{warnings = [Warn|Warnings]}.
 
 state__add_warning(State, Tag, Tree, Msg) ->
   state__add_warning(State, Tag, Tree, Msg, false).
@@ -3112,15 +2964,6 @@ state__set_curr_fun(undefined, State) ->
   State#state{curr_fun = undefined};
 state__set_curr_fun(FunLbl, State) ->
   State#state{curr_fun = find_function(FunLbl, State)}.
-
--spec state__find_function(mfa_or_funlbl(), state()) -> mfa_or_funlbl().
-
-state__find_function(FunLbl, State) ->
-  find_function(FunLbl, State).
-
-state__get_race_warnings(#state{races = Races} = State) ->
-  {Races1, State1} = dialyzer_races:get_race_warnings(Races, State),
-  State1#state{races = Races1}.
 
 state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 			   callgraph = Callgraph, plt = Plt,
@@ -3449,100 +3292,11 @@ forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
       State#state{work = NewWork, fun_tab = NewFunTab}
   end.
 
--spec state__cleanup(state()) -> state().
-
-state__cleanup(#state{callgraph = Callgraph,
-                      races = Races,
-                      records = Records}) ->
-  #state{callgraph = dialyzer_callgraph:cleanup(Callgraph),
-         races = dialyzer_races:cleanup(Races),
-         records = Records}.
-
--spec state__duplicate(state()) -> state().
-
-state__duplicate(#state{callgraph = Callgraph} = State) ->
-  State#state{callgraph = dialyzer_callgraph:duplicate(Callgraph)}.
-
--spec dispose_state(state()) -> ok.
-
-dispose_state(#state{callgraph = Callgraph}) ->
-  dialyzer_callgraph:dispose_race_server(Callgraph).
-
--spec state__get_callgraph(state()) -> dialyzer_callgraph:callgraph().
-
-state__get_callgraph(#state{callgraph = Callgraph}) ->
-  Callgraph.
-
--spec state__get_races(state()) -> dialyzer_races:races().
-
-state__get_races(#state{races = Races}) ->
-  Races.
-
--spec state__get_records(state()) -> types().
-
-state__get_records(#state{records = Records}) ->
-  Records.
-
--spec state__put_callgraph(dialyzer_callgraph:callgraph(), state()) ->
-  state().
-
-state__put_callgraph(Callgraph, State) ->
-  State#state{callgraph = Callgraph}.
-
--spec state__put_races(dialyzer_races:races(), state()) -> state().
-
-state__put_races(Races, State) ->
-  State#state{races = Races}.
-
--spec state__records_only(state()) -> state().
-
-state__records_only(#state{records = Records}) ->
-  #state{records = Records}.
-
 -spec state__translate_file(file:filename(), state()) -> file:filename().
 
 state__translate_file(FakeFile, State) ->
   #state{codeserver = CodeServer, module = Module} = State,
   dialyzer_codeserver:translate_fake_file(CodeServer, Module, FakeFile).
-
-%%% ===========================================================================
-%%%
-%%%  Races
-%%%
-%%% ===========================================================================
-
-is_race_analysis_enabled(#state{races = Races, callgraph = Callgraph}) ->
-  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  RaceAnalysis = dialyzer_races:get_race_analysis(Races),
-  RaceDetection andalso RaceAnalysis.
-
-get_race_list_and_size(#state{races = Races}) ->
-  dialyzer_races:get_race_list_and_size(Races).
-
-renew_race_code(#state{races = Races, callgraph = Callgraph,
-		       warning_mode = WarningMode} = State) ->
-  case WarningMode of
-    true -> State;
-    false ->
-      NewCallgraph = dialyzer_callgraph:renew_race_code(Races, Callgraph),
-      State#state{callgraph = NewCallgraph}
-  end.
-
-renew_race_public_tables([Var], #state{races = Races, callgraph = Callgraph,
-				      warning_mode = WarningMode} = State) ->
-  case WarningMode of
-    true -> State;
-    false ->
-      Table = dialyzer_races:get_new_table(Races),
-      case Table of
-	no_t -> State;
-	_Other ->
-	  VarLabel = get_label(Var),
-	  NewCallgraph =
-	    dialyzer_callgraph:renew_race_public_tables(VarLabel, Callgraph),
-	  State#state{callgraph = NewCallgraph}
-      end
-  end.
 
 %%% ===========================================================================
 %%%

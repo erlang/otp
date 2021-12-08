@@ -68,9 +68,8 @@
 
 start(Parent, LegalWarnings, Analysis) ->
   TimingServer = dialyzer_timing:init(Analysis#analysis.timing),
-  RacesOn = ordsets:is_element(?WARN_RACE_CONDITION, LegalWarnings),
   Analysis0 =
-    Analysis#analysis{race_detection = RacesOn, timing_server = TimingServer},
+    Analysis#analysis{timing_server = TimingServer},
   Analysis1 = expand_files(Analysis0),
   Analysis2 = run_analysis(Analysis1, LegalWarnings),
   State = #server_state{parent = Parent},
@@ -145,17 +144,11 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   Exports = dialyzer_codeserver:get_exports(NewCServer),
   NonExports = sets:subtract(sets:from_list(AllNodes, [{version, 2}]), Exports),
   NonExportsList = sets:to_list(NonExports),
-  NewCallgraph =
-    case Analysis#analysis.race_detection of
-      true -> dialyzer_callgraph:put_race_detection(true, Callgraph);
-      false -> Callgraph
-    end,
-  State2 = analyze_callgraph(NewCallgraph, State1),
+  State2 = analyze_callgraph(Callgraph, State1),
   #analysis_state{plt = Plt2,
                   doc_plt = DocPlt,
                   codeserver = Codeserver0} = State2,
   {Codeserver, Plt3} = move_data(Codeserver0, Plt2),
-  dialyzer_callgraph:dispose_race_server(NewCallgraph),
   %% Since the PLT is never used, a dummy is sent:
   DummyPlt = dialyzer_plt:new(),
   send_codeserver_plt(Parent, Codeserver, DummyPlt),
