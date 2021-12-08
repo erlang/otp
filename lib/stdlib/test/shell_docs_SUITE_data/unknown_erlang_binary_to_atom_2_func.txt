@@ -10,11 +10,8 @@
 
   Note:
     As from Erlang/OTP 20, [;;4mbinary_to_atom(Binary, utf8)[0m is
-    capable of encoding any Unicode character. Earlier versions
+    capable of decoding any Unicode character. Earlier versions
     would fail if the binary contained Unicode characters > 255.
-    For more information about Unicode support in atoms, see the 
-    note on UTF-8 encoded atoms in section "External Term Format"
-    in the User's Guide.
 
   Note:
     The number of characters that are permitted in an atom name is

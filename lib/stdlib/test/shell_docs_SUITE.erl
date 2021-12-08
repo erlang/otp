@@ -113,7 +113,9 @@ update_render(DataDir) ->
                       maps:map(
                         fun(FName, Output) ->
                                 ok = file:write_file(filename:join(DataDir, FName), Output)
-                        end, render_module(Module, D))
+                        end, render_module(Module, D));
+                  E ->
+                      io:format("Error processing: ~p ~p",[Module, E])
               end
       end, ?RENDER_MODULES).
 
@@ -320,7 +322,11 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
       end, Files, Docs).
 
 sanitize(FName) ->
-    re:replace(FName,"[/:]","_",[global,{return,list}]).
+    lists:foldl(
+      fun({Re,Replace}, Txt) ->
+              re:replace(Txt,Re,Replace,[global,{return,list}])
+      end, FName, [{"/","slash"},{":","colon"},
+                   {"\\*","star"},{"<","lt"},{">","gt"},{"=","eq"}]).
 
 docsmap(Fun) ->
     lists:map(

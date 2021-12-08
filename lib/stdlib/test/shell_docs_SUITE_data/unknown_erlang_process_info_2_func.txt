@@ -117,9 +117,9 @@
   [;;4mItem[0ms in the same order as the [;;4mItem[0ms were included in [;;4mItemList[0m.
   Valid [;;4mItem[0ms can be included multiple times in [;;4mItemList[0m.
 
-  Getting process informations follows the signal ordering
-  guarantees described in the Processes Chapter in the Erlang
-  Reference Manual.
+  Getting process information follows the signal ordering guarantees
+  described in the Processes Chapter in the Erlang Reference
+  Manual.
 
   Note:
     If [;;4mregistered_name[0m is part of [;;4mItemList[0m and the process has

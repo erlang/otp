@@ -20,4 +20,4 @@
     % P2 is not alive (the call above always return false)
 
   See the documentation about signals and erlang:exit/2 for more
-  information about signals and exit singnals.
+  information about signals and exit signals.

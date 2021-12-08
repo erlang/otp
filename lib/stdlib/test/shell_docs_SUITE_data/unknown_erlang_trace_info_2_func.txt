@@ -63,7 +63,7 @@
   [;;4m[;;4mflags[0m[0m:
     Returns a list of atoms indicating what kind of traces is
     enabled for the process. The list is empty if no traces are
-    enabled, and one or more of the followings atoms if traces are
+    enabled, and one or more of the following atoms if traces are
     enabled: [;;4msend[0m, [;;4m'receive'[0m, [;;4mset_on_spawn[0m, [;;4mcall[0m, [;;4m[0m
     [;;4mreturn_to[0m, [;;4mprocs[0m, [;;4mports[0m, [;;4mset_on_first_spawn[0m, [;;4m[0m
     [;;4mset_on_link[0m, [;;4mrunning[0m, [;;4mrunning_procs[0m, [;;4mrunning_ports[0m, [;;4m[0m

@@ -1,0 +1,5 @@
+
+  [;1m-type string() :: [char()].[0m
+
+  A character string represented by a list of ASCII characters or
+  unicode codepoints.

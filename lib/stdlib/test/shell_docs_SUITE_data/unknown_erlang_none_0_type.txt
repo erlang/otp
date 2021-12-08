@@ -1,0 +1,6 @@
+
+  [;1m-type none() :: none().[0m
+
+  This type is used to show that a function will never return a
+  value; that is it will always throw an exception. In a spec, use [;;4m[0m
+  [;;4mno_return()[0m for the sake of clarity.

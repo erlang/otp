@@ -1,0 +1,6 @@
+
+  [;1m-type maybe_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          maybe_improper_list(ContentType, TerminationType).[0m
+
+  An Erlang list, that is not guaranteed to end with a [], and
+  where the list elements are of the type [;;4mContentType[0m.

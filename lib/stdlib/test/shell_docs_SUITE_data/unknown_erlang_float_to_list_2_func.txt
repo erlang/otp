@@ -6,7 +6,7 @@
   [;1m                           Option ::[0m
   [;1m                               {decimals, Decimals :: 0..253} |[0m
   [;1m                               {scientific, Decimals :: 0..249} |[0m
-  [;1m                               compact.[0m
+  [;1m                               compact | short.[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -29,6 +29,16 @@
      using scientific notation with [;;4mDecimals[0m digits of
      precision.
 
+   • If option [;;4mshort[0m is specified, the float is formatted with
+     the smallest number of digits that still guarantees that [;;4mF[0m
+     [;;4m=:= list_to_float(float_to_list(F, [short]))[0m. When the
+     float is inside the range (-2⁵³, 2⁵³), the notation that
+     yields the smallest number of characters is used (scientific
+     notation or normal decimal notation). Floats outside the
+     range (-2⁵³, 2⁵³) are always formatted using scientific
+     notation to avoid confusing results when doing arithmetic
+     operations.
+
    • If [;;4mOptions[0m is [;;4m[][0m, the function behaves as [;;4m[0m
      [;;4mfloat_to_list/1[0m.
 
@@ -40,6 +50,10 @@
     "7.12"
     > float_to_list(7.12, [{scientific, 3}]).
     "7.120e+00"
+    > float_to_list(7.12, [short]).
+    "7.12"
+    > float_to_list(0.1+0.2, [short]).
+    "0.30000000000000004"
     > float_to_list(0.1+0.2)
     "3.00000000000000044409e-01"
 
