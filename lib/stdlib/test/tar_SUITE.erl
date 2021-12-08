@@ -939,21 +939,25 @@ has_transparent_naming() ->
 
 do_unicode(PrivDir) ->
     ok = file:set_cwd(PrivDir),
-    ok = file:make_dir("unicöde"),
+    case file:make_dir("unicöde") of
+        ok ->
+            Names = lists:sort(unicode_create_files()),
+            Tar = "unicöde.tar",
+            ok = erl_tar:create(Tar, ["unicöde"], []),
 
-    Names = lists:sort(unicode_create_files()),
-    Tar = "unicöde.tar",
-    ok = erl_tar:create(Tar, ["unicöde"], []),
-
-    %% Unicode filenames require PAX format.
-    false = is_ustar(Tar),
-    {ok,Names0} = erl_tar:table(Tar, []),
-    Names = lists:sort(Names0),
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = erl_tar:extract(Tar),
-    _ = [{ok,_} = file:read_file(Name) || Name <- Names],
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = file:del_dir("unicöde"),
+            %% Unicode filenames require PAX format.
+            false = is_ustar(Tar),
+            {ok,Names0} = erl_tar:table(Tar, []),
+            Names = lists:sort(Names0),
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = erl_tar:extract(Tar),
+            _ = [{ok,_} = file:read_file(Name) || Name <- Names],
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = file:del_dir("unicöde");
+        {error,eilseq} ->
+            %% The FS (eg zfs) does not support transparent naming
+            ok
+    end,
     ok.
 
 unicode_create_files() ->
