@@ -1888,20 +1888,22 @@ v2_solve_reference(Id, Map, V2State0) ->
             {ok, Dom} -> t_fun(Dom, t_none())
           end,
         {FunType0, V2State1};
-      {ok, NewMap, V2State1, U} ->
+      {ok, ResMap, V2State1, ResU} ->
         ?debug("Done solving fun: ~tp\n", [debug_lookup_name(Id)]),
-        FunType0 = lookup_type(Id, NewMap),
-        V2State2 = save_local_map(V2State1, Id, U, NewMap),
+        FunType0 = lookup_type(Id, ResMap),
+        V2State2 = save_local_map(V2State1, Id, ResU, ResMap),
         {FunType0, V2State2}
     end,
   ?debug("ref Id=~w Assigned ~ts\n", [Id, format_type(FunType)]),
-  {NewMap1, U1} = enter_var_type(Id, FunType, Map),
-  {NewMap2, U2} =
-    case state__get_rec_var(Id, State) of
-      {ok, Var} -> enter_var_type(Var, FunType, NewMap1);
-      error -> {NewMap1, []}
-    end,
-  {ok, NewMap2, V2State, lists:umerge(U1, U2)}.
+  {NewMap0, U0} = enter_var_type(Id, FunType, Map),
+  case state__get_rec_var(Id, State) of
+    {ok, Var} ->
+      %% `Id` and `Var` are one and the same, so they need to be unified.
+      {ok, {NewMap, U}} = refine_bindings([{Var, FunType}], NewMap0, U0),
+      {ok, NewMap, V2State, U};
+    error ->
+      {ok, NewMap0, V2State, U0}
+  end.
 
 v2_solve_self_recursive(Cs, Map, Id, RecType0, V2State0) ->
   ?debug("Solving self recursive ~tw\n", [debug_lookup_name(Id)]),
