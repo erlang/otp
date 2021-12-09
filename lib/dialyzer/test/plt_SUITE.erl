@@ -213,7 +213,7 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
 
            -export([bad/0]).
 
-           %% @doc This function incorreclty implements bad_behaviour.
+           %% @doc This function incorrectly implements bad_behaviour.
            bad() -> not_bad.">>,
     {ok, TestBeam} = compile(Config, Prog2, bad_child, []),
 
