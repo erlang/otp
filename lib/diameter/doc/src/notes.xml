@@ -11,14 +11,14 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2021</year>
+<year>2022</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
- 
+
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
@@ -626,7 +626,7 @@ first.</p>
         </item>
         <item>
           <p>
-	    Update build scripts to not make assumtions about where
+	    Update build scripts to not make assumptions about where
 	    env, cp and perl are located.</p>
           <p>
 	    Own Id: OTP-13800</p>
@@ -893,7 +893,7 @@ first.</p>
 	    connection over SCTP, and then TCP in case SCTP fails.
 	    Multiple module tuples can be paired with a single config
 	    tuple, but in this case the start order was reversed
-	    relative to the order in which the modules were specifed.</p>
+	    relative to the order in which the modules were specified.</p>
           <p>
 	    Own Id: OTP-12851</p>
         </item>

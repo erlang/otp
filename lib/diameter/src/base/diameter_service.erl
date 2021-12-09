@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -686,7 +686,7 @@ cs(undefined, _) ->
 %% # i/1
 %% ---------------------------------------------------------------------------
 
-%% Intialize the state of a service gen_server.
+%% Initialize the state of a service gen_server.
 
 i(SvcName) ->
     %% Split the config into a server state and a list of transports.
@@ -1072,7 +1072,7 @@ reopen({TPid, {Caps, SupportedApps, _Pkt}},
 %% ---------------------------------------------------------------------------
 
 %% Watchdog has recovered a suspect connection. Note that there has
-%% been no new capabilties exchange in this case.
+%% been no new capabilities exchange in this case.
 
 connection_up(#watchdog{peer = TPid} = Wd, #state{local = {PeerT, _, _}}
                                            = S) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ eprof(stop) ->
 %% ---------------------------------------------------------------------------
 %% name/2
 %%
-%% Contruct and deconstruct lists of atoms as atoms to work around
+%% Construct and deconstruct lists of atoms as atoms to work around
 %% group names in common_test being restricted to atoms.
 
 name(Names)

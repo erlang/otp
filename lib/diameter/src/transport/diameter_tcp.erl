@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -615,7 +615,7 @@ transition({P, Sock, Bin}, #transport{socket = Sock,
        P == tcp ->
     recv(acc(Frag, Bin), S);
 
-%% Capabilties exchange has decided on whether or not to run over TLS.
+%% Capabilities exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
                                             = S) ->
     true = is_boolean(B),  %% assert
