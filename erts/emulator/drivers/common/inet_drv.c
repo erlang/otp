@@ -4343,6 +4343,10 @@ static char* inet_set_address(int family, inet_address* dst,
 {
     short port;
 
+    // printf("inet_set_address -> entry with"
+    //        "\r\n      family: %d"
+    //       "\r\n", family);
+
     switch (family) {
     case AF_INET: {
         if (*len < 2+4) return str_einval;
@@ -4363,15 +4367,23 @@ static char* inet_set_address(int family, inet_address* dst,
         if (*len < 2+16) return str_einval;
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
 	port = get_int16(*src);
+        *src += 2;
 #ifndef NO_SA_LEN
 	dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
 #endif
 	dst->sai6.sin6_family = family;
 	dst->sai6.sin6_port   = sock_htons(port);
-	dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
-	sys_memcpy(&dst->sai6.sin6_addr, (*src)+2, 16);
+	sys_memcpy(&dst->sai6.sin6_addr, *src, 16);
+	*src += 16;
+        dst->sai6.sin6_flowinfo = get_int32(*src);
+        // printf("inet_set_address -> flowinfo: %u"
+        //       "\r\n", dst->sai6.sin6_flowinfo);
+	*src += 4;
+        dst->sai6.sin6_scope_id = get_int32(*src);
+        // printf("inet_set_address -> scope_id: %u"
+        //       "\r\n", dst->sai6.sin6_scope_id);
+	*src += 4;
 	*len = sizeof(struct sockaddr_in6);
-	*src += 2 + 16;
 	return NULL;
     }
 #endif
@@ -4493,6 +4505,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
 	    dst->sai6.sin6_family = family;
 	    dst->sai6.sin6_port   = sock_htons(port);
 	    dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
+	    dst->sai6.sin6_scope_id = 0;   /* XXX this may be set as well ?? */
 	    dst->sai6.sin6_addr = *paddr;
 	    *len = sizeof(struct sockaddr_in6);
 	}   break;
@@ -9662,8 +9675,12 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	     (desc->sfamily, &local, &buf, &len)) != NULL)
 	    return ctl_xerror(xerror, rbuf, rsize);
 
-	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
+        // printf("inet_ctl(INET_REQ_BIND) -> try bind\r\n");
+	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len))) {
+            // printf("inet_ctl(INET_REQ_BIND) -> bind failed\r\n");
 	    return ctl_error(sock_errno(), rbuf, rsize);
+        }
+        // printf("inet_ctl(INET_REQ_BIND) -> bound\r\n");
 
 	desc->state = INET_STATE_OPEN;
 
