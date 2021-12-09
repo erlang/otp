@@ -432,7 +432,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
             {skip, "Missing AES_256_CCM crypto support"}
     end;
 init_per_testcase(aes_256_gcm_sha384, Config) ->
-    case supported_cipher(aes_256_gcm, "AES256_GCM", sha384) of
+    case supported_cipher(aes_256_gcm, "AES_256_GCM", sha384) of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
@@ -440,7 +440,7 @@ init_per_testcase(aes_256_gcm_sha384, Config) ->
             {skip, "Missing AES_256_GCM crypto support"}
     end;
 init_per_testcase(aes_128_gcm_sha256, Config) ->
-    case  supported_cipher(aes_128_gcm, "AES128_GCM", sha256) of
+    case  supported_cipher(aes_128_gcm, "AES_128_GCM", sha256) of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
@@ -449,7 +449,7 @@ init_per_testcase(aes_128_gcm_sha256, Config) ->
     end;
 
 init_per_testcase(chacha20_poly1305_sha256, Config) ->
-    case supported_cipher(chacha20_poly1305_sha256, "CHACHA", sha256) of
+    case supported_cipher(chacha20_poly1305_sha256, "CHACHA20", sha256) of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
@@ -457,7 +457,7 @@ init_per_testcase(chacha20_poly1305_sha256, Config) ->
             {skip, "Missing CHACHA20_POLY1305 crypto support"}
     end;
 init_per_testcase(aes_128_ccm_sha256, Config) ->
-    case supported_cipher(aes_128_ccm, "AES128_CCM", sha256) of
+    case supported_cipher(aes_128_ccm, "AES_128_CCM", sha256) of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
@@ -466,7 +466,7 @@ init_per_testcase(aes_128_ccm_sha256, Config) ->
     end;
 
 init_per_testcase(aes_128_ccm_8_sha256, Config) ->
-    case supported_cipher(aes_128_ccm, "AES128_CCM8", sha256) of
+    case supported_cipher(aes_128_ccm, "AES_128_CCM8", sha256) of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
@@ -476,7 +476,7 @@ init_per_testcase(aes_128_ccm_8_sha256, Config) ->
 
 init_per_testcase(TestCase, Config) when TestCase == ecdhe_ecdsa_with_aes_128_ccm;
                                          TestCase == ecdhe_ecdsa_with_aes_128_ccm_8->
-    case supported_cipher(aes_128_ccm, "AES128_CCM") of
+    case supported_cipher(aes_128_ccm, "AES_128_CCM") of
         true ->
             ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
