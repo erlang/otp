@@ -1614,12 +1614,23 @@ generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
     user_srp_gen_key(Private, Generator, Prime);
 
 generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
-    case rsa_generate_key_nif(ModulusSize, ensure_int_as_bin(PublicExponent)) of
+    case ?nif_call(rsa_generate_key_nif(ModulusSize,
+                                        ensure_int_as_bin(PublicExponent)),
+                   [rsa, {ModulusSize, PublicExponent}, undefined],
+                   {2,2}
+                  ) of
         error ->
             erlang:error(computation_failed,
                          [rsa,{ModulusSize,PublicExponent}]);
+        {Private, OldPrivate} when Private == OldPrivate ->
+            {lists:sublist(Private,2), Private};
+        {_Private, _OldPrivate} ->
+            Where = lists:map(fun({A,B}) -> A == B end,
+                              lists:zip(_Private, _OldPrivate)),
+            erlang:error({new_old_differ,Where},
+                         [rsa,{ModulusSize,PublicExponent}]);
         Private ->
-            {lists:sublist(Private, 2), Private}
+            {lists:sublist(Private,2), Private}
     end;
 
 generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
