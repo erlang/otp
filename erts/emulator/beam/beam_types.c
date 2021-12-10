@@ -36,6 +36,11 @@ int beam_types_decode(const byte *data, Uint size, BeamType *out) {
     }
 
     types = (Uint16)data[0] << 8 | (Uint16)data[1];
+
+    if (types == BEAM_TYPE_NONE) {
+        return 0;
+    }
+
     out->type_union = types;
 
     return 1;

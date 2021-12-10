@@ -126,15 +126,21 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
 
 -record(t_abstract, {kind}).
 
-%% The types are the same as in 'beam_types.hrl', with the addition of
-%% #t_abstract{} that describes tuples under construction, match context
-%% positions, and so on.
--type validator_type() :: #t_abstract{} | type().
+%% The types are the same as in 'beam_types.hrl', with the addition of:
+%%
+%% * `#t_abstract{}` which describes tuples under construction, match context
+%%   positions, and so on.
+%% * `(fun(values()) -> type())` that defers figuring out the type until it's
+%%   actually used. Mainly used to coax more type information out of
+%%   `get_tuple_element` where a test on one element (e.g. record tag) may
+%%   affect the type of another.
+-type validator_type() :: #t_abstract{} | fun((values()) -> type()) | type().
 
 -record(value_ref, {id :: index()}).
 -record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
 
 -type argument() :: #value_ref{} | beam_literal().
+-type values() :: #{ #value_ref{} => #value{} }.
 
 -type index() :: non_neg_integer().
 
@@ -167,7 +173,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
 %% Emulation state
 -record(st,
         {%% All known values.
-         vs=#{} :: #{ #value_ref{} => #value{} },
+         vs=#{} :: values(),
          %% Register states.
          xs=#{} :: x_regs(),
          ys=#{} :: y_regs(),
@@ -544,8 +550,14 @@ vi({get_tuple_element,Src,N,Dst}, Vst) ->
     Index = N+1,
     assert_not_literal(Src),
     assert_type(#t_tuple{size=Index}, Src, Vst),
-    #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
-    Type = beam_types:get_tuple_element(Index, Es),
+
+    VRef = get_reg_vref(Src, Vst),
+    Type = fun(Vs) ->
+                    #value{type=T} = map_get(VRef, Vs),
+                    #t_tuple{elements=Es} = normalize(concrete_type(T, Vs)),
+                    beam_types:get_tuple_element(Index, Es)
+           end,
+
     extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 
 %%
@@ -871,7 +883,7 @@ vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
-    #t_bs_context{tail_unit=Unit} = get_raw_type(Ctx, Vst0),
+    #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
 
     Vst = prune_x_regs(Live, Vst0),
     extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
@@ -886,7 +898,7 @@ vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
 vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
     assert_term(Size, Vst),
 
-    Stride = case get_raw_type(Size, Vst) of
+    Stride = case get_concrete_type(Size, Vst) of
                  #t_integer{elements={Same,Same}} -> Same * Unit;
                  _ -> Unit
              end,
@@ -966,7 +978,7 @@ vi({bs_get_position, Ctx, Dst, Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
-    #t_bs_context{tail_unit=Unit} = get_raw_type(Ctx, Vst0),
+    #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
 
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = create_term(#t_abstract{kind={ms_position, Unit}},
@@ -977,7 +989,7 @@ vi({bs_set_position, Ctx, Pos}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
     assert_type(#t_abstract{kind={ms_position,1}}, Pos, Vst0),
 
-    #t_abstract{kind={ms_position,Unit}} = get_raw_type(Pos, Vst0),
+    #t_abstract{kind={ms_position,Unit}} = get_concrete_type(Pos, Vst0),
     Vst = override_type(#t_bs_context{tail_unit=Unit}, Ctx, Vst0),
 
     mark_current_ms_position(Ctx, Pos, Vst);
@@ -2205,7 +2217,7 @@ update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
     %% We therefore throw a 'type_conflict' error instead, which causes
     %% validation to fail unless we're in a context where such errors can be
     %% handled, such as in a branch handler.
-    Current = get_raw_type(Ref, Vst0),
+    Current = get_concrete_type(Ref, Vst0),
     case Merge(Current, With) of
         none ->
             throw({type_conflict, Current, With});
@@ -2464,6 +2476,12 @@ unpack_typed_arg(Arg) ->
     Arg.
 
 %% get_term_type(Src, ValidatorState) -> Type
+%%  Gets the type of the source Src, resolving deferred types into
+%%  a concrete type.
+get_concrete_type(Src, #vst{current=#st{vs=Vs}}=Vst) ->
+    concrete_type(get_raw_type(Src, Vst), Vs).
+
+%% get_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
 %%  a standard Erlang type (no catch/try tags or match contexts).
 
@@ -2479,7 +2497,7 @@ get_term_type(Src, Vst) ->
 %%  a standard Erlang type (no catch/try tags). Match contexts are OK.
 
 get_movable_term_type(Src, Vst) ->
-    case get_raw_type(Src, Vst) of
+    case get_concrete_type(Src, Vst) of
         #t_abstract{kind=unfinished_tuple=Kind} -> error({Kind,Src});
         initialized -> error({unassigned,Src});
         uninitialized -> error({uninitialized_reg,Src});
@@ -2750,24 +2768,31 @@ merge_values(Merge, VsA, VsB) ->
 mv_1(Same, Same, VsA, VsB, Acc0) ->
     %% We're merging different versions of the same value, so it's safe to
     %% reuse old entries if the type's unchanged.
-    #value{type=TypeA,args=Args}=EntryA = map_get(Same, VsA),
-    #value{type=TypeB,args=Args}=EntryB = map_get(Same, VsB),
-
-    Entry = case join(TypeA, TypeB) of
-                TypeA -> EntryA;
-                TypeB -> EntryB;
-                JoinedType -> EntryA#value{type=JoinedType}
+    Entry = case {VsA, VsB} of
+                {#{ Same := Entry0 }, #{ Same := Entry0 } } ->
+                    Entry0;
+                {#{ Same := #value{type=TypeA}=Entry0 },
+                 #{ Same := #value{type=TypeB} } } ->
+                    ConcreteA = concrete_type(TypeA, VsA),
+                    ConcreteB = concrete_type(TypeB, VsB),
+                    Entry0#value{type=join(ConcreteA, ConcreteB)}
             end,
 
     Acc = Acc0#{ Same => Entry },
 
     %% Type inference may depend on values that are no longer reachable from a
     %% register, so all arguments must be merged into the new state.
-    mv_args(Args, VsA, VsB, Acc);
+    mv_args(Entry#value.args, VsA, VsB, Acc);
 mv_1({RefA, RefB}, New, VsA, VsB, Acc) ->
     #value{type=TypeA} = map_get(RefA, VsA),
     #value{type=TypeB} = map_get(RefB, VsB),
-    Acc#{ New => #value{op=join,args=[],type=join(TypeA, TypeB)} }.
+
+    ConcreteA = concrete_type(TypeA, VsA),
+    ConcreteB = concrete_type(TypeB, VsB),
+    Acc#{ New => #value{op=join,args=[],type=join(ConcreteA, ConcreteB)} }.
+
+concrete_type(T, Vs) when is_function(T) -> T(Vs);
+concrete_type(T, _Vs) -> T.
 
 mv_args([#value_ref{}=Arg | Args], VsA, VsB, Acc0) ->
     case Acc0 of

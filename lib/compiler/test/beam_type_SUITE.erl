@@ -26,7 +26,7 @@
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
-         container_subtraction/1,is_list_opt/1]).
+         container_subtraction/1,is_list_opt/1,connected_tuple_elements/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -59,7 +59,8 @@ groups() ->
        success_type_oscillation,
        type_subtraction,
        container_subtraction,
-       is_list_opt
+       is_list_opt,
+       connected_tuple_elements
       ]}].
 
 init_per_suite(Config) ->
@@ -675,6 +676,64 @@ is_list_opt_1(Type) ->
 
 is_list_opt_2(<<"application/a2l">>) -> [<<"a2l">>];
 is_list_opt_2(_Type) -> nil.
+
+%% We used to determine the type of `get_tuple_element` at the time of
+%% extraction, which is simple but sometimes throws away type information when 
+%% on tuple unions.
+%%
+%% This normally doesn't cause any issues other than slightly less optimized
+%% code, but would crash the type pass in rare cases. Consider the following
+%% SSA:
+%%
+%% ----
+%%  %% (Assume _0 is either `{a, 1}`, {b, 2}, or `{c, {d}}`)
+%%  0: 
+%%      _1 = get_tuple_element _0, `0`
+%%      _2 = get_tuple_element _0, `1`
+%%      switch _1, ^3, [
+%%          { `a`, ^1 },
+%%          { `b`, ^2 }
+%%      ]
+%%  1: ... snip ...
+%%  2: ... snip ...
+%%  3:
+%%      _3 = get_tuple_element _0, `1`
+%%      @ssa_bool = is_tagged_tuple _3, 1, `d`
+%%      br @ssa_bool ^4, ^1234
+%%  4:
+%%      _4 = get_tuple_element _3, `0`
+%% ----
+%%
+%% In block 0 we determine that the type of _1 is `a | b | c` and that _2
+%% is `1 | 2 | {d}`. From this, we know that _0 is `{a, 1}` in block 1,
+%% `{b, 2}` in block 2, and `{c, {d}}` in block 3.
+%%
+%% In block 3, we remove the `is_tagged_tuple` test since it's redundant.
+%%
+%% ... but then the compiler replaces _3 with _2 since they're the same value.
+%% However, the type is still the same old `1 | 2 | {d}` we got in block 0,
+%% which is not safe for `get_tuple_element`, crashing the type pass.
+%% 
+%% We fixed this by determining the type of `get_tuple_element` when the result
+%% is used instead of when it was extracted, giving the correct type `{d}` in
+%% block 4.
+connected_tuple_elements(_Config) ->
+    {c, 1, 2, 3} = cte_match(id(gurka), cte_generate(id(2))),
+    ok.
+
+cte_match(_, {a, A, B}) ->
+    {a, id(A), id(B)};
+cte_match(_, {b, A, B}) ->
+    {b, id(A), id(B)};
+cte_match(gurka, {c, A, {{B}, {C}}}) ->
+    {c, id(A), id(B), id(C)}.
+
+cte_generate(0) ->
+    {a, id(1), id(2)};
+cte_generate(1) ->
+    {b, id(1), id(2)};
+cte_generate(2) ->
+    {c, id(1), {{id(2)}, {id(3)}}}.
 
 id(I) ->
     I.
