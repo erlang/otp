@@ -39,6 +39,19 @@
 -export([good_hosts/1,
          lookup/3]).
 
+-export([
+         %% Generic 'has support' test function(s)
+         has_support_ipv6/0,
+
+         which_local_host_info/1, which_local_host_info/2,
+         which_local_addr/1, which_link_local_addr/1,
+
+         %% Skipping
+         not_yet_implemented/0,
+         skip/1
+        ]).
+
+
 -include("kernel_test_lib.hrl").
 
 
@@ -1810,9 +1823,156 @@ test_inet_backends() ->
                     false
             end;
         _ ->
-            false
+            false 
     end.
-    
+
+
+%% This is an extremely simple check...
+has_support_ipv6() ->
+    case which_local_addr(inet6) of
+        {ok, _Addr} ->
+            ok;
+        {error, _R1} ->
+            skip("IPv6 Not Supported")
+    end.
+
+
+
+%% This gets the local "proper" address
+%% (not {127, ...} or {169,254, ...} or {0, ...} or {16#fe80, ...})
+%% We should really implement this using the (new) net module,
+%% but until that gets the necessary functionality...
+which_local_addr(Domain) ->
+    case which_local_host_info(false, Domain) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _Reason} = ERROR ->
+            ERROR
+    end.
+
+
+%% This function returns the link local address of the local host
+%% IPv4: 169.254.0.0/16 (169.254.0.0 - 169.254.255.255)
+%% IPv6: fe80::/10
+which_link_local_addr(Domain) ->
+    case which_local_host_info(true, Domain) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _Reason} = ERROR ->
+            ERROR
+    end.
+
+
+%% Returns the interface (name), flags and address (not 127...,
+%% or the equivalent IPv6 address) of the local host.
+which_local_host_info(Domain) ->
+    which_local_host_info(false, Domain).
+
+
+which_local_host_info(LinkLocal, Domain)
+  when is_boolean(LinkLocal) andalso ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    case inet:getifaddrs() of
+        {ok, IFL} ->
+            which_local_host_info(LinkLocal, Domain, IFL);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+which_local_host_info(_LinkLocal, _Domain, []) ->
+    {error, no_address};
+which_local_host_info(LinkLocal, Domain, [{"tun" ++ _, _}|IFL]) ->
+    which_local_host_info(LinkLocal, Domain, IFL);
+which_local_host_info(LinkLocal, Domain, [{"docker" ++ _, _}|IFL]) ->
+    which_local_host_info(LinkLocal, Domain, IFL);
+which_local_host_info(LinkLocal, Domain, [{"br-" ++ _, _}|IFL]) ->
+    which_local_host_info(LinkLocal, Domain, IFL);
+which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL]) ->
+    case if_is_running_and_not_loopback(IFO) of
+        true ->
+            try which_local_host_info2(LinkLocal, Domain, IFO) of
+                Info ->
+                    {ok, Info#{name => Name}}
+            catch
+                throw:_:_ ->
+                    which_local_host_info(LinkLocal, Domain, IFL)
+            end;
+        false ->
+            which_local_host_info(LinkLocal, Domain, IFL)
+    end;
+which_local_host_info(LinkLocal, Domain, [_|IFL]) ->
+    which_local_host_info(LinkLocal, Domain, IFL).
+
+if_is_running_and_not_loopback(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso
+                lists:member(running, Flags)
+        end.
+
+
+which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
+    Addr      = which_local_host_info3(
+                  addr,  IFO,
+                  fun({A, _, _, _}) when (A =:= 127) -> false;
+                     ({A, B, _, _}) when (A =:= 169) andalso 
+                                         (B =:= 254) -> LinkLocal;
+                     ({_, _, _, _}) -> not LinkLocal;
+                     (_) -> false
+                  end),
+    NetMask   = which_local_host_info3(netmask,  IFO,
+                                       fun({_, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    BroadAddr = which_local_host_info3(broadaddr,  IFO,
+                                       fun({_, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    Flags     = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    #{flags     => Flags,
+      addr      => Addr,
+      broadaddr => BroadAddr,
+      netmask   => NetMask};
+which_local_host_info2(LinkLocal, inet6 = _Domain, IFO) ->
+    Addr    = which_local_host_info3(addr,  IFO,
+                                     fun({A, _, _, _, _, _, _, _}) 
+                                           when (A =:= 0) -> false;
+                                        ({A, _, _, _, _, _, _, _})
+                                           when (A =:= 16#fe80) -> LinkLocal;
+                                        ({_, _, _, _, _, _, _, _}) -> not LinkLocal;
+                                        (_) -> false
+                                     end),
+    NetMask = which_local_host_info3(netmask,  IFO,
+                                       fun({_, _, _, _, _, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    Flags   = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    #{flags   => Flags,
+      addr    => Addr,
+      netmask => NetMask}.
+
+which_local_host_info3(_Key, [], _) ->
+    throw({error, no_address});
+which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
+    case Check(Val) of
+        true ->
+            Val;
+        false ->
+            which_local_host_info3(Key, IFO, Check)
+    end;
+which_local_host_info3(Key, [_|IFO], Check) ->
+    which_local_host_info3(Key, IFO, Check).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+not_yet_implemented() ->
+    skip("not yet implemented").
+
+skip(Reason) ->
+    throw({skip, Reason}).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
