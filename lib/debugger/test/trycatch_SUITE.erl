@@ -120,7 +120,7 @@ basic(Conf) when is_list(Conf) ->
     %% Try/of
     ok = try V of
 	     {a,variable} -> ok
-	 catch nisse -> erro
+	 catch nisse -> error
 	 end,
 
     ok.

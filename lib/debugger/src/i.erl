@@ -276,7 +276,7 @@ ia(Pid) ->
 
 %% -------------------------------------------
 %% Attach to process.
-%% X,Y,Z is combind to a process identity.
+%% X,Y,Z is combined to a process identity.
 %% -------------------------------------------
 
 ia(X,Y,Z) ->

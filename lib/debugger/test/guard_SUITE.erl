@@ -203,7 +203,7 @@ guard_bifs(Config) when list(Config) ->
     Big = -237849247829874297658726487367328971246284736473821617265433,
     Float = 387924.874,
 
-    %% Succeding use of guard bifs.
+    %% Succeeding use of guard bifs.
 
     try_gbif('abs/1', Big, -Big),
     try_gbif('float/1', Big, float(Big)),
@@ -1436,7 +1436,7 @@ traverse_dcd(Config) when is_list(Config) ->
 %% The function starts out with 3 arguments in {x,0}, {x,1}, {x,2}.
 %% The outer match of a two tuple will places the first element in {x,3} and
 %% second in {x,4}. The guard for the first clause must make ensure that all of those
-%% registers are restored befor entering the second clause.
+%% registers are restored before entering the second clause.
 %%
 %% (From mnesia_checkpoint.erl, modified.)
 

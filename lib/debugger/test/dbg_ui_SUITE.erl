@@ -205,13 +205,13 @@ Interpret one module").
 
 
 ?MAN_CASE(finish3, "Finish the current function body",
-	  "Call the fucntion test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Call the function test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(killinit3,"Set up for killing and clearing processes",
 	  "Call test:test2() from the shell. Set a break point at the last line of test:test2. Click Continue. This should open three new attach windows. One for each spawn called in test:test2/0.   ").
 
 ?MAN_CASE(killone3, "Kill a process and clear it",
-	  "In one of the newly openend Attach windows: select Process->Kill. A message should appear above the Code Area in the Attach window. Use Windows->Monitor to verify that the Monitor window also shows that the process has been killed. In the Monitor window: select Edit->Clear. This should do two things: 1) close/remove the window of the killed process. 2) Remove the entry of the killed process from the monitor window.").
+	  "In one of the newly opened Attach windows: select Process->Kill. A message should appear above the Code Area in the Attach window. Use Windows->Monitor to verify that the Monitor window also shows that the process has been killed. In the Monitor window: select Edit->Clear. This should do two things: 1) close/remove the window of the killed process. 2) Remove the entry of the killed process from the monitor window.").
 
 ?MAN_CASE(killall3,"KIll all processes, and clear them",
 	  "In the Monitor window: Select Edit->Kill All. Verify that all processes have been killed (in their respective windows and in the monitor window). Windows will be raised as their processes die. Next select, Edit->Clear. All attach windows should now be closed. Their entris should also disappear from the monitor window. The shell should have reported: ** exited: killed **").
@@ -250,7 +250,7 @@ Interpret one module").
 %% SET 6 (Distribution)
 
 ?MAN_CASE(distsetup6,"Set up distribution",
-	  "Start two erlang systems [foo,bar] (with option -sname), make them aware of eachother using net_adm:ping/1. Start the debugger on foo. Interpret the modules [test, lists1, ordsets1]. Set attach on First call.  ").
+	  "Start two erlang systems [foo,bar] (with option -sname), make them aware of each other using net_adm:ping/1. Start the debugger on foo. Interpret the modules [test, lists1, ordsets1]. Set attach on First call.  ").
 
 
 

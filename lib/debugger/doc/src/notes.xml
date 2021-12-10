@@ -254,7 +254,7 @@
       <list>
         <item>
           <p>
-	    Update build scripts to not make assumtions about where
+	    Update build scripts to not make assumptions about where
 	    env, cp and perl are located.</p>
           <p>
 	    Own Id: OTP-13800</p>

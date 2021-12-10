@@ -179,7 +179,7 @@ pending({Code,[{?MODULE,Func,Arity,_}|_]}, Func, Args, Code)
 pending(Reason, _Function, _Args, _Code) ->
     ct:fail({bad_exit_reason,Reason}).
 
-%% Test that doing arithmetics on [] gives a badarith EXIT and not a crash.
+%% Test that doing arithmetic on [] gives a badarith EXIT and not a crash.
 
 nil_arith(Config) when is_list(Config) ->
     ba_plus_minus_times([], []),
