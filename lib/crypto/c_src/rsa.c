@@ -25,13 +25,14 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa);
 static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt);
 
-int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
+int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
     BIGNUM *e = NULL, *n = NULL, *d = NULL;
     BIGNUM *p = NULL, *q = NULL;
     BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+    RSA *rsa = NULL;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -46,6 +47,9 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     if (!get_bn_from_bin(env, head, &d))
         goto bad_arg;
 
+    if ((rsa = RSA_new()) == NULL)
+        goto err;
+
     if (!RSA_set0_key(rsa, n, e, d))
         goto err;
     /* rsa now owns n, e, and d */
@@ -53,8 +57,11 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     e = NULL;
     d = NULL;
 
-    if (enif_is_empty_list(env, tail))
+    if (enif_is_empty_list(env, tail)) {
+        if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+            goto err;
         return 1;
+    }
 
     if (!enif_get_list_cell(env, tail, &head, &tail))
         goto bad_arg;
@@ -81,6 +88,7 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 
     if (!RSA_set0_factors(rsa, p, q))
         goto err;
+
     /* rsa now owns p and q */
     p = NULL;
     q = NULL;
@@ -92,10 +100,15 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     dmq1 = NULL;
     iqmp = NULL;
 
+    if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+        goto err;
+
     return 1;
 
  bad_arg:
  err:
+    if (rsa)
+        RSA_free(rsa);
     if (e)
         BN_free(e);
     if (n)
@@ -116,11 +129,12 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     return 0;
 }
 
-int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
+int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N] */
     ERL_NIF_TERM head, tail;
     BIGNUM *e = NULL, *n = NULL;
+    RSA *rsa = NULL;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -133,16 +147,24 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     if (!enif_is_empty_list(env, tail))
         goto bad_arg;
 
+    if ((rsa = RSA_new()) == NULL)
+        goto err;
     if (!RSA_set0_key(rsa, n, e, NULL))
         goto err;
+
     /* rsa now owns n and e */
     n = NULL;
     e = NULL;
+
+    if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+        goto err;
 
     return 1;
 
  bad_arg:
  err:
+    if (rsa)
+        RSA_free(rsa);
     if (e)
         BN_free(e);
     if (n)
