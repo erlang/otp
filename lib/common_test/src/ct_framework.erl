@@ -735,7 +735,7 @@ end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
 	    %% clean up any saved comments
 	    ct_util:match_delete_testdata({comment,'_'});
        true ->
-	    %% attemp to delete any saved comment for this TC
+	    %% attempt to delete any saved comment for this TC
 	    case process_info(TCPid, group_leader) of
 		{group_leader,TCGL} ->
 		    ct_util:delete_testdata({comment,TCGL});
@@ -1412,7 +1412,7 @@ end_per_group(GroupName, _) ->
 report(What,Data) ->
     case What of
 	loginfo ->
-	    %% logfiles and direcories have been created for a test and the
+	    %% logfiles and directories have been created for a test and the
 	    %% top level test index page needs to be refreshed
 	    TestName = filename:basename(?val(topdir, Data), ".logs"),
 	    RunDir = ?val(rundir, Data),

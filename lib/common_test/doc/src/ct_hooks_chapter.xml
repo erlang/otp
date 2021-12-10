@@ -317,7 +317,7 @@
        {proplists:delete(tc_status, Config), CTHState};
      false ->
        %% DB is not good, mark as skipped instead of failing
-       {{skip, "DB is inconsisten!"}, CTHState}
+       {{skip, "DB is inconsistent!"}, CTHState}
    end;
  post_end_per_testcase(_Suite, _TC, Config, Return, CTHState) -&gt;
    %% Do nothing if tc does not crash.
@@ -505,7 +505,7 @@
         logger handler, and prints them to the current test case log.
 	If an event cannot be associated with a test case, it is printed in
 	the <c>Common Test</c> framework log.
-	This happens for test cases running in parallel and events occuring
+	This happens for test cases running in parallel and events occurring
         in-between test cases.</p>
         <p>The log events are handled using a <seeerl marker="kernel:logger">Logger</seeerl>
         handler called cth_log_redirect. The formatting and level is copied from

@@ -237,7 +237,7 @@ prepare_snmp_env() ->
     _ = application:load(snmp),
     
     %% Fix for older versions of snmp where there are some
-    %% inappropriate default values for alway starting an 
+    %% inappropriate default values for always starting an 
     %% agent.
     application:unset_env(snmp, agent).
 %%%---------------------------------------------------------------------------

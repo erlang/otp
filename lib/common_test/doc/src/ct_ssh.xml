@@ -171,7 +171,7 @@
 
     <func>
       <name since="">aread(SSH, Server, Handle, Len) -&gt; Result</name>
-      <fsummary>For inforamtion and other types, see ssh_sftp(3).</fsummary>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
         <v>Result = ssh_sftp_return() | {error, Reason}</v>

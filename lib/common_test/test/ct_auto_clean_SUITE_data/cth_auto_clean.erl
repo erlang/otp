@@ -62,7 +62,7 @@ post_end_per_suite(_Suite, _Config, Return, State) ->
     AllProcs = processes(),
     Remaining = AllProcs--proplists:get_value(all_procs, State),
     ct:pal("Final remaining processes = ~p", [Remaining]),
-    %% only the end_per_suite process shoud remain at this point!
+    %% only the end_per_suite process should remain at this point!
     Remaining = [self()],
     {Return, State}.
 

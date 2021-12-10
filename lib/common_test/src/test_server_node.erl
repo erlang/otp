@@ -408,7 +408,7 @@ clear_erl_aflags() ->
 %% path and spaces that separate arguments. The program is quoted to
 %% allow spaces in the path.
 %%
-%% Arguments could exist either if the executable is excplicitly given
+%% Arguments could exist either if the executable is explicitly given
 %% ({prog,String}) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same

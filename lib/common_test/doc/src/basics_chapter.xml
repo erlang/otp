@@ -63,7 +63,7 @@
       provides implementations of, and wrapper interfaces to, some of these
       protocols (most of which exist as standalone components and
       applications in OTP). The wrappers simplify configuration and add
-      verbosity for logging purposes. <c>Common Test</c> is continously extended with
+      verbosity for logging purposes. <c>Common Test</c> is continuously extended with
       useful support modules. However, notice that it is
       a straightforward task to use any Erlang/OTP component
       for testing purposes with <c>Common Test</c>, without needing a <c>Common Test</c> 

@@ -2574,7 +2574,7 @@ sort_and_filter_logdirs2(_,[],Groups) ->
 %% new rundir for Test found, add to (not sorted) list of prev rundirs
 insert_test(Test,IxDir,[{Test,IxDirs}|Groups]) ->
     [{Test,[IxDir|IxDirs]}|Groups];
-%% first occurance of Test
+%% first occurrence of Test
 insert_test(Test,IxDir,[]) ->
     [{Test,[IxDir]}];
 insert_test(Test,IxDir,[TestDir|Groups]) ->

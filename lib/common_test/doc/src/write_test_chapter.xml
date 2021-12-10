@@ -917,7 +917,7 @@
     can be enabled with start option <c>scale_timetraps</c>.</p>
 
     <p>If a test case needs to suspend itself for a time that also gets
-    multipled by <c>multiply_timetraps</c> (and possibly also scaled up if
+    multiplied by <c>multiply_timetraps</c> (and possibly also scaled up if
     <c>scale_timetraps</c> is enabled), the function
     <seemfa marker="ct#sleep/1"><c>ct:sleep/1</c></seemfa>
     can be used (instead of, for example, <c>timer:sleep/1</c>).</p>
