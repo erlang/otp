@@ -3598,7 +3598,7 @@ is_type_name(_Mod1, _Name1, _Arity1, _Mod2, _Name2, _Arity2) ->
 %%  assign_vars_lists(Elements1, Elements2, Dict);
 %%assign_vars(?tuple_set(_) = T, ?tuple_set(List2), Dict) ->
 %%  %% All Rhs tuples must already be subtypes of Lhs, so we can take
-%%  %% each one separatly.
+%%  %% each one separately.
 %%  assign_vars_lists([T || _ <- List2], List2, Dict);
 %%assign_vars(?tuple(?any, ?any, ?any), ?tuple_set(_), Dict) ->
 %%  Dict;
@@ -5061,7 +5061,7 @@ separate_key(?union(List)) ->
   lists:append([separate_key(K) || K <- List, not t_is_none(K)]);
 separate_key(Key) -> [Key].
 
-%% Sorts, combines non-singleton pairs, and applies precendence and
+%% Sorts, combines non-singleton pairs, and applies precedence and
 %% mandatoriness rules.
 map_from_form([], ShdwPs, MKs, Pairs, DefK, DefV) ->
   verify_possible(MKs, ShdwPs),

@@ -1047,7 +1047,7 @@ help_message() ->
    -pa dir
    -pz dir
        Set code path options to TypEr
-       (This is useful for files that use parse tranforms.)
+       (This is useful for files that use parse transforms.)
    --version (or -v)
        prints the Typer version and exits
    --help (or -h)

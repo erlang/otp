@@ -580,8 +580,8 @@ digraph_remove_external(DG) ->
   Unconfirmed = remove_unconfirmed(Vertices, DG),
   {DG, Unconfirmed}.
 
-remove_unconfirmed(Vertexes, DG) ->
-  remove_unconfirmed(Vertexes, DG, []).
+remove_unconfirmed(Vertices, DG) ->
+  remove_unconfirmed(Vertices, DG, []).
 
 remove_unconfirmed([V|Left], DG, Unconfirmed) ->
   case digraph:vertex(DG, V) of
@@ -799,7 +799,7 @@ do_condensation(G, Parent) ->
       IntScc = sofs:relation(IntToSCC, [{int, scc}]),
       %% Create mapping from unique integers to SCCs:
       ets:insert(MapsETS, IntToSCC),
-      %% Subsitute strong components for vertices in edges using the
+      %% Substitute strong components for vertices in edges using the
       %% unique numbers:
       C2V = sofs:relation([{SC, V} || SC <- SCCs, V <- SC], [{scc, v}]),
       I2V = sofs:relative_product(IntScc, C2V), % [{v, int}]
