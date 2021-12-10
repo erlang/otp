@@ -74,7 +74,7 @@
 %% Extensions handling
 -export([client_hello_extensions/8,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
-	 handle_server_hello_extensions/10, select_curve/2, select_curve/3,
+	 handle_server_hello_extensions/10, select_curve/3, select_curve/4,
          select_hashsign/4, select_hashsign/5,
 	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3,
 	 add_alpn/2, add_selected_version/1, decode_alpn/1, max_frag_enum/1
@@ -1492,11 +1492,12 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
             end
     end.
 
-select_curve(Client, Server) ->
-    select_curve(Client, Server, false).
+select_curve(Client, Server, Version) ->
+    select_curve(Client, Server, Version, false).
 
 select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
 	     #elliptic_curves{elliptic_curve_list = ServerCurves},
+             _,
 	     ServerOrder) ->
     case ServerOrder of
         false ->
@@ -1504,10 +1505,26 @@ select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
         true ->
             select_shared_curve(ServerCurves, ClientCurves)
     end;
-select_curve(undefined, _, _) ->
+select_curve(undefined, _, {_,Minor}, _) ->
     %% Client did not send ECC extension use default curve if 
     %% ECC cipher is negotiated
-    {namedCurve, ?secp256r1}.
+    case tls_v1:ecc_curves(Minor, [secp256r1]) of
+        [] ->
+            %% Curve not supported by cryptolib ECC algorithms can not be negotiated
+            no_curve;
+        [CurveOid] ->
+            {namedCurve, CurveOid}
+    end;
+select_curve({supported_groups, Groups}, Server,{_, Minor} = Version, HonorServerOrder) ->
+    %% TLS-1.3 hello but lesser version choosen
+    TLSCommonCurves = [secp256r1,secp384r1,secp521r1],
+    Curves = [tls_v1:enum_to_oid(tls_v1:group_to_enum(Name)) || Name <- Groups, lists:member(Name, TLSCommonCurves)],
+    case tls_v1:ecc_curves(Minor, Curves) of
+        [] ->
+            select_curve(undefined, Server, Version, HonorServerOrder);
+        [_|_] = ClientCurves ->
+            select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves}, Server, Version, HonorServerOrder)
+    end.
 
 %%--------------------------------------------------------------------
 -spec select_hashsign(#hash_sign_algos{} | undefined,  undefined | binary(), 
