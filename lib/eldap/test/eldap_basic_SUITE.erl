@@ -187,7 +187,7 @@ end_per_suite(_Config) ->
 init_per_group(return_values, Config) ->
     case proplists:get_value(ldap_server,Config) of
 	undefined ->
-	    {skip, "LDAP server not availble"};
+	    {skip, "LDAP server not available"};
 	{Host,Port} ->
 	    ct:comment("ldap://~s:~p",[Host,Port]),
 	    Config
@@ -195,7 +195,7 @@ init_per_group(return_values, Config) ->
 init_per_group(plain_api, Config0) ->
     case proplists:get_value(ldap_server,Config0) of
 	undefined ->
-	    {skip, "LDAP server not availble"};
+	    {skip, "LDAP server not available"};
 	Server = {Host,Port} ->
 	    ct:comment("ldap://~s:~p",[Host,Port]),
 	    initialize_db([{server,Server}, {ssl_flag,false}, {start_tls,false} | Config0])
@@ -203,7 +203,7 @@ init_per_group(plain_api, Config0) ->
 init_per_group(ssl_api, Config0) ->
     case proplists:get_value(ldaps_server,Config0) of
 	undefined ->
-	    {skip, "LDAPS server not availble"};
+	    {skip, "LDAPS server not available"};
 	Server = {Host,Port} ->
 	    ct:comment("ldaps://~s:~p",[Host,Port]),
 	    initialize_db([{server,Server}, {ssl_flag,true}, {start_tls,false} | Config0])
@@ -211,9 +211,9 @@ init_per_group(ssl_api, Config0) ->
 init_per_group(start_tls_api, Config0) ->
     case {proplists:get_value(ldap_server,Config0), proplists:get_value(ssl_available,Config0)} of
 	{undefined,true} ->
-	    {skip, "LDAP server not availble"};
+	    {skip, "LDAP server not available"};
 	{_,false} ->
-	    {skip, "TLS not availble"};
+	    {skip, "TLS not available"};
 	{Server={Host,Port}, true} ->
 	    ct:comment("ldap://~s:~p + start_tls",[Host,Port]),
 	    Config = [{server,Server}, {ssl_flag,false} | Config0],
@@ -761,7 +761,7 @@ modify(Config) ->
 		     #eldap_search{base = BasePath,
 				   filter = eldap:equalityMatch("telephoneNumber", "555-12345"),
 				   scope=eldap:singleLevel()}),
-    %% restore the orignal version:
+    %% restore the original version:
     restore_original_object(H, DN, OriginalAttrs).
 
 %%%----------------------------------------------------------------
