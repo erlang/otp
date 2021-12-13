@@ -2338,7 +2338,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         Sint number_of_locks_param;
                         if (arityval(stp[0]) == 2 &&
                             stp[1] == am_debug_hash_fixed_number_of_locks &&
-                            is_integer(stp[2]) &&
                             term_to_Sint(stp[2], &number_of_locks_param) &&
                             number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
                             number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {

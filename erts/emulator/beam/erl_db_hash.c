@@ -87,51 +87,63 @@
 
 #define IS_DECENTRALIZED_CTRS(DB) ((DB)->common.counters.is_decentralized)
 
-#define NITEMS_ESTIMATE_FROM_LCK_CTR(LCK_CTR_P)   \
-    (LCK_CTR_P->nitems <= 0 ? 1: LCK_CTR_P->nitems)
+/*
+ * To get reasonable estimate of table load for grow/shrink decisions
+ * we limit the number of lock structs that hold (used) item counters.
+ * To simplify, this is also the minimum number of locks.
+ */
+#define NLOCKS_WITH_ITEM_COUNTERS 64
 
-#define NITEMS_ESTIMATE(DB, LCK_CTR, HASH)                              \
-    (IS_DECENTRALIZED_CTRS(DB) ?                                        \
-     (((DB)->nlocks) *                                                  \
-      (LCK_CTR != NULL ?                                                \
-       NITEMS_ESTIMATE_FROM_LCK_CTR(LCK_CTR) :                          \
-       NITEMS_ESTIMATE_FROM_LCK_CTR(GET_LOCK_AND_CTR(DB, HASH)))) :     \
-     erts_flxctr_read_centralized(&(DB)->common.counters,               \
-                                  ERTS_DB_TABLE_NITEMS_COUNTER_ID))
+#define LCK_AUTO_MAX_LOCKS                    8192
+#define LCK_AUTO_MIN_LOCKS                    NLOCKS_WITH_ITEM_COUNTERS
+#define LCK_AUTO_DEFAULT_NUMBER_OF_LOCKS      LCK_AUTO_MIN_LOCKS
+#define LCK_AUTO_MAX_LOCKS_FREQ_READ_RW_LOCKS 128
 
-#define ADD_NITEMS(DB, LCK_CTR, HASH, TO_ADD)                           \
-    do {                                                                \
-        if (IS_DECENTRALIZED_CTRS(DB)) {                                \
-            if (LCK_CTR != NULL) {                                      \
-                LCK_CTR->nitems += TO_ADD;                              \
-            } else {                                                    \
-                GET_LOCK_AND_CTR(DB,HASH)->nitems += TO_ADD;            \
-            }                                                           \
-        }                                                               \
-        erts_flxctr_add(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID, TO_ADD); \
-    } while(0)
-#define INC_NITEMS(DB, LCK_CTR, HASH)                                   \
-    do {                                                                \
-        if (IS_DECENTRALIZED_CTRS(DB)) {                                \
-            if (LCK_CTR != NULL) {                                      \
-                LCK_CTR->nitems++;                                      \
-            } else {                                                    \
-                GET_LOCK_AND_CTR(DB,HASH)->nitems++;                    \
-            }                                                           \
-        }                                                               \
-        erts_flxctr_inc(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID); \
-    } while(0)
-#define DEC_NITEMS(DB, LCK_CTR, HASH)                                   \
-    do {                                                                \
-        if (IS_DECENTRALIZED_CTRS(DB)) {                                \
-            if (LCK_CTR != NULL) {                                      \
-                LCK_CTR->nitems--;                                      \
-            } else {                                                    \
-                GET_LOCK_AND_CTR(DB,HASH)->nitems--;                    \
-            }                                                           \
-        }                                                               \
-        erts_flxctr_dec(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID); \
-    } while(0)
+
+static ERTS_INLINE int
+NITEMS_ESTIMATE(DbTableHash* DB, DbTableHashLockAndCounter* LCK_CTR, HashValue HASH)
+{
+    if (IS_DECENTRALIZED_CTRS(DB)) {
+        Sint nitems = erts_atomic_read_nob(&DB->locks[HASH % NLOCKS_WITH_ITEM_COUNTERS].u.lck_ctr.nitems);
+        return nitems * NLOCKS_WITH_ITEM_COUNTERS;
+    }
+    else {
+        return erts_flxctr_read_centralized(&(DB)->common.counters,
+                                            ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+    }
+}
+
+static ERTS_INLINE void
+ADD_NITEMS(DbTableHash* DB, DbTableHashLockAndCounter* LCK_CTR, HashValue HASH,
+           Sint to_add)
+{
+    if (IS_DECENTRALIZED_CTRS(DB)) {
+        erts_atomic_add_nob(&DB->locks[HASH % NLOCKS_WITH_ITEM_COUNTERS].u.lck_ctr.nitems,
+                            to_add);
+    }
+    erts_flxctr_add(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID,
+                    to_add);
+}
+
+
+static ERTS_INLINE void
+INC_NITEMS(DbTableHash* DB, DbTableHashLockAndCounter* LCK_CTR, HashValue HASH)
+{
+    if (IS_DECENTRALIZED_CTRS(DB)) {
+        erts_atomic_inc_nob(&DB->locks[HASH % NLOCKS_WITH_ITEM_COUNTERS].u.lck_ctr.nitems);
+    }
+    erts_flxctr_inc(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+}
+
+static ERTS_INLINE void
+DEC_NITEMS(DbTableHash* DB, DbTableHashLockAndCounter* LCK_CTR, HashValue HASH)
+{
+    if (IS_DECENTRALIZED_CTRS(DB)) {
+        erts_atomic_dec_nob(&DB->locks[HASH % NLOCKS_WITH_ITEM_COUNTERS].u.lck_ctr.nitems);
+    }
+    erts_flxctr_dec(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+}
+
 #define RESET_NITEMS(DB)                                                \
     erts_flxctr_reset(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 
@@ -276,30 +288,6 @@ static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
 #  define LCK_AUTO_UNCONTENDED_STAT_CONTRIB     -1
 #  define LCK_AUTO_GROW_LIMIT                   1000
 #  define LCK_AUTO_SHRINK_LIMIT                 -10000000
-#  define LCK_AUTO_MAX_LOCKS                    8192
-#  define LCK_AUTO_MIN_LOCKS                    4
-#  define LCK_AUTO_DEFAULT_NUMBER_OF_LOCKS      64
-#  define LCK_AUTO_MAX_LOCKS_FREQ_READ_RW_LOCKS 128
-
-static Sint get_lock_nitems_form_prev_lock_array(int index,
-                                                 int new_number_of_locks,
-                                                 int old_number_of_locks,
-                                                 DbTableHashFineLockSlot* old_locks) {
-    if (new_number_of_locks > old_number_of_locks) {
-        Sint nitems = 0;
-        Sint in_source = old_locks[index % old_number_of_locks].u.lck_ctr.nitems;
-        nitems += in_source / 2;
-        if (index >= old_number_of_locks) {
-            nitems += in_source % 2;
-        }
-        return nitems;
-    } else {
-        Sint in_source_1 = old_locks[index].u.lck_ctr.nitems;
-        Sint in_source_2 = old_locks[index + new_number_of_locks].u.lck_ctr.nitems;
-        return in_source_1 + in_source_2;
-    }
-
-}
 
 static void calc_shrink_limit(DbTableHash* tb);
 
@@ -375,11 +363,13 @@ void erl_db_hash_adapt_number_of_locks(DbTable* tb) {
                                                               (DbTable *) tb,
                                                               sizeof(DbTableHashFineLockSlot) * tbl->nlocks);
         for (i=0; i < tbl->nlocks; i++) {
+            erts_aint_t nitems;
             erts_rwmtx_init_opt(GET_LOCK(tbl, i), &rwmtx_opt,
                                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
             ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(GET_LOCK(tbl,i)));
-            tbl->locks[i].u.lck_ctr.nitems =
-                get_lock_nitems_form_prev_lock_array(i, tbl->nlocks, old_number_of_locks, old_locks);
+            nitems = (i >= NLOCKS_WITH_ITEM_COUNTERS ? 0 :
+                      erts_atomic_read_nob(&old_locks[i].u.lck_ctr.nitems));
+            erts_atomic_init_nob(&tbl->locks[i].u.lck_ctr.nitems, nitems);
             tbl->locks[i].u.lck_ctr.lck_stat = 0;
         }
 /* #define HARD_DEBUG_ITEM_CNT_LOCK_CHANGE 1 */
@@ -1004,25 +994,33 @@ int db_create_hash(Process *p, DbTable *tbl)
     if (!(tb->common.type & DB_FINE_LOCKED)) {
         /*
           The number of locks needs to be set even if fine grained
-          locking is not used as this variable is used when iterating
-          over the table.
+          locking is not used as this variable is used as increment
+          when iterating over the table.
         */
         tb->nlocks = 1;
-    } else if(tb->nlocks == -1) {
-        tb->nlocks = DB_HASH_LOCK_CNT;
+        tb->locks = NULL;
     }
+    else {
+        erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
+        int i;
 
-    if (tb->common.type & DB_FINE_LOCKED) {
-	erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
-	int i;
         if (tb->common.type & DB_FINE_LOCKED_AUTO) {
             tb->nlocks = LCK_AUTO_DEFAULT_NUMBER_OF_LOCKS;
         }
-        /*
-          nlocks needs to be a power of two so we round down to
-          nearest power of two
-        */
-        tb->nlocks = 1 << (erts_fit_in_bits_int64(tb->nlocks)-1);
+        else {
+            if (tb->nlocks < 1) {
+                tb->nlocks = DB_HASH_LOCK_CNT;
+            }
+            /*
+             * nlocks needs to be a power of two so we round down to
+             * nearest power of two
+             */
+            tb->nlocks = 1 << (erts_fit_in_bits_int64(tb->nlocks)-1);
+            if (tb->nlocks < NLOCKS_WITH_ITEM_COUNTERS) {
+                tb->nlocks = NLOCKS_WITH_ITEM_COUNTERS;
+            }
+        }
+
         /*
           The table needs to be at least as big as the number of locks
           so we expand until this properly is satisfied.
@@ -1043,7 +1041,7 @@ int db_create_hash(Process *p, DbTable *tbl)
                 GET_LOCK(tb,i), &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
             ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(GET_LOCK(tb,i)));
-            tb->locks[i].u.lck_ctr.nitems = 0;
+            erts_atomic_init_nob(&tb->locks[i].u.lck_ctr.nitems, 0);
             tb->locks[i].u.lck_ctr.lck_stat = 0;
 	}
         /*
@@ -1057,9 +1055,6 @@ int db_create_hash(Process *p, DbTable *tbl)
         ASSERT(tb->nslots <= (erts_atomic_read_nob(&tb->szm) + 1));
         ASSERT(IS_POW2(tb->nlocks));
         ASSERT(IS_POW2(erts_atomic_read_nob(&tb->szm) + 1));
-    }
-    else { /* coarse locking */
-	tb->locks = NULL;
     }
     ERTS_THR_MEMORY_BARRIER;
     return DB_ERROR_NONE;
@@ -2585,9 +2580,14 @@ static Sint get_nitems_from_locks_or_counter(DbTableHash* tb)
     if (IS_DECENTRALIZED_CTRS(tb)) {
         int i;
         Sint total = 0;
-        for (i=0; i < tb->nlocks; ++i) {
-            total += tb->locks[i].u.lck_ctr.nitems;
+        for (i=0; i < NLOCKS_WITH_ITEM_COUNTERS; ++i) {
+            total += erts_atomic_read_nob(&tb->locks[i].u.lck_ctr.nitems);
         }
+#ifdef DEBUG
+        for ( ; i < tb->nlocks; ++i) {
+            ASSERT(erts_atomic_read_nob(&tb->locks[i].u.lck_ctr.nitems) == 0);
+        }
+#endif
         return total;
     } else {
         return erts_flxctr_read_centralized(&tb->common.counters,
@@ -3290,7 +3290,7 @@ static void calc_shrink_limit(DbTableHash* tb)
         /*   const double d = n*x / (x + n - 1) + 1; */
         /*   printf("Cochran_formula=%f size=%d mod_with_size=%f\n", x, n, d); */
         /* } */
-        const int needed_slots = 100 * tb->nlocks;
+        const int needed_slots = 100 * NLOCKS_WITH_ITEM_COUNTERS;
         if (tb->nslots < needed_slots) {
             sample_size_is_enough = 0;
         }
@@ -4207,7 +4207,7 @@ void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable) {
         return;
     }
 
-    for(i = 0; i < DB_HASH_LOCK_CNT; i++) {
+    for (i = 0; i < tb->nlocks; i++) {
         erts_lcnt_ref_t *ref = &tb->locks[i].u.lck_ctr.lck.lcnt;
 
         if(enable) {
