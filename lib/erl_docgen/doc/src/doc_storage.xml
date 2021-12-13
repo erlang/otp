@@ -34,7 +34,7 @@
     <p><seeguide marker="kernel:eep48_chapter">EEP-48</seeguide>
       defines a common documentation storage format for module documentation in the Erlang/OTP
       ecosystem. Erl_Docgen can generate documentation in this format from XML files following
-      the DTD's descibed in the other User's Guides in this application.</p>
+      the DTD's described in the other User's Guides in this application.</p>
     <p>Some special considerations have to be taken when writing documentation that
       should also be available through EEP-48 style storage.</p>
     <list>

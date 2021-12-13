@@ -164,7 +164,7 @@ collect_localdef(E = #xmlElement{content = Es}, Opts) ->
     {Name,N0,format_type(N0, get_elem(type, Es), Opts)}.
 
 %% "A = t(), B = t()" is coalesced into "A = B = t()".
-%% Names as B above are kept, but the formated string is empty.
+%% Names as B above are kept, but the formatted string is empty.
 coalesce_local_defs([], _Last) ->
     [];
 coalesce_local_defs([{Name,N0,TypeS} | L], Last) when Name =:= N0 ->
