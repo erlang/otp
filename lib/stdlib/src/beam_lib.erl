@@ -1150,11 +1150,12 @@ terminate(_Reason, _State) ->
     ok.
 
 crypto_key_fun_from_file() ->
+    UserConfig = filename:basedir(user_config,"erlang"),
     case init:get_argument(home) of
 	{ok,[[Home]]} ->
-	    crypto_key_fun_from_file_1([".",Home]);
+	    crypto_key_fun_from_file_1([".", Home, UserConfig]);
 	_ ->
-	    crypto_key_fun_from_file_1(["."])
+	    crypto_key_fun_from_file_1([".", UserConfig])
     end.
 
 crypto_key_fun_from_file_1(Path) ->

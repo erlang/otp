@@ -29,6 +29,7 @@
 
 %% Includes
 -include_lib("wx/include/wx.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -include("observer_defs.hrl").
 
@@ -658,14 +659,16 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     wxWindow:setSizerAndFit(Dialog, VSizer),
     wxSizer:setSizeHints(VSizer, Dialog),
     {ok,[[HomeDir]]} = init:get_argument(home),
-    CookiePath = filename:join(HomeDir, ".erlang.cookie"),
-    DefaultCookie = case filelib:is_file(CookiePath) of
-			true ->
-			    {ok, Bin} = file:read_file(CookiePath),
-			    binary_to_list(Bin);
-			false ->
-			    ""
-		    end,
+    XDGHome = filename:basedir(user_config,"erlang"),
+    DefaultCookie =
+        case file:path_open([HomeDir,XDGHome], ".erlang.cookie", [read]) of
+            {ok, File, _} ->
+                {ok, #file_info{ size = Sz }} = file:read_file_info(File),
+                {ok, Data} = file:read(File, Sz),
+                Data;
+            _ ->
+                ""
+        end,
     wxTextCtrl:setValue(CookieCtrl, DefaultCookie),
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->

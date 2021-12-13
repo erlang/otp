@@ -461,10 +461,12 @@ $ <input>erl \
         <p>Makes the Erlang runtime system into a distributed node.
           This flag invokes all network servers necessary for a node to
           become distributed; see <seeerl marker="kernel:net_kernel">
-          <c>net_kernel(3)</c></seeerl>. It is also ensured that
+          <c>net_kernel(3)</c></seeerl>. It also ensures that
           <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
-          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom> and the
-          <seecom marker="#start_epmd"><c>-start_epmd</c></seecom> option.</p>
+          started (see <seecom marker="epmd"><c>epmd(1)</c></seecom> and the
+          <seecom marker="#start_epmd"><c>-start_epmd</c></seecom> option) and
+          that a magic cookie has been set
+          (see <seecom marker="#setcookie">-setcookie</seecom>).</p>
         <p>The node name will be <c><![CDATA[Name@Host]]></c>, where
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
           current host. For short names, use flag <c><![CDATA[-sname]]></c>
@@ -626,11 +628,14 @@ $ <input>erl \
           passed as atoms. See <seeerl marker="init">
           <c>init(3)</c></seeerl>.</p>
       </item>
-      <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
+      <tag><marker id="setcookie"/><c><![CDATA[-setcookie Cookie]]></c></tag>
       <item>
         <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>; see
-          <seemfa marker="erlang#set_cookie/2">
-          <c>erlang:set_cookie/2</c></seemfa>.</p>
+          <seemfa marker="erlang#set_cookie/1"><c>erlang:set_cookie/1</c></seemfa>.
+          See see section
+          <seeguide marker="system/reference_manual:distributed">Distributed Erlang</seeguide>
+          in the Erlang Reference Manual for more details.
+        </p>
       </item>
       <tag><c><![CDATA[-setcookie Node Cookie]]></c></tag>
       <item>
@@ -1891,14 +1896,17 @@ $ <input>erl \
       <tag>The <c>.erlang</c> startup file</tag>
       <item>
         <p>When Erlang/OTP is started, the system searches for a file named
-        <c>.erlang</c> in the user&apos;s home directory.</p>
+          <c>.erlang</c> in the <seeerl marker="erts:init#home">
+          user&apos;s home directory</seeerl> and then
+          <seeerl marker="stdlib:filename#user_config">
+            <c>filename:basedir(user_config, "erlang")</c></seeerl>.</p>
         <p>If an <c>.erlang</c> file is found, it is assumed to contain valid
           Erlang expressions. These expressions are evaluated as if they were
           input to the shell.</p>
         <p>A typical <c>.erlang</c> file contains a set of search paths, for
           example:</p>
     <code type="none"><![CDATA[
-io:format("executing user profile in HOME/.erlang\n",[]).
+io:format("executing user profile in $HOME/.erlang\n",[]).
 code:add_path("/home/calvin/test/ebin").
 code:add_path("/home/hobbes/bigappl-1.2/ebin").
 io:format(".erlang rc finished\n",[]).    ]]></code>

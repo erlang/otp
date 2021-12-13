@@ -231,14 +231,19 @@ validate_link(Filename, "seemfa", Line, Link, CachedFiles) ->
                     try list_to_integer(Arity) of
                         _ ->
                             MF = App ++ ":" ++ Mod ++ "#" ++ Func,
-                            Funcs = maps:get(funcs,maps:get({App,Mod},CachedFiles)),
-                            case lists:member({Func,Arity},Funcs) of
-                                true ->
-                                    validate_type(Line, "seemfa",
-                                                  read_link(Line, ParsedLink, CachedFiles));
-                                false ->
-                                    fail(Line, "Could not find documentation for ~s when "
-                                         "resolving link",[MF  ++ "/" ++ Arity])
+                            case maps:find({App,Mod},CachedFiles) of
+                                error ->
+                                    fail(Line, "Could not find ~ts in ~ts", [Mod, App]);
+                                {ok, ModInfo} ->
+                                    Funcs = maps:get(funcs,ModInfo),
+                                    case lists:member({Func,Arity},Funcs) of
+                                        true ->
+                                            validate_type(Line, "seemfa",
+                                                          read_link(Line, ParsedLink, CachedFiles));
+                                        false ->
+                                            fail(Line, "Could not find documentation for ~s when "
+                                                 "resolving link",[MF  ++ "/" ++ Arity])
+                                    end
                             end
                     catch _:_ ->
                             fail(Line, "Invalid arity for seemfa. "

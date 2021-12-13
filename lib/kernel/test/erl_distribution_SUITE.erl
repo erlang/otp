@@ -21,6 +21,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/dist.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -51,7 +53,8 @@
          erl_uds_dist_smoke_test/1,
          erl_1424/1, differing_cookies/1,
          cmdline_setcookie_2/1, connection_cookie/1,
-         dyn_differing_cookies/1]).
+         dyn_differing_cookies/1,
+         xdg_cookie/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -116,7 +119,8 @@ groups() ->
       [differing_cookies,
        cmdline_setcookie_2,
        connection_cookie,
-       dyn_differing_cookies]}].
+       dyn_differing_cookies,
+       xdg_cookie]}].
 
 init_per_suite(Config) ->
     start_gen_tcp_dist_test_type_server(),
@@ -2303,6 +2307,56 @@ dyn_differing_cookies(MotherNode, _Args) ->
         Other ->
             error({unexpected, Other})
     end.
+
+xdg_cookie(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    TestHome = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(TestHome),
+
+    HomeEnv = case os:type() of
+              {win32, _} ->
+                  [Drive | Path] = filename:split(TestHome),
+                  [{"APPDATA", filename:join(TestHome,"AppData")},
+                   {"HOMEDRIVE", Drive}, {"HOMEPATH", Path}];
+              _ ->
+                  [{"HOME", TestHome}]
+          end,
+
+    NodeOpts = #{ env => HomeEnv ++
+                      [{"ERL_CRASH_DUMP", filename:join([TestHome,"erl_crash.dump"])}],
+                  connection => 0 },
+
+    %% Test that a default .erlang.cookie file is created
+    {ok, CreatorPeer, _} = peer:start_link(NodeOpts#{ name => peer:random_name(?FUNCTION_NAME) }),
+    UserConfig = peer:call(CreatorPeer, filename, basedir, [user_config,"erlang"]),
+    ?assert(peer:call(CreatorPeer, filelib, is_regular,
+                      [filename:join(TestHome, ".erlang.cookie")])),
+    OrigCookie = peer:call(CreatorPeer, erlang, get_cookie, []),
+    peer:stop(CreatorPeer),
+
+    %% Test that the $HOME/.erlang.cookie file takes precedence over XDG
+    XDGCookie = filename:join([UserConfig, ".erlang.cookie"]),
+    ok = filelib:ensure_dir(XDGCookie),
+    ok = file:write_file(XDGCookie, "Me want cookie!"),
+    {ok, XDGFI} = file:read_file_info(XDGCookie),
+    ok = file:write_file_info(XDGCookie, XDGFI#file_info{ mode = 8#600 }),
+
+    {ok, Peer, _} = peer:start_link(NodeOpts#{ name => peer:random_name(?FUNCTION_NAME) }),
+
+    ?assertEqual(OrigCookie, peer:call(Peer, erlang, get_cookie, [])),
+
+    peer:stop(Peer),
+
+    %% Check that XDG cookie works after we delete the $HOME cookie
+    ok = file:delete(filename:join(TestHome, ".erlang.cookie")),
+    {ok, Peer2, _} = peer:start_link(NodeOpts#{ name => peer:random_name(?FUNCTION_NAME) }),
+    ?assertEqual('Me want cookie!', peer:call(Peer2, erlang, get_cookie, [])),
+
+    peer:stop(Peer2),
+
+    ok.
+
 
 
 %% Misc. functions
