@@ -129,7 +129,7 @@
       <fsummary>Join a process or a list of processes to a group.</fsummary>
       <desc>
         <p>Joins single process or multiple processes to the
-          group <c>Name</c>. A process can join a group many times and
+          group <c>Group</c>. A process can join a group many times and
           must then leave the group the same number of times.</p>
         <p><c>PidOrPids</c> may contain the same process multiple times.</p>
       </desc>
@@ -140,7 +140,7 @@
       <name name="leave" arity="3" since="OTP 23.0"/>
       <fsummary>Make a process leave a group.</fsummary>
       <desc>
-        <p>Makes the process <c>PidOrPids</c> leave the group <c>Name</c>.
+        <p>Makes the process <c>PidOrPids</c> leave the group <c>Group</c>.
 	  If the process is not a member of the group, <c>not_joined</c> is
 	  returned.</p>
         <p>When list of processes is passed as <c>PidOrPids</c>, function
@@ -155,7 +155,7 @@
       <fsummary>Return all local processes in a group.</fsummary>
       <desc>
         <p>Returns all processes running on the local node in the
-          group <c>Name</c>. Processes are returned in no specific order.
+          group <c>Group</c>. Processes are returned in no specific order.
           This function is optimised for speed.
         </p>
       </desc>
@@ -166,7 +166,7 @@
       <name name="get_members" arity="2" since="OTP 23.0"/>
       <fsummary>Return all processes in a group.</fsummary>
       <desc>
-        <p>Returns all processes in the group <c>Name</c>.
+        <p>Returns all processes in the group <c>Group</c>.
           Processes are returned in no specific order.
           This function is optimised for speed.</p>
       </desc>
