@@ -45,6 +45,8 @@
 	 t_local_abstract/1, t_accept_inet6_tclass/1,
 	 s_accept_with_explicit_socket_backend/1,
 
+         t_simple_local_sockaddr_in_send_recv/1,
+         t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1
 	]).
@@ -143,6 +145,8 @@ t_misc_cases() ->
      t_fdconnect,
      t_implicit_inet6,
      t_accept_inet6_tclass,
+     t_simple_local_sockaddr_in_send_recv,
+     t_simple_link_local_sockaddr_in_send_recv,
      t_simple_local_sockaddr_in6_send_recv,
      t_simple_link_local_sockaddr_in6_send_recv
     ].
@@ -1118,7 +1122,10 @@ t_simple_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
             fun() ->
                     Domain = inet6,
                     {ok, LocalAddr} = ?LIB:which_local_addr(Domain),
-                    do_simple_sockaddr_send_recv(Domain, 0, LocalAddr, Config)
+                    SockAddr = #{family   => Domain,
+                                 addr     => LocalAddr,
+                                 port     => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
             end).
 
 
@@ -1130,30 +1137,74 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
             end,
             fun() ->
                     Domain = inet6,
-                    {ok, LinkLocalAddr} = ?LIB:which_link_local_addr(Domain),
-                    {ok, [#{addr := #{scope_id := ScopeID}}|_]} =
-                        net:getifaddrs(fun(#{addr := #{family := D,
-                                                       addr   := A}}) ->
-                                               (D =:= Domain) andalso
-                                                   (A =:= LinkLocalAddr);
-                                          (_) ->
-                                               false
-                                       end),
-                    do_simple_sockaddr_send_recv(Domain, ScopeID,
-                                                 LinkLocalAddr, Config)
+                    LinkLocalAddr =
+                        case ?LIB:which_link_local_addr(Domain) of
+                            {ok, LLA} ->
+                                LLA;
+                            {error, _} ->
+                                skip("No link local address")
+                        end,
+                    Filter =
+                        fun(#{addr := #{family := D,
+                                        addr   := A}}) ->
+                                (D =:= Domain) andalso (A =:= LinkLocalAddr);
+                           (_) ->
+                                false
+                        end,
+                    case net:getifaddrs(Filter) of
+                        {ok, [#{addr := #{scope_id := ScopeID}}|_]} ->
+                            SockAddr = #{family   => Domain,
+                                         addr     => LinkLocalAddr,
+                                         port     => 0,
+                                         scope_id => ScopeID},
+                            do_simple_sockaddr_send_recv(SockAddr, Config);
+                        {ok, _} ->
+                            skip("Scope ID not found");
+                        {error, R} ->
+                            skip({failed_getifaddrs, R})
+                    end
             end).
 
 
-do_simple_sockaddr_send_recv(Domain, ScopeID, Addr, _) ->
+%% Here we use socket:sockaddr_in() when creating and using the
+%% socket(s).
+%%
+t_simple_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    Domain = inet,
+                    {ok, LocalAddr} = ?LIB:which_local_addr(Domain),
+                    SockAddr = #{family   => Domain,
+                                 addr     => LocalAddr,
+                                 port     => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
+            end).
+
+
+t_simple_link_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    Domain = inet,
+                    LinkLocalAddr =
+                        case ?LIB:which_link_local_addr(Domain) of
+                            {ok, LLA} ->
+                                LLA;
+                            {error, _} ->
+                                skip("No link local address")
+                        end,
+                    SockAddr = #{family => Domain,
+                                 addr   => LinkLocalAddr,
+                                 port   => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
+            end).
+
+
+do_simple_sockaddr_send_recv(SockAddr, _) ->
     %% Create the server
     Self   = self(),
-    ?P("~n      Domain:  ~p"
-       "~n      Address: ~p"
-       "~n      ScopeID: ~p", [Domain, Addr, ScopeID]),
-    SockAddr = #{family   => Domain,
-                 addr     => Addr,
-                 port     => 0,
-                 scope_id => ScopeID},
+    ?P("~n      SockAddr: ~p", [SockAddr]),
     ServerF = fun() ->
                       ?P("try create listen socket"),
                       LSock =
