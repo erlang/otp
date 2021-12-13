@@ -1898,6 +1898,11 @@ type_value_2(addr, {inet,{{A,B,C,D},Port}})
 type_value_2(addr, {inet6,{{A,B,C,D,E,F,G,H},Port}})
   when ?ip6(A,B,C,D,E,F,G,H) ->
     type_value_2(uint16, Port);
+type_value_2(addr, #{family := inet,
+                     addr   := {A,B,C,D},
+                     port   := Port})
+  when ?ip(A,B,C,D) ->
+    type_value_2(uint16, Port);
 type_value_2(addr, #{family := inet6,
                      addr   := {A,B,C,D,E,F,G,H},
                      port   := Port})
@@ -2040,6 +2045,10 @@ enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 4 ->
     [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
 enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 8 ->
     [?INET_AF_INET6,?int16(Port),ip6_to_bytes(IP),?int32(0),?int32(0)];
+enc_value_2(addr, #{family   := inet,
+                    addr     := IP,
+                    port     := Port}) when (tuple_size(IP) =:= 4) ->
+    [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
 enc_value_2(addr, #{family   := inet6,
                     addr     := IP,
                     port     := Port,
