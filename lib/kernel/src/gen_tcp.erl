@@ -147,7 +147,7 @@
 %%
 
 -spec connect(SockAddr, Options) -> {ok, Socket} | {error, Reason} when
-      SockAddr :: socket:sockaddr_in6(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
       Options  :: [connect_option()],
       Socket   :: socket(),
       Reason   :: inet:posix().
@@ -175,7 +175,8 @@ connect(Address, Port, Opts)
        (Address =:= any) orelse
        (Address =:= loopback) ->
     connect(Address, Port, Opts, infinity);
-connect(#{family := inet6} = SockAddr0, Opts0, Timeout) ->
+connect(#{family := Fam} = SockAddr0, Opts0, Timeout)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) ->
     %% Ensure that its a proper sockaddr_in6, with all fields
     SockAddr = inet:ensure_sockaddr(SockAddr0),
     case inet:gen_tcp_module(Opts0) of
