@@ -42,7 +42,7 @@
 %% and the resulting text easier to read. The wiki notation should be a
 %% small bag of easy-to-remember tricks for making XHTML documentation
 %% easier to write, not a complete markup language in itself. As a
-%% typical example, it is hardly worthwile to introduce a special
+%% typical example, it is hardly worthwhile to introduce a special
 %% notation like say, ""..."" for emphasized text, since <em>...</em> is
 %% not much harder to write, not any less readable, and no more
 %% difficult to remember, especially since emphasis is not very often
