@@ -44,7 +44,7 @@ sub([], _Pat, _Fn, _Sha, _Cnt) ->
 sub([H|T], Pat, Fn, Sha, Cnt) ->
     %% We use the maint branch here, it is not as exact as the tag,
     %% but it is the best we can do as github does not allow doing
-    %% pullrequests on anything but branches.
+    %% pull requests on anything but branches.
     [re:replace(H,["<",Pat,">"],
                     ["<",Pat," ghlink=\"maint/",Fn,"#L",
                      integer_to_list(Cnt),"\">"],[{return,list}]) |

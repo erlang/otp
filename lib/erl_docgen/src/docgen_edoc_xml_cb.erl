@@ -185,7 +185,7 @@ chapter_title(#xmlElement{content=Es}) -> % name = h3 | h4
 %%   Es1 = Es2 = [#xmlElement{} | #xmlText{}]
 %% Fix things that are allowed in XHTML but not in chapter/erlref DTDs.
 %% 1)  lists (<ul>, <ol>, <dl>) and code snippets (<pre>) cannot occur
-%%     within a <p>, such a <p> must be splitted into a sequence of <p>,
+%%     within a <p>, such a <p> must be split into a sequence of <p>,
 %%     <ul>, <ol>, <dl> and <pre>.
 %% 2)  <a> must only have either a href attribute (corresponds to a
 %%     <seealso> or <url> in the XML code) in which case its content
@@ -282,7 +282,7 @@ otp_xmlify_es([E | Es]) ->
 		    otp_xmlify_e(E) ++ otp_xmlify_es(Es);
 
 		%% paragraph contained dl, ul and/or pre and has been
-		%% splitted
+		%% split
 		SubEs ->
 		    lists:flatmap(fun otp_xmlify_e/1, SubEs) ++
 			otp_xmlify_es(Es)
@@ -452,7 +452,7 @@ otp_xmlify_e(E) ->
 %%--Tags with special handling------------------------------------------
 
 %% otp_xmlify_a(A1) -> [A2]
-%% Takes an <a> element and filters the attributes to decide wheather
+%% Takes an <a> element and filters the attributes to decide whether
 %% its a seealso/url or a marker.
 %% In the case of a seealso/url, the href part is checked, making
 %% sure a .xml/.html file extension is removed.
