@@ -64,8 +64,6 @@ MODULES = \
 	dialyzer_gui_wx \
 	dialyzer_options \
 	dialyzer_plt \
-	dialyzer_race_data_server \
-	dialyzer_races \
 	dialyzer_succ_typings \
 	dialyzer_timing \
 	dialyzer_typesig \
