@@ -5211,7 +5211,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    Eterm* hp;
 
 	    db_calc_stats_hash(&tb->hash, &stats);
-	    hp = HAlloc(p, 1 + 7 + FLOAT_SIZE_OBJECT*3);
+	    hp = HAlloc(p, 1 + 8 + FLOAT_SIZE_OBJECT*3);
 	    f.fd = stats.avg_chain_len;
 	    avg = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -5226,11 +5226,12 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE7(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
+	    ret = TUPLE8(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(stats.kept_items));
+			 make_small(stats.kept_items),
+                         make_small(tb->hash.nlocks));
 	}
 	else if (IS_CATREE_TABLE(tb->common.status)) {
             DbCATreeStats stats;
