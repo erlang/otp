@@ -294,21 +294,69 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="connect" arity="3" since=""/>
-      <name name="connect" arity="4" since=""/>
+      <name name="connect" arity="2" clause_i="1" since="OTP @OTP-17455@" anchor="connect-sockaddr2"/>
+      <name name="connect" arity="3" clause_i="2" since="OTP @OTP-17455@" anchor="connect-sockaddr3"/>
+      <fsummary>Connect to a TCP port.</fsummary>
+      <desc>
+	<p>Connects to a server according to <c><anno>SockAddr</anno></c>.
+	This is primarily intended for link local IPv6 addresses
+	(which require the scope-id),
+	<seetype marker="socket#sockaddr_in6"><c>socket:sockaddr_in6()</c></seetype>.
+	But for completeness, we also support IPv4,
+	<seetype marker="socket#sockaddr_in"><c>socket:sockaddr_in()</c></seetype>.
+	</p>
+
+	<p>The
+	<seeerl marker="#connect-options"><c>options</c></seeerl>
+	available are the same as for
+	<seeerl marker="#connect-port3"><c>connect/3,4</c></seeerl>.</p>
+
+	<note>
+	  <p>Keep in mind that if the underlying OS <c>connect()</c> call returns
+	  a timeout, <c>gen_tcp:connect</c> will also return a timeout
+	  (i.e. <c>{error, etimedout}</c>), even if a larger <c>Timeout</c> was
+	  specified.</p>
+	</note>
+	<note>
+	  <p>The default values for options specified to <c>connect</c> can
+	  be affected by the Kernel configuration parameter
+	  <c>inet_default_connect_options</c>. For details, see
+	  <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="3" clause_i="1" since="" anchor="connect-port3"/>
+      <name name="connect" arity="4" clause_i="1" since="" anchor="connect-port4"/>
       <fsummary>Connect to a TCP port.</fsummary>
       <desc>
         <p>Connects to a server on TCP port <c><anno>Port</anno></c> on the host
-          with IP address <c><anno>Address</anno></c>. Argument
-          <c><anno>Address</anno></c> can be a hostname or an IP address.</p>
-        <p>The following options are available:</p>
+	with IP address <c><anno>Address</anno></c>. Argument
+	<c><anno>Address</anno></c> can be a hostname or an IP address.</p>
+
+	<marker id="connect-options"></marker>
+	<p>The following options are available:</p>
         <taglist>
           <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to use.</p></item>
           <tag><c>{ifaddr, Address}</c></tag>
-          <item><p>Same as <c>{ip, Address}</c>. If the host has many
-            network interfaces, this option specifies which one to use.</p>
+	  <item>
+	    <p>Same as <c>{ip, Address}</c>. If the host has many
+	    network interfaces, this option specifies which one to use.</p>
+	    <p>However, if this instead is an
+	    <seetype marker="socket#sockaddr_in">
+	    <c>socket:sockaddr_in()</c></seetype>
+	    or
+	    <seetype marker="socket#sockaddr_in6">
+	    <c>socket:sockaddr_in6()</c></seetype>
+	    this takes precedence over any value previously set with the
+	    <c>ip</c> and <c>port</c> options.
+	    If these options (<c>ip</c> or/and <c>port</c>) however comes
+	    <em>after</em> this option, they may be used to <em>update</em>
+	    their corresponding fields of this options (for <c>ip</c>,
+	    the <c>addr</c> field, and for <c>port</c>, the <c>port</c> field). </p>
           </item>
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item><p>If a socket has somehow been connected without using
@@ -416,37 +464,58 @@ do_recv(Sock, Bs) ->
         <p>The following options are available:</p>
         <taglist>
           <tag><c>list</c></tag>
-          <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
-          <tag><c>binary</c></tag>
+	  <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
+
+	  <tag><c>binary</c></tag>
           <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
-          <tag><c>{backlog, B}</c></tag>
-          <item><p><c>B</c> is an integer &gt;= <c>0</c>. The backlog value
+
+	  <tag><c>{backlog, B}</c></tag>
+	  <item><p><c>B</c> is an integer &gt;= <c>0</c>. The backlog value
             defines the maximum length that the queue of pending connections
             can grow to. Defaults to <c>5</c>.</p></item>
-          <tag><c>{ip, Address}</c></tag>
-          <item><p>If the host has many network interfaces, this option
-            specifies which one to listen on.</p></item>
-          <tag><c>{port, Port}</c></tag>
-          <item><p>Specifies which local port number to use.</p></item>
-          <tag><c>{fd, Fd}</c></tag>
-          <item><p>If a socket has somehow been connected without using
-            <c>gen_tcp</c>, use this option to pass the file
-            descriptor for it.</p></item>
-          <tag><c>{ifaddr, Address}</c></tag>
-          <item><p>Same as <c>{ip, Address}</c>. If the host has many
-            network interfaces, this option specifies which one to use.</p>
-          </item>
+
           <tag><c>inet6</c></tag>
           <item><p>Sets up the socket for IPv6.</p></item>
           <tag><c>inet</c></tag>
           <item><p>Sets up the socket for IPv4.</p></item>
-          <tag><c>{tcp_module, module()}</c></tag>
+
+	  <tag><c>{fd, Fd}</c></tag>
+          <item><p>If a socket has somehow been connected without using
+            <c>gen_tcp</c>, use this option to pass the file
+            descriptor for it.</p></item>
+	  <tag><c>{ip, Address}</c></tag>
+	  <item>
+	    <p>If the host has many network interfaces, this option
+	    specifies which one to listen on.</p>
+	  </item>
+          <tag><c>{port, Port}</c></tag>
+          <item><p>Specifies which local port number to use.</p></item>
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+            network interfaces, this option specifies which one to use.</p>
+	    <p>However, if this instead is an
+	    <seetype marker="socket#sockaddr_in">
+	    <c>socket:sockaddr_in()</c></seetype>
+	    or
+	    <seetype marker="socket#sockaddr_in6">
+	    <c>socket:sockaddr_in6()</c></seetype>
+	    this takes precedence over any value previously set with the
+	    <c>ip</c> and <c>port</c> options.
+	    If these options (<c>ip</c> or/and <c>port</c>) however comes
+	    <em>after</em> this option, they may be used to <em>update</em>
+	    their corresponding fields of this options (for <c>ip</c>,
+	    the <c>addr</c> field, and for <c>port</c>, the <c>port</c> field). </p>
+          </item>
+
+	  <tag><c>{tcp_module, module()}</c></tag>
           <item><p>Overrides which callback module is used. Defaults to
             <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.</p></item>
           <tag><c>Opt</c></tag>
-          <item><p>See
-            <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.
-            </p></item>
+	  <item>
+	    <p>See
+	    <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.
+	    </p>
+	  </item>
         </taglist>
         <p>The returned socket <c><anno>ListenSocket</anno></c> should be used
           in calls to <seemfa marker="#accept/1"><c>accept/1,2</c></seemfa> to

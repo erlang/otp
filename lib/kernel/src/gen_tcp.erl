@@ -114,20 +114,22 @@
         pktoptions |
 	ipv6_v6only.
 -type connect_option() ::
-        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:socket_address()} |
         inet:address_family() |
+        {ifaddr, socket:sockaddr_in() | socket:sockaddr_in6() |
+                 inet:socket_address()} |
+        {ip, inet:socket_address()} |
         {port, inet:port_number()} |
         {tcp_module, module()} |
         {netns, file:filename_all()} |
         {bind_to_device, binary()} |
         option().
 -type listen_option() ::
-        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:socket_address()} |
         inet:address_family() |
+        {ifaddr, socket:sockaddr_in() | socket:sockaddr_in6() |
+                 inet:socket_address()} |
+        {ip, inet:socket_address()} |
         {port, inet:port_number()} |
         {backlog, B :: non_neg_integer()} |
         {tcp_module, module()} |
@@ -142,13 +144,14 @@
 
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
+
 %%
 %% Connect a socket
 %%
 
--spec connect(SockAddr, Options) -> {ok, Socket} | {error, Reason} when
+-spec connect(SockAddr, Opts) -> {ok, Socket} | {error, Reason} when
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Options  :: [connect_option()],
+      Opts     :: [inet:inet_backend() | connect_option()],
       Socket   :: socket(),
       Reason   :: inet:posix().
 
@@ -162,7 +165,7 @@ connect(SockAddr, Opts) ->
       Socket   :: socket(),
       Reason   :: inet:posix();
              (SockAddr, Opts, Timeout) -> {ok, Socket} | {error, Reason} when
-      SockAddr :: socket:sockaddr_in6(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
       Opts     :: [inet:inet_backend() | connect_option()],
       Timeout  :: timeout(),
       Socket   :: socket(),
@@ -175,14 +178,14 @@ connect(Address, Port, Opts)
        (Address =:= any) orelse
        (Address =:= loopback) ->
     connect(Address, Port, Opts, infinity);
-connect(#{family := Fam} = SockAddr0, Opts0, Timeout)
+connect(#{family := Fam} = SockAddr, Opts, Timeout)
   when ((Fam =:= inet) orelse (Fam =:= inet6)) ->
     %% Ensure that its a proper sockaddr_in6, with all fields
-    SockAddr = inet:ensure_sockaddr(SockAddr0),
-    case inet:gen_tcp_module(Opts0) of
-        {?MODULE, Opts} ->
+    SockAddr2 = inet:ensure_sockaddr(SockAddr),
+    case inet:gen_tcp_module(Opts) of
+        {?MODULE, Opts2} ->
             Timer = inet:start_timer(Timeout),
-            Res = (catch connect2(SockAddr, Opts, Timer)),
+            Res = (catch connect2(SockAddr2, Opts2, Timer)),
             _ = inet:stop_timer(Timer),
             case Res of
                 {ok, S}          -> {ok,S};
@@ -191,7 +194,7 @@ connect(#{family := Fam} = SockAddr0, Opts0, Timeout)
                 Error            -> Error
             end;
         {GenTcpMod, Opts} ->
-            GenTcpMod:connect(SockAddr, Opts, Timeout)
+            GenTcpMod:connect(SockAddr2, Opts, Timeout)
     end.
 
 
