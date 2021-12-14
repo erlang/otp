@@ -584,8 +584,18 @@ send(S, Data) ->
 %% "sendto" is for UDP. IP and Port are set by the caller to 0 if the socket
 %% is known to be connected.
 
+sendto(S, SockAddr, AncOpts, Data)
+  when is_port(S), is_map(SockAddr), is_list(AncOpts) ->
+    do_sendto(S, SockAddr, AncOpts, Data);
 sendto(S, {_, _} = Address, AncOpts, Data)
   when is_port(S), is_list(AncOpts) ->
+    do_sendto(S, Address, AncOpts, Data);
+sendto(S, IP, Port, Data)
+  when is_port(S), is_integer(Port) ->
+    sendto(S, {IP, Port}, [], Data).
+
+
+do_sendto(S, Address, AncOpts, Data) ->
     case encode_opt_val(AncOpts) of
         {ok, AncData} ->
             AncDataLen = iolist_size(AncData),
@@ -623,10 +633,8 @@ sendto(S, {_, _} = Address, AncOpts, Data)
             ?DBG_FORMAT(
                "prim_inet:sendto() -> {error,einval}~n", []),
             {error,einval}
-    end;                        
-sendto(S, IP, Port, Data)
-  when is_port(S), is_integer(Port) ->
-    sendto(S, {IP, Port}, [], Data).
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
