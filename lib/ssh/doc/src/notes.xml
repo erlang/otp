@@ -30,6 +30,43 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The value of the <c>connect_timeout</c> option is now
+	    used as default value for the negotiation timeout.</p>
+          <p>
+	    Own Id: OTP-17707 Aux Id: ERIERL-706 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add better error handling in connect/2,3,4. Detect
+	    incorrect arguments and return an informative error tuple
+	    instead of throwing a function_clause or similar.</p>
+          <p>
+	    Own Id: OTP-17515 Aux Id: ERIERL-648 </p>
+        </item>
+        <item>
+          <p>
+	    Make ssh algorithm selection better handle dynamic
+	    changes changes in crypto fips mode.</p>
+          <p>
+	    Own Id: OTP-17795</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.12.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

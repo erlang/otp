@@ -31,6 +31,109 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed the C-warning "implicit declaration of function
+	    'OpenSSL_version_num'" if compiling with an early
+	    LibreSSL version.</p>
+          <p>
+	    Own Id: OTP-17637</p>
+        </item>
+        <item>
+          <p>
+	    FIPS availability was not checked correctly for AEAD
+	    ciphers.</p>
+          <p>
+	    Own Id: OTP-17740</p>
+        </item>
+        <item>
+          <p>
+	    Fixed that cipher aliases (like aes_cbc etc) could be
+	    present even if the aliased cipher(s) (like aes_128_cbc,
+	    aes_256_cbc,... etc) was missing.</p>
+          <p>
+	    Own Id: OTP-17741</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The crypto app in OTP can now be compiled, linked and
+	    used with the new OpenSSL 3.0 cryptolib.</p>
+          <p>
+	    It has not yet been extensively tested and is in this
+	    release <em>*not recommended*</em> for other usages than
+	    experiments and alpha testing. There are not yet any
+	    guaranties that it works, not even together with other
+	    OTP applications like for example SSL and SSH, although
+	    there are no known errors.</p>
+          <p>
+	    Compiling and linking with OpenSSL 3.0 cryptolib in
+	    compatibility modes (for example to behave as 1.1.1) are
+	    not tested. It is not tested with external providers.</p>
+          <p>
+	    The support for FIPS mode does not yet work, and is
+	    disabled when compiled with OpenSSL 3.0.</p>
+          <p>
+	    Deprecated functions in the OpenSSL 3.0 cryptolib must
+	    not be disabled as OTP/crypto still uses some of the
+	    deprecated API functions. The gcc flag
+	    <c>-Wno-deprecated-declarations</c> is set to prevent
+	    deprecation warnings to be printed when compiling.</p>
+          <p>
+	    The hash algorithms <c>md4</c> and <c>ripemd160</c> are
+	    disabled temporarily when compiled with OpenSSL 3.0.</p>
+          <p>
+	    The ciphers <c>blowfish_cbc</c>, <c>blowfish_cfb64</c>,
+	    <c>blowfish_ecb</c>, <c>blowfish_ofb64</c>,
+	    <c>des_cbc</c>, <c>des_cfb</c>, <c>des_ecb</c>,
+	    <c>rc2_cbc</c> and <c>rc4</c> are disabled temporarily
+	    when compiled with OpenSSL 3.0.</p>
+          <p>
+	    Own Id: OTP-16646 Aux Id: OTP-16282 </p>
+        </item>
+        <item>
+          <p>
+	    The error handling in crypto is partly refactored using
+	    the new error reporting support. Errors earlier
+	    propagated like exceptions are still so, but when the
+	    failing function is called from the terminal - for
+	    example during failure hunting - a more descriptive text
+	    is produced.</p>
+          <p>
+	    Own Id: OTP-17241</p>
+        </item>
+        <item>
+          <p>
+	    A new function <c>crypto:info/0</c> which presents some
+	    data about the compilation and linkage of the crypto nif
+	    is added.</p>
+          <p>
+	    Own Id: OTP-17603</p>
+        </item>
+        <item>
+          <p>
+	    Added the <c>pbkdf2_hmac/5</c> function to the crypto
+	    module.</p>
+          <p>
+	    It calls the <c>PKCS5_PBKDF2_HMAC</c> function which
+	    implements PBKD2 with HMAC in an efficient way.</p>
+          <p>
+	    Own Id: OTP-17808 Aux Id: PR-5421 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

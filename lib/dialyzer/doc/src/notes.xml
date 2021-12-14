@@ -32,6 +32,30 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a crash when opaque types contained certain
+	    unicode characters.</p>
+          <p>
+	    Own Id: OTP-17643 Aux Id: GH-5210 </p>
+        </item>
+        <item>
+	    <p>When the compiler is invoked by Dialyzer, it will no
+	    longer apply an optimization of binary patterns that
+	    would turn the pattern <c>&lt;&lt;"bar"&gt;&gt;</c> into
+	    <c>&lt;&lt;6447474:24&gt;&gt;</c>, which would be very
+	    confusing when printed out by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-17768 Aux Id: GH-5429 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

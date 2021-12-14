@@ -33,6 +33,30 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.22</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Before this change, group handling grammar was ambiguous
+	    and also group paths did not support test specs.</p>
+          <p>
+	    Own Id: OTP-17664 Aux Id: GH-5088, PR-5242 </p>
+        </item>
+        <item>
+          <p>
+	    Before this change, it was not possible to link to a
+	    particular header entry in Common Test log. Change adds
+	    right aligned anchor icons in HTML test logs.</p>
+          <p>
+	    Own Id: OTP-17790 Aux Id: PR-5375 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.21</title>
 
     <section><title>Improvements and New Features</title>

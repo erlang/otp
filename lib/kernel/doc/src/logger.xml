@@ -1190,7 +1190,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
     </func>
 
     <func>
-      <name name="reconfigure" arity="0" since="OTP @OTP-17375@"/>
+      <name name="reconfigure" arity="0" since="OTP 24.2"/>
       <fsummary>Reconfigure Logger.</fsummary>
       <desc>
         <p>Reconfigure Logger using updated <c>kernel</c> configuration

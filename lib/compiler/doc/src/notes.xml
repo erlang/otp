@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When the compiler is invoked by Dialyzer, it will no
+	    longer apply an optimization of binary patterns that
+	    would turn the pattern <c>&lt;&lt;"bar"&gt;&gt;</c> into
+	    <c>&lt;&lt;6447474:24&gt;&gt;</c>, which would be very
+	    confusing when printed out by Dialyzer.</p>
+          <p>
+	    Own Id: OTP-17768 Aux Id: GH-5429 </p>
+        </item>
+        <item>
+	    <p>The compiler would replace known failing calls (such
+	    as <c>atom_to_list(42)</c>) with a call to
+	    <c>error(badarg)</c>. With the extended error information
+	    introduced in OTP 24 (EEP 54), those "optimized" calls
+	    would not have extended error information. To ensure that
+	    as much extended error information as possible is
+	    available, the compiler now keeps the original call even
+	    when it is known to fail.</p>
+          <p>
+	    Own Id: OTP-17786 Aux Id: GH-5440 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -34,7 +34,41 @@
   </header>
 
 
-  <section><title>SNMP 5.10.1</title>
+  <section><title>SNMP 5.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of test config flag when starting "empty".</p>
+          <p>
+	    Own Id: OTP-17671</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for new authentication algorithms (SHA-224,
+	    SHA-256, SHA-384 and SHA-512), according to RFC 7860.</p>
+          <p>
+	    Own Id: OTP-17615 Aux Id: MR9501-1 </p>
+        </item>
+        <item>
+          <p>
+	    Improve debug info for (snmp) manager.</p>
+          <p>
+	    Own Id: OTP-17783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

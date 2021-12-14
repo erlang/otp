@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Erlang-mode fixed for newer versions of xref using CL-Lib
+	    structures instead of EIEIO classes.</p>
+          <p>
+	    Own Id: OTP-17746 Aux Id: GH-5314, PR-5324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

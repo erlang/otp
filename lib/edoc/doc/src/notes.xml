@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>link_predefined_types</c> that is used to
+	    create links to erlang predefined types. This is mainly
+	    to be used by erl_docgen when creating the Erlang/OTP
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-17743 Aux Id: PR-5292 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 1.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

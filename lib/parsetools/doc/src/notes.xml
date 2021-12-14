@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The default parser include file for yecc
+	    (<c>yeccpre</c>) will no longer crash when attempting to
+	    print tokens when reporting an error.</p>
+          <p>
+	    Own Id: OTP-17721</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

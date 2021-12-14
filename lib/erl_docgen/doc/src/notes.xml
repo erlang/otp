@@ -31,7 +31,46 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.1.2</title>
+  <section><title>Erl_Docgen 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>codeinclude</c> tag to correctly respect the
+	    <c>type</c> attribute.</p>
+          <p>
+	    Own Id: OTP-17754 Aux Id: PR-5365 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The HTML documentation has been updated to collapse
+	    better on small screens.</p>
+          <p>
+	    Own Id: OTP-17687 Aux Id: PR-5197 </p>
+        </item>
+        <item>
+          <p>
+	    All predefined types have been added to the <c>erlang</c>
+	    module together with documentation.</p>
+          <p>
+	    Any reference to a predefined type now links to that
+	    documentation so that the user can view it.</p>
+          <p>
+	    Own Id: OTP-17689 Aux Id: PR-5292 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

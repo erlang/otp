@@ -33,7 +33,42 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.4.2</title>
+  <section><title>Inets 7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct HTTP server URI handling to fully rely on
+	    uri_string. The server could mistreat some URI paths that
+	    in turn could result in incorrect responses being
+	    generated.</p>
+          <p>
+	    Own Id: OTP-17818 Aux Id: ERIERL-731 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend header values to httpc:request/5 to allow binary()
+	    as well. Make error detection of invalid arguments to
+	    httpc:request/5 be more precise so an error is returned
+	    in more cases instead of causing a hang or
+	    function_clause. Be more precise in documentation
+	    regarding the types of arguments being accepted.</p>
+          <p>
+	    Own Id: OTP-17579 Aux Id: GH-5074 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

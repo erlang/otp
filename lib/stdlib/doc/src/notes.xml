@@ -31,6 +31,59 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix rendering of nbsp on terminals that do not support
+	    unicode.</p>
+          <p>
+	    Own Id: OTP-17662 Aux Id: PR-5206 </p>
+        </item>
+        <item>
+          <p>
+	    Improved the <seeerl
+	    marker="erl_error"><c>erl_error</c></seeerl> printout for
+	    when <seeerl marker="re"><c>re</c></seeerl> fails to
+	    compile a regular expression to also print hints about
+	    why the compilation failed.</p>
+          <p>
+	    Own Id: OTP-17750 Aux Id: PR-5366 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed spec for <c>supervisor_bridge:start_link()</c>.</p>
+          <p>
+	    Own Id: OTP-17766 Aux Id: PR-5362 </p>
+        </item>
+        <item>
+          <p>
+	    Added missing shutdown clauses in <c>supervisor</c> which
+	    could cause erroneous error reports.</p>
+          <p>
+	    Own Id: OTP-17767 Aux Id: PR-5344 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add the <c>no_auto_import_types</c> to erl_lint to allow
+	    a module to define types of the same name as a predefined
+	    type.</p>
+          <p>
+	    Own Id: OTP-17744 Aux Id: PR-5292 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.16.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
