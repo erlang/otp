@@ -1144,11 +1144,23 @@ udp_options(Opts, Mod) ->
 
 udp_opt([{raw,A,B,C}|Opts], #udp_opts{} = R, As) ->
     udp_opt([{raw,{A,B,C}}|Opts], R, As);
-udp_opt([Opt | Opts], #udp_opts{} = R, As) ->
+udp_opt([Opt | Opts], #udp_opts{ifaddr = IfAddr} = R, As) ->
     case Opt of
-	{ip,IP}     ->  udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
-	{ifaddr,IP} ->  udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
-	{port,P}    ->  udp_opt(Opts, R#udp_opts { port = P }, As);
+	{ifaddr, Addr} when is_map(Addr) ->
+            udp_opt(Opts, R#udp_opts { ifaddr = ensure_sockaddr(Addr) }, As);
+	{ifaddr, Addr} ->
+            udp_opt(Opts, R#udp_opts { ifaddr = Addr }, As);
+
+	{ip, IP} when is_map(IfAddr) ->
+            udp_opt(Opts, R#udp_opts { ifaddr = IfAddr#{addr => IP} }, As);
+	{ip, IP}                     ->
+            udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
+
+	{port, P} when is_map(IfAddr) ->
+            udp_opt(Opts, R#udp_opts { port = IfAddr#{port => P} }, As);
+	{port, P}                     ->
+            udp_opt(Opts, R#udp_opts { port = P }, As);
+
 	{fd,Fd}     ->  udp_opt(Opts, R#udp_opts { fd = Fd }, As);
 	binary      ->  udp_add(mode, binary, R, Opts, As);
 	list        ->  udp_add(mode, list, R, Opts, As);

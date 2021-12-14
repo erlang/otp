@@ -20,7 +20,7 @@
 -module(gen_udp).
 
 -export([open/1, open/2, close/1]).
--export([send/2, send/3, send/4, send/5, recv/2, recv/3, connect/3]).
+-export([send/2, send/3, send/4, send/5, recv/2, recv/3, connect/2, connect/3]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
@@ -170,7 +170,8 @@ send(S, Packet) when is_port(S) ->
 -spec send(Socket, Destination, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Destination :: {inet:ip_address(), inet:port_number()} |
-		     inet:family_address(),
+		     inet:family_address() |
+                     socket:sockaddr_in() | socket:sockaddr_in6(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
 
@@ -190,7 +191,8 @@ send(Socket, Destination, Packet) ->
           (Socket, Destination, AncData, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Destination :: {inet:ip_address(), inet:port_number()} |
-                     inet:family_address(),
+                     inet:family_address() |
+                     socket:sockaddr_in() | socket:sockaddr_in6(),
       AncData :: inet:ancillary_data(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix();
@@ -207,6 +209,16 @@ send(?module_socket(GenUdpMod, _) = S, Arg2, Arg3, Packet)
   when is_atom(GenUdpMod) ->
     GenUdpMod:?FUNCTION_NAME(S, Arg2, Arg3, Packet);
 
+send(S, #{family := Fam} = Destination, AncData, Packet)
+  when is_port(S) andalso
+       ((Fam =:= inet) orelse (Fam =:= inet6)) andalso
+       is_list(AncData) ->
+    case inet_db:lookup_socket(S) of
+        {ok, Mod} ->
+            Mod:send(S, inet:ensure_sockaddr(Destination), AncData, Packet);
+        Error ->
+            Error
+    end;
 send(S, {_,_} = Destination, PortZero = AncData, Packet) when is_port(S) ->
     %% Destination is {Family,Addr} | {IP,Port},
     %% so it is complete - argument PortZero is redundant
@@ -312,6 +324,14 @@ recv(S, Len, Time) when is_port(S) ->
 
 
 %% -- connect ---------------------------------------------------------------
+
+connect(S, SockAddr) when is_port(S) andalso is_map(SockAddr) ->
+    case inet_db:lookup_socket(S) of
+	{ok, Mod} ->
+            Mod:connect(S, inet:ensure_sockaddr(SockAddr));
+	Error ->
+	    Error
+    end.
 
 connect(?module_socket(GenUdpMod, _) = S, Address, Port)
   when is_atom(GenUdpMod) ->
