@@ -145,7 +145,7 @@ static void*
 	ei_x_free(&x);
 	ei_x_free(&xs);
     } else {
-	fprintf(file, "coudn't connect fd %d r %d\n", fd, r); fflush(file);
+	fprintf(file, "couldn't connect fd %d r %d\n", fd, r); fflush(file);
     }
     ei_close_connection(listen);
     fprintf(file, "done thread %d\n", n);

@@ -274,7 +274,7 @@ void do_fail(const char* file, int line, const char* reason, ...)
 /*
  * This function sends a message to the Erlang side.
  * The message will be written to the test servers log file,
- * but will otherwise be completly ignored.
+ * but will otherwise be completely ignored.
  */
 
 void message(char* format, ...)

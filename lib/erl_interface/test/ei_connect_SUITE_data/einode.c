@@ -89,7 +89,7 @@ static void*
 	shutdown(fd, SD_SEND);
 	closesocket(fd);
     } else {
-	printf("coudn't connect fd %d r %d\n", fd, r); //	DebugBreak();
+	printf("couldn't connect fd %d r %d\n", fd, r); //	DebugBreak();
     }
     printf("done thread %d\n", n);
     return 0;

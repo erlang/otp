@@ -22,7 +22,7 @@
 ##
 ##  This is a standalone make file for erl_interface. It is
 ##  to be preprocessed by the configure script and the result
-##  is saved into the TARGER directory.
+##  is saved into the TARGET directory.
 ##
 ##  We use 'vpath' to use plain C file names without the directory
 ##  part in dependency rules.

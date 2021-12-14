@@ -56,7 +56,7 @@
 #include <sys/utsname.h>  /* for gen_challenge (NEED FIX?) */
 #endif
 
-/* FIXME remove duplicate defintions */
+/* FIXME remove duplicate definitions */
 
 #define DEFBUF_SIZ 100
 

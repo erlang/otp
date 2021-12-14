@@ -165,7 +165,7 @@
 	<p>On success it should set <c>*ctx</c> to point to a context for
 	the created socket. This context will be passed to all other
 	socket callbacks. This function will be passed the same
-	<c>setup_context</c> as passed to the preceeding
+	<c>setup_context</c> as passed to the preceding
 	<seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
 	or
 	<seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>
@@ -192,8 +192,8 @@
 	
 	<p>The <c>addr</c> and <c>len</c> arguments are both input and output
 	arguments. When called <c>addr</c> points to an address structure of
-	lenght <c>*len</c> containing information on how to bind the socket.
-	Uppon return this callback should have updated the structure referred
+	length <c>*len</c> containing information on how to bind the socket.
+	Upon return this callback should have updated the structure referred
 	by <c>addr</c> with information on how the socket actually was bound.
 	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
 	updated. <c>backlog</c> identifies the size of the backlog for the
@@ -211,7 +211,7 @@
 	connection should be created and <c>*ctx</c> should be updated
 	to point to the new context for the accepted connection. When
 	called <c>addr</c> points to an uninitialized address structure
-	of lenght <c>*len</c>. Uppon return this callback should have
+	of length <c>*len</c>. Upon return this callback should have
 	updated this structure with information about the client address.
 	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
 	updated.
@@ -233,7 +233,7 @@
 	identified by <c>addr</c>.</p>
 
 	<p>When called <c>addr</c> points to an address structure of
-	lenght <c>len</c> containing information on where to connect.</p>
+	length <c>len</c> containing information on where to connect.</p>
 
 	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
 	<c>tmo</c> contains timeout time in milliseconds.</p>

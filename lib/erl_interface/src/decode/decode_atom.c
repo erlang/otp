@@ -100,7 +100,7 @@ typedef unsigned long AsciiWord;
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
 typedef unsigned long long AsciiWord;
 #else
-#  error "Uknown word type"
+#  error "Unknown word type"
 #endif
 
 #if SIZEOF_VOID_P == 4
