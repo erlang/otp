@@ -325,6 +325,11 @@ recv(S, Len, Time) when is_port(S) ->
 
 %% -- connect ---------------------------------------------------------------
 
+-spec connect(Socket, SockAddr) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Reason   :: inet:posix().
+
 connect(S, SockAddr) when is_port(S) andalso is_map(SockAddr) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -332,6 +337,12 @@ connect(S, SockAddr) when is_port(S) andalso is_map(SockAddr) ->
 	Error ->
 	    Error
     end.
+
+-spec connect(Socket, Address, Port) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      Address  :: inet:socket_address() | inet:hostname(),
+      Port     :: inet:port_number(),
+      Reason   :: inet:posix().
 
 connect(?module_socket(GenUdpMod, _) = S, Address, Port)
   when is_atom(GenUdpMod) ->
