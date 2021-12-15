@@ -287,20 +287,7 @@ traverse(Tree, Map, State) ->
 	true ->
 	  SMA;
 	false ->
-	  State2 =
-	    case
-              t_is_any(ArgType)
-              orelse t_is_simple(ArgType, State)
-              orelse is_call_to_send(Arg)
-	      orelse is_lc_simple_list(Arg, ArgType, State)
-            of
-	      true -> % do not warn in these cases
-		State1;
-	      false ->
-		state__add_warning(State1, ?WARN_UNMATCHED_RETURN, Arg,
-				   {unmatched_return,
-				    [format_type(ArgType, State1)]})
-	    end,
+	  State2 = maybe_warn_unmatched_return(Arg, ArgType, State1),
 	  traverse(Body, Map1, State2)
       end;
     'try' ->
@@ -334,6 +321,27 @@ traverse_list([Tree|Tail], Map, State, Acc) ->
   traverse_list(Tail, Map1, State1, [Type|Acc]);
 traverse_list([], Map, State, Acc) ->
   {State, Map, lists:reverse(Acc)}.
+
+maybe_warn_unmatched_return(Arg, ArgType, State) ->
+  case state__warning_mode(State) of
+    false ->
+      State;
+    true ->
+      %% Warn when return values such as 'ok' | {'error',any()}
+      %% are ignored. Don't warn when a single value such as 'ok'
+      %% is returned.
+      case t_is_any(ArgType) orelse
+        t_is_simple(ArgType, State) orelse
+        is_call_to_send(Arg) orelse
+        is_lc_simple_list(Arg, ArgType, State) of
+        true ->
+          State;
+        false ->
+          state__add_warning(State, ?WARN_UNMATCHED_RETURN, Arg,
+                             {unmatched_return,
+                              [format_type(ArgType, State)]})
+      end
+  end.
 
 %%________________________________________
 %%
