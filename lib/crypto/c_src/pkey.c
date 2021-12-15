@@ -260,9 +260,6 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     EVP_PKEY *result = NULL;
-#if defined(HAVE_EC)
-    EC_KEY *ec = NULL;
-#endif
     char *id = NULL;
     char *password = NULL;
 
@@ -289,25 +286,10 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 
     } else if (algorithm == atom_ecdsa) {
 #if defined(HAVE_EC)
-	const ERL_NIF_TERM *tpl_terms;
-	int tpl_arity;
-        if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
-            goto err;
-        if (tpl_arity != 2)
-            goto err;
-        if (!enif_is_tuple(env, tpl_terms[0]))
-            goto err;
-        if (!enif_is_binary(env, tpl_terms[1]))
-            goto err;
-        if (!get_ec_key(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_EC_KEY(result, ec) != 1)
+        if (!get_ec_private_key(env, key, &result))
             goto err;
-        /* On success, result owns ec */
-        ec = NULL;
 #else
 	return PKEY_NOTSUP;
 #endif
@@ -341,10 +323,6 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         enif_free(password);
     if (id)
         enif_free(id);
-#ifdef HAVE_EC
-    if (ec)
-        EC_KEY_free(ec);
-#endif
 
     if (result == NULL) {
         return PKEY_BADARG;
@@ -365,9 +343,6 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 			       EVP_PKEY **pkey)
 {
     EVP_PKEY *result = NULL;
-#if defined(HAVE_EC)
-    EC_KEY *ec = NULL;
-#endif
     char *id = NULL;
     char *password = NULL;
 
@@ -393,28 +368,10 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 
     } else if (algorithm == atom_ecdsa) {
 #if defined(HAVE_EC)
-	const ERL_NIF_TERM *tpl_terms;
-	int tpl_arity;
-
-        if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
-            goto err;
-        if (tpl_arity != 2)
-            goto err;
-        if (!enif_is_tuple(env, tpl_terms[0]))
-            goto err;
-        if (!enif_is_binary(env, tpl_terms[1]))
-            goto err;
-        if (!get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-
-        if (EVP_PKEY_assign_EC_KEY(result, ec) != 1)
+        if (!get_ec_public_key(env, key, &result))
             goto err;
-        /* On success, result owns ec */
-        ec = NULL;
-
 #else
 	return PKEY_NOTSUP;
 #endif
@@ -452,10 +409,6 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
         enif_free(password);
     if (id)
         enif_free(id);
-#ifdef HAVE_EC
-    if (ec)
-        EC_KEY_free(ec);
-#endif
 
     if (result == NULL) {
         return PKEY_BADARG;

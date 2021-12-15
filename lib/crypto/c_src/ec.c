@@ -293,6 +293,65 @@ int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pp
     return 0;
 }
 
+int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    EC_KEY *ec = NULL;
+
+    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
+        goto err;
+    if (tpl_arity != 2)
+        goto err;
+    if (!enif_is_tuple(env, tpl_terms[0]))
+        goto err;
+    if (!enif_is_binary(env, tpl_terms[1]))
+        goto err;
+    if (!get_ec_key(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec))
+        goto err;
+
+    if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
+        goto err;
+            /* On success, result owns ec */
+    ec = NULL;
+    return 1;
+
+ err:
+    if (ec)
+        EC_KEY_free(ec);
+    return 0;
+}
+
+int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    EC_KEY *ec = NULL;
+
+    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
+        goto err;
+    if (tpl_arity != 2)
+        goto err;
+    if (!enif_is_tuple(env, tpl_terms[0]))
+        goto err;
+    if (!enif_is_binary(env, tpl_terms[1]))
+        goto err;
+    if (!get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec))
+        goto err;
+
+    if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
+        goto err;
+            /* On success, result owns ec */
+    ec = NULL;
+    return 1;
+
+ err:
+    if (ec)
+        EC_KEY_free(ec);
+    return 0;
+}
+
+
 int get_ec_key(ErlNifEnv* env,
 		      ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
 		      EC_KEY** res)
