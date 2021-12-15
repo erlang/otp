@@ -251,34 +251,7 @@ traverse(Tree, Map, State) ->
       Type = literal_type(Tree),
       {State, Map, Type};
     primop ->
-      case cerl:atom_val(cerl:primop_name(Tree)) of
-        match_fail ->
-          {State, Map, t_none()};
-        raise ->
-          {State, Map, t_none()};
-        bs_init_writable ->
-          {State, Map, t_from_term(<<>>)};
-        build_stacktrace ->
-          {State, Map, erl_bif_types:type(erlang, build_stacktrace, 0)};
-        dialyzer_unknown ->
-          {State, Map, t_any()};
-        recv_peek_message ->
-          {State, Map, t_product([t_boolean(), t_any()])};
-        recv_wait_timeout ->
-          [Arg] = cerl:primop_args(Tree),
-          {State1, Map1, TimeoutType} = traverse(Arg, Map, State),
-          Opaques = State1#state.opaques,
-          case t_is_atom(TimeoutType, Opaques) andalso
-            t_atom_vals(TimeoutType, Opaques) =:= ['infinity'] of
-            true ->
-              {State1, Map1, t_boolean()};
-            false ->
-              {State1, Map1, t_boolean()}
-          end;
-        remove_message ->
-          {State, Map, t_any()};
-        Other -> erlang:error({'Unsupported primop', Other})
-      end;
+      handle_primop(Tree, Map, State);
     seq ->
       Arg = cerl:seq_arg(Tree),
       Body = cerl:seq_body(Tree),
@@ -1009,6 +982,39 @@ handle_let(Tree, Map, State) ->
     false ->
       Map2 = enter_type_lists(Vars, t_to_tlist(ArgTypes), Map1),
       traverse(Body, Map2, State1)
+  end.
+
+%%----------------------------------------
+
+handle_primop(Tree, Map, State) ->
+  case cerl:atom_val(cerl:primop_name(Tree)) of
+    match_fail ->
+      {State, Map, t_none()};
+    raise ->
+      {State, Map, t_none()};
+    bs_init_writable ->
+      {State, Map, t_from_term(<<>>)};
+    build_stacktrace ->
+      {State, Map, erl_bif_types:type(erlang, build_stacktrace, 0)};
+    dialyzer_unknown ->
+      {State, Map, t_any()};
+    recv_peek_message ->
+      {State, Map, t_product([t_boolean(), t_any()])};
+    recv_wait_timeout ->
+      [Arg] = cerl:primop_args(Tree),
+      {State1, Map1, TimeoutType} = traverse(Arg, Map, State),
+      Opaques = State1#state.opaques,
+      case t_is_atom(TimeoutType, Opaques) andalso
+        t_atom_vals(TimeoutType, Opaques) =:= ['infinity'] of
+        true ->
+          {State1, Map1, t_boolean()};
+        false ->
+          {State1, Map1, t_boolean()}
+      end;
+    remove_message ->
+      {State, Map, t_any()};
+    Other ->
+      error({'Unsupported primop', Other})
   end.
 
 %%----------------------------------------
