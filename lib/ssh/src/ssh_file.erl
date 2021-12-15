@@ -1018,13 +1018,8 @@ openssh_key_v1_decode(<<?DEC_BIN(Encrypted,_L)>>,
         openssh_key_v1_decode_priv_keys(Plain, N, N, [], [])
     of
         {PrivKeys, _Comments} ->
-            lists:map(fun({ {ed_pub,A,Pub}, {ed_pri,A,Pub,Pri0} }) ->
-                              Pri = binary:part(Pri0, {0,size(Pri0)-size(Pub)}),
-                              {{ed_pub,A,Pub}, {ed_pri,A,Pub,Pri}};
-                         (Pair) ->
-                              Pair
-                      end, lists:zip(PubKeys, PrivKeys))
-            %%                      end, lists:zip3(PubKeys, PrivKeys,_ Comments))
+            lists:zip(PubKeys, PrivKeys)
+            %% lists:zip3(PubKeys, PrivKeys,_ Comments))
     catch
         error:{decryption, DecryptError} ->
             error({decryption, DecryptError})
