@@ -91,7 +91,7 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% An empty match spec deactivates tracing of calls to trace_me/4,5
 %%
 %% Other match specs activates tracing of calls to trace_me/4,5
-%% accordlingly with erlang:trace_pattern/2.
+%% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->
