@@ -1157,7 +1157,7 @@ udp_opt([Opt | Opts], #udp_opts{ifaddr = IfAddr} = R, As) ->
             udp_opt(Opts, R#udp_opts { ifaddr = IP }, As);
 
 	{port, P} when is_map(IfAddr) ->
-            udp_opt(Opts, R#udp_opts { port = IfAddr#{port => P} }, As);
+            udp_opt(Opts, R#udp_opts { ifaddr = IfAddr#{port => P} }, As);
 	{port, P}                     ->
             udp_opt(Opts, R#udp_opts { port = P }, As);
 
@@ -1245,22 +1245,39 @@ sctp_options(Opts, Mod)  ->
 	Error -> Error
     end.
 
-sctp_opt([Opt|Opts], Mod, #sctp_opts{} = R, As) ->
+sctp_opt([Opt|Opts], Mod, #sctp_opts{ifaddr = IfAddr} = R, As) ->
     case Opt of
-	{ip,IP} ->
+        %% what if IfAddr is already a map (=sockaddr)?
+        %% Shall we allow ifaddr as a list of sockaddr?
+	{ifaddr, Addr} when is_map(Addr) ->
+            sctp_opt(Opts, Mod, R#sctp_opts{ifaddr = ensure_sockaddr(Addr)}, As);
+	{ifaddr, IP} ->
 	    sctp_opt_ifaddr(Opts, Mod, R, As, IP);
-	{ifaddr,IP} ->
+
+	{ip, IP} when is_map(IfAddr) ->
+            IP2 = Mod:translate_ip(IP),
+            sctp_opt(Opts, Mod, R#sctp_opts{ifaddr = IfAddr#{addr => IP2}}, As);
+	{ip, IP} ->
 	    sctp_opt_ifaddr(Opts, Mod, R, As, IP);
-	{port,Port} ->
+
+	{port, Port} ->
 	    case Mod:getserv(Port) of
-		{ok,P} ->
-		    sctp_opt(Opts, Mod, R#sctp_opts{port=P}, As);
-		Error -> Error
+		{ok, P} when is_map(IfAddr) ->
+		    sctp_opt(Opts,
+                             Mod,
+                             R#sctp_opts{ifaddr = IfAddr#{port => P}}, As);
+		{ok, P} ->
+		    sctp_opt(Opts, Mod, R#sctp_opts{port = P}, As);
+		Error ->
+                    Error
 	    end;
-	{type,Type} when Type =:= seqpacket; Type =:= stream ->
-	    sctp_opt(Opts, Mod, R#sctp_opts{type=Type}, As);
+
+	{type, Type} when Type =:= seqpacket; Type =:= stream ->
+            sctp_opt(Opts, Mod, R#sctp_opts{type = Type}, As);
+
 	binary		-> sctp_opt (Opts, Mod, R, As, mode, binary);
 	list		-> sctp_opt (Opts, Mod, R, As, mode, list);
+
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -1272,11 +1289,16 @@ sctp_opt([Opt|Opts], Mod, #sctp_opts{} = R, As) ->
 		false ->
 		    {error, badarg}
 	    end;
+
         {active,N} when is_integer(N), N < 32768, N >= -32768 ->
             NOpts = lists:keydelete(active, 1, R#sctp_opts.opts),
             sctp_opt(Opts, Mod, R#sctp_opts { opts = [{active,N}|NOpts] }, As);
-	{Name,Val}	-> sctp_opt (Opts, Mod, R, As, Name, Val);
-	_ -> {error,badarg}
+
+	{Name,Val}	->
+            sctp_opt(Opts, Mod, R, As, Name, Val);
+
+	_ ->
+            {error, badarg}
     end;
 sctp_opt([], _Mod, #sctp_opts{ifaddr=IfAddr}=R, _SockOpts) ->
     if is_list(IfAddr) ->
@@ -1306,6 +1328,7 @@ sctp_module(Opts) ->
     mod(
       Opts, sctp_module, undefined,
       #{inet => inet_sctp, inet6 => inet6_sctp}).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Util to check and insert option in option list
