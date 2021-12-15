@@ -594,23 +594,23 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
 # ifdef HAVE_RSA_PKCS1_PSS_PADDING
 	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
             if (sig_opt.rsa_mgf1_md != NULL) {
-# ifdef HAVE_RSA_MGF1_MD
+#  ifdef HAVE_RSA_MGF1_MD
                 if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) != 1)
                     goto err;
-# else
+#  else
                 goto notsup;
-# endif
+#  endif
             }
             if (sig_opt.rsa_pss_saltlen > -2) {
                 if (EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) != 1)
                     goto err;
             }
         }
-#endif
+# endif
     }
 
     if (argv[0] == atom_eddsa) {
-#ifdef HAVE_EDDSA
+# ifdef HAVE_EDDSA
         if (!FIPS_MODE()) {
             if ((mdctx = EVP_MD_CTX_new()) == NULL)
                 goto err;
@@ -627,7 +627,7 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
                 goto bad_key;
         }
         else
-#endif
+# endif
             goto notsup;
     } else {
         if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
@@ -1152,7 +1152,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                 goto bad_arg;
         }
 
-#ifdef HAVE_RSA_SSLV23_PADDING
+# ifdef HAVE_RSA_SSLV23_PADDING
         if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
             if (is_encrypt) {
                 tmplen = size_of_RSA(pkey);
@@ -1170,13 +1170,13 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_NO_PADDING) != 1)
                 goto err;
         } else
-#endif
+# endif
         {
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_opt.rsa_padding) != 1)
                 goto err;
         }
 
-#ifdef HAVE_RSA_OAEP_MD
+# ifdef HAVE_RSA_OAEP_MD
         if (crypt_opt.rsa_padding == RSA_PKCS1_OAEP_PADDING) {
             if (crypt_opt.rsa_oaep_md != NULL) {
                 if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, crypt_opt.rsa_oaep_md) != 1)
@@ -1204,7 +1204,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                 label_copy = NULL;
             }
         }
-#endif
+# endif
     }
 
     if (is_private) {
