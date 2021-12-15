@@ -744,15 +744,27 @@ exception_test(Opts) ->
             shutdown();
         true ->
             Exceptions = exceptions(),
-            lists:foreach(
-              fun ({Func,Args}) ->
-                      exception_test_setup(
-                        [procs|ProcFlags],
-                        PatFlags),
-                      exception_test(Opts, Func, Args),
-                      shutdown()
-              end,
-              Exceptions)
+            try
+                %% suppress  =ERROR REPORT=== emulator messages
+                ok = logger:add_primary_filter(suppress_log_spam, {
+                    fun(#{meta := #{error_logger := #{emulator := true, tag := error}}}, _) ->
+                        stop;
+                    (_Meta, _Msg) ->
+                        ignore
+                    end, ok}),
+                lists:foreach(
+                  fun ({Func,Args}) ->
+                          exception_test_setup(
+                            [procs|ProcFlags],
+                            PatFlags),
+                          exception_test(Opts, Func, Args),
+                          shutdown()
+                  end,
+                  Exceptions)
+            after
+                %% remove the suppression for ERROR REPORTS
+                ok = logger:remove_primary_filter(suppress_log_spam)
+            end
     end,
     ok.
 
@@ -778,7 +790,7 @@ exceptions() ->
 
 exception_test_setup(ProcFlags, PatFlags) ->
     Pid = setup(ProcFlags),
-    io:format("=== exception_test_setup(~p, ~p): ~p~n", 
+    ct:log("=== exception_test_setup(~p, ~p): ~p~n",
               [ProcFlags,PatFlags,Pid]),
     Mprog = [{'_',[],[{exception_trace}]}],
     erlang:trace_pattern({?MODULE,'_','_'}, Mprog, PatFlags),
@@ -792,7 +804,7 @@ exception_test_setup(ProcFlags, PatFlags) ->
 -record(exc_opts, {nocatch=false, meta=false}).
 
 exception_test(Opts, Func0, Args0) ->
-    io:format("=== exception_test(~p, ~p, ~p)~n", 
+    ct:log("=== exception_test(~p, ~p, ~p)~n",
               [Opts,Func0,abbr(Args0)]),
     Apply = proplists:get_bool(apply, Opts),
     Function = proplists:get_bool(function, Opts),
