@@ -277,8 +277,6 @@ traverse(Tree, Map, State) ->
           end;
         remove_message ->
           {State, Map, t_any()};
-        timeout ->
-          {State, Map, t_any()};
         Other -> erlang:error({'Unsupported primop', Other})
       end;
     seq ->
