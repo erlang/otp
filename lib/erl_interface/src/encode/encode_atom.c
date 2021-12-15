@@ -65,7 +65,7 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 
   /*
    * Since OTP 20 we totally ignore 'to_enc'
-   * and alway encode as UTF8.
+   * and always encode as UTF8.
    */
   {
       offs =  1 + 1;

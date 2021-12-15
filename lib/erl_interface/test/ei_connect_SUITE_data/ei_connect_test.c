@@ -72,7 +72,7 @@ static struct {
 
 
 /*
- * Sends a list contaning all data types to the Erlang side.
+ * Sends a list containing all data types to the Erlang side.
  */
 
 TESTCASE(interpret)

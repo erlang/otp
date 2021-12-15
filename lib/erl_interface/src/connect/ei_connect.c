@@ -613,7 +613,7 @@ int ei_make_pid(ei_cnode *ec, erlang_pid *pid)
      * of modifying the 'num' field in the pid returned by
      * ei_self(). Since 'serial' field in pid returned by
      * ei_self() is initialized to 0, pids created by
-     * ei_make_pid() wont clash with such badly created pids
+     * ei_make_pid() won't clash with such badly created pids
      * using ei_self() unless user also modified serial, but
      * that has at least never been suggested by the
      * documentation.
@@ -676,7 +676,7 @@ static ei_mutex_t *ref_mtx = NULL;
 
 /*
  * We use a global counter for all c-nodes in this process.
- * We wont wrap anyway due to the enormous amount of values
+ * We won't wrap anyway due to the enormous amount of values
  * available.
  */
 #ifdef EI_MAKE_REF_ATOMIC__
@@ -891,7 +891,7 @@ int ei_init_connect(void)
 
 /*
 * Perhaps run this routine instead of ei_connect_init/2 ?
-* Initailize by setting:
+* Initialize by setting:
 * thishostname, thisalivename, thisnodename and thisipaddr
 */
 int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
@@ -1155,7 +1155,7 @@ static int ip_address_from_hostname(char* hostname,
     hp = dyn_gethostbyname_r(hostname,&host,buffer_p,buffer_size,&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-        /* gethostname requies len to be max(hostname) + 1*/
+        /* gethostname requires len to be max(hostname) + 1*/
 	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR0("ip_address_from_hostname",
 			  "Failed to get name of this host");
@@ -2407,7 +2407,7 @@ static int send_challenge(ei_cnode *ec,
     flags = preferred_flags();
     put8(s, tag);
     if (tag == 'n') {
-        put16be(s, EI_DIST_5);  /* choosen version */
+        put16be(s, EI_DIST_5);  /* chosen version */
         put32be(s, flags);
         put32be(s, challenge);
     }

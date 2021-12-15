@@ -61,7 +61,7 @@ int ei_unpublish_tmo(const char *alive, unsigned ms)
     put8(s,EI_EPMD_STOP_REQ);
     strcpy(s, alive);
 
-    /* FIXME can't connect, return success?! At least commen whats up */
+    /* FIXME can't connect, return success?! At least comment what's up */
     if ((fd = ei_epmd_connect_tmo(NULL,ms)) < 0) return fd;
 
     dlen = (ssize_t) len+2;
