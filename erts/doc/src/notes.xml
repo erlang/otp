@@ -31,6 +31,163 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When matching and constructing <c>utf16</c> segments
+	    in the binary syntax, the <c>native</c> flag would be
+	    ignored. That is, the endian would always be big endian
+	    even on a little-endian computer (almost all modern
+	    computers).</p>
+          <p>
+	    Own Id: OTP-17713</p>
+        </item>
+        <item>
+          <p>
+	    Fix the help printout of <c>+JPperf</c>.</p>
+          <p>
+	    Own Id: OTP-17749 Aux Id: PR-5378 GH-5361 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that could cause Erlang to deadlock during
+	    creation of an Erlang crash dump.</p>
+          <p>
+	    Own Id: OTP-17751 Aux Id: PR-5315 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed C++ build errors on some aarch64 platforms.</p>
+          <p>
+	    Own Id: OTP-17763 Aux Id: GH-5351 </p>
+        </item>
+        <item>
+	    <p>For macOS, the <c>Info.plist</c> file embedded in the
+	    runtime system now only contains the absolute minimum
+	    amount of information needed for the web view in
+	    <c>wx</c> to work towards <c>localhost</c>. The other
+	    fields have been removed, allowing an application
+	    packaged in a bundle to specify the application name and
+	    other parameter in its own <c>Info.plist</c> file.</p>
+          <p>
+	    Own Id: OTP-17785 Aux Id: PR-5393 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in internal stacks (WSTACK and ESTACK) used by
+	    <c>term_to_binary/2</c> to encode terms. The bug could
+	    cause a segfault if a very very large map was to be
+	    encoded with the <c>deterministic</c> option given.</p>
+          <p>
+	    Own Id: OTP-17804 Aux Id: PR-5372 </p>
+        </item>
+        <item>
+          <p>
+	    Improve the error printout when <c>open_port/2</c> fails
+	    because of invalid arguments.</p>
+          <p>
+	    Own Id: OTP-17805 Aux Id: PR-5406 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in crash dumps where the stackframe of a process
+	    would be printed using an incorrect format.</p>
+          <p>
+	    Crash dump viewer has also been fixed to be able read the
+	    broken stack format.</p>
+          <p>
+	    The bug has existed since Erlang/OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17814 Aux Id: PR-5462 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An option for enabling dirty scheduler specific allocator
+	    instances has been introduced. By default such allocator
+	    instances are disabled. For more information see the
+	    documentation of the <seecref
+	    marker="erts:erts_alloc#Mdai"><c>+Mdai</c></seecref>
+	    <c>erl</c> command line argument.</p>
+          <p>
+	    Own Id: OTP-17363 Aux Id: GH-4728, PR-5187 </p>
+        </item>
+        <item>
+          <p>
+	    Minor optimization of receive markers in message queues.</p>
+          <p>
+	    Own Id: OTP-17673 Aux Id: OTP-16226 </p>
+        </item>
+        <item>
+          <p>
+	    All predefined types have been added to the <c>erlang</c>
+	    module together with documentation.</p>
+          <p>
+	    Any reference to a predefined type now links to that
+	    documentation so that the user can view it.</p>
+          <p>
+	    Own Id: OTP-17689 Aux Id: PR-5292 </p>
+        </item>
+        <item>
+          <p>
+	    Suppress a code checker warning caused by debug builds of
+	    YCF. YCF tries to get a conservative estimate of the
+	    bottom of the stack by reading and returning a call stack
+	    allocated variable.</p>
+          <p>
+	    Own Id: OTP-17719</p>
+        </item>
+        <item>
+          <p>
+	    Add file and product properties to erl.exe and werl.exe.</p>
+          <p>
+	    Own Id: OTP-17724 Aux Id: ERL-1224 </p>
+        </item>
+        <item>
+          <p>
+	    Micro optimization in bitstring append operations.</p>
+          <p>
+	    Own Id: OTP-17760 Aux Id: ERIERL-725, PR-5414 </p>
+        </item>
+        <item>
+          <p>
+	    Responsiveness of processes executing on <c>normal</c> or
+	    <c>low</c> priority could suffer due to code purging or
+	    literal area removal on systems with a huge amount of
+	    processes. This since during these operations all
+	    processes on the system were scheduled for execution at
+	    once.</p>
+          <p>
+	    This problem has been fixed by introducing a limit on
+	    outstanding purge and copy literal requests in the
+	    system. By default this limit is set to twice the amount
+	    of schedulers on the system. This will ensure that
+	    schedulers will have enough work scheduled to perform
+	    these operations as quickly as possible at the same time
+	    as other work will be interleaved to a much higher
+	    degree. Performance of these operations will however be
+	    somewhat degraded due to the overhead of enforcing this
+	    limit compared to when using a very large limit.</p>
+          <p>
+	    This limit can be set by passing the <c>+zosrl</c>
+	    command line argument to <c>erl</c>, or by calling
+	    <c>erlang:system_flag(outstanding_system_requests_limit,
+	    NewLimit)</c>.</p>
+          <p>
+	    Own Id: OTP-17796 Aux Id: ERIERL-729, PR-5473 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

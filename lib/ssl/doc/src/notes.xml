@@ -27,6 +27,64 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Allow re-connect on DTLS sockets</p>
+          <p>
+	    Can happen when a computer reboots and connects from the
+	    same client port without the server noticing should be
+	    allowed according to RFC.</p>
+          <p>
+	    Own Id: OTP-17411 Aux Id: ERL-1203, GH-4393 </p>
+        </item>
+        <item>
+          <p>
+	    Fix tls and non-tls distribution to use
+	    erl_epmd:address_please to figure out if IPv4 or IPv6
+	    addresses should be used when connecting to the remote
+	    node.</p>
+          <p>
+	    Before this fix, a dns lookup of the remote node hostname
+	    determined which IP version was to be used which meant
+	    that the hostname had to resolve to a valid ip address.</p>
+          <p>
+	    Own Id: OTP-17809 Aux Id: PR-5337 GH-5334 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use supervisor significant child to manage tls connection
+	    process and tls sender process dependency.</p>
+          <p>
+	    Own Id: OTP-17417</p>
+        </item>
+        <item>
+          <p>
+	    Random generation adjustment for TLS1.3</p>
+          <p>
+	    Own Id: OTP-17699</p>
+        </item>
+        <item>
+          <p>
+	    Allow any {03,XX} TLS record version in the client hello
+	    for maximum interoperability</p>
+          <p>
+	    Own Id: OTP-17761 Aux Id: GH-5380 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in crash dumps where the stackframe of a process
+	    would be printed using an incorrect format.</p>
+          <p>
+	    Crash dump viewer has also been fixed to be able read the
+	    broken stack format.</p>
+          <p>
+	    The bug has existed since Erlang/OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17814 Aux Id: PR-5462 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

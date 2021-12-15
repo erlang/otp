@@ -1153,7 +1153,7 @@
     </func>
 
     <func>
-      <name name="info" arity="0" since="OTP @OTP-17603@"/>
+      <name name="info" arity="0" since="OTP 24.2"/>
       <fsummary>Provides information about crypto and the library used by crypto.</fsummary>
       <desc>
         <p>Provides a map with information about the compilation and linking of crypto.
@@ -1974,7 +1974,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="pbkdf2_hmac" arity="5" since="OTP @OTP-17808@"/>
+      <name name="pbkdf2_hmac" arity="5" since="OTP 24.2"/>
       <fsummary>PBKDF2 in combination with HMAC</fsummary>
       <desc>
         <p>

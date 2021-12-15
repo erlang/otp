@@ -31,6 +31,127 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    socket:which_sockets( pid() ) uses wrong keyword when
+	    looking up socket owner ('ctrl' instead of 'owner').</p>
+          <p>
+	    Own Id: OTP-17716</p>
+        </item>
+        <item>
+          <p>
+	    In epmd_ntop, the #if defined(EPMD6) conditional was
+	    inverted and it was only including the IPv6-specific code
+	    when EPMD6 was undefined. This was causing IPv6 addrs to
+	    be interpreted as IPv4 addrs and generating nonsense IPv4
+	    addresses as output.</p>
+          <p>
+	    Several places were incorrectly using 'num_sockets'
+	    instead of 'i' to index into the iserv_addr array during
+	    error logging. This would result in a read into
+	    uninitialized data in the iserv_addr array.</p>
+          <p>
+	    Thanks to John Eckersberg for providing this fix.</p>
+          <p>
+	    Own Id: OTP-17730</p>
+        </item>
+        <item>
+          <p>
+	    Minor fix of the <c>erl_uds_dist</c> distribution module
+	    example.</p>
+          <p>
+	    Own Id: OTP-17765 Aux Id: PR-5289 </p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed for the legacy TCP socket adaption
+	    module <c>gen_tcp_socket</c> where it did bind to a
+	    socket address when given a file descriptor, but should
+	    not.</p>
+          <p>
+	    Own Id: OTP-17793 Aux Id: PR-5348, OTP-17451, PR-4787,
+	    GH-4680, PR-2989, OTP-17216 </p>
+        </item>
+        <item>
+          <p>
+	    Improve the error printout when <c>open_port/2</c> fails
+	    because of invalid arguments.</p>
+          <p>
+	    Own Id: OTP-17805 Aux Id: PR-5406 </p>
+        </item>
+        <item>
+          <p>
+	    Calling socket:monitor/1 on an already closed socket
+	    should succeed and result in an immediate DOWN message.
+	    This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-17806</p>
+        </item>
+        <item>
+          <p>
+	    Fix the configuration option <c>logger_metadata</c> to
+	    work.</p>
+          <p>
+	    Own Id: OTP-17807 Aux Id: PR-5418 </p>
+        </item>
+        <item>
+          <p>
+	    Fix tls and non-tls distribution to use
+	    erl_epmd:address_please to figure out if IPv4 or IPv6
+	    addresses should be used when connecting to the remote
+	    node.</p>
+          <p>
+	    Before this fix, a dns lookup of the remote node hostname
+	    determined which IP version was to be used which meant
+	    that the hostname had to resolve to a valid ip address.</p>
+          <p>
+	    Own Id: OTP-17809 Aux Id: PR-5337 GH-5334 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>logger:reconfigure/0</c>.</p>
+          <p>
+	    Own Id: OTP-17375 Aux Id: PR-4663 PR-5186 </p>
+        </item>
+        <item>
+          <p>
+	    Add socket function ioctl/2,3,4 for socket device
+	    control.</p>
+          <p>
+	    Own Id: OTP-17528</p>
+        </item>
+        <item>
+          <p>
+	    Add simple support for socknames/1 for gen_tcp_socket and
+	    gen_udp_socket.</p>
+          <p>
+	    Own Id: OTP-17531</p>
+        </item>
+        <item>
+          <p>
+	    The types for callback result types in <c>gen_statem</c>
+	    has bee augmented with arity 2 types where it is possible
+	    for a callback module to specify the type of the callback
+	    data, so the callback module can get type validation of
+	    it.</p>
+          <p>
+	    Own Id: OTP-17738 Aux Id: PR-4926, OTP-17589 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
