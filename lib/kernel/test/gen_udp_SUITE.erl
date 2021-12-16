@@ -2545,7 +2545,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                       receive
                           {die, Self} ->
                               ?P("[server] terminating"),
-                              (catch gen_tcp:close(Sock)),
+                              (catch gen_udp:close(Sock)),
                               exit(normal)
                       end
               end,
@@ -2646,7 +2646,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     end,
     
     ?P("cleanup"),
-    (catch gen_tcp:close(CSock)),
+    (catch gen_udp:close(CSock)),
 
     ?P("done"),
     ok.

@@ -29,21 +29,27 @@
 	 init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
--export(
-   [skip_old_solaris/1,
-    basic/1,
-    api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
-    xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    open_multihoming_ipv4_socket/1,
-    open_unihoming_ipv6_socket/1,
-    open_multihoming_ipv6_socket/1,
-    open_multihoming_ipv4_and_ipv6_socket/1,
-    basic_stream/1, xfer_stream_min/1, active_n/1,
-    peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
-    buffers/1,
-    names_unihoming_ipv4/1, names_unihoming_ipv6/1,
-    names_multihoming_ipv4/1, names_multihoming_ipv6/1,
-    recv_close/1]).
+-export([
+         skip_old_solaris/1,
+         basic/1,
+         api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
+         xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
+         open_multihoming_ipv4_socket/1,
+         open_unihoming_ipv6_socket/1,
+         open_multihoming_ipv6_socket/1,
+         open_multihoming_ipv4_and_ipv6_socket/1,
+         basic_stream/1, xfer_stream_min/1, active_n/1,
+         peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
+         buffers/1,
+         names_unihoming_ipv4/1, names_unihoming_ipv6/1,
+         names_multihoming_ipv4/1, names_multihoming_ipv6/1,
+         recv_close/1,
+
+         t_simple_local_sockaddr_in_send_recv/1,
+         t_simple_link_local_sockaddr_in_send_recv/1,
+         t_simple_local_sockaddr_in6_send_recv/1,
+         t_simple_link_local_sockaddr_in6_send_recv/1
+        ]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -54,14 +60,18 @@ all() ->
 	    true -> old_solaris;
 	    false -> extensive
 	end,
-    [{group,smoke},
-     {group,G}].
+    [
+     {group, smoke},
+     {group, G},
+     {group, sockaddr}].
 
 groups() -> 
     [
      {smoke,       [], smoke_cases()},
      {old_solaris, [], old_solaris_cases()},
-     {extensive,   [], extensive_cases()}
+     {extensive,   [], extensive_cases()},
+
+     {sockaddr,    [], sockaddr_cases()}
     ].
 
 smoke_cases() ->
@@ -76,7 +86,8 @@ old_solaris_cases() ->
     ].
 
 extensive_cases() ->
-    [api_open_close, api_listen, api_connect_init,
+    [
+     api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
      open_multihoming_ipv4_socket,
      open_unihoming_ipv6_socket,
@@ -86,21 +97,65 @@ extensive_cases() ->
      peeloff_active_true, peeloff_active_n, buffers,
      names_unihoming_ipv4, names_unihoming_ipv6,
      names_multihoming_ipv4, names_multihoming_ipv6,
-     recv_close].
+     recv_close
+    ].
 
-init_per_suite(_Config) ->
+sockaddr_cases() ->
+    [
+     t_simple_local_sockaddr_in_send_recv,
+     t_simple_link_local_sockaddr_in_send_recv,
+     t_simple_local_sockaddr_in6_send_recv,
+     t_simple_link_local_sockaddr_in6_send_recv
+    ].
+
+
+%% This (Config) was ignored before, why?
+init_per_suite(Config0) ->
+
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
     case gen_sctp:open() of
-	{ok,Socket} ->
+	{ok, Socket} ->
 	    gen_sctp:close(Socket),
-	    [];
-	{error,Error}
+
+            case ?LIB:init_per_suite(Config0) of
+                {skip, _} = SKIP ->
+                    SKIP;
+
+                Config1 when is_list(Config1) ->
+
+                    ?P("init_per_suite -> end when "
+                       "~n      Config: ~p", [Config1]),
+
+                    %% We need a monitor on this node also
+                    kernel_test_sys_monitor:start(),
+
+                    Config1
+            end;
+
+	{error, Error}
 	  when Error =:= eprotonosupport;
 	       Error =:= esocktnosupport ->
 	    {skip,"SCTP not supported on this machine"}
     end.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+       "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -109,10 +164,39 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(_Func, Config) ->
+init_per_testcase(_Case, Config) ->
+
+    ?P("init_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    kernel_test_global_sys_monitor:reset_events(),
+
+    ?P("init_per_testcase -> done when"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+
     Config.
 
-end_per_testcase(_Func, _Config) ->
+end_per_testcase(_Case, Config) ->
+    ?P("end_per_testcase -> entry with"
+       "~n   Config:   ~p"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p",
+       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+
+    ?P("system events during test: "
+       "~n   ~p", [kernel_test_global_sys_monitor:events()]),
+
+    ?P("end_per_testcase -> done with"
+       "~n   Nodes:    ~p"
+       "~n   Links:    ~p"
+       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
     ok.
 
 
@@ -1894,6 +1978,322 @@ recv_close_setup_recv(S, N) ->
     end.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of (sockaddr) tests.
+
+t_simple_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    Domain = inet,
+                    LocalAddr =
+                        case ?LIB:which_local_addr(Domain) of
+                            {ok, LA} ->
+                                LA;
+                            {error, _} ->
+                                skip("No local address")
+                        end,
+                    SockAddr = #{family   => Domain,
+                                 addr     => LocalAddr,
+                                 port     => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
+            end).
+
+t_simple_link_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    Domain = inet,
+                    LinkLocalAddr =
+                        case ?LIB:which_link_local_addr(Domain) of
+                            {ok, LLA} ->
+                                LLA;
+                            {error, _} ->
+                                skip("No link local address")
+                        end,
+                    SockAddr = #{family => Domain,
+                                 addr   => LinkLocalAddr,
+                                 port   => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
+            end).
+
+
+t_simple_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ?LIB:has_support_ipv6() end,
+            fun() ->
+                    Domain = inet6,
+                    LocalAddr =
+                        case ?LIB:which_local_addr(Domain) of
+                            {ok, LA} ->
+                                LA;
+                        {error, _} ->
+                            skip("No local address")
+                    end,
+                    SockAddr = #{family   => Domain,
+                                 addr     => LocalAddr,
+                                 port     => 0},
+                    do_simple_sockaddr_send_recv(SockAddr, Config)
+            end).
+
+
+t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() ->
+                    ?LIB:has_support_ipv6(),
+                    is_net_supported()
+            end,
+            fun() ->
+                    Domain = inet6,
+                    LinkLocalAddr =
+                        case ?LIB:which_link_local_addr(Domain) of
+                            {ok, LLA} ->
+                                LLA;
+                            {error, _} ->
+                                skip("No link local address")
+                        end,
+                    Filter =
+                        fun(#{addr := #{family := D,
+                                        addr   := A}}) ->
+                                (D =:= Domain) andalso (A =:= LinkLocalAddr);
+                           (_) ->
+                                false
+                        end,
+                    case net:getifaddrs(Filter) of
+                        {ok, [#{addr := #{scope_id := ScopeID}}|_]} ->
+                            SockAddr = #{family   => Domain,
+                                         addr     => LinkLocalAddr,
+                                         port     => 0,
+                                         scope_id => ScopeID},
+                            do_simple_sockaddr_send_recv(SockAddr, Config);
+                        {ok, _} ->
+                            skip("Scope ID not found");
+                        {error, R} ->
+                            skip({failed_getifaddrs, R})
+                    end
+            end).
+
+do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
+    %% Create the server
+    Self   = self(),
+    ?P("~n      SockAddr: ~p", [SockAddr]),
+    ServerF = fun() ->
+                      ?P("[server] try create (open) listen socket"),
+                      Sock =
+                          try gen_sctp:open([{ifaddr, SockAddr},
+                                             {active, true},
+                                             binary]) of
+                              {ok, S} ->
+                                  S;
+                              {error, OReason} ->
+                                  ?P("open error: "
+                                     "~n      Reason: ~p", [OReason]),
+                                  exit({open_error, OReason})
+                          catch
+                              OC:OE:OS ->
+                                  ?P("open failure: "
+                                     "~n      Error Class: ~p"
+                                     "~n      Error:       ~p"
+                                     "~n      Call Stack:  ~p", [OC, OE, OS]),
+                                  exit({open_failure, {OC, OE, OS}})
+                          end,
+
+                      ?P("[server] try make 'listen' socket"),
+                      ok = gen_sctp:listen(Sock, true),
+
+                      ?P("[server] try get port number"),
+                      {ok, Port}  = inet:port(Sock),
+                      ?P("[server] port: ~w", [Port]),
+                      Self ! {{port, Port}, self()},
+
+
+                      ?P("try accept (await 'accept' message)"),
+                      AssocID1 =
+                          receive
+                              {sctp,
+                               Sock,
+                               FromIP11, FromPort11,
+                               {ANC1, #sctp_assoc_change{state            = comm_up,
+                                                         error            = 0,
+                                                         outbound_streams = OutStreams1,
+                                                         inbound_streams  = InStreams1,
+                                                         assoc_id         = AID1}}} ->
+                                  ?P("[server] received assoc - accepted: "
+                                     "~n      From IP:     ~p"
+                                     "~n      From Port:   ~p"
+                                     "~n      ANC:         ~p"
+                                     "~n      Out Streams: ~p"
+                                     "~n      In Streams:  ~p"
+                                     "~n      Assoc ID:    ~p",
+                                     [FromIP11, FromPort11, ANC1,
+                                      OutStreams1, InStreams1, AID1]),
+                                  AID1
+                          end,
+
+                      ?P("[server] await message 2"),
+                      receive
+                          {sctp, Sock, FromIP12, FromPort12, {_, <<"hej">>}} ->
+                              ?P("[server] received expected message 1: "
+                                 "~n      FromIP2:   ~p"
+                                 "~n      FromPort2: ~p"
+                                 "~n      => send reply", [FromIP12, FromPort12]),
+                              ok = gen_sctp:send(Sock, AssocID1, 1, "hopp")
+                      end,
+
+
+                      ?P("try accept (await 'accept' message)"),
+                      AssocID2 =
+                          receive
+                              {sctp,
+                               Sock,
+                               FromIP21, FromPort21,
+                               {ANC2, #sctp_assoc_change{state            = comm_up,
+                                                         error            = 0,
+                                                         outbound_streams = OutStreams2,
+                                                         inbound_streams  = InStreams2,
+                                                         assoc_id         = AID2}}} ->
+                                  ?P("[server] received assoc - accepted: "
+                                     "~n      FromIP:      ~p"
+                                     "~n      FromPort:    ~p"
+                                     "~n      ANC:         ~p"
+                                     "~n      Out Streams: ~p"
+                                     "~n      In Streams:  ~p"
+                                     "~n      Assoc ID:    ~p",
+                                     [FromIP21, FromPort21, ANC2,
+                                      OutStreams2, InStreams2, AID2]),
+                                  AID2
+                          end,
+
+                      ?P("[server] await message 1"),
+                      receive
+                          {sctp, Sock, FromIP22, FromPort22, {_, <<"hej">>}} ->
+                              ?P("[server] received expected message 1: "
+                                 "~n      From IP:   ~p"
+                                 "~n      From Port: ~p"
+                                 "~n      => send reply", [FromIP22, FromPort22]),
+                              ok = gen_sctp:send(Sock, AssocID2, 1, "hopp")
+                      end,
+
+
+                      ?P("[server] await termination command"),
+                      receive
+                          {die, Self} ->
+                              ?P("[server] terminating"),
+                              (catch gen_tcp:close(Sock)),
+                              exit(normal)
+                      end
+              end,
+    ?P("try start server"),
+    Server = spawn_link(ServerF),
+    ?P("server started - await port "),
+    ServerPort = receive
+                     {{port, Port}, Server} ->
+                         Port;
+                     {'EXIT', Server, Reason} ->
+                         ?P("server died unexpectedly: "
+                            "~n      ~p", [Reason]),
+                         exit({unexpected_server_failure, Reason})
+                 end,
+    ?P("server port received: ~p", [ServerPort]),
+    
+
+    ?P("try create client socket 1"),
+    {ok, CSock1} = gen_sctp:open([{ifaddr, SockAddr},
+                                  {active, true},
+                                  binary]),
+
+    ?P("client socket 1: "
+       "~n      CSock: ~p"
+       "~n      CPort: ~p", [CSock1, inet:port(CSock1)]),
+
+    ?P("try connect client socket 1"),
+    ServerSockAddr = SockAddr#{port => ServerPort},
+    {ok, #sctp_assoc_change{state            = comm_up,
+                            error            = 0,
+                            outbound_streams = COutStreams1,
+                            inbound_streams  = CInStreams1,
+                            assoc_id         = CAssocID1}} =
+	gen_sctp:connect(CSock1, ServerSockAddr, []),
+    ?P("client 1 connected: "
+       "~n      Out Streams: ~p"
+       "~n      In Streams:  ~p"
+       "~n      Assoc ID:    ~p", [COutStreams1, CInStreams1, CAssocID1]),
+
+    ?P("[client 1] try send message"),
+    ok = gen_sctp:send(CSock1, CAssocID1, 1, "hej"),
+
+    ?P("[client 1] await reply message"),
+    receive
+        {sctp, CSock1, _, _, {_, <<"hopp">>}} ->
+            ?P("received expected reply message")
+    end,
+
+
+    ?P("[client 2] try create client socket"),
+    {ok, CSock2} = gen_sctp:open([{ifaddr, SockAddr},
+                                  {active, true},
+                                  binary]),
+
+    ?P("[client 2] client socket: "
+       "~n      CSock: ~p"
+       "~n      CPort: ~p", [CSock2, inet:port(CSock2)]),
+
+    ?P("[client 2] try connect-init"),
+    ServerSockAddr = SockAddr#{port => ServerPort},
+    ok = gen_sctp:connect_init(CSock2, ServerSockAddr, []),
+    ?P("[client 2] await connect completion"),
+    CAssocID2 =
+        receive
+            {sctp,
+             CSock2,
+             CFromIP2, CFromPort2,
+             {CANC2, #sctp_assoc_change{state            = comm_up,
+                                        error            = 0,
+                                        outbound_streams = COutStreams2,
+                                        inbound_streams  = CInStreams2,
+                                        assoc_id         = CAID2}}} ->
+                ?P("[client 2] connected: "
+                   "~n      From IP:     ~p"
+                   "~n      From Port:   ~p"
+                   "~n      ANC:         ~p"
+                   "~n      Out Streams: ~p"
+                   "~n      In Streams:  ~p"
+                   "~n      Assoc ID:    ~p",
+                   [CFromIP2, CFromPort2, CANC2,
+                    COutStreams2, CInStreams2, CAID2]),
+                CAID2
+        end,
+
+    ?P("[client 2] try send message"),
+    ok = gen_sctp:send(CSock2, CAssocID2, 1, "hej"),
+
+    ?P("[client 2] await reply message"),
+    receive
+        {sctp, CSock2, _, _, {_, <<"hopp">>}} ->
+            ?P("[client 2] received expected reply message")
+    end,
+
+
+    ?P("terminate server"),
+    Server ! {die, self()},
+
+    ?P("await server termination"),
+    receive
+        {'EXIT', Server, normal} ->
+            ok
+    end,
+    
+    ?P("cleanup"),
+    (catch gen_sctp:close(CSock1)),
+    (catch gen_sctp:close(CSock2)),
+
+    ?P("done"),
+    ok.
+
+    
+
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
 
@@ -2129,8 +2529,34 @@ match_unless_solaris(A, B) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+is_net_supported() ->
+    try net:info() of
+        #{} ->
+            ok
+    catch
+        error : notsup ->
+            not_supported(net)
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 timestamp() ->
     erlang:monotonic_time().
+
+
+pi(Item) ->
+    {Item, Val} = process_info(self(), Item),
+    Val.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+not_supported(What) ->
+    skip({not_supported, What}).
+
+skip(Reason) ->
+    throw({skip, Reason}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
