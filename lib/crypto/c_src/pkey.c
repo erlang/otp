@@ -1296,7 +1296,6 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 { /* (Algorithm, PrivKey | KeyMap) */
     ERL_NIF_TERM ret;
     EVP_PKEY *pkey = NULL;
-    RSA *rsa = NULL;
 #ifdef HAVE_DSA
     DSA *dsa = NULL;
 #endif
@@ -1304,25 +1303,12 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     ASSERT(argc == 2);
 
-    if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK)
+    if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK) // handles engine
         goto bad_arg;
 
     if (argv[0] == atom_rsa) {
-        const BIGNUM *n = NULL, *e = NULL, *d = NULL;
-
-        if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+        if (!rsa_privkey_to_pubkey(env, pkey, &ret))
             goto err;
-
-        RSA_get0_key(rsa, &n, &e, &d);
-
-        // Exponent E
-        if ((result[0] = bin_from_bn(env, e)) == atom_error)
-            goto err;
-        // Modulus N = p*q
-        if ((result[1] = bin_from_bn(env, n)) == atom_error)
-            goto err;
-
-        ret = enif_make_list_from_array(env, result, 2);
 
 #ifdef HAVE_DSA
     } else if (argv[0] == atom_dss) {
@@ -1392,8 +1378,6 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ret = enif_make_badarg(env);
 
  done:
-    if (rsa)
-        RSA_free(rsa);
 #ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);

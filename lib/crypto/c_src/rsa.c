@@ -401,6 +401,35 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #endif /* #else-part of #if !defined(HAS_3_0_API) */
 
 
+int rsa_privkey_to_pubkey(ErlNifEnv* env,  EVP_PKEY *pkey, ERL_NIF_TERM *ret)
+{
+    const BIGNUM *n = NULL, *e = NULL, *d = NULL;
+    ERL_NIF_TERM result[2];
+    RSA *rsa = NULL;
+    
+    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+        goto err;
+
+    RSA_get0_key(rsa, &n, &e, &d);
+
+    // Exponent E
+    if ((result[0] = bin_from_bn(env, e)) == atom_error)
+        goto err;
+    // Modulus N = p*q
+    if ((result[1] = bin_from_bn(env, n)) == atom_error)
+        goto err;
+
+    *ret = enif_make_list_from_array(env, result, 2);
+    RSA_free(rsa);
+    return 1;
+
+ err:
+    if (rsa)
+        RSA_free(rsa);
+    return 0;
+}
+
+
 ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     /* RSA key generation can take a long time (>1 sec for a large
