@@ -163,4 +163,36 @@ int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
+
+int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
+{
+    ERL_NIF_TERM result[4];
+    DSA *dsa = NULL;
+    const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
+
+    if ((dsa = EVP_PKEY_get1_DSA(pkey)) == NULL)
+        goto err;
+
+    DSA_get0_pqg(dsa, &p, &q, &g);
+    DSA_get0_key(dsa, &pub_key, NULL);
+
+    if ((result[0] = bin_from_bn(env, p)) == atom_error)
+        goto err;
+    if ((result[1] = bin_from_bn(env, q)) == atom_error)
+        goto err;
+    if ((result[2] = bin_from_bn(env, g)) == atom_error)
+        goto err;
+    if ((result[3] = bin_from_bn(env, pub_key)) == atom_error)
+        goto err;
+
+    *ret = enif_make_list_from_array(env, result, 4);
+    DSA_free(dsa);
+    return 1;
+    
+ err:
+    if (dsa)
+        DSA_free(dsa);
+    return 0;
+}
+
 #endif

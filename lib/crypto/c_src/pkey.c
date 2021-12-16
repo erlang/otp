@@ -1296,10 +1296,6 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 { /* (Algorithm, PrivKey | KeyMap) */
     ERL_NIF_TERM ret;
     EVP_PKEY *pkey = NULL;
-#ifdef HAVE_DSA
-    DSA *dsa = NULL;
-#endif
-    ERL_NIF_TERM result[8];
 
     ASSERT(argc == 2);
 
@@ -1312,24 +1308,8 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 #ifdef HAVE_DSA
     } else if (argv[0] == atom_dss) {
-        const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
-
-        if ((dsa = EVP_PKEY_get1_DSA(pkey)) == NULL)
+        if (!dss_privkey_to_pubkey(env, pkey, &ret))
             goto err;
-
-        DSA_get0_pqg(dsa, &p, &q, &g);
-        DSA_get0_key(dsa, &pub_key, NULL);
-
-        if ((result[0] = bin_from_bn(env, p)) == atom_error)
-            goto err;
-        if ((result[1] = bin_from_bn(env, q)) == atom_error)
-            goto err;
-        if ((result[2] = bin_from_bn(env, g)) == atom_error)
-            goto err;
-        if ((result[3] = bin_from_bn(env, pub_key)) == atom_error)
-            goto err;
-
-        ret = enif_make_list_from_array(env, result, 4);
 #endif
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
@@ -1378,10 +1358,6 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ret = enif_make_badarg(env);
 
  done:
-#ifdef HAVE_DSA
-    if (dsa)
-        DSA_free(dsa);
-#endif
     if (pkey)
         EVP_PKEY_free(pkey);
 
