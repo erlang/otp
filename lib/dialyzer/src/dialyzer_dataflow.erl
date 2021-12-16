@@ -1205,120 +1205,44 @@ handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
 	       _ClauseAcc, WarnAcc) ->
   {lists:reverse(Acc), State, t_sup(CaseTypes), WarnAcc}.
 
-do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
+%%
+%% Process one clause.
+%%
+%% ArgType is the current type of the case argument; the types for
+%% all previously matched clauses have been subtracted from it.
+%%
+%% OrigArgType is the original type of the case argument. We need it
+%% to produce better warnings when a clause does not match.
+%%
+do_clause(C, Arg, ArgType, OrigArgType, Map, State, Warns) ->
   Pats = cerl:clause_pats(C),
-  Guard = cerl:clause_guard(C),
-  Body = cerl:clause_body(C),
   Map0 = mark_as_fresh(Pats, Map),
   Map1 = bind_subst(Arg, Pats, Map0),
+
+  %% Try to bind the pattern to the case argument.
   BindRes =
-    case t_is_none(ArgType0) of
+    case t_is_none(ArgType) of
       true ->
-	{error, bind, Pats, ArgType0, ArgType0};
+	{error, maybe_covered, OrigArgType, ignore, ignore};
       false ->
-	ArgTypes =
-	  case t_is_any(ArgType0) of
-	    true -> [ArgType0 || _ <- Pats];
-	    false -> t_to_tlist(ArgType0)
-	  end,
+	ArgTypes = get_arg_list(ArgType, Pats),
 	bind_pat_vars(Pats, ArgTypes, [], Map1, State)
     end,
+
+  %% Test whether the binding succeeded.
   case BindRes of
-    {error, ErrorType, NewPats, Type, OpaqueTerm} ->
+    {error, _ErrorType, _NewPats, _Type, _OpaqueTerm} ->
       ?debug("Failed binding pattern: ~ts\nto ~ts\n",
-	     [cerl_prettypr:format(C), format_type(ArgType0, State)]),
-      case state__warning_mode(State) of
-        false ->
-	  {State, Map, t_none(), ArgType0, Warns};
-	true ->
-	  {Msg, Force} =
-	    case t_is_none(ArgType0) of
-	      true ->
-		%% See if this is covered by an earlier clause or if it
-		%% simply cannot match
-		OrigArgTypes =
-		  case t_is_any(OrigArgType) of
-		    true -> Any = t_any(), [Any || _ <- Pats];
-		    false -> t_to_tlist(OrigArgType)
-		  end,
-                PatString = format_patterns(Pats),
-                ArgTypeString = format_type(OrigArgType, State),
-                BindResOrig =
-                  bind_pat_vars(Pats, OrigArgTypes, [], Map1, State),
-		Tag =
-		  case BindResOrig of
-		    {error,   bind, _, _, _} -> pattern_match;
-		    {error, record, _, _, _} -> record_match;
-		    {error, opaque, _, _, _} -> opaque_match;
-		    {_, _} -> pattern_match_cov
-		  end,
-                PatTypes = case BindResOrig of
-                             {error, opaque, _, _, OpaqueType} ->
-                               [PatString, ArgTypeString,
-                                format_type(OpaqueType, State)];
-                             _ -> [PatString, ArgTypeString]
-                           end,
-                {{Tag, PatTypes}, false};
-	      false ->
-		%% Try to find out if this is a default clause in a list
-		%% comprehension and suppress this. A real Hack(tm)
-		Force0 =
-		  case is_compiler_generated(cerl:get_ann(C)) of
-		    true ->
-		      case Pats of
-			[Pat] ->
-			  case cerl:is_c_cons(Pat) of
-			    true ->
-			      not (cerl:is_c_var(cerl:cons_hd(Pat)) andalso
-				   cerl:is_c_var(cerl:cons_tl(Pat)) andalso
-				   cerl:is_literal(Guard) andalso
-				   (cerl:concrete(Guard) =:= true));
-			    false ->
-			      true
-			  end;
-			[Pat0, Pat1] -> % binary comprehension
-			  case cerl:is_c_cons(Pat0) of
-			    true ->
-			      not (cerl:is_c_var(cerl:cons_hd(Pat0)) andalso
-				   cerl:is_c_var(cerl:cons_tl(Pat0)) andalso
-                                   cerl:is_c_var(Pat1) andalso
-				   cerl:is_literal(Guard) andalso
-				   (cerl:concrete(Guard) =:= true));
-			    false ->
-			      true
-			  end;
-			_ -> true
-		      end;
-		    false ->
-		      true
-		  end,
-                PatString =
-                  case ErrorType of
-                    bind   -> format_patterns(Pats);
-                    record -> format_patterns(NewPats);
-                    opaque -> format_patterns(NewPats)
-                  end,
-		PatTypes = case ErrorType of
-			     bind -> [PatString, format_type(ArgType0, State)];
-			     record -> [PatString, format_type(Type, State)];
-			     opaque -> [PatString, format_type(Type, State),
-					format_type(OpaqueTerm, State)]
-			   end,
-		FailedTag = case ErrorType of
-			      bind  -> pattern_match;
-			      record -> record_match;
-			      opaque -> opaque_match
-			    end,
-		{{FailedTag, PatTypes}, Force0}
-	    end,
-	  WarnType = case Msg of
-		       {opaque_match, _} -> ?WARN_OPAQUE;
-		       {pattern_match, _} -> ?WARN_MATCHING;
-		       {record_match, _} -> ?WARN_MATCHING;
-		       {pattern_match_cov, _} -> ?WARN_MATCHING
-		     end,
-	  {State, Map, t_none(), ArgType0, [{WarnType, C, Msg, Force}|Warns]}
-      end;
+	     [cerl_prettypr:format(C), format_type(ArgType, State)]),
+      NewWarns =
+        case state__warning_mode(State) of
+          false ->
+            Warns;
+          true ->
+            Warn = clause_error(State, Map1, BindRes, C, Pats, ArgType),
+            [Warn|Warns]
+        end,
+      {State, Map, t_none(), ArgType, NewWarns};
     {Map2, PatTypes} ->
       %% Try to bind the argument. Will only succeed if
       %% it is a simple structured term.
@@ -1328,39 +1252,133 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
           {error, _, _, _, _} -> Map2;
           {NewMap, _} -> NewMap
 	end,
+
+      %% Subtract the matched type from the case argument. That will
+      %% allow us to find clauses that are covered by previous
+      %% clauses.
+      Guard = cerl:clause_guard(C),
       GenType = dialyzer_typesig:get_safe_underapprox(Pats, Guard),
-      NewArgType = t_subtract(t_product(t_to_tlist(ArgType0)), GenType),
+      NewArgType = t_subtract(t_product(t_to_tlist(ArgType)), GenType),
+
+      %% Now test whether the guard will succeed.
       case bind_guard(Guard, Map3, State) of
 	{error, Reason} ->
 	  ?debug("Failed guard: ~ts\n",
 		 [cerl_prettypr:format(C, [{hook, cerl_typean:pp_hook()}])]),
-	  PatString = format_patterns(Pats),
-	  DefaultMsg =
-	    case Pats =:= [] of
-	      true -> {guard_fail, []};
-	      false ->
-		{guard_fail_pat, [PatString, format_type(ArgType0, State)]}
-	    end,
-	  Warn =
-	    case Reason of
-	      none -> {?WARN_MATCHING, C, DefaultMsg, false};
-	      {FailGuard, Msg} ->
-		case is_compiler_generated(cerl:get_ann(FailGuard)) of
-		  false ->
-		    WarnType = case Msg of
-				 {guard_fail, _} -> ?WARN_MATCHING;
-				 {neg_guard_fail, _} -> ?WARN_MATCHING;
-				 {opaque_guard, _} -> ?WARN_OPAQUE
-			       end,
-		    {WarnType, FailGuard, Msg, false};
-		  true ->
-		    {?WARN_MATCHING, C, Msg, false}
-		end
-	    end,
-	  {State, Map, t_none(), NewArgType, [Warn|Warns]};
+          Warn = clause_guard_error(State, Reason, C, Pats, ArgType),
+          {State, Map, t_none(), NewArgType, [Warn|Warns]};
         Map4 ->
+          Body = cerl:clause_body(C),
           {RetState, RetMap, BodyType} = traverse(Body, Map4, State),
           {RetState, RetMap, BodyType, NewArgType, Warns}
+      end
+  end.
+
+clause_error(State, Map, {error, maybe_covered, OrigArgType, _, _}, C, Pats, _) ->
+  %% This clause is covered by previous clauses, but it is possible
+  %% that it would never match anyway. Find out by matching the
+  %% original argument types of the case.
+  OrigArgTypes = get_arg_list(OrigArgType, Pats),
+  Msg =
+    case bind_pat_vars(Pats, OrigArgTypes, [], Map, State) of
+      {_, _} ->
+        %% The pattern would match if it had not been covered.
+        PatString = format_patterns(Pats),
+        ArgTypeString = format_type(OrigArgType, State),
+        {pattern_match_cov, [PatString, ArgTypeString]};
+      {error, ErrorType, _, _, OpaqueTerm} ->
+        %% This pattern can never match.
+        failed_msg(State, ErrorType, Pats, OrigArgType,
+                   Pats, OrigArgType, OpaqueTerm)
+    end,
+  Force = false,
+  clause_error_warning(Msg, Force, C);
+clause_error(State, _Map, BindRes, C, Pats, ArgType) ->
+  %% This clause will never match. Always produce a warning
+  %% unless it is the default clause in a list comprehension
+  %% without any filters.
+  Force = not is_lc_default_clause(C),
+  {error, ErrorType, NewPats, NewType, OpaqueTerm} = BindRes,
+  Msg = failed_msg(State, ErrorType, Pats, ArgType, NewPats, NewType, OpaqueTerm),
+  clause_error_warning(Msg, Force, C).
+
+failed_msg(State, ErrorType, Pats, Type, NewPats, NewType, OpaqueTerm) ->
+    case ErrorType of
+      bind ->
+        {pattern_match, [format_patterns(Pats), format_type(Type, State)]};
+      record ->
+        {record_match, [format_patterns(NewPats), format_type(NewType, State)]};
+      opaque ->
+        {opaque_match, [format_patterns(NewPats), format_type(NewType, State),
+                        format_type(OpaqueTerm, State)]}
+    end.
+
+clause_error_warning(Msg, Force, C) ->
+  {warn_type(Msg), C, Msg, Force}.
+
+warn_type({Tag, _}) ->
+  case Tag of
+    guard_fail -> ?WARN_MATCHING;
+    neg_guard_fail -> ?WARN_MATCHING;
+    opaque_guard -> ?WARN_OPAQUE;
+    opaque_match -> ?WARN_OPAQUE;
+    pattern_match -> ?WARN_MATCHING;
+    pattern_match_cov -> ?WARN_MATCHING;
+    record_match -> ?WARN_MATCHING
+  end.
+
+get_arg_list(ArgTypes, Pats) ->
+  case t_is_any(ArgTypes) of
+    true ->
+      [ArgTypes || _ <- Pats];
+    false ->
+      t_to_tlist(ArgTypes)
+  end.
+
+%% Test whether this clause is the default clause for a list
+%% or binary comprehension without any filters.
+is_lc_default_clause(C) ->
+  case is_compiler_generated(cerl:get_ann(C)) of
+    false ->
+      false;
+    true ->
+      case cerl:clause_pats(C) of
+        [Pat] ->                                % list comprehension
+          cerl:is_c_cons(Pat) andalso
+            cerl:is_c_var(cerl:cons_hd(Pat)) andalso
+            cerl:is_c_var(cerl:cons_tl(Pat)) andalso
+            does_guard_succeed(C);
+        [Pat0, Pat1] ->                         % binary comprehension
+          cerl:is_c_cons(Pat0) andalso
+            cerl:is_c_var(cerl:cons_hd(Pat0)) andalso
+            cerl:is_c_var(cerl:cons_tl(Pat0)) andalso
+            cerl:is_c_var(Pat1) andalso
+            does_guard_succeed(C)
+      end
+  end.
+
+does_guard_succeed(C) ->
+  Guard = cerl:clause_guard(C),
+  cerl:is_literal(Guard) andalso cerl:concrete(Guard) =:= true.
+
+clause_guard_error(State, Reason, C, Pats, ArgType) ->
+  case Reason of
+    none ->
+      Msg =
+        case Pats of
+          [] ->
+            {guard_fail, []};
+          [_|_] ->
+            PatString = format_patterns(Pats),
+            {guard_fail_pat, [PatString, format_type(ArgType, State)]}
+        end,
+      {?WARN_MATCHING, C, Msg, false};
+    {FailGuard, Msg} ->
+      case is_compiler_generated(cerl:get_ann(FailGuard)) of
+        false ->
+          {warn_type(Msg), FailGuard, Msg, false};
+        true ->
+          {?WARN_MATCHING, C, Msg, false}
       end
   end.
 
