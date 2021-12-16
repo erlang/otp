@@ -516,7 +516,7 @@ ls(Config0) ->
 %%-------------------------------------------------------------------------
 nlist() ->
     [{doc,"Open an ftp connection; nlist the current directory, and the "
-               "\"test\" directory. Nlist does not behave consistenly over "
+               "\"test\" directory. Nlist does not behave consistently over "
                "operating systems. On some it is an error to have an empty "
                "directory."}].
 nlist(Config0) ->
@@ -888,7 +888,7 @@ quote(Config) ->
     Pid = proplists:get_value(ftp, Config),
     ["257 \""++_Rest] = ftp:quote(Pid, "pwd"), %% 257
     [_| _] = ftp:quote(Pid, "help"),
-    %% This negativ test causes some ftp servers to hang. This test
+    %% This negative test causes some ftp servers to hang. This test
     %% is not important for the client, so we skip it for now.
     %%["425 Can't build data connection: Connection refused."]
     %% = ftp:quote(Pid, "list"),
@@ -948,7 +948,7 @@ unexpected_call(Config) when is_list(Config) ->
     Flag =  process_flag(trap_exit, true),
     Pid = proplists:get_value(ftp, Config),
 
-    %% Serious programming fault, connetion will be shut down
+    %% A serious programming fault, the connection will be shut down
     case (catch gen_server:call(Pid, {self(), foobar, 10}, infinity)) of
         {error, {connection_terminated, 'API_violation'}} ->
             ok;
@@ -965,7 +965,7 @@ unexpected_cast()->
 unexpected_cast(Config) when is_list(Config) ->
     Flag = process_flag(trap_exit, true),
     Pid = proplists:get_value(ftp, Config),
-    %% Serious programming fault, connetion will be shut down
+     %% A serious programming fault, the connection will be shut down
     gen_server:cast(Pid, {self(), foobar, 10}),
     ct:sleep(500),
     undefined = process_info(Pid, status),
@@ -977,7 +977,7 @@ unexpected_bang()->
 unexpected_bang(Config) when is_list(Config) ->
     Flag = process_flag(trap_exit, true),
     Pid = proplists:get_value(ftp, Config),
-    %% Could be an innocent misstake the connection lives.
+    %% Could be an innocent mistake the connection lives.
     Pid ! foobar,
     ct:sleep(500),
     {status, _} = process_info(Pid, status),
@@ -1016,7 +1016,7 @@ clean_shutdown(Config) ->
 %%-------------------------------------------------------------------------
 ftp_worker() ->
     [{doc, "Makes sure the ftp worker processes are added and removed "
-      "appropriatly to/from the supervison tree."}].
+      "appropriately to/from the supervison tree."}].
 ftp_worker(Config) ->
     Pid = proplists:get_value(ftp,Config),
     case supervisor:which_children(ftp_sup) of
@@ -1217,7 +1217,7 @@ start_ftpd(Config0) ->
                     ct:log("Ftp server ~p started on ~p:~p but is unusable:~n~p:~p",
                            [AbsName,Host,Port,Class,Exception]),
                     catch stop_ftpd(Config),
-                    {skip, [AbsName," started but unusuable"]}
+                    {skip, [AbsName," started but unusable"]}
             end;
         {error,Msg} ->
             {skip, [AbsName," not started: ",Msg]}

@@ -1255,7 +1255,7 @@ handle_cast({Pid, close}, State) ->
     error_logger:info_report(Report),
     {noreply, State};
 
-%% Catch all -  This can oly happen if the application programmer writes
+%% Catch all -  This can only happen if the application programmer writes
 %% really bad code that violates the API.
 handle_cast(Msg, State) ->
   {stop, {'API_violation_connection_closed', Msg}, State}.
@@ -2258,7 +2258,7 @@ activate_connection(API, CloseTag, Socket0) ->
     case API:setopts(Socket, [{active, once}]) of
         ok ->
             ok;
-        {error, _} -> %% inet can retrun einval instead of closed
+        {error, _} -> %% inet can return einval instead of closed
             self() ! {CloseTag, Socket}
     end.
 

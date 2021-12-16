@@ -105,7 +105,7 @@
 %% @type fileName() = string()
 
 %% TODO: Can we mark up tests as known-failures?
-%% TODO: Is it possible to handle known timout/setup failures?
+%% TODO: Is it possible to handle known timeout/setup failures?
 %% TODO: Add diagnostic tests which never fail, but may cause warnings?
 
 %% ---------------------------------------------------------------------
