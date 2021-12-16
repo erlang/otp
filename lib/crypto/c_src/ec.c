@@ -307,7 +307,7 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         goto err;
     if (!enif_is_binary(env, tpl_terms[1]))
         goto err;
-    if (!get_ec_key(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec))
+    if (!get_ec_key_sz(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec, NULL))
         goto err;
 
     if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
@@ -336,7 +336,7 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         goto err;
     if (!enif_is_binary(env, tpl_terms[1]))
         goto err;
-    if (!get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec))
+    if (!get_ec_key_sz(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec, NULL))
         goto err;
 
     if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
@@ -351,13 +351,6 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
-
-int get_ec_key(ErlNifEnv* env,
-		      ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
-		      EC_KEY** res)
-{
-    return get_ec_key_sz(env, curve, priv, pub, res, NULL);
-}
 
 int get_ec_key_sz(ErlNifEnv* env,
                   ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
@@ -434,7 +427,7 @@ int get_ec_key_sz(ErlNifEnv* env,
 #endif /* HAVE_EC */
 
 ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+{ /* (Curve, PrivKey)  */
 #if defined(HAVE_EC)
     EC_KEY *key = NULL;
     const EC_GROUP *group;
