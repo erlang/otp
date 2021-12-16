@@ -104,31 +104,52 @@ node_cookie(Node, Cookie) ->
 -spec get_cookie() -> 'nocookie' | cookie().
 
 get_cookie() ->
-    get_cookie(node()).
+    case whereis(auth) of
+        undefined ->
+            nocookie;
+        AuthPid ->
+            gen_server:call(AuthPid, get_our_cookie, infinity)
+    end.
 
 -spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
 
-get_cookie(Node) when Node =:= nonode@nohost ->
-    nocookie;
+get_cookie(Node) when Node =:= node() ->
+    get_cookie();
 get_cookie(Node) ->
-    gen_server:call(auth, {get_cookie, Node}, infinity).
+    case whereis(auth) of
+        undefined ->
+            nocookie;
+        AuthPid ->
+            gen_server:call(AuthPid, {get_cookie, Node}, infinity)
+    end.
 
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
 
 set_cookie(Cookie) ->
-    set_cookie(node(), Cookie).
+    case whereis(auth) of
+        undefined ->
+            erlang:error(distribution_not_started);
+        AuthPid ->
+            gen_server:call(AuthPid, {set_our_cookie, Cookie}, infinity)
+    end.
 
 -spec set_cookie(Node :: node(), Cookie :: cookie()) -> 'true'.
 
-set_cookie(_Node, _Cookie) when node() =:= nonode@nohost ->
-    erlang:error(distribution_not_started);
+set_cookie(Node, Cookie) when Node =:= node() ->
+    set_cookie(Cookie);
 set_cookie(Node, Cookie) ->
-    gen_server:call(auth, {set_cookie, Node, Cookie}, infinity).
+    case whereis(auth) of
+        undefined ->
+            erlang:error(distribution_not_started);
+        AuthPid ->
+            gen_server:call(AuthPid, {set_cookie, Node, Cookie}, infinity)
+    end.
 
 -spec sync_cookie() -> any().
 
 sync_cookie() ->
     gen_server:call(auth, sync_cookie, infinity).
+
 
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 
@@ -154,7 +175,7 @@ init([]) ->
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
 
-handle_call({get_cookie, Node}, {_From,_Tag}, State) when Node =:= node() ->
+handle_call(get_our_cookie, {_From,_Tag}, State) ->
     {reply, State#state.our_cookie, State};
 handle_call({get_cookie, Node}, {_From,_Tag}, State) ->
     case ets:lookup(State#state.other_cookies, Node) of
@@ -163,8 +184,7 @@ handle_call({get_cookie, Node}, {_From,_Tag}, State) ->
 	[] ->
 	    {reply, State#state.our_cookie, State}
     end;
-handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State) 
-  when Node =:= node() ->
+handle_call({set_our_cookie, Cookie}, {_From,_Tag}, State) ->
     {reply, true, State#state{our_cookie = Cookie}};
 
 %%
