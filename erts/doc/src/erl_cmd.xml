@@ -600,6 +600,9 @@ $ <input>erl \
         <note><p>Before OTP-23 the user <em>needed</em> to supply a valid <c>-sname</c> or
           <c>-name</c> for <c>-remsh</c> to work. This is still the case if the target
           node is not running OTP-23 or later.</p></note>
+        <note><p>The connecting node needs to have a proper shell with terminal emulation.
+          This means that UNIX users must use an Erlang compiled with terminal capabilities and
+          Windows users must use <seecom marker="werl"><c>werl(1)</c></seecom>.</p></note>
       </item>
       <tag><c><![CDATA[-rsh Program]]></c></tag>
       <item>
