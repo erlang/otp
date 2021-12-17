@@ -49,7 +49,7 @@
 
   <section>
     <title>The old API</title>
-    <p>The old functions - deprecated from 23.0 and removed from OTP 24.0 - are for chipers:</p>
+    <p>The old functions - deprecated from 23.0 and removed from OTP 24.0 - are for ciphers:</p>
     <list>
       <item><c>block_encrypt/3</c></item>
       <item><c>block_encrypt/4</c></item>
@@ -111,7 +111,7 @@
 	<item><seemfa marker="crypto#crypto_final/1">crypto_final/1</seemfa></item>
       </list>
       <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
-      <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
+      <c>crypto_update</c> does the actual encryption or decryption. Note that AEAD ciphers
       can't be handled this way due to their nature.
       </p>
       <p>For repeated encryption or decryption of a text divided in parts where the

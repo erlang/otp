@@ -116,7 +116,7 @@ static ERL_NIF_TERM get_opts(ErlNifEnv* env, const ERL_NIF_TERM opts, int opts_a
         }
 
     if (!enif_is_list(env, opts) || !enif_get_list_length(env, opts, &list_len))
-        /* Not a boolean() and not a list, definitly an error */
+        /* Not a boolean() and not a list, definitely an error */
         return EXCP_BADARG_N(env, opts_arg_num, "Options are not a boolean or a proper list");
 
     /* A list, might be a property list, as it should */
@@ -211,7 +211,7 @@ static int get_init_args(ErlNifEnv* env,
     ctx_res->padded_size = -1;
     ctx_res->size = 0;
 
-    /* Two initializations to make CodeChecker happy: it gets a bit desoriented
+    /* Two initializations to make CodeChecker happy: it gets a bit disoriented
        by the NIF Exception model */
     ctx_res->encflag = 0;
     ctx_res->padding = atom_error;

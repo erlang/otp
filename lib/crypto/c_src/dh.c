@@ -71,7 +71,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto bad_arg;
 
     /* Load dh_params with values to use by the generator.
-       Mem mgmnt transfered from dh_p etc to dh_params */
+       Mem mgmnt transferred from dh_p etc to dh_params */
     if ((dh_params = DH_new()) == NULL)
         goto bad_arg;
     if (priv_key_in) {

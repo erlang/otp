@@ -1276,7 +1276,7 @@ info(_Config) ->
             ok;
         Other ->
             ct:log("Ver = ~p~ncrypto:info() -> ~p", [Ver,Other]),
-            ct:fail("Version missmatch", [])
+            ct:fail("Version mismatch", [])
     catch
         C:E ->
             ct:log("Exception ~p:~p", [C,E]),
