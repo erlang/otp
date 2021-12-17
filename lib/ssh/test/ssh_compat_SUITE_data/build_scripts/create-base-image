@@ -6,7 +6,7 @@ USER=sshtester
 PWD=foobar
 
 docker build \
-    -t ubuntubuildbase \
+    -t ssh_compat_suite-ubuntu \
     --build-arg https_proxy=$HTTPS_PROXY \
     --build-arg http_proxy=$HTTP_PROXY \
     - <<EOF

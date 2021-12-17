@@ -1,0 +1,23 @@
+To move an image, do:
+
+On src machine:
+
+$ docker run -itd --rm -p 1234 REPOSITORY:TAG
+$ docker export XYZ -o FIL
+$ scp FIL  hans@laura.otp.ericsson.se:/ldisk/hans/docker
+$ docker kill THE_DOCKER_REF
+
+On dst machine:
+
+hans$ chmod a+r FIL
+$ docker import FIL ssh_compat:bld
+$ docker build -t REPOSITORY:TAG -f DF .
+$ docker rmi ssh_compat:bld
+
+(DF contains:
+FROM ssh_compat:bld
+    
+# Start the daemon, but keep it in foreground to avoid killing the container
+CMD /buildroot/ssh/sbin/sshd -D -p 1234
+
+)
