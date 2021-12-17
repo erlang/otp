@@ -5921,15 +5921,6 @@ error:
 }
 
 /**********************************************************************/
-/* is_alive() -> Bool */
-
-BIF_RETTYPE is_alive_0(BIF_ALIST_0)
-{
-    Eterm res = erts_is_alive ? am_true : am_false;
-    BIF_RET(res);
-}
-
-/**********************************************************************/
 /* erlang:monitor_node(Node, Bool, Options) -> Bool */
 
 static BIF_RETTYPE

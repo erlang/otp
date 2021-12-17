@@ -70,6 +70,7 @@
          nodename/0,
 	 protocol_childspecs/0,
 	 epmd_module/0,
+         is_alive/0,
          dist_listen/0]).
 
 -export([disconnect/1, passive_cnct/1]).
@@ -189,6 +190,10 @@ allowed() ->                   request(allowed).
 longnames() ->                 request(longnames).
 
 nodename() ->                  request(nodename).
+
+is_alive() ->
+    whereis(net_kernel) =/= undefined.
+
 
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.

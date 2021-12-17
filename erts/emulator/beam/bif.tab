@@ -83,7 +83,6 @@ bif erlang:phash2/1
 bif erlang:phash2/2
 ubif erlang:hd/1
 bif erlang:integer_to_list/1
-bif erlang:is_alive/0
 ubif erlang:length/1
 bif erlang:link/1
 bif erlang:list_to_atom/1
