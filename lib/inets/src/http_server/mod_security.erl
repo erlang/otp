@@ -93,7 +93,7 @@ do(Info) ->
 		    {proceed, [{status, {403, Info#mod.request_uri, ""}} |
 			       Info#mod.data]};
 		false ->
-		    report_failed(Info, User,"Authentication Succedded"),
+		    report_failed(Info, User,"Authentication Succeeded"),
 		    mod_security_server:store_successful_auth(Addr, Port, Profile, 
 							      User, 
 							      SDirData),

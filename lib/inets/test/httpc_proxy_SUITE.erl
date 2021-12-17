@@ -314,7 +314,7 @@ http_proxy_auth(doc) ->
 http_proxy_auth(Config) when is_list(Config) ->
     %% Our proxy seems to ignore the header, however our proxy
     %% does not requirer an auth header, but we want to know
-    %% atleast the code for sending the header does not crash!
+    %% at least the code for sending the header does not crash!
     Method = get,
     URL = url("/index.html", Config),
     Request = {URL,[]},

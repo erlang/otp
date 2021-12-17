@@ -140,7 +140,7 @@ request(Url, Profile) ->
 %%      SendAcc = NewSendAcc = term()
 %%
 %% Description: Sends a HTTP-request. The function can be both
-%% syncronus and asynchronous in the later case the function will
+%% synchronous and asynchronous in the later case the function will
 %% return {ok, RequestId} and later on a message will be sent to the
 %% calling process on the format {http, {RequestId, {StatusLine,
 %% Headers, Body}}} or {http, {RequestId, {error, Reason}}}.
@@ -652,7 +652,7 @@ maybe_format_body(BinBody, Options) ->
     end.
 
 %% This options is a workaround for http servers that do not follow the 
-%% http standard and have case sensative header parsing. Should only be
+%% http standard and have case sensitive header parsing. Should only be
 %% used if there is no other way to communicate with the server or for
 %% testing purpose.
 headers_as_is(Headers, Options) ->

@@ -456,7 +456,7 @@
       <list>
         <item>
           <p>
-	    httpd - Accept singel LF as line terminator</p>
+	    httpd - Accept single LF as line terminator</p>
           <p>
 	    Own Id: OTP-15893 Aux Id: PR-2206 </p>
         </item>
@@ -528,7 +528,7 @@
         <item>
           <p>
 	    mod_esi will now always propagate the actual HTTP status
-	    code that it anwsered with, to later mod-modules, and not
+	    code that it answered with, to later mod-modules, and not
 	    in some cases hardcode 200.</p>
           <p>
 	    Own Id: OTP-16049 Aux Id: ERIERL-395 </p>
@@ -1184,7 +1184,7 @@
       <list>
         <item>
           <p>
-	    Correct misstakes in ftp client introduced in inets-6.3.4</p>
+	    Correct mistakes in ftp client introduced in inets-6.3.4</p>
           <p>
 	    Own Id: OTP-14203 Aux Id: OTP-13982 </p>
         </item>
@@ -1290,7 +1290,7 @@
       <list>
         <item>
           <p>
-	    A debug message was accidently left enabled in the ftp
+	    A debug message was accidentally left enabled in the ftp
 	    client.</p>
           <p>
 	    Own Id: OTP-13712 Aux Id: seq13143 </p>
@@ -1711,7 +1711,7 @@
         <item>
           <p>
 	    Remove Server Side Include support from inets, as this is
-	    an old technic that has security issues and was not well
+	    an old technique that has security issues and was not well
 	    tested.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
@@ -1741,7 +1741,7 @@
         </item>
         <item>
           <p>
-	    httpc: Fix implementation of gracefull shudown to work as
+	    httpc: Fix implementation of graceful shudown to work as
 	    intended for keep alive connections not using pipelining.</p>
           <p>
 	    Own Id: OTP-12803</p>
@@ -1931,7 +1931,7 @@
       <list>
         <item>
           <p>
-	    httpd: Seperate timeout for TLS/SSL handshake from
+	    httpd: Separate timeout for TLS/SSL handshake from
 	    keepalive timeout</p>
           <p>
 	    Own Id: OTP-12013</p>
@@ -2286,7 +2286,7 @@
         <item>
           <p>
 	    httpc: Fixed persistent connection implementation that
-	    was broken by a patch to R13. The patch made persisten
+	    was broken by a patch to R13. The patch made persistent
 	    connections behaved the same way as pipelining.</p>
           <p>
 	    Own Id: OTP-10845</p>
@@ -2629,7 +2629,7 @@
 	  the address part is removed. This value is then supplied as the host 
 	  header. This can cause problems with some servers.
 	  A workaround for this is to use headers_as_is and provide the host
-	  header with the requst call. 
+	  header with the request call. 
 	  To solve this a new option has been added, 
 	  <seeerl marker="httpc#ipv6_host_with_brackets">ipv6_host_with_brackets</seeerl>. 
 	  This option specifies if the host value of the host header shall 
@@ -2971,7 +2971,7 @@
 	  in the previous implementation a race condition could occur causing 
 	  the manager to crash. </p>
 	  <p>This is now avoided by using proc_lib:init_ack and 
-	  gen_server:enter_loop to allow mor advanced initialization of 
+	  gen_server:enter_loop to allow more advanced initialization of 
 	  httpc_handlers without blocking the httpc_manger and eliminating 
 	  extra processes that can cause race conditions. </p>
           <p>Own Id: OTP-9246</p>
@@ -2984,7 +2984,7 @@
 	  The reason was that the connect call resulted in an exit with 
 	  reason <c>badarg</c> 
 	  (this was the same for both <c>ssl</c> and <c>gen_tcp</c>). </p>
-	  <p>Exits was not catched. This has now been improved. </p>
+	  <p>Exits was not caught. This has now been improved. </p>
           <p>Own Id: OTP-9289</p>
           <p>Aux Id: seq11845</p>
         </item>
@@ -3078,7 +3078,7 @@
 	    the manager process. For this reason, the manager did not
 	    clean up the request table., resulting in a memory leak.
 	    Also the manager did not create a monitor for the
-	    handler, so in an unforseen handler crash, this could
+	    handler, so in an unforeseen handler crash, this could
 	    also create a memory leak.</p>
           <p>
 	    Own Id: OTP-8739</p>
@@ -3312,7 +3312,7 @@
 
       <list>
         <item>
-	  <p>[httpc] - Badly formated error reason for errors occuring 
+	  <p>[httpc] - Badly formatted error reason for errors occurring 
             during initial connect to a server. 
             Also, the possible error reasons was 
             not properly documented.</p>

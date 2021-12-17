@@ -548,7 +548,7 @@ search_and_replace(S,A,B) ->
 
 
 %%----------------------------------------------------------------------
-%% Converts  a string that constists of 0-9,A-F,a-f to a 
+%% Converts  a string that consists of 0-9,A-F,a-f to a 
 %% integer
 %%----------------------------------------------------------------------
 

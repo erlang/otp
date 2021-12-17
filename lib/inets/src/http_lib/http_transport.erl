@@ -126,7 +126,7 @@ connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) ->
 %%
 %% Description: Sets up socket to listen on the port Port on the local
 %% host using either gen_tcp or ssl. In the gen_tcp case the port
-%% might allready have been initiated by a wrapper-program and is
+%% might already have been initiated by a wrapper-program and is
 %% given as an Fd that can be retrieved by init:get_argument. The
 %% reason for this to enable a HTTP-server not running as root to use
 %% port 80.
@@ -361,7 +361,7 @@ close({essl, _}, Socket) ->
 %% peername(SocketType, Socket) -> {Port, SockName}
 %%     SocketType = ip_comm | {ssl, _}
 %%     Socket = socket() 
-%%     Port = integer()  (-1 if error occured)
+%%     Port = integer()  (-1 if error occurred)
 %%     PeerName = string()
 %%                          
 %% Description: Returns the address and port for the other end of a
@@ -395,7 +395,7 @@ do_peername({error, _}) ->
 %% sockname(SocketType, Socket) -> {Port, SockName}
 %%     SocketType = ip_comm | {ssl, _}
 %%     Socket = socket() 
-%%     Port = integer()  (-1 if error occured)
+%%     Port = integer()  (-1 if error occurred)
 %%     SockName = string()
 %%                          
 %% Description: Returns the address and port for the local (our) end 

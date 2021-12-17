@@ -375,7 +375,7 @@ parse_set_cookie(CookieHeader, {DefaultPath, DefaultDomain}) ->
 				   value = string:strip(Value)},
     Attributes      = parse_set_cookie_attributes(Attrs),
     TmpCookie       = cookie_attributes(Attributes, Cookie),
-    %% Add runtime defult values if necessary
+    %% Add runtime default values if necessary
     NewCookie       = domain_default(path_default(TmpCookie, DefaultPath), 
 				     DefaultDomain),
     NewCookie.

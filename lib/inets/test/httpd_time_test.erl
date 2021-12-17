@@ -134,13 +134,13 @@ loop(Pollers, Timeout) ->
 		    exit({fail, {poller_exit, Pid, Time, Reason}});
 		false ->
 		    error_msg("received unexpected ~p from ~p"
-			      "befor completion of test", [Reason, Pid]),
+			      "before completion of test", [Reason, Pid]),
 		    loop(Pollers, Timeout - inets_lib:millisec_passed(Start))
 	    end;
 
 	{poller_stat_failure, Pid, {SocketType, Host, Port, Time, Reason}} ->
 	    error_msg("received stat failure ~p from poller ~p after ~p "
-		      "befor completion of test" 
+		      "before completion of test" 
 		      "~n   SocketType: ~p"
 		      "~n   Host:       ~p"
 		      "~n   Port:       ~p", 
@@ -149,7 +149,7 @@ loop(Pollers, Timeout) ->
 
 	{poller_stat_failure, Pid, SocketType, Host, Port, Reason} ->
 	    error_msg("received stat failure ~p from poller ~p "
-		      "befor completion of test" 
+		      "before completion of test" 
 		      "~n   SocketType: ~p"
 		      "~n   Host:       ~p"
 		      "~n   Port:       ~p", 
@@ -157,7 +157,7 @@ loop(Pollers, Timeout) ->
 	    exit({fail, {poller_failure, Pid, Reason}});
 
 	Any ->
-	    error_msg("received unexpected message befor completion of test: "
+	    error_msg("received unexpected message before completion of test: "
 		      "~n   ~p", [Any]),
 	    exit({fail, Any})
 

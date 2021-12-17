@@ -152,7 +152,7 @@ handle_error(closed, _, _) ->
 			     "badly."),
     exit(normal);
 
-%% This will only happen when the client is terminated abnormaly
+%% This will only happen when the client is terminated abnormally
 %% and is not a problem for the server, so we want
 %% to terminate normal so that we can restart without any 
 %% error messages.

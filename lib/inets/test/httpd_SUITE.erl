@@ -770,7 +770,7 @@ ipv6(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 same_file_name_dir_name() ->
-    [{doc,"Test that URI path that has a filename in it is not interprated as the file"}].
+    [{doc,"Test that URI path that has a filename in it is not interpreted as the file"}].
 same_file_name_dir_name(Config) when is_list(Config) ->
     Version = proplists:get_value(http_version, Config),
     Host = proplists:get_value(host, Config),
@@ -882,7 +882,7 @@ chunked(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 expect() ->   
     ["Check that the server handles request with the expect header "
-     "field appropiate"].
+     "field appropriate"].
 expect(Config) when is_list(Config) ->
     httpd_1_1:expect(proplists:get_value(type, Config), proplists:get_value(port, Config), 
 		     proplists:get_value(host, Config), proplists:get_value(node, Config)).

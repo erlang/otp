@@ -136,7 +136,7 @@ netscape_cookies(Config) when is_list(Config) ->
 
 cookie_cancel() -> 
     [{doc, "A cookie can be canceld by sending the same cookie with max-age=0 "
-     "this test cheks that cookie is canceled."}].
+     "this test checks that cookie is canceled."}].
 cookie_cancel(Config) when is_list(Config) -> 
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "max-age=60000"}],
@@ -160,7 +160,7 @@ cookie_expires(Config) when is_list(Config) ->
     {"cookie", ""} = httpc:cookie_header(?URL).
 
 persistent_cookie() ->
-    [{doc, "Test domian cookie attribute"}].
+    [{doc, "Test domain cookie attribute"}].
 persistent_cookie(Config) when is_list(Config)->
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "max-age=60000"}],
@@ -176,7 +176,7 @@ persistent_cookie(Config) when is_list(Config)->
     {"cookie","$Version=0; test_cookie=true; $Path=/"} = httpc:cookie_header(?URL).
 
 domain_cookie() ->
-    [{doc, "Test the domian cookie attribute"}].
+    [{doc, "Test the domain cookie attribute"}].
 domain_cookie(Config) when is_list(Config) ->
     SetCookieHeaders = [{"set-cookie", "test_cookie=true; path=/;" 
 			 "domain=.cookie.test.org"}],

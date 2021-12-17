@@ -397,7 +397,7 @@ slowdose(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 invalid_rfc1123_date() ->
-    [{doc, "Test that a non-DST date is handled correcly"}].
+    [{doc, "Test that a non-DST date is handled correctly"}].
 invalid_rfc1123_date(Config) when is_list(Config) ->
     Rfc1123FormattedDate = "Sun, 26 Mar 2017 01:00:00 GMT",
     NonDSTDateTime = {{2017, 03, 26},{1, 0, 0}},

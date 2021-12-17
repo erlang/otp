@@ -207,7 +207,7 @@ reload(Config, Address, Port, Profile) ->
 %%%              connections is accepted.
 %%% 
 %%%              non-disturbing:
-%%%              A non-disturbing block is more gracefull. No
+%%%              A non-disturbing block is more graceful. No
 %%%              new connections are accepted, but the ongoing 
 %%%              requests are allowed to complete.
 %%%              If a timeout time is given, it waits this long before

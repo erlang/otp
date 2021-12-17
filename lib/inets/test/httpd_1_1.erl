@@ -178,7 +178,7 @@ if_test(Type, Port, Host, Node, DocRoot)->
     
     Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				      CreatedSec+1)),
-    %% Control that the If-Unmodified-Header lmits the response
+    %% Control that the If-Unmodified-Header limits the response
     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
 				       "GET / HTTP/1.1\r\nHost:"
 				       ++ Host ++ 
@@ -365,7 +365,7 @@ validateMultiPartRangeRequest(Body, ValidBody, Boundary)->
     case re:split(Body,"--"++Boundary++"--", [{return, list}]) of
 	%%Last is the epilogue and must be ignored 
 	[First | _Last]->
-	    %%First is now the actuall http request body.
+	    %%First is now the actual http request body.
 	    case re:split(First, "--" ++ Boundary, [{return, list}]) of
 		%%Parts is now a list of ranges and the heads for each range
 		%%Gues we try to split out the body

@@ -154,8 +154,8 @@ send_response(ModData, Header, Body) ->
 	undefined ->
 	    %% No status code 
 	    %% Ooops this must be very bad:
-	    %% generate a 404 content not availible
-	    send_status(ModData, 404, "The file is not availible");
+	    %% generate a 404 content not available
+	    send_status(ModData, 404, "The file is not available");
 	StatusCode ->
 	    case send_header(ModData, StatusCode, lists:keydelete(code, 1,
 								  Header)) of
@@ -176,7 +176,7 @@ send_header(#mod{socket_type  = Type,
 			    lists:map(fun transform/1, KeyValueTupleHeaders)),
     NewVer = case {Ver, StatusCode} of
 		 {unknown, 408} ->
-		     %% This will proably never happen! It means the
+		     %% This will probably never happen! It means the
 		     %% server has timed out the request without
 		     %% receiving a version for the request!  Send the
 		     %% lowest version so to ensure that the client
