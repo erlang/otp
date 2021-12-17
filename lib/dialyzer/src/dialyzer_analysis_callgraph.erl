@@ -131,7 +131,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
                           solvers = Analysis#analysis.solvers
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
-  {Callgraph, TmpCServer0} = compile_and_store(Files, State),
+  {Callgraph, ModCallDeps, Modules, TmpCServer0} = compile_and_store(Files, State),
   %% Remote type postprocessing
   Args = {Plt, Analysis, Parent},
   NewCServer = remote_type_postprocessing(TmpCServer0, Args),
@@ -145,6 +145,9 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   NonExports = sets:subtract(sets:from_list(AllNodes, [{version, 2}]), Exports),
   NonExportsList = sets:to_list(NonExports),
   State2 = analyze_callgraph(Callgraph, State1),
+  ModTypeDeps = dict:from_list(maps:to_list(dialyzer_typegraph:module_type_deps(Analysis#analysis.use_contracts, CServer, Modules))),
+  ModDeps = dialyzer_callgraph:merge_module_deps(ModCallDeps, ModTypeDeps),
+  send_mod_deps(Parent, ModDeps),
   #analysis_state{plt = Plt2,
                   doc_plt = DocPlt,
                   codeserver = Codeserver0} = State2,
@@ -227,6 +230,7 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
                                              plt = Plt,
 					     timing_server = TimingServer,
+					     parent = Parent,
                                              solvers = Solvers} = State) ->
   case State#analysis_state.analysis_type of
     plt_build ->
@@ -238,10 +242,10 @@ analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
     succ_typings ->
       {Warnings, NewPlt, NewDocPlt} =
         dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-                                           TimingServer, Solvers),
+                                          TimingServer, Solvers),
       dialyzer_callgraph:delete(Callgraph),
       Warnings1 = filter_warnings(Warnings, Codeserver),
-      send_warnings(State#analysis_state.parent, Warnings1),
+      send_warnings(Parent, Warnings1),
       State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}
     end.
 
@@ -307,13 +311,13 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T2, _} = statistics(wall_clock),
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
-  Callgraph =
+  {ModCallDeps, Callgraph} =
     ?timing(Timing, "clean", _C2,
 	    cleanup_callgraph(State, CServer2, Callgraph, Modules)),
   {T3, _} = statistics(wall_clock),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),
-  {Callgraph, CServer2}.
+  {Callgraph, ModCallDeps, Modules, CServer2}.
 
 -opaque compile_init_data()  :: #compile_init{}.
 -type error_reason()         :: string().
@@ -366,8 +370,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
 				  codeserver = CodeServer
 				 },
 		  CServer, Callgraph, Modules) ->
-  ModuleDeps = dialyzer_callgraph:module_deps(Callgraph),
-  send_mod_deps(Parent, ModuleDeps),
+  ModCallDeps = dialyzer_callgraph:module_call_deps(Callgraph),
   {Callgraph1, ExtCalls} = dialyzer_callgraph:remove_external(Callgraph),
   ExtCalls1 = [Call || Call = {_From, To} <- ExtCalls,
 		       not dialyzer_plt:contains_mfa(InitPlt, To)],
@@ -394,7 +397,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
           {From, To} <- RealExtCalls],
       send_ext_calls(Parent, ExtCallsWithFileAndLocation)
   end,
-  Callgraph1.
+  {ModCallDeps, Callgraph1}.
 
 compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts,
             LegalWarnings) ->

@@ -22,7 +22,7 @@
 
 -module(dialyzer_behaviours).
 
--export([check_callbacks/5]).
+-export([check_callbacks/5, get_behaviours/1]).
 
 -export_type([behaviour/0]).
 
@@ -39,7 +39,7 @@
 -record(state, {plt        :: dialyzer_plt:plt(),
 		codeserver :: dialyzer_codeserver:codeserver(),
 		filename   :: file:filename(),
-		behlines   :: [{behaviour(), non_neg_integer()}],
+		behlines   :: [{behaviour(), file_location()}],
 		records    :: rectab()}).
 
 %%--------------------------------------------------------------------
@@ -63,6 +63,8 @@ check_callbacks(Module, Attrs, Records, Plt, Codeserver) ->
   end.
 
 %%--------------------------------------------------------------------
+
+-spec get_behaviours([{cerl:cerl(), cerl:cerl()}]) -> {[behaviour()], [{behaviour(), term()}]}.
 
 get_behaviours(Attrs) ->
   BehaviourListsAndLocation =
@@ -101,7 +103,7 @@ check_all_callbacks(Module, Behaviour, [Cb|Rest],
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
   Acc0 = Acc,
-  Acc1 = 
+  Acc1 =
     case dialyzer_plt:lookup(Plt, CbMFA) of
       'none' ->
         case lists:member(optional_callback, Xtra) of

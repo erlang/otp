@@ -27,6 +27,7 @@
 	     dialyzer_analysis_callgraph,
 	     dialyzer_behaviours,
 	     dialyzer_callgraph,
+	     dialyzer_typegraph,
 	     dialyzer_cl,
 	     dialyzer_cl_parse,
              dialyzer_clean_core,
