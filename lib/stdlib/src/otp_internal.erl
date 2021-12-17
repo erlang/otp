@@ -227,6 +227,8 @@ obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
     {deprecated, "use the 'peer' module instead", "OTP 27"};
+obsolete(ct_slave, _, _) ->
+    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->
