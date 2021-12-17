@@ -347,7 +347,7 @@
 	  (see
 	  <seeerl marker="#connect-sockaddr"><c>connect/2</c></seeerl>
 	  and
-	  <seeerl marker="#connect-port-addr"><c>connect/3</c></seeerl>). </p>
+	  <seeerl marker="#connect-addr-port"><c>connect/3</c></seeerl>). </p>
       </desc>
     </func>
 
