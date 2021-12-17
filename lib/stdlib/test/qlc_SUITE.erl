@@ -7466,10 +7466,10 @@ etsc(F, Opts, Objs) ->
     V.
 
 join_info(H) ->
-    {{qlc, S, Options}, Bs} = strip_qlc_call2(H),
+    {qlc, S, Options} = strip_qlc_call(H),
     %% "Hide" the call to qlc_pt from the test in run_test().
     LoadedPT = code:is_loaded(qlc_pt),
-    QH = qlc:string_to_handle(S, Options, Bs),
+    QH = qlc:string_to_handle(S, Options, []),
     _ = [unload_pt() || false <- [LoadedPT]], % doesn't take long...
     case {join_info_count(H), join_info_count(QH)} of
         {N, N} -> 
@@ -7479,26 +7479,22 @@ join_info(H) ->
     end.
 
 strip_qlc_call(H) ->
-    {Expr, _Bs} = strip_qlc_call2(H),
-    Expr.
-
-strip_qlc_call2(H) ->
     S = qlc:info(H, {flat, false}),
     {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
-    {ok, [Expr], Bs} = erl_eval:extended_parse_exprs(Tokens),
-    {case Expr of
-         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
-             {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
-         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
-             {qlc, lists:flatten([erl_pp:expr(LC), "."]),
-              erl_parse:normalise(Opts)};
-         {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
-             {match_spec, Expr};
-         {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
-             {table, M, Expr};
-         _ ->
-             []
-     end, Bs}.
+    {ok, [Expr]} = erl_eval:extended_parse_exprs(Tokens),
+    case Expr of
+        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
+            {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
+        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
+            {qlc, lists:flatten([erl_pp:expr(LC), "."]),
+             erl_parse:normalise(Opts)};
+        {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
+            {match_spec, Expr};
+        {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
+            {table, M, Expr};
+        _ ->
+            []
+    end.
 
 -record(ji, {nmerge = 0, nlookup = 0, nnested_loop = 0, nkeysort = 0}).
 
@@ -7506,7 +7502,7 @@ strip_qlc_call2(H) ->
 join_info_count(H) ->
     S = qlc:info(H, {flat, false}),    
     {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
-    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
+    {ok, [Expr]} = erl_eval:extended_parse_exprs(Tokens),
     #ji{nmerge = Nmerge, nlookup = Nlookup, 
         nkeysort = NKeysort, nnested_loop = Nnested_loop} = 
         ji(Expr, #ji{}),
@@ -7550,7 +7546,7 @@ lookup_keys({generate,_,Q}, L) ->
     lookup_keys(Q, L);
 lookup_keys({table,Chars}, L) when is_list(Chars) ->
     {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++"."), 1, [text]),
-    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
+    {ok, [Expr]} = erl_eval:extended_parse_exprs(Tokens),
     case Expr of
         {call,_,_,[_fun,AKs]} ->
             case erl_parse:normalise(AKs) of
