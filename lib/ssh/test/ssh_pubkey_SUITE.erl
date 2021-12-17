@@ -119,14 +119,16 @@ all() ->
                     connect_dsa_to_ecdsa,
                     connect_ecdsa_to_rsa_sha2,
                     connect_ecdsa_to_dsa,
-                    connect_ecdsa_to_ecdsa
+                    connect_ecdsa_to_ecdsa,
+                    connect_dsa_to_ed25519,
+                    connect_ecdsa_to_ed25519,
+                    connect_rsa_sha2_to_ed25519,
+                    connect_dsa_to_ed448,
+                    connect_ecdsa_to_ed448,
+                    connect_rsa_sha2_to_ed448
                    ]).
 
--define(tests_new, [connect_dsa_to_ed25519,
-                    connect_dsa_to_ed448,
-                    connect_ecdsa_to_ed25519,
-                    connect_ecdsa_to_ed448,
-                    connect_ed25519_to_dsa,
+-define(tests_new, [connect_ed25519_to_dsa,
                     connect_ed25519_to_ecdsa,
                     connect_ed25519_to_ed448,
                     connect_ed25519_to_ed25519,
@@ -135,9 +137,7 @@ all() ->
                     connect_ed448_to_ecdsa,
                     connect_ed448_to_ed25519,
                     connect_ed448_to_ed448,
-                    connect_ed448_to_rsa_sha2,
-                    connect_rsa_sha2_to_ed25519,
-                    connect_rsa_sha2_to_ed448
+                    connect_ed448_to_rsa_sha2
                     | ?tests_old % but taken from the new format directory
                    ]).
 

@@ -931,6 +931,19 @@ extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
 extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
+				   publicKey = Pub0, privateKey = Priv}) when
+      OID == ?'id-Ed25519'orelse
+      OID == ?'id-Ed448' ->
+    case {pubkey_cert_records:namedCurves(OID), Pub0} of
+        {Alg, asn1_NOVALUE} ->
+            %% If we're missing the public key, we can create it with
+            %% the private key.
+            {Pub, Priv} = crypto:generate_key(eddsa, Alg, Priv),
+            {ed_pub, Alg, Pub};
+        {Alg, Pub} ->
+            {ed_pub, Alg, Pub}
+    end;
+extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Q}) when is_tuple(OID) ->
     {#'ECPoint'{point=Q}, {namedCurve,OID}};
 extract_public_key({ed_pri, Alg, Pub, _Priv}) ->
@@ -1505,6 +1518,9 @@ sign(SigData, HashAlg, #{algorithm:=SigAlg} = Key) ->
     crypto:sign(SigAlg, HashAlg, SigData, Key);
 sign(SigData, HashAlg,  #'DSAPrivateKey'{} = Key) ->
     mk_dss_sig(public_key:sign(SigData, HashAlg, Key));
+sign(SigData, HashAlg, Key = #'ECPrivateKey'{parameters = {namedCurve, Curve}})
+  when (Curve == ?'id-Ed25519') orelse (Curve == ?'id-Ed448') ->
+    public_key:sign(SigData, HashAlg, Key);
 sign(SigData, HashAlg, Key = #'ECPrivateKey'{}) ->
     DerEncodedSign =  public_key:sign(SigData, HashAlg, Key),
     #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
@@ -2047,8 +2063,10 @@ valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
 
 valid_key_sha_alg(public, {ed_pub, ed25519,_},  'ssh-ed25519') -> true;
 valid_key_sha_alg(private, {ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
+valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}},'ssh-ed25519') when OID == ?'id-Ed25519' -> true;
 valid_key_sha_alg(public, {ed_pub, ed448,_},    'ssh-ed448') -> true;
 valid_key_sha_alg(private, {ed_pri, ed448,_,_},  'ssh-ed448') -> true;
+valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}},'ssh-ed448') when OID == ?'id-Ed448' -> true;
 
 valid_key_sha_alg(public, {#'ECPoint'{},{namedCurve,OID}}, Alg) when is_tuple(OID) ->
     valid_key_sha_alg_ec(OID, Alg);
