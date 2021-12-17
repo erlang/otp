@@ -151,9 +151,13 @@ receive_response(Timeout) ->
     receive
 	{snmp_pdu, PDU} when is_record(PDU, pdu) ->
 	    d("received PDU: ~n\t~p",[PDU]),
-	    PDU
+	    PDU;
+        {error, Reason} = ERROR ->
+	    d("received unexpected error: "
+              "~n\t\t~p", [Reason]),
+            ERROR
     after Timeout ->
-	    d("response timeout",[]),
+	    d("response timeout", []),
 	    {error, timeout}
     end.
 

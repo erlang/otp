@@ -327,6 +327,9 @@ handle_v3_message(Mgr, UdpId, Ip, UdpPort, AgentIp,
                         "~n   Port:   ~p"
                         "~n   Ip:     ~p",
                         [Reason, UdpPort, Ip]),
+                %% Can we be sure that this error is not expected?
+                {_, Pid} = Mgr,
+                Pid ! {error, Reason},
                 [];
 
             throw:{error, Reason}:_ ->

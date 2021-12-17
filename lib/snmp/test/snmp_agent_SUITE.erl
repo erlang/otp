@@ -503,23 +503,17 @@
 
 
 -define(expect1(What), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   What)).
+	?ALIB:expect(?MODULE, ?LINE, What)).
 -define(expect2(What, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   What, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, What, ExpVBs)).
 -define(expect3(Err, Idx, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Err, Idx, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, Err, Idx, ExpVBs)).
 -define(expect4(Err, Idx, ExpVBs, To), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Err, Idx, ExpVBs, To)).
+	?ALIB:expect(?MODULE, ?LINE, Err, Idx, ExpVBs, To)).
 -define(expect5(Type, Ent, Gen, Spec, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Type, Ent, Gen, Spec, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, Type, Ent, Gen, Spec, ExpVBs)).
 -define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Type, Ent, Gen, Spec, ExpVBs, To)).
+	?ALIB:expect(?MODULE, ?LINE, Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
 %%======================================================================
@@ -3651,8 +3645,8 @@ v3_inform_sync(MA) ->
     ?SLEEP(20000), % more than 1500*10 in target_addr.conf
     ?DBG("v3_sync -> await response",[]),
     ?line ?expect2({inform, true},
-		   [{[sysUpTime, 0], any},
-		    {[snmpTrapOID, 0], ?system ++ [0,1]}]).
+                   [{[sysUpTime, 0], any},
+                    {[snmpTrapOID, 0], ?system ++ [0,1]}]).
 
 
 v2_caps(suite) -> [];
