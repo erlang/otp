@@ -105,15 +105,19 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 }
 
-/* ARG3 = (HTOP + bytes needed) !!
+/* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
     emit_enter_frame();
 
-    /* Convert ARG3 to words needed and move it to the correct argument slot */
+    /* Convert ARG3 to words needed and move it to the correct argument slot.
+     *
+     * Note that we cancel out the S_RESERVED that we added in the GC check, as
+     * the GC routines handle that separately and we don't want it to be added
+     * twice. */
     a.sub(ARG3, HTOP);
     a.shr(ARG3, imm(3));
-    a.mov(ARG2, ARG3);
+    a.lea(ARG2, x86::qword_ptr(ARG3, -S_RESERVED));
 
     /* Save our return address in c_p->i so we can tell where we crashed if we
      * do so during GC. */

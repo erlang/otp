@@ -846,6 +846,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bor_body_shared)                                                       \
     _(i_bif_body_shared)                                                       \
     _(i_bif_guard_shared)                                                      \
+    _(i_breakpoint_trampoline_shared)                                          \
     _(i_bsr_body_shared)                                                       \
     _(i_bsl_body_shared)                                                       \
     _(i_func_info_shared)                                                      \
@@ -980,16 +981,15 @@ class BeamModuleAssembler : public BeamAssembler {
     std::vector<BeamLabel> functions;
 
     /* The BEAM file we've been loaded from, if any. */
-    BeamFile *beam;
+    const BeamFile *beam;
 
     BeamGlobalAssembler *ga;
 
     /* Used by emit to populate the labelToMFA map */
     Label currLabel;
 
-    /* Special shared fragments that must reside in each module. */
+    /* The offset of our BeamCodeHeader, if any. */
     Label codeHeader;
-    Label genericBPTramp;
 
     /* The module's on_load function, if any. */
     Label on_load;
@@ -1086,12 +1086,12 @@ public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
                         int num_labels,
-                        BeamFile *file = NULL);
+                        const BeamFile *file = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
                         int num_labels,
                         int num_functions,
-                        BeamFile *file = NULL);
+                        const BeamFile *file = NULL);
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 
@@ -1359,7 +1359,7 @@ protected:
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
     template<typename Any>
-    void fragment_call(Any Target) {
+    void fragment_call(Any target) {
         emit_assert_redzone_unused();
 
 #if defined(JIT_HARD_DEBUG)
@@ -1372,7 +1372,7 @@ protected:
         a.bind(next);
 #endif
 
-        a.bl(resolve_fragment((void (*)())Target, disp128MB));
+        a.bl(resolve_fragment((void (*)())target, disp128MB));
     }
 
     template<typename T>
@@ -1491,29 +1491,27 @@ protected:
         }
     }
 
-    void mov_var(const Variable<arm::Gp> &to, const Variable<arm::Gp> &from) {
+    template<typename Reg>
+    void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
         mov_var(to.reg, from);
     }
 
-    void mov_var(const Variable<arm::Gp> &to, arm::Gp from) {
+    template<typename Reg>
+    void mov_var(const Variable<Reg> &to, Reg from) {
         if (to.reg != from) {
             a.mov(to.reg, from);
         }
     }
 
-    void mov_var(arm::Gp to, const Variable<arm::Gp> &from) {
+    template<typename Reg>
+    void mov_var(Reg to, const Variable<Reg> &from) {
         if (to != from.reg) {
             a.mov(to, from.reg);
         }
     }
 
-    void flush_var(const Variable<arm::Gp> &to) {
-        if (to.mem.hasBase()) {
-            a.str(to.reg, to.mem);
-        }
-    }
-
-    void flush_var(const Variable<arm::VecD> &to) {
+    template<typename Reg>
+    void flush_var(const Variable<Reg> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }

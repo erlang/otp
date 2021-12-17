@@ -76,7 +76,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          Eterm mod,
                                          int num_labels,
                                          int num_functions,
-                                         BeamFile *file)
+                                         const BeamFile *file)
         : BeamModuleAssembler(ga, mod, num_labels, file) {
     codeHeader = a.newLabel();
     a.align(kAlignCode, 8);

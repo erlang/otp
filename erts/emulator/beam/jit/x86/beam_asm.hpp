@@ -1076,7 +1076,7 @@ class BeamModuleAssembler : public BeamAssembler {
     std::vector<BeamLabel> functions;
 
     /* The BEAM file we've been loaded from, if any. */
-    BeamFile *beam;
+    const BeamFile *beam;
 
     BeamGlobalAssembler *ga;
 
@@ -1106,12 +1106,12 @@ public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
                         int num_labels,
-                        BeamFile *file = NULL);
+                        const BeamFile *file = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
                         int num_labels,
                         int num_functions,
-                        BeamFile *file = NULL);
+                        const BeamFile *file = NULL);
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 

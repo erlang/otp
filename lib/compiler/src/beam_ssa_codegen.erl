@@ -1170,6 +1170,12 @@ cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0},
     [Dst,Map,Key] = beam_args([Dst0|Args0], St),
     Fail = ensure_label(Fail0, St),
     {[{get_map_elements,Fail,Map,{list,[Key,Dst]}}],St};
+cg_block([#cg_set{op={float,convert},dst=Dst0,args=Args0,anno=Anno},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
+    {f,0} = bif_fail(Fail),                     %Assertion.
+    [Src] = typed_args(Args0, Anno, St),
+    Dst = beam_arg(Dst0, St),
+    {[line(Anno),{fconv,Src,Dst}], St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -1756,9 +1762,6 @@ cg_instr(resume, [A,B], _Dst) ->
 
 cg_test(bs_skip, Fail, Args, _Dst, I) ->
     cg_bs_skip(Fail, Args, I);
-cg_test({float,convert}, Fail, [Src], Dst, #cg_set{anno=Anno}) ->
-    {f,0} = Fail,                               %Assertion.
-    [line(Anno),{fconv,Src,Dst}];
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of
              '+' -> fadd;
