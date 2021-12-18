@@ -188,7 +188,7 @@ class MboxLinkUnlink {
 		    waiting = true;
 		    expected = tuple.elementAt(2);
 		    mbox2.receive(1000); // hanging waiting for exit
-		    System.exit(4);  // got someting other than exit
+		    System.exit(4);  // got something other than exit
             break;
 		case internal_link_linked_exits:
 		    dbg("Java got \"internal_link_linked_exits\"");
@@ -198,7 +198,7 @@ class MboxLinkUnlink {
 		    waiting = true;
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000); // hanging waiting for exit
-		    System.exit(5);  // got someting other than exit
+		    System.exit(5);  // got something other than exit
             break;
 		case internal_unlink_linking_exits:
 		    dbg("Java got \"internal_unlink_linking_exits\"");

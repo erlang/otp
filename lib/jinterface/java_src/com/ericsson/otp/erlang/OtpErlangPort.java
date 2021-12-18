@@ -32,7 +32,7 @@ public class OtpErlangPort extends OtpErlangObject {
 
     /*
      * Create a unique Erlang port belonging to the local node. Since it isn't
-     * meaninful to do so, this constructor is private...
+     * meaningful to do so, this constructor is private...
      *
      * @param self the local node.
      *

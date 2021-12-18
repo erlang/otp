@@ -182,7 +182,7 @@ public class OtpCookedConnection extends AbstractConnection {
     }
 
     /*
-     * this one called explicitely by user code => use exit2
+     * this one called explicitly by user code => use exit2
      */
     void exit2(final OtpErlangPid from, final OtpErlangPid to,
             final OtpErlangObject reason) {
