@@ -213,7 +213,7 @@ add_dns_lookup([],Acc) ->
 %%
 %% Set the hostname (SHORT)
 %% If hostname is long use the suffix as default domain
-%% and initalize the search option with the parts of domain
+%% and initialize the search option with the parts of domain
 %%
 set_hostname() ->
     case inet_udp:open(0,[]) of

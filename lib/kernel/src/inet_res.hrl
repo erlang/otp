@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%
-%% Dns & resolver defintions
+%% Dns & resolver definitions
 %%
 
 %% milli second for requests

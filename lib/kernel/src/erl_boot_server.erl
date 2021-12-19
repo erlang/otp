@@ -34,7 +34,7 @@
 	 add_subnet/2, delete_subnet/2,
 	 which_slaves/0]).
 
-%% Exports for testing (dont't remove; tests suites depend on them).
+%% Exports for testing (don't remove; tests suites depend on them).
 -export([would_be_booted/1]).
 
 %% Internal exports
@@ -46,7 +46,7 @@
 	{
 	  priority = 0,  %% priority of this server
 	  version = ""   :: string(),	%% Version handled i.e "4.5.3" etc
-	  udp_sock,      %% listen port for broadcase requests
+	  udp_sock,      %% listen port for broadcast requests
 	  udp_port,      %% port number must be ?EBOOT_PORT!
 	  listen_sock,   %% listen sock for incoming file requests
 	  listen_port,   %% listen port number

@@ -588,7 +588,7 @@ fe80::204:acff:fe17:bf38
           correspond to the second, third, and fourth/fifth parameters to the
           <c>getsockopt</c> call in the C socket API. The value stored
           in the buffer is returned as a binary <c>ValueBin</c>,
-          where all values are coded in the native endianess.</p>
+          where all values are coded in the native endianness.</p>
         <p>Asking for and inspecting raw socket options require low-level
           information about the current operating system and TCP stack.</p>
         <p><em>Example:</em></p>
@@ -734,10 +734,10 @@ get_tcpi_sacked(Sock) ->
 
     <func>
       <name name="info" arity="1"  since="OTP 24.0"/>
-      <fsummary>Retreive miscellaneous information about a socket</fsummary>
+      <fsummary>Retrieve miscellaneous information about a socket</fsummary>
       <desc>
         <p>
-          Produces a term containg miscellaneous information about a socket.
+          Produces a term containing miscellaneous information about a socket.
         </p>
       </desc>
     </func>
@@ -1621,7 +1621,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           and the option value specified as a binary. This
           corresponds to the second, third, and fourth arguments to the
           <c>setsockopt</c> call in the C socket API. The option value
-          must be coded in the native endianess of the platform and,
+          must be coded in the native endianness of the platform and,
           if a structure is required, must follow the structure
           alignment conventions on the specific platform.</p>
         <p>Using raw socket options requires detailed knowledge about

@@ -405,7 +405,7 @@ config_fail(_Config) ->
         logger:set_handler_config(?MODULE, config,
                                   #{filesync_rep_int => 2000}),
 
-    %% Read-only fields may (accidentially) be included in the change,
+    %% Read-only fields may (accidentally) be included in the change,
     %% but it won't take effect
     {ok,C} = logger:get_handler_config(?MODULE),
     ok = logger:set_handler_config(?MODULE,config,#{olp=>dummyvalue}),
@@ -1747,7 +1747,7 @@ rotation_opts_restart_handler(Config) ->
     {ok,#file_info{size=260}} = file:read_file_info(Log),
     [] = filelib:wildcard(Log++".*"),
 
-    %% Stop/start handler and trun on rotation. Check that file is rotated.
+    %% Stop/start handler and turn on rotation. Check that file is rotated.
     {ok,#{config:=StdHConfig2}=HConfig2} = logger:get_handler_config(?MODULE),
     ok = logger:remove_handler(?MODULE),
     ok = logger:add_handler(
@@ -1780,7 +1780,7 @@ rotation_opts_restart_handler(Config) ->
     {ok,#file_info{size=29}} = file:read_file_info(Log++".0.gz"),
     [_] = filelib:wildcard(Log++".*"),
 
-    %% Stop/start handler and turn off compression. Check that achives
+    %% Stop/start handler and turn off compression. Check that archives
     %% are decompressed.
     {ok,#{config:=StdHConfig4}=HConfig4} = logger:get_handler_config(?MODULE),
     ok = logger:remove_handler(?MODULE),

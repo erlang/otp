@@ -2781,7 +2781,7 @@ api_b_open_and_close(InitState) ->
 			  protocol := ExpProtocol}, {ok, Protocol}}) ->
 			   %% On OpenBSD (at least 6.6) something screwy happens
 			   %% when domain = local.
-			   %% It will report a completly different protocol (icmp)
+			   %% It will report a completely different protocol (icmp)
 			   %% but everything still works. So we skip if this happens
 			   %% on OpenBSD...
 			   case os:type() of
@@ -5023,7 +5023,7 @@ api_ffd_open_and_info(InitState) ->
 
 %% Basically open a socket (1) and then create another socket (2) from
 %% its file descriptor *without* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv4 UDP (dgram) socket.
@@ -5058,7 +5058,7 @@ api_ffd_open_and_open_wod_and_send_udp4(_Config) when is_list(_Config) ->
 
 %% Basically open a socket (1) and then create another socket (2) from
 %% its file descriptor *without* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv6 UDP (dgram) socket.
@@ -5094,7 +5094,7 @@ api_ffd_open_and_open_wod_and_send_udp6(_Config) when is_list(_Config) ->
 
 %% Basically open a socket (1) and then create another socket (2) from
 %% its file descriptor *with* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv4 UDP (dgram) socket.
@@ -5120,7 +5120,7 @@ api_ffd_open_and_open_wd_and_send_udp4(_Config) when is_list(_Config) ->
 
 %% Basically open a socket (1) and then create another socket (2) from
 %% its file descriptor *with* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv6 UDP (dgram) socket.
@@ -5746,7 +5746,7 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
 
 %% Basically open a socket (1), connect to a server and then create
 %% another socket (2) from its file descriptor *without* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv4 TCP (stream) socket.
@@ -5781,7 +5781,7 @@ api_ffd_open_connect_and_open_wod_and_send_tcp4(_Config) when is_list(_Config) -
 
 %% Basically open a socket (1), connect to a server and then create
 %% another socket (2) from its file descriptor *without* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv6 TCP (stream) socket.
@@ -5817,7 +5817,7 @@ api_ffd_open_connect_and_open_wod_and_send_tcp6(_Config) when is_list(_Config) -
 
 %% Basically open a socket (1), connect to a server and then create
 %% another socket (2) from its file descriptor *with* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv4 TCP (stream) socket.
@@ -5843,7 +5843,7 @@ api_ffd_open_connect_and_open_wd_and_send_tcp4(_Config) when is_list(_Config) ->
 
 %% Basically open a socket (1), connect to a server and then create
 %% another socket (2) from its file descriptor *with* dup.
-%% Exchange som data from via both "client" sockets.
+%% Exchange some data from via both "client" sockets.
 %% Finally close the second socket. Ensure that the original socket
 %% has not been closed (test by sending some data).
 %% IPv6 TCP (stream) socket.
@@ -12946,7 +12946,7 @@ api_opt_sock_acceptfilter(_Config) when is_list(_Config) ->
 
 %% Tests the socket option bindtodevice.
 %% It has not always been possible to 'get' this option
-%% (atleast on linux).
+%% (at least on linux).
 
 api_opt_sock_bindtodevice(suite) ->
     [];
@@ -13466,7 +13466,7 @@ api_opt_sock_broadcast() ->
 		      (#{sock3 := Sock,
 			 sa1   := Dest} = _State) ->
 			   Data = list_to_binary("hejsan"),
-			   ?SEV_IPRINT("try send to bradcast address: "
+			   ?SEV_IPRINT("try send to broadcast address: "
 				       "~n   ~p", [Dest]),
 			   case socket:sendto(Sock, Data, Dest) of
 			       ok ->
@@ -13512,7 +13512,7 @@ api_opt_sock_broadcast() ->
            cmd  => fun(#{sock3 := Sock,
                          sa2   := Dest} = _State) ->
                            Data = list_to_binary("hejsan"),
-                           ?SEV_IPRINT("try send to bradcast address: "
+                           ?SEV_IPRINT("try send to broadcast address: "
                                        "~n   ~p", [Dest]),
                            case socket:sendto(Sock, Data, Dest) of
                                ok ->
@@ -13586,7 +13586,7 @@ api_opt_sock_broadcast() ->
 %% Tests the socket option debug.
 %% On linux, this test requires that the user running the test to have
 %% CAP_NET_ADMIN capabilities or be root (effective user ID of 0), 
-%% therefor we explicitly test for the result eacces when attempting to
+%% therefore we explicitly test for the result eacces when attempting to
 %% set, and skip if we get it.
 
 api_opt_sock_debug(suite) ->
@@ -14139,7 +14139,7 @@ api_opt_sock_mark(_Config) when is_list(_Config) ->
 %%
 %%               socket:setopt(Sock, socket, oobinline, boolean()).
 %%
-%% This works on linux of some version (atleast linux kernel 4.15.0),
+%% This works on linux of some version (at least linux kernel 4.15.0),
 %% but not on FreeBSD (12) for some reason. Until we have figured out
 %% exctly why, we skip a bunch of OSs...
 %%
@@ -16123,7 +16123,7 @@ api_opt_sock_peek_off(InitState) ->
 
          %% There is no way to be sure that the data has actually arrived,
          %% and with no data on the server side, the peek will fail.
-         %% Hopfully a sleep will take care of this...
+         %% Hopefully a sleep will take care of this...
          ?SEV_SLEEP(?SECS(1)),
 
          %% 1) peek
@@ -17289,7 +17289,7 @@ api_opt_sock_timeo(InitState) ->
                                    ok;
                                {ok, #{sec := Sec}} when (ExpSec =:= Sec) ->
 				   %% For some reason OpenBSD "adjusts" the timeout,
-				   %% so that usec does not (allways match)
+				   %% so that usec does not (always match)
                                    ?SEV_IPRINT("timeout (approx) validated"),
                                    ok;
                                {ok, TO} ->
@@ -18309,7 +18309,7 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                    ERROR
                            end                                   
                    end},
-         %% Linux pecularity observed here...
+         %% Linux peculiarity observed here...
          %% Detected on Kernel 4.15.0-72 x96_64.
          %% The option set to enable receiving timestamps just above
          %% has failed to be effective down in "await recv reply 2
@@ -20893,7 +20893,7 @@ api_opt_ip_tos_udp(InitState) ->
     process_flag(trap_exit, true),
     %% mincost is not supported on all platforms.
     %% For instance, Solaris 10, does not have that constant.
-    %% Instead it has two others with, what appers to be,
+    %% Instead it has two others with, what appears to be,
     %% completely different meanings...
     %% So, avoid the complication by not using this value...
     %% TOS1 = mincost,     TOS1Str = atom_to_list(TOS1),
@@ -21242,7 +21242,7 @@ api_opt_recverr_udp(Config, InitState) ->
 					       "~n   ~p", [SelectInfo]),
                                    {ok, State#{rselect => SelectInfo}};
                                {ok, _} ->
-                                   ?SEV_EPRINT("unexpected successs"),
+                                   ?SEV_EPRINT("unexpected success"),
                                    {error, unexpected_success};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("unexpected error: ~p", [Reason]),
@@ -21303,7 +21303,7 @@ api_opt_recverr_udp(Config, InitState) ->
                                    ?SEV_IPRINT("expected failure: ~p", [Reason]),
                                    ok;
                                {ok, _} ->
-                                   ?SEV_EPRINT("unexpected successs"),
+                                   ?SEV_EPRINT("unexpected success"),
                                    {error, unexpected_success};
                                {select, SelectInfo} ->
                                    ?SEV_EPRINT("unexpected select: ~p",
@@ -22045,7 +22045,7 @@ api_opt_ipv6_recvpktinfo_udp(InitState) ->
 %% There seem to be some weirdness with the definition of this
 %% option, so its defined in an include file we don't include
 %% (directly or indirectly). And since some of the defines
-%% are occure in a file we *do* include (via netinet/in.h), we
+%% occur in a file we *do* include (via netinet/in.h), we
 %% leave it as is for now...
 %%
 
@@ -23247,7 +23247,7 @@ api_opt_ipv6_mopts_udp(InitState) ->
 %% According to the man page (on linux) for this option it *should* be
 %% possible to both get and set *allowed* algorithms. But when we attempt
 %% to set, we get 'enoent'.
-%% Accoring to /proc/sys/net/ipv4/tcp_allowed_congestion_control that
+%% According to /proc/sys/net/ipv4/tcp_allowed_congestion_control that
 %% allgorithm was allowed, so...
 %% For now, we only test that we can get (it could be a bug in our code)
 
@@ -23561,7 +23561,7 @@ api_opt_tcp_cork_tcp(InitState) ->
 %%
 %% Note that there is no point in reading this value back,
 %% since the kernel imposes its own rules with regard
-%% to what is an acceptible value.
+%% to what is an acceptable value.
 %%
 
 api_opt_tcp_maxseg_tcp4(suite) ->
@@ -23637,7 +23637,7 @@ api_opt_tcp_maxseg_tcp(InitState) ->
          
          %% Note that there is no point in reading this value back,
          %% since the kernel imposes its own rules with regard
-         %% to what is an acceptible value.
+         %% to what is an acceptable value.
          %% So, even if the set operation is a success, the value
          %% still might not have changed.
          %%
@@ -23954,7 +23954,7 @@ api_to_connect_cond() ->
 
 %% I don't know exactly at which version this starts to work.
 %% I know it does not work for 4.4.*, but is does for 4.15.
-%% So, just to simplify, we require atleast 4.15
+%% So, just to simplify, we require at least 4.15
 api_to_connect_cond({unix, linux}, {Maj, Min, _Rev}) ->
     if
         (Maj > 4) ->
@@ -24012,7 +24012,7 @@ api_to_connect_tcp6(_Config) when is_list(_Config) ->
 %% We use the backlog (listen) argument to test this.
 %% Note that the behaviour of the TCP "server side" can vary when 
 %% a client connect to a "busy" server (full backlog).
-%% For instance, on FreeBSD (11.2) the reponse when the backlog is full
+%% For instance, on FreeBSD (11.2) the response when the backlog is full
 %% is a econreset.
 
 api_to_connect_tcp(InitState) ->
@@ -31274,7 +31274,7 @@ sc_cpe_socket_cleanup(InitState) ->
                    end},
 
          %% *** The actual test ***
-         %% We *intentially* leave the socket "as is", no explicit close
+         %% We *intentionally* leave the socket "as is", no explicit close
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester) of
@@ -31618,7 +31618,7 @@ sc_lc_receive_response_tcp(InitState) ->
         ],
 
     %% The point of this is to perform the recv for which
-    %% we are testing the reponse.
+    %% we are testing the response.
     HandlerSeq =
         [
          %% *** Wait for start order part ***
@@ -32390,7 +32390,7 @@ sc_lc_receive_response_udp(InitState) ->
 
 
          %% The actual test
-         %% Make all the seondary servers continue, with an infinit recvfrom
+         %% Make all the seondary servers continue, with an infinite recvfrom
          %% and then the prim-server with a timed recvfrom.
          %% After the prim server notifies us (about the timeout) we order it
          %% to close the socket, which should cause the all the secondary 
@@ -32991,7 +32991,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
 
 
          %% The actual test
-         %% Make all the seondary servers continue, with an infinit recvfrom
+         %% Make all the seondary servers continue, with an infinite recvfrom
          %% and then the prim-server with a timed recvfrom.
          %% After the prim server notifies us (about the timeout) we order it
          %% to close the socket, which should cause the all the secondary 
@@ -35022,7 +35022,7 @@ sc_rs_tcp_handler_await(Parent, Slogan) ->
     ?SEV_IPRINT("await ~w", [Slogan]),
     ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan).
 
-%% This hould actually work - we leave it for now
+%% This should actually work - we leave it for now
 sc_rs_tcp_handler_recv(Recv, Sock, First) ->
     ?SEV_IPRINT("recv"),
     try Recv(Sock) of
@@ -39244,7 +39244,7 @@ traffic_snr_tcp_client(Parent) ->
 
 traffic_snr_tcp_client_send_loop(Parent, Sock) ->
     case ?SEV_AWAIT_CONTINUE(Parent, parent, send) of
-        {ok, stop} -> % Breakes the loop
+        {ok, stop} -> % Breaks the loop
             ?SEV_ANNOUNCE_READY(Parent, send, ok),
             ok;
         {ok, Data} ->
@@ -40323,7 +40323,7 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState) ->
 traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
     Fun = fun(Sock) -> 
                   {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
-		  ?SEV_IPRINT("RcvBuf is ~p (needs atleast ~p)", 
+		  ?SEV_IPRINT("RcvBuf is ~p (needs at least ~p)", 
 			      [RcvSz, 16+size(Msg)]),
                   if (RcvSz < size(Msg)) ->
                           NewRcvSz = 1024+size(Msg),
@@ -40341,7 +40341,7 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                           ok
                   end,
                   {ok, SndSz} = socket:getopt(Sock, socket, sndbuf),
-		  ?SEV_IPRINT("SndBuf is ~p (needs atleast ~p)", 
+		  ?SEV_IPRINT("SndBuf is ~p (needs at least ~p)", 
 			      [SndSz, 16+size(Msg)]),
                   if (SndSz < size(Msg)) ->
                           NewSndSz = 1024+size(Msg),
@@ -40850,7 +40850,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            CTime = tdiff(CStart, CStop),
                            %% Note that the sizes we are counting is only 
                            %% the "data" part of the messages. There is also
-                           %% fixed header for each message, which of cource
+                           %% fixed header for each message, which of course
                            %% is small for the large messages, but comparatively
                            %% big for the small messages!
                            ?SEV_IPRINT("Results: ~w messages exchanged"
@@ -41754,7 +41754,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            CTime = tdiff(CStart, CStop),
                            %% Note that the sizes we are counting is only 
                            %% the "data" part of the messages. There is also
-                           %% fixed header for each message, which of cource
+                           %% fixed header for each message, which of course
                            %% is small for the large messages, but comparatively
                            %% big for the small messages!
                            ?SEV_IPRINT("Results: ~w messages exchanged"
@@ -42031,7 +42031,7 @@ tpp_udp_recv(Sock, Recv, Tag) ->
             ERROR
     catch
 	C:E:S ->
-	    {error, {catched, C, E, S}}
+	    {error, {caught, C, E, S}}
     end.
 
 tpp_udp_send_req(Sock, Send, Data, Dest) ->
@@ -48032,7 +48032,7 @@ ttest_tcp(TC,
                            %% On darwin we seem to hit the system limit(s)
                            %% much earlier.
                            %% The tests "mostly" work, but random cases fail
-                           %% (even on reasonably powerfull machines),
+                           %% (even on reasonably powerful machines),
                            %% so its much simpler to just skip on darwin...
                            has_support_unix_domain_socket(),
                            is_not_darwin(); 
@@ -48624,7 +48624,7 @@ ttest_report(Domain,
                            bytes = NumBytes,
                            msgs  = NumMsgs},
     %% If we run just one test case, the group init has never been run
-    %% and therefor the ttest manager is not running (we also don't actually
+    %% and therefore the ttest manager is not running (we also don't actually
     %% care about collecting reports in that case).
     (catch global:send(?TTEST_MANAGER, Report)),
     ok.
@@ -49520,7 +49520,7 @@ ensure_unique_path(Path) ->
             ensure_unique_path(Path, 1);
         {error, _} ->
             %% We assume this means it does not exist yet...
-            %% If we have several process in paralell trying to create
+            %% If we have several process in parallel trying to create
             %% (unique) path's, then we are in trouble. To *really* be
             %% on the safe side we should have a (central) path registry...
             encode_path(Path)
@@ -50140,19 +50140,19 @@ tc_try(Case, TCCondFun, TCFun)
                 end
             catch
                 C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    %% i("catched[tc] (skip): "
+                    %% i("caught[tc] (skip): "
                     %%   "~n   C:    ~p"
                     %%   "~n   SKIP: ~p"
                     %%   "~n", [C, SKIP]),
-                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% i("catched[tc]: "
+                    %% i("caught[tc]: "
                     %%   "~n   C: ~p"
                     %%   "~n   E: ~p"
                     %%   "~n   S: ~p"
                     %%    "~n", [C, E, S]),
-                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                    tc_end( f("failed(caught,~w,tc)", [C]) ),
                     erlang:raise(C, E, S)
             end;
         {skip, _} = SKIP ->
@@ -50163,19 +50163,19 @@ tc_try(Case, TCCondFun, TCFun)
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            %% i("catched[cond] (skip): "
+            %% i("caught[cond] (skip): "
             %%   "~n   C:    ~p"
             %%   "~n   SKIP: ~p"
             %%   "~n", [C, SKIP]),
-            tc_end( f("skipping(catched,~w,cond)", [C]) ),
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
-            %% i("catched[cond]: "
+            %% i("caught[cond]: "
             %%   "~n   C: ~p"
             %%   "~n   E: ~p"
             %%   "~n   S: ~p"
             %%   "~n", [C, E, S]),
-            tc_end( f("failed(catched,~w,cond)", [C]) ),
+            tc_end( f("failed(caught,~w,cond)", [C]) ),
             erlang:raise(C, E, S)
     end.
 
@@ -50205,7 +50205,7 @@ tc_which_name() ->
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% This function prints various host info, which might be usefull
+%% This function prints various host info, which might be useful
 %% when analyzing the test suite (results).
 %% It also returns a "factor" that can be used when deciding 
 %% the load for some test cases (traffic). Such as run time or

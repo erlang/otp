@@ -1089,7 +1089,7 @@ close(Config) when is_list(Config) ->
     {ok,Fd1} = ?FILE_MODULE:open(Name,read_write),
     %% Just closing it is no fun, we did that a million times already
     %% This is a common error, for code written before Erlang 4.3
-    %% bacause then ?FILE_MODULE:open just returned a Pid, and not everyone
+    %% because then ?FILE_MODULE:open just returned a Pid, and not everyone
     %% really checked what they got.
     {'EXIT',_Msg} = (catch ok = ?FILE_MODULE:close({ok,Fd1})),
     ok = ?FILE_MODULE:close(Fd1),
@@ -1253,7 +1253,7 @@ append(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:make_dir(NewDir),
 
     First = "First line\n",
-    Second = "Seond lines comes here\n",
+    Second = "Second lines comes here\n",
     Third = "And here is the third line\n",
 
     %% Write a small text file.
@@ -2238,7 +2238,7 @@ allocate(Config) when is_list(Config) ->
 
 allocate_and_assert(Fd, Offset, Length) ->
     %% Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
-    %% any other negative side effect. We can't really asssert against a
+    %% any other negative side effect. We can't really assert against a
     %% specific return value, because support for file space pre-allocation
     %% depends on the OS, OS version and underlying filesystem.
     %%
@@ -2603,7 +2603,7 @@ e_rename(Config) when is_list(Config) ->
 				      ok ->
 					  {ok, {comment,
 						"Moving between filesystems "
-						"suceeded, files are probably "
+						"succeeded, files are probably "
 						"in the same filesystem!"}};
 				      {error, eperm} ->
 					  {ok, {comment, "SBS! You don't "

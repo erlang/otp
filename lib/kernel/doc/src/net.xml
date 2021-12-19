@@ -132,7 +132,7 @@
     <func>
       <name name="getnameinfo" arity="1" since="OTP 22.0"/>
       <name name="getnameinfo" arity="2" since="OTP 22.0"/>
-      <fsummary>Address-to-name transaltion.</fsummary>
+      <fsummary>Address-to-name translation.</fsummary>
       <desc>
         <p>Address-to-name translation in a protocol-independant manner.</p>
 	<p>This function is the inverse of
@@ -146,7 +146,7 @@
       <name name="getaddrinfo" arity="2" clause_i="1" since="OTP 22.0"/>
       <name name="getaddrinfo" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="getaddrinfo" arity="2" clause_i="3" since="OTP 22.0"/>
-      <fsummary>Network address and service transation.</fsummary>
+      <fsummary>Network address and service transaction.</fsummary>
       <desc>
 	<p>Network address and service translation.</p>
 	<p>This function is the inverse of
@@ -169,7 +169,7 @@
 	possibly filtered according to <c>Filter</c>. </p>
 	<p>By default, a filter with the content:
 	<c>#{family => default, flags => any}</c> is used.
-	This will return all interfaces with adresses in the
+	This will return all interfaces with addresses in the
 	<c>inet</c> and <c>inet6</c> families. </p>
       </desc>
     </func>

@@ -43,14 +43,14 @@
 	This cannot be changed due to compatibility reasons. As of OTP 23,
 	a new module <seeerl marker="erpc"><c>erpc</c></seeerl> was
 	introduced in order to provide an API that makes it possible
-	to distingush between the different results. The <c>erpc</c>
+	to distinguish between the different results. The <c>erpc</c>
 	module provides a subset (however, the central subset) of the
 	functionality available in the <c>rpc</c> module. The <c>erpc</c>
 	implementation also provides a more scalable implementation with
 	better performance than the original <c>rpc</c> implementation.
 	However, since the introduction of <c>erpc</c>, the <c>rpc</c>
 	module implements large parts of its central functionality using
-	<c>erpc</c>, so the <c>rpc</c> module wont not suffer scalability
+	<c>erpc</c>, so the <c>rpc</c> module won't not suffer scalability
 	wise and performance wise compared to <c>erpc</c>.
       </p></note>
   </description>

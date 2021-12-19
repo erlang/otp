@@ -26,7 +26,7 @@
          await_finish/1
         ]).
 
-%% Functions used by evaluators to interact with eachother
+%% Functions used by evaluators to interact with each other
 -export([
          %% Announce functions
          %% (Send an announcement from one evaluator to another)
@@ -138,7 +138,7 @@ loop(ID, [#{desc := Desc,
             %% Secondary skip
             exit(E);
         C:{skip, R} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
-            ?SEV_IPRINT("command ~w skip catched(~w): "
+            ?SEV_IPRINT("command ~w skip caught(~w): "
                         "~n   Reason: ~p", [ID, C, R]),
             exit(E);
         C:E:S ->
@@ -166,7 +166,7 @@ await_finish([], _OK, Fails) ->
     Fails;
 await_finish(Evs, OK, Fails) ->
     receive
-        %% Successfull termination of evaluator
+        %% Successful termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
             {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2);

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%
-%% Defintion for Domain Name System
+%% Definition for Domain Name System
 %%
 
 %%
@@ -153,7 +153,7 @@
 %%
 %% Structure for query header, the order of the fields is machine and
 %% compiler dependent, in our case, the bits within a byte are assignd
-%% least significant first, while the order of transmition is most
+%% least significant first, while the order of transmission is most
 %% significant first.  This requires a somewhat confusing rearrangement.
 %%
 -record(dns_header, 
@@ -162,7 +162,7 @@
 	 %% byte F0
 	 qr = 0,       %% :1   response flag
 	 opcode = 0,   %% :4   purpose of message
-	 aa = 0,       %% :1   authoritive answer
+	 aa = 0,       %% :1   authoritative answer
 	 tc = 0,       %% :1   truncated message
 	 rd = 0,       %% :1   recursion desired 
 	 %% byte F1

@@ -125,7 +125,7 @@
     <datatype>
       <name name="dns_msg"/>
       <desc>
-        <p>This is the start of a hiearchy of opaque data structures
+        <p>This is the start of a hierarchy of opaque data structures
           that can be examined with access functions in <c>inet_dns</c>, which
           return lists of <c>{Field,Value}</c> tuples. The arity 2 functions
           only return the value for a specified field.</p>

@@ -764,7 +764,7 @@ locks(Config) when is_list(Config) ->
     Pid = start_proc(),
     Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
 
-    %% set a lock, and make sure noone else can set the same lock
+    %% set a lock, and make sure no one else can set the same lock
     true = global:set_lock({test_lock, self()}, ?NODES, 1),
     false = req(Pid, {set_lock, test_lock, self()}),
     false = req(Pid2, {set_lock, test_lock, self()}),
@@ -1481,7 +1481,7 @@ stress_partition(Config) when is_list(Config) ->
     ok.
 
 
-%% Use this one to test alot of connection tests
+%% Use this one to test a lot of connection tests
 %%  erl -sname ts -ring_line 10000 -s test_server run_test global_SUITE
 
 ring_line(Config) when is_list(Config) ->
@@ -2550,7 +2550,7 @@ mon_by_servers(Proc) ->
 
 -define(REGNAME, contact_a_2).
 
-%% OTP-5563. Bug: nodedown while synching.
+%% OTP-5563. Bug: nodedown while syncing.
 leftover_name(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -4380,7 +4380,7 @@ wait_for_ready_net_loop(Pid, MRef) ->
                "~n   Waiter:    ~p"
                "~n      Current Location: ~p"
                "~n      Dictionary:       ~p"
-               "~n      Mesages:          ~p",
+               "~n      Messages:          ~p",
                [ParentPid, Pid,
                 pi(Pid, current_location),
                 pi(Pid, dictionary),

@@ -126,7 +126,7 @@ do_recv(Sock, Bs) ->
 	implementation.
 	A send operation will detect a remote close and immediately
 	return this to the caller, but do nothing else.
-	A reader will therefor be able to extract any data from the OS buffers.
+	A reader will therefore be able to extract any data from the OS buffers.
 	If the socket is set to <c>active</c> to not <c>false</c>, the data
 	will be received as expected (<c>{tcp, ...}</c> and then a closed
 	message (<c>{tcp_closed, ...}</c> will be received (not an error). </p>
@@ -153,7 +153,7 @@ do_recv(Sock, Bs) ->
 	  <em>will fail</em> with <c>{error, enotsup}</c>. </p>
 	  <p>This does not actually work for <c>inet_backend = inet</c> either,
 	  but in that case the error is simply <em>ignored</em>,
-	  which is a <em>bad</em> idea. We have choosen to <em>not</em>
+	  which is a <em>bad</em> idea. We have chosen to <em>not</em>
 	  ignore this error for <c>inet_backend = socket</c>. </p>
 	</item>
 
@@ -195,7 +195,7 @@ do_recv(Sock, Bs) ->
 	    which is since long (2003) obsoleted by RFC 3542
 	    that <em>explicitly</em> removes this possibility to get
 	    packet information from a stream socket.
-	    For comparision: it has existed in FreeBSD but is now removed,
+	    For comparison: it has existed in FreeBSD but is now removed,
 	    at least since FreeBSD 10.
 	  </p>
 	</note>
@@ -513,7 +513,7 @@ do_recv(Sock, Bs) ->
           expires (the function can hang even when using 'inet' backend
           if the internal buffers are full). </p>
 	  <p>If this happens when using <c>packet =/= raw</c>, we have a partial
-	  package written. A new package therefor <em>must not</em> be written
+	  package written. A new package therefore <em>must not</em> be written
 	  at this point, as there is no way for the peer to distinguish this
 	  from the data portion of the current package. Instead, set package
 	  to raw, send the rest data (as raw data) and then set package to

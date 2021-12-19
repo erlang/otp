@@ -348,7 +348,7 @@ errors(Config) ->
                                      config,
                                      #{file=>"newfilename"}),
 
-    %% Read-only fields may (accidentially) be included in the change,
+    %% Read-only fields may (accidentally) be included in the change,
     %% but it won't take effect
     {ok,C} = logger:get_handler_config(Name1),
     ok = logger:set_handler_config(Name1,config,#{olp=>dummyvalue}),

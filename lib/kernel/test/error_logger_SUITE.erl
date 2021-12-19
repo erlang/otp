@@ -235,7 +235,7 @@ generate_error(Error, Stack) ->
 via_logger_process(Config) ->
     case os:type() of
         {win32,_} ->
-            {skip,"Skip on windows - cant change file mode"};
+            {skip,"Skip on windows - can't change file mode"};
         _ ->
             error_logger:add_report_handler(?MODULE, self()),
             Dir = filename:join(?config(priv_dir,Config),"dummydir"),

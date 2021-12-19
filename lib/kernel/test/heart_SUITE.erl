@@ -584,7 +584,7 @@ stop_node(Node) ->
 
 
 %%% This code is run in a slave node to ensure that 
-%%% A heart command really gets set syncronously 
+%%% A heart command really gets set synchronously 
 %%% and cannot get "dropped".
 
 send_to(_,_,0) ->

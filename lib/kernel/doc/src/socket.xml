@@ -1314,7 +1314,7 @@
 	  A control message has got a <c>data</c> field with
 	  a native (<c>binary</c>) value for the message data,
 	  and may also have a decoded <c>value</c> field
-	  if this socket library succesfully decoded the data.
+	  if this socket library successfully decoded the data.
 	</p>
       </desc>
     </datatype>
@@ -1629,7 +1629,7 @@
 	  <seetype marker="#select_info"><c>{select, SelectInfo}</c></seetype>,
 	  and receiving the select message
 	  <c>{'$socket', Socket, select, SelectHandle}</c>,
-	  and returns whether the connection setup was succesful or not.
+	  and returns whether the connection setup was successful or not.
 	</p>
 	<p>
 	  Instead of calling this function, for backwards compatibility,
@@ -1704,7 +1704,7 @@
 	  <seetype marker="#socket_option">socket_option()</seetype>
 	  for which options that this implementation knows about,
 	  how they are related to option names in the OS,
-	  and if there are known pecularities with any of them.
+	  and if there are known peculiarities with any of them.
 	</p>
 	<p>
 	  What options are valid depends on what kind of socket it is
@@ -1966,7 +1966,7 @@
       <fsummary>Control device.</fsummary>
       <desc>
 	<p>Retrieve socket (device) parameters.
-	This function retreives a specific parameter,
+	This function retrieves a specific parameter,
 	according to <c>GetRequest</c> argument. The third
 	argument is the (lookup) "key", identifying the
 	interface (usually the name of the interface).</p>
@@ -2119,7 +2119,7 @@
       <fsummary>Report info about what the platform supports.</fsummary>
       <desc>
 	<p>
-	  This function retreives information about what the
+	  This function retrieves information about what the
 	  platform supports,  such as if SCTP is supported,
 	  or if a socket options are supported.
 	</p>
@@ -2274,7 +2274,7 @@
 	  <p>
             On some platforms it is <em>necessary</em> to provide
             <c>domain</c>, <c>type</c> and <c>protocol</c>
-            since they cannot be retreived from the platform.
+            since they cannot be retrieved from the platform.
           </p>
 	</note>
       </desc>
@@ -2839,7 +2839,7 @@
             <p>
               This cannot happen for a socket of
               <seetype marker="#type">type <c>stream</c></seetype>
-              where a partially succesful send is retried until
+              where a partially successful send is retried until
               the data is either accepted or there is an error.
             </p>
             <p>
@@ -2882,8 +2882,8 @@
             <p>
               This can only happen for a socket of
               <seetype marker="#type">type <c>stream</c></seetype>
-              when a partially succesful send is retried
-              untill there is an error.
+              when a partially successful send is retried
+              until there is an error.
             </p>
           </item>
         </taglist>
@@ -3431,7 +3431,7 @@
           <tag><c>{ok,&nbsp;<anno>BytesSent</anno>}</c></tag>
           <item>
             <p>
-              The transfer completed succesfully after
+              The transfer completed successfully after
               <c><anno>BytesSent</anno></c> bytes of data.
             </p>
           </item>
@@ -3726,7 +3726,7 @@
 	  <seetype marker="#socket_option">socket_option()</seetype>
 	  for which options that this implementation knows about,
 	  how they are related to option names in the OS,
-	  and if there are known pecularities with any of them.
+	  and if there are known peculiarities with any of them.
 	</p>
 	<p>
 	  What options are valid depends on what kind of socket it is
@@ -3856,7 +3856,7 @@
       <fsummary>Report info about what the platform supports.</fsummary>
       <desc>
 	<p>
-	  These functions function retreives information about what the
+	  These functions function retrieves information about what the
 	  platform supports, such which platform features
 	  or which socket options, are supported.
 	</p>
@@ -4015,7 +4015,7 @@
 	    <p>The general filter rule.
 	    <br/>A fun that takes the socket info and returns a
 	    <c><![CDATA[boolean()]]></c>
-	    (<c><![CDATA[true]]></c> if the socket sould be included and
+	    (<c><![CDATA[true]]></c> if the socket could be included and
 	    <c><![CDATA[false]]></c> if should not). </p>
 	  </item>
 	</taglist>

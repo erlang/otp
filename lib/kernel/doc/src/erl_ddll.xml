@@ -95,7 +95,7 @@
               <em>last port</em> using the driver is closed. Function
               <c>unload/1</c> can return immediately, as the
 	      <seeerl marker="#users">users</seeerl>
-	      have no interrest in when the unloading occurs. The
+	      have no interest in when the unloading occurs. The
               driver is unloaded when no one needs it any longer.</p>
             <p>If a process having the driver loaded dies, it has
               the same effect as if unloading is done.</p>
@@ -334,7 +334,7 @@
         <p>Loads and links the dynamic driver <c><anno>Name</anno></c>.
 	  <c><anno>Path</anno></c>
           is a file path to the directory containing the driver.
-          <c><anno>Name</anno></c> must be a sharable object/dynamic library. Two
+          <c><anno>Name</anno></c> must be a shareable object/dynamic library. Two
           drivers with different <c><anno>Path</anno></c> parameters cannot be
           loaded under the same name. <c><anno>Name</anno></c> is a string or
           atom containing at least one character.</p>

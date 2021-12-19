@@ -90,7 +90,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
               the separate traces. Default is 0.</p>
             <warning>
               <p>Labels were restricted to small signed integers (28 bits)
-                prior to OTP 21. The trace token will be silenty dropped if it
+                prior to OTP 21. The trace token will be silently dropped if it
                 crosses over to a node that does not support the label.</p>
             </warning>
           </item>

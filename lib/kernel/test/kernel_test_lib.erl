@@ -1619,19 +1619,19 @@ tc_try(Case, Cond, TC)
                 end
             catch
                 C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    %% i("catched[tc] (skip): "
+                    %% i("caught[tc] (skip): "
                     %%   "~n   C:    ~p"
                     %%   "~n   SKIP: ~p"
                     %%   "~n", [C, SKIP]),
-                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% i("catched[tc]: "
+                    %% i("caught[tc]: "
                     %%   "~n   C: ~p"
                     %%   "~n   E: ~p"
                     %%   "~n   S: ~p"
                     %%    "~n", [C, E, S]),
-                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                    tc_end( f("failed(caught,~w,tc)", [C]) ),
                     erlang:raise(C, E, S)
             end;
         {skip, _} = SKIP ->
@@ -1642,19 +1642,19 @@ tc_try(Case, Cond, TC)
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            %% i("catched[cond] (skip): "
+            %% i("caught[cond] (skip): "
             %%   "~n   C:    ~p"
             %%   "~n   SKIP: ~p"
             %%   "~n", [C, SKIP]),
-            tc_end( f("skipping(catched,~w,cond)", [C]) ),
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
-            %% i("catched[cond]: "
+            %% i("caught[cond]: "
             %%   "~n   C: ~p"
             %%   "~n   E: ~p"
             %%   "~n   S: ~p"
             %%   "~n", [C, E, S]),
-            tc_end( f("failed(catched,~w,cond)", [C]) ),
+            tc_end( f("failed(caught,~w,cond)", [C]) ),
             erlang:raise(C, E, S)
     end.
 

@@ -345,7 +345,7 @@ calendar:now_to_universal_time(TS),
        <pre>
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
 29 Apr 2009  9:55:30.051711</pre>
-       <p>OS system time can also be retreived by
+       <p>OS system time can also be retrieved by
 	<seemfa marker="#system_time/0"><c>system_time/0</c></seemfa> and
 	<seemfa marker="#system_time/1"><c>system_time/1</c></seemfa>.</p>
       </desc>

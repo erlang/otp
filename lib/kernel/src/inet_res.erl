@@ -738,7 +738,7 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Time, PollCnt) ->
 	{ok,Reply} ->
 	    case Decode(Reply) of
 		false when Timeout =:= 0 ->
-		    %% This is a compromize between the hard way i.e
+		    %% This is a compromise between the hard way i.e
 		    %% in the clause below if Timeout becomes 0 bailout
 		    %% immediately and risk that the right reply lies
 		    %% ahead after some bad id replies, and the

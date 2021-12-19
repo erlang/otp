@@ -1183,8 +1183,8 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 %% ticker process, In that case this code will never run 
 
 %% And then every 60 seconds we also check the connection and 
-%% close it if we havn't received anything on it for the 
-%% last 60 secs. If ticked == tick we havn't received anything 
+%% close it if we haven't received anything on it for the 
+%% last 60 secs. If ticked == tick we haven't received anything 
 %% on the connection the last 60 secs. 
 
 %% The detection time interval is thus, by default, 45s < DT < 75s 

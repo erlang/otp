@@ -42,7 +42,7 @@
 -define(DIST_AC, ?MODULE).
 -define(LOCK_ID, ?MODULE).
 
-%% This is the protocol version for the dist_ac protcol (between nodes)
+%% This is the protocol version for the dist_ac protocol (between nodes)
 -define(vsn, 1).
 
 %%%-----------------------------------------------------------------
@@ -862,8 +862,8 @@ wait_dist_start(Node, Appl, Name, Nodes, PermittedNodes, S, Type) ->
 	{dist_ac_weight, Name, _Weigth, Node} ->
 	    %% This is the situation: {Name, [RNode, {Node}, node()]}
 	    %% and permit(false) is called on RNode, and we sent the
-	    %% weigth first.  Node handled it in handle_info, and
-	    %% now we must send him a weigth msg.  We can use any weigth;
+	    %% weight first.  Node handled it in handle_info, and
+	    %% now we must send him a weight msg.  We can use any weight;
 	    %% he wins anyway.
 	    monitor_node(Node, false),
 	    {?DIST_AC, Node} !

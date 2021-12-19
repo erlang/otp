@@ -71,7 +71,7 @@
 %%%====================================================================================
 %%% The state of the global_group process
 %%% 
-%%% sync_state =  no_conf (global_groups not defined, inital state) |
+%%% sync_state =  no_conf (global_groups not defined, initial state) |
 %%%               synced 
 %%% group_name =  Own global group name
 %%% nodes =       Nodes in the own global group
@@ -219,9 +219,9 @@ request(Req, Time) ->
 %%% at release upgrade when all nodes are not yet upgraded.
 %%%
 %%% It is possible to manually force a sync of the global_group. This is done for 
-%%% instance after a release upgrade, after all nodes in the group beeing upgraded.
+%%% instance after a release upgrade, after all nodes in the group being upgraded.
 %%% The nodes are not synced automatically because it would cause the node to be
-%%% disconnected from those not yet beeing upgraded.
+%%% disconnected from those not yet being upgraded.
 %%%
 %%% The three process dictionary variables (registered_names, send, and whereis_name) 
 %%% are used to store information needed if the search process crashes. 
@@ -281,7 +281,7 @@ init([]) ->
 %%% sync() -> ok 
 %%%
 %%% An operator ordered sync of the own global group. This must be done after
-%%% a release upgrade. It can also be ordered if somthing has made the nodes
+%%% a release upgrade. It can also be ordered if something has made the nodes
 %%% to disagree of the global_groups definition.
 %%%====================================================================================
 handle_call(sync, _From, S) ->
@@ -525,7 +525,7 @@ handle_call({global_groups_changed, NewPara}, _From, S) ->
     %% group) global is not going to be synced to these nodes. We disconnect instead
     %% of connect because upgrades can be done node by node and we cannot really
     %% know what nodes these new nodes are synced to. The operator can always 
-    %% manually force a sync of the nodes after all nodes beeing uppgraded.
+    %% manually force a sync of the nodes after all nodes being uppgraded.
     %% We must disconnect also if some nodes to which we have a connection
     %% will not be in any global group at all.
     force_nodedown(nodes(connected) -- NewNodes),

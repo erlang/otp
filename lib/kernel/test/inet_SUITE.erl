@@ -103,7 +103,7 @@ socknames_cases() ->
      socknames_udp
     ].
 
-%% Required configuaration
+%% Required configuration
 required(v4) ->
     [{require, test_host_ipv4_only},
      {require, test_dummy_host}];
@@ -521,7 +521,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 
 
 %% Test looking up hosts and addresses. Use 'ypcat hosts'
-%% or the local eqivalent to find all hosts.
+%% or the local equivalent to find all hosts.
 
 host_and_addr() ->
     ?P("host_and_addr -> entry"),
@@ -795,18 +795,18 @@ parse_address(Config) when is_list(Config) ->
 t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
     ok;
-t_parse_address(Func, Reversable, [{Addr,String}|L]) ->
+t_parse_address(Func, Reversible, [{Addr,String}|L]) ->
     io:format("~p = ~p.~n", [Addr,String]),
     {ok,Addr} = inet:Func(String),
-    case Reversable of
+    case Reversible of
         true ->String = inet:ntoa(Addr);
         false -> ok
     end,
-    t_parse_address(Func, Reversable, L);
-t_parse_address(Func, Reversable, [String|L]) ->
+    t_parse_address(Func, Reversible, L);
+t_parse_address(Func, Reversible, [String|L]) ->
     io:format("~p.~n", [String]),
     {error,einval} = inet:Func(String),
-    t_parse_address(Func, Reversable, L).
+    t_parse_address(Func, Reversible, L).
 
 parse_strict_address(Config) when is_list(Config) ->
     {ok, {127,0,0,1}} =
@@ -1302,7 +1302,7 @@ gethostnative_control(Config, Opts) ->
 		    {skipped, "Not running native gethostbyname"}
 	    end;
 	_ ->
-	    {skipped, "Native not only lookup metod"}
+	    {skipped, "Native not only lookup method"}
     end.
 
 gethostnative_control_1(

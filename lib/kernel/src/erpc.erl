@@ -590,7 +590,7 @@ mcall_send_requests(Tag, Ns, M, F, A, Tmo) ->
 
 mcall_send_requests(_Tag, [], M, F, A, RIDs, DL, local_call, NRs) ->
     %% Timeout infinity and call on local node wanted;
-    %% excecute local call in this process...
+    %% execute local call in this process...
     LRes = mcall_local_call(M, F, A),
     {ok, RIDs, #{local_call => LRes}, NRs, DL};
 mcall_send_requests(_Tag, [], _M, _F, _A, RIDs, DL, _LC, NRs) ->

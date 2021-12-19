@@ -672,7 +672,7 @@
 	    order to prevent late responses. The <c>gen_statem</c>
 	    behavior still use a proxy process in the distributed
 	    case, since it has always prevented late replies and
-	    aliases wont work against pre OTP 24 nodes. The proxy
+	    aliases won't work against pre OTP 24 nodes. The proxy
 	    process can be removed in OTP 26.</p>
           <p>
 	    The alias feature also made it possible to introduce new
@@ -1062,7 +1062,7 @@
         </item>
         <item>
 	    <p>When running Xref in the <c>modules</c> mode, the
-	    Debugger application would show up as a depency for the
+	    Debugger application would show up as a dependency for the
 	    Kernel applications.</p>
           <p>
 	    Own Id: OTP-17223 Aux Id: GH-4546, PR-4554 </p>
@@ -1711,7 +1711,7 @@
       <list>
         <item>
 	    <p>When running Xref in the <c>modules</c> mode, the
-	    Debugger application would show up as a depency for the
+	    Debugger application would show up as a dependency for the
 	    Kernel applications.</p>
           <p>
 	    Own Id: OTP-17223 Aux Id: GH-4546, PR-4554 </p>
@@ -2274,7 +2274,7 @@
 	    The default value is 0, which means that this check is
 	    done prior to each write operation. Setting a higher
 	    number may improve performance, but adds the risk of
-	    loosing log events.</p>
+	    losing log events.</p>
           <p>
 	    Own Id: OTP-15663</p>
         </item>
@@ -4194,11 +4194,11 @@
 	    Characteristics impact: A call to the
 	    <c>garbage_collect/1</c> BIF or the
 	    <c>check_process_code/2</c> BIF will normally take longer
-	    time to complete while the system as a whole wont be as
+	    time to complete while the system as a whole won't be as
 	    much negatively effected by the operation as before. A
 	    call to <c>code:purge/1</c> and <c>code:soft_purge/1</c>
 	    may complete faster or slower depending on the state of
-	    the system while the system as a whole wont be as much
+	    the system while the system as a whole won't be as much
 	    negatively effected by the operation as before.</p>
           <p>
 	    Own Id: OTP-11388 Aux Id: OTP-11535, OTP-11648 </p>
@@ -4559,7 +4559,7 @@
         <item>
           <p>
 	    Change printout of application crash message on startup
-	    to formated strings (Thanks to Serge Aleynikov)</p>
+	    to formatted strings (Thanks to Serge Aleynikov)</p>
           <p>
 	    Own Id: OTP-10620</p>
         </item>
@@ -5341,7 +5341,7 @@
         </item>
         <item>
           <p>
-	    - Add spec for function that does not return - Strenghen
+	    - Add spec for function that does not return - Strengthen
 	    spec - Introduce types to avoid duplication in specs -
 	    Add specs for functions that do not return - Add specs
 	    for behaviour callbacks - Simplify two specs</p>
@@ -5721,7 +5721,7 @@
 	    app-vsn/ebin/mod.beam file, the file info for the app-vsn
 	    and app-vsn/ebin directories are faked using the file
 	    info from the archive file as origin. The virtual
-	    direcories can also be listed. For short, the top
+	    directories can also be listed. For short, the top
 	    directories are virtual if they does not exist.</p>
           <p>
 	    Own Id: OTP-8387</p>

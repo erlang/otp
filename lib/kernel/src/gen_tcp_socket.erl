@@ -1439,7 +1439,7 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
     %% we are in state 'recv' but are inactive is simply stored in the buffer.
     %% If activated: active: false -> once | true | N > 0
     %% We need to check if there is something in our buffers, and maybe deliver
-    %% it to its owner. This is what we do here. This should only occure
+    %% it to its owner. This is what we do here. This should only occur
     %% if we are in state connected (state 'recv' and in-active when data
     %% arrives => put data in buffer and then enter state 'connected', since
     %% we are in-active).

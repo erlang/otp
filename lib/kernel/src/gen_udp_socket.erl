@@ -444,7 +444,7 @@ do_sendmsg(?MODULE_socket(_Server, Socket), SockAddr, IOV, Ctrl)
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
-%% This is a bit wierd. If two calls to recv is made with short intervalls
+%% This is a bit weird. If two calls to recv is made with short intervals
 %% from different processes, with say timeout 10s and then 5s. The second
 %% call will be postponed until the first has been processed, which can
 %% take up to 10s. If the first times out (after 10s) the second is 
@@ -839,7 +839,7 @@ socket_getopt_opt(Socket, Opt, Tag) ->
 
 %% Its possible for *one* option to be mapped to several 'socket' options.
 %% But, its *always* the first element in th elist that is the "real"
-%% option. This is the one used when *reading*. The other elemnts in the list
+%% option. This is the one used when *reading*. The other elements in the list
 %% is basically side effect options, which is not used when reading.
 socket_getopt_opts([{_Domain, _} = Opt|_], Socket, Tag) ->
     socket_getopt_opt(Socket, Opt, Tag);
@@ -1703,7 +1703,7 @@ handle_recv_error(P, D, ActionsR, Reason) ->
             {next_state, 'open',
              {P, recv_stop(D#{active := false})}, reverse(ActionsR_1)};
         _ ->
-            %% Temporary ... need somthing better here...maybe
+            %% Temporary ... need something better here...maybe
             {next_state, 'open',
              {P, recv_stop(D#{active := false})}, reverse(ActionsR_1)}
     end.
