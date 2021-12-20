@@ -111,7 +111,9 @@ typedef struct beam_code_header {
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);
 int erts_is_function_native(ErtsCodeInfo*);
-void erts_beam_bif_load_init(void);
+void erts_beam_bif_load_init(Uint);
+Uint erts_get_outstanding_system_requests_limit(void);
+Uint erts_set_outstanding_system_requests_limit(Uint new_val);
 struct erl_fun_entry;
 void erts_purge_state_add_fun(struct erl_fun_entry *fe);
 Export *erts_suspend_process_on_pending_purge_lambda(Process *c_p,

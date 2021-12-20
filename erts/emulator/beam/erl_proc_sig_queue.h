@@ -789,6 +789,9 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to,
  * exist. The signal was not sent, and no specific
  * receive has to be entered by the caller.
  *
+ * Minimum priority, that the signal will execute under,
+ * will equal the priority of the calling process (c_p).
+ *
  * @param[in]     c_p           Pointer to process struct of
  *                              currently executing process.
  *
@@ -824,6 +827,79 @@ erts_proc_sig_send_rpc_request(Process *c_p,
                                int reply,
                                Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
                                void *arg);
+/**
+ *
+ * @brief Send an 'rpc' signal to a process.
+ *
+ * The function 'func' will be executed in the
+ * context of the receiving process. A response
+ * message '{Ref, Result}' is sent to the sender
+ * when 'func' has been called. 'Ref' is the reference
+ * returned by this function and 'Result' is the
+ * term returned by 'func'. If the return value of
+ * 'func' is not an immediate term, 'func' has to
+ * allocate a heap fragment where the result is stored
+ * and update the the heap fragment pointer pointer
+ * passed as third argument to point to it.
+ *
+ * If this function returns a reference, 'func' will
+ * be called in the context of the receiver. However,
+ * note that this might happen when the receiver is in
+ * an exiting state. The caller of this function
+ * *unconditionally* has to enter a receive that match
+ * on the returned reference in all clauses as next
+ * receive; otherwise, bad things will happen!
+ *
+ * If THE_NON_VALUE is returned, the receiver did not
+ * exist. The signal was not sent, and no specific
+ * receive has to be entered by the caller.
+ *
+ * @param[in]     c_p           Pointer to process struct of
+ *                              currently executing process.
+ *
+ * @param[in]     to            Identifier of receiver process.
+ *
+ * @param[in]     reply         Non-zero if a reply is wanted.
+ *
+ * @param[in]     func          Function to execute in the
+ *                              context of the receiver.
+ *                              First argument will be a
+ *                              pointer to the process struct
+ *                              of the receiver process.
+ *                              Second argument will be 'arg'
+ *                              (see below). Third argument
+ *                              will be a pointer to a pointer
+ *                              to a heap fragment for storage
+ *                              of result returned from 'func'
+ *                              (i.e. an 'out' parameter).
+ *
+ * @param[in]     arg           Void pointer to argument
+ *                              to pass as second argument
+ *                              in call of 'func'.
+ *
+ * @param[in]     prio          Minimum priority that the
+ *                              signal will execute under.
+ *                              Either PRIORITY_MAX,
+ *                              PRIORITY_HIGH, PRIORITY_NORMAL,
+ *                              PRIORITY_LOW, or a negative
+ *                              value. A negative value will
+ *                              cause a minimum priority that
+ *                              equals the priority of the
+ *                              calling process (c_p).
+ *
+ * @returns                     If the request was sent,
+ *                              an internal ordinary
+ *                              reference; otherwise,
+ *                              THE_NON_VALUE (non-existing
+ *                              receiver).
+ */
+Eterm
+erts_proc_sig_send_rpc_request_prio(Process *c_p,
+                                    Eterm to,
+                                    int reply,
+                                    Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
+                                    void *arg,
+                                    int prio);
 
 int
 erts_proc_sig_send_dist_spawn_reply(Eterm node,
