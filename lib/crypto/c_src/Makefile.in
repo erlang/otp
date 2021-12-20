@@ -127,7 +127,7 @@ CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).@DED_EXT@
 TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).@DED_EXT@
 
 DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
-# Wierd that we compile as if dynamically linking when statically
+# Weird that we compile as if dynamically linking when statically
 # linking on windows...
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 DYNAMIC_OR_WIN_CRYPTO_LIB=yes

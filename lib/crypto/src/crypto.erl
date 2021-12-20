@@ -1746,7 +1746,7 @@ mod_pow(Base, Exponent, Prime) ->
 %%%
 %%%======================================================================
 
-%%%---- Refering to keys stored in an engine:
+%%%---- Referring to keys stored in an engine:
 -type key_id()   :: string() | binary() .
 -type password() :: string() | binary() .
 
@@ -2417,7 +2417,7 @@ format_pwd(M) -> M.
 %%
 
 %% large integer in a binary with 32bit length
-%% MP representaion  (SSH2)
+%% MP representation  (SSH2)
 mpint(X) when X < 0 -> mpint_neg(X);
 mpint(X) -> mpint_pos(X).
 

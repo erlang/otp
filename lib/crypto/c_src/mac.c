@@ -269,7 +269,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
 # ifdef HAVE_PKEY_new_raw_private_key
-            /* Prefered for new applications according to EVP_PKEY_new_mac_key(3) */
+            /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
             pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
 # else
             /* Available in older versions */
@@ -555,7 +555,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             md = digp->md.p;
 
 # ifdef HAVE_PKEY_new_raw_private_key
-            /* Prefered for new applications according to EVP_PKEY_new_mac_key(3) */
+            /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
             pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
 # else
             /* Available in older versions */

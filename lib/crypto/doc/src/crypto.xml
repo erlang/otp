@@ -143,7 +143,7 @@
 	  <p></p>
 	</item>
 
-	<tag>Asymetric Ciphers - Public Key Techniques</tag>
+	<tag>Asymmetric Ciphers - Public Key Techniques</tag>
 	<item>
 	  <p></p>
 	  <taglist>
@@ -662,7 +662,7 @@
 	The <seetype marker="#otp_padding">otp_padding</seetype> is not
 	removed - it has to be done elsewhere.
 	</p>
-	<p>If padding is <c>{padding,none}</c> or not specifed and the total data from all subsequent
+	<p>If padding is <c>{padding,none}</c> or not specified and the total data from all subsequent
 	<seemfa marker="crypto#crypto_update/2">crypto_updates</seemfa> does
 	not fill the last block fully, that last data is lost. In case of <c>{padding,none}</c> there will
 	be an error in this case. If padding is not specified, the bytes of the unfilled block is silently
@@ -744,7 +744,7 @@
 	  the number of bytes padded. Otherwise 0.
 	  </item>
 	  <tag><c>padding_type</c></tag>
-	  <item>The type of the padding as provided in the call ot
+	  <item>The type of the padding as provided in the call to
 	  <seemfa marker="#crypto_init/3">crypto_init/3,4</seemfa>.
 	  </item>
 	  <tag><c>encrypt</c></tag>
@@ -1144,7 +1144,7 @@
         <p>Enables (<c>Enable = true</c>) or disables (<c>Enable = false</c>) FIPS mode. Returns <c>true</c> if
 	the operation was successful or <c>false</c> otherwise.
 	</p>
-	<p>Note that to enable FIPS mode succesfully, OTP must be built with the configure option <c>--enable-fips</c>,
+	<p>Note that to enable FIPS mode successfully, OTP must be built with the configure option <c>--enable-fips</c>,
 	and the underlying libcrypto must also support FIPS.
 	</p>
 	<p>See also <seemfa marker="#info_fips/0">info_fips/0</seemfa>.
@@ -1217,7 +1217,7 @@
 	  <p>The ciphers <c>aes_cbc</c>, <c>aes_cfb8</c>, <c>aes_cfb128</c>, <c>aes_ctr</c>,
 	  <c>aes_ecb</c>, <c>aes_gcm</c> and <c>aes_ccm</c>
 	  has no keylength in the <c>Type</c> as opposed to for example <c>aes_128_ctr</c>. They adapt to the length of
-	  the key provided in the encrypt and decrypt function. Therefor it is impossible to return a valid keylength
+	  the key provided in the encrypt and decrypt function. Therefore it is impossible to return a valid keylength
 	  in the map.</p>
 	  <p>Always use a <c>Type</c> with an explicit key length,
 	  </p>
@@ -1392,11 +1392,11 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	<note>
 	  <p>
 	    The state returned from this function cannot be used
-	    to get a reproducable random sequence as from
+	    to get a reproducible random sequence as from
 	    the other
 	    <seeerl marker="stdlib:rand">rand</seeerl>
 	    functions,
-	    since reproducability does not match cryptographically safe.
+	    since reproducibility does not match cryptographically safe.
 	  </p>
 	  <p>
 	    The only supported usage is to generate one distinct
@@ -1511,11 +1511,11 @@ FloatValue = rand:uniform().     % again
 	<note>
 	  <p>
 	    The state returned from this function cannot be used
-	    to get a reproducable random sequence as from
+	    to get a reproducible random sequence as from
 	    the other
 	    <seeerl marker="stdlib:rand">rand</seeerl>
 	    functions,
-	    since reproducability does not match cryptographically safe.
+	    since reproducibility does not match cryptographically safe.
 	  </p>
 	  <p>
 	    In fact since random data is cached some numbers may

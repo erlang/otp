@@ -552,7 +552,7 @@ bad_arguments(Config) when is_list(Config) ->
                                         <<"LOAD">>],
                                        [])
                 of
-                    {error,bad_engine_id} ->    % should have happend in the previous try...catch end!
+                    {error,bad_engine_id} ->    % should have happened in the previous try...catch end!
                         throw(dynamic_engine_unsupported);
                     X3 ->
                         ct:fail("3 Got ~p",[X3])
@@ -655,7 +655,7 @@ failed_engine_init(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 %% Test the optional flag in ctrl comands
 ctrl_cmd_string()->
-    [{doc, "Test that a not known optional ctrl comand do not fail"}].
+    [{doc, "Test that a not known optional ctrl command do not fail"}].
 ctrl_cmd_string(Config) when is_list(Config) ->
     try
         case crypto:get_test_engine() of
@@ -685,7 +685,7 @@ ctrl_cmd_string(Config) when is_list(Config) ->
    end.
 
 ctrl_cmd_string_optional()->
-    [{doc, "Test that a not known optional ctrl comand do not fail"}].
+    [{doc, "Test that a not known optional ctrl command do not fail"}].
 ctrl_cmd_string_optional(Config) when is_list(Config) ->
     try
         case crypto:get_test_engine() of
@@ -831,7 +831,7 @@ sign_verify_rsa_pwd_bad_pwd(Config) ->
     Pub  = #{engine => engine_ref(Config),
              key_id => key_id(Config, "rsa_public_key_pwd.pem")},
     try sign_verify(rsa, sha, Priv, Pub) of
-        _ -> {fail, "PWD prot pubkey sign succeded with no pwd!"}
+        _ -> {fail, "PWD prot pubkey sign succeeded with no pwd!"}
     catch
         error:badarg -> ok
     end.
@@ -909,7 +909,7 @@ get_pub_from_priv_key_rsa_pwd_no_pwd(Config) ->
             {fail, {wrong_error,Error}};
         Pub ->
             ct:log("rsa Pub = ~p",[Pub]),
-            {fail, "PWD prot pubkey fetch succeded although no pwd!"}
+            {fail, "PWD prot pubkey fetch succeeded although no pwd!"}
     end.
 
 get_pub_from_priv_key_rsa_pwd_bad_pwd(Config) ->
@@ -925,7 +925,7 @@ get_pub_from_priv_key_rsa_pwd_bad_pwd(Config) ->
             {fail, {wrong_error,Error}};
         Pub ->
             ct:log("rsa Pub = ~p",[Pub]),
-            {fail, "PWD prot pubkey fetch succeded with bad pwd!"}
+            {fail, "PWD prot pubkey fetch succeeded with bad pwd!"}
     end.
 
 get_pub_from_priv_key_dsa(Config) ->
