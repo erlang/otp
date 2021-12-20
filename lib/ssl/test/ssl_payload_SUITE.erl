@@ -155,11 +155,7 @@ init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    {ok, _} =
-                make_certs:all(
-                  proplists:get_value(data_dir, Config),
-                  proplists:get_value(priv_dir, Config)),
-	    ssl_test_lib:cert_options(Config)
+            ssl_test_lib:make_rsa_cert(Config)
     catch _:_  ->
 	    {skip, "Crypto did not start"}
     end.
@@ -219,8 +215,8 @@ server_echos_passive_small() ->
      "sends them back, and closes."}].
 
 server_echos_passive_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -234,8 +230,8 @@ server_echos_passive_chunk_small() ->
      "sends them back, and closes."}].
 
 server_echos_passive_chunk_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -250,8 +246,8 @@ server_echos_active_once_small() ->
      " them, sends them back, and closes."}].
 
 server_echos_active_once_small(Config) when is_list(Config) -> 
-        ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+        ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -265,8 +261,8 @@ server_echos_active_small() ->
      "sends them back, and closes."}].
 
 server_echos_active_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -279,8 +275,8 @@ client_echos_passive_small() ->
       "sends them back, and closes."}].
 
 client_echos_passive_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -293,8 +289,8 @@ client_echos_passive_chunk_small() ->
       "sends them back, and closes."}].
 
 client_echos_passive_chunk_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -308,8 +304,8 @@ client_echos_active_once_small() ->
      "them, sends them back, and closes."].
 
 client_echos_active_once_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -322,8 +318,8 @@ client_echos_active_small() ->
       "sends them back, and closes."}].
 
 client_echos_active_small(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 100),
@@ -337,8 +333,8 @@ server_echos_passive_big() ->
      "sends them back, and closes."}].
 
 server_echos_passive_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -350,8 +346,8 @@ server_echos_passive_chunk_big() ->
      "sends them back, and closes."}].
 
 server_echos_passive_chunk_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -365,8 +361,8 @@ server_echos_active_once_big() ->
       "them, sends them back, and closes."}].
 
 server_echos_active_once_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -380,8 +376,8 @@ server_echos_active_big() ->
       " them, sends them back, and closes."}].
 
 server_echos_active_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -394,8 +390,8 @@ client_echos_passive_big() ->
      "sends them back, and closes."}].
 
 client_echos_passive_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -409,8 +405,8 @@ client_echos_passive_chunk_big() ->
      "sends them back, and closes."}].
 
 client_echos_passive_chunk_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -424,8 +420,8 @@ client_echos_active_once_big() ->
       " them, sends them back, and closes."}].
 
 client_echos_active_once_big(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -438,8 +434,8 @@ client_echos_active_big() ->
       "sends them back, and closes."}].
 
 client_echos_active_big(Config) when is_list(Config) -> 
-     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
@@ -452,8 +448,8 @@ server_echos_passive_huge() ->
       " them, sends them back, and closes."}].
 
 server_echos_passive_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -466,8 +462,8 @@ server_echos_passive_chunk_huge() ->
       " them, sends them back, and closes."}].
 
 server_echos_passive_chunk_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -480,8 +476,8 @@ server_echos_active_once_huge() ->
       "them, sends them back, and closes."}].
 
 server_echos_active_once_huge(Config) when is_list(Config) -> 
-        ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+        ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -494,8 +490,8 @@ server_echos_active_huge() ->
      "sends them back, and closes."}].
 
 server_echos_active_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -508,8 +504,8 @@ client_echos_passive_huge() ->
      "them, sends them back, and closes."}].
 
 client_echos_passive_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -521,8 +517,8 @@ client_echos_passive_chunk_huge() ->
      "them, sends them back, and closes."}].
 
 client_echos_passive_chunk_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -534,8 +530,8 @@ client_echos_active_once_huge() ->
       "them, sends them back, and closes."}].
 
 client_echos_active_once_huge(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -548,8 +544,8 @@ client_echos_active_huge() ->
      "sends them back, and closes."}].
 
 client_echos_active_huge(Config) when is_list(Config) -> 
-     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
@@ -563,8 +559,8 @@ client_active_once_server_close() ->
      "Make sure client recives all data if possible"}].
 
 client_active_once_server_close(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %%
     Data = binary:copy(<<"1234567890">>, 50000),
