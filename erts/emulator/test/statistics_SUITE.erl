@@ -23,6 +23,7 @@
 %% Tests the statistics/1 bif.
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2,
          wall_clock_sanity/1,
 	 wall_clock_zero_diff/1, wall_clock_update/1,
          runtime_sanity/1,
@@ -60,6 +61,16 @@ groups() ->
      {runtime, [],
       [runtime_sanity, runtime_zero_diff, runtime_update, runtime_diff]},
      {run_queue, [], [run_queue_one]}].
+
+init_per_testcase(msacc, Config) ->
+    try erlang:statistics(microstate_accounting) of
+        _ ->
+            Config
+    catch _:_ ->
+            {skip, "Microstate accouning not available"}
+    end;
+init_per_testcase(_, Config) ->
+    Config.
 
 wall_clock_sanity(Config) when is_list(Config) ->
     erlang:yield(),
