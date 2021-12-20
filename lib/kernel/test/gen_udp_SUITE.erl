@@ -2499,6 +2499,10 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                                   ?P("[server] send reply"),
                                   ok = gen_udp:send(Sock, CIP1, CPort1, "hopp"),
                                   {CIP1, CPort1}
+                          after 5000 ->
+                                  ?P("[server] receive (1) timeout:"
+                                     "~n      ~p", [mq()]),
+                                  exit(receive_timeout)
                           end,
 
 
@@ -2511,6 +2515,10 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                               ?P("[server] received expected message 2 - "
                                  "send reply"),
                               ok = gen_udp:send(Sock, CIP2, CPort2, "hopp")
+                      after 5000 ->
+                              ?P("[server] receive (2) timeout:"
+                                 "~n      ~p", [mq()]),
+                              exit(receive_timeout)
                       end,
 
 
@@ -2519,10 +2527,14 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                       ?P("[server] await message 3"),
                       receive
                           {udp, Sock, CIP3, CPort3, <<"hej">>}
-                            when (CIP2 =:= CIP) andalso (CPort2 =:= CPort) ->
+                            when (CIP3 =:= CIP) andalso (CPort3 =:= CPort) ->
                               ?P("[server] received expected message 3 - "
                                  "send reply"),
                               ok = gen_udp:send(Sock, CIP3, CPort3, "hopp")
+                      after 5000 ->
+                              ?P("[server] receive (3) timeout:"
+                                 "~n      ~p", [mq()]),
+                              exit(receive_timeout)
                       end,
 
 
@@ -2583,24 +2595,49 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     %% --- message sequance 1 ---
 
     ?P("[csock 1] try (trad = address and port) send message 1"),
-    ok = gen_udp:send(CSock1, maps:get(addr, SockAddr), ServerPort, "hej"),
+    case gen_udp:send(CSock1, maps:get(addr, SockAddr), ServerPort, "hej") of
+        ok ->
+            ok;
+        {error, ehostunreach = Reason1} ->
+            ?SKIPT(?F("send (1,1) failed: ~p", [Reason1]));
+        {error, Reason1} ->
+            ct:fail({send_failed, Reason1})
+    end,
+                 
 
     ?P("[csock 1] await reply message 1"),
     receive
         {udp, CSock1, _, _, <<"hopp">>} ->
             ?P("[csock 1] received expected reply message 1")
+    after 5000 ->
+            ?P("receive (1) timeout:"
+               "~n      ~p", [mq()]),
+            ct:fail(receive_timeout)
     end,
 
 
     %% --- message sequance 2 ---
 
     ?P("[csock 1] try (sockaddr) send message 2"),
-    ok = gen_udp:send(CSock1, ServerSockAddr, "hej"),
+    case gen_udp:send(CSock1, ServerSockAddr, "hej") of
+        ok ->
+            ok;
+        {error, ehostunreach = Reason2} ->
+            ?SKIPT(?F("send (1,2) failed: ~p", [Reason2]));
+        {error, Reason2} ->
+            ct:fail({send_failed, Reason2})
+    end,
+        
 
     ?P("[csock 1] await reply message 2"),
     receive
         {udp, CSock1, _, _, <<"hopp">>} ->
             ?P("[csock 1] received expected reply message 2")
+    after 5000 ->
+            ?P("[csock 1] receive (2) timeout:"
+               "~n      ~p", [mq()]),
+            ct:fail(receive_timeout)
+
     end,
 
 
@@ -2731,6 +2768,9 @@ which_info([Key|Keys], Info, Acc) ->
             which_info(Keys, Info, Acc)
     end.
 
+
+mq() ->
+    pi(messages).
 
 pi(Item) ->
     {Item, Val} = process_info(self(), Item),
