@@ -2608,7 +2608,14 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ?P("[csock 1] await reply message 1"),
     receive
         {udp, CSock1, _, _, <<"hopp">>} ->
-            ?P("[csock 1] received expected reply message 1")
+            ?P("[csock 1] received expected reply message 1"),
+            ok;
+
+        {'EXIT', Server, SReason1} ->
+            ?P("received unexpected server exit (1):"
+               "~n.     ~p", [SReason1]),
+            ct:fail({unexpected_server_exit, 1, SReason1})
+
     after 5000 ->
             ?P("receive (1) timeout:"
                "~n      ~p", [mq()]),
@@ -2632,12 +2639,18 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ?P("[csock 1] await reply message 2"),
     receive
         {udp, CSock1, _, _, <<"hopp">>} ->
-            ?P("[csock 1] received expected reply message 2")
+            ?P("[csock 1] received expected reply message 2"),
+            ok;
+
+        {'EXIT', Server, SReason2} ->
+            ?P("received unexpected server exit (2):"
+               "~n.     ~p", [SReason2]),
+            ct:fail({unexpected_server_exit, 2, SReason2})
+
     after 5000 ->
             ?P("[csock 1] receive (2) timeout:"
                "~n      ~p", [mq()]),
             ct:fail(receive_timeout)
-
     end,
 
 
@@ -2652,8 +2665,20 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
     ?P("[csock 1] await reply message 3"),
     receive
-        {udp, CSock, _, _, <<"hopp">>} ->
-            ?P("received expected reply message 3")
+        {udp, CSock1, _, _, <<"hopp">>} ->
+            ?P("received expected reply message 3"),
+            ok;
+
+        {'EXIT', Server, SReason3} ->
+            ?P("received unexpected server exit (3):"
+               "~n.     ~p", [SReason3]),
+            ct:fail({unexpected_server_exit, 3, SReason3})
+
+    after 5000 ->
+            ?P("[csock 1] receive (2) timeout:"
+               "~n      ~p", [mq()]),
+            ct:fail(receive_timeout)
+
     end,
 
 
@@ -2683,7 +2708,8 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     end,
     
     ?P("cleanup"),
-    (catch gen_udp:close(CSock)),
+    (catch gen_udp:close(CSock1)),
+    (catch gen_udp:close(CSock2)),
 
     ?P("done"),
     ok.
