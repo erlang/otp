@@ -3046,7 +3046,7 @@ ssl_getstat(Socket) ->
             ok
     end.
 
-log(#{msg:={report,Report}},#{config:=Pid}) ->
+log(#{msg:={report,_Report}},#{config:=Pid}) ->
     Pid ! warning_generated;
 log(_,_) ->
     ok.
