@@ -21,8 +21,6 @@
 %%
 -module(ssl_test_lib).
 
--behaviour(ct_suite).
-
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -2865,7 +2863,7 @@ update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
     ?LOG("~nOverwrite max_early_data_size (from ~p to ~p)!",
                      [Size, MaxEarlyDataSize]),
     #{ticket := #new_session_ticket{
-                   extensions = #{early_data := Extensions0}} = NST0} = Ticket,
+                   extensions = #{early_data := _Extensions0}} = NST0} = Ticket,
     Extensions = #{early_data => #early_data_indication_nst{
                                     indication = MaxEarlyDataSize}},
     NST = NST0#new_session_ticket{extensions = Extensions},
