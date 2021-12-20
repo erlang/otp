@@ -2400,13 +2400,24 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                         end,
                     Filter =
                         fun(#{addr := #{family := D,
-                                        addr   := A}}) ->
-                                (D =:= Domain) andalso (A =:= LinkLocalAddr);
+                                        addr   := A}} = C) ->
+                                if 
+                                    (D =:= Domain) andalso
+                                    (A =:= LinkLocalAddr) ->
+                                        ?P("found link-local candidate: "
+                                           "~n   ~p", [C]),
+                                        true;
+                                    true ->
+                                        false
+                                end;
                            (_) ->
                                 false
                         end,
                     case net:getifaddrs(Filter) of
-                        {ok, [#{addr := #{scope_id := ScopeID}}|_]} ->
+                        {ok, [#{addr := #{scope_id := ScopeID}}=H|T]} ->
+                            ?P("found link-local candidate(s): "
+                               "~n   Candidate:       ~p"
+                               "~n   Rest Candidate:  ~p", [H, T]),
                             SockAddr = #{family   => Domain,
                                          addr     => LinkLocalAddr,
                                          port     => 0,
