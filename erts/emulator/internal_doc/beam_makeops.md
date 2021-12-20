@@ -538,7 +538,7 @@ It is also possible to add an `%else` clause:
 The following symbols are always defined.
 
 * `ARCH_64` - is 1 for a 64-bit machine, and 0 otherwise.
-* `ARCH_32` - is 1 for 32-bit machine, and 1 otherwise.
+* `ARCH_32` - is 1 for 32-bit machine, and 0 otherwise.
 
 The `Makefile` for building the emulator currently defines the
 following symbols by using the `-D` option on the command line for

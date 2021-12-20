@@ -490,7 +490,8 @@ gen.func_end(Func_Label, Entry_Label) {
         op = lambda;
     }
 
-    if (S->may_load_nif) {
+    if (S->may_load_nif && (S->load_hdr->are_nifs == NULL ||
+                            S->load_hdr->are_nifs[S->function_number-1])) {
         BeamOp *padding;
 
         $NewBeamOp(S, padding);

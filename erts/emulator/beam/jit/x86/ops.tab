@@ -75,6 +75,7 @@ aligned_label L t
 
 i_func_info I a a I
 int_code_end
+nif_start
 
 i_generic_breakpoint
 i_debug_breakpoint

@@ -33,6 +33,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         t_nifs_attrib/1,
          t_load_race/1,
          t_call_nif_early/1,
          load_traced_nif/1,
@@ -71,12 +72,122 @@
          nif_whereis/1, nif_whereis_parallel/1,
          nif_whereis_threaded/1, nif_whereis_proxy/1,
          nif_ioq/1,
+         match_state_arg/1,
          pid/1,
          id/1,
          nif_term_type/1
 	]).
 
 -export([many_args_100/100]).
+
+-nifs([lib_version/0,
+       call_history/0,
+       hold_nif_mod_priv_data/1,
+       nif_mod_call_history/0,
+       list_seq/1,
+       type_test/0,
+       tuple_2_list/1,
+       is_identical/2,
+       compare/2,
+       hash_nif/3,
+       many_args_100/100,
+       clone_bin/1,
+       make_sub_bin/3,
+       string_to_bin/2,
+       atom_to_bin/2,
+       macros/1,
+       tuple_2_list_and_tuple/1,
+       iolist_2_bin/1,
+       get_resource_type/1,
+       alloc_resource/2,
+       make_resource/1,
+       get_resource/2,
+       release_resource/1,
+       release_resource_from_thread/1,
+       last_resource_dtor_call_nif/0,
+       make_new_resource/2,
+       check_is/11,
+       check_is_exception/0,
+       length_test/6,
+       make_atoms/0,
+       make_strings/0,
+       make_new_resource_binary/1,
+       send_list_seq/2,
+       send_new_blob/2,
+       alloc_msgenv/0,
+       clear_msgenv/1,
+       grow_blob/2,
+       grow_blob/3,
+       send_blob/2,
+       send3_blob/3,
+       send_blob_thread/3,
+       join_send_thread/1,
+       copy_blob/1,
+       send_term/2,
+       send_copy_term/2,
+       reverse_list/1,
+       echo_int/1,
+       type_sizes/0,
+       otp_9668_nif/1,
+       otp_9828_nif/1,
+       consume_timeslice_nif/2,
+       call_nif_schedule/2,
+       call_nif_exception/1,
+       call_nif_nan_or_inf/1,
+       call_nif_atom_too_long/1,
+       unique_integer_nif/1,
+       is_process_alive_nif/1,
+       is_port_alive_nif/1,
+       term_to_binary_nif/2,
+       binary_to_term_nif/3,
+       port_command_nif/2,
+       format_term_nif/2,
+       select_nif/6,
+       dupe_resource_nif/1,
+       pipe_nif/0,
+       write_nif/2,
+       read_nif/2,
+       close_nif/1,
+       is_closed_nif/1,
+       clear_select_nif/1,
+       last_fd_stop_call/0,
+       alloc_monitor_resource_nif/0,
+       monitor_process_nif/4,
+       demonitor_process_nif/2,
+       compare_monitors_nif/2,
+       make_monitor_term_nif/1,
+       monitor_frenzy_nif/4,
+       ioq_nif/1,
+       ioq_nif/2,
+       ioq_nif/3,
+       ioq_nif/4,
+       whereis_send/3,
+       whereis_term/2,
+       whereis_thd_lookup/3,
+       whereis_thd_result/1,
+       is_map_nif/1,
+       get_map_size_nif/1,
+       make_new_map_nif/0,
+       make_map_put_nif/3,
+       get_map_value_nif/2,
+       make_map_update_nif/3,
+       make_map_remove_nif/2,
+       maps_from_list_nif/1,
+       sorted_list_from_maps_nif/1,
+       monotonic_time/1,
+       time_offset/1,
+       convert_time_unit/3,
+       now_time/0,
+       cpu_time/0,
+       get_local_pid_nif/1,
+       make_pid_nif/1,
+       set_pid_undefined_nif/0,
+       is_pid_undefined_nif/1,
+       compare_pids_nif/2,
+       term_type_nif/1,
+       dynamic_resource_call/4,
+       msa_find_y_nif/1
+      ]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -97,6 +208,7 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      t_dynamic_resource_call,
+     t_nifs_attrib,
      t_load_race,
      t_call_nif_early,
      load_traced_nif,
@@ -119,6 +231,7 @@ all() ->
      nif_phash2,
      nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
      nif_ioq,
+     match_state_arg,
      pid,
      nif_term_type].
 
@@ -504,6 +617,34 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test the -nifs() attribute
+t_nifs_attrib(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+    ensure_lib_loaded(Config),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin3} = compile:file(File, [binary,return_errors,
+                                           {d,'USE_NIFS_ATTRIB',3}]),
+
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin3),
+    ok = nif_mod:load_nif_lib(Config, 1),
+    1 = nif_mod:lib_version(),
+
+    {ok,nif_mod,Bin2} = compile:file(File, [binary,return_errors,
+                                            {d,'USE_NIFS_ATTRIB',2}]),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin2),
+    {error, {bad_lib, "Function not declared as nif" ++ _}} =
+        nif_mod:load_nif_lib(Config, 1),
+
+    {ok,nif_mod,Bin1} = compile:file(File, [binary,return_errors,
+                                            {d,'USE_NIFS_ATTRIB',1}]),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin1),
+    {error, {bad_lib, "Function not declared as nif" ++ _}} =
+        nif_mod:load_nif_lib(Config, 1),
+    ok.
+
 
 %% Test erlang:load_nif/2 waiting for code_write_permission.
 t_load_race(Config) ->
@@ -2505,8 +2646,10 @@ neg(Config) when is_list(Config) ->
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
 
-    {error,{load_failed,_}} = nif_mod:load_nif_lib(Config, 0),
-    {error,{bad_lib,_}} = nif_mod:load_nif_lib(Config, no_init),    
+    {error,{load_failed,"Failed to load NIF library"++_}} = nif_mod:load_nif_lib(Config, 0),
+    {error,{bad_lib,"Failed to find library init"++_}} = nif_mod:load_nif_lib(Config, 3),
+    {error,{bad_lib,"Function not found"++_}} = nif_mod:load_nif_lib(Config, 4),
+    {error,{bad_lib,"Duplicate NIF entry for"++_}} = nif_mod:load_nif_lib(Config, 5),
     verify_tmpmem(TmpMem),
     ok.
 
@@ -3797,6 +3940,30 @@ nif_term_type(Config) ->
     tuple = term_type_nif({}),
 
     ok.
+
+%% Verify match state arguments are not passed to declared NIFs.
+match_state_arg(Config) ->
+    ensure_lib_loaded(Config),
+    Bin = term_to_binary([<<"x">> | Config]), % a non-literal binary with an $x byte
+    <<"nif says ok">> = msa_find_x_y(Bin),
+    ok.
+
+%% Without declaring msa_find_y_nif/1 as NIF, the compiler would do
+%% optimization and pass it a match state as argument.
+msa_find_x_y(<<$x, Rest/binary>>) ->
+    msa_find_y_nif(Rest);
+msa_find_x_y(<<_, Rest/binary>>) ->
+    msa_find_x_y(Rest);
+msa_find_x_y(<<>>) ->
+    "no x".
+
+msa_find_y_nif(<<$y, Rest/binary>>) ->
+    Rest;
+msa_find_y_nif(<<_, Rest/binary>>) ->
+    msa_find_y_nif(Rest);
+msa_find_y_nif(<<>>) ->
+    "no y".
+
 
 last_resource_dtor_call() ->
     erts_debug:set_internal_state(wait, aux_work),

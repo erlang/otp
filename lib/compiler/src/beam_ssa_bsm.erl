@@ -128,15 +128,20 @@ has_bsm_ops(#b_function{bs=Blocks}) ->
 
 hbo_blocks([{_,#b_blk{is=Is}} | Blocks]) ->
     case hbo_is(Is) of
-        false -> hbo_blocks(Blocks);
-        true -> true
+        no -> hbo_blocks(Blocks);
+        yes -> true;
+        nif_start ->
+            %% Disable optimizations for declared -nifs()
+            %% to avoid leaking match contexts as NIF arguments.
+            false
     end;
 hbo_blocks([]) ->
     false.
 
-hbo_is([#b_set{op=bs_start_match} | _]) -> true;
+hbo_is([#b_set{op=bs_start_match} | _]) -> yes;
+hbo_is([#b_set{op=nif_start} | _]) -> nif_start;
 hbo_is([_I | Is]) -> hbo_is(Is);
-hbo_is([]) -> false.
+hbo_is([]) -> no.
 
 %% Checks whether it's legal to make a call with the given argument as a match
 %% context, returning the param_info() of the relevant parameter.

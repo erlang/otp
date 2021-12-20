@@ -445,6 +445,9 @@ send() {
     }
 }
 
+nif_start() {
+}
+
 call_nif_early() {
     HEAVY_SWAPOUT;
     I = erts_call_nif_early(c_p, erts_code_to_codeinfo(I));

@@ -3869,6 +3869,16 @@ is_process_alive(P2Pid),
             allowed.
           </item>
         </taglist>
+        <p>
+          If the <seeguide marker="system/reference_manual:modules#nifs_attribute">
+          <c>-nifs()</c></seeguide> attribute is used (which is recommended),
+          all NIFs in the dynamic library much be declared as such for
+          <c>load_nif/2</c> to succeed. On the other hand, all functions declared
+          with the <c>-nifs()</c> attribute do not have to be implemented by the
+          dynamic library. This allows a target independent Erlang file to
+          contain fallback implementations for functions that may lack NIF
+          support depending on target OS/hardware platform.
+        </p>
       </desc>
     </func>
 

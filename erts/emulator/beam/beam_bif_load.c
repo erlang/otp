@@ -2027,6 +2027,10 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 		erts_remove_from_ranges(modp->old.code_hdr);
 
+                if (modp->old.code_hdr->are_nifs) {
+                    erts_free(ERTS_ALC_T_PREPARED_CODE,
+                              modp->old.code_hdr->are_nifs);
+                }
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else

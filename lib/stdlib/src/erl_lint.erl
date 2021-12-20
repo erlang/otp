@@ -164,7 +164,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: gb_sets:set(ta()),
                bvt = none :: 'none' | [any()],  %Variables in binary pattern
                gexpr_context = guard            %Context of guard expression
-                   :: gexpr_context()
+                   :: gexpr_context(),
+               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
               }).
 
 -type lint_state() :: #lint{}.
@@ -201,6 +202,10 @@ format_error({redefine_import,{{F,A},M}}) ->
     io_lib:format("function ~tw/~w already imported from ~w", [F,A,M]);
 format_error({bad_inline,{F,A}}) ->
     io_lib:format("inlined function ~tw/~w undefined", [F,A]);
+format_error({undefined_nif,{F,A}}) ->
+    io_lib:format("nif ~tw/~w undefined", [F,A]);
+format_error(no_load_nif) ->
+    io_lib:format("nifs defined, but no call to erlang:load_nif/2", []);
 format_error({invalid_deprecated,D}) ->
     io_lib:format("badly formed deprecated attribute ~tw", [D]);
 format_error({bad_deprecated,{F,A}}) ->
@@ -990,7 +995,8 @@ post_traversal_check(Forms, St0) ->
     StF = check_local_opaque_types(StE),
     StG = check_dialyzer_attribute(Forms, StF),
     StH = check_callback_information(StG),
-    check_removed(Forms, StH).
+    StI = check_nifs(Forms, StH),
+    check_removed(Forms, StI).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1322,6 +1328,19 @@ check_option_functions(Forms, Tag0, Type, St0) ->
 	[{F,A} || {{F,A},_} <- orddict:to_list(St0#lint.imports)],
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not member(FA, DefFunctions)],
     func_location_error(Type, Bad, St0).
+
+check_nifs(Forms, St0) ->
+    FAsAnno = [{FA,Anno} || {attribute, Anno, nifs, Args} <- Forms,
+                            FA <- Args],
+    St1 = case {FAsAnno, St0#lint.load_nif} of
+              {[{_,Anno1}|_], false} ->
+                  add_warning(Anno1, no_load_nif, St0);
+              _ ->
+                  St0
+          end,
+    DefFunctions = gb_sets:subtract(St1#lint.defined, gb_sets:from_list(pseudolocals())),
+    Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not gb_sets:is_element(FA, DefFunctions)],
+    func_location_error(undefined_nif, Bad, St1).
 
 nowarn_function(Tag, Opts) ->
     ordsets:from_list([FA || {Tag1,FAs} <- Opts,
@@ -3988,7 +4007,8 @@ check_remote_function(Anno, M, F, As, St0) ->
 %% check_load_nif(Anno, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if erlang:load_nif/2 is called when any kind of inlining has
 %%  been enabled.
-check_load_nif(Anno, erlang, load_nif, [_, _], St) ->
+check_load_nif(Anno, erlang, load_nif, [_, _], St0) ->
+    St = St0#lint{load_nif = true},
     case is_warn_enabled(nif_inline, St) of
         true -> check_nif_inline(Anno, St);
         false -> St
