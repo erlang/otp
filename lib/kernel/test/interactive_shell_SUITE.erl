@@ -758,23 +758,26 @@ remsh_longnames(Config) when is_list(Config) ->
         end,
     case rtstart(" -name " ++ atom_to_list(?FUNCTION_NAME)++Domain) of
         {ok, _SRPid, STPid, SState} ->
-            {ok, _CRPid, CTPid, CState} =
-                rtstart("-name undefined" ++ Domain ++
-                            " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
-            ok = send_commands(
-                   STPid,
-                   [{putline, ""},
-                    {putline, "node()."},
-                    {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"}], 1),
             try
-                ok = send_commands(
-                       CTPid,
-                       [{putline, ""},
-                        {putline, "node()."},
-                        {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"} | quit_hosting_node()], 1)
+                {ok, _CRPid, CTPid, CState} =
+                    rtstart("-name undefined" ++ Domain ++
+                                " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
+                try
+                    ok = send_commands(
+                           STPid,
+                           [{putline, ""},
+                            {putline, "node()."},
+                            {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"}], 1),
+                    ok = send_commands(
+                           CTPid,
+                           [{putline, ""},
+                            {putline, "node()."},
+                            {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"} | quit_hosting_node()], 1)
+                after
+                    rtnode_dump_logs(rtstop(CState))
+                end
             after
-                rtstop(CState), %% Stop client before server
-                rtstop(SState)
+                rtnode_dump_logs(rtstop(SState))
             end;
         Else ->
             Else
