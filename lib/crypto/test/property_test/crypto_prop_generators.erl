@@ -44,11 +44,11 @@ text_plain() -> iolist().
 cipher() -> oneof(non_aead_ciphers()).
 
 key(Cipher) ->
-    %% Can't be shrinked
+    %% Can't be shrunk
     crypto:strong_rand_bytes( key_length(Cipher) ).
     
 iv(Cipher) ->
-    %% Can't be shrinked
+    %% Can't be shrunk
     crypto:strong_rand_bytes( iv_length(Cipher) ).
 
 iolist() -> frequency([{5, list( oneof([list(byte()),

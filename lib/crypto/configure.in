@@ -660,7 +660,7 @@ yes | default)   # Use standard lib locations for ssl runtime library path
     test $dir_lib32 = yes && libdirs="/lib32 $libdirs"
 
     #
-    # We try the follwing runtime paths in the
+    # We try the following runtime paths in the
     # following order:
     # 1. Standard ssl locations with all variations
     #    of lib subdirectories that we know of

@@ -735,7 +735,7 @@
       <list>
         <item>
           <p>
-	    The chipers aes_cfb8 and aes_cfb128 are now using the EVP
+	    The ciphers aes_cfb8 and aes_cfb128 are now using the EVP
 	    interface. The supported key lengths are 128, 192 and 256
 	    bits.</p>
           <p>
@@ -743,7 +743,7 @@
         </item>
         <item>
           <p>
-	    The chipers aes_cfb8 and aes_cfb128 are now available in
+	    The ciphers aes_cfb8 and aes_cfb128 are now available in
 	    FIPS enabled mode.</p>
           <p>
 	    Own Id: OTP-16134 Aux Id: PR-2407 </p>
@@ -852,7 +852,7 @@
       <list>
         <item>
           <p>
-	    The cipher aes-ctr was disabled by misstake in
+	    The cipher aes-ctr was disabled by mistake in
 	    crypto:supports for cryptolibs before 1.0.1. It worked
 	    however in the encrypt and decrypt functions.</p>
           <p>
@@ -1030,7 +1030,7 @@
       <list>
         <item>
           <p>
-	    The chipers aes_cfb8 and aes_cfb128 are now using the EVP
+	    The ciphers aes_cfb8 and aes_cfb128 are now using the EVP
 	    interface. The supported key lengths are 128, 192 and 256
 	    bits.</p>
           <p>
@@ -1038,7 +1038,7 @@
         </item>
         <item>
           <p>
-	    The chipers aes_cfb8 and aes_cfb128 are now available in
+	    The ciphers aes_cfb8 and aes_cfb128 are now available in
 	    FIPS enabled mode.</p>
           <p>
 	    Own Id: OTP-16134 Aux Id: PR-2407 </p>
@@ -1359,7 +1359,7 @@
       <list>
         <item>
           <p>
-	    The chipers aes_cfb8 and aes_cfb128 are now using the EVP
+	    The ciphers aes_cfb8 and aes_cfb128 are now using the EVP
 	    interface. The supported key lengths are 128, 192 and 256
 	    bits.</p>
           <p>
@@ -2494,7 +2494,7 @@
 	    Own Id: OTP-8551</p>
         </item>
         <item>
-	    <p>The undocumented, unsupport, and deprecated function
+	    <p>The undocumented, unsupported, and deprecated function
 	    <c>lists:flat_length/1</c> has been removed.</p>
           <p>
 	    Own Id: OTP-8584</p>
@@ -2777,7 +2777,7 @@
       <list>
         <item>
           <p>
-	    crypto and zlib drivers improved to allow concurent smp
+	    crypto and zlib drivers improved to allow concurrent smp
 	    access.</p>
           <p>
 	    Own Id: OTP-7262</p>

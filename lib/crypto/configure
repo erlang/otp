@@ -1462,7 +1462,7 @@ Some influential environment variables:
   CXX         C++ compiler
   CXXFLAGS    C++ compiler flags
   LD          linker (is often overridden by configure)
-  LDFLAGS     linker flags (can be risky to set since LD may be overriden by
+  LDFLAGS     linker flags (can be risky to set since LD may be overridden by
               configure)
   LIBS        libraries
   DED_LD      linker for Dynamic Erlang Drivers (set all DED_LD* variables or
@@ -6071,7 +6071,7 @@ $as_echo "" >&6; }
     test $dir_lib32 = yes && libdirs="/lib32 $libdirs"
 
     #
-    # We try the follwing runtime paths in the
+    # We try the following runtime paths in the
     # following order:
     # 1. Standard ssl locations with all variations
     #    of lib subdirectories that we know of

@@ -58,7 +58,7 @@
  * LibreSSL has the same names on include files and symbols as OpenSSL, but defines
  * the OPENSSL_VERSION_NUMBER to be >= 2.0.0
  *
- * Therefor works tests like this as intendend:
+ * Therefore works tests like this as intendend:
  *     OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
  * (The test is for example "2.4.2" >= "1.0.0" although the test
  *  with the cloned OpenSSL test would be "1.0.1" >= "1.0.0")

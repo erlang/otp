@@ -44,10 +44,10 @@
     <seetype marker="crypto#cipher_iv">cipher_iv()</seetype> or
     <seetype marker="crypto#cipher_aead">cipher_aead()</seetype>.
     The letters IV are short for <i>Initialization Vector</i> and
-    AEAD is an abreviation of <i>Authenticated Encryption with Associated Data</i>.
+    AEAD is an abbreviation of <i>Authenticated Encryption with Associated Data</i>.
     </p>
     <p>Due to irregular naming conventions, some cipher names in the old api are
-    substitued by new names in the new api. For a list of retired names, see
+    substituted by new names in the new api. For a list of retired names, see
     <seeguide marker="crypto:new_api#retired-cipher-names">Retired cipher names</seeguide>.
     </p>
     <p>To dynamically check availability, check that the name in the <i>Cipher and Mode</i> column is present in the
