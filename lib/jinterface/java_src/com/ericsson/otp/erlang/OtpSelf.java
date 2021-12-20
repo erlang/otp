@@ -34,7 +34,7 @@ import java.net.UnknownHostException;
  * <p>
  * When you create an instance of this class, it will bind a socket to a port so
  * that incoming connections can be accepted. However the port number will not
- * be made available to other nodes wishing to connect until you explicitely
+ * be made available to other nodes wishing to connect until you explicitly
  * register with the port mapper daemon by calling {@link #publishPort()}.
  * </p>
  *

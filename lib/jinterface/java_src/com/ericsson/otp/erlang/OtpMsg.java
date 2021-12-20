@@ -242,7 +242,7 @@ public class OtpMsg {
      * <p>
      * The first time this method is called the actual payload is deserialized
      * and the Erlang term is created. Calling this method subsequent times will
-     * not cuase the message to be deserialized additional times, instead the
+     * not cause the message to be deserialized additional times, instead the
      * same Erlang term object will be returned.
      * </p>
      *

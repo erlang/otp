@@ -28,7 +28,7 @@ public class OtpErlangAtom extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -3204386396807876641L;
 
-    /** The maximun allowed length of an atom, in characters */
+    /** The maximum allowed length of an atom, in characters */
     public static final int maxAtomLength = 0xff; // one byte length
 
     private final String atom;
