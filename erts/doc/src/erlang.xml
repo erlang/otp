@@ -7555,7 +7555,7 @@ ok
     <func>
       <name name="system_flag" arity="2" clause_i="11"
             anchor="system_flag_outstanding_system_requests_limit"
-            since="OTP @OTP-17796@"/>
+            since="OTP 22.3.4.24"/>
       <fsummary>Set limit on outstanding requests for system processes.</fsummary>
       <desc>
         <p>
@@ -9138,7 +9138,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="49" since=""/>  <!-- otp_release -->
       <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
       <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="52" since="OTP @OTP-17796@"/>  <!-- outstanding_system_requests_limit -->
+      <name name="system_info" arity="1" clause_i="52" since="OTP 22.3.4.24"/>  <!-- outstanding_system_requests_limit -->
       <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_parallelism -->
       <!-- <name name="system_info" arity="1" clause_i="54"/>  port_count -->
       <!-- <name name="system_info" arity="1" clause_i="55"/>  port_limit -->
