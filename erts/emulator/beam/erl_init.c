@@ -148,6 +148,7 @@ static void erl_init(int ncpu,
 		     int port_tab_sz,
 		     int port_tab_sz_ignore_files,
 		     int legacy_port_tab,
+                     Uint sys_proc_outst_req_lim,
 		     int time_correction,
 		     ErtsTimeWarpMode time_warp_mode,
 		     int node_tab_delete_delay,
@@ -302,6 +303,7 @@ erl_init(int ncpu,
 	 int port_tab_sz,
 	 int port_tab_sz_ignore_files,
 	 int legacy_port_tab,
+         Uint sys_proc_outst_req_lim,
 	 int time_correction,
 	 ErtsTimeWarpMode time_warp_mode,
 	 int node_tab_delete_delay,
@@ -359,7 +361,7 @@ erl_init(int ncpu,
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_init_external();
     erts_init_map();
-    erts_beam_bif_load_init();
+    erts_beam_bif_load_init(sys_proc_outst_req_lim);
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG
@@ -710,6 +712,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
     erts_fprintf(stderr, "               valid values are infinity or intergers in the range [0-%d]\n",
 		 ERTS_NODE_TAB_DELAY_GC_MAX);
+    erts_fprintf(stderr, "-zosrl number  set outstanding requests limit for system processes,\n");
+    erts_fprintf(stderr, "               valid range [1-%d]\n",
+                 ERTS_MAX_PROCESSES);
 #if 0
     erts_fprintf(stderr, "-zebwt  val    set ets busy wait threshold, valid values are:\n");
     erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long|extremely_long\n");
@@ -1269,6 +1274,7 @@ erl_start(int argc, char **argv)
     int port_tab_sz_ignore_files = 0;
     int legacy_proc_tab = 0;
     int legacy_port_tab = 0;
+    Uint sys_proc_outst_req_lim;
     int time_correction;
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
@@ -1309,6 +1315,8 @@ erl_start(int argc, char **argv)
 #endif
 
     erts_error_logger_warnings = am_warning;
+
+    sys_proc_outst_req_lim = 2*erts_no_schedulers;
 
     while (i < argc) {
 	if (argv[i][0] != '-') {
@@ -2198,6 +2206,17 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
+            else if (has_prefix("osrl", sub_param)) {
+                long val;
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+                errno = 0;
+                val = strtol(arg, NULL, 10);
+                if (errno != 0 || val < 1 || ERTS_MAX_PROCESSES < val) {
+                    erts_fprintf(stderr, "Invalid outstanding requests limit %s\n", arg);
+                    erts_usage();
+                }
+                sys_proc_outst_req_lim = (Uint) val;
+            }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2277,6 +2296,7 @@ erl_start(int argc, char **argv)
 	     port_tab_sz,
 	     port_tab_sz_ignore_files,
 	     legacy_port_tab,
+             sys_proc_outst_req_lim,
 	     time_correction,
 	     time_warp_mode,
 	     node_tab_delete_delay,
@@ -2301,7 +2321,7 @@ erl_start(int argc, char **argv)
 
 	pid = erl_system_process_otp(erts_init_process_id,
                                      "erts_code_purger", !0,
-                                     PRIORITY_NORMAL);
+                                     PRIORITY_HIGH);
 	erts_code_purger
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
@@ -2310,7 +2330,7 @@ erl_start(int argc, char **argv)
 
 	pid = erl_system_process_otp(erts_init_process_id,
                                      "erts_literal_area_collector",
-                                     !0, PRIORITY_NORMAL);
+                                     !0, PRIORITY_HIGH);
 	erts_literal_area_collector
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
 						    internal_pid_index(pid));
