@@ -35,6 +35,7 @@
   <xi:include href="modules.xml"/>
   <xi:include href="functions.xml"/>
   <xi:include href="typespec.xml"/>
+  <xi:include href="opaques.xml"/>
   <xi:include href="expressions.xml"/>
   <xi:include href="macros.xml"/>
   <xi:include href="records.xml"/>

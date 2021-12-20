@@ -32,4 +32,5 @@ REF_MAN_CHAPTER_FILES = \
 	code_loading.xml \
 	ports.xml \
 	character_set.xml \
-	typespec.xml
+	typespec.xml \
+	opaques.xml
