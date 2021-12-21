@@ -285,15 +285,11 @@ sig_is([#b_set{op=call,
 sig_is([#b_set{op=call,
                args=[#b_var{} | _]=Args0,
                dst=Dst}=I0 | Is],
-       Ts0, Ds0, Ls, Fdb, Sub, State) ->
+       Ts0, Ds0, Ls, Fdb, Sub, State0) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
 
-    [Fun | _] = Args,
-    I = case normalized_type(Fun, Ts0) of
-            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
-            _ -> I1
-        end,
+    {I, State} = sig_fun_call(I1, Args, Ts0, Ds0, Fdb, Sub, State0),
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -318,6 +314,33 @@ sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
     end;
 sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
     {Ts, Ds, Sub, State}.
+
+sig_fun_call(I0, Args, Ts, Ds, Fdb, Sub, State0) ->
+    [Fun | CallArgs0] = Args,
+    FunType = normalized_type(Fun, Ts),
+    Arity = length(CallArgs0),
+
+    case {FunType, Ds} of
+        {_, #{ Fun := #b_set{op=make_fun,
+                             args=[#b_local{arity=TotalArity}=Callee | Env]} }}
+          when TotalArity =:= Arity + length(Env) ->
+            %% When a fun is used and defined in the same function, we can make
+            %% a direct call since the environment is still available.
+            CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
+            I = I0#b_set{args=[Callee | CallArgs]},
+            sig_local_call(I, Callee, CallArgs, Ts, Fdb, State0);
+        {#t_fun{target={Name,Arity}}, _} ->
+            %% When a fun lacks free variables, we can make a direct call even
+            %% when we don't know where it was defined.
+            Callee = #b_local{name=#b_literal{val=Name},
+                              arity=Arity},
+            I = I0#b_set{args=[Callee | CallArgs0]},
+            sig_local_call(I, Callee, CallArgs0, Ts, Fdb, State0);
+        {#t_fun{type=Type}, _} when Type =/= any ->
+            {beam_ssa:add_anno(result_type, Type, I0), State0};
+        _ ->
+            {I0, State0}
+    end.
 
 sig_local_call(I0, Callee, Args, Ts, Fdb, State) ->
     ArgTypes = argument_types(Args, Ts),
@@ -504,7 +527,7 @@ opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
             {incoming, Ts0} = Incoming,         %Assertion.
 
             {Is, Ts, Ds, Fdb, Sub} =
-            opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
+                opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
 
             Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
             SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
@@ -539,18 +562,12 @@ opt_is([#b_set{op=call,
 opt_is([#b_set{op=call,
                args=[#b_var{} | _]=Args0,
                dst=Dst}=I0 | Is],
-       Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc) ->
+       Ts0, Ds0, Ls, Fdb0, Sub, Meta, Acc) ->
     Args = simplify_args(Args0, Ts0, Sub),
 
     I1 = opt_anno_types(I0#b_set{args=Args}, Ts0),
 
-    [Fun | _] = Args,
-    I = case normalized_type(Fun, Ts0) of
-            #t_fun{type=Type} when Type =/= any ->
-                beam_ssa:add_anno(result_type, Type, I1);
-            _ ->
-                I1
-        end,
+    {I, Fdb} = opt_fun_call(I1, Args, Ts0, Ds0, Fdb0, Sub, Meta),
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -621,6 +638,31 @@ benefits_from_type_anno({float,convert}, _Args) ->
     true;
 benefits_from_type_anno(_Op, _Args) ->
     false.
+
+opt_fun_call(#b_set{dst=Dst}=I0, [Fun | CallArgs0], Ts, Ds, Fdb, Sub, Meta) ->
+    FunType = normalized_type(Fun, Ts),
+    Arity = length(CallArgs0),
+    case {FunType, Ds} of
+        {_, #{ Fun := #b_set{op=make_fun,
+                             args=[#b_local{arity=TotalArity}=Callee | Env]} }}
+          when TotalArity =:= Arity + length(Env) ->
+            %% When a fun is used and defined in the same function, we can make
+            %% a direct call since the environment is still available.
+            CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
+            I = I0#b_set{args=[Callee | CallArgs]},
+            opt_local_call(I, Callee, CallArgs, Dst, Ts, Fdb, Meta);
+        {#t_fun{target={Name,Arity}}, _} ->
+            %% When a fun lacks free variables, we can make a direct call even
+            %% when we don't know where it was defined.
+            Callee = #b_local{name=#b_literal{val=Name},
+                              arity=Arity},
+            I = I0#b_set{args=[Callee | CallArgs0]},
+            opt_local_call(I, Callee, CallArgs0, Dst, Ts, Fdb, Meta);
+        {#t_fun{type=Type}, _} when Type =/= any ->
+            {beam_ssa:add_anno(result_type, Type, I0), Fdb};
+        _ ->
+            {I0, Fdb}
+    end.
 
 opt_local_call(I0, Callee, Args, Dst, Ts, Fdb, Meta) ->
     ArgTypes = argument_types(Args, Ts),
@@ -960,7 +1002,7 @@ simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
                 {_,_} ->
                     eval_bif(I, Ts)
             end
-   end;
+    end;
 simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts) ->
     case concrete_type(Src, Ts) of
         #t_union{list=#t_cons{}} ->
@@ -1160,11 +1202,11 @@ will_succeed_1(#b_set{op={bif,Bif},args=BifArgs}, _Src, Ts, _Sub) ->
     beam_call_types:will_succeed(erlang, Bif, ArgTypes);
 will_succeed_1(#b_set{op=call,
                       args=[#b_remote{mod=#b_literal{val=Mod},
-                            name=#b_literal{val=Func}} |
+                                      name=#b_literal{val=Func}} |
                             CallArgs]},
                _Src, Ts, _Sub) ->
-            ArgTypes = normalized_types(CallArgs, Ts),
-            beam_call_types:will_succeed(Mod, Func, ArgTypes);
+    ArgTypes = normalized_types(CallArgs, Ts),
+    beam_call_types:will_succeed(Mod, Func, ArgTypes);
 
 will_succeed_1(#b_set{op=get_hd}, _Src, _Ts, _Sub) ->
     yes;
@@ -1888,14 +1930,15 @@ type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
-type(MakeFun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds)
-  when MakeFun =:= make_fun;
-       MakeFun =:= old_make_fun ->
+type(MakeFun, Args, Anno, _Ts, _Ds) when MakeFun =:= make_fun;
+                                         MakeFun =:= old_make_fun ->
     RetType = case Anno of
                   #{ result_type := Type } -> Type;
                   #{} -> any
               end,
-    #t_fun{arity=TotalArity - length(Env), type=RetType};
+    [#b_local{name=#b_literal{val=Name},arity=TotalArity} | Env] = Args,
+    Arity = TotalArity - length(Env),
+    #t_fun{arity=Arity,target={Name,TotalArity},type=RetType};
 type(put_map, [_Kind, Map | Ss], _Anno, Ts, _Ds) ->
     put_map_type(Map, Ss, Ts);
 type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
@@ -2186,8 +2229,8 @@ infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
 
     %% Subtraction is only safe if LitType is single-valued.
     NegTypes = case beam_types:is_singleton_type(LitType) of
-                    true -> PosTypes;
-                    false -> []
+                   true -> PosTypes;
+                   false -> []
                end,
 
     {PosTypes, NegTypes};

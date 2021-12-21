@@ -235,7 +235,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          ref_ctr=0                 :: index()
         }).
 
-build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc) ->
+build_function_table([{function,Name,Arity,Entry,Code0}|Fs], Acc) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry ->
                              false;
                         (_) ->
@@ -243,7 +243,8 @@ build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc) ->
                      end, Code0),
     case Code of
         [{label,Entry} | Is] ->
-            Info = #{ arity => Arity,
+            Info = #{ name => Name,
+                      arity => Arity,
                       parameter_info => find_parameter_info(Is, #{}) },
             build_function_table(Fs, Acc#{ Entry => Info });
         _ ->
@@ -695,26 +696,30 @@ vi({call_fun,Live}, Vst) ->
                    validate_body_call('fun', Live+1, SuccVst)
            end);
 vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ arity := Arity0 } = map_get(Lbl, Ft),
-    Arity = Arity0 - NumFree,
+    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
+    Arity = TotalArity - NumFree,
 
     true = Arity >= 0,                          %Assertion.
 
     Vst = prune_x_regs(NumFree, Vst0),
     verify_call_args(make_fun, NumFree, Vst),
     verify_y_init(Vst),
-    Type = #t_fun{arity=Arity},
+
+    Type = #t_fun{target={Name,TotalArity},arity=Arity},
+
     create_term(Type, make_fun, [], {x,0}, Vst);
 vi({make_fun3,{f,Lbl},_,_,Dst,{list,Env}}, #vst{ft=Ft}=Vst0) ->
     _ = [assert_term(E, Vst0) || E <- Env],
     NumFree = length(Env),
-    #{ arity := Arity0 } = map_get(Lbl, Ft),
-    Arity = Arity0 - NumFree,
 
+    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
+    Arity = TotalArity - NumFree,
     true = Arity >= 0,                          %Assertion.
 
     Vst = eat_heap_fun(Vst0),
-    Type = #t_fun{arity=Arity},
+
+    Type = #t_fun{target={Name,TotalArity},arity=Arity},
+
     create_term(Type, make_fun, [], Dst, Vst);
 vi(return, Vst) ->
     assert_durable_term({x,0}, Vst),

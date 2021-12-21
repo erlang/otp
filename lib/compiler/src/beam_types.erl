@@ -766,12 +766,17 @@ glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
        MinB >= MinA, MinB =< MaxA ->
     true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
     #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-glb(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}=T) ->
+glb(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
+    #t_fun{arity=SameArity,target=SameTarget,type=TypeB}=T) ->
     T#t_fun{type=meet(TypeA, TypeB)};
-glb(#t_fun{arity=any,type=TypeA}, #t_fun{type=TypeB}=T) ->
-    T#t_fun{type=meet(TypeA, TypeB)};
-glb(#t_fun{type=TypeA}=T, #t_fun{arity=any,type=TypeB}) ->
-    T#t_fun{type=meet(TypeA, TypeB)};
+glb(#t_fun{target=TargetA}=A, #t_fun{target=any}=B) when TargetA =/= any ->
+    glb(A, B#t_fun{target=TargetA});
+glb(#t_fun{target=any}=A, #t_fun{target=TargetB}=B) when TargetB =/= any ->
+    glb(A#t_fun{target=TargetB}, B);
+glb(#t_fun{arity=any}=A, #t_fun{arity=ArityB}=B) when ArityB =/= any->
+    glb(A#t_fun{arity=ArityB}, B);
+glb(#t_fun{arity=ArityA}=A, #t_fun{arity=any}=B) when ArityA =/= any ->
+    glb(A, B#t_fun{arity=ArityA});
 glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
     T;
 glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
@@ -922,8 +927,11 @@ lub(#t_float{}, #t_integer{}) ->
     number;
 lub(#t_float{}, number) ->
     number;
-lub(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}) ->
-    #t_fun{arity=Same,type=join(TypeA, TypeB)};
+lub(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
+    #t_fun{arity=SameArity,target=SameTarget,type=TypeB}) ->
+    #t_fun{arity=SameArity,target=SameTarget,type=join(TypeA, TypeB)};
+lub(#t_fun{arity=SameArity,type=TypeA}, #t_fun{arity=SameArity,type=TypeB}) ->
+    #t_fun{arity=SameArity,type=join(TypeA, TypeB)};
 lub(#t_fun{type=TypeA}, #t_fun{type=TypeB}) ->
     #t_fun{type=join(TypeA, TypeB)};
 lub(#t_integer{elements={MinA,MaxA}},
@@ -1099,7 +1107,18 @@ verified_normal_type(#t_cons{type=Type,terminator=Term}=T) ->
     _ = verified_type(Type),
     _ = verified_type(Term),
     T;
-verified_normal_type(#t_fun{arity=Arity,type=ReturnType}=T)
+verified_normal_type(#t_fun{arity=Arity,
+                            target={Name,TotalArity},
+                            type=ReturnType}=T)
+  when is_integer(Arity),
+       is_atom(Name),
+       is_integer(TotalArity),
+       TotalArity >= Arity ->
+    _ = verified_type(ReturnType),
+    T;
+verified_normal_type(#t_fun{arity=Arity,
+                            target=any,
+                            type=ReturnType}=T)
   when Arity =:= any; is_integer(Arity) ->
     _ = verified_type(ReturnType),
     T;
