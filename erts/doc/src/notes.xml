@@ -3156,6 +3156,42 @@
 
 </section>
 
+<section><title>Erts 10.7.2.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Responsiveness of processes executing on <c>normal</c> or
+	    <c>low</c> priority could suffer due to code purging or
+	    literal area removal on systems with a huge amount of
+	    processes. This since during these operations all
+	    processes on the system were scheduled for execution at
+	    once.</p>
+          <p>
+	    This problem has been fixed by introducing a limit on
+	    outstanding purge and copy literal requests in the
+	    system. By default this limit is set to twice the amount
+	    of schedulers on the system. This will ensure that
+	    schedulers will have enough work scheduled to perform
+	    these operations as quickly as possible at the same time
+	    as other work will be interleaved to a much higher
+	    degree. Performance of these operations will however be
+	    somewhat degraded due to the overhead of enforcing this
+	    limit compared to when using a very large limit.</p>
+          <p>
+	    This limit can be set by passing the <c>+zosrl</c>
+	    command line argument to <c>erl</c>, or by calling
+	    <c>erlang:system_flag(outstanding_system_requests_limit,
+	    NewLimit)</c>.</p>
+          <p>
+	    Own Id: OTP-17796 Aux Id: ERIERL-729, PR-5473 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
