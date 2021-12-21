@@ -937,7 +937,7 @@ start_first_one_disc_less_then_two_more_disc_less(Config) when is_list(Config) -
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 schema_location_and_extra_db_nodes_combinations(doc)->
-    ["Test schema loaction and extra_db_nodes combinations."];
+    ["Test schema location and extra_db_nodes combinations."];
 schema_location_and_extra_db_nodes_combinations(suite) -> [];
 schema_location_and_extra_db_nodes_combinations(Config) when is_list(Config) ->
     [N1, N2] = Nodes = ?init(2, Config),

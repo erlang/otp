@@ -260,12 +260,12 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 		mnesia_locker:rlock(Tid, Ts#tidstore.store, {schema, Tab}),
 		%% Check that table still exists
 		Active = val({Tab, active_replicas}),
-		%% Check that we havn't loaded it already
+		%% Check that we haven't loaded it already
 		case val({Tab,where_to_read}) == node() of
 		    true -> ok;
 		    _ ->
 			%% And that sender still got a copy
-			%% (something might have happend while
+			%% (something might have happened while
 			%% we where waiting for the lock)
 			true = lists:member(Node, Active),
 			{SenderPid, TabSize, DetsData} =
@@ -329,7 +329,7 @@ table_init_fun(SenderPid, Storage) ->
 	    ok
     end.
 
-%% Add_table_copy get's it's own locks.
+%% Add_table_copy gets it's own locks.
 start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,{dumper,{add_table_copy,_}}) ->
     Init = table_init_fun(SenderPid, Storage),
     case do_init_table(Tab,Storage,Cs,SenderPid,TabSize,DetsData,self(), Init) of

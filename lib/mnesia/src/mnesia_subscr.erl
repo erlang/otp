@@ -148,7 +148,7 @@ report_table_event(Tab, Tid, Obj, Op) ->
 	    end
     end.
 
-%% Backwards compatible for the moment when mnesia_tm get's updated!
+%% Backwards compatible for the moment when mnesia_tm gets updated!
 report_table_event(Subscr, Tab, Tid, Obj, Op) ->
     report_table_event(Subscr, Tab, Tid, Obj, Op, undefined).
 
@@ -173,7 +173,7 @@ report_table_event({subscribers, S1, S2}, Tab, Tid, Obj, Op, Old) ->
     Extended = what(Tab, Tid, Obj, Op, Old), 
     deliver(S2, Extended);
 
-%% Backwards compatible for the moment when mnesia_tm get's updated!
+%% Backwards compatible for the moment when mnesia_tm gets updated!
 report_table_event({subscribers, Subscr}, Tab, Tid, Obj, Op, Old) ->    
     report_table_event({subscribers, Subscr, []}, Tab, Tid, Obj, Op, Old).
 

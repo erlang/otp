@@ -696,7 +696,7 @@ verify_ll_queue(N) ->
     ?match(granted,mnesia_controller:block_controller()),
     case mnesia_controller:get_info(1000) of
 	{info,{state,_,true,[],_Loader,[],[],[],_,_,_,_,_,_}} ->
-	    %% Very slow SMP machines havn't loaded it yet..
+	    %% Very slow SMP machines haven't loaded it yet..
 	    mnesia_controller:unblock_controller(),
 	    timer:sleep(10),
 	    verify_ll_queue(N-1);
@@ -1295,7 +1295,7 @@ offline_set_master_nodes(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Syncronize table with log or disc
+%% Synchronize table with log or disc
 %%
 
 %% Dump ram tables on disc
@@ -2091,7 +2091,7 @@ test_ext_sub(Tab1, Tab2, Tab3) ->
 
 
 subscribe_standard(doc) ->
-    ["Tests system events and the orignal table events"];
+    ["Tests system events and the original table events"];
 subscribe_standard(suite) -> [];
 subscribe_standard(Config) when is_list(Config)-> 
     [N1, N2]=?acquire_nodes(2, Config),
