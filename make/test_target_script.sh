@@ -20,7 +20,6 @@
 # %CopyrightEnd%
 #
 
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -58,8 +57,13 @@ All tests will require several hours to run. You may want to check the
 following text file that describes how to run tests for a specific
 application.
 
+  $ERL_TOP/HOWTO/TESTING.md
+
+You can follow the test results here:
+
+  file://$ERL_TOP/release/tests/test_server/index.html
+
 EOM
-        echo $ERL_TOP/HOWTO/TESTING.md
     }
     print_highlighted_msg_with_printer $YELLOW print_msg
 }
@@ -90,25 +94,6 @@ EOM
     print_highlighted_msg_with_printer $LIGHT_CYAN print_msg
 }
 
-print_c_files_warning () {
-    print_msg () {
-        cat << EOM
-
-WARNING
-
-The test directory contains .c files which means that some test cases
-will probably not work correctly when run through "make test". The
-text file at the following location describes how one can compile and
-run all test cases:
-
-
-EOM
-        echo $ERL_TOP/HOWTO/TESTING.md
-    }
-    print_highlighted_msg_with_printer $YELLOW print_msg
-}
-
-
 print_on_error_note () {
     print_msg () {
         cat << EOM
@@ -126,6 +111,18 @@ make ARGS="-suite asn1_SUITE -case ticket_7407" test
 EOM
     }
     print_highlighted_msg_with_printer $NC print_msg
+}
+
+release_erlang () {
+    local RELEASE_ROOT=${1}
+    if ! (cd $ERL_TOP && make release RELEASE_ROOT="${RELEASE_ROOT}"); then
+        return 1
+    fi
+    if ! (cd "$RELEASE_ROOT" && ./Install -minimal "`pwd`"); then
+        return 1
+    fi
+    export PATH="${RELEASE_ROOT}/bin:$PATH"
+    return 0
 }
 
 # Check ERL_TOP
@@ -149,7 +146,6 @@ then
 fi
 
 export ERL_TOP=$ERL_TOP
-
 
 if [ -z "${ARGS}" ]
 then
@@ -182,15 +178,47 @@ then
     exit 1
 fi
 
-
 APPLICATION="`basename $DIR`"
+
+if [ "$APPLICATION" = "erts" ]; then
+    APPLICATION="system"
+fi
+
 CT_RUN="$ERL_TOP/bin/ct_run"
+PATH="${ERL_TOP}/bin/:${PATH}"
 MAKE_TEST_DIR="`pwd`/make_test_dir"
 MAKE_TEST_REL_DIR="$MAKE_TEST_DIR/${APPLICATION}_test"
 MAKE_TEST_CT_LOGS="$MAKE_TEST_DIR/ct_logs"
-RELEASE_TEST_SPEC_LOG="$MAKE_TEST_CT_LOGS/release_tests_spec_log"
+RELEASE_TEST_SPEC_LOG="$MAKE_TEST_DIR/release_tests_spec_log"
+INSTALL_TEST_LOG="$MAKE_TEST_DIR/install_tests_log"
+COMPILE_TEST_LOG="$MAKE_TEST_DIR/compile_tests_log"
+RELEASE_ROOT="${MAKE_TEST_DIR}/otp"
+RELEASE_LOG="$MAKE_TEST_DIR/release_tests_log"
 
 cd test
+
+mkdir -p "$MAKE_TEST_DIR"
+mkdir -p "$MAKE_TEST_CT_LOGS"
+
+# Check that we are running a released erlang when we have to
+if [ "$TEST_NEEDS_RELEASE" = "true" ]; then
+    MSG=$(cat <<EOF
+This application needs to be tested using a released Erlang/OTP.
+Erlang/OTP will now be released to ${RELEASE_ROOT}.
+EOF
+       )
+    print_highlighted_msg $YELLOW "${MSG}"
+    release_erlang "${RELEASE_ROOT}" > "${RELEASE_LOG}" 2>&1
+    if [ $? != 0 ]
+    then
+        print_highlighted_msg $RED "\"make release RELEASE_ROOT=${RELEASE_ROOT}\" failed.\nSee ${RELEASE_LOG} for full logs"
+        tail -30 "${RELEASE_LOG}"
+        exit 1
+    fi
+    CT_RUN="${RELEASE_ROOT}/bin/ct_run"
+    PATH=${RELEASE_ROOT}/bin/:${PATH}
+fi
+
 echo "The tests in test directory for $APPLICATION will be executed with ct_run"
 if [ -z "${ARGS}" ]
 then
@@ -198,44 +226,82 @@ then
     then
         print_all_tests_for_application_notes
     fi
-    if find . -type f -name '*.c' | grep -q "."
-    then
-        print_c_files_warning
-    fi
 fi
 
-mkdir -p "$MAKE_TEST_DIR"
-mkdir -p "$MAKE_TEST_REL_DIR"
-mkdir -p "$MAKE_TEST_CT_LOGS"
-make RELSYSDIR=$MAKE_TEST_REL_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
+make RELEASE_PATH=$MAKE_TEST_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
 
 if [ $? != 0 ]
 then
     cat $RELEASE_TEST_SPEC_LOG
-    print_highlighted_msg $RED "\"make RELSYSDIR="$MAKE_TEST_REL_DIR" release_tests_spec\" failed."
+    print_highlighted_msg $RED "\"make RELEASE_PATH="$MAKE_TEST_DIR" release_tests_spec\" failed."
     exit 1
 fi
-SPEC_FLAG=""
-SPEC_FILE=""
 if [ -z "${ARGS}" ]
 then
-    SPEC_FLAG="-spec"
     if [ "${WSLcross}" != "true" ] ; then
+        SPEC_FILE_POSTFIX="$MAKE_TEST_REL_DIR/${APPLICATION}_${SPEC_POSTFIX}.spec"
         SPEC_FILE="$MAKE_TEST_REL_DIR/$APPLICATION.spec"
     else
+        SPEC_FILE_POSTFIX=`w32_path.sh -m "$MAKE_TEST_REL_DIR/${APPLICATION}_${SPEC_POSTFIX}.spec"`
         SPEC_FILE=`w32_path.sh -m "$MAKE_TEST_REL_DIR/$APPLICATION.spec"`
     fi
-    ARGS="$SPEC_FLAG $SPEC_FILE"
+    if [ -f "$SPEC_FILE_POSTFIX" ]; then
+        SPEC_FILE="$SPEC_FILE_POSTFIX"
+   fi
+    ARGS="-spec $SPEC_FILE"
 fi
-# Compile test server
-(cd "$ERL_TOP/lib/common_test/test_server" && make)
+
+ARGS="${ARGS} ${EXTRA_ARGS}"
+
+if ([ -n "${TYPE}" ] || [ -n "${FLAVOR}" ]) && [ "${WSLcross}" = "true" ]; then
+    print_highlighted_msg $RED "Setting TYPE or FLAVOR is not implemented yet for WSL"
+    exit 1;
+fi
+
+if [ -n "${TYPE}" ]; then
+    ERL_AFLAGS="${ERL_AFLAGS} -emu_type ${TYPE}"
+fi
+if [ -n "${FLAVOR}" ]; then
+    ERL_AFLAGS="${ERL_AFLAGS} -emu_flavor ${FLAVOR}"
+fi
+
+# Compile test server and configure
+if [ ! -f "$ERL_TOP/lib/common_test/test_server/variables" ]; then
+    cd "$ERL_TOP/lib/common_test/test_server"
+    ( make && erl -noshell -eval "ts:install()." -s init stop )  > "$INSTALL_TEST_LOG" 2>&1
+    if [ $? != 0 ]
+    then
+        cat "$INSTALL_TEST_LOG"
+        print_highlighted_msg $RED "\"make && erl -eval 'ts:install()'\" in common_test/test_server failed."
+        exit 1
+    fi
+fi
+
 # Run ct_run
 cd $MAKE_TEST_REL_DIR
 
+erl -sname test -noshell -pa "$ERL_TOP/lib/common_test/test_server" \
+    -eval "ts:compile_datadirs(\"$ERL_TOP/lib/common_test/test_server/variables\",\"*_SUITE_data\")."\
+    -s init stop > "$COMPILE_TEST_LOG" 2>&1
+
+if [ $? != 0 ]
+then
+    cat "$COMPILE_TEST_LOG"
+    print_highlighted_msg $RED "\"erl -eval 'ts:compile_datadirs/2'\" failed."
+    exit 1
+fi
+
 if [ "${WSLcross}" != "true" ]
 then
-    $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
+    if [ -n "${CTRUN_TIMEOUT}" ]; then
+        CTRUN_TIMEOUT="timeout -s ABRT --foreground --preserve-status $((${CTRUN_TIMEOUT}+5))m timeout -s USR1 --foreground --preserve-status ${CTRUN_TIMEOUT}m"
+    fi
+    ERL_AFLAGS="${ERL_AFLAGS}" $CTRUN_TIMEOUT \
+      $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
         -pa "$ERL_TOP/lib/common_test/test_server"\
+        -config "$ERL_TOP/lib/common_test/test_server/ts.config"\
+        -config "$ERL_TOP/lib/common_test/test_server/ts.unix.config"\
+        -exit_status ignore_config \
         ${ARGS}\
         -erl_args\
         -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
@@ -254,6 +320,9 @@ else
     WIN_ERL_TOP=`w32_path.sh -m "$ERL_TOP"`
     $CT_RUN.exe -logdir $WIN_MAKE_TEST_CT_LOGS\
         -pa "$WIN_ERL_TOP/lib/common_test/test_server"\
+        -config "$WIN_ERL_TOP/lib/common_test/test_server/ts.config"\
+        -config "$WIN_ERL_TOP/lib/common_test/test_server/ts.win32.config"\
+        -exit_status ignore_config \
         ${ARGS}\
         -erl_args\
         -env ERL_CRASH_DUMP "$WIN_MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\

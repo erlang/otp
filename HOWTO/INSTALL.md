@@ -47,7 +47,6 @@ Build the same way as when building the unpacked tar file.
 
 *   An `install` program that can take multiple file names.
 
-
 Optional Utilities
 ------------------
 
@@ -85,8 +84,6 @@ also find the utilities needed for building the documentation.
 
     Further instructions on wxWidgets, read [Building with wxErlang][].
 
-
-
 ### Building Documentation ###
 
 *   `xsltproc` -- A command line XSLT processor.
@@ -97,8 +94,6 @@ also find the utilities needed for building the documentation.
 
 *   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded
     from <http://xmlgraphics.apache.org/fop>.
-
-
 
 How to Build and Install Erlang/OTP
 -----------------------------------
@@ -137,13 +132,11 @@ set. If you get errors when building, try setting the LANG variable:
 
     $ export LANG=C   # Assuming bash/sh
 
-
 ### Building ###
 
 Build the Erlang/OTP release.
 
     $ make
-
 
 ### Testing ###
 
@@ -173,12 +166,10 @@ The following command will install the release on your system.
 
     $ make install
 
-
 ### Running ###
 
 You should now have a working release of Erlang/OTP!
 Jump to [System Principles][] for instructions on running Erlang/OTP.
-
 
 ### How to Build the Documentation ###
 
@@ -748,8 +739,29 @@ passed to `configure`. One can force relative, or absolute links by passing
 phase. Note that such a request might cause a failure if the request cannot
 be satisfied.
 
+## Erlang/OTP test architectures ##
 
-### Running ###
+Erlang/OTP are currently tested on the following hardware and operating systems.
+This is not an exhaustive list, but we try to keep it as up to date as possible.
+
+Architecture
+
+* x86, x86-64
+* Aarch32, Aarch64
+* powerpc, powerpc64le
+
+Operating system
+
+* Fedora 31
+* FreeBSD
+* macOS 10.4 - 11.2
+* MontaVista 4
+* NetBSD
+* OpenBSD
+* SLES 10, 11, 12
+* SunOS 5.11
+* Ubuntu 10.04 - 20.04
+* Windows 10, Windows Server 2019
 
    [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
    [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
@@ -769,30 +781,3 @@ be satisfied.
    [Building on a Mac]: #Advanced-configuration-and-build-of-ErlangOTP_Building_OS-X-Darwin
    [Building with wxErlang]: #Advanced-configuration-and-build-of-ErlangOTP_Building_Building-with-wxErlang
    [libatomic_ops]: https://github.com/ivmai/libatomic_ops/
-
-
-### Erlang/OTP test architectures ###
-
-
-Erlang/OTP are currently tested on the following hardware and Opererating systems.
-This is not an exhaustive list, but we try to keep it as up to date as possible.
-
-Architecture
-
-* x86, x86-64
-* Aarch32, Aarch64
-* powerpc, powerpc64le
-
-Operating System
-
-* Fedora 31
-* FreeBSD
-* macOS 10.4 - 11.2
-* MontaVista 4
-* NetBSD
-* OpenBSD
-* SLES 10, 11, 12
-* SunOS 5.11
-* Ubuntu 10.04 - 20.04
-* Windows 10, Windows Server 2019
-

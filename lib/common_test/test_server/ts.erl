@@ -33,6 +33,7 @@
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
 	 compile_testcases/0, compile_testcases/1,
+         compile_datadirs/2,
 	 help/0]).
 
 %% Functions kept for backwards compatibility
@@ -1011,7 +1012,9 @@ compile_testcases([]) ->
     ok.
 
 compile_datadirs(DataDirs) ->
-    {ok,Variables} = file:consult("variables"),
+    compile_datadirs("variables", DataDirs).
+compile_datadirs(VariablesFile, DataDirs) ->
+    {ok,Variables} = file:consult(VariablesFile),
 
     lists:foreach(fun(Dir) ->
 			  ts_lib:make_non_erlang(Dir, Variables)

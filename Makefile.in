@@ -472,7 +472,7 @@ BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 # otp.mk is only used to figure out if we are doing PGO or not
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-.PHONY: emulator libs kernel preloaded
+.PHONY: emulator libs kernel preloaded system
 
 ifeq ($(USE_PGO), true)
 PROFILE=use
@@ -484,6 +484,13 @@ else
 PROFILE=
 PROFILE_EMU_DEPS=
 endif
+
+emulator_test: emulator
+	$(make_verbose)cd erts/emulator && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
+epmd_test:
+	$(make_verbose)cd erts/epmd && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
+system_test:
+	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
 
 emulator: $(PROFILE_EMU_DEPS)
 	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
@@ -516,7 +523,7 @@ NO_DIALYZER_APPS=$(filter-out dialyzer, $(APPS)) ## The dialyzer make target sho
 $(NO_DIALYZER_APPS):
 	$(make_verbose)cd lib/$@ && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) $(TYPE) BUILD_ALL=true
+		$(MAKE) $(TYPE)
 
 ##
 ## Generate `otp_internal` from the -deprecated() attributes in source.
@@ -1240,5 +1247,13 @@ bootstrap_clean:
 test: all release release_tests
 	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
+ifeq ($(TYPE),)
 dialyzer: all
 	$(ERL_TOP)/scripts/run-dialyzer
+endif
+
+APPS_TEST=$(patsubst %, %_test,$(APPS))
+
+.SECONDEXPANSION:
+$(APPS_TEST): $$(patsubst %_test,%,$$@)
+	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$< test

@@ -1,7 +1,15 @@
 # Contributing to Erlang/OTP
 
+1. [License](#license)
+2. [Reporting a bug](#reporting-a-bug)
+3. [Submitting Pull Requests](#submitting-pull-requests)
+    1. [Fixing a bug](#fixing-a-bug)
+    2. [Adding a new feature](#adding-a-new-feature)
+    3. [Before you submit your pull request](#before-you-submit-your-pull-request)
+
 ## License
 
+```txt
 By making a contribution to this project, I certify that:
 
 (a) The contribution was created in whole or in part by me and I
@@ -26,18 +34,16 @@ By making a contribution to this project, I certify that:
     sign-off) is maintained indefinitely and may be redistributed
     consistent with this project or the open source license(s)
     involved.
+```
 
-Erlang/otp is licensed under the
-Apache License 2.0
+See http://developercertificate.org/ for a copy of the Developer Certificate of Origin license.
 
-As stated in: [LICENSE.txt](LICENSE.txt)
-
-http://developercertificate.org/
+Erlang/OTP is licensed under the Apache License 2.0, as stated in: [LICENSE.txt](LICENSE.txt)
 
 ## Reporting a bug
 
-Report bugs at https://github.com/erlang/otp/issues. See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports)
-for more information.
+Report bugs at https://github.com/erlang/otp/issues.
+See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports) for more information.
 
 ## Submitting Pull Requests
 
@@ -47,7 +53,7 @@ Make sure you create a new branch for your pull request with `git checkout -b ne
 Give the branch a short but descriptive name, like `stdlib/lists-length-fix`.
 Never do your work directly on `maint` or `master`.
 
-## Fixing a bug
+### Fixing a bug
 
 * In most cases, pull requests for bug fixes should be based on the `maint` branch.
 There are exceptions, for example corrections to bugs that have been introduced in the `master` branch.
@@ -59,12 +65,11 @@ There are exceptions, for example corrections to bugs that have been introduced 
 * For applications without a test suite in the git repository, it would be appreciated if you provide a
 small code sample in the commit message or email a module that will provoke the failure.
 
-## Adding a new feature
+### Adding a new feature
 
 * In most cases, pull requests for new features should be based on the `master` branch.
 
-* It is recommended to discuss new features in the
-[erlang forums](https://erlangforums.com),
+* It is recommended to discuss new features in the [erlang forums](https://erlangforums.com),
 especially for major new features or any new features in ERTS, Kernel, or STDLIB.
 
 * It is important to write a good commit message explaining **why** the feature is needed.
@@ -90,15 +95,17 @@ feature one or two releases beforehand.
 can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB will need an EEP or at least
 a discussion on the mailing list.
 
-## Before you submit your pull request
+### Before you submit your pull request
 
 * Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
 but you should at least run the tests for the application you have changed.
-See [Running tests](https://github.com/erlang/otp/wiki/Running-tests).
 * Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
 * Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
 * Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
-  * Note that this only builds Erlang/OTP, it does not run any tests.
+
+See the [Testing](https://github.com/erlang/otp/blob/master/HOWTO/TESTING.md) and
+[Development](https://github.com/erlang/otp/blob/master/HOWTO/DEVELOPMENT.md) howtos
+for details on how to use run tests and use the Erlang/OTP make system.
 
 Make sure that your branch contains clean commits:
 
@@ -127,7 +134,7 @@ Check your coding style:
 
 * In most code (Erlang and C), indentation is 4 steps. Indentation using only spaces is **strongly recommended**.
 
-### Configuring Emacs
+#### Configuring Emacs
 
 If you use Emacs, use the Erlang mode, and add the following lines to `.emacs`:
 
