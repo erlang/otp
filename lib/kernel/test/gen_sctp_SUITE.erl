@@ -2056,13 +2056,24 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                         end,
                     Filter =
                         fun(#{addr := #{family := D,
-                                        addr   := A}}) ->
-                                (D =:= Domain) andalso (A =:= LinkLocalAddr);
+                                        addr   := A}} = C) ->
+                                if
+                                    (D =:= Domain) andalso
+                                    (A =:= LinkLocalAddr) ->
+                                        ?P("found link-local candidate: "
+                                           "~n   ~p", [C]),
+                                        true;
+                                    true ->
+                                        false
+                                end;                                        
                            (_) ->
                                 false
                         end,
                     case net:getifaddrs(Filter) of
-                        {ok, [#{addr := #{scope_id := ScopeID}}|_]} ->
+                        {ok, [#{addr := #{scope_id := ScopeID}} = H|T]} ->
+                            ?P("found link-local candidate(s): "
+                               "~n   Candidate:         ~p"
+                               "~n   Rest Candidate(s): ~p", [H, T]),
                             SockAddr = #{family   => Domain,
                                          addr     => LinkLocalAddr,
                                          port     => 0,
@@ -2210,12 +2221,24 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
     ?P("try connect client socket 1"),
     ServerSockAddr = SockAddr#{port => ServerPort},
-    {ok, #sctp_assoc_change{state            = comm_up,
-                            error            = 0,
-                            outbound_streams = COutStreams1,
-                            inbound_streams  = CInStreams1,
-                            assoc_id         = CAssocID1}} =
-	gen_sctp:connect(CSock1, ServerSockAddr, []),
+    {COutStreams1, CInStreams1, CAssocID1} =
+        case gen_sctp:connect(CSock1, ServerSockAddr, [], ?SECS(1)) of
+            {ok, #sctp_assoc_change{state            = comm_up,
+                                    error            = 0,
+                                    outbound_streams = COS1,
+                                    inbound_streams  = CIS1,
+                                    assoc_id         = CAID1}} ->
+                {COS1, CIS1, CAID1};
+            {ok, Unexpected1} ->
+                ?P("<ERROR> unexpected connect (1) result: "
+                   "~n      ~p", [Unexpected1]),
+                ct:fail({unexpected_client_connect_result, 1, Unexpected1});
+            {error, Reason1} ->
+                ?P("<ERROR> failed client 1 connect: "
+                   "~n      Reason: ~p", [Reason1]),
+                ct:fail({client_connect_failed, 1, Reason1})
+        end,
+
     ?P("client 1 connected: "
        "~n      Out Streams: ~p"
        "~n      In Streams:  ~p"
@@ -2242,7 +2265,15 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
     ?P("[client 2] try connect-init"),
     ServerSockAddr = SockAddr#{port => ServerPort},
-    ok = gen_sctp:connect_init(CSock2, ServerSockAddr, []),
+    case gen_sctp:connect_init(CSock2, ServerSockAddr, []) of
+        ok ->
+            ok;
+        {error, Reason2} ->
+            ?P("<ERROR> failed client 2 connect: "
+               "~n      Reason: ~p", [Reason2]),
+            ct:fail({client_connect_failed, 2, Reason2})
+    end,
+
     ?P("[client 2] await connect completion"),
     CAssocID2 =
         receive
