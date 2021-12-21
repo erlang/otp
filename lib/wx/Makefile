@@ -40,4 +40,6 @@ SUB_DIRECTORIES=$(SUBDIRS)
 
 include $(ERL_TOP)/make/otp_subdir.mk
 
+TEST_NEEDS_RELEASE=true
+
 include $(ERL_TOP)/make/app_targets.mk

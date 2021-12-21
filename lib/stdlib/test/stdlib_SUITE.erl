@@ -46,7 +46,19 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
+init_per_testcase(appup_test, Config) ->
+    %% We check if the test results were released using a version
+    %% of Erlang/OTP that was a tagged version or not. On a non-tagged
+    %% version this testcase most likely will fail.
+    case file:read_file(
+           filename:join(
+             proplists:get_value(data_dir,Config), "otp_version_tickets")) of
+        {ok,<<"DEVELOPMENT",_/binary>>} ->
+            {skip, "This is a development version, test might fail "
+             "because of incorrect version numbers"};
+        {ok,S} ->
+            Config
+    end;
 init_per_testcase(_Case, Config) ->
     Config.
 end_per_testcase(_Case, _Config) ->

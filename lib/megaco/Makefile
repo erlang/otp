@@ -203,5 +203,6 @@ $(APP_TAR_FILE): $(APP_DIR)
 	(cd "$(APP_RELEASE_DIR)"; gtar zcf "$(subst $(space),\ ,$@)" $(DIR_NAME))
 
 DIA_PLT_APPS=asn1 runtime_tools et debugger
+TEST_NEEDS_RELEASE=true
 
 include $(ERL_TOP)/make/app_targets.mk
