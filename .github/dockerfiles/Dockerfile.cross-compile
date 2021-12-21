@@ -1,7 +1,8 @@
 ##
 ## This docker file will build Erlang on 32-bit to 64-bit x86
 ##
-FROM docker.pkg.github.com/erlang/otp/i386-debian-base as build
+ARG BASE=docker.pkg.github.com/erlang/otp/i386-debian-base
+FROM $BASE as build
 
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
@@ -16,13 +17,6 @@ RUN tar xzf ../otp.tar.gz
 
 ## Build the bootstrap system
 RUN cd $ERL_TOP && CFLAGS="-Wall -O2 -g" ./configure && make && make install
-
-## Build pre-build tar ball
-RUN cd $ERL_TOP && scripts/build-otp-tar -o /buildroot/otp_clean_src.tar.gz /buildroot/otp_src.tar.gz \
-        -b /buildroot/bootstrap/otp/ /buildroot/otp.tar.gz
-
-## Prepare for a new build using pre-built tar ball
-RUN cd ../ && tar -xzf ./otp_src.tar.gz
 
 ENV HOST=$HOST_TRIP \
         CC=$HOST_TRIP-gcc \
@@ -39,15 +33,16 @@ ENV HOST=$HOST_TRIP \
         erl_xcomp_sysroot=/buildroot/sysroot \
         ERL_TOP=/buildroot/otp
 
+RUN cd /buildroot && tar xzf otp.tar.gz
+
 WORKDIR /buildroot/otp
 
 ## Build the cross system
 # We cannot use config.guess for --build since its value clashes with the
 # canonical value of host...
-RUN ./configure --prefix=/otp/ --host=$HOST --build=x86-pc-linux-gnu
-RUN OTP_SMALL_BUILD=true V=1 make
-
-RUN make odbc && make install
+RUN ./configure --prefix=/otp/ --host=$HOST --build=x86-pc-linux-gnu && \
+    OTP_SMALL_BUILD=true V=1 make && \
+    make install
 
 ## Build the cross tests
 ENV CFLAGS="--sysroot=/buildroot/sysroot -O2 -g"
@@ -64,5 +59,3 @@ COPY --from=build /otp /otp
 COPY --from=build /buildroot/otp/release/tests /tests
 
 ENV PATH=/otp/bin:$PATH
-
-ENTRYPOINT ["bash","-c"]

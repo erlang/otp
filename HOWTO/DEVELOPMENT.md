@@ -38,6 +38,9 @@ with.
     5. [Static analysis](#static-analysis)
 5. [Running test cases](#running-test-cases)
 6. [Writing and building documentation](#writing-and-building-documentation)
+7. [Github Actions](#github-actions)
+    1. [Debugging github actions failures](#debugging-github-actions-failures)
+8. [Using Docker](#using-docker)
 
 ## Short version
 
@@ -60,6 +63,9 @@ make dialyzer   # Run dialyzer
 make docs       # Build the docs
 make xmllint    # Run xmllint on the docs
 ```
+
+Then enable [Github Actions](#github-actions) and push the changes to your fork
+of Erlang/OTP to check that you have not missed anything.
 
 ## Preparations
 
@@ -421,3 +427,96 @@ cd lib/stdlib/doc/src && make local_docs DOC_TARGETS=html
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
+
+## Github Actions
+
+Erlang/OTP uses [Github Actions](https://github.com/features/actions) as a
+preliminary CI to check that nothing fundamental has been broken by the change.
+
+You can enable Github Actions on your own github fork in order to run the tests
+before opening a PR to the main repository.
+
+Github Actions does too many checks to list them all but the primary ones are:
+
+* Build on Ubuntu Linux and Windows
+* Cross build to Debian Linux on powerpc and iOS
+* Build and validate documentation
+* Run dialyzer on all of Erlang/OTP
+* Run the tests of the changed application
+
+Each run generates a bunch of artifacts. The most important ones are:
+
+* `test_results`
+  * An archive containing all the logs from all tests that have been run.
+    Navigate to `make_test_dir/ct_logs/index.html` within the archive to
+    view the Common Test summary of the tests.
+* `otp_win32_installer`
+  * A windows installer with the changes you have made.
+* `otp_doc_html`
+  * The HTML docs with the changes you have made.
+
+### Debugging Github Actions failures
+
+Debugging Github Actions is at best a very time-consuming endevour. So if there
+is an error in the build or tests that you don't easily understand I would
+recommend that you try to reproduce it locally.
+
+This is of course not always possible, for instance if it only fails on Windows
+and you do not have access to a Windows machine, but it may the worth it as the
+leadtime of re-running a test is roughly 30 minutes. See the [other sections of
+this guide](#developing-erlang-otp) for details on how to build and run tests
+locally.
+
+If testcases fail when running Github Actions, it is best to start by inspecting
+the logs of the test runs. The logs are attached to the finished run as
+`test_results`. You will find more details about why a testcase failed in
+the logs.
+
+## Using Docker
+
+In order to get a reproduceable environment for building and testing you can use
+[docker](https//www.docker.com). If you are not familiar with how to use it I
+would recommend [reading up a bit](https://www.docker.com/get-started) and trying
+some simple examples yourself before using it to build and test Erlang/OTP.
+
+There is a pre-built ubuntu base image available on github, but you can also
+build it locally if you want to.
+
+Using the pre-built base you build an image like this:
+
+```bash
+docker login ghcr.io
+git archive --prefix otp/ -o .github/otp.tar.gz HEAD
+docker build -t my_otp_image -f .github/dockerfiles/Dockerfile.64-bit .github/
+```
+
+This will fetch the ubuntu base image and build a 64-bit Erlang/OTP. You need to
+[login to the github container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+in order to fetch the base image. If you want to build the base image locally
+you can do that like this:
+
+```bash
+docker built -t docker.pkg.github.com/erlang/otp/ubuntu-base \
+  --build-arg BASE=ubuntu --build-arg USER=otptest --build-arg uid=$(id -u) \
+  --build-arg GROUP=uucp --build-arg gid=$(id -g) \
+  -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
+```
+
+Which approach is fastest depends on the speed of your internet connection.
+
+When you have built the docker image you can run tests in it like this:
+
+```bash
+docker run my_otp_image "make stdlib_test"
+```
+
+or if you want to persist the test results outside the container:
+
+```bash
+mkdir -m 777 make_test_dir   ## The 777 mode is needed to avoid permission problems
+docker run --init -v $PWD/make_test_dir:/buildroot/otp/lib/stdlib/make_test_dir \
+  my_otp_image "make stdlib_test"
+```
+
+The Common Test logs will be placed in `make_test_dir/ct_logs`.
+

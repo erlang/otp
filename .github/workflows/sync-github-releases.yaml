@@ -1,6 +1,6 @@
 name: Sync all github releases with erlang.org
 
-## Update the base image every day
+## Sync all github releases + prs every hour
 on:
   workflow_dispatch:
   schedule:
@@ -10,22 +10,9 @@ on:
 ## Build base images to be used by other github workflows
 jobs:
 
-  # Wait for up to a minute for previous runs to complete, abort if not done by then
-  pre-ci:
-    if: github.repository == 'erlang/otp'
-    runs-on: ubuntu-latest
-    timeout-minutes: 1
-    steps:
-      - name: 'Block Concurrent Executions'
-        uses: softprops/turnstyle@v1
-        with:
-          poll-interval-seconds: 10
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   sync-releases:
-    needs: pre-ci
     if: github.repository == 'erlang/otp'
+    concurrency: sync-github-releases
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -39,3 +26,32 @@ jobs:
         run: >
           .github/scripts/sync-github-releases.sh ${{ github.repository }}
           "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
+
+  sync-prs:
+    if: github.repository == 'erlang/otp'
+    concurrency: erlang.github.io-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.ERLANG_TOKEN }}
+          repository: 'erlang/erlang.github.io'
+          path: erlang.github.io
+      - uses: actions/checkout@v2
+      - name: Update PRs
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+            git clone https://github.com/talentdeficit/jsx
+            (cd jsx && rebar3 compile)
+            rm -rf "${GITHUB_WORKSPACE}/erlang.github.io/.git"
+            mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+            .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+      - name: Deploy to github pages 🚀
+        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        with:
+          token: ${{ secrets.ERLANG_TOKEN }}
+          branch: master # The branch the action should deploy to.
+          folder: erlang.github.io # The folder the action should deploy.
+          repository-name: erlang/erlang.github.io
+          single-commit: true
