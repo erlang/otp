@@ -61,6 +61,7 @@
          search_two_hits/1,
          search_extensible_match_with_dn/1,
          search_extensible_match_without_dn/1,
+         search_paged_results/1,
          ssl_connection/1,
          start_tls_on_ssl_should_fail/1,
          start_tls_twice_should_fail/1,
@@ -136,6 +137,7 @@ groups() ->
 		      search_referral,
                       search_filter_or_sizelimit_ok,
                       search_filter_or_sizelimit_exceeded,
+                      search_paged_results,
 		      modify,
 		      modify_referral,
 		      delete,
@@ -821,6 +823,61 @@ search_referral(Config) ->
 	eldap:search(H, #eldap_search{base = DN,
 				      filter = eldap:present("description"),
 				      scope=eldap:singleLevel()}).
+
+%%%----------------------------------------------------------------
+search_paged_results(Config) ->
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
+    %% Add a lot of objects:
+    Desc = "Frogs",
+    Names = ["Frog" ++ integer_to_list(N) || N <- lists:seq(1, 20)],
+    DNs = [{"cn=Jeremy " ++ N ++ "," ++ BasePath, [{"objectclass", ["person"]},
+                                                 {"cn", ["Jeremy " ++ N]},
+                                                 {"sn", [N]},
+                                                 {"description", [Desc]}]} || N <- Names],
+    [ok = eldap:add(H, Entry, Attrs) || {Entry, Attrs} <- DNs],
+
+    PageSize = 10,
+
+    Control1 = eldap:paged_result_control(PageSize),
+
+    {ok, SearchResult1} =
+        eldap:search(H,
+                     #eldap_search{base = BasePath,
+                                   filter = eldap:equalityMatch("description", Desc),
+                                   scope=eldap:singleLevel()},
+                     [Control1]),
+
+
+    #eldap_search_result{entries=Es1} = Res = SearchResult1,
+
+    PageSize = length(Es1),
+
+    {ok, Cookie1} = eldap:paged_result_cookie(SearchResult1),
+
+    Control2 = eldap:paged_result_control(PageSize, Cookie1),
+
+    {ok, SearchResult2} =
+        eldap:search(H,
+                     #eldap_search{base = BasePath,
+                                   filter = eldap:equalityMatch("description", Desc),
+                                   scope=eldap:singleLevel()},
+                     [Control2]),
+
+    #eldap_search_result{entries=Es2} = SearchResult2,
+
+    PageSize = length(Es2),
+
+    %% all results have been returned so cookie should be empty
+    {ok, []} = eldap:paged_result_cookie(SearchResult2),
+
+    ExpectedDNs = lists:sort([DN || {DN, _} <- DNs]),
+    ResultDNs = lists:sort([DN || #eldap_entry{object_name=DN} <- Es1 ++ Es2]),
+
+    ExpectedDNs = ResultDNs,
+
+    %% Restore the database:
+    [ok=eldap:delete(H,DN) || {DN, _} <- DNs].
 
 %%%----------------------------------------------------------------
 modify(Config) ->

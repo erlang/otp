@@ -482,6 +482,72 @@
       </type>
       <desc> <p>Negate a filter.</p> </desc>
     </func>
+    <func>
+      <name since="OTP 24.3">paged_result_control(PageSize) -&gt;
+      {control, "1.2.840.113556.1.4.319", true, binary()}</name>
+      <fsummary>Create a paged result control tuple</fsummary>
+      <type>
+        <v>PageSize = positive_integer()</v>
+      </type>
+      <desc>
+        <p>Paged results is an extension to the LDAP protocol
+        specified by RFC2696</p>
+        <p>This function creates a control with the specified page
+        size for use in
+        <c>search/3</c>, for example:</p>
+   	<code>
+Control = eldap:paged_result_control(50),
+{ok, SearchResults} = search(Handle, [{base, "dc=example, dc=com"}], [Control]),
+	</code>     
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 24.3">paged_result_control(PageSize, Cookie)
+      -&gt; {control, "1.2.840.113556.1.4.319", true,
+      binary()}</name>
+      <fsummary>Create a paged result control tuple with the given
+      Cookie</fsummary>
+      <type>
+        <v>PageSize = positive_integer()</v>
+        <v>Cookie = binary()</v>
+      </type>
+      <desc>
+        <p>Paged results is an extension to the LDAP protocol
+        specified by RFC2696</p>
+        <p>This function creates a control with the specified page
+        size and cookie for use in
+        <c>search/3</c> to retrieve the next results page.</p>
+        <p>For example:</p>
+        <code>
+PageSize = 50,
+Control1 = eldap:paged_result_control(PageSize),
+{ok, SearchResults1} = search(Handle, [{base, "dc=example, dc=com"}], [Control1]),
+%% retrieve the returned cookie from the search results
+{ok, Cookie1} = eldap:paged_result_cookie(SearchResults1),
+Control2 = eldap:paged_result_control(PageSize, Cookie1),
+{ok, SearchResults2} = eldap:search(Handle, [{base, "dc=example,dc=com"}], [Control2]),
+%% etc
+	</code>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 24.3">paged_result_cookie(SearchResult)
+      -&gt; binary()</name>
+      <fsummary>Extract a cookie from search results for use in the
+      subsequent search.</fsummary>
+      <type>
+        <v>SearchResult = #eldap_search_result{}</v>
+      </type>
+      <desc>
+        <p>Paged results is an extension to the LDAP protocol
+        specified by RFC2696.</p>
+        <p>This function extracts the cookie returned from the
+        server as a result of a paged search result.</p>
+        <p>If the returned cookie is the empty string
+        <c>""</c>, then these search results represent the last in
+        the series.</p>
+      </desc>
+    </func>
 
   </funcs>
 

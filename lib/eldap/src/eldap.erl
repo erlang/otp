@@ -27,7 +27,10 @@
 	 add/3, add/4,
 	 delete/2, delete/3,
 	 modify_dn/5,parse_dn/1,
-	 parse_ldap_url/1]).
+	 parse_ldap_url/1,
+	 paged_result_control/1,
+	 paged_result_control/2,
+	 paged_result_cookie/1]).
 
 -export([neverDerefAliases/0, derefInSearching/0,
          derefFindingBaseObj/0, derefAlways/0]).
@@ -722,7 +725,7 @@ do_search(Data, A, Controls) ->
 	{error,Emsg}         -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}       -> {ldap_closed_p(Data, Error),Data};
 	{{ok,Val},NewData}   -> {{ok,Val},NewData};
-	{ok,Res,Ref,NewData} -> {{ok,polish(Res, Ref)},NewData};
+	{ok,Res,Ref,ResultControls,NewData} -> {{ok,polish(Res, Ref, ResultControls)},NewData};
 	{{error,Reason},NewData} -> {{error,Reason},NewData};
 	Else                 -> {ldap_closed_p(Data, Else),Data}
     end.
@@ -731,11 +734,11 @@ do_search(Data, A, Controls) ->
 %%% Polish the returned search result
 %%%
 
-polish(Res, Ref) ->
+polish(Res, Ref, Controls) ->
     R = polish_result(Res),
     %%% No special treatment of referrals at the moment.
     #eldap_search_result{entries = R,
-			 referrals = Ref}.
+			 referrals = Ref, controls = Controls}.
 
 polish_result([H|T]) when is_record(H, 'SearchResultEntry') ->
     ObjectName = H#'SearchResultEntry'.objectName,
@@ -778,10 +781,10 @@ collect_search_responses(Data, S, ID, {ok,Msg}, Acc, Ref)
             case R#'LDAPResult'.resultCode of
                 success ->
                     log2(Data, "search reply = searchResDone ~n", []),
-                    {ok,Acc,Ref,Data};
+                    {ok,Acc,Ref,Msg#'LDAPMessage'.controls,Data};
                 sizeLimitExceeded ->
                      log2(Data, "[TRUNCATED] search reply = searchResDone ~n", []),
-                     {ok,Acc,Ref,Data};
+                     {ok,Acc,Ref,Msg#'LDAPMessage'.controls,Data};
 		referral -> 
 		    {{ok, {referral,R#'LDAPResult'.referral}}, Data};
                 Reason ->
@@ -1432,3 +1435,42 @@ get_head(Str,Tail) ->
 %%% Should always succeed !
 get_head([H|Tail],Tail,Rhead) -> lists:reverse([H|Rhead]);
 get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
+
+%%% --------------------------------------------------------------------
+%%% Return a paged result control as described by RFC2696
+%%% https://www.rfc-editor.org/rfc/rfc2696.txt
+%%% --------------------------------------------------------------------
+
+paged_result_control(PageSize) when is_integer(PageSize) ->
+    paged_result_control(PageSize, "").
+
+paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
+    RSCV = #'RealSearchControlValue'{size=PageSize, cookie=Cookie},
+    {ok, ControlValue} = 'ELDAPv3':encode('RealSearchControlValue', RSCV),
+
+    {control, "1.2.840.113556.1.4.319", true, ControlValue}.
+
+
+%%% --------------------------------------------------------------------
+%%% Extract the returned cookie from search results in order to
+%%% retrieve the next set of results from the server according to
+%%% RFC2696
+%%%
+%%% https://www.rfc-editor.org/rfc/rfc2696.txt
+%%% --------------------------------------------------------------------
+
+paged_result_cookie(#eldap_search_result{controls=Controls}) ->
+    find_paged_result_cookie(Controls).
+
+find_paged_result_cookie([]) ->
+    {error, no_cookie};
+
+find_paged_result_cookie([C|Controls]) ->
+    case C of
+        #'Control'{controlType="1.2.840.113556.1.4.319",controlValue=ControlValue} ->
+            {ok, #'RealSearchControlValue'{cookie=Cookie}} =
+                'ELDAPv3':decode('RealSearchControlValue', ControlValue),
+            {ok, Cookie};
+        _ ->
+            find_paged_result_cookie(Controls)
+    end.
