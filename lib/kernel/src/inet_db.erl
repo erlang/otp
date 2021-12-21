@@ -498,7 +498,7 @@ res_check_option(nameservers, NSs) ->
 res_check_option(alt_nameservers, NSs) ->
     res_check_list(NSs, fun res_check_ns/1);
 res_check_option(domain, Dom) ->
-    inet_parse:visible_string(Dom);
+    Dom =:= "" orelse inet_parse:visible_string(Dom);
 res_check_option(lookup, Methods) ->
     try lists_subtract(Methods, valid_lookup()) of
 	[] -> true;
