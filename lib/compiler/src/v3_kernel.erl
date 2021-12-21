@@ -78,10 +78,9 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [all/2,droplast/1,flatten/1,foldl/3,foldr/3,
-                map/2,mapfoldl/3,member/2,
-		keyfind/3,keyreplace/4,
-                last/1,partition/2,reverse/1,
-                sort/1,sort/2,splitwith/2]).
+                map/2,mapfoldl/3,member/2,keyfind/3,last/1,
+                partition/2,reverse/1,sort/1,sort/2,
+                splitwith/2]).
 -import(ordsets, [add_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -234,25 +233,19 @@ gexpr_test_add(Ke, St0) ->
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A0,name={Name,Arity}}=Fname, Sub, St) ->
-    Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-             V <- integers(1, Arity)],
+expr(#c_var{anno=A,name={Name0,Arity}}=Fname, Sub, St) ->
     case St#kern.no_shared_fun_wrappers of
         false ->
-            %% Generate a (possibly shared) wrapper function for calling
-            %% this function.
-            Wrapper0 = ["-fun.",atom_to_list(Name),"/",integer_to_list(Arity),"-"],
-            Wrapper = list_to_atom(flatten(Wrapper0)),
-            Id = {id,{0,0,Wrapper}},
-            A = keyreplace(id, 1, A0, Id),
-            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-            expr(Fun, Sub, St);
+            Name = get_fsub(Name0, Arity, Sub),
+            {#k_local{anno=A,name=Name,arity=Arity},[],St};
         true ->
             %% For backward compatibility with OTP 22 and earlier,
             %% use the pre-generated name for the fun wrapper.
             %% There will be one wrapper function for each occurrence
             %% of `fun F/A`.
-            Fun = #c_fun{anno=A0,vars=Vs,body=#c_apply{anno=A0,op=Fname,args=Vs}},
+            Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
+                  V <- integers(1, Arity)],
+            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
             expr(Fun, Sub, St)
     end;
 expr(#c_var{anno=A,name=V}, Sub, St) ->
@@ -1991,6 +1984,15 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
+uexpr(#k_local{anno=A,name=Name,arity=Arity}, {break,Rs}, St) ->
+    Free = lit_list_vars(get_free(Name, Arity, St)),
+    Fvs = make_vars(Free),
+    FreeCount = length(Fvs),
+    Bif = #k_bif{anno=A,
+                 op=#k_internal{name=make_fun,arity=FreeCount+1},
+                 args=[#k_local{name=Name,arity=Arity+FreeCount} | Fvs],
+                 ret=Rs},
+    {Bif,Free,St};
 uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
     Rs = break_rets(Br),
     {F1,Fu,St1} = ubody(F0, Br, St0),

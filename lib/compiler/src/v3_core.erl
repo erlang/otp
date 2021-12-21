@@ -723,6 +723,8 @@ expr({'catch',L,E0}, St0) ->
     Lanno = lineno_anno(L, St1),
     {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1};
 expr({'fun',L,{function,F,A}}, St0) ->
+    %% Generate a new name for eta conversion of local funs (`fun local/123`)
+    %% in case `no_shared_fun_wrappers` is given.
     {Fname,St1} = new_fun_name(St0),
     Lanno = full_anno(L, St1),
     Id = {0,0,Fname},

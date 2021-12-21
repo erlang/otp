@@ -803,16 +803,16 @@ exception_test(Opts, Func0, Args0) ->
     %% Func0 and Args0 are for the innermost call, now we will
     %% wrap them in wrappers...
     {Func1,Args1} =
-    case Function of
-        true  -> {fun exc/2,[Func0,Args0]};
-        false -> {Func0,Args0}
-    end,
+        case Function of
+            true  -> {fun(F, As) -> exc(F, As) end, [Func0,Args0]};
+            false -> {Func0,Args0}
+        end,
 
     {Func,Args} = 
-    case Apply of
-        true  -> {{erlang,apply},[Func1,Args1]};
-        false -> {Func1,Args1}
-    end,
+        case Apply of
+            true  -> {{erlang,apply},[Func1,Args1]};
+            false -> {Func1,Args1}
+        end,
 
     R1 = exc_slave(ExcOpts, Func, Args),
     Stack2 = [{?MODULE,exc_top,3,[]},{?MODULE,slave,2,[]}],
