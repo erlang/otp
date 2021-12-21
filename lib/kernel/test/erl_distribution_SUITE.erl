@@ -540,21 +540,33 @@ dyn_node_name(Config) when is_list(Config) ->
     dyn_node_name("", Config).
 
 dyn_node_name(DCfg, _Config) ->
+    DomainType = case net_kernel:get_state() of
+                     #{domain_type := short} -> "short";
+                     #{domain_type := long} -> "long"
+                 end,
     {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
                                           undefined, ?MODULE, run_remote_test,
-                                          ["dyn_node_name_do", atom_to_list(node())]),
+                                          ["dyn_node_name_do", atom_to_list(node()),
+                                           DomainType]),
     0 = wait_for_port_exit(Port1),
     ok.
 
-dyn_node_name_do(TestNode, _Args) ->
+dyn_node_name_do(TestNode, [DomainTypeStr]) ->
     nonode@nohost = node(),
     [] = nodes(),
     [] = nodes(hidden),
+    DomainType = list_to_atom(DomainTypeStr),
+    #{started := static, name_type := dynamic, name := undefined,
+     domain_type := DomainType} = net_kernel:get_state(),
     net_kernel:monitor_nodes(true, [{node_type,all}]),
     net_kernel:connect_node(TestNode),
     [] = nodes(),
     [TestNode] = nodes(hidden),
     MyName = node(),
+    false = (MyName =:= undefined),
+    false = (MyName =:= nonode@nohost),
+    #{started := static, name_type := dynamic, name := MyName}
+        = net_kernel:get_state(),
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
     {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
@@ -567,11 +579,16 @@ dyn_node_name_do(TestNode, _Args) ->
     {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
 
     nonode@nohost = node(),
+    #{started := static, name_type := dynamic, name := undefined}
+        = net_kernel:get_state(),
 
     net_kernel:connect_node(TestNode),
     [] = nodes(),
     [TestNode] = nodes(hidden),
     MyName = node(),
+    #{started := static, name_type := dynamic, name := MyName}
+        = net_kernel:get_state(),
+
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
     {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
@@ -583,7 +600,8 @@ dyn_node_name_do(TestNode, _Args) ->
     [] = nodes(hidden),
     {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
     nonode@nohost = node(),
-
+    #{started := static, name_type := dynamic, name := undefined}
+        = net_kernel:get_state(),
     ok.
 
 check(X, X) -> ok.
