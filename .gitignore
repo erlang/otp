@@ -46,11 +46,8 @@ i386-pc-solaris[0-9]*.[0-9]*
 i386-unknown-freebsd[0-9]*.[0-9]*
 x86_64-unknown-freebsd[0-9]*.[0-9]*
 x86_64-unknown-openbsd[0-9]*.[0-9]*
-tile-tilera-linux-gnu
 powerpc-unknown-linux-gnu
 aarch64-unknown-linux-gnu
-i386-elf-ose
-powerpc-unknown-ose
 
 # Mac OS X
 a.out.dSYM/
@@ -92,8 +89,6 @@ lib/crypto/priv/obj/
 lib/erl_interface/obj.md/
 lib/erl_interface/obj.mdd/
 lib/erl_interface/src/win32/
-lib/gs/priv/tcl/
-lib/gs/tcl/binaries/
 lib/megaco/src/flex/win32/
 lib/odbc/c_src/win32/
 lib/odbc/priv/bin/odbcserver.exe
@@ -113,9 +108,6 @@ lib/wx/win32/
 make/win32/
 make/otp_built
 make/otp_doc_built
-
-# OSE
-*.d
 
 # Used by applications that run javadoc (e.g. ic).
 JAVADOC-GENERATED
@@ -282,35 +274,6 @@ JAVADOC-GENERATED
 
 /lib/et/doc/html/*.png
 
-# gs
-
-/lib/gs/src/gstk_generic.hrl
-/lib/gs/contribs/ebin/*.gif
-/lib/gs/contribs/ebin/*.tool
-/lib/gs/doc/html/images/*.gif
-/lib/gs/tcl/win32/Makefile
-
-# hipe
-
-/lib/hipe/boot_ebin/hipe.app
-/lib/hipe/boot_ebin/hipe.appup
-/lib/hipe/main/hipe.hrl
-/lib/hipe/rtl/hipe_literals.hrl
-
-# ic
-
-/lib/ic/examples/pre_post_condition/m.hrl
-/lib/ic/examples/pre_post_condition/m_i.erl
-/lib/ic/examples/pre_post_condition/m_i.hrl
-/lib/ic/examples/pre_post_condition/m_NotAnInteger.erl
-/lib/ic/examples/pre_post_condition/oe_ex.erl
-/lib/ic/examples/pre_post_condition/oe_ex.hrl
-/lib/ic/priv/com/
-/lib/ic/priv/ic.jar
-/lib/ic/src/icparse.erl
-/lib/ic/doc/html/java
-/lib/ic/java_src/SKIP
-
 # jinterface
 
 /lib/jinterface/priv/OtpErlang.jar
@@ -330,12 +293,6 @@ JAVADOC-GENERATED
 
 /lib/mnesia/test/Mnesia.*
 /lib/mnesia/test/test_log*
-
-# otp_mibs
-
-/lib/otp_mibs/include/OTP*.hrl
-/lib/otp_mibs/mibs/v1/OTP*.mib.v1
-/lib/otp_mibs/priv/mibs/OTP*.bin
 
 # os_mon
 
