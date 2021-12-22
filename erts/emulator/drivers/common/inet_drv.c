@@ -6638,15 +6638,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	case INET_OPT_REUSEADDR: 
-#ifdef __WIN32__
-	    continue;  /* Bjorn says */
-#else
-	    type = SO_REUSEADDR;
+            /* The behaviour changed in Windows Server 2003.
+             * Now it works as the combo of `SO_REUSEADDR` and 
+             * `SO_REUSEPORT` does on *BSD.
+             * This option was "dangerous" only in Windows XP,
+             * which we don't support anymore!
+             */
+	case INET_OPT_REUSEADDR: type = SO_REUSEADDR;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
 		    desc->port, desc->s,ival));
 	    break;
-#endif
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_KEEPALIVE=%d\r\n",
 		    desc->port, desc->s, ival));
