@@ -177,7 +177,7 @@ Transformer =
       which identifies the particular record in that table. The
       combination of the table name and a key is an arity two tuple
       <c>{Tab, Key}</c> called the OID. For more information about
-      the relationship beween the record name and the table name, see
+      the relationship between the record name and the table name, see
       <seeguide marker="Mnesia_chap4#recordnames_tablenames">Record Names versus Table Names</seeguide>.
     </p>
     <p>What makes the <c>Mnesia</c> data model an extended relational model

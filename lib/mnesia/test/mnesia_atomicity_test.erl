@@ -111,7 +111,7 @@ explicit_abort_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a transaction on one node
     {success, [A]} = ?start_activities([Node1]),
 
-    %% store an object in the Tab - first tranaction
+    %% store an object in the Tab - first transaction
     ?start_transactions([A]),
     A ! fun() ->
 		mnesia:write(Rec1A)	% returns ok when successful
@@ -136,7 +136,7 @@ explicit_abort_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a second  transactionprocess, after the first failed
     {success, [B]} = ?start_activities([Node1]),
 
-    %% check, whether the interupted transaction had no influence on the db
+    %% check, whether the interrupted transaction had no influence on the db
     ?start_transactions([B]),
     B ! fun() ->
 		?match([Rec1A], mnesia:read({Tab, 1})),
@@ -163,7 +163,7 @@ runtime_error_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a transaction on one node
     {success, [A]} = ?start_activities([Node1]),
 
-    %% store an object in the Tab - first tranaction
+    %% store an object in the Tab - first transaction
     ?start_transactions([A]),
     A ! fun() ->
 		mnesia:write(Rec1A)	% returns ok when successful
@@ -188,7 +188,7 @@ runtime_error_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a second  transactionprocess, after the first failed
     {success, [B]} = ?start_activities([Node1]),
 
-    %% check, whether the interupted transaction had no influence on the db
+    %% check, whether the interrupted transaction had no influence on the db
     ?start_transactions([B]),
     B ! fun() ->
 		?match([Rec1A], mnesia:read({Tab, 1})),
@@ -215,7 +215,7 @@ kill_self_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a transaction on one node
     {success, [A]} = ?start_activities([Node1]),
 
-    %% store an object in the Tab - first tranaction
+    %% store an object in the Tab - first transaction
     ?start_transactions([A]),
     A ! fun() ->
 		mnesia:write(Rec1A)	% returns ok when successful
@@ -244,7 +244,7 @@ kill_self_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a second  transactionprocess, after the first failed
     {success, [B]} = ?start_activities([Node1]),
 
-    %% check, whether the interupted transaction had no influence on the db
+    %% check, whether the interrupted transaction had no influence on the db
     ?start_transactions([B]),
     B ! fun() ->
 		?match([Rec1A], mnesia:read({Tab, 1})),
@@ -271,7 +271,7 @@ throw_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a transaction on one node
     {success, [A]} = ?start_activities([Node1]),
 
-    %% store an object in the Tab - first tranaction
+    %% store an object in the Tab - first transaction
     ?start_transactions([A]),
     A ! fun() ->
 		mnesia:write(Rec1A)	% returns ok when successful
@@ -297,7 +297,7 @@ throw_in_middle_of_trans(Config) when is_list(Config) ->
     %% Start a second  transactionprocess, after the first failed
     {success, [B]} = ?start_activities([Node1]),
 
-    %% check, whether the interupted transaction had no influence on the db
+    %% check, whether the interrupted transaction had no influence on the db
     ?start_transactions([B]),
     B ! fun() ->
 		?match([Rec1A], mnesia:read({Tab, 1})),
@@ -542,7 +542,7 @@ start_lock_waiter(BlockOpA, BlockOpB, Config) ->
     io:format("waiting for A (~p on ~p) to be in the queue ~n", [A, [N1, N2]]),
     wait_for_a(A, [N1, N2]),
 
-    io:format("Queus ~p~n",
+    io:format("Queues ~p~n",
 	      [[{N,rpc:call(N, mnesia, system_info, [lock_queue])} || N <- Nodes]]),
 
     KillNode = node(B),
@@ -743,7 +743,7 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
     Wait(Wait),
     A ! go_ahead,
 
-    %% the sticky write doesnt work on remote nodes !!!
+    %% the sticky write doesn't work on remote nodes !!!
     ExpectedMsg =
 	case RestartOp of
 	    sw when ReplicaNeed == two ->
@@ -765,7 +765,7 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
 
 
     %%  the expected result depends on the transaction of
-    %%  fun A - when that doesnt change the object in the
+    %%  fun A - when that doesn't change the object in the
     %%  table (e.g. it is a read) then the predefined
     %%  value {Tabname, 1, c} is expected to be the result here
 

@@ -1083,7 +1083,7 @@ merge_decisions(Node, D, NewD0) ->
 		NewD#decision.outcome == aborted ->
 		    %% Interesting! We have already committed,
 		    %% but someone else has aborted. Now we
-		    %% have a nice little inconcistency. The
+		    %% have a nice little inconsistency. The
 		    %% other guy (or some one else) has 
 		    %% enforced a recovery decision when
 		    %% max_wait_for_decision was exceeded.
@@ -1096,11 +1096,11 @@ merge_decisions(Node, D, NewD0) ->
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		NewD#decision.outcome == aborted ->
-		    %% aborted overrrides anything
+		    %% aborted overrides anything
 		    OldD#decision{outcome = aborted};
 
 		OldD#decision.outcome == committed,
@@ -1236,7 +1236,7 @@ arrange([To | ToNodes], D, Acc, ForceSend) when is_record(D, decision) ->
 
 arrange([To | ToNodes], {trans_tid, serial, Serial}, Acc, ForceSend) ->
     %% Do the lamport thing plus release the others
-    %% from uncertainity.
+    %% from uncertainty.
     Acc2 = add_decision(To, {trans_tid, serial, Serial}, Acc),
     arrange(ToNodes, {trans_tid, serial, Serial}, Acc2, ForceSend);
 

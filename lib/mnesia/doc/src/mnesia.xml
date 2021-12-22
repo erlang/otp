@@ -1153,7 +1153,7 @@ mnesia:create_table(person,
           or negative number. However, counters can never become less
           than zero. There are two significant differences between
           this function and the action of first reading the record,
-          performing the arithmetics, and then writing the record:</p>
+          performing the arithmetic, and then writing the record:</p>
         <list type="bulleted">
           <item>It is much more efficient.
           </item>

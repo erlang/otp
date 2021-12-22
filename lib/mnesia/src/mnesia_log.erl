@@ -48,7 +48,7 @@
 %%   with the same interface as mnesia_backup and configure
 %%   Mnesia so the alternate module performs the actual accesses
 %%   to the backup media. This means that the user may put the
-%%   backup on medias that Mnesia does not know about possibly on
+%%   backup on media that Mnesia does not know about possibly on
 %%   hosts where Erlang is not running.
 %%
 %% All these logs have to some extent a common structure.
