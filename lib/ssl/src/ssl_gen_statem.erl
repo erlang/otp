@@ -1101,7 +1101,7 @@ terminate({shutdown, transport_closed} = Reason,
                                                       socket = Socket,
                                                       transport_cb = Transport}} = State) ->
     handle_trusted_certs_db(State),
-    Connection:close(Reason, Socket, Transport, undefined, undefined);
+    Connection:close(Reason, Socket, Transport, undefined);
 terminate({shutdown, own_alert}, _StateName, #state{
 						static_env = #static_env{protocol_cb = Connection,
                                                                          socket = Socket,
@@ -1109,28 +1109,28 @@ terminate({shutdown, own_alert}, _StateName, #state{
     handle_trusted_certs_db(State),
     case application:get_env(ssl, alert_timeout) of
 	{ok, Timeout} when is_integer(Timeout) ->
-	    Connection:close({timeout, Timeout}, Socket, Transport, undefined, undefined);
+	    Connection:close({timeout, Timeout}, Socket, Transport, undefined);
 	_ ->
-	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
+	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined)
     end;
 terminate(Reason, connection, #state{static_env = #static_env{
                                                      protocol_cb = Connection,
                                                      transport_cb = Transport,
                                                      socket = Socket},
-                                     connection_states = ConnectionStates,
-                                     ssl_options = #{padding_check := Check}
+                                     connection_states = ConnectionStates
                                     } = State) ->
+
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
     %% Send the termination ALERT if possible
     catch (ok = Connection:send_alert_in_connection(Alert, State)),
-    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates, Check);
+    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
 terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Transport,
                                                               protocol_cb = Connection,
                                                               socket = Socket}
 				    } = State) ->
     handle_trusted_certs_db(State),
-    Connection:close(Reason, Socket, Transport, undefined, undefined).
+    Connection:close(Reason, Socket, Transport, undefined).
 
 %%====================================================================
 %% Log handling
@@ -1233,12 +1233,18 @@ is_hostname_recognized(_, _) ->
 handle_sni_hostname(Hostname,
                     #state{static_env = #static_env{role = Role} = InitStatEnv0,
                            handshake_env = HsEnv,
-                           connection_env = CEnv} = State0) ->
-    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+                           connection_env = CEnv,
+                           ssl_options = Opts} = State0) ->
+    NewOptions = update_ssl_options_from_sni(Opts, Hostname),
     case NewOptions of
 	undefined ->
-	    State0;
-	_ ->
+            case maps:get(server_name_indication, Opts) of
+                disable when Role == client->
+                    State0;
+                _ ->
+                    State0#state{handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}}
+            end;
+        _ ->
 	    {ok, #{cert_db_ref := Ref,
                    cert_db_handle := CertDbHandle,
                    fileref_db_handle := FileRefHandle,
@@ -1266,7 +1272,7 @@ handle_sni_hostname(Hostname,
 
 update_ssl_options_from_sni(#{sni_fun := SNIFun,
                               sni_hosts := SNIHosts} = OrigSSLOptions, SNIHostname) ->
-    SSLOption =
+    SSLOptions =
 	case SNIFun of
 	    undefined ->
 		proplists:get_value(SNIHostname,
@@ -1274,11 +1280,42 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun,
 	    SNIFun ->
 		SNIFun(SNIHostname)
 	end,
-    case SSLOption of
+    case SSLOptions of
         undefined ->
             undefined;
         _ ->
-            ssl:handle_options(SSLOption, server, OrigSSLOptions)
+            VersionsOpt = proplists:get_value(versions, SSLOptions, []),
+            FallBackOptions = filter_for_versions(VersionsOpt, OrigSSLOptions),
+            ssl:handle_options(SSLOptions, server, FallBackOptions)
+    end.
+
+filter_for_versions([], OrigSSLOptions) ->
+    OrigSSLOptions;
+filter_for_versions(['tlsv1.3'], OrigSSLOptions) ->
+    Opts = ?'PRE_TLS-1_3_ONLY_OPTIONS' ++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.3', 'tlsv1.2'| Rest], OrigSSLOptions) ->
+    maybe_exclude_tlsv1(Rest, OrigSSLOptions);
+filter_for_versions(['tlsv1.2'], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.2' | Rest], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS',
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions));
+filter_for_versions(['tlsv1.1'], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS'++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.1'| Rest], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS',
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions)).
+
+maybe_exclude_tlsv1(Versions, Options) ->
+    case lists:member('tlsv1', Versions) of
+        false ->
+            Opts = ?'TLS-1_0_ONLY_OPTIONS',
+            maps:without(Opts, Options);
+        true ->
+            Options
     end.
 
 set_sni_guided_cert_selection(#state{handshake_env = HsEnv0} = State, Bool) ->

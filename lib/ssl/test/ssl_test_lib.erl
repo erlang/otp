@@ -170,6 +170,7 @@
          make_ec_cert_chains/5,
          make_rsa_1024_cert/1,
          make_rsa_pss_pem/4,
+         make_rsa_sni_configs/0,
          gen_conf/4,
          make_mix_cert/1,
          default_cert_chain_conf/0,
@@ -1517,6 +1518,34 @@ make_rsa_pss_pem(Alg, _UserConf, Config, Suffix) ->
     #{server_config => SConf,
       client_config => CConf}.
 
+make_rsa_sni_configs() ->
+    Sha = appropriate_sha(crypto:supports()),
+    HostName = net_adm:localhost(),
+    HostConf = make_sni_conf(HostName, Sha),
+    LocalHostConf = make_sni_conf("localhost", Sha),
+    {HostConf, LocalHostConf}.
+
+make_sni_conf(HostName, Sha) ->
+    public_key:pkix_test_data(#{server_chain =>
+                                    #{root => [{digest, Sha},
+                                               {key, hardcode_rsa_key(1)}],
+                                      intermediates => [[{digest, Sha},
+                                                         {key, hardcode_rsa_key(2)}]],
+                                      peer => [{digest, Sha},
+                                               {extensions, [#'Extension'{extnID =
+                                                                              ?'id-ce-subjectAltName',
+                                                                          extnValue = [{dNSName, HostName}],
+                                                                          critical = false}]},
+                                               {key, hardcode_rsa_key(3)}
+                                              ]},
+                                client_chain =>
+                                    #{root => [{digest, Sha},
+                                               {key, hardcode_rsa_key(4)}],
+                                      intermediates => [[{digest, Sha},
+                                                         {key, hardcode_rsa_key(5)}]],
+                                      peer => [{digest, Sha},
+                                               {key, hardcode_rsa_key(6)}]}}).
+
 gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
     gen_conf(ClientChainType, ServerChainType, UserClient, UserServer, ?DEFAULT_CURVE).
 %%
@@ -2111,6 +2140,7 @@ start_client(openssl, Port, ClientOpts, Config) ->
     MaxFragLen = openssl_maxfag_option(proplists:get_value(maxfrag, ClientOpts, false)),
     SessionArgs =  proplists:get_value(session_args, ClientOpts, []),
     HostName = proplists:get_value(hostname, ClientOpts, net_adm:localhost()),
+    SNI = openssl_sni(proplists:get_value(server_name_indication, ClientOpts, undefined)),
     Debug = openssl_debug_options(),
 
     Exe = "openssl",
@@ -2118,20 +2148,37 @@ start_client(openssl, Port, ClientOpts, Config) ->
                 undefined ->
                      ["s_client",
                       "-verify", "2",
-                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
+                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
+                      cipher_flag(Version),
                       ciphers(Ciphers, Version),
-                      version_flag(Version)]
-                         ++ CertArgs ++ SigAlgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
-                         ++ Debug;
+                      version_flag(Version)] ++
+                         CertArgs ++
+                         SigAlgs ++
+                         SNI ++
+                         AlpnArgs ++
+                         NpnArgs ++
+                         Reconnect ++
+                         MaxFragLen ++
+                         SessionArgs ++
+                         Debug;
                  Group ->
                      ["s_client",
                       "-verify", "2",
-                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port), cipher_flag(Version),
-                      ciphers(Ciphers, Version), "-groups", Group,
-                      version_flag(Version)]
-                         ++ CertArgs ++ SigAlgs ++ AlpnArgs ++ NpnArgs ++ Reconnect ++ MaxFragLen ++ SessionArgs
-                         ++ Debug
-                 end,
+                      "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
+                      cipher_flag(Version),
+                      ciphers(Ciphers, Version),
+                      "-groups", Group,
+                      version_flag(Version)] ++
+                         CertArgs ++
+                         SigAlgs ++
+                         SNI ++
+                         AlpnArgs ++
+                         NpnArgs ++
+                         Reconnect ++
+                         MaxFragLen ++
+                         SessionArgs ++
+                         Debug
+             end,
     Args = maybe_force_ipv4(Args0),
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
@@ -2260,6 +2307,13 @@ openssl_maxfag_option(false) ->
     [];
 openssl_maxfag_option(Int) ->
     ["-maxfraglen", integer_to_list(Int)].
+
+openssl_sni(undefined) ->
+    [];
+openssl_sni(disable) ->
+    ["-noservername"];
+openssl_sni(ServerName) ->
+    ["-servername", ServerName].
 
 openssl_debug_options() ->
     ["-msg", "-debug"].
