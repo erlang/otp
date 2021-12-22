@@ -2624,7 +2624,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
         {'EXIT', Server, SReason1} ->
             ?P("received unexpected server exit (1):"
-               "~n.     ~p", [SReason1]),
+               "~n      ~p", [SReason1]),
             ct:fail({unexpected_server_exit, 1, SReason1})
 
     after 5000 ->
@@ -2637,7 +2637,11 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     %% --- message sequance 2 ---
 
     ?P("[csock 1] try (sockaddr) send message 2"),
-    case gen_udp:send(CSock1, ServerSockAddr, "hej") of
+    %% DstSockAddr = #{family => maps:get(family, SockAddr),
+    %%                 addr   => maps:get(addr, SockAddr),
+    %%                 port   => ServerPort},
+    DstSockAddr = ServerSockAddr,
+    case gen_udp:send(CSock1, DstSockAddr, "hej") of
         ok ->
             ok;
         {error, ehostunreach = Reason2} ->
@@ -2669,7 +2673,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
     ?P("[csock 1] try connect to: "
        "~n      ~p", [ServerSockAddr]),
-    ok = gen_udp:connect(CSock1, ServerSockAddr),
+    ok = gen_udp:connect(CSock1, DstSockAddr),
 
     ?P("[csock 1] try send message 3"),
     ok = gen_udp:send(CSock1, "hej"),
@@ -2696,7 +2700,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     %% --- message sequance 4 ---
 
     ?P("[csock 2] try (sockaddr) send message 4"),
-    ok = gen_udp:send(CSock2, ServerSockAddr, "hej"),
+    ok = gen_udp:send(CSock2, DstSockAddr, "hej"),
 
     ?P("[csock 2] await reply message 4 - expect failure"),
     receive

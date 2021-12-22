@@ -1844,7 +1844,7 @@ has_support_ipv6() ->
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
     case which_local_host_info(false, Domain) of
-        {ok, #{addr := Addr}} ->
+        {ok, [#{addr := Addr}|_]} ->
             {ok, Addr};
         {error, _Reason} = ERROR ->
             ERROR
@@ -1856,7 +1856,7 @@ which_local_addr(Domain) ->
 %% IPv6: fe80::/10
 which_link_local_addr(Domain) ->
     case which_local_host_info(true, Domain) of
-        {ok, #{addr := Addr}} ->
+        {ok, [#{addr := Addr}|_]} ->
             {ok, Addr};
         {error, _Reason} = ERROR ->
             ERROR
@@ -1873,34 +1873,73 @@ which_local_host_info(LinkLocal, Domain)
   when is_boolean(LinkLocal) andalso ((Domain =:= inet) orelse (Domain =:= inet6)) ->
     case inet:getifaddrs() of
         {ok, IFL} ->
-            which_local_host_info(LinkLocal, Domain, IFL);
+            which_local_host_info(LinkLocal, Domain, IFL, []);
         {error, _} = ERROR ->
             ERROR
     end.
 
-which_local_host_info(_LinkLocal, _Domain, []) ->
+%% There are a bunch of "special" interfaces that we exclude:
+%% Here are some MacOS interfaces:
+%%   lo      (skip) is the loopback interface
+%%   en0     (keep) is your hardware interfaces (usually Ethernet and WiFi)
+%%   p2p0    (skip) is a point to point link (usually VPN)
+%%   stf0    (skip) is a "six to four" interface (IPv6 to IPv4)
+%%   gif01   (skip) is a software interface
+%%   bridge0 (skip) is a software bridge between other interfaces
+%%   utun0   (skip) is used for "Back to My Mac"
+%%   XHC20   (skip) is a USB network interface
+%%   awdl0   (skip) is Apple Wireless Direct Link (Bluetooth) to iOS devices
+%% What are these:
+%%   ap0
+%%   anpi0
+%%.  vmenet0
+%% On Mac, List hw: networksetup -listallhardwareports
+which_local_host_info(_LinkLocal, _Domain, [], []) ->
     {error, no_address};
-which_local_host_info(LinkLocal, Domain, [{"tun" ++ _, _}|IFL]) ->
-    which_local_host_info(LinkLocal, Domain, IFL);
-which_local_host_info(LinkLocal, Domain, [{"docker" ++ _, _}|IFL]) ->
-    which_local_host_info(LinkLocal, Domain, IFL);
-which_local_host_info(LinkLocal, Domain, [{"br-" ++ _, _}|IFL]) ->
-    which_local_host_info(LinkLocal, Domain, IFL);
-which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL]) ->
+which_local_host_info(_LinkLocal, _Domain, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+which_local_host_info(LinkLocal, Domain, [{"tun" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"docker" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"br-" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"ap" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"anpi" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"vmenet" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"utun" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"bridge" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"llw" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"awdl" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"p2p" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"stf" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{"XHCZ" ++ _, _}|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc);
+which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL], Acc) ->
     case if_is_running_and_not_loopback(IFO) of
         true ->
             try which_local_host_info2(LinkLocal, Domain, IFO) of
                 Info ->
-                    {ok, Info#{name => Name}}
+                    which_local_host_info(LinkLocal, Domain, IFL,
+                                          [Info#{name => Name}|Acc])
             catch
                 throw:_:_ ->
-                    which_local_host_info(LinkLocal, Domain, IFL)
+                    which_local_host_info(LinkLocal, Domain, IFL, Acc)
             end;
         false ->
-            which_local_host_info(LinkLocal, Domain, IFL)
+            which_local_host_info(LinkLocal, Domain, IFL, Acc)
     end;
-which_local_host_info(LinkLocal, Domain, [_|IFL]) ->
-    which_local_host_info(LinkLocal, Domain, IFL).
+which_local_host_info(LinkLocal, Domain, [_|IFL], Acc) ->
+    which_local_host_info(LinkLocal, Domain, IFL, Acc).
 
 if_is_running_and_not_loopback(If) ->
     lists:keymember(flags, 1, If) andalso
