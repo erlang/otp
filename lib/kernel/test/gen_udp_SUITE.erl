@@ -2508,7 +2508,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                                      "connect to *this* client"),
                                   ok = gen_udp:connect(Sock, CIP1, CPort1),
                                   ?P("[server] send reply"),
-                                  ok = gen_udp:send(Sock, CIP1, CPort1, "hopp"),
+                                  ok = gen_udp:send(Sock, "hopp"),
                                   {CIP1, CPort1}
                           after 5000 ->
                                   ?P("[server] receive (1) timeout:"
@@ -2525,7 +2525,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                             when (CIP2 =:= CIP) andalso (CPort2 =:= CPort) ->
                               ?P("[server] received expected message 2 - "
                                  "send reply"),
-                              ok = gen_udp:send(Sock, CIP2, CPort2, "hopp")
+                              ok = gen_udp:send(Sock, "hopp")
                       after 5000 ->
                               ?P("[server] receive (2) timeout:"
                                  "~n      ~p", [mq()]),
@@ -2541,7 +2541,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                             when (CIP3 =:= CIP) andalso (CPort3 =:= CPort) ->
                               ?P("[server] received expected message 3 - "
                                  "send reply"),
-                              ok = gen_udp:send(Sock, CIP3, CPort3, "hopp")
+                              ok = gen_udp:send(Sock, "hopp")
                       after 5000 ->
                               ?P("[server] receive (3) timeout:"
                                  "~n      ~p", [mq()]),
