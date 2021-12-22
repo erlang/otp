@@ -252,7 +252,7 @@
 
   <section>
     <title>Sockets Tab</title>
-    <p>Tab <em>Sockets</em> is devided into two parts.
+    <p>Tab <em>Sockets</em> is divided into two parts.
     The first part contains general
     <seeerl marker="kernel:socket"><c>socket</c></seeerl>
     information and the second part
@@ -314,7 +314,7 @@
     <title>Table Viewer Tab</title>
     <p>Tab <em>Table Viewer</em> lists tables. By default, ETS tables
     are displayed whereas unreadable private ETS tables and tables created by OTP
-    applications are not diplayed. Use menu <em>View</em> to view "system"
+    applications are not displayed. Use menu <em>View</em> to view "system"
     ETS tables, unreadable ETS tables, or Mnesia tables.
     </p>
     <p>Double-click to view the table content, or right-click and
@@ -360,7 +360,7 @@
       the <em>Ports</em> tab.  A special <em>new</em> identifier,
       meaning all processes, or ports, started after trace start, can
       be added with buttons <em>Add 'new' Processes</em> and <em>Add
-      'new' Ports</em>, respecively.
+      'new' Ports</em>, respectively.
     </p>
     <p>
       When adding processes or ports, a window with trace options is

@@ -559,7 +559,7 @@ try_rpc(Node, Mod, Func, Args) ->
 return_to_localnode(Frame, Node) ->
     case node() =/= Node of
 	true ->
-	    create_txt_dialog(Frame, "Error occured on remote node",
+	    create_txt_dialog(Frame, "Error occurred on remote node",
 			      "Error", ?wxICON_ERROR),
 	    disconnect_node(Node);
 	false ->
@@ -836,7 +836,7 @@ is_rb_compatible(Node) ->
 
 is_rb_server_running(Node, LogState) ->
    %% If already started, somebody else may use it.
-   %% We cannot use it too, as far log file would be overriden. Not fair.
+   %% We cannot use it too, as far log file would be overridden. Not fair.
    case rpc:block_call(Node, erlang, whereis, [rb_server]) of
        Pid when is_pid(Pid), (LogState == false) ->
 	   throw("Error: rb_server is already started and maybe used by someone.");

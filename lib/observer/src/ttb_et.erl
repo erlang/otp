@@ -52,7 +52,7 @@ collector(Trace) ->
 %% all events backwards and collect call/return information:
 %%
 %% MFA collected from return_to events is added to call and
-%% return_from events as {caller,MFA} and {return_to,MFA} respecively.
+%% return_from events as {caller,MFA} and {return_to,MFA} respectively.
 %% MFA collected from call events is added to return_to events as
 %% {return_from,MFA}
 %%
