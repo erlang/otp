@@ -66,7 +66,6 @@
          renegotiate_at,
          key_update_at,  %% TLS 1.3
          bytes_sent,     %% TLS 1.3
-         connection_monitor,
          dist_handle,
          log_level
         }).
@@ -202,18 +201,16 @@ dist_tls_socket(Pid) ->
 callback_mode() -> 
     state_functions.
 
-
--define(HANDLE_COMMON,
-        ?FUNCTION_NAME(Type, Msg, StateData) ->
-               handle_common(Type, Msg, StateData)).
 %%--------------------------------------------------------------------
 -spec init(Args :: term()) ->
                   gen_statem:init_result(atom()).
 %%--------------------------------------------------------------------
 init(_) ->
-    %% Note: Should not trap exits so that this process
-    %% will be terminated if tls_connection process is
-    %% killed brutally
+    %% As this process is now correctly supervised
+    %% together with the connection process and the significant
+    %% child mechanism we want to handle supervisor shutdown
+    %% to achive a normal shutdown avoiding SASL reports.
+    process_flag(trap_exit, true),
     {ok, init, #data{}}.
 
 %%--------------------------------------------------------------------
@@ -233,11 +230,9 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel}},
      #data{connection_states = ConnectionStates, static = Static0} = StateData0) ->
-    Monitor = erlang:monitor(process, Pid),
     StateData = 
         StateData0#data{connection_states = ConnectionStates#{current_write => WriteState},
                         static = Static0#static{connection_pid = Pid,
-                                                connection_monitor = Monitor,
                                                 role = Role,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
@@ -249,6 +244,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 bytes_sent = 0,
                                                 log_level = LogLevel}},
     {next_state, handshake, StateData, [{reply, From, ok}]};
+init(info = Type, Msg, StateData) ->
+    handle_common(Type, Msg, StateData);
 init(_, _, _) ->
     %% Just in case anything else sneeks through
     {keep_state_and_data, [postpone]}.
@@ -342,7 +339,8 @@ connection(info, {send, From, Ref, Data}, _StateData) ->
     {keep_state_and_data,
      [{next_event, {call, {self(), undefined}},
        {application_data, erlang:iolist_to_iovec(Data)}}]};
-?HANDLE_COMMON.
+connection(Type, Msg, StateData) ->
+    handle_common(Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec handshake(gen_statem:event_type(),
@@ -374,7 +372,8 @@ handshake(info, tick, _) ->
 handshake(info, {send, _, _, _}, _) ->
     %% Testing only, OTP distribution test suites...
     {keep_state_and_data, [postpone]};
-?HANDLE_COMMON.
+handshake(Type, Msg, StateData) ->
+    handle_common(Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec death_row(gen_statem:event_type(),
@@ -384,6 +383,8 @@ handshake(info, {send, _, _, _}, _) ->
 %%--------------------------------------------------------------------
 death_row(state_timeout, Reason, _State) ->
     {stop, {shutdown, Reason}};
+death_row(info = Type, Msg, State) ->
+    handle_common(Type, Msg, State);
 death_row(_Type, _Msg, _State) ->
     %% Waste all other events
     keep_state_and_data.
@@ -410,26 +411,19 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-handle_set_opts(
-  From, Opts, #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
+handle_set_opts(From, Opts, #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
     {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]}.
 
-handle_common(
-  {call, From}, {set_opts, Opts},
+handle_common({call, From}, {set_opts, Opts},
   #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
     {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]};
-handle_common(
-  info, {'DOWN', Monitor, _, _, Reason},
-  #data{static = #static{connection_monitor = Monitor,
-                         dist_handle = Handle}} = StateData) when Handle =/= undefined ->
-    {next_state, death_row, StateData,
-     [{state_timeout, 5000, Reason}]};
-handle_common(
-  info, {'DOWN', Monitor, _, _, _},
-  #data{static = #static{connection_monitor = Monitor}} = StateData) ->
-    {stop, normal, StateData};
+handle_common(info, {'EXIT', _Sup, shutdown},
+              #data{static = #static{dist_handle = Handle}} = StateData) when Handle =/= undefined ->
+    {next_state, death_row, StateData, [{state_timeout, 5000, shutdown}]};
+handle_common(info, {'EXIT', _Sup, shutdown}, StateData) ->
+    {stop, shutdown, StateData};
 handle_common(info, Msg, #data{static = #static{log_level = Level}}) ->
     ssl_logger:log(info, Level, #{event => "TLS sender recived unexpected info", 
                                   reason => [{message, Msg}]}, ?LOCATION),
