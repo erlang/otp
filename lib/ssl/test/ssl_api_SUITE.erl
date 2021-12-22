@@ -177,7 +177,9 @@
 	 suppress_warn_verify_none/0,
          suppress_warn_verify_none/1,
          check_random_nonce/0,
-         check_random_nonce/1
+         check_random_nonce/1,
+         cipher_listing/0,
+         cipher_listing/1
         ]).
 
 %% Apply export
@@ -303,7 +305,8 @@ gen_api_tests() ->
      getstat,
      warn_verify_none,
      suppress_warn_verify_none,
-     check_random_nonce
+     check_random_nonce,
+     cipher_listing
     ].
 
 handshake_paus_tests() ->
@@ -2592,6 +2595,16 @@ check_random_nonce(Config) when is_list(Config) ->
          ssl_test_lib:close(Server),
          ssl_test_lib:close(Client)
      end || {Server, Client} <- ConnectionPairs].
+%%--------------------------------------------------------------------
+cipher_listing() ->
+    [{doc, "Check that exclusive cipher for possible supported version adds up to all cipher " 
+      "for the max version. Note that TLS-1.3 will contain two distinct sets of ciphers "
+      "one for TLS-1.3 and one pre TLS-1.3"}].
+cipher_listing(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config, tuple),
+    length_exclusive(Version) == length_all(Version).
+
+%%--------------------------------------------------------------------
 
 establish_connection(Id, ServerNode, ServerOpts, ClientNode, ClientOpts, Hostname) ->
     Server =
@@ -3050,3 +3063,53 @@ log(#{msg:={report,_Report}},#{config:=Pid}) ->
     Pid ! warning_generated;
 log(_,_) ->
     ok.
+
+length_exclusive({3,_} = Version) ->
+    length(exclusive_default_up_to_version(Version, [])) +
+        length(exclusive_non_default_up_to_version(Version, []));
+length_exclusive({254,_} = Version) ->
+    length(dtls_exclusive_default_up_to_version(Version, [])) +
+        length(dtls_exclusive_non_default_up_to_version(Version, [])).
+
+length_all(Version) ->
+    length(ssl:cipher_suites(all, Version)).
+
+exclusive_default_up_to_version({3, 1} = Version, Acc) ->
+    ssl:cipher_suites(exclusive, Version) ++ Acc;
+exclusive_default_up_to_version({3, Minor} = Version, Acc) when Minor =< 4 ->
+    Suites = ssl:cipher_suites(exclusive, Version),
+    exclusive_default_up_to_version({3, Minor-1}, Suites ++ Acc).
+
+dtls_exclusive_default_up_to_version({254, 255} = Version, Acc) ->
+    ssl:cipher_suites(exclusive, Version) ++ Acc;
+dtls_exclusive_default_up_to_version({254, 253} = Version, Acc) ->
+    Suites = ssl:cipher_suites(exclusive, Version),
+    dtls_exclusive_default_up_to_version({254, 255}, Suites ++ Acc).
+
+exclusive_non_default_up_to_version({3, 1} = Version, Acc) ->
+    exclusive_non_default_version(Version) ++ Acc;
+exclusive_non_default_up_to_version({3, 4}, Acc) ->
+    exclusive_non_default_up_to_version({3, 3}, Acc);
+exclusive_non_default_up_to_version({3, Minor} = Version, Acc) when Minor =< 3 ->
+    Suites = exclusive_non_default_version(Version),
+    exclusive_non_default_up_to_version({3, Minor-1}, Suites ++ Acc).
+
+dtls_exclusive_non_default_up_to_version({254, 255} = Version, Acc) ->
+    dtls_exclusive_non_default_version(Version) ++ Acc;
+dtls_exclusive_non_default_up_to_version({254, 253} = Version, Acc) ->
+    Suites = dtls_exclusive_non_default_version(Version),
+    dtls_exclusive_non_default_up_to_version({254, 255}, Suites ++ Acc).
+
+exclusive_non_default_version({_, Minor}) ->
+    tls_v1:psk_exclusive(Minor) ++
+        tls_v1:srp_exclusive(Minor) ++
+        tls_v1:rsa_exclusive(Minor) ++
+        tls_v1:des_exclusive(Minor) ++
+        tls_v1:rc4_exclusive(Minor).
+
+dtls_exclusive_non_default_version(DTLSVersion) ->        
+    {_,Minor} = ssl:tls_version(DTLSVersion),
+    tls_v1:psk_exclusive(Minor) ++
+        tls_v1:srp_exclusive(Minor) ++
+        tls_v1:rsa_exclusive(Minor) ++ 
+        tls_v1:des_exclusive(Minor).
