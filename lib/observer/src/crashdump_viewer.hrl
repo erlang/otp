@@ -42,7 +42,7 @@
 	}).
 
 -record(proc,
-	%% Initial data according to the follwoing:
+	%% Initial data according to the following:
 	%% 
 	%% msg_q_len, reds, memory and stack_heap are integers because it must
 	%% be possible to sort on them. All other fields are strings

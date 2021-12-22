@@ -187,7 +187,7 @@ start_stop(Config) when is_list(Config) ->
     ok.
 
 recv_downs([]) ->
-    ct:log("'DOWN' received from all registered proceses~n", []),
+    ct:log("'DOWN' received from all registered processes~n", []),
     ok;
 recv_downs(Regs) ->
     receive

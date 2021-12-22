@@ -38,7 +38,7 @@ help() ->
       "Options are:~n"
       "  node        atom       Required   The erlang node to measure ~n"
       "  port        integer    The used port, NOTE: due to a bug this program~n"
-      "                         will hang if the port is not avaiable~n"
+      "                         will hang if the port is not available~n"
       "  accumulate  boolean    If true execution time is accumulated ~n"
       "  lines       integer    Number of displayed processes~n"
       "  interval    integer    Display update interval in secs~n"
