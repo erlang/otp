@@ -81,8 +81,27 @@ run_asan=no
 run_rr=no
 skip_erlexec=no
 
+prog="$0"
+progdir="`dirname ${prog}`"
+dyn_erl_path="${progdir}/%DYN_ERL_PATH%"
+if [ -f "$dyn_erl_path" ]
+then
+    dyn_rootdir=`${dyn_erl_path} --realpath`
+    dyn_rootdir=`dirname ${dyn_rootdir}`
+    dyn_rootdir=`dirname ${dyn_rootdir}`
+else
+    dyn_rootdir=""
+fi
+
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
+
+if [ "$dyn_rootdir" != "$ROOTDIR" ] && [ "$dyn_rootdir" != "" ]
+then
+    # It is likely that the files have been copied or moved
+    ROOTDIR="$dyn_rootdir"
+fi
+
 BINDIR="$ROOTDIR/bin/`$ROOTDIR/make/autoconf/config.guess`"
 TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"

@@ -313,7 +313,7 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 	    {NewBins, NewVsns} = 
 		lists:foldl(fun(Mod, {Bins, Vsns}) ->
 				    File = lists:concat([Mod, Ext]),
-				    FName = filename:join([LibDir, "ebin", File]),
+				    FName = root_dir_relative_path(filename:join([LibDir, "ebin", File])),
 				    case erl_prim_loader:get_file(FName) of
 					{ok, Bin, FName2} ->
 					    NVsns = add_vsns(Mod, Bin, Vsns),
@@ -340,14 +340,15 @@ eval(point_of_no_return, EvalState) ->
 		   EvalState#eval_state.libdirs
 	   end,
     lists:foreach(fun({Lib, _LibVsn, LibDir}) ->
-			  Ebin = filename:join(LibDir,"ebin"),
+			  Ebin = root_dir_relative_path(filename:join(LibDir,"ebin")),
 			  code:replace_path(Lib, Ebin)
 		  end,
 		  Libs),
     EvalState;
 eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
     Bins = EvalState#eval_state.bins,
-    {value, {_Mod, Bin, File}} = lists:keysearch(Mod, 1, Bins),
+    {value, {_Mod, Bin, File1}} = lists:keysearch(Mod, 1, Bins),
+    File = root_dir_relative_path(File1),
     % load_binary kills all procs running old code
     % if soft_purge, we know that there are no such procs now
     {module,_} = code:load_binary(Mod, File, Bin),
@@ -804,3 +805,12 @@ get_vsn(Bin) ->
 		    Vsn
 	    end
     end.
+
+root_dir_relative_path(Pathname) ->
+    case filename:pathtype(Pathname) of
+        relative ->
+            filename:join(code:root_dir(), Pathname);
+        _ ->
+            Pathname
+    end.
+

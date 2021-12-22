@@ -20,6 +20,8 @@
 -module(release_handler_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -compile([export_all, nowarn_export_all]).
 -export([scheduler_wall_time/0, garbage_collect/0]). %% rpc'ed
@@ -59,17 +61,16 @@ win32_cases() ->
 
 %% Cases that can be run on all platforms
 cases() ->
-    [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
-     otp_9395_check_old_code, otp_9395_check_and_purge,
-     otp_9395_update_many_mods, otp_9395_rm_many_mods,
+    [otp_9395_check_old_code,
      instructions, eval_appup, eval_appup_with_restart,
-     supervisor_which_children_timeout,
-     release_handler_which_releases, install_release_syntax_check,
-     upgrade_supervisor, upgrade_supervisor_fail, otp_9864,
-     otp_10463_upgrade_script_regexp, no_dot_erlang, unicode_upgrade].
+     install_release_syntax_check,
+     otp_10463_upgrade_script_regexp, no_dot_erlang, move_system,
+     {group, absolute}, {group, relative}].
 
 groups() ->
-    [{release,[],
+    [{absolute,[],root_dir_cases()},
+     {relative,[],root_dir_cases()},
+     {release,[],
       [
        {group,release_single},
        {group,release_gg}
@@ -85,6 +86,22 @@ groups() ->
       [
        upgrade_gg
       ]}].
+
+%% Testcases that are to be run with and without an absolute root dir
+root_dir_cases() ->
+    [supervisor_which_children_timeout,
+     release_handler_which_releases,
+     otp_2760,
+     otp_5761,
+     otp_9402,
+     otp_9417,
+     otp_9395_check_and_purge,
+     otp_9395_update_many_mods,
+     otp_9395_rm_many_mods,
+     otp_9864,
+     upgrade_supervisor,
+     upgrade_supervisor_fail,
+     unicode_upgrade].
 
 %% {group,release}
 %% Top group for all cases using run_erl
@@ -160,8 +177,10 @@ init_per_group(release_gg, Config0) ->
       Snames),
 
     test_server:timetrap_cancel(Dog),
-    [{snames,Snames}|Config].
-
+    [{snames,Snames}|Config];
+init_per_group(Group, Config) when Group =:= absolute;
+                                   Group =:= relative ->
+    [{root_dir, Group}|Config].
 
 end_per_group(release, Config) ->
     Dog = test_server:timetrap(?default_timeout),
@@ -242,6 +261,252 @@ gg_node_snames(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% TEST CASES
+
+%% Test that a release can be location independent (i.e., if all
+%% paths related to the release are relative to the ROOTDIR of the
+%% release, then one can move the release to a different directory and
+%% it should still work).
+move_system(Conf) when is_list(Conf) ->
+
+    DataDir = ?config(data_dir, Conf),
+    TestRootDir = filename:join(priv_dir(Conf), ?FUNCTION_NAME),
+    ErtsBinDir = filename:join("erts-" ++ find_vsn_app(erts), "bin"),
+
+    %% Remove old test data
+    file:del_dir_r(filename:join(TestRootDir,"system")),
+    file:del_dir_r(filename:join(TestRootDir,"system_moved")),
+    file:del_dir_r(filename:join(TestRootDir,"system_moved_again")),
+
+    %% Create TAR file for release A
+    ReleaseATarFile = create_release_package(DataDir, "hello_server", "A"),
+    SystemPath = filename:join(TestRootDir, "system"),
+    ok = erl_tar:extract(ReleaseATarFile, [{cwd, SystemPath}, compressed]),
+    RelDir = filename:join(SystemPath, "releases"),
+    SystemRelFile = filename:join(RelDir, "hello_server-A.rel"),
+
+    %% Create a location independent RELEASES file. Library paths in the releases
+    %% file are assumed to be relative to the RootDir.
+    ok = release_handler:create_RELEASES(RelDir, SystemRelFile, []),
+
+    %% Create the bin directory with links (or copies on windows) to the erts directory
+    file:make_dir(filename:join(SystemPath,"bin")),
+    case os:type() of
+        {win32, _} ->
+            {ok,_} = file:copy(
+                       filelib:wildcard(filename:join([SystemPath,ErtsBinDir,"erl.exe"])),
+                       filename:join([SystemPath,"bin","erl.exe"]));
+        _ ->
+            ok = file:make_symlink(
+                   filename:join(["..",ErtsBinDir,"erl"]),
+                   filename:join([SystemPath,"bin","erl"]))
+    end,
+
+    %% Test that the location independent system can start and run
+    {ok, Peer, Node} = start_remote_node(SystemPath, "A"),
+    hello = erpc:call(Node, app_callback_module, get_response, []),
+    peer:stop(Peer),
+
+    %% Should still work after copying the system and corrupting the source
+    NewSystemPath = filename:join(TestRootDir, "system_moved"),
+    copy_r(SystemPath, NewSystemPath),
+    [file:del_dir_r(F) || F <- filelib:wildcard(filename:join([SystemPath,"lib","stdlib*"]))],
+    file:del_dir_r(filename:join(SystemPath,"releases")),
+    {ok, MovedPeer, MovedNode} = start_remote_node(NewSystemPath, "A"),
+    hello = erpc:call(MovedNode, app_callback_module, get_response, []),
+    peer:stop(MovedPeer),
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Let us now try if a system upgrade also works with a location independent system %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ReleaseBTarFile = create_release_package(DataDir, "hello_server_new", "B"),
+
+    BPackDest = filename:join([NewSystemPath, "releases", filename:basename(ReleaseBTarFile)]),
+    {ok, _ } = file:copy(ReleaseBTarFile, BPackDest),
+    BTarFileName = filename:basename(ReleaseBTarFile),
+    NameToUnpack = filename:rootname(BTarFileName, ".tar.gz"),
+    %% Start remote node with release A
+    {ok, PeerA, NodeA} = start_remote_node(NewSystemPath, "A"),
+
+    %% Set current working directory to something irrelevant as the
+    %% current working directory should not affect if a system is
+    %% location independent or not
+    ok = erpc:call(NodeA, file, set_cwd, ["/"]),
+    %% Let us check our app
+    hello = erpc:call(NodeA, app_callback_module, get_response, []),
+    %% Install the next release
+    {ok, "B"} = erpc:call(NodeA, release_handler, unpack_release, [NameToUnpack]),
+    %% We can now create relup file
+    AppUpSrc = filename:join([DataDir, "relocatable_release", "hello_server_new",
+                              "ebin", "hello_server.appup"]),
+    AppUpDest = filename:join([NewSystemPath, "lib", "hello_server-B", "ebin", "hello_server.appup"]),
+    {ok, _} = file:copy(AppUpSrc, AppUpDest),
+    %% Run command to create the relup file
+    ok = systools:make_relup(
+           filename:join([NewSystemPath, "releases", "B", "hello_server-B"]),
+           [filename:join([NewSystemPath, "releases", "A", "hello_server-A"])],
+           [filename:join([NewSystemPath, "releases", "A", "hello_server-A"])],
+           [{outdir,filename:join([NewSystemPath, "releases","B"])},
+            {path,[NewSystemPath ++ "/lib/hello_server-A/ebin/",
+                   NewSystemPath ++ "/lib/hello_server-B/ebin/"]}]
+          ),
+    %% Install the B version
+    {ok, "A", _} = erpc:call(NodeA, release_handler, install_release, ["B"]),
+    %% Check that the releases info looks ok
+    true = lists:any(fun({"hello_server", "B", _, current}) ->
+                             true;
+                        (_) ->
+                             false
+                     end,
+                     erpc:call(NodeA, release_handler, which_releases, [])),
+    %% Make sure the old module gets replaced
+    ok = erpc:call(NodeA, app_callback_module, update, []),
+    %% Check that the upgrade worked
+    hej = erpc:call(NodeA, app_callback_module, get_response, []),
+
+    case os:type() of
+        {win32, _} ->
+            %% We cannot make release permanent on windows due to
+            %% not having permissions to edit services.
+            %% And symlinks to do not on windows, so we don't test
+            %% anything more there.
+            peer:stop(PeerA);
+        _ ->
+            move_system_unix(NodeA, PeerA, TestRootDir, ErtsBinDir, NewSystemPath)
+
+    end.
+
+move_system_unix(NodeA, PeerA, TestRootDir, ErtsBinDir, NewSystemPath) ->
+    %% Make the upgrade permanent
+    ok = erpc:call(NodeA, release_handler, make_permanent, ["B"]),
+    %% Check that it still works
+    hej = erpc:call(NodeA, app_callback_module, get_response, []),
+    true = lists:any(fun({"hello_server", "B", _, permanent}) ->
+                             true;
+                        (_) ->
+                             false
+                     end,
+                     erpc:call(NodeA, release_handler, which_releases, [])),
+    ok = peer:stop(PeerA),
+
+    %% We will now move the install and check that everything still seems to be working fine
+    NewSystemPath2 = filename:join(TestRootDir, "system_moved_again"),
+    ok = file:rename(NewSystemPath, NewSystemPath2),
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Create a symlink to moved system and test that if we set the path to
+    %% contain the symlink it will work.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ok = file:make_symlink(
+           filename:join([NewSystemPath2, ErtsBinDir, "erl"]),
+           filename:join(TestRootDir, "erl")),
+
+    Name = peer:random_name(),
+    LinkNode = list_to_atom(Name++"@"++lists:last(string:split(atom_to_list(node()),"@"))),
+
+    %% We cannot use ?CT_PEER here because it uses spawn_executable and that
+    %% does not search the PATH for which program to run.
+    Port = open_port(
+             {spawn,"erl -sname " ++ Name ++ " -boot " ++
+                  filename:join([NewSystemPath2, "releases", "B", "start"])},
+             [{env,[{"PATH",TestRootDir ++ ":" ++ os:getenv("PATH")}]}]),
+
+    %% Wait for node to start
+    receive _ -> ok end,
+
+    hej = erpc:call(LinkNode, app_callback_module, get_response, []),
+
+    true = catch port_close(Port),
+    ct:log("~p",[(fun F() -> receive M -> [M | F()] after 0 -> [] end end)()]),
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Test that we can do a downgrade of the moved system
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    {ok, PeerB, NodeB} = start_remote_node(NewSystemPath2, "B"),
+
+    %% Change current working directory to something irrelevant
+    ok = erpc:call(NodeB, file, set_cwd, ["/"]),
+    {ok, "/"} = erpc:call(NodeB, file, get_cwd, []),
+    %% Check that we are using version B
+    hej = erpc:call(NodeB, app_callback_module, get_response, []),
+    %% Downgrade to version A
+    {ok, "A", _} = erpc:call(NodeB, release_handler, install_release, ["A"]),
+    true = lists:any(fun({"hello_server", "A", _, current}) ->
+                             true;
+                        (_) ->
+                             false
+                     end,
+                     erpc:call(NodeB, release_handler, which_releases, [])),
+    %% Make sure that the module is reloaded
+    ok = erpc:call(NodeB, app_callback_module, update, []),
+    %% Make sure that we are on version A
+    hello = erpc:call(NodeB, app_callback_module, get_response, []),
+    %% Make the downgrade permanent
+    ok = erpc:call(NodeB, release_handler, make_permanent, ["A"]),
+    %% Test that remove release works
+    ok = erpc:call(NodeB, release_handler, remove_release, ["B"]),
+    %% B should not exist anymore
+    false = lists:any(fun({"hello_server", "B", _, _}) ->
+                              true;
+                         (_) ->
+                              false
+                      end,
+                      erpc:call(NodeB, release_handler, which_releases, [])),
+    ok = erpc:call(NodeB, app_callback_module, update, []),
+    %% We should still get hello
+    hello = erpc:call(NodeB, app_callback_module, get_response, []),
+    ok = peer:stop(PeerB),
+
+    ok.
+
+start_remote_node(SystemPath, RelVsn) ->
+    SystemErlPath = filename:join([SystemPath, "bin", "erl"]),
+    ?CT_PEER(#{ exec => SystemErlPath,
+                args => ["-boot",filename:join([SystemPath,"releases", RelVsn, "start"])]}).
+
+create_release_package(DataDir, SourceDir, RelVsn) ->
+    ReleaseSource = filename:join(DataDir, "relocatable_release"),
+    AppSrc = filename:join(ReleaseSource, SourceDir),
+    OldCWD = file:get_cwd(),
+    file:set_cwd(AppSrc),
+    os:cmd("erl -make"),
+    file:set_cwd(OldCWD),
+    RelFileScr = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".rel.src"),
+    RelFileDst = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".rel"),
+    {ok, RelFileTxt1} = file:read_file(RelFileScr),
+    RelFileTxt = fix_rel_file_vsns(["erts", "kernel", "stdlib", "sasl"],
+                                   RelFileTxt1),
+    ok = file:write_file(RelFileDst, RelFileTxt),
+    AppPath = filename:join([ReleaseSource, SourceDir, "ebin"]),
+    RelFileWithoutEnding = filename:join(ReleaseSource, "hello_server-" ++ RelVsn),
+    ok = systools:make_script(RelFileWithoutEnding, [local, {path, [AppPath]}]),
+    ok = systools:make_tar(RelFileWithoutEnding, [{erts, code:root_dir()}, {path, [AppPath]}]),
+    SystemPath = filename:join(ReleaseSource, "system"),
+    file:make_dir(SystemPath),
+    InitialTarPath = filename:join(ReleaseSource, "hello_server-"++ RelVsn ++".tar.gz"),
+    InitialTarPath.
+
+fix_rel_file_vsns(Apps, Txt) ->
+    Res =
+        lists:foldl(
+          fun(App, TxtAcc) ->
+                  string:replace(TxtAcc,
+                                 "%" ++  App ++ "_VSN" ++ "%" ,
+                                 find_vsn_app(erlang:list_to_atom(App)))
+          end,
+          Txt,
+          Apps),
+    erlang:iolist_to_binary(lists:flatten(Res)).
+
+find_vsn_app(erts) ->
+    Str = erlang:system_info(system_version),
+    {match, [{Start, Len} | _]} = re:run(Str, "erts-(\\d\\.?)+"),
+    ErtsStr = string:substr(Str, Start+1, Len),
+    [_, Vsn] = string:split(ErtsStr, "-"),
+    Vsn;
+find_vsn_app(App) ->
+    Apps = application:which_applications(),
+    [Vsn] = [Vsn || {AppX, _, Vsn} <- Apps, AppX =:= App],
+    Vsn.
 
 
 %% Executed instead of release group when no run_erl program exists
@@ -617,7 +882,7 @@ supervisor_which_children_timeout(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,release_handler_timeouts]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{dummy,"0.1",LibDir}]),
 
     {ok, Node} = t_start_node(supervisor_which_children_timeout, Rel1, []),
     Proc = rpc:call(Node, erlang, whereis, [dummy_sup_2]),
@@ -656,7 +921,7 @@ release_handler_which_releases(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,release_handler_timeouts]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{dummy,"0.1",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{dummy,"0.1",LibDir}]),
 
     {ok, Node} = t_start_node(release_handler_which_releases, Rel1, []),
     Releases0 = rpc:call(Node, release_handler, which_releases, []),
@@ -712,7 +977,7 @@ otp_2760(Conf) ->
     DataDir = ?config(data_dir,Conf),
     LibDir = filename:join([DataDir,app1_app2,lib1]),
 
-    Rel1 = create_and_install_fake_first_release(Dir,[{app1,"1.0",LibDir}]),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,[{app1,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,"after",[],{[Rel1],[Rel1],[LibDir]}),
     Rel2Dir = filename:dirname(Rel2),
 
@@ -750,7 +1015,7 @@ otp_5761(Conf) when is_list(Conf) ->
     LibDir2 = filename:join(RelDir, "lib2"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{app1,"1.0",LibDir1},
 						  {app2,"1.0",LibDir1}]),
     Rel2 = create_fake_upgrade_release(Dir,
@@ -829,7 +1094,7 @@ otp_9402(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{a,"1.1",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -896,7 +1161,7 @@ otp_9417(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{b,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1009,7 +1274,7 @@ otp_9395_check_and_purge(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{b,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1075,7 +1340,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{many_mods,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1190,7 +1455,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     LibDir = filename:join(?config(data_dir, Conf), "lib"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{many_mods,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       "2",
@@ -1302,7 +1567,7 @@ do_otp_9864(Conf) ->
     LibDir2 = filename:join(Dir, "lib2"),
 
     %% Create the releases
-    Rel1 = create_and_install_fake_first_release(Dir,
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,
 						 [{app1,"1.0",LibDir1},
 						  {app2,"1.0",LibDir1}]),
     Rel2 = create_fake_upgrade_release(Dir,
@@ -1358,7 +1623,7 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     %% Create the releases
     Lib1 = [{a,"1.0",LibDir}],
     Lib2 = [{a,"9.0",LibDir}],
-    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,Lib1),
     Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
@@ -1415,7 +1680,7 @@ upgrade_supervisor_fail(Conf) when is_list(Conf) ->
     %% Create the releases
     Lib1 = [{a,"1.0",LibDir}],
     Lib2 = [{a,"9.1",LibDir}],
-    Rel1 = create_and_install_fake_first_release(Dir,Lib1),
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,Lib1),
     Rel2 = create_fake_upgrade_release(Dir,"2",Lib2,{[Rel1],[Rel1],[LibDir]}),
     Rel1Dir = filename:dirname(Rel1),
     Rel2Dir = filename:dirname(Rel2),
@@ -1925,7 +2190,7 @@ unicode_upgrade(Conf) ->
 
     %% Create the releases
     RelName = "unicode_rel_αβ",
-    Rel1 = create_and_install_fake_first_release(Dir,{RelName,"1"},
+    Rel1 = create_and_install_fake_first_release(Conf,Dir,{RelName,"1"},
 						 [{u,"1.0",LibDir}]),
     Rel2 = create_fake_upgrade_release(Dir,
 				       {RelName,"2"},
@@ -2842,9 +3107,9 @@ cover_fun(Node,Func) ->
 %% current running OTP release. It includes kernel, stdlib and sasl,
 %% and possibly other applications if they are listed in AppDirs =
 %% [{App,Vsn,LibDir}]
-create_and_install_fake_first_release(Dir,AppDirs) ->
-    create_and_install_fake_first_release(Dir,init:script_id(),AppDirs).
-create_and_install_fake_first_release(Dir,{RelName,RelVsn},AppDirs) ->
+create_and_install_fake_first_release(Conf,Dir,AppDirs) ->
+    create_and_install_fake_first_release(Conf,Dir,init:script_id(),AppDirs).
+create_and_install_fake_first_release(Conf,Dir,{RelName,RelVsn},AppDirs) ->
     {Rel,_} = create_fake_release(Dir,RelName,RelVsn,AppDirs),
     ReleasesDir = filename:join(Dir, "releases"),
     RelDir = filename:dirname(Rel),
@@ -2857,13 +3122,21 @@ create_and_install_fake_first_release(Dir,{RelName,RelVsn},AppDirs) ->
     ok = copy_file(Rel++".boot",filename:join(RelVsnDir, "start.boot")),
     ok = copy_file(filename:join(RelDir,"sys.config"),RelVsnDir),
 
-    ok = release_handler:create_RELEASES(code:root_dir(),
-					 ReleasesDir,
-					 Rel++".rel",
-					 AppDirs),
-
+    case proplists:get_value(root_dir, Conf, relative) of
+        relative ->
+            ok = release_handler:create_RELEASES(
+                   ReleasesDir,
+                   Rel++".rel",
+                   AppDirs);
+        absolute ->
+            ok = release_handler:create_RELEASES(
+                   code:root_dir(),
+                   ReleasesDir,
+                   Rel++".rel",
+                   AppDirs)
+    end,
     Rel.
-    
+
 %% This function create a new release, including a relup file. It can
 %% be upgraded to from the release created by
 %% create_and_install_fake_first_release/2. Unpack first by calls to
@@ -2958,3 +3231,20 @@ vsn(App,current) ->
 
 system_lib(PrivDir) ->
     filename:join(PrivDir,"system_lib").
+
+copy_r(Src, Dst) ->
+    {ok,S} = file:read_file_info(Src),
+    case S#file_info.type of
+        directory ->
+            {ok,Names} = file:list_dir(Src),
+            ok = filelib:ensure_dir(Dst),
+            ok = file:make_dir(Dst),
+            lists:foreach(
+              fun(Name) ->
+                      copy_r(filename:join(Src, Name),
+                             filename:join(Dst, Name))
+              end, Names);
+        _ ->
+            {ok,_NumBytesCopied} = file:copy(Src, Dst),
+            ok = file:write_file_info(Dst, S)
+    end.

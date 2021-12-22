@@ -202,6 +202,7 @@
     </func>
 
     <func>
+      <name since="OTP @OTP-17730@">create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <name since="">create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <fsummary>Creates an initial <c>RELEASES</c> file.</fsummary>
       <type>
@@ -215,12 +216,19 @@
         <p>Creates an initial <c>RELEASES</c> file to be used by the
           release handler. This file must exist to install new
           releases.</p>
-        <p><c>Root</c> is the root of the installation (<c>$ROOT</c>) as
-          described earlier. <c>RelDir</c> is the directory where
-          the <c>RELEASES</c> file is to be created (normally
-          <c>$ROOT/releases</c>). <c>RelFile</c> is the name
-          of the <c>.rel</c> file that describes the initial release,
-          including the extension <c>.rel</c>.</p>
+        <p><c>Root</c> is the root of the installation (<c>$ROOT</c>)
+        as described earlier. <c>RelDir</c> is the directory where the
+        <c>RELEASES</c> file is to be created (normally
+        <c>$ROOT/releases</c>). <c>RelFile</c> is the name of the
+        <c>.rel</c> file that describes the initial release, including
+        the extension <c>.rel</c>. If <c>Root</c> is not given,
+        the <c>RELEASES</c> file will be location independent (i.e, it
+        will not contain absolute paths unless there are absolute
+        paths in <c>AppDirs</c>). A <c>RELEASES</c> file should be
+        made location independent if the installation's <c>$ROOT</c>
+        is unknown. The <c>release_handler</c> module will interpret
+        relative paths in a running system's <c>RELEASES</c> file as
+        being relative to <c>$ROOT</c>.</p>
         <p><c>AppDirs</c> can be used to specify from where the modules
           for the specified applications are to be loaded. <c>App</c> is
           the name of an application, <c>Vsn</c> is the version, and

@@ -517,6 +517,8 @@ erl.src: $(UXETC)/erl.src.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
             -e 's;%VSN%;$(VSN);' \
+            -e 's;%DYN_ERL_PATH%;../erts-$(VSN)/bin/dyn_erl;' \
+            -e 's;%DYN_ROOTDIR_BASE_EXT%;;' \
                   $(UXETC)/erl.src.src > erl.src
 
 # ----------------------------------------------------
