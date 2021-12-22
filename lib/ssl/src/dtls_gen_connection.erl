@@ -66,7 +66,7 @@
 %% Alert and close handling
 -export([send_alert/2,
          send_alert_in_connection/2,
-         close/5,
+         close/4,
          protocol_name/0]).
 
 
@@ -464,10 +464,10 @@ send_alert_in_connection(Alert, State) ->
     _ = send_alert(Alert, State),
     ok.
 
-close(downgrade, _,_,_,_) ->
+close(downgrade, _,_,_) ->
     ok;
 %% Other
-close(_, Socket, Transport, _,_) ->
+close(_, Socket, Transport, _) ->
     dtls_socket:close(Transport,Socket).
 
 protocol_name() ->

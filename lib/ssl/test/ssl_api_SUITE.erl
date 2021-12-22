@@ -58,6 +58,8 @@
          keylog_connection_info/1,
          versions/0,
          versions/1,
+         versions_option_based_on_sni/0,
+         versions_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
@@ -202,6 +204,7 @@
          ssl_getstat/1,
 	 log/2,
          get_connection_information/3,
+         protocol_version_check/2,
          %%TODO Keep?
          run_error_server/1,
          run_error_server_close/1,
@@ -251,7 +254,8 @@ groups() ->
 since_1_2() ->
     [
      conf_signature_algs,
-     no_common_signature_algs
+     no_common_signature_algs,
+     versions_option_based_on_sni
     ].
 
 pre_1_3() ->
@@ -990,6 +994,44 @@ versions() ->
 versions(Config) when is_list(Config) -> 
     [_|_] = Versions = ssl:versions(),
     ct:log("~p~n", [Versions]).
+
+%%--------------------------------------------------------------------
+
+versions_option_based_on_sni() ->
+    [{doc,"Test that SNI versions option is selected over defalt versions"}].
+
+versions_option_based_on_sni(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+    {Version, Versions} = test_versions_for_option_based_on_sni(TestVersion),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{versions, [Version]} | ServerOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, protocol_version_check, [Version]}},
+					{options, [{sni_fun, Fun},
+                                                   {versions, Versions} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, no_result, []}},
+					{options, [{server_name_indication, SNI}, {versions, Versions} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 %% Test case adapted from gen_tcp_misc_SUITE.
@@ -3057,6 +3099,19 @@ ssl_getstat(Socket) ->
             nok;
         _  ->
             ok
+    end.
+
+test_versions_for_option_based_on_sni('tlsv1.3') ->
+    {'tlsv1.2', ['tlsv1.3', 'tlsv1.2']};
+test_versions_for_option_based_on_sni('tlsv1.2') ->
+    {'tlsv1.1', ['tlsv1.2', 'tlsv1.1']}.
+
+protocol_version_check(Socket, Version) ->
+    case ssl:connection_information(Socket, [protocol]) of
+        {ok, [{protocol, Version}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Version, got, Other})
     end.
 
 log(#{msg:={report,_Report}},#{config:=Pid}) ->

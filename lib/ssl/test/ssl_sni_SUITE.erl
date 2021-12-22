@@ -106,18 +106,16 @@ init_per_suite(Config0) ->
     try crypto:start() of
         ok ->
             ssl_test_lib:clean_start(),
-            Config = ssl_test_lib:make_rsa_cert(Config0),
-            RsaOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-            [{sni_server_opts, [{sni_hosts, [
-                                              {"a.server", [
-                                                            {certfile, proplists:get_value(certfile, RsaOpts)},
-                                                            {keyfile,  proplists:get_value(keyfile, RsaOpts)}
-                                                           ]},
-                                              {"b.server", [
-                                                            {certfile, proplists:get_value(certfile, RsaOpts)},
-                                                            {keyfile, proplists:get_value(keyfile, RsaOpts)}
-                                                           ]}
-                                             ]}]} | Config] 
+            Hostname = net_adm:localhost(),
+            {#{server_config := ServerConf,
+               client_config := ClientConf},
+             #{server_config := LServerConf,
+               client_config := LClientConf}} = ssl_test_lib:make_rsa_sni_configs(),
+            %% RSA certs files needed by *dot cases
+            ssl_test_lib:make_rsa_cert([{client_opts, ClientConf},
+                                        {client_local_opts, LClientConf},
+                                        {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]}
+                                       | Config0])
     catch _:_  ->
             {skip, "Crypto did not start"}
     end.
@@ -150,22 +148,52 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 no_sni_header(Config) ->
-    run_handshake(Config, undefined, undefined, "server Peer cert").
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    ServerOptions = ssl_test_lib:ssl_options(proplists:get_value(sni_server_opts, Config), Config),
+    ClientOptions = ssl_test_lib:ssl_options([{server_name_indication, disable} |
+                                              proplists:get_value(client_local_opts, Config)], Config),
+    basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, undefined).
 
 no_sni_header_fun(Config) ->
-    run_sni_fun_handshake(Config, undefined, undefined, "server Peer cert").
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, []) end,
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, disable} |
+                                               proplists:get_value(client_local_opts, Config)], Config),
+    basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, undefined).
 
 sni_match(Config) ->
-    run_handshake(Config, "a.server", "a.server",  "server Peer cert").
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    ServerOptions = ssl_test_lib:ssl_options(proplists:get_value(sni_server_opts, Config), Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, HostName).
 
 sni_match_fun(Config) ->
-    run_sni_fun_handshake(Config, "a.server", "a.server", "server Peer cert").
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, HostName).
 
 sni_no_match(Config) ->
-    run_handshake(Config, "c.server", undefined, "server Peer cert").
+   {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [_ | DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName).
 
 sni_no_match_fun(Config) ->
-    run_sni_fun_handshake(Config, "c.server", undefined, "server Peer cert").
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, _}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_local_opts, Config)], Config),
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName).
 
 dns_name(Config) ->
     Hostname = "OTP.test.server",
@@ -415,57 +443,28 @@ recv_and_certificate(SSLSocket) ->
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
-run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, "
-	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
-	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
-    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
-    ServerOptions =  ssl_test_lib:ssl_options(server_rsa_opts, Config) ++ [{sni_fun, SNIFun}],
-    ClientOptions = 
-    case SNIHostname of
-        undefined ->
-            ssl_test_lib:ssl_options(client_rsa_opts, Config);
-        _ ->
-            [{server_name_indication, SNIHostname}] ++ ssl_test_lib:ssl_options(client_rsa_opts, Config)
-    end,
-    ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, Expected) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
                                         {options, ServerOptions}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                        {host, Hostname}, {from, self()},
+                                        {host, HostName}, {from, self()},
                                         {mfa, {?MODULE, recv_and_certificate, []}},
-                                        {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+                                        {options, [{verify, verify_peer} | ClientOptions]}]),
+    ssl_test_lib:check_result(Server, Expected, Client,  "server Peer cert"),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, "
-	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
-	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOptions = 
-        case SNIHostname of
-            undefined ->
-                ssl_test_lib:ssl_options(client_rsa_opts, Config);
-            _ ->
-                [{server_name_indication, SNIHostname}] ++ ssl_test_lib:ssl_options(client_rsa_opts, Config)
-        end,
-    ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
+                                        {from, self()}, {mfa, {ssl_test_lib, no_result, []}},
                                         {options, ServerOptions}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                        {host, Hostname}, {from, self()},
-                                        {mfa, {?MODULE, recv_and_certificate, []}},
-                                        {options, ClientOptions}]),
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname, Client, ExpectedCN),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, HostName}, {from, self()},
+                                              {options, [{verify, verify_peer} | ClientOptions]}]),
+    ssl_test_lib:check_client_alert(Client, handshake_failure),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 

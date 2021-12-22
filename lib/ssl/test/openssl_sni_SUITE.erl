@@ -33,12 +33,12 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([erlang_server_openssl_client_sni_match/1,
-         erlang_server_openssl_client_sni_match_fun/1,
-         erlang_server_openssl_client_sni_no_match/1,
-         erlang_server_openssl_client_sni_no_match_fun/1,
-         erlang_server_openssl_client_sni_no_header/1,
-         erlang_server_openssl_client_sni_no_header_fun/1
+-export([sni_match/1,
+         sni_match_fun/1,
+         sni_no_match/1,
+         sni_no_match_fun/1,
+         sni_no_header/1,
+         sni_no_header_fun/1
         ]).
 
 %% Apply exports
@@ -60,10 +60,9 @@ all() ->
             [{group, 'tlsv1.3'},
              {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
-             {group, 'tlsv1'}
-             %% Seems broken in openssl 
-             %%{group, 'dtlsv1.2'},
-             %%{group, 'dtlsv1'}
+             {group, 'tlsv1'},
+             {group, 'dtlsv1.2'},
+             {group, 'dtlsv1'}
             ];
         false ->
             [{group, 'tlsv1.3'},
@@ -78,10 +77,9 @@ groups() ->
              [{'tlsv1.3', [], sni_tests()},
               {'tlsv1.2', [], sni_tests()},
               {'tlsv1.1', [], sni_tests()},
-              {'tlsv1', [], sni_tests()}
-              %% Seems broken in openssl 
-              %%{'dtlsv1.2', [], sni_tests()},
-              %%{'dtlsv1', [], sni_tests()}
+              {'tlsv1', [], sni_tests()},
+              {'dtlsv1.2', [], sni_tests()},
+              {'dtlsv1', [], sni_tests()}
              ];
         false ->
              [{'tlsv1.3', [], sni_tests()},
@@ -92,44 +90,36 @@ groups() ->
      end.
  
 sni_tests() ->
-    [erlang_server_openssl_client_sni_match,
-     erlang_server_openssl_client_sni_match_fun,
-     erlang_server_openssl_client_sni_no_match,
-     erlang_server_openssl_client_sni_no_match_fun,
-     erlang_server_openssl_client_sni_no_header,
-     erlang_server_openssl_client_sni_no_header_fun].
+    [sni_match,
+     sni_match_fun,
+     sni_no_match,
+     sni_no_match_fun,
+     sni_no_header,
+     sni_no_header_fun].
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
-        false ->
-            {skip, "Openssl not found"};
-        _ ->
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
             case check_openssl_sni_support(Config0) of
                 {skip, _} = Skip ->
                     Skip;
-                _ ->
-                    ct:pal("Version: ~p", [os:cmd("openssl version")]),
-                    catch crypto:stop(),
-                    try crypto:start() of
-                        ok ->
-                            ssl_test_lib:clean_start(),
-                            Config = ssl_test_lib:make_rsa_cert(Config0),
-                            RsaOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-                            [{sni_server_opts, [{sni_hosts,
-                                  [{"a.server", [
-                                                 {certfile, proplists:get_value(certfile, RsaOpts)},
-                                                 {keyfile,  proplists:get_value(keyfile, RsaOpts)}
-                                                ]},
-                                   {"b.server", [
-                                                 {certfile, proplists:get_value(certfile, RsaOpts)},
-                                                 {keyfile, proplists:get_value(keyfile, RsaOpts)}
-                                                ]}
-                                  ]}]} | Config]
-                    catch _:_  ->
-                            {skip, "Crypto did not start"}
-                    end
+                Config1 ->
+                    %% Needed by version interop test in ssl_test_lib
+                    Config = ssl_test_lib:make_rsa_cert(Config1),
+                    ssl_test_lib:clean_start(),
+                    Hostname = net_adm:localhost(),
+                    {#{server_config := ServerConf,
+                       client_config := ClientConf},
+                     #{server_config := LServerConf,
+                       client_config := LClientConf}} = ssl_test_lib:make_rsa_sni_configs(),
+                    [{client_opts, ClientConf}, {client_local_opts, LClientConf},
+                     {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]} | Config]
             end
+    catch _:_  ->
+            {skip, "Crypto did not start"}
     end.
+
 
 end_per_suite(_Config) ->
     ssl:stop(),
@@ -153,75 +143,65 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-erlang_server_openssl_client_sni_no_header(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test(Config, undefined, undefined, "server Peer cert").
+sni_no_header(Config) when is_list(Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    ServerOptions = ssl_test_lib:ssl_options(proplists:get_value(sni_server_opts, Config), Config),
+    ClientOptions = ssl_test_lib:ssl_options([{server_name_indication, disable} |
+                                              proplists:get_value(client_local_opts, Config)], Config),
+    case proplists:get_value(openssl_disable, Config) of
+        true ->
+            sni_test(ServerNode, ServerOptions, ClientOptions, Config);
+        false ->
+            {skip, no_openssl_sni_disable_flag}
+    end.
 
-erlang_server_openssl_client_sni_no_header_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, undefined, undefined, "server Peer cert").
+sni_no_header_fun(Config) when is_list(Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, []) end,
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, disable} |
+                                               proplists:get_value(client_local_opts, Config)], Config),
+    case proplists:get_value(openssl_disable, Config) of
+        true ->
+            sni_test(ServerNode, ServerOptions, ClientOptions, Config);
+        false ->
+            {skip, no_openssl_sni_disable_flag}
+    end.
 
-erlang_server_openssl_client_sni_match(Config) when is_list(Config) ->  
-    erlang_server_openssl_client_sni_test(Config, "a.server", "a.server", "server Peer cert").
+sni_match(Config) when is_list(Config) ->
+    {_, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    ServerOptions = ssl_test_lib:ssl_options(proplists:get_value(sni_server_opts, Config), Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    sni_test(ServerNode, ServerOptions, ClientOptions, Config).
 
-erlang_server_openssl_client_sni_match_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, "a.server", "a.server", "server Peer cert").
-
-erlang_server_openssl_client_sni_no_match(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test(Config, "c.server", undefined, "server Peer cert").
-
-erlang_server_openssl_client_sni_no_match_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, "c.server", undefined, "server Peer cert").
-
-
-erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
-           [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_rsa_opts, Config),
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
-                                        {options, ServerOptions}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Exe = "openssl",
-    ClientArgs = case SNIHostname of
-		     undefined ->
-			 openssl_client_args(Version, Hostname,Port);
-		     _ ->
-			 openssl_client_args(Version, Hostname, Port, SNIHostname)
-		 end,       
-    ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs),  
-  
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
-    ssl_test_lib:close_port(ClientPort),
-    ssl_test_lib:close(Server),
-    ok.
-
-
-erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p",
-           [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
+sni_match_fun(Config) when is_list(Config) ->
+    {_, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
-    ServerOptions = proplists:get_value(server_rsa_opts, Config) ++ [{sni_fun, SNIFun}],
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
-                                        {options, ServerOptions}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Exe = "openssl",
-    ClientArgs = case SNIHostname of
-		     undefined ->
-			 openssl_client_args(Version, Hostname,Port);
-		     _ ->
-			 openssl_client_args(Version, Hostname, Port, SNIHostname)
-		 end,       
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    sni_test(ServerNode, ServerOptions, ClientOptions, Config).
 
-    ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs), 
-    
-    ssl_test_lib:check_result(Server, ExpectedSNIHostname),
-    ssl_test_lib:close_port(ClientPort),
-    ssl_test_lib:close(Server).
+sni_no_match(Config) when is_list(Config) ->
+    {_, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [_ | DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
+    sni_test(ServerNode, ServerOptions, ClientOptions, Config).
+
+sni_no_match_fun(Config) when is_list(Config) ->
+    {_, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [{sni_hosts, _}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_local_opts, Config)], Config),
+    sni_test(ServerNode, ServerOptions, ClientOptions, Config).
+
+
 %%--------------------------------------------------------------------
 %% Callback functions  ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -236,25 +216,60 @@ send_and_hostname(SSLSocket) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-openssl_client_args(Version, Hostname, Port) ->
-    ssl_test_lib:maybe_force_ipv4(["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), 
-                                   ssl_test_lib:version_flag(Version)]).
+sni_test(ServerNode, ServerOptions0, ClientOptions, Config) ->
+    %% Test Erlang server SNI handling with OpenSSL client
+    Version = ssl_test_lib:protocol_version(Config),
+    ServerOptions = maybe_add_sigalgs(Version, ServerOptions0),
 
-openssl_client_args(Version, Hostname, Port, ServerName) ->
-    ssl_test_lib:maybe_force_ipv4(["s_client",  "-connect", Hostname ++ ":" ++ 
-                                       integer_to_list(Port), 
-                                   ssl_test_lib:version_flag(Version), "-servername", ServerName]).
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
+                                        {options, ServerOptions}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    SNIHostname = case proplists:get_value(server_name_indication, ClientOptions) of
+                      disable ->
+                          undefined;
+                      Name ->
+                          Name
+                  end,
+
+    Sigalgs = maybe_add_openssl_sigalgs(Version),
+    ClientPort = ssl_test_lib:start_client(openssl, 
+                                           Sigalgs ++ [{port, Port}, 
+                                                       {server_name, SNIHostname} | 
+                                                                ClientOptions], 
+                                           Config),
+  
+    ssl_test_lib:check_result(Server, SNIHostname),
+    ssl_test_lib:close_port(ClientPort),
+    ssl_test_lib:close(Server),
+    ok.
+
+maybe_add_sigalgs(Version, ServerOptions) when Version == 'tlsv1.3';
+                                               Version == 'tlsv1.2' ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256]} | ServerOptions];
+maybe_add_sigalgs(_, ServerOptions) ->
+    ServerOptions.
+
+maybe_add_openssl_sigalgs(Version) when Version == 'tlsv1.3';
+                                        Version == 'tlsv1.2' ->
+    [{sigalgs, "rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_rsae_sha256"}];
+maybe_add_openssl_sigalgs(_) ->
+    [].
 
 check_openssl_sni_support(Config) ->
-    HelpText = os:cmd("openssl s_client --help"),
-    case ssl_test_lib:is_sane_oppenssl_client() of
-        true ->
-            case string:str(HelpText, "-servername") of
+    HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client", "--help"]),
+    case string:str(HelpText, "-servername") of
+        0 ->
+            {skip, "Current openssl doesn't support SNI"};
+        _ ->
+            case string:str(HelpText, "-noservername") of
                 0 ->
-                    {skip, "Current openssl doesn't support SNI"};
+                    [{openssl_disable, false} | Config];
                 _ ->
-                    Config
-            end;
-        false ->
-            {skip, "Current openssl doesn't support SNI or extension handling is flawed"}
+                    [{openssl_disable, true} | Config]
+            end
     end.

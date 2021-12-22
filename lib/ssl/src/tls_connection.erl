@@ -222,20 +222,20 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
      State#state{start_or_recv_from = undefined,
                  handshake_env = HsEnv#handshake_env{
                                    hello = Hello}}, [{reply, From, {ok, Extensions}}]};
-hello(internal, #client_hello{client_version = ClientVersion} = Hello, #state{ssl_options = SslOpts0,
-                                                                              connection_env = CEnv} = State0) ->
-    case choose_tls_fsm(SslOpts0, Hello) of
-        tls_1_3_fsm ->
-            %% Continue in TLS 1.3 'start' state
-            {next_state, start, State0, [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
-        tls_1_0_to_1_2_fsm ->
-            try handle_client_hello(Hello, State0) of
-                {ServerHelloExt, Type, State} ->
-                    {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]}
-            catch throw:#alert{} = Alert ->
-                    State = State0#state{connection_env = CEnv#connection_env{negotiated_version = ClientVersion}},
-                    ssl_gen_statem:handle_own_alert(Alert, hello, State)
-            end
+hello(internal, #client_hello{client_version = ClientVersion} = Hello, #state{connection_env = CEnv} = State0) ->
+    try
+        #state{ssl_options = SslOpts} = State1 = tls_dtls_connection:handle_sni_extension(State0, Hello),
+        case choose_tls_fsm(SslOpts, Hello) of
+            tls_1_3_fsm ->
+                %% Continue in TLS 1.3 'start' state
+                {next_state, start, State1, [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
+            tls_1_0_to_1_2_fsm ->
+                {ServerHelloExt, Type, State} = handle_client_hello(Hello, State1),
+                {next_state, hello, State, [{next_event, internal, {common_client_hello, Type, ServerHelloExt}}]}
+        end
+    catch  throw:#alert{} = Alert ->
+            AlertState = State0#state{connection_env = CEnv#connection_env{negotiated_version = ClientVersion}},
+            ssl_gen_statem:handle_own_alert(Alert, hello, AlertState)
     end;
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
@@ -434,7 +434,7 @@ terminate({shutdown, {sender_died, Reason}}, _StateName,
                                           transport_cb = Transport}} 
           = State) ->
     ssl_gen_statem:handle_trusted_certs_db(State),
-    tls_gen_connection:close(Reason, Socket, Transport, undefined, undefined);
+    tls_gen_connection:close(Reason, Socket, Transport, undefined);
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
@@ -449,11 +449,11 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{beast_mitigation := BeastMitigation,
-      erl_dist := IsErlDist,
+    #{erl_dist := IsErlDist,
       %% Use highest supported version for client/server random nonce generation
       versions := [Version|_],
       client_renegotiation := ClientRenegotiation} = SSLOptions,
+    BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
                                                          BeastMitigation),
@@ -495,8 +495,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                             }
       }.
 
-handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State0) ->
-    State = tls_dtls_connection:handle_sni_extension(State0, Hello),
+handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State) ->
     #state{connection_states = ConnectionStates0,
            static_env = #static_env{trackers = Trackers},
            handshake_env = #handshake_env{

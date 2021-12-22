@@ -202,7 +202,7 @@ terminate({shutdown, {sender_died, Reason}}, _StateName,
                                           transport_cb = Transport}}
           = State) ->
     ssl_gen_statem:handle_trusted_certs_db(State),
-    tls_gen_connection:close(Reason, Socket, Transport, undefined, undefined);
+    tls_gen_connection:close(Reason, Socket, Transport, undefined);
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 

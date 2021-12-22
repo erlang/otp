@@ -559,7 +559,7 @@ connection(internal, new_connection, #state{ssl_options=SSLOptions,
                                             connection_states = OldCs} = State) ->
     case maps:get(previous_cs, OldCs, undefined) of
         undefined ->
-            #{beast_mitigation := BeastMitigation} = SSLOptions,
+            BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
             ConnectionStates0 = dtls_record:init_connection_states(server, BeastMitigation),
             ConnectionStates = ConnectionStates0#{previous_cs => OldCs},
             {next_state, hello, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {false, first}},
@@ -627,7 +627,7 @@ format_status(Type, Data) ->
 initial_state(Role, Host, Port, Socket,
               {#{client_renegotiation := ClientRenegotiation} = SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{beast_mitigation := BeastMitigation} = SSLOptions,
+    BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     InternalActiveN = ssl_config:get_internal_active_n(),
