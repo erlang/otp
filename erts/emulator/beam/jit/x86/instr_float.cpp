@@ -157,7 +157,7 @@ void BeamModuleAssembler::emit_i_fnegate(const ArgVal &Src, const ArgVal &Dst) {
     Label next = a.newLabel();
 
     /* xmm0 = 0.0 */
-    a.psubd(x86::xmm0, x86::xmm0);
+    a.pxor(x86::xmm0, x86::xmm0);
     a.movsd(x86::xmm1, getArgRef(Src));
     a.subpd(x86::xmm0, x86::xmm1);
 
