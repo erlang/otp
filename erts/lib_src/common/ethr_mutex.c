@@ -2720,6 +2720,28 @@ ethr_rwmutex_init(ethr_rwmutex *rwmtx)
     return ethr_rwmutex_init_opt(rwmtx, NULL);
 }
 
+size_t
+ethr_rwmutex_size(ethr_rwmutex *rwmtx) {
+#if ETHR_XCHK
+    if (ethr_not_inited__) {
+	ETHR_ASSERT(0);
+	return EACCES;
+    }
+    if (!rwmtx || rwmtx->initialized != ETHR_RWMUTEX_INITIALIZED) {
+	ETHR_ASSERT(0);
+	return EINVAL;
+    }
+#endif
+    switch (rwmtx->type) {
+    case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
+        return sizeof(ethr_rwmtx_readers_array__) * (reader_groups_array_size + 1);
+    case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ:
+        return sizeof(ethr_rwmtx_readers_array__) * (main_threads_array_size + 1);
+    default:
+        return 0;
+    }
+}
+
 int
 ethr_rwmutex_destroy(ethr_rwmutex *rwmtx)
 {
@@ -3096,6 +3118,11 @@ int
 ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 {
     return ethr_rwmutex_init(rwmtx);
+}
+
+size_t
+ethr_rwmutex_size(ethr_rwmutex *rwmtx) {
+    return 0;
 }
 
 int

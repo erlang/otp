@@ -1034,6 +1034,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
                         "erl_db_catree_base_node",
                         NIL,
                         ERTS_LOCK_FLAGS_CATEGORY_DB);
+    ERTS_DB_ALC_MEM_UPDATE_((DbTable *) tb, 0, erts_rwmtx_size(&p->u.base.lock));
     BASE_NODE_STAT_SET(p, ((tb->common.status & DB_CATREE_FORCE_SPLIT)
                            ? INT_MAX : 0));
     p->u.base.is_valid = 1;
@@ -1092,7 +1093,7 @@ static void do_free_base_node(void* vptr)
 static void free_catree_base_node(DbTableCATree* tb, DbTableCATreeNode* p)
 {
     ASSERT(p->is_base_node);
-    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(), 0);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node() + erts_rwmtx_size(&p->u.base.lock), 0);
     do_free_base_node(p);
 }
 
@@ -1334,11 +1335,13 @@ static void join_catree(DbTableCATree *tb,
                           thiz,
                           &thiz->u.base.free_item,
                           sizeof_base_node());
+    ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&thiz->u.base.lock), 0);
     erts_schedule_db_free(&tb->common,
                           do_free_base_node,
                           neighbor,
                           &neighbor->u.base.free_item,
                           sizeof_base_node());
+    ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&neighbor->u.base.lock), 0);
 }
 
 static void split_catree(DbTableCATree *tb,
@@ -1383,6 +1386,7 @@ static void split_catree(DbTableCATree *tb,
                               base,
                               &base->u.base.free_item,
                               sizeof_base_node());
+        ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&base->u.base.lock), 0);
     }
 }
 

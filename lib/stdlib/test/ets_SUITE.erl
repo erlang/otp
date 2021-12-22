@@ -180,7 +180,8 @@ all() ->
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
      ms_excessive_nesting,
-     error_info].
+     error_info
+    ].
 
 
 groups() ->
@@ -1923,7 +1924,7 @@ t_select_replace_next_bug(Config) when is_list(Config) ->
 
 
 %% OTP-17379
-t_select_pam_stack_overflow_bug(Config) ->
+t_select_pam_stack_overflow_bug(_Config) ->
     T = ets:new(k, []),
     ets:insert(T,[{x,17}]),
     [{x,18}] = ets:select(T,[{{x,17}, [], [{{{element,1,'$_'},{const,18}}}]}]),
@@ -3042,8 +3043,9 @@ write_concurrency(Config) when is_list(Config) ->
     YesTreeMem = ets:info(Yes7,memory),
     YesYesTreeMem = ets:info(Yes14,memory),
     NoTreeMem = ets:info(No4,memory),
-    io:format("YesMem=~p NoHashMem=~p NoTreeMem=~p YesTreeMem=~p\n",[YesMem,NoHashMem,
-                                                                     NoTreeMem,YesTreeMem]),
+
+    io:format("YesMem=~p NoHashMem=~p NoTreeMem=~p YesTreeMem=~p YesYesTreeMem=~p\n",
+              [YesMem,NoHashMem,NoTreeMem,YesTreeMem,YesYesTreeMem]),
 
     YesMem = ets:info(Yes2,memory),
     YesMem = ets:info(Yes3,memory),
@@ -3068,14 +3070,24 @@ write_concurrency(Config) when is_list(Config) ->
 
     true = YesMem > YesTreeMem,
 
-    case erlang:system_info(schedulers) > 1 of
-        true ->
+    case erlang:system_info(schedulers) of
+        1 ->
+            YesMem = NoHashMem,
+            YesTreeMem = NoTreeMem,
+            YesYesTreeMem = YesTreeMem;
+        NoSchedulers ->
             true = YesMem > NoHashMem,
             true = YesMem > NoTreeMem,
-            true = YesTreeMem < NoTreeMem,
-            true = YesYesTreeMem > YesTreeMem;
-        _ ->
-            one_scheduler_only
+
+            %% The memory of ordered_set with write concurrency is
+            %% smaller than without write concurrency on systems with
+            %% few schedulers.
+            if NoSchedulers > 6 ->
+                    true = YesTreeMem >= NoTreeMem;
+               true ->
+                    true = YesTreeMem < NoTreeMem
+            end,
+            true = YesYesTreeMem > YesTreeMem
     end,
 
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
@@ -4384,12 +4396,28 @@ exit_many_many_tables_owner(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> exit_many_many_tables_owner_do(Opts,FEData,Config) end).
 
 exit_many_many_tables_owner_do(Opts,FEData,Config) ->
-    verify_rescheduling_exit(Config, FEData, [named_table | Opts], true, 200, 5),
-    verify_rescheduling_exit(Config, FEData, Opts, false, 200, 5),
+
+    E = ets_new(tmp,Opts),
+    FEData(fun(Data) -> ets:insert(E, Data) end),
+    Mem = ets:info(E,memory) * erlang:system_info(wordsize),
+    ets:delete(E),
+
+    ct:log("Memory per table: ~p bytes",[Mem]),
+
+    Tables =
+        case erlang:system_info(wordsize) of
+            8 ->
+                200;
+            4 ->
+                lists:min([200,2_000_000_000 div (Mem * 5)])
+        end,
+
+    verify_rescheduling_exit(Config, FEData, [named_table | Opts], true, Tables, 5),
+    verify_rescheduling_exit(Config, FEData, Opts, false, Tables, 5),
     wait_for_test_procs(),
     EtsMem = etsmem(),
-    verify_rescheduling_exit(Config, FEData, Opts, true, 200, 5),
-    verify_rescheduling_exit(Config, FEData, [named_table | Opts], false, 200, 5),
+    verify_rescheduling_exit(Config, FEData, Opts, true, Tables, 5),
+    verify_rescheduling_exit(Config, FEData, [named_table | Opts], false, Tables, 5),
     verify_etsmem(EtsMem).
 
 

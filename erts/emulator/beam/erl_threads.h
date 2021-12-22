@@ -445,6 +445,7 @@ ERTS_GLB_INLINE void erts_rwmtx_init(erts_rwmtx_t *rwmtx,
                                      char *name,
                                      Eterm extra,
                                      erts_lock_flags_t flags);
+ERTS_GLB_INLINE size_t erts_rwmtx_size(erts_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_rwmtx_destroy(erts_rwmtx_t *rwmtx);
 #ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE int erts_rwmtx_tryrlock_x(erts_rwmtx_t *rwmtx, const char *file, unsigned int line);
@@ -1881,6 +1882,11 @@ ERTS_GLB_INLINE void
 erts_rwmtx_init(erts_rwmtx_t *rwmtx, char *name, Eterm extra,
                 erts_lock_flags_t flags) {
     erts_rwmtx_init_opt(rwmtx, NULL, name, extra, flags);
+}
+
+ERTS_GLB_INLINE size_t
+erts_rwmtx_size(erts_rwmtx_t *rwmtx) {
+    return ethr_rwmutex_size(&rwmtx->rwmtx);
 }
 
 ERTS_GLB_INLINE void

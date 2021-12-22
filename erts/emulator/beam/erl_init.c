@@ -2523,13 +2523,21 @@ erl_start(int argc, char **argv)
 __decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     const char *errstr = err ? strerror(err) : NULL;
-    erts_fprintf(stderr,
-		 "Failed to %s: %s%s(%d)\n",
-		 what,
-		 errstr ? errstr : "",
-		 errstr ? " " : "",
-		 err);
-    abort();
+    if (err == ENOMEM) {
+        erts_exit(ERTS_DUMP_EXIT, "Failed to %s: %s%s(%d)\n",
+                  what,
+                  errstr ? errstr : "",
+                  errstr ? " " : "",
+                  err);
+    } else {
+        erts_fprintf(stderr,
+                     "Failed to %s: %s%s(%d)\n",
+                     what,
+                     errstr ? errstr : "",
+                     errstr ? " " : "",
+                     err);
+        abort();
+    }
 }
 
 
