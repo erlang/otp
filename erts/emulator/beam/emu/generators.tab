@@ -19,12 +19,12 @@
 // %CopyrightEnd%
 //
 
-// Rewrites call_fun2 as call_fun: we're not yet helped by the Safe parameter,
+// Rewrites call_fun2 as call_fun: we're not yet helped by the Tag parameter,
 // and can't do anything clever with Func either.
-gen.call_fun2(Safe, Arity, Func) {
+gen.call_fun2(Tag, Arity, Func) {
     BeamOp *call;
 
-    (void)Safe;
+    (void)Tag;
 
     $NewBeamOp(S, call);
     $BeamOpNameArity(call, call_fun, 1);

@@ -1873,10 +1873,12 @@ type(call, [#b_local{} | _Args], Anno, _Ts, _Ds) ->
         #{ result_type := Type } -> Type;
         #{} -> any
     end;
-type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
-    case Anno of
-        #{ result_type := Type } -> Type;
-        #{} -> any
+type(call, [#b_var{}=Fun | Args], Anno, Ts, _Ds) ->
+    FunType = concrete_type(Fun, Ts),
+    case {beam_types:meet(FunType, #t_fun{arity=length(Args)}), Anno} of
+        {#t_fun{}, #{ result_type := Type }} -> Type;
+        {#t_fun{}, #{}} -> any;
+        {none, #{}} -> none
     end;
 type(call, [#b_literal{val=Fun} | Args], _Anno, _Ts, _Ds) ->
     case is_function(Fun, length(Args)) of

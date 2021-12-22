@@ -333,6 +333,18 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
             rawLabels.emplace(i, a.newLabel());
         }
     }
+
+    if (beam) {
+        /* Create labels for the trampolines that unpack fun environments.
+         *
+         * Note that `num_free == 0` short-circuits directly to the target. */
+        for (int i = 0; i < beam->lambdas.count; i++) {
+            const auto &lambda = beam->lambdas.entries[i];
+            lambdas[i].trampoline = (lambda.num_free > 0)
+                                            ? a.newLabel()
+                                            : rawLabels.at(lambda.label);
+        }
+    }
 }
 
 void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {

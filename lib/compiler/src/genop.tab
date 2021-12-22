@@ -654,9 +654,13 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Builda a new binary using the binary syntax.
 177: bs_create_bin/6
 
-## @spec call_fun2 Safe Arity Func
+## @spec call_fun2 Tag Arity Func
 ## @doc Calls the fun Func with arity Arity. Assume arguments in registers x(0)
-##      to x(Arity-1). The call will never fail when Safe is 'true'.
+##      to x(Arity-1). Tag can be one of:
+##
+##      * FunIndex      - `Func` is always a local fun identified by `FunIndex`
+##      * {atom,safe}   - `Func` is known to be a fun of correct arity.
+##      * {atom,unsafe} - Nothing is known about `Func`.
 178: call_fun2/3
 
 ## @spec nif_start

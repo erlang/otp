@@ -389,6 +389,12 @@ make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
     NumFree = length(Env),
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({make_fun3,Fun,Dst,{list,Env}}, Dict);
+make_op({call_fun2,{f,Lbl},Arity,Func}, Dict0) ->
+    %% call_fun with known target, fill in the fun entry.
+    #tr{t=#t_fun{target={_Name, TotalArity}}} = Func, %Assertion.
+    NumFree = TotalArity - Arity,
+    {Lambda,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
+    make_op({call_fun2,Lambda,Arity,Func}, Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);
 make_op({Name,Arg1}, Dict) ->

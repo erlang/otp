@@ -673,11 +673,26 @@ vi({call_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
 vi({call_ext_last,Live,Func,N}, Vst) ->
     validate_tail_call(N, Func, Live, Vst);
-vi({call_fun2,{atom,Safe},Live,Fun0}, Vst) ->
+vi({call_fun2,{f,Lbl},Live,Fun0}, #vst{ft=Ft}=Vst) ->
+    %% Fun call with known target. Verify that the target exists, agrees with
+    %% the type annotation for `Fun`, and that it has environment variables.
+    %%
+    %% Direct fun calls without environment variables must be expressed as
+    %% local fun calls.
+    #{ name := Name, arity := TotalArity } = map_get(Lbl, Ft),
+    #tr{t=#t_fun{target={Name,TotalArity}},r=Fun} = Fun0, %Assertion.
+    true = Live < TotalArity,                   %Assertion.
+    assert_term(Fun, Vst),
+    validate_body_call('fun', Live, Vst);
+vi({call_fun2,Tag,Live,Fun0}, Vst) ->
     Fun = unpack_typed_arg(Fun0),
     assert_term(Fun, Vst),
 
-    true = is_boolean(Safe),                    %Assertion.
+    case Tag of
+        {atom,safe} -> ok;
+        {atom,unsafe} -> ok;
+        _ -> error({invalid_tag,Tag})
+    end,
 
     branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
