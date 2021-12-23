@@ -1916,19 +1916,14 @@ void BeamModuleAssembler::emit_raw_raise() {
     a.mov(getXRef(0), imm(am_badarg));
 }
 
+#define TEST_YIELD_RETURN_OFFSET                                               \
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16 +                                        \
+     (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4 : 0))
+
+/* ARG3 = return address, currLabel + TEST_YIELD_RETURN_OFFSET */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
-    int mfa_offset = -(int)sizeof(ErtsCodeMFA) - BEAM_ASM_FUNC_PROLOGUE_SIZE;
+    int mfa_offset = -TEST_YIELD_RETURN_OFFSET - (int)sizeof(ErtsCodeMFA);
 
-    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
-        /* Subtract the size of an `emit_enter_frame` sequence. */
-        mfa_offset -= 4;
-    } else {
-        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
-    }
-
-    a.add(x86::rsp, imm(8));
-
-    /* Yield address is in ARG3. */
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG2);
     a.mov(ARG2, x86::qword_ptr(ARG2, offsetof(ErtsCodeMFA, arity)));
@@ -1938,20 +1933,19 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 }
 
 void BeamModuleAssembler::emit_i_test_yield() {
-    Label next = a.newLabel(), entry = a.newLabel();
-
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-    ASSERT(a.offset() % 8 == 0);
+    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+           BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     emit_enter_frame();
 
-    a.bind(entry);
+    a.lea(ARG3, x86::qword_ptr(currLabel, TEST_YIELD_RETURN_OFFSET));
     a.dec(FCALLS);
-    a.short_().jg(next);
-    a.lea(ARG3, x86::qword_ptr(entry));
-    a.call(yieldEnter);
-    a.bind(next);
+    a.jle(yieldEnter);
+
+    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+           TEST_YIELD_RETURN_OFFSET);
 
 #if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
     a.mov(ARG1, c_p);
