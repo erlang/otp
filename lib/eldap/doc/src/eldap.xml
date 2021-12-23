@@ -372,22 +372,22 @@
     <func>
       <name since="OTP R15B01">neverDerefAliases() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
-      <desc> <p>Never derefrence aliases, treat aliases as entries.</p> </desc>
+      <desc> <p>Never dereference aliases, treat aliases as entries.</p> </desc>
     </func>
     <func>
       <name since="OTP R15B01">derefAlways() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
-      <desc> <p>Always derefrence aliases.</p> </desc>
+      <desc> <p>Always dereference aliases.</p> </desc>
     </func>
     <func>
       <name since="OTP R15B01">derefInSearching() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
-      <desc> <p>Derefrence aliases only when searching.</p> </desc>
+      <desc> <p>Dereference aliases only when searching.</p> </desc>
     </func>
     <func>
       <name since="OTP R15B01">derefFindingBaseObj() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
-      <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
+      <desc> <p>Dereference aliases only in finding the base.</p> </desc>
     </func>
 
     <func>

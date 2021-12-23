@@ -792,7 +792,7 @@ collect_search_responses(Data, S, ID, {ok,Msg}, Acc, Ref)
 	    log2(Data, "search reply = ~p~n", [Resp]),
 	    collect_search_responses(Data, S, ID, Resp, [R|Acc], Ref);
 	{'searchResRef',R} ->
-	    %% At the moment we don't do anyting sensible here since
+	    %% At the moment we don't do anything sensible here since
 	    %% I haven't been able to trigger the server to generate
 	    %% a response like this.
 	    Resp = recv_response(S, Data),
