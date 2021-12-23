@@ -279,9 +279,9 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     /* Pop the ErtsCodeInfo address into ARG1 and mask out the offset added by
      * the call instruction. */
     a.pop(ARG1);
-    a.and_(ARG1, ~0x7);
+    a.and_(ARG1, imm(~0x7));
 
-    a.lea(ARG1, x86::qword_ptr(ARG1, offsetof(ErtsCodeInfo, mfa)));
+    a.add(ARG1, imm(offsetof(ErtsCodeInfo, mfa)));
 
     a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
