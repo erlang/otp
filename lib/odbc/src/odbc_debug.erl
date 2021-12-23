@@ -18,7 +18,7 @@
 %%	Process  - pid() | Name | {global, Name} | {Name, Node} 
 %%	OnOff   - on | off
 %%      Level   - exported | all
-%% Description: Turns on tracing of messages sent and recived by
+%% Description: Turns on tracing of messages sent and received by
 %%              the server <Process> and tracing on all, or all exported 
 %%              functions, according to level <Level>, in this module.
 %%              Result will be printed on stdout.

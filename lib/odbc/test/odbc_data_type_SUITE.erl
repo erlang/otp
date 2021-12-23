@@ -1474,7 +1474,7 @@ timestamp(Config) when is_list(Config) ->
     {updated, _} = odbc:param_query(Ref,"INSERT INTO " ++ Table ++  "(FIELD) values(?)",
 				    [{sql_timestamp,Data}]),
     
-    %%% Crate list or database table rows 
+    %%% Create list or database table rows 
     TimeStamps = lists:map(fun(Value) -> {Value} end, Data),
    
     {selected,_, TimeStamps} = odbc:sql_query(Ref, "SELECT * FROM " ++ Table).

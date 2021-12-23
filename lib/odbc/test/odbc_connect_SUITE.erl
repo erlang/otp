@@ -254,7 +254,7 @@ not_exist_db() ->
 not_exist_db(_Config)  ->
     {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar",
 			      odbc_test_lib:platform_options()),
-    %% So that the odbc control server can be stoped "in the correct way"
+    %% So that the odbc control server can be stopped "in the correct way"
     ct:sleep(100).
 
 %%-------------------------------------------------------------------------
@@ -439,7 +439,7 @@ connect_port_timeout(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 timeout() ->
     [{"Test that timeouts don't cause unwanted behavior sush as receiving"
-     " an anwser to a previously tiemed out query."}].
+     " an answer to a previously timed out query."}].
 timeout(Config)  when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
@@ -511,7 +511,7 @@ update_table_timeout(Table, TimeOut, Pid) ->
 
     %% Do not check {updated, 1} as some drivers will return 0
     %% even though the update is done, which is checked by the test
-    %% case when the altered message is recived.
+    %% case when the altered message is received.
     {updated, _} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
 
     ok = odbc:commit(Ref, commit),
@@ -651,7 +651,7 @@ update_table_timeout_reset(Table, TimeOut, Pid) ->
 
     %% Do not check {updated, 1} as some drivers will return 0
     %% even though the update is done, which is checked by the test
-    %% case when the altered message is recived.
+    %% case when the altered message is received.
     {updated, _} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
 
     ok = odbc:commit(Ref, commit),
@@ -836,21 +836,21 @@ api_missuse()->
 api_missuse(Config) when is_list(Config)->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
-    %% Serious programming fault, connetion will be shut down 
+    %% Serious programming fault, connection will be shut down 
     gen_server:call(Ref, {self(), foobar, 10}, infinity),
     ct:sleep(10),
     undefined = process_info(Ref, status),
 
     {ok, Ref2} =  odbc:connect(?RDBMS:connection_string(),
 			       odbc_test_lib:platform_options()),
-    %% Serious programming fault, connetion will be shut down 
+    %% Serious programming fault, connection will be shut down 
     gen_server:cast(Ref2, {self(), foobar, 10}),
     ct:sleep(10),
     undefined = process_info(Ref2, status),
 
     {ok, Ref3} =  odbc:connect(?RDBMS:connection_string(),
 			       odbc_test_lib:platform_options()),
-    %% Could be an innocent misstake the connection lives. 
+    %% Could be an innocent mistake the connection lives. 
     Ref3 ! foobar, 
     ct:sleep(10),
     {status, _} = process_info(Ref3, status).

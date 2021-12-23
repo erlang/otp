@@ -29,7 +29,7 @@
   by sendig a shutdown request to the supervisor thread.
 
   Erlang will start this c-process as a port-program and send information
-  regarding inet-port nummbers through the erlang-port.
+  regarding inet-port numbers through the erlang-port.
   After that c-process will communicate via sockets with erlang. The
   reason for this is that some odbc-drivers do unexpected things with
   stdin/stdout messing up the erlang-port communication.
@@ -41,7 +41,7 @@
    Bytes, StringTerminator]
    
    CommandByte - constants between 0 and 255
-   identifing the request defined in odbc_internal.hrl and odbcserver.h
+   identifying the request defined in odbc_internal.hrl and odbcserver.h
 
    Bytes - How to interpret this sequence of bytes depends on the
    CommandByte.
@@ -208,7 +208,7 @@ static void tcp_nodelay(int sock);
 #endif
 static void clean_socket_lib(void);
 
-/*------------- Memory handling funtions --------------------------------*/
+/*------------- Memory handling functions --------------------------------*/
 
 static void * safe_malloc(int size);
 static void * safe_realloc(void * ptr, int size);
@@ -218,7 +218,7 @@ static void free_params(param_array **params, int cols);
 static void clean_state(db_state *state);
 static SQLLEN* alloc_strlen_indptr(int n, int val);
 
-/* ------------- Init/map/bind/retrive functions -------------------------*/
+/* ------------- Init/map/bind/retrieve functions -------------------------*/
 
 static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 			   db_state *state);
@@ -396,7 +396,7 @@ DWORD WINAPI database_handler(const char *port)
 }
  
 /* Description: Calls the appropriate function to handle the database
-   request recived from the erlang-process. Returns a message to send back
+   request received from the erlang-process. Returns a message to send back
    to erlang. */
 static db_result_msg handle_db_request(byte *reqstring, db_state *state)
 {
@@ -674,12 +674,12 @@ static db_result_msg db_query(byte *sql, db_state *state)
 	do {
 	    ei_x_encode_list_header(&dynamic_buffer(state), 1);
 	    msg = encode_result(state);
-	    /* We don't want to continue if an error occured */
+	    /* We don't want to continue if an error occurred */
 	    if (msg.length != 0) { 
 		break;
 	    }
 	    msg = more_result_sets(state);
-	    /* We don't want to continue if an error occured */
+	    /* We don't want to continue if an error occurred */
 	    if (msg.length != 0) { 
 		break;
 	    }
@@ -749,7 +749,7 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
 }
 
 /* Description: Fetches rows from the result set associated with the
-   connection by db_select_count. The method of seletion will be according
+   connection by db_select_count. The method of selection will be according
    too <args> */
 static db_result_msg db_select(byte *args, db_state *state)
 {
@@ -1068,7 +1068,7 @@ static db_result_msg encode_error_message(char *reason, char *errCode, SQLINTEGE
     return msg;
 }
 
-/* Description: Encode a messge that is a erlang atom */
+/* Description: Encode a message that is a erlang atom */
 static db_result_msg encode_atom_message(char* atom)
 {
     int index;
@@ -1148,7 +1148,7 @@ static db_result_msg encode_result(db_state *state)
 	    do {
 		num_of_rows = num_of_rows + (int)RowCountPtr;
 		msg = more_result_sets(state);
-		/* We don't want to continue if an error occured */
+		/* We don't want to continue if an error occurred */
 		if (msg.length != 0) { 
 		    return msg;
 		}
@@ -1344,7 +1344,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 		    (char *)safe_malloc(columns(state)[i].type.len);
 	
 		if (columns(state)[i].type.c == SQL_C_BINARY) {
-		    /* retrived later by retrive_binary_data */
+		    /* retrieved later by retrive_binary_data */
 		} else {
 		    if(!sql_success(
 			SQLBindCol
@@ -2075,7 +2075,7 @@ static void clean_socket_lib(void)
 }
     
 
-/*------------- Memmory handling funtions -------------------------------*/
+/*------------- Memory handling functions -------------------------------*/
 static void *safe_malloc(int size)
 {
     void *memory;
@@ -2172,7 +2172,7 @@ static SQLLEN* alloc_strlen_indptr(int n, int val)
     return arr;
 }
 
-/* ------------- Init/map/bind/retrive functions  ------------------------*/
+/* ------------- Init/map/bind/retrieve functions  ------------------------*/
 
 /* Prepare the state for a connection */
 static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
@@ -2410,7 +2410,7 @@ static void init_param_statement(int cols, SQLLEN num_param_values,
     }
 
     /* Note the (SQLLEN *) cast is correct as the API function SQLSetStmtAttr
-       takes either an interger or a pointer depending on the attribute */
+       takes either an integer or a pointer depending on the attribute */
     if(!sql_success(SQLSetStmtAttr(statement_handle(state),
 				   SQL_ATTR_PARAMSET_SIZE,
 				   (SQLLEN *)num_param_values,
@@ -2739,8 +2739,8 @@ static Boolean sql_success(SQLRETURN result)
 
 /* Description: An ODBC function can post zero or more diagnostic records
    each time it is called. This function loops through the current set of
-   diagnostic records scaning for error messages and the sqlstate.
-   If this function is called when no error has ocurred only the sqlState
+   diagnostic records scanning for error messages and the sqlstate.
+   If this function is called when no error has occurred only the sqlState
    field may be referenced.*/
 static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean extendedErrors)
 {
