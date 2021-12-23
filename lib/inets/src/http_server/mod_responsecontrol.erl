@@ -48,8 +48,8 @@ do(Info) ->
     end.
 
 %%----------------------------------------------------------------------
-%%Control that the request header did not contians any limitations 
-%%wheather a response shall be createed or not
+%%Control that the request header did not contains any limitations 
+%%whether a response shall be createed or not
 %%----------------------------------------------------------------------
 do_responsecontrol(Info) ->
     Path = mod_alias:path(Info#mod.data, Info#mod.config_db, 
@@ -59,7 +59,7 @@ do_responsecontrol(Info) ->
 	    control(Path, Info, FileInfo);
 	_ ->
 	    %% The requested asset is not a plain file and then it must 
-	    %% be generated everytime its requested
+	    %% be generated every time its requested
 	    continue
     end.
 
@@ -180,7 +180,7 @@ control_match(Info, _FileInfo, HeaderField, FileEtag)->
  	undefined->
 	    undefined;
         Etags->
-	    %%Control that the match any star not is availible 
+	    %%Control that the match any star not is available 
 	    case lists:member("*",Etags) of
 		true-> 
 		    match;

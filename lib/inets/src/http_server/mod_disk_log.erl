@@ -240,7 +240,7 @@ create_disk_log(LogFile, SizeTag, ConfigList) ->
 		undefined ->
 		    {error,
 		     ?NICE(Filename++
-			   " is an invalid ErrorLog beacuse ServerRoot "
+			   " is an invalid ErrorLog because ServerRoot "
 			   "is not defined")};
 		ServerRoot ->
 		    AbsoluteFilename = filename:join(ServerRoot,Filename),
@@ -263,7 +263,7 @@ create_disk_log(Filename, MaxBytes, MaxFiles, ConfigList) ->
 %%
 %% When the internal disk log format is used, we will do some extra 
 %% controls. If the files are valid, try to repair them and if 
-%% thats not possible, truncate.
+%% that's not possible, truncate.
 %%----------------------------------------------------------------------
 
 open(Filename, MaxBytes, MaxFiles, internal) ->

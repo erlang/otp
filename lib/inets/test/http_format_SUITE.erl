@@ -298,7 +298,7 @@ chunk_max_bodysize(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 http_response() ->
     [{doc, "Test httpc_response:parse*. This test case will simulate that the "
-     "message will be recived a little at the time on a socket and the "
+     "message will be received a little at the time on a socket and the "
      "package may be broken up into smaller parts at arbitrary point."}].
 http_response(Config) when is_list(Config) ->
 
@@ -369,7 +369,7 @@ http_response(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 http_request() ->
     [{doc, "Test httpd_request:parse* This test case will simulate that the " 
-     "message will be recived a little at the time on a socket and the " 
+     "message will be received a little at the time on a socket and the " 
       "package may be broken up into smaller parts at arbitrary point."}].
 http_request(Config) when is_list(Config) ->
 
@@ -450,7 +450,7 @@ http_request(Config) when is_list(Config) ->
 validate_request_line() ->
     [{doc, "Test httpd_request:validate/3. Makes sure you cannot get past"
      " the server_root and that the request is recognized by the server"
-     " and protcol version."}].
+     " and protocol version."}].
 validate_request_line(Config) when is_list(Config) ->
 
     %% HTTP/0.9 not supported
@@ -548,7 +548,7 @@ esi_parse_headers(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 cgi_parse_headers() ->
     [{doc, "Test httpd_cgi:*. This test case will simulate that the "
-     "message will be recived a little at the time on a socket and the "
+     "message will be received a little at the time on a socket and the "
      "package may be broken up into smaller parts at arbitrary point."}].
 
 cgi_parse_headers(Config) when is_list(Config) ->

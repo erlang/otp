@@ -50,7 +50,7 @@ parse(Unknown) ->
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
-%% if the input data is incompleate. 
+%% if the input data is incomplete. 
 parse_method([Bin, Method, Current, Max, Options, Result]) ->
     parse_method(Bin, Method, Current, Max, Options, Result).
 
@@ -351,7 +351,7 @@ validate_version(_) ->
     false.
 
 %%----------------------------------------------------------------------
-%% There are 3 possible forms of the reuqest URI 
+%% There are 3 possible forms of the request URI 
 %%
 %%  1. * When the request is not for a special assset. is is instead
 %%     to the server itself
@@ -402,7 +402,7 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
     case httpd_util:lookup(ConfigDB, keep_alive, true) of
 	true->
 	    case HTTPVersion of
-		%%If it is version prio to 1.1 kill the conneciton
+		%%If it is version prio to 1.1 kill the connection
 		"HTTP/1." ++ NList ->
 		    case proplists:get_value("connection", ParsedHeader,
 					     "keep-alive") of  

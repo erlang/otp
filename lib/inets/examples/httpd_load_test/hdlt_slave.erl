@@ -40,7 +40,7 @@
 %% master in the description below.
 %%
 %% If hostname is the same for the master and the slave,
-%% the Erlang node will simply be spawned.  The only requirment for
+%% the Erlang node will simply be spawned.  The only requirement for
 %% this to work is that the 'erl' program can be found in PATH.
 %%
 %% If the master and slave are on different hosts, start/N uses

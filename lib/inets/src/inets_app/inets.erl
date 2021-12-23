@@ -69,14 +69,14 @@ start(Type) ->
 %%
 %% Note: Dynamically started services will not be handled by
 %% application takeover and failover behavior when inets is run as a
-%% distributed application. Nor will they be automaticly restarted
+%% distributed application. Nor will they be automatically restarted
 %% when the inets application is restarted, but as long as the inets
 %% application is up and running they will be supervised and may be
 %% soft code upgraded. Services started with the option stand alone,
 %% e.i. the service is not started as part of the inets application,
 %% will lose all OTP application benefits such as soft upgrade. The
 %% stand alone service will be linked to the process that started it.
-%% In most cases some of the supervison functionallity will still be
+%% In most cases some of the supervison functionality will still be
 %% in place and in some sense the calling process has now become the
 %% top supervisor.
 %% --------------------------------------------------------------------
@@ -396,7 +396,7 @@ service_names() ->
 %% Note that it starts a tracer server.
 %% When Destination is the atom io (or the tuple {io, Verbosity}),
 %% all (printable) inets trace events (trace_ts events which has
-%% Severity withing Limit) will be written to stdout using io:format.
+%% Severity within Limit) will be written to stdout using io:format.
 %%
 %%-----------------------------------------------------------------
 enable_trace(Level, Dest)          -> inets_trace:enable(Level, Dest).

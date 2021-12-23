@@ -177,7 +177,7 @@ handle_call({delete_group_member, Addr, Port, Profile, Dir, Group, User, AuthPwd
 		     AuthPwd, State), 
     {reply, Reply, State};
 
-%% List all users thats standalone users
+%% List all users that's standalone users
 handle_call({list_users, Addr, Port, Profile, Dir, AuthPwd}, _From, State) ->
     Reply = api_call(Addr, Port, Profile, Dir, list_users, [], AuthPwd, State),
     {reply, Reply, State};

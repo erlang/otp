@@ -435,7 +435,7 @@ check_password(User, Password, _Dir, DirData) ->
     end.
 
 
-%% Middle API. Theese functions call the appropriate authentication module.
+%% Middle API. These functions call the appropriate authentication module.
 int_get_user(DirData, User) ->    
     AuthMod = auth_mod_name(DirData), 
     apply(AuthMod, get_user, [DirData, User]).

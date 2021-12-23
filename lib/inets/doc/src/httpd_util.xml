@@ -308,12 +308,12 @@
     </func>
 
     <func>
-      <name since="">split_script_path(RequestLine) -> Splitted</name>
+      <name since="">split_script_path(RequestLine) -> Split</name>
       <fsummary>Splits a <c>RequestLine</c> in a file reference to an executable, 
       and a <c>QueryString</c> or a <c>PathInfo</c>string.</fsummary>
       <type>
         <v>RequestLine = string()</v>
-        <v>Splitted = not_a_script | {Path, PathInfo, QueryString}</v>
+        <v>Split = not_a_script | {Path, PathInfo, QueryString}</v>
         <v>Path = QueryString = PathInfo = string()</v>
       </type>
       <desc>

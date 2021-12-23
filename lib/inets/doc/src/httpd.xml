@@ -989,7 +989,7 @@ Transport: TLS
 		connection
 	}).</code>
 
-    <p>To acess the record in your callback-module use:</p>
+    <p>To access the record in your callback-module use:</p>
     <code> -include_lib("inets/include/httpd.hrl").</code>
 
     <p>The fields of record <c>mod</c> have the following meaning:

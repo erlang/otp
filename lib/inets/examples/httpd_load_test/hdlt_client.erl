@@ -272,7 +272,7 @@ client_loop(#state{mode = generating} = State) ->
     end;
 
 %% The client no longer issues any new requests, instead it 
-%% waits for replies for all the oustanding requests to 
+%% waits for replies for all the outstanding requests to 
 %% arrive.
 client_loop(#state{mode     = stopping, 
 		   time     = Time, 

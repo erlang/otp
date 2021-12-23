@@ -55,7 +55,7 @@
 %% Returns list of running services. Services started as stand alone
 %% are not listed 
 %% services() -> % [{Service, Pid}] 
-%% Exampel:
+%% Example:
 %% services() ->
 %%   [{httpc, Pid} || {_, Pid, _, _} <- 
 %%			supervisor:which_children(httpc_profile_sup)].

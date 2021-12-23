@@ -45,7 +45,7 @@
 %%      {title, Title}
 %%      {dnQualifer, DnQ}
 %%   issuer = {Issuer, IssuerKey}                   true (i.e. a ca cert is created) 
-%%                                                  (obs IssuerKey migth be {Key, Password}
+%%                                                  (obs IssuerKey might be {Key, Password}
 %%   key = KeyFile|KeyBin|rsa|dsa|ec                Subject PublicKey rsa, dsa or ec generates key
 %%   
 %%

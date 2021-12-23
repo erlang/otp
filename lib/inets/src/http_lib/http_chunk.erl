@@ -44,7 +44,7 @@
 %%      MaxHeaderSize = integer()
 %%
 %% Description: Decodes a body encoded by the chunked transfer
-%% encoding. If the ChunkedBody is not compleate it returns {Module,
+%% encoding. If the ChunkedBody is not complete it returns {Module,
 %% Function, Args} so that decoding can be continued when more of the
 %% data has been received by calling Module:Function([NewData | Args]).
 %%
@@ -124,7 +124,7 @@ handle_headers(ResponseHeaderRecord = #http_response_h{},  ChunkedHeaders) ->
     NewHeaders#http_response_h{'transfer-encoding' = TransferEncoding}.
 
 %% Functions that may be returned during the decoding process
-%% if the input data is incompleate. 
+%% if the input data is incomplete. 
 decode_size([Bin, Rest, HexList, AccSize, Info]) ->
     decode_size(<<Rest/binary, Bin/binary>>, HexList, AccSize, Info).
 

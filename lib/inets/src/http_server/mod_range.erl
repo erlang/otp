@@ -82,7 +82,7 @@ send_range_response(Path, Info, Ranges, FileInfo, LastModified)->
 				LastModified)
     end.
 %%More than one range specified
-%%Send a multipart reponse to the user
+%%Send a multipart response to the user
 %
 %%An example of an multipart range response
 
@@ -342,7 +342,7 @@ get_file_chunk_size(Position, End, _DefaultChunkSize) ->
 
 %Get the size of the range to send. Remember that
 %A range is from startbyte up to endbyte which means that
-%the nuber of byte in a range is (StartByte-EndByte)+1
+%the number of byte in a range is (StartByte-EndByte)+1
 
 get_range_size(from_end, Stop, _FileInfo)->
     integer_to_list(-1*Stop);
@@ -377,7 +377,7 @@ format_range({StartByte,[]})->
     {from_start,list_to_integer(StartByte)};
 format_range({StartByte,EndByte})->        
     {list_to_integer(StartByte),list_to_integer(EndByte)}.
-%Last case return the splitted range
+%Last case return the split range
 split_range([],Current,Other)->
     {lists:reverse(Other),lists:reverse(Current)};
 
