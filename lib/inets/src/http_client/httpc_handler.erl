@@ -212,7 +212,7 @@ stream(BodyPart, Request,_) -> % only 200 and 206 responses can be streamed
 %% Description: Initiates the httpc_handler process 
 %%
 %% Note: The init function may not fail, that will kill the
-%% httpc_manager process. We could make the httpc_manager more comlex
+%% httpc_manager process. We could make the httpc_manager more complex
 %% but we do not want that so errors will be handled by the process
 %% sending an init_error message to itself.
 %%--------------------------------------------------------------------
@@ -497,7 +497,7 @@ do_handle_cast({cancel, _},
 
 do_handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
-    %% Inactivate the #state.once here because we don't want
+    %% Deactivate the #state.once here because we don't want
     %% next_body_chunk/1 to activate the socket twice.
     {noreply, State#state{once = inactive}}.
 
@@ -602,8 +602,8 @@ do_handle_info({Proto, Socket, Data},
     {noreply, State};
 
 %% The Server may close the connection to indicate that the
-%% whole body is now sent instead of sending a lengh
-%% indicator. In this case the lengh indicator will be
+%% whole body is now sent instead of sending a length
+%% indicator. In this case the length indicator will be
 %% -1.
 do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
   when Info =:= tcp_closed orelse

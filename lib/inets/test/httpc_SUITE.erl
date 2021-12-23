@@ -37,7 +37,7 @@
 -define(TLS_URL_START, "https://").
 -define(NOT_IN_USE_PORT, 8997).
 
-%% Using hardcoded file path to keep it below 107 charaters
+%% Using hardcoded file path to keep it below 107 characters
 %% (maximum length supported by erlang)
 -define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
 
@@ -537,7 +537,7 @@ pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure pipeline session is registered
     ct:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
@@ -547,7 +547,7 @@ persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], persistent),
 
-    %% Make sure pipeline session is registerd
+    %% Make sure pipeline session is registered
     ct:sleep(4000),
     keep_alive_requests(Request, persistent).
 
@@ -966,7 +966,7 @@ no_content_204(Config) when is_list(Config) ->
 
 tolerate_missing_CR() ->
     [{doc, "Test the case that the HTTP server uses only LF instead of CRLF"
-     "as delimitor. Solves OTP-7304"}].
+     "as delimiter. Solves OTP-7304"}].
 tolerate_missing_CR(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/missing_CR.html", Config),
     {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(URL).
@@ -1182,7 +1182,7 @@ headers_dummy(Config) when is_list(Config) ->
 
     %% The dummy server will ignore the headers, we only want to test
     %% that the client header-handling code. This would not
-    %% be a vaild http-request!
+    %% be a valid http-request!
     {ok, {{_,200,_}, [_ | _], [_|_]}} =
 	httpc:request(post,
 		     {URL,
@@ -1562,7 +1562,7 @@ custom_receive() ->
             ct:log("Message received: ~p", [Msg])
     after
         1000 ->
-            ct:fail("Timeout: did not recive packet")
+            ct:fail("Timeout: did not receive packet")
     end.
 
 %% Custom server is used to test special cases when using chunked encoding
@@ -1681,7 +1681,7 @@ chunkify_receive() ->
             end
     after
         1000 ->
-            ct:fail("Timeout: did not recive packet")
+            ct:fail("Timeout: did not receive packet")
     end.
 %%--------------------------------------------------------------------
 stream_fun_server_close() ->
@@ -2356,14 +2356,14 @@ content_type_header([{"content-type", Value}|_]) ->
 content_type_header([_|T]) ->
     content_type_header(T).
 
-handle_auth("Basic " ++ UserInfo, Challange, DefaultResponse) ->
+handle_auth("Basic " ++ UserInfo, Challenge, DefaultResponse) ->
     case string:tokens(base64:decode_to_string(UserInfo), ":") of
 	["alladin", "sesame"] = Auth ->
 	    ct:print("Auth: ~p~n", [Auth]),
 	    DefaultResponse;
 	Other ->
 	    ct:print("UnAuth: ~p~n", [Other]),
-	    Challange
+	    Challenge
     end.
 
 check_cookie([]) ->
@@ -2572,14 +2572,14 @@ handle_uri(_,"/redirectloop.html",Port,_,Socket,_) ->
 	++ "\r\n\r\n" ++ Body;
 
 handle_uri(_,"/userinfo.html", _,Headers,_, DefaultResponse) ->
-    Challange = "HTTP/1.1 401 Unauthorized \r\n" ++
+    Challenge = "HTTP/1.1 401 Unauthorized \r\n" ++
 	"WWW-Authenticate:Basic" ++"\r\n" ++
 	"Content-Length:0\r\n\r\n",
     case auth_header(Headers) of
 	{ok, Value} ->
-	    handle_auth(Value, Challange, DefaultResponse);
+	    handle_auth(Value, Challenge, DefaultResponse);
 	_ ->
-	    Challange
+	    Challenge
     end;
 
 handle_uri(_,"/dummy_headers.html",_,_,Socket,_) ->

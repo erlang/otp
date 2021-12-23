@@ -224,7 +224,7 @@ create_log(LogFile, ConfigList) ->
 		undefined ->
 		    {error,
 		     ?NICE(Filename++
-			   " is an invalid logfile name beacuse "
+			   " is an invalid logfile name because "
 			   "ServerRoot is not defined")};
 		ServerRoot ->
 		    AbsoluteFilename=filename:join(ServerRoot,Filename),

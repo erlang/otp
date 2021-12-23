@@ -1653,7 +1653,7 @@
 	<item>
 	  <p>HTTP client <em>now</em> updated to jnets-0.1.
 	    <br></br>
-	    Auther: Johan Blom of Mobile Arts AB.</p>
+	    Author: Johan Blom of Mobile Arts AB.</p>
 	  <p>(Own Id: OTP-4588)</p>
 	</item>
 	  </list>
@@ -1674,7 +1674,7 @@
 	<item>
 	  <p>HTTP client updated to jnets-0.1, now supporting proxy.
 	    <br></br>
-	    Auther: Johan Blom of Mobile Arts AB.</p>
+	    Author: Johan Blom of Mobile Arts AB.</p>
 	  <p>(Own Id: OTP-4552)</p>
 	    </item>
       </list>
@@ -1714,7 +1714,7 @@
       <list type="bulleted">
 	<item>Added HTTP client to the application. 
 	  <br></br>
-	  Auther: Johan Blom of Mobile Arts AB.</item>
+	  Author: Johan Blom of Mobile Arts AB.</item>
 	<item>FTP: More info in exit reason when socket operation fails.
 	  <br></br>
 	  (Own Id: OTP-4429)</item>
@@ -1744,7 +1744,7 @@
 	  (Aux Id: Seq 7417)</item>
 	<item>Added inets test suite to the release. Including the
 	  lightweight inets test server.</item>
-	<item>Incorrectly formated disk log entries.
+	<item>Incorrectly formatted disk log entries.
 	  <em>term_to_binary</em> was (incorrectly) used for the 
 	  external format. 
 	  <br></br>

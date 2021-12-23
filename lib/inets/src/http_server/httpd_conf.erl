@@ -35,8 +35,8 @@
 %% Removed functions
 
 -removed([{check_enum,2,"use lists:member/2 instead"},
-          {clean,1,"use sting:strip/1 instead or possibly the re module"},
-          {custom_clean,3,"use sting:strip/1 instead or possibly the re module"},
+          {clean,1,"use string:strip/1 instead or possibly the re module"},
+          {custom_clean,3,"use string:strip/1 instead or possibly the re module"},
           {is_directory,1,"use filelib:is_dir/1 instead"},
           {is_file,1,"use filelib:is_file/1 instead"},
           {make_integer,1,"use erlang:list_to_integer/1 instead"}]).
@@ -56,9 +56,9 @@ validate_ipfamily(inet6) ->
     inet6;
 %% Backwards compatibility wrapper, 
 %% fallback to the default, IPV4,
-%% as it will most proably work.
+%% as it will most probably work.
 %% IPv6 standard moved away from 
-%% beeing able to fallback to ipv4
+%% being able to fallback to ipv4
 validate_ipfamily(inet6fb4) ->
     inet;
 validate_ipfamily(IpFamilyStr) ->
@@ -208,7 +208,7 @@ validate_config_params([{socket_type, ip_comm} | Rest]) ->
 validate_config_params([{socket_type, {Value, Opts}} | Rest]) when Value == ip_comm; 
 								   Value == ssl; 
 								   Value == essl ->
-    %% Make sure not to set socket values used internaly
+    %% Make sure not to set socket values used internally
     validate_config_params(Opts), 
     validate_config_params(Rest);
 
@@ -449,7 +449,7 @@ store(ConfigListEntry, _ConfigList) ->
 %%   os:      "inets/1.2.3 (unix)
 %%   full:    "inets/1.2.3 (unix/linux) OTP/R15B"
 %% Note that the format of SERVER_SOFTWARE is that of 'minimal'.
-%% Also, there will always be atleast two digits in a version: 
+%% Also, there will always be at least two digits in a version: 
 %% Not just 1 but 1.0
 %% 
 %% We have already checked that the value is valid, 

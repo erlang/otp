@@ -24,7 +24,7 @@
 %% The gen_server code.
 %%
 %% A gen_server is needed in this module to take care of shared access to the
-%% data file used to store failed and successful authentications aswell as 
+%% data file used to store failed and successful authentications as well as 
 %% user blocks.
 %%
 %% The storage model is a write-through model with both an ets and a dets 
@@ -464,7 +464,7 @@ list_blocked([{_Name, {ETS, _DETS}}|Tables], Addr, Port, Profile, Dir, Acc) ->
     list_blocked(Tables, Addr, Port, Profile, Dir, NewBlocked).
 
 
-%% Reads dets-table DETS and syncronizes it with the ets-table ETS.
+%% Reads dets-table DETS and synchronizes it with the ets-table ETS.
 %%
 sync_dets_to_ets(DETS, ETS) ->
     dets:traverse(DETS, fun(X) ->
@@ -475,7 +475,7 @@ sync_dets_to_ets(DETS, ETS) ->
 %% Check if a specific user is blocked from access.
 %%
 %% The sideeffect of this routine is that it unblocks also other users
-%% whos blocking time has expired. This to keep the tables as small
+%% whose blocking time has expired. This to keep the tables as small
 %% as possible.
 %%
 check_blocked_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule) ->

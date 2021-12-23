@@ -550,7 +550,7 @@ htaccess(Type, Port, Host, Node) ->
     auth_request(Type, Host, Port, Node, "/ht/open/","Aladdin", 
 		 "AladdinPassword", [{statuscode, 200}]),
     
-    %% Contro that bad passwords and userids get a good denial
+    %% Control that bad passwords and userids get a good denial
     %% User correct but wrong password! ["one:one" user first in user list]
     auth_request(Type, Host, Port, Node, "/ht/open/", "one", "one", 
 		 [{statuscode, 401}]),
@@ -558,7 +558,7 @@ htaccess(Type, Port, Host, Node) ->
     auth_request(Type, Host, Port, Node, "/ht/open/", "dummy", "dummy", 
 		 [{statuscode, 401}]),
     
-    %% Control that authetication still works, even if its a member in a group
+    %% Control that authentication still works, even if its a member in a group
     %% Authentication OK! ["two:TwoPassword" user in first group]
     auth_request(Type, Host, Port, Node, "/ht/secret/dummy.html", "two", 
 		 "TwoPassword", [{statuscode, 200}]),

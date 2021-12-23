@@ -76,7 +76,7 @@ start_link(Manager, ConfigDB, AcceptTimeout) ->
 %%
 %% Description: Send a message to the request handler process
 %% confirming that the socket ownership has now sucssesfully been
-%% transfered to it. Intended to be called by the httpd acceptor
+%% transferred to it. Intended to be called by the httpd acceptor
 %% process.
 %%--------------------------------------------------------------------
 socket_ownership_transfered(Pid, SocketType, Socket) ->
