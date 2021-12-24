@@ -66,7 +66,7 @@
  *  This program communicates with Erlang through the standard
  *  input and output file descriptors (0 and 1). These descriptors
  *  (and the standard error descriptor 2) must NOT be closed
- *  explicitely by this program at termination (in UNIX it is
+ *  explicitly by this program at termination (in UNIX it is
  *  taken care of by the operating system itself; in VxWorks
  *  it is taken care of by the spawn driver part of the Emulator).
  *
@@ -176,7 +176,7 @@ static void print_error(const char *,...);
  * PageTables:       9368 kB	2.5.41+
  * VmallocTotal: 34359738367 kB	??	total size of vmalloc memory area
  * VmallocUsed:     57376 kB	??	amount of vmalloc area which is used
- * VmallocChunk: 34359677947 kB	??	largest contigious block of vmalloc area which is free
+ * VmallocChunk: 34359677947 kB	??	largest contiguous block of vmalloc area which is free
  * ReverseMaps:      5738       2.5.41+	number of rmap pte chains
  * SwapCached:          0 kB	2.5.??+	
  * HugePages_Total:     0	2.5.??+

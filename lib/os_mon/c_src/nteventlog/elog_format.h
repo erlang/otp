@@ -34,7 +34,7 @@ char *format_message(MessageFiles mf, DWORD id,
  * Formats an eventlog message with the messagefiles
  * in mf, the ID id, the stringarray strings, 
  * containing numstrings strings into buff.
- * if bufflen is to small or anything else failes, 
+ * if bufflen is to small or anything else fails, 
  * the return value is NULL.
  */
 
