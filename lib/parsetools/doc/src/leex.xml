@@ -222,13 +222,13 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Line]})
           <c>[]</c>.</p>
  
         <p>This functions differs from <c>token</c> in that it will
-          continue to scan tokens upto and including an
+          continue to scan tokens up to and including an
           <c>{end_token,Token}</c> has been scanned (see next
           section). It will then return all the tokens. This is
           typically used for scanning grammars like Erlang where there
           is an explicit end token, <c>'.'</c>. If no end token is
           found then the whole file will be scanned and returned. If
-          an error occurs then all tokens upto and including the next
+          an error occurs then all tokens up to and including the next
           end token will be skipped.</p>
  
         <p>It is not designed to be called directly by an application

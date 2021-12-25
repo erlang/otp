@@ -1851,7 +1851,7 @@ otp_7969(Config) when is_list(Config) ->
     ok.
 
 otp_8919(doc) ->
-    "OTP-8919. Improve formating of Yecc error messages.";
+    "OTP-8919. Improve formatting of Yecc error messages.";
 otp_8919(suite) -> [];
 otp_8919(Config) when is_list(Config) ->
     A1 = erl_anno:new(1),

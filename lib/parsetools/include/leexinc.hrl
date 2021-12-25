@@ -32,7 +32,7 @@ string(Ics0, L0, Tcs, Ts) ->
     case yystate(yystate(), Ics0, L0, 0, reject, 0) of
         {A,Alen,Ics1,L1} ->                  % Accepting end state
             string_cont(Ics1, L1, yyaction(A, Alen, Tcs, L0), Ts);
-        {A,Alen,Ics1,L1,_S1} ->              % Accepting transistion state
+        {A,Alen,Ics1,L1,_S1} ->              % Accepting transition state
             string_cont(Ics1, L1, yyaction(A, Alen, Tcs, L0), Ts);
         {reject,_Alen,Tlen,_Ics1,L1,_S1} ->  % After a non-accepting state
             {error,{L0,?MODULE,{illegal,yypre(Tcs, Tlen+1)}},L1};
