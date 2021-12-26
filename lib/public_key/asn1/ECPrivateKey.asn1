@@ -19,7 +19,7 @@ ECPrivateKey ::= SEQUENCE {
   privateKey     CurvePrivateKey,
   parameters [0] EcpkParameters OPTIONAL,
   publicKey  [1] CurvePublicKey OPTIONAL,
-  -- Should be PKCS-8 Attributes but problem at the moment with PKCS-8 beeing part
+  -- Should be PKCS-8 Attributes but problem at the moment with PKCS-8 being part
   -- of PCKS-FRAME and PKIX1Algorithms88 is part of OTP-PUB-KEY. Procrastinate
   -- the solution as it mostly not used anyway
   attributes     ANY OPTIONAL

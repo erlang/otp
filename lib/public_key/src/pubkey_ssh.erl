@@ -614,7 +614,7 @@ split_n(N, Bin, Acc) ->
 	    split_n(0, <<>>, [Last | Acc])
     end.
 %% large integer in a binary with 32bit length
-%% MP representaion  (SSH2)
+%% MP representation  (SSH2)
 mpint(X) when X < 0 -> mpint_neg(X);
 mpint(X) -> mpint_pos(X).
 

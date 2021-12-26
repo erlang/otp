@@ -298,7 +298,7 @@ is_all_reasons(Mask, AllReasonsFun) ->
 	    %% As the "uspecified" reason should not
 	    %% be explicitly used according to RFC 3280
 	    %% and the conformance tests have test cases
-	    %% that should succed, and that does not specify
+	    %% that should succeed, and that does not specify
 	    %% "unspecified", we tolorate that it is not included.
 	    sets:is_subset(sets:del_element(unspecified, AllReasons), Mask)
     end.

@@ -87,7 +87,7 @@
       <p>An RSA private key encrypted with a password can look as follows:</p>
       
       <code>1> {ok, PemBin} = file:read_file("rsa.pem").
-{ok,&lt;&lt;"Bag Attribut"...&gt;&gt;}</code>
+{ok,&lt;&lt;"Bag Attribute"...&gt;&gt;}</code>
 
     <p>The following PEM file has only one entry, a private RSA key:</p>
     <code>2>[RSAEntry] = public_key:pem_decode(PemBin).
@@ -382,7 +382,7 @@ Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code>
 Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code>
 
       <note><p>You normally do only one of the encrypt or decrypt operations, 
-      and the peer does the other. This normaly used in legacy applications
+      and the peer does the other. This normally used in legacy applications
       as a primitive digital signature.
       </p></note>
 
@@ -426,12 +426,12 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      checks that the certificate is not revoked, not forged or not out-of-date.
      </p>
      <p>There are however attacks that are not detected by those checks. Suppose a bad guy has
-     succeded with a DNS infection. Then the client could belive it is connecting to one host but
+     succeeded with a DNS infection. Then the client could believe it is connecting to one host but
      ends up at another but evil one. Though it is evil, it could have a perfectly legal
      certificate! The certificate has a valid signature, it is not revoked, the certificate chain
      is not faked and has a trusted root and so on.
      </p>
-     <p>To detect that the server is not the intended one, the client must additionaly perform
+     <p>To detect that the server is not the intended one, the client must additionally perform
      a <i>hostname verification</i>. This procedure is described in
      <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>. The idea is that the certificate
      lists the hostnames it could be fetched from. This is checked by the certificate issuer when
@@ -447,13 +447,13 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      It is possible for a client to hook in modified rules using the options list.
      </p>
      <p>Some terminology is needed: the certificate presents hostname(s) on which it is valid.
-     Those are called <i>Presented IDs</i>. The hostname(s) the client belives it connects to
+     Those are called <i>Presented IDs</i>. The hostname(s) the client believes it connects to
      are called <i>Reference IDs</i>. The matching rules aims to verify that there is at least
      one of the Reference IDs that matches one of the Presented IDs. If not, the verification fails.
      </p>
      <p>The IDs contains normal fully qualified domain names like e.g <c>foo.example.com</c>,
      but IP addresses are not recommended. The rfc describes why this is not recommended as well
-     as security considerations about how to aquire the Reference IDs.
+     as security considerations about how to acquire the Reference IDs.
      </p>
      <p>Internationalized domain names are not supported.
      </p>
@@ -525,7 +525,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      field, the <c>Subject</c> field MUST NOT be used for host name checking, even if it contains
      valid CN names.
      Therefore only <c>kb.example.org</c> and <c>https://www.example.org</c> matches. The match fails
-     both for <c>example.com</c> and <c>foo.example.com</c> becuase they are in the <c>Subject</c>
+     both for <c>example.com</c> and <c>foo.example.com</c> because they are in the <c>Subject</c>
      field which is not checked because the <c>Subject Alternate Name</c> field is present.
      </p>
    </section>
@@ -599,7 +599,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
        <marker id="redefining_match_op"></marker>
        <title>Re-defining the match operation</title>
        <p>The default matching handles dns_id and uri_id. In an uri_id the value is tested for
-       equality with a value from the <c>Subject Alternate Name</c>. If som other kind of matching
+       equality with a value from the <c>Subject Alternate Name</c>. If some other kind of matching
        is needed, use the  <c>match_fun</c> option.
        </p>
        <p>The  <c>match_fun</c> takes two arguments and returns either <c>true</c>,
@@ -626,8 +626,8 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
        field and from the <c>Subject Alternate Name</c> field.
        </p>
        <p>The default matching transformes the ascii values in strings to lowercase before comparing.
-       The  <c>match_fun</c> is however called without any transfomation applied to the strings.  The
-       reason is to enable the user to do unforseen handling of the strings where the original format
+       The  <c>match_fun</c> is however called without any transformation applied to the strings.  The
+       reason is to enable the user to do unforeseen handling of the strings where the original format
        is needed.
        </p>
      </section>
