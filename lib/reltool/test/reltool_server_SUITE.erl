@@ -2722,7 +2722,7 @@ os_cmd(Cmd) when is_list(Cmd) ->
         []->
             {99, []};
         Return->
-            %% Find the position of the status code wich is last in the string
+            %% Find the position of the status code which is last in the string
             %% prepended with #
             case string:split(Return, "$#", trailing) of
                 [_] -> %% This happens only if the sh command pipe is somehow interrupted
