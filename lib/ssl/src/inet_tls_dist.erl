@@ -444,8 +444,10 @@ gen_accept_connection(
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
+    MRef = erlang:monitor(process, AcceptPid),
     receive
 	{AcceptPid, controller} ->
+            erlang:demonitor(MRef, [flush]),
             {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
 	    Timer = dist_util:start_timer(SetupTime),
             NewAllowed = allowed_nodes(SslSocket, Allowed),
@@ -463,6 +465,11 @@ do_accept(
         {AcceptPid, exit} ->
             %% this can happen when connection was initiated, but dropped
             %%  between TLS handshake completion and dist handshake start
+            ?shutdown2(MyNode, connection_setup_failed);
+        {'DOWN', MRef, _, _, _Reason} ->
+            %% this may happen when connection was initiated, but dropped
+            %% due to crash propagated from other hanshake process which
+            %% failed on inet_tcp:accept (see GH-5332)
             ?shutdown2(MyNode, connection_setup_failed)
     end.
 
