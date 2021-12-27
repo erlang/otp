@@ -117,7 +117,7 @@
 %% when debugging).
 
 %% Non-terminals are also given integer codes, starting with -1. The
-%% absolut value of the code is used for indexing a tuple of lists of
+%% absolute value of the code is used for indexing a tuple of lists of
 %% rules.
 
 -define(SYMBOLS_AS_CODES, true).
@@ -1317,7 +1317,7 @@ compute_state(Seed, Tables) ->
     Closure = keysort(1, erase()),
     state_items(Closure, [], [], Tables#tabs.rp_rhs).
 
-%% Collects a uniqe id for the state (all rule pointers). 
+%% Collects a unique id for the state (all rule pointers). 
 state_items([{RP, LA} | L], Is, Id, RpRhs) ->
     I = #item{rule_pointer = RP, look_ahead = LA, rhs = element(RP, RpRhs)},
     state_items(L, [I | Is], [RP | Id], RpRhs);
@@ -1911,13 +1911,13 @@ report_conflict(Conflict, St, ActionName, How) ->
     if
         St#yecc.verbose ->
             io:fwrite(<<"~s\n">>, [format_conflict(Conflict)]),
-            Formated = format_symbol(ActionName),
+            Formatted = format_symbol(ActionName),
             case How of 
                 prec ->
-                    io:fwrite(<<"Resolved in favor of ~ts.\n\n">>, [Formated]);
+                    io:fwrite(<<"Resolved in favor of ~ts.\n\n">>, [Formatted]);
                 default ->
                     io:fwrite(<<"Conflict resolved in favor of ~ts.\n\n">>, 
-                              [Formated])
+                              [Formatted])
             end;
         true ->
             ok

@@ -456,7 +456,7 @@
     <section><title>Improvements and New Features</title>
       <list>
         <item>
-	    <p> The formating of Yecc's error messages has been
+	    <p> The formatting of Yecc's error messages has been
 	    improved. (Thanks to Joe Armstrong.) </p>
           <p>
 	    Own Id: OTP-8919</p>
