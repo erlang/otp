@@ -7313,7 +7313,7 @@ true</pre>
     <func>
       <name name="setelement" arity="3" since=""/>
       <fsummary>Set the Nth element of a tuple.</fsummary>
-      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno></type_desc>
+      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>)</type_desc>
       <desc>
         <p>Returns a tuple that is a copy of argument
           <c><anno>Tuple1</anno></c>
