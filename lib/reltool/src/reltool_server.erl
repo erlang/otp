@@ -1012,7 +1012,7 @@ mod_recap_dependencies(S, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl) ->
 	    ets:insert(S#state.mod_tab, M3),
 	    mod_recap_dependencies(S, A, Mods, [M3 | Acc], IsIncl2);
 	[_] when A#app.is_included==false; M1#mod.incl_cond==exclude ->
-	    %% App is explicitely excluded so it is ok that the module
+	    %% App is explicitly excluded so it is ok that the module
 	    %% record does not exist for this module in this
 	    %% application.
 	    mod_recap_dependencies(S, A, Mods, [M1 | Acc], IsIncl);
