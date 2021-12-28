@@ -112,6 +112,7 @@
          use_all_eddh_generate_compute/1,
          pbkdf2_hmac/0,
          pbkdf2_hmac/1,
+         privkey_to_pubkey/1,
 
          %% Others:
          aes_128_cbc/1,
@@ -346,10 +347,13 @@ groups() ->
      {rsa,                  [], [sign_verify,
                                  public_encrypt,
                                  private_encrypt,
-                                 generate
+                                 generate,
+                                 privkey_to_pubkey
                                 ]},
      {dss,                  [], [sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
+                                 %% dsa seem to always have been given bad result. Must fix:
+                                 %%      ,privkey_to_pubkey
                                 ]},
      {ecdsa,                [], [sign_verify, use_all_ec_sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
@@ -1070,6 +1074,23 @@ private_encrypt() ->
 private_encrypt(Config) when is_list(Config) ->
     Params = proplists:get_value(pub_priv_encrypt, Config, []),
     lists:foreach(fun do_private_encrypt/1, Params).
+
+%%--------------------------------------------------------------------
+privkey_to_pubkey(Config) ->
+    Params = proplists:get_value(privkey_to_pubkey, Config),
+    lists:foreach(fun do_privkey_to_pubkey/1, Params).
+
+do_privkey_to_pubkey({Type, Priv, Pub}) ->
+    ct:log("~p:~p~nType = ~p,~nPriv = ~p,~n  Pub = ~p", [?MODULE,?LINE,Type,Priv,Pub]),
+    case crypto:privkey_to_pubkey(Type, Priv) of
+        Pub ->
+            ok;
+        Priv ->
+            ct:fail("Returned private key", []);
+        Other ->
+            ct:log("~p:~p Other = ~p", [?MODULE,?LINE,Other]),
+            ct:fail("bad", [])
+    end.
 
 %%--------------------------------------------------------------------
 generate_compute() ->
@@ -1999,9 +2020,11 @@ group_config(rsa, Config) ->
                  [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_mgf1_md,sha}, {rsa_oaep_label, <<"Hej hopp">>}],
                  [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_mgf1_md,sha}, {rsa_oaep_md,sha}, {rsa_oaep_label, <<"Hej hopp">>}]
                  ],
-    [{sign_verify,      rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, SignVerify_OptsToTry)},
+    RsaSignVerify = rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, SignVerify_OptsToTry),
+    [{sign_verify,      RsaSignVerify},
      {pub_priv_encrypt, gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PrivEnc_OptsToTry)},
      {pub_pub_encrypt,  gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PubEnc_OptsToTry)},
+     {privkey_to_pubkey, get_priv_pub_from_sign_verify(RsaSignVerify)},
      {generate, [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}]}
      | Config];
 group_config(dss = Type, Config) ->
@@ -2023,7 +2046,10 @@ group_config(dss = Type, Config) ->
                      lists:member(Hash, SupportedHashs)],
     MsgPubEnc = <<"7896345786348 Asldi">>,
     PubPrivEnc = [{dss, Public, Private, MsgPubEnc, []}],
-    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}  | Config];
+    [{sign_verify, SignVerify},
+     {pub_priv_encrypt, PubPrivEnc},
+     {privkey_to_pubkey, get_priv_pub_from_sign_verify(SignVerify)}
+     | Config];
 group_config(ecdsa = Type, Config) ->
     {Private, Public} = ec_key_named(),
     Msg = ec_msg(),
@@ -4409,3 +4435,12 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
+
+
+get_priv_pub_from_sign_verify(L) ->
+    lists:foldl(fun get_priv_pub/2, [], L).
+
+get_priv_pub({Type, undefined=_Hash, Private, Public, _Msg, _Signature}, Acc) -> [{Type,Private,Public} | Acc];
+get_priv_pub({Type, _Hash, Public, Private, _Msg}, Acc) -> [{Type,Private,Public} | Acc];
+get_priv_pub({Type, _Hash, Public, Private, _Msg, _Options}, Acc) -> [{Type,Private,Public} | Acc];
+get_priv_pub(_, Acc) -> Acc.
