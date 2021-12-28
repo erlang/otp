@@ -82,7 +82,9 @@
 	]).
 
 -behaviour(ssh_dbg).
--export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1,
+         ssh_dbg_on/1, ssh_dbg_off/1,
+         ssh_dbg_format/2, ssh_dbg_format/3]).
 
 
 -define(send_disconnect(Code, DetailedText, StateName, State),
@@ -2547,17 +2549,20 @@ update_inet_buffers(Socket) ->
 %%%# Tracing
 %%%#
 
-ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation].
+ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events,
+                           connection_handshake, renegotiation].
 
 ssh_dbg_flags(connections) -> [c | ssh_dbg_flags(terminate)];
 ssh_dbg_flags(renegotiation) -> [c];
 ssh_dbg_flags(connection_events) -> [c];
+ssh_dbg_flags(connection_handshake) -> [c];
 ssh_dbg_flags(terminate) -> [c];
 ssh_dbg_flags(disconnect) -> [c].
 
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
+ssh_dbg_on(connection_handshake) -> dbg:tpl(?MODULE, handshake, 3, x);
 ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   pause_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
@@ -2575,6 +2580,7 @@ ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   start_rekeying, 2),
                               dbg:ctpg(?MODULE,   renegotiate, 1);
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
+ssh_dbg_off(connection_handshake) -> dbg:ctpl(?MODULE, handshake, 3);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
                             ssh_dbg_off(terminate).
 
@@ -2701,3 +2707,19 @@ ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
 ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) ->
     skip.
 
+
+
+ssh_dbg_format(connection_handshake, {call, {?MODULE,handshake,[Pid, Ref, Timeout]}}, Stack) ->
+    {["Connection handshake\n",
+      io_lib:format("Connection Child: ~p~nReg: ~p~nTimeout: ~p~n",
+                   [Pid, Ref, Timeout])
+     ],
+     [Pid|Stack]
+    };
+ssh_dbg_format(connection_handshake, {Tag, {?MODULE,handshake,3}, Ret}, [Pid|Stack]) ->
+    {[lists:flatten(io_lib:format("Connection handshake result ~p\n", [Tag])),
+      io_lib:format("Connection Child: ~p~nRet: ~p~n",
+                    [Pid, Ret])
+     ],
+     Stack
+    }.
