@@ -458,8 +458,8 @@ tls_versions_option(Config) when is_list(Config) ->
 spawn_opts_option() ->
     [{doc,"Test API spawn_opts option to sender/receiver."}].
 spawn_opts_option(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
