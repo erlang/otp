@@ -147,9 +147,12 @@ start_connection(Role, Socket, Options, Timeout) ->
                     true ->
                         HandshakerPid =
                             spawn_link(fun() ->
+                                               process_flag(trap_exit, true),
                                                receive
                                                    {do_handshake, Pid} ->
                                                        handshake(Pid, erlang:monitor(process,Pid), Timeout)
+                                               after Timeout ->
+                                                       {error, timeout2}
                                                end
                                        end),
                         ChildPid = start_the_connection_child(HandshakerPid, Role, Socket, Options),
@@ -2525,7 +2528,10 @@ handshake(Pid, Ref, Timeout) ->
 	{'DOWN', _, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
 	{'DOWN', _, process, Pid, Reason} ->
-	    {error, Reason}
+	    {error, Reason};
+        {'EXIT',_,Reason} ->
+            stop(Pid),
+            {error, {exit,Reason}}
     after Timeout ->
 	    stop(Pid),
 	    {error, timeout}
