@@ -40,7 +40,7 @@ footer {
   justify-content: center;
 }
 
-table {
+table.code {
   width: 100%;
   margin-top: 10px;
   border-collapse: collapse;
@@ -93,4 +93,58 @@ td.source {
   line-height: 15px;
   white-space: pre;
   font: 12px monospace;
+}
+
+
+body.summary {
+  font: 1em/1.6 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  justify-content: center;
+  align-items: center
+}
+
+body.summary h1 {
+  font-size: 140%;
+  font-weight: 100;
+  padding: 10px 0;
+  border: 0;
+  text-align: center
+}
+
+body.summary footer {
+  background-color: #fff;
+  font-size: 95%;
+  border: 0
+}
+
+table.summary {
+  margin-top: 10px;
+  min-width: 600px;
+  border: 1px solid #cbcbcb;
+  border-spacing: 0
+}
+table.summary thead {
+  display: table-header-group
+}
+table.summary tr,th,td {
+  padding: 5px
+}
+table.summary td.right {
+  text-align: right
+}
+table.summary thead th {
+  background: #eaeaea;
+  border-bottom: 1px solid #000
+}
+table.summary thead th.module {
+  width: 50%
+}
+table.summary tbody tr:nth-child(even) {
+  background:#f0f0f0
+}
+table.summary tbody td.module {
+  padding-right: 50px
+}
+table.summary tfoot td {
+  background: #eaeaea;
+  border-top: 1px solid #000
 }

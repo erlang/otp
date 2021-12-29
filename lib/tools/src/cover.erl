@@ -547,7 +547,9 @@ analyse_to_file() ->
 
 -type analyse_option() :: 'html'
                         | {'outfile', OutFile :: file:filename()}
-                        | {'outdir', OutDir :: file:filename()}.
+                        | {'outdir', OutDir :: file:filename()}
+                        | {'summary', Summary :: boolean()}
+                        | {'summaryfile', SummaryFile :: file:filename()}.
 -type analyse_answer() :: {'ok', OutFile :: file:filename()} |
                           {'error', analyse_rsn()}.
 -type analyse_file_ok() :: [OutFile :: file:filename()].
@@ -635,7 +637,8 @@ is_options([html]) ->
     true; % this is not 100% safe - could be a module named html...
 is_options([html|Opts]) ->
     is_options(Opts);
-is_options([{Opt,_}|_]) when Opt==outfile; Opt==outdir ->
+is_options([{Opt,_}|_])
+  when Opt == outfile; Opt == outdir; Opt == summary; Opt == summaryfile ->
     true;
 is_options(_) ->
     false.
@@ -2704,8 +2707,20 @@ analyse_list_to_file(Modules, Opts, State) ->
 		  OutFile = outfilename(OutDir,Module,HTML),
 		  do_analyse_to_file(Module,File,OutFile,HTML,State)
 	  end,
-    {Ok,Error1} = split_ok_error(pmap(Fun, LoadedMF++ImportedMF),[],[]),
-    {result,Ok,Error ++ Error1}.
+
+    MFs = LoadedMF ++ ImportedMF,
+    {AnalyseOk, AnalyseError} = split_ok_error(pmap(Fun, MFs), [], []),
+
+    %% Don't generate a summary file if only one module is analysed
+    {Ok, Error1} =
+        if length(MFs) > 1 ->
+               SummaryRes = do_summary(MFs, Opts, State),
+               split_ok_error(SummaryRes, AnalyseOk, AnalyseError);
+           true ->
+               {AnalyseOk, AnalyseError}
+        end,
+
+    {result, Ok, Error ++ Error1}.
 
 analyse_all_to_file(Opts, State) ->
     collect(State#main_state.nodes),
@@ -2716,8 +2731,12 @@ analyse_all_to_file(Opts, State) ->
 		  OutFile = outfilename(OutDir,Module,HTML),
 		  do_analyse_to_file(Module,File,OutFile,HTML,State)
 	  end,
-    {Ok,Error} = split_ok_error(pmap(Fun, AllModules),[],[]),
-    {result,Ok,Error}.
+    {AnalyseOk, AnalyseError} = split_ok_error(pmap(Fun, AllModules), [], []),
+
+    SummaryRes = do_summary(AllModules, Opts, State),
+    {Ok, Error} = split_ok_error(SummaryRes, AnalyseOk, AnalyseError),
+
+    {result, Ok, Error}.
 
 get_all_modules(State) ->
     get_all_modules(State#main_state.compiled ++ State#main_state.imported,[]).
@@ -2778,36 +2797,14 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 		{ok, OutFd} ->
                     Enc = encoding(ErlFile),
 		    if HTML ->
-                            Header = create_header(OutFile, Enc),
+                            Header = create_header(OutFile, Enc, false),
                             H1Bin = unicode:characters_to_binary(Header,Enc,Enc),
                             ok = file:write(OutFd,H1Bin);
 		       true -> ok
 		    end,
-		    
-		    %% Write some initial information to the output file
-		    {{Y,Mo,D},{H,Mi,S}} = calendar:local_time(),
-                   Timestamp =
-                       io_lib:format("~p-~s-~s at ~s:~s:~s",
-                                     [Y,
-                                      string:pad(integer_to_list(Mo), 2, leading, $0),
-                                      string:pad(integer_to_list(D),  2, leading, $0),
-                                      string:pad(integer_to_list(H),  2, leading, $0),
-                                      string:pad(integer_to_list(Mi), 2, leading, $0),
-                                      string:pad(integer_to_list(S),  2, leading, $0)]),
 
-                   OutFileInfo =
-                       if HTML ->
-                            create_footer(ErlFile, Timestamp);
-                          true ->
-                            ["File generated from ",ErlFile," by COVER ",
-                             Timestamp, "\n\n",
-                             "**************************************"
-                             "**************************************"
-                             "\n\n"]
-                          end,
-
-                   H2Bin = unicode:characters_to_binary(OutFileInfo,Enc,Enc),
-                   ok = file:write(OutFd, H2Bin),
+                   %% Write some initial information to the output file
+                   ok = file:write(OutFd, outfileinfo(ErlFile, Enc, HTML)),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
@@ -2833,6 +2830,222 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	{error, Reason} ->
 	    {error, {file, ErlFile, Reason}}
     end.
+
+
+%% By default summary is enabled; i.e. if summary tuple is omitted from Opts
+%% or {summary, true} is present, then summary is enabled.
+do_summary(Modules, Opts, State) ->
+    case lists:keyfind(summary, 1, Opts) of
+        Opt when Opt == false orelse Opt == {summary, true} ->
+            do_summary1(Modules, Opts, State);
+        {summary, false} ->
+            []
+    end.
+
+
+do_summary1(Modules, Opts, State) ->
+    Compiled = get_modules(Modules),
+    {result, CovRes, CovErr} = analyse_list(Compiled, coverage, module, State),
+
+    %% Character encoding is hardcoded to UTF-8 for summary file
+    Enc = utf8,
+    HTML = lists:member(html, Opts),
+    SummaryFile= summaryfilename(Opts),
+
+    %% Try find application name by searching source dirs for .app.src and
+    %% .app. Iff a single application name is found, use it; otherwise use
+    %% the summary file name.
+    SrcPaths = lists:usort([filename:dirname(File) || {_, File} <- Modules]),
+    Title =
+        case
+            [filelib:wildcard(Path ++ "/*.{app,app.src}") || Path <- SrcPaths]
+        of
+            [AppFile] ->
+                try
+                    {ok, [{application, AppName, _}]} = file:consult(AppFile),
+                    "Coverage summary for " ++ atom_to_list(AppName)
+                catch
+                    _:_ ->
+                        SummaryFile
+                end;
+            _L ->
+                SummaryFile
+        end,
+
+    {FileOk, FileErr} =
+        case file:open(SummaryFile, [write, raw, delayed_write]) of
+            {ok, OutFd} ->
+                %% Write header
+                if HTML ->
+                       Header = create_header(Title, Enc, true),
+                       HeaderBin =
+                           unicode:characters_to_binary(Header, Enc, Enc),
+                       ok = file:write(OutFd, HeaderBin);
+                   true ->
+                       %% Omit plaintext header if app name wasn't found
+                       if Title =/= SummaryFile ->
+                              Header = [Title, "\n\n"],
+                              HeaderBin =
+                                  unicode:characters_to_binary(Header,Enc,Enc),
+                              ok = file:write(OutFd, HeaderBin);
+                          true ->
+                              ok
+                       end
+                end,
+
+                %% Write some initial information to the output file
+                ok = file:write(OutFd, outfileinfo(undefined, Enc, HTML, true)),
+
+                %% Column headers for plaintext summary
+                summary_create_header(OutFd, HTML),
+
+                %% Print a line for each module and sum total coverage
+                PrintSumFun =
+                    fun({Module, {Cov, NotCov}}, {TotCovAcc, TotNotCovAcc}) ->
+                            {summary_print_line(OutFd, HTML,
+                                                Module, Cov, NotCov),
+                             {Cov + TotCovAcc, NotCov + TotNotCovAcc}}
+                    end,
+
+                {_, {TotCov, TotNotCov}} =
+                    lists:mapfoldr(PrintSumFun, {0,0}, CovRes),
+
+                %% Print totals
+                ok = file:write(OutFd, create_totals(HTML, TotCov, TotNotCov)),
+
+                if HTML ->
+                       ok = file:write(OutFd, summary_close_html());
+                   true ->
+                       ok
+                end,
+
+                ok = file:close(OutFd),
+
+                {[{ok, SummaryFile}], []};
+            {error, Reason} ->
+                {[], [{error, {file, SummaryFile, Reason}}]}
+        end,
+
+    FileOk ++ CovErr ++ FileErr.
+
+
+-spec summaryfilename(SummaryFilename :: list(), HTML :: boolean()) ->
+    SummaryFilenameRes :: list().
+summaryfilename(Opts) ->
+    HTML = lists:member(html, Opts),
+    case proplists:get_value(summaryfile, Opts) of
+        undefined ->
+            summaryfilename(proplists:get_value(outdir, Opts), HTML);
+        SummaryFilename ->
+            SummaryFilename
+    end.
+
+summaryfilename(undefined, HTML) -> summaryfilename1(HTML);
+summaryfilename(OutDir, HTML) ->
+    filename:join(OutDir, summaryfilename1(HTML)).
+
+summaryfilename1(false) -> "all.COVER.summary";
+summaryfilename1(true)  -> "all.COVER.summary.html".
+
+
+%% NOTE: For plaintext table header is emitted.
+%%       For HTML nothing is emitted here, the table header is emitted in
+%%       summary_close_html/0.
+summary_create_header(OutFd, false) ->
+    Header = ["Module\t\tPercent\tCovered\tNot Covered\n"
+              "--------------------------------------"
+              "--------------------------------------"
+              "\n"],
+    ok = file:write(OutFd, Header);
+summary_create_header(_OutFile, true) ->
+    ok.
+
+
+summary_close_html() ->
+    ["<thead>\n"
+     "<tr>\n"
+     "<th class=\"module\">Module</th>\n"
+     "<th>Percent</th>\n"
+     "<th>Covered</th>\n"
+     "<th>Not covered</th>\n"
+     "</tr>\n"
+     "</thead>\n"
+     "</table>\n"
+     "</body>\n"
+     "</html>\n"].
+
+
+summary_print_line(OutFd, false, Module, Cov, NotCov) ->
+    Line = io_lib:format("~tw\t~6.2. f%\t~w\t~w\n",
+                         [Module, calc_percent(Cov, NotCov), Cov, NotCov]),
+    ok = file:write(OutFd, unicode:characters_to_binary(Line, utf8, utf8));
+summary_print_line(OutFd, true, Module, Cov, NotCov) ->
+    Line = io_lib:format("<tr>\n"
+                         "<td class=\"module\">"
+                         "<a href=\"~tw.COVER.html\">~tw</a></td>\n"
+                         "<td class=\"right\">~.2f%</td>\n"
+                         "<td class=\"right\">~w</td>\n"
+                         "<td class=\"right\">~w</td>\n"
+                         "</tr>\n",
+                         [Module, Module, calc_percent(Cov, NotCov),
+                          Cov,NotCov]),
+    ok = file:write(OutFd, unicode:characters_to_binary(Line, utf8, utf8)).
+
+
+create_totals(false, TotCov, TotNotCov) ->
+    ["--------------------------------------"
+     "--------------------------------------"
+     "\n",
+     io_lib:format("Total\t\t~6.2. f%\t~w\t~w\n",
+                   [calc_percent(TotCov, TotNotCov), TotCov, TotNotCov])];
+create_totals(true, TotCov, TotNotCov) ->
+    io_lib:format("</tbody>\n"
+                  "<tfoot>\n"
+                  "<tr>\n"
+                  "<td>Total</td>\n"
+                  "<td class=\"right\">~.2f%</td>\n"
+                  "<td class=\"right\">~w</td>\n"
+                  "<td class=\"right\">~w</td>\n"
+                  "</tr>\n"
+                  "</tfoot>\n",
+                  [calc_percent(TotCov, TotNotCov), TotCov, TotNotCov]).
+
+
+calc_percent(Cov, NotCov) ->
+    %% Guard against division by zero
+    try
+        Cov / (Cov + NotCov) * 100
+    catch
+        error:badarith ->
+            0.0
+    end.
+
+
+outfileinfo(ErlFile, Enc, HTML) -> outfileinfo(ErlFile, Enc, HTML, false).
+outfileinfo(ErlFile, Enc, HTML, Summary) ->
+    {{Y,Mo,D},{H,Mi,S}} = calendar:local_time(),
+    Timestamp = io_lib:format("~p-~2..0w-~2..0w at ~2..0w:~2..0w:~2..0w",
+                              [Y, Mo, D, H, Mi, S]),
+
+    OutFileInfo =
+        if HTML ->
+               create_footer(ErlFile, Timestamp, Summary);
+           true ->
+               ["File generated ",
+                if is_list(ErlFile) ->
+                       ["from ", ErlFile, " "];
+                   true ->
+                       ""
+                end,
+                "by COVER on ",
+                Timestamp, "\n\n",
+                "**************************************"
+                "**************************************"
+                "\n\n"]
+        end,
+
+    unicode:characters_to_binary(OutFileInfo, Enc, Enc).
+
 
 merge_dup_lines(CovLines) ->
     merge_dup_lines(CovLines, []).
@@ -2884,23 +3097,38 @@ fill2() ->       ".|  ".
 fill3() ->        "|  ".
 
 %% HTML sections
-create_header(OutFile, Enc) ->
+create_header(Title, Enc, Summary) ->
     ["<!doctype html>\n"
-    "<html>\n"
-    "<head>\n"
-    "<meta charset=\"",html_encoding(Enc),"\">\n"
-    "<title>",OutFile,"</title>\n"
-    "<style>"] ++
-    read_stylesheet() ++
-    ["</style>\n",
-    "</head>\n"
-    "<body>\n"
-    "<h1><code>",OutFile,"</code></h1>\n"].
+     "<html>\n"
+     "<head>\n"
+     "<meta charset=\"",html_encoding(Enc),"\">\n"
+     "<title>", Title, "</title>\n"
+     "<style>",
+     read_stylesheet(),
+     "</style>\n"
+     "</head>\n",
+     if Summary ->
+            "<body class=\"summary\">\n";
+        true ->
+            "<body>\n"
+     end,
+     "<h1><code>", Title, "</code></h1>\n"].
 
-create_footer(ErlFile, Timestamp) ->
-    ["<footer><p>File generated from <code>",ErlFile,
-    "</code> by <a href=\"http://erlang.org/doc/man/cover.html\">cover</a> at ",
-    Timestamp,"</p></footer>\n<table>\n<tbody>\n"].
+create_footer(ErlFile, Timestamp, Summary) ->
+    ["<footer><p>File generated ",
+     if is_list(ErlFile) ->
+            ["from <code>", ErlFile, "</code> "];
+        true ->
+            ""
+     end,
+     "by <a href=\"http://erlang.org/doc/man/cover.html\">cover</a> on ",
+     Timestamp,"</p></footer>\n",
+     if Summary ->
+            "<table class=\"summary\">\n";
+        true ->
+            "<table class=\"code\">\n"
+     end,
+     "<tbody>\n"].
 
 close_html() ->
     ["</tbody>\n",

@@ -313,16 +313,20 @@
       <desc>
         <p>Makes copies of the source file for the given modules,
           where it for each executable line is specified
-          how many times it has been executed.</p>
+          how many times it has been executed. If summary is enabled a
+          file with a table summary of the coverage is generated.</p>
         <p>The output file <c><anno>OutFile</anno></c> defaults to
           <c><anno>Module</anno>.COVER.out</c>, or
           <c><anno>Module</anno>.COVER.html</c> if the option
           <c>html</c> was used.</p>
+        <p>The summary file <c><anno>SummaryFile</anno></c> defaults to
+          <c>all.COVER.summary</c>, or <c>all.COVER.summary.html</c> if the
+          option <c>html</c> was used.</p>
         <p>If <c><anno>Modules</anno></c> is an atom (one module), the
           return will be <c><anno>Answer</anno></c>, else the return
           will be a list, <c>{result, Ok, Fail}</c>.</p>
         <p>If <c><anno>Modules</anno></c> is not given, all modules
-          that have da ta in the cover data table, are analysed. Note
+          that have data in the cover data table, are analysed. Note
           that this includes both cover compiled modules and imported
           modules.</p>
         <p>If a module is not Cover compiled, this is indicated by the

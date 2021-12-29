@@ -300,9 +300,23 @@ analyse(Config) when is_list(Config) ->
     {ok, "a.COVER.html"} = cover:analyse_to_file(a,[html]),
     {ok, "e.COVER.html"} = cover:analyse_to_file(e,[html]),
 
+    {result, ["all.COVER.summary", "a.COVER.out", "e.COVER.out"], []} =
+        cover:analyse_to_file([a, e]),
+    {result, ["all.COVER.summary.html", "a.COVER.html", "e.COVER.html"], []} =
+        cover:analyse_to_file([a, e], [html]),
+    {result, ["summary", "a.COVER.out", "e.COVER.out"], []} =
+        cover:analyse_to_file([a, e], [{summaryfile, "summary"}]),
+    {result, ["summary.html", "a.COVER.html", "e.COVER.html"], []} =
+        cover:analyse_to_file([a, e], [html, {summaryfile, "summary.html"}]),
+    {result, ["a.COVER.out", "e.COVER.out"], []} =
+        cover:analyse_to_file([a, e], [{summary, false}]),
+    {result, ["a.COVER.html", "e.COVER.html"], []} =
+        cover:analyse_to_file([a, e], [html, {summary, false}]),
+
+
     %% Analyse all modules
     Modules = cover:modules(),
-    N = length(Modules),
+    N = length(Modules) + 1,  %% Summary file is also included
 
     {result,CovFunc,[]} = cover:analyse(), % default = coverage, function
     ACovFunc = [A || {{a,_,_},_}=A<-CovFunc],
