@@ -285,7 +285,7 @@ BOOL output_record(char *category, EVENTLOGRECORD *event){
  * number and timestamp, and sends them to
  * stdout. If timestamp does
  * not correspond with record number, the
- * log is concidered wrapped around
+ * log is considered wrapped around
  * and is reread from the beginning.
  * time is ignored if 0.
  * If record_number is 0, the whole log is read (if there is one).

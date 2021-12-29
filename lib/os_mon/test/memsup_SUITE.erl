@@ -785,7 +785,7 @@ force_collection(TimerRef) ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             collection_timeout;
-        timout ->
+        timeout ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             timeout;
