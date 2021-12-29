@@ -654,7 +654,7 @@ upgrade_restart(Conf) when is_list(Conf) ->
 	ok ->
 	    ok;
 	{wait,TestNodeInit2a} ->
-	    %% We catched the node too early - it was supposed to
+	    %% We caught the node too early - it was supposed to
 	    %% restart twice, so let's wait for one more restart.
 	    wait_nodes_up([{TestNode,TestNodeInit2a}],"upgrade_restart_2a",[]),
 	    ok = rpc_inst(TestNode, upgrade_restart_2a, [])
@@ -2505,7 +2505,7 @@ copy_tree(Conf, Src, NewName, DestDir) ->
     TempTarName = filename:join(PrivDir, "temp_tar_file.tar"),
     %% Not compressing tar file here since that would increase test
     %% suite time by almost 100%, and the tar file is deleted
-    %% imediately anyway.
+    %% immediately anyway.
     {ok,Tar} = erl_tar:open(TempTarName, [write]),
     ok = erl_tar:add(Tar, Src, NewName, []),
     ok = erl_tar:close(Tar),
@@ -2925,7 +2925,7 @@ permanent_p1h(Node) ->
     ok = rpc_inst(Node, permanent_p1h, []).
 
 %% For each node in ToNodes, create a target installation which is
-%% indentical to the target installation for FromNode.
+%% identical to the target installation for FromNode.
 copy_installed(Conf,FromNode,ToNodes) ->
     PrivDir = priv_dir(Conf),
     DataDir = ?config(data_dir,Conf),

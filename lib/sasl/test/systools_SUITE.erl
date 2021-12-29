@@ -1398,7 +1398,7 @@ src_tests_tar(Config) when is_list(Config) ->
 
 %% make_tar: Check that make_tar handles generation and placement of
 %% tar files for variables outside the main tar file.
-%% Test the {var_tar, include | ownfile | omit} optio.
+%% Test the {var_tar, include | ownfile | omit} option.
 var_tar(Config) when is_list(Config) ->
     {ok, OldDir} = file:get_cwd(),
     PSAVE = code:get_path(),		% Save path
