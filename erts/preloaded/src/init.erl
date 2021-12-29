@@ -1532,6 +1532,8 @@ collect_mfas([MFA|MFAs],Info) ->
             collect_mfas(MFAs,Info);
         {call_time, false} ->
             collect_mfas(MFAs,Info);
+        {call_time, undefined} ->
+            collect_mfas(MFAs,Info);
         {call_time, Data} ->
             case collect_mfa(MFA,Data,0,0) of
                 {{0,_},_} ->
