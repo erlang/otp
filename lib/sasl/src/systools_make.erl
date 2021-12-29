@@ -56,7 +56,7 @@
 %% Create a boot script from a release file.
 %% Options is a list of {path, Path} | silent | local
 %%         | warnings_as_errors
-%% where path sets the search path, silent supresses error message
+%% where path sets the search path, silent suppresses error message
 %% printing on console, local generates a script with references
 %% to the directories there the applications are found,
 %% and warnings_as_errors treats warnings as errors.
@@ -195,7 +195,7 @@ do_make_hybrid_boot(TmpVsn, OldBoot, NewBoot, Args) ->
     {script,{_RelName1,_RelVsn1},OldScript} = binary_to_term(OldBoot),
     {script,{NewRelName,_RelVsn2},NewScript} = binary_to_term(NewBoot),
 
-    %% Everyting upto kernel_load_completed must come from the new script
+    %% Everything up to kernel_load_completed must come from the new script
     Fun1 = fun({progress,kernel_load_completed}) -> false;
               (_) -> true
            end,
@@ -345,7 +345,7 @@ add_apply_upgrade(Script,Args) ->
 %% Create a release package from a release file.
 %% Options is a list of {path, Path} | silent |
 %%    {dirs, [src,include,examples,..]} | {erts, ErtsDir} where path
-%% sets the search path, silent supresses error message printing,
+%% sets the search path, silent suppresses error message printing,
 %% dirs includes the specified directories (per application) in the
 %% release package and erts specifies that the erts-Vsn/bin directory
 %% should be included in the release package and there it can be found.
@@ -674,7 +674,7 @@ parse_application({application, Name, Dict}, File, Vsn, Incls)
 parse_application(Other, _, _, _) ->
     {error, {badly_formatted_application, Other}}.
 
-%% Test if all included applications specifed in the .rel file
+%% Test if all included applications specified in the .rel file
 %% exists in the {included_applications,Incs} specified in the
 %% .app file.
 override_include(Name, Incs, Incls) ->
@@ -1370,7 +1370,7 @@ find_all(CheckingApp, [Name|T], L, Visited, Found, NotFound) ->
     case find_app(Name, L) of
 	{value, App} ->
 	    {_A,R} = App,
-	    %% It is OK to have a dependecy like
+	    %% It is OK to have a dependency like
 	    %% X includes Y, Y uses X.
 	    case lists:member(CheckingApp, R#application.includes) of
 		true ->
@@ -1410,7 +1410,7 @@ del_apps([], L) ->
 %%______________________________________________________________________
 %% Create the load path used in the generated script.
 %% If PathFlag is true a script intended to be used as a complete
-%% system (e.g. in an embbeded system), i.e. all applications are
+%% system (e.g. in an embedded system), i.e. all applications are
 %% located under $ROOT/lib.
 %% Otherwise all paths are set according to dir per application.
 
@@ -1779,7 +1779,7 @@ add_system_files(Tar, RelName, Release, Path1) ->
     %% (well, actually the boot file was looked for in the same
     %% directory as RelName, which is not necessarily the same as cwd)
     %% --
-    %% but also in the path specfied as an option to systools:make_tar
+    %% but also in the path specified as an option to systools:make_tar
     %% (but make sure to search the RelName directory and cwd first)
     Path = case filename:dirname(RelName) of
 	       "." ->

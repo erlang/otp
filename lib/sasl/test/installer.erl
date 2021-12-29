@@ -381,7 +381,7 @@ install_14(TestNode) ->
 
 
 %%%-----------------------------------------------------------------
-%%% Ths test checks that an upgrade which both upgrades to a new
+%%% The test checks that an upgrade which both upgrades to a new
 %%% emulator version, and had a restart_emulator option to
 %%% systools:make_relup will be restarted twice on upgrade.
 %%% (On downgrade it will happen only once.)
@@ -411,7 +411,7 @@ upgrade_restart_2(TestNode) ->
 	{"SASL-test","P2B"} ->
 	    upgrade_restart_2a(TestNode);
 	{"SASL-test","__new_emulator__P1G"} ->
-	    %% catched the node too early - give it another try
+	    %% caught the node too early - give it another try
 	    {wait,whereis(init)}
     end.
 

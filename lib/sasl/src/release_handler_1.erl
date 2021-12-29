@@ -248,7 +248,7 @@ syntax_check_script([]) ->
 %%   {load_object_code, [Mod1, Mod2]},
 %%   % delete old version
 %%   {remove, {Mod1, brutal_purge}}, {remove, {Mod2, brutal_purge}},
-%%   % now, some procs migth be running prev current (now old) version
+%%   % now, some procs might be running prev current (now old) version
 %%   % kill them, and load new version
 %%   {load, {Mod1, brutal_purge}}, {load, {Mod2, brutal_purge}}
 %%   % now, there is one version of the code (new, current)
@@ -279,7 +279,7 @@ syntax_check_script([]) ->
 %%    If a process doesn't repsond - never mind.  It will be killed
 %%    later on (if a purge is performed).
 %%    Hmm, we must do something smart here... we should probably kill it,
-%%    but we cant, because its supervisor will restart it directly!  Maybe
+%%    but we can't, because its supervisor will restart it directly!  Maybe
 %%    we should keep a list of those, call supervisor:terminate_child()
 %%    when all others are suspended, and call sup:restart_child() when the
 %%    others are resumed.

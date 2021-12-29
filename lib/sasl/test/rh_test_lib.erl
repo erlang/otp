@@ -20,7 +20,7 @@ cmd(Cmd,Args,Env) ->
     case open_port({spawn_executable, Cmd}, [{args,Args},{env,Env}]) of
         Port when is_port(Port) ->
             unlink(Port),
-            catch erlang:port_close(Port), % migth already be closed, so catching
+            catch erlang:port_close(Port), % might already be closed, so catching
 	    ok;
         Error ->
             Error

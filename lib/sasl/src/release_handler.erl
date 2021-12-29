@@ -2310,7 +2310,7 @@ safe_write_file_m(File, Data, FileOpts, Masters) ->
 %%
 %% A different situation is when the same application version is used
 %% in old and new release, but the path has changed. This is not
-%% handled here - instead it must be explicitely indicated by the
+%% handled here - instead it must be explicitly indicated by the
 %% 'update_paths' option to release_handler:install_release/2 if the
 %% code path shall be updated then.
 %% -----------------------------------------------------------------
