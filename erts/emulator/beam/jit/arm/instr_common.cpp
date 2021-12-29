@@ -1654,42 +1654,33 @@ void BeamModuleAssembler::emit_raw_raise() {
     mov_imm(XREG0, am_badarg);
 }
 
-static size_t TEST_YIELD_RETURN_OFFSET = sizeof(Uint32[3]);
+#define TEST_YIELD_RETURN_OFFSET                                               \
+    (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]))
 
+/* ARG3 = currLabel */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
-    int mfa_offset = sizeof(ErtsCodeMFA) + BEAM_ASM_FUNC_PROLOGUE_SIZE;
+    a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
+    a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
 
-    /* Yield return address is in LR (x30). */
-    a.sub(ARG2, a64::x30, imm(TEST_YIELD_RETURN_OFFSET + mfa_offset));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
-
     a.ldr(ARG2, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
 
-    a.mov(ARG3, a64::x30);
     a.b(labels[context_switch_simplified]);
 }
 
 void BeamModuleAssembler::emit_i_test_yield() {
-    Label next = a.newLabel();
-
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
+    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+           BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
-#ifdef DEBUG
-    size_t startPos = a.offset();
-    ASSERT(startPos % 8 == 0);
-#endif
-
+    a.adr(ARG3, currLabel);
     a.subs(FCALLS, FCALLS, imm(1));
-    a.cond_gt().b(next);
+    a.cond_le().b(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
 
-    /* We avoid using the `fragment_call` helper to ensure a constant layout,
-     * as it adds code in certain debug configurations. */
-    a.bl(resolve_fragment(ga->get_i_test_yield_shared(), disp128MB));
-    a.bind(next);
-
-    ASSERT(a.offset() - startPos == TEST_YIELD_RETURN_OFFSET);
+    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+           TEST_YIELD_RETURN_OFFSET);
 }
 
 void BeamModuleAssembler::emit_i_yield() {
