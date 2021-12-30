@@ -2832,7 +2832,9 @@ start_peer(#{name := Name} = Opts, Module) ->
         end,
     FullArgs = CookieArg ++ ["-pa", filename:dirname(code:which(Module)),
         "-env", "ERL_CRASH_DUMP", CrashFile] ++ Args,
-    case test_server:is_cover() of
+    %% start_cover => false is intentionally undocumented, and is not
+    %%  expected to be used by anything but cover_SUITE test.
+    case maps:get(start_cover, Opts, true) andalso test_server:is_cover() of
         true ->
             %% when cover is active, node must shut down gracefully, otherwise
             %% coverage information won't be sent to cover master
