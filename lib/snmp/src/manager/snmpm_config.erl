@@ -2747,7 +2747,7 @@ stop_backup_server({Pid, _}) when is_pid(Pid) ->
 %%----------------------------------------------------------
 
 handle_backup(D, BackupDir) ->
-    %% First check that we do not wrote to the corrent db-dir...
+    %% First check that we do not wrote to the current db-dir...
     ?vtrace("handle_backup -> entry with"
         "~n   D:         ~p"
         "~n   BackupDir: ~p", [D, BackupDir]),

@@ -363,7 +363,7 @@
       </type>
       <desc>
         <p>Perform a backup of the mib-server data. </p>
-        <p>Note that its implementation dependant (and also 
+        <p>Note that its implementation dependent (and also 
 	dependent on mib-storage is used) if a backup is possible. </p>
 
         <marker id="code_change"></marker>

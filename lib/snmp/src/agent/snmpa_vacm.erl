@@ -306,7 +306,7 @@ dump_table() ->
 %% time dumping the table.
 unique_table_name(Pre) ->
     %% We want something that is guaranteed to be unique, 
-    %% therefor we use erlang:timestamp() instead of os:timestamp()
+    %% therefore we use erlang:timestamp() instead of os:timestamp()
     unique_table_name(Pre, erlang:timestamp()).
 
 unique_table_name(Pre, {_A, _B, C} = Now) ->
@@ -378,7 +378,7 @@ get_access_row(Key, GroupKey, ContextName, SecModel, SecLevel, Score, Found) ->
 		{ok, NScore} when NScore > Score ->
 		    get_access_row(NextKey, GroupKey, ContextName,
 				   SecModel, SecLevel, NScore, Row);
-		{ok, _} -> % e.g. a throwed {ok, 0}
+		{ok, _} -> % e.g. a thrown {ok, 0}
 		    get_access_row(NextKey, GroupKey, ContextName,
 				   SecModel, SecLevel, Score, Found);
 		false ->

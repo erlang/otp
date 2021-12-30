@@ -224,7 +224,7 @@ in the snmp_config file!
 	<note>
 	  <p>Even with multi-threaded set to <c>extended</c>
 	  there is still a risk for 'reorder' when sending inform-requsts,
-	  which require a response (and may therefor require resending). </p>
+	  which require a response (and may therefore require resending). </p>
 	  <p>Also, there is of  course no way to guarantee order once the
 	  package is on the network. </p>
 	</note>
@@ -376,7 +376,7 @@ in the snmp_config file!
 	behaviour. </p>
 	<p>Several entities (<c>mib-server</c> via the its data module and 
 	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
-	of miscelaneous mib related data retrieved while loading a mib. </p>
+	of miscellaneous mib related data retrieved while loading a mib. </p>
 	<p>There are several implementations provided with the agent: 
 	<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and 
 	<c>snmpa_mib_storage_mnesia</c>. </p>
@@ -386,7 +386,7 @@ in the snmp_config file!
       <tag><marker id="agent_mst_options"></marker>
         <c><![CDATA[mib_storage_options() = list() <optional>]]></c></tag>
       <item>
-        <p>This is implementattion depended. That is, it depends on the 
+        <p>This is implementation depended. That is, it depends on the 
 	module. For each module a specific set of options are valid. 
 	For the module provided with the app, these options are supported: </p>
         <list type="bulleted">

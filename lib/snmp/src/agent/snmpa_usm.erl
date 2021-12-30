@@ -62,7 +62,7 @@
 %% Func: process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 %%       {ok, {SecEngineID, SecName, ScopedPDUBytes, SecData}} |
 %%       {error, Reason} | {error, Reason, ErrorInfo}
-%%       Return value may be throwed.
+%%       Return value may be thrown.
 %% Types: Reason -> term()
 %% Purpose: 
 %%-----------------------------------------------------------------
@@ -373,7 +373,7 @@ is_auth(AuthProtocol, AuthKey, AuthParams, Packet, SecName,
 				   (TermDiscoStage2 =:= plain)) -> %% 3.2.7a
 		    ?vtrace("is_auth -> terminating discovery stage 2 - plain",[]),
 		    %% This will *always* result in the manager *not* 
-		    %% beeing in timewindow
+		    %% being in timewindow
 		    authoritative(SecName, 
 				  MsgAuthEngineBoots, MsgAuthEngineTime, 
 				  LocalEngineID);

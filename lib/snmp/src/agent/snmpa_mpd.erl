@@ -53,7 +53,7 @@
 
 					
 %%%-----------------------------------------------------------------
-%%% This module implemets the Message Processing and Dispatch part of
+%%% This module implements the Message Processing and Dispatch part of
 %%% the multi-lingual SNMP agent.
 %%%
 %%% The MPD is responsible for:
@@ -70,7 +70,7 @@
 %%% the counters only, it does not provide instrumentation functions
 %%% for the counters.
 %%%
-%%% With the terms defined in rfc2271, this module implememts part
+%%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
 init(Vsns) ->

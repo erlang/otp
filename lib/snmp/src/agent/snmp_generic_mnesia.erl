@@ -37,7 +37,7 @@
 %%%-----------------------------------------------------------------
 
 %%------------------------------------------------------------------
-%% Theses functions could be in the MIB for simple 
+%% These functions could be in the MIB for simple 
 %% variables or tables, i.e. vars without complex 
 %% set-operations. If there are complex set op, an
 %% extra layer-function should be added, and that

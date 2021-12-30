@@ -163,7 +163,7 @@ no_gen(_Dir, _R) -> [].
 no_order(_, _) -> true.
 no_filter(X) -> X.
 
-%% Order tuples on element N with Keys first in appearence order.
+%% Order tuples on element N with Keys first in appearance order.
 %%
 %% An ordering function (A, B) shall return true iff
 %% A is less than or equal to B i.e shall return
@@ -924,7 +924,7 @@ check_transport_address(transportDomainUdpIpv4 = _Domain,
   when ?is_ipv4_addr(A0, A1, A2, A3) ->
     case PortInfo of
         system ->
-            %% The actual port number will be choosen
+            %% The actual port number will be chosen
             %% by the system (create with port = 0)
             %% when the socket is created.
             true;
@@ -946,7 +946,7 @@ check_transport_address(transportDomainUdpIpv6 = _Domain,
   when ?is_ipv6_addr(A0, A1, A2, A3, A4, A5, A6, A7) ->
     case PortInfo of
         system ->
-            %% The actual port number will be choosen
+            %% The actual port number will be chosen
             %% by the system (create with port = 0)
             %% when the socket is created.
             true;

@@ -259,7 +259,7 @@ init([AgentType, Opts]) ->
 
     %% -- mib storage --
     %% MibStorage has only one mandatory part: module
-    %% Everything else is module dependent and therefor 
+    %% Everything else is module dependent and therefore 
     %% put in a special option: options
     MibStorage = 
 	case get_opt(mib_storage, Opts, [{module, snmpa_mib_storage_ets}]) of

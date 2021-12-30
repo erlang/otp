@@ -355,7 +355,7 @@ usage() ->
 	      "~n                              For example snmp/mibs/ "
 	      "~n                              The current workin dir and the "
 	      "~n                              <snmp-home>/priv/mibs "
-	      "~n                              are always listed last the includ path. "
+	      "~n                              are always listed last the include path. "
 	      "~n   --db <DB>                - Database to used for the default instrumentation."
 	      "~n                              Defaults to volatile."
 	      "~n   --sgc                    - This option (skip group check), if present, "

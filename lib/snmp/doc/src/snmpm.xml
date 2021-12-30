@@ -130,7 +130,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
           <item>
             <p>During the start of a system, when a client application 
               <em>could</em> start prior to the SNMP manager but is dependent
-              upon it, and therefor has to wait for it to start.</p>
+              upon it, and therefore has to wait for it to start.</p>
           </item>
           <item>
             <p>When the SNMP manager has crashed, the dependent client 
@@ -943,7 +943,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<c>LogName</c> defaults to "snmpm_log". 
 	<c>LogFile</c> defaults to "snmpm.log".</p>
 	<p>The <c>Block</c> argument indicates if the log should be blocked
-	during conversion. This could be usefull when converting large 
+	during conversion. This could be useful when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
 	<p>See <seeerl marker="snmp#log_to_txt">snmp:log_to_txt</seeerl> 
@@ -985,7 +985,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<c>LogName</c> defaults to "snmpm_log". 
 	<c>LogFile</c> defaults to "snmpm.log".</p>
 	<p>The <c>Block</c> argument indicates if the log should be blocked
-	during conversion. This could be usefull when converting large 
+	during conversion. This could be useful when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
 	<p>See <seeerl marker="snmp#log_to_io">snmp:log_to_io</seeerl> 
@@ -1134,7 +1134,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Retreive the type (asn1 bertype) of an oid.</p>
+        <p>Retrieve the type (asn1 bertype) of an oid.</p>
 
         <marker id="backup"></marker>
       </desc>
@@ -1196,7 +1196,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       </type>
       <desc>
 	<p>Restart the indicated process (<c>Ref</c>). Note that its not
-	without risk to restart a process, and should therefor be used
+	without risk to restart a process, and should therefore be used
 	with care. </p>
 
         <marker id="format_reason"></marker>
@@ -1227,9 +1227,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
               <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> user callback function.</p>
           </item>
         </list>
-        <p><c>Prefix</c> should either be an indention string
+        <p><c>Prefix</c> should either be an indentation string
           (e.g. a list of spaces) or a positive integer (which will be used
-          to create the indention string of that length).</p>
+          to create the indentation string of that length).</p>
       </desc>
     </func>
   </funcs>

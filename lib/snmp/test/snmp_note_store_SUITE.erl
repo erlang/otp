@@ -239,7 +239,7 @@ do_notes({_, Pid}, _Config) ->
 info(suite) ->
     [];
 info(doc) ->
-    ["Testing that we can retreive process info."];
+    ["Testing that we can retrieve process info."];
 info(Config) when is_list(Config) ->
     Pre = fun() ->
                   ?IPRINT("try start note-store"),

@@ -492,7 +492,7 @@ format_pdu(PDU, MiniMib) when is_record(PDU, pdu) ->
 	       (T =:= 'get-bulk-request') ->
 		   "";
 	       true ->
-		   io_lib:format("*!*!* An error occured. *!*!* ~n"
+		   io_lib:format("*!*!* An error occurred. *!*!* ~n"
 				 "Error status = ~w, index = ~w.~n",
 				 [ES, EI])
 	   end,

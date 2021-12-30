@@ -2133,7 +2133,7 @@ handle_discovery_response(#state{disco = #disco{target = TargetName,
 	  "~n   ManagerEngineId: ~p", [TargetName, ManagerEngineId]),
     %% This is end of stage 1.
     %% So, first we need to update the database with the EngineId of the 
-    %% manager and then deside if we should continue with stage 2. E.g.
+    %% manager and then decide if we should continue with stage 2. E.g.
     %% establish authenticated communication. 
     case snmp_target_mib:set_target_engine_id(TargetName, ManagerEngineId) of
 	true when Disco#disco.sec_level =:= ?'SnmpSecurityLevel_noAuthNoPriv' ->
@@ -2526,7 +2526,7 @@ validate_next_v1_2([], _MibView, Res) ->
 %% column, we'll try to find the next instance. This will be the
 %% next row in the table, which is a Counter64 value as well. This
 %% means that we will loop through the entire table, until we find
-%% a column that isn't a Counter64 column. We can optimze this by
+%% a column that isn't a Counter64 column. We can optimize this by
 %% adding 1 to the column-no in the oid of this instance.
 %% If the table is implemented by a subagent this does not help,
 %% we'll call that subagent many times. But it shouldn't be any

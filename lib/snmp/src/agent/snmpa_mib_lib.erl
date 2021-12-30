@@ -56,7 +56,7 @@ table_del_row({Tab, Db} = TabDb, Key) ->
 
 
 %%%-----------------------------------------------------------------
-%%% Retreives the entire table. Used for debugging
+%%% Retrieves the entire table. Used for debugging
 %%%-----------------------------------------------------------------
 
 get_table(NameDb, FOI) ->

@@ -438,7 +438,7 @@
         <item>
           <p>[agent] The main agent type header file contained some miss-information 
             regarding the type of the entrytype field of the me-record, causing 
-            unneccessary confusion.</p>
+            unnecessary confusion.</p>
           <p>Own Id: OTP-8116</p>
 	  <p>Aux Id: Seq 11312</p>
         </item>
@@ -490,7 +490,7 @@
 
         <item>
           <p>[agent] A manager could no longer use the SNMPv3 user "initial" 
-            as this was interpretated as the first step of the discovery. </p>
+            as this was interpreted as the first step of the discovery. </p>
           <p>Introduced a new terminating option, <c>trigger_username</c> to
             make it possible to configure the username the agent reacts to. 
             Default is <c>""</c>. </p>
@@ -514,7 +514,7 @@
         <item>
           <p>[agent] The main agent type header file contained some miss-information 
             regarding the type of the entrytype field of the me-record, causing 
-            unneccessary confusion.</p>
+            unnecessary confusion.</p>
           <p>Own Id: OTP-8116</p>
 	  <p>Aux Id: Seq 11312</p>
         </item>
@@ -1397,7 +1397,7 @@
 
         <item>
           <p>[agent] Uninstalling MEs when unloading mibs incorrect and 
-            therefor never done. </p>
+            therefore never done. </p>
           <p>Own Id: OTP-7153</p>
         </item>
 
@@ -2175,7 +2175,7 @@
         <item>
           <p>[manager] Improve handling of empty messages. Today 
             when receiving an empty (size = 0) udp message, this 
-            will result in a decode failure (a catched function 
+            will result in a decode failure (a caught function 
             clause), which in turn will be passed on to the user, 
             via a call to the 
             <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> 

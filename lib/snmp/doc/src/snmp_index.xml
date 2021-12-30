@@ -123,7 +123,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </p>
     <p>For example, if the SNMP table has two INDEX columns, the first
       one an OCTET STRING with size 2, and the second one an OBJECT
-      IDENTIFER, the corresponding <c>key_types</c> parameter would be
+      IDENTIFIER, the corresponding <c>key_types</c> parameter would be
       <c>{fix_string, string}</c>.
       </p>
     <p>The <c>key()</c> type correlates to the <c>key_types()</c>

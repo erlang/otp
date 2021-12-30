@@ -52,7 +52,7 @@
 %% Also, the request-reponder and trap-sender transport(s),
 %% has different needs.
 %% The trap-sender transport will send more data then it will receive.
-%% Therefor, we should be able to specify;
+%% Therefore, we should be able to specify;
 %% bind_to, no_reuse_address, recbuf and sndbuf individually:
 %% {intAgentTransports,
 %%  [{transportDomainUdpIpv4, {{141,213,11,24},   PortInfo},
@@ -122,7 +122,7 @@
 %% Note that since informs require confirmation,
 %% an ephemeral socket cannot be removed immediately
 %% when it has been "used up".
-%% We need to keep it for some time to receive responces
+%% We need to keep it for some time to receive responses
 %% and in case a resend is needed!.
 %% </EPHEMERAL-FOR-FUTUR-USE>
 
@@ -573,7 +573,7 @@ loop(#state{transports = Transports,
     ?vdebug("loop(~p)", [S]),
     receive
         {udp, Socket, IpAddr, IpPort, Packet} = Msg ->
-	    ?vlog("got paket from ~w:~w on ~w", [IpAddr, IpPort, Socket]),
+	    ?vlog("got packet from ~w:~w on ~w", [IpAddr, IpPort, Socket]),
 	    case lists:keyfind(Socket, #transport.socket, Transports) of
 		#transport{socket = Socket, domain = Domain} = Transport ->
 		    From =
@@ -2111,7 +2111,7 @@ get_inet_backend(Opts, DefaultOpts) ->
     get_socket_opt(inet_backend, Opts, DefaultOpts, use_default).
 
 %% <EPHEMERAL-FOR-FUTUR-USE>
-%% This is not realy a socket option, but rather socket 'meta'
+%% This is not really a socket option, but rather socket 'meta'
 %% information. Its still put together with the actual socket
 %% options.
 %% get_ephemeral(SocketOpts) ->

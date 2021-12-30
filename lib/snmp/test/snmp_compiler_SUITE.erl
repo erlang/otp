@@ -277,7 +277,7 @@ agent_capabilities(Config) when is_list(Config) ->
 						 {verbosity, trace}]),
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
-    %% This is a rather pathetic test, but it is somthing...
+    %% This is a rather pathetic test, but it is something...
     ?IPRINT("agent_capabilities -> "
             "~n   MEDiff: ~p"
             "~n   Mib1:   ~p"
@@ -318,7 +318,7 @@ module_compliance(Config) when is_list(Config) ->
 						 {verbosity,   trace}]),
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
-    %% This is a rather pathetic test, but it is somthing...
+    %% This is a rather pathetic test, but it is something...
     ?IPRINT("module_compliance -> "
             "~n   MEDiff: ~p"
             "~n   Mib1:   ~p"

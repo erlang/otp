@@ -903,7 +903,7 @@ test_index_positions(Line, Indexes, ColMEs) ->
     TLI   = lists:filter(IsTLI, Indexes),
     test_index_positions_impl(Line, TLI, ColMEs).
 
-%% An table that augments another cannot conatin any index, 
+%% An table that augments another cannot contain any index, 
 %% so the first non-index column is always the first column.
 augments_first_non_index_column([]) ->
     none;

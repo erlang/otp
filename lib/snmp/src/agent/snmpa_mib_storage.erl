@@ -46,7 +46,7 @@
 %% (of the behaviour), this is done using the *Options* argument. 
 %% ---------------------------------------------------------------
 
-%% Options is callback module dependant
+%% Options is callback module dependent
 
 -callback open(Name    :: atom(), 
 	       RecName :: atom(), 

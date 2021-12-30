@@ -71,7 +71,7 @@
 %%         conditions.
 %% Pre:    A fun that is nominally part of the test case
 %%         but is an initiation that must be "undone". This is
-%%         done by the Post fun (regardless if the TC is successfull
+%%         done by the Post fun (regardless if the TC is successful
 %%         or not). Example: Starts a couple of nodes,
 %% TC:     The test case fun
 %% Post:   A fun that undo what was done by the Pre fun.
@@ -119,7 +119,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                                 (C =:= exit) ->
                             tc_print("test case (~w) skip: try post", [C]),
                             (catch Post(State)),
-                            tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            tc_end( f("skipping(caught,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
                             %% We always check the system events
@@ -130,7 +130,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                 [] ->
                                     tc_print("test case failed: try post"),
                                     (catch Post(State)),
-                                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
                                     erlang:raise(C, E, S);
                                 SysEvs ->
                                     tc_print("System Events received during tc: "
@@ -150,7 +150,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
             catch
                 C:{skip, _} = SKIP when (C =:= throw) orelse
                                         (C =:= exit) ->
-                    tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
                     %% We always check the system events
@@ -162,7 +162,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                      "~n   E: ~p"
                                      "~n   S: ~p",
                                      [C, E, S]),
-                            tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
                             SKIP = {skip, f("TC-Pre failure (~w)", [C])},
                             SKIP;
                         SysEvs ->
@@ -186,13 +186,13 @@ tc_try(Case, TCCond, Pre, TC, Post)
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            tc_end( f("skipping(catched,~w,cond)", [C]) ),
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
             %% We always check the system events before we accept a failure
             case snmp_test_global_sys_monitor:events() of
                 [] ->
-                    tc_end( f("failed(catched,~w,cond)", [C]) ),
+                    tc_end( f("failed(caught,~w,cond)", [C]) ),
                     erlang:raise(C, E, S);
                 SysEvs ->
                     tc_print("System Events received: "
@@ -934,7 +934,7 @@ skip(Reason, Module, Line) ->
     exit({skip, String}).
     
 
-%% This function prints various host info, which might be usefull
+%% This function prints various host info, which might be useful
 %% when analyzing the test suite (results).
 %% It also returns a "factor" that can be used when deciding 
 %% the load for some test cases. Such as run time or number of

@@ -873,7 +873,7 @@ mnesia_start(Opts) ->
     mnesia_start(Opts, [node()]).
 
 mnesia_start(Opts, Nodes) ->
-    %% We can accept mnesia beeing loaded but *not* started.
+    %% We can accept mnesia being loaded but *not* started.
     %% If its started it *may* contain data that will invalidate
     %% this test case.
     ?IPRINT("mnesia_start -> try load mnesia when:"

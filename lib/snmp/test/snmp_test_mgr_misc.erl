@@ -390,7 +390,7 @@ handle_v1_or_v2_message(Mgr, _UdpId, Ip, UdpPort, _AgentIp,
     end.
 
 
-%% This function assumes that the agent and the manager (thats us) 
+%% This function assumes that the agent and the manager (that's us) 
 %% has the same version.
 check_discovery_result('version-3', DiscoReqMsg, DiscoRspMsg) ->
     ReqMsgID = getMsgID(DiscoReqMsg),
@@ -772,7 +772,7 @@ ensure_dead_kill(Pid, MRef, Timeout) ->
 
 
 display_incomming_message(M) ->
-    display_message("Incomming",M).
+    display_message("Incoming",M).
 
 display_outgoing_message(M) ->
     display_message("Outgoing", M).
