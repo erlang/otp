@@ -800,7 +800,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
              critical = false}]
 	  </code>
 	  <p>Hostname is the result of calling net_adm:localhost() in the Erlang node
-	  where this funcion is called.
+	  where this function is called.
 	  </p></item>
 
 	</taglist>

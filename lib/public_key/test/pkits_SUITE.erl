@@ -300,24 +300,24 @@ end_per_testcase(_Func, Config) ->
 
 %%--------------------------- signature_verification--------------------------------------------------
 valid_rsa_signature() ->
-    [{doc, "Test rsa signatur verification"}].
+    [{doc, "Test rsa signature verification"}].
 valid_rsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.1", "Valid Certificate Path Test1 EE", ok}]).
 
 invalid_rsa_signature() ->
-    [{doc,"Test rsa signatur verification"}].
+    [{doc,"Test rsa signature verification"}].
 invalid_rsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.2", "Invalid CA Signature Test2 EE", {bad_cert,invalid_signature}},
 	 { "4.1.3", "Invalid EE Signature Test3 EE", {bad_cert,invalid_signature}}]).
 
 valid_dsa_signature() ->
-    [{doc,"Test dsa signatur verification"}].
+    [{doc,"Test dsa signature verification"}].
 valid_dsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.4", "Valid DSA Signatures Test4 EE", ok},
 	 { "4.1.5", "Valid DSA Parameter Inheritance Test5 EE", ok}]).
 
 invalid_dsa_signature() ->
-    [{doc,"Test dsa signatur verification"}].
+    [{doc,"Test dsa signature verification"}].
 invalid_dsa_signature(Config) when is_list(Config) ->
     run([{ "4.1.6", "Invalid DSA Signature Test6 EE",{bad_cert,invalid_signature}}]).
 
@@ -805,7 +805,7 @@ invalid_crl_issuer(Config) when is_list(Config) ->
 	]).
 
 %% Although this test is valid it has a circular dependency. As a result
-%% an attempt is made to reursively checks a CRL path and rejected due to
+%% an attempt is made to recursively checks a CRL path and rejected due to
 %% a CRL path validation error. PKITS notes suggest this test does not
 %% need to be run due to this issue.
 %%	 { "4.14.30", "Valid cRLIssuer Test30", 54 }
