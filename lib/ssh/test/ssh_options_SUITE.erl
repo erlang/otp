@@ -1412,7 +1412,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    ct:log("Connections up: ~p",[Connections]),
 	    [_|_] = Connections,
 
-	    %% N w try one more than alowed:
+	    %% N w try one more than allowed:
 	    ct:pal("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
@@ -1442,7 +1442,7 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
      of
 	 _ConnectionRef1 ->
 	     timer:cancel(Tref),
-             ct:log("Step 3 ok: could set up one more connection after killing one. Thats good.",[]),
+             ct:log("Step 3 ok: could set up one more connection after killing one. That's good.",[]),
 	     ssh:stop_daemon(Pid),
 	     receive % flush. 
 		 timeout_no_connection -> ok
@@ -1769,7 +1769,7 @@ config_file_modify_algorithms_order(Config) ->
             ConnOptions = proplists:get_value(options, ConnInfo),
             ConnPrefAlgs = proplists:get_value(preferred_algorithms, ConnOptions),
 
-            %% And now, are all levels appied in right order:
+            %% And now, are all levels applied in right order:
             [K3,K2] = proplists:get_value(kex, ConnPrefAlgs),
 
             peer:stop(Peer)
@@ -1789,7 +1789,7 @@ expected_ssh_vsn(Str) ->
 	"\r\n" -> true;
 	_ -> false
     catch
-	_:_ -> true %% ssh not started so we dont't know
+	_:_ -> true %% ssh not started so we don't know
     end.
 	    
 

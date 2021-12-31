@@ -26,7 +26,7 @@
 -include("ssh_connect.hrl").
 
 %%% As this is an user interactive client it behaves like a daemon
-%%% channel inspite of it being a client. 
+%%% channel in spite of it being a client. 
 -behaviour(ssh_server_channel).
 
 %% ssh_server_channel callbacks

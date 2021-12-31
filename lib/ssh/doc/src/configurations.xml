@@ -250,7 +250,7 @@ ok
                         ]).
 {ok,&gt;0.118.0>}
 	</code>
-	<p>We check which algoritms are negotiated by the client and the server, and note that
+	<p>We check which algorithms are negotiated by the client and the server, and note that
 	the (only) <c>kex</c> algorithm <c>'curve25519-sha256@libssh.org'</c> was selected:
 	</p>
 	<code>

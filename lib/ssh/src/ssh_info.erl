@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Print some info of a running ssh aplication.
+%% Purpose: Print some info of a running ssh application.
 %%----------------------------------------------------------------------
 
 -module(ssh_info).

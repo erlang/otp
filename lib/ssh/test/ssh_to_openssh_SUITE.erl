@@ -91,7 +91,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []) of
 	   {error,econnrefused} ->
-	       {skip,"No openssh deamon (econnrefused)"};
+	       {skip,"No openssh daemon (econnrefused)"};
 	   _ ->
                ssh_test_lib:openssh_sanity_check(
                  [{ptty_supported, ssh_test_lib:ptty_supported()}

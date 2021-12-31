@@ -69,7 +69,7 @@
 	<v>ConnectOptions =  <seetype marker="#client_key_cb_options">client_key_cb_options()</seetype></v>
       </type>
       <desc>
-	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the prefered API function.
+	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the preferred API function.
 	The calling SSH application will still try the <c>add_host_key/3</c> if the call to <c>add_host_key/4</c> failed.
 	</p>
 	 <p>Adds a host key to the set of trusted host keys.</p>
@@ -96,10 +96,10 @@
       </type>
       <desc>
 	 <p>Adds a host key to the set of trusted host keys.</p>
-	 <p>This function is prefered to the old <c>Module:add_host_key/3</c> since it also uses
+	 <p>This function is preferred to the old <c>Module:add_host_key/3</c> since it also uses
 	the peer host port number and may return an error message.</p>
 	<p>The OTP/SSH application first calls this function in the callback module, and then
-	the old <c>Module:add_host_key/3</c> for compatibilty.</p>
+	the old <c>Module:add_host_key/3</c> for compatibility.</p>
       </desc>
     </func>
 
@@ -121,7 +121,7 @@
 	<v>Result = boolean()</v>
       </type>
       <desc>
-	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the prefered API function.
+	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the preferred API function.
 	The calling SSH application will still try the <c>is_host_key/4</c> if the call to <c>is_host_key/5</c> failed.
 	</p>
 	<p>Checks if a host key is trusted.</p>
@@ -155,10 +155,10 @@
       </type>
       <desc>
 	<p>Checks if a host key is trusted.</p>
-	<p>This function is prefered to the old <c>Module:is_host_key/4</c> since it also uses
+	<p>This function is preferred to the old <c>Module:is_host_key/4</c> since it also uses
 	the peer host port number and may return an error message.</p>
 	<p>The OTP/SSH application first calls this function in the callback module, and then
-	the old <c>Module:is_host_key/4</c> for compatibilty.</p>
+	the old <c>Module:is_host_key/4</c> for compatibility.</p>
       </desc>
     </func>
 

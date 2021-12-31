@@ -29,7 +29,7 @@
 %%% The option key_cb_private is to pass options needed by other
 %%% callback modules than the default ssh_file.erl
 %%%
-%%% If ssh:deamon(n, [ {key_cb_private, {hi,{there}}} ]
+%%% If ssh:daemon(n, [ {key_cb_private, {hi,{there}}} ]
 %%% is called, the term() will be {hi,{there}}
 
 -type daemon_key_cb_options(T) :: [{key_cb_private,[T]} | ssh:daemon_option()].

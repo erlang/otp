@@ -108,7 +108,7 @@ start(Type) ->
         {ok, _} ->
             %% Clear cached default_algorithms (if exists) ...
             ssh_transport:clear_default_algorithms_env(),
-            %% ... and rebuld them taking configure options in account
+            %% ... and rebuild them taking configure options in account
             ssh_transport:default_algorithms(),
             ok;
         Other ->

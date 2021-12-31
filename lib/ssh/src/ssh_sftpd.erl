@@ -102,7 +102,7 @@ init(Options) ->
     
     %% Get the root of the file system (symlinks must be followed,
     %% otherwise the realpath call won't work). But since symbolic links
-    %% isn't supported on all plattforms we have to use the root property
+    %% isn't supported on all platforms we have to use the root property
     %% supplied by the user.
     {Root, State} = 
 	case resolve_symlinks(Root0, 

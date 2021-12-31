@@ -75,15 +75,15 @@
 	<tag><c>public_key</c></tag>
 	<item>
 	  <p>Server host key</p>
-	  <p>The asymetric encryption algorithm used in the server's private-public host key pair.
+	  <p>The asymmetric encryption algorithm used in the server's private-public host key pair.
 	  Examples include the well-known RSA <c>'ssh-rsa'</c> and elliptic curve <c>'ecdsa-sha2-nistp521'</c>.
 	  </p>
 	</item>
 
 	<tag><c>cipher</c></tag>
 	<item>
-	  <p>Symetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
-	  in the kex phase (together with other info) to genereate the actual key used. Examples are 
+	  <p>Symmetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
+	  in the kex phase (together with other info) to generate the actual key used. Examples are 
 	  tripple-DES <c>'3des-cbc'</c> and one of many AES variants <c>'aes192-ctr'</c>.
 	  </p>
 	  <p>This list is actually two - one for each direction server-to-client and client-to-server. Therefore it
@@ -110,13 +110,13 @@
 
     <section>
       <title>The SSH app's mechanism</title>
-      <p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p>
+      <p>The set of algorithms that the SSH app uses by default depends on the algorithms supported by the:</p>
       <list>
 	<item><p><seeerl marker="crypto:crypto">crypto</seeerl> app,</p>
 	</item>
-	<item><p>The cryptolib OTP is linked with, usally the one the OS uses, probably OpenSSL,</p>
+	<item><p>The cryptolib OTP is linked with, usually the one the OS uses, probably OpenSSL,</p>
 	</item>
-	<item><p>and finaly what the SSH app implements</p>
+	<item><p>and finally what the SSH app implements</p>
 	</item>
       </list>
       <p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p>
@@ -170,7 +170,7 @@
 
     <p>To forsee the effect of an option there is an experimental function <c>ssh:chk_algos_opts(Opts)</c>.
     It mangles the options <c>preferred_algorithms</c>
-    and <c>modify_algorithms</c> in the same way as <c>ssh:dameon</c>, <c>ssh:connect</c> and their friends does.</p>
+    and <c>modify_algorithms</c> in the same way as <c>ssh:daemon</c>, <c>ssh:connect</c> and their friends does.</p>
 
     <section>
       <title>Example 1</title>
@@ -322,7 +322,7 @@
     <section>
       <title>Example 5</title>
       <p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
-      <seeapp marker="SSH_app#supported_algos">Supported algoritms</seeapp>.</p>
+      <seeapp marker="SSH_app#supported_algos">Supported algorithms</seeapp>.</p>
       <code type="erl">
 5> ssh:chk_algos_opts(
          [{modify_algorithms,

@@ -98,7 +98,7 @@ minor_upgrade(Config) when is_list(Config) ->
 %%% 
 
 %%%----------------------------------------------------------------
-%%% Initialyze system before upgrade test starts.
+%%% Initialize system before upgrade test starts.
 %%% Called by ct_release_test:upgrade/4
 upgrade_init(CTData, State) -> 
     {ok, AppUp={_, _, Up, _Down}} = ct_release_test:get_appup(CTData, ssh),

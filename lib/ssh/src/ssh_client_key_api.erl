@@ -82,7 +82,7 @@
 %%% in the argument Host with the port Port.
 %%%
 %%% Due to compatibility reasons, the OTP/SSH application first
-%%% trys add_host_key/4 and then the old add_host_key/3
+%%% tries add_host_key/4 and then the old add_host_key/3
 
 -callback add_host_key(Host :: inet:ip_address() | inet:hostname()
                              | [inet:ip_address() | inet:hostname()],

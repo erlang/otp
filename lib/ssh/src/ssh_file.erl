@@ -571,7 +571,7 @@ find_host_key(_, _, _, []) ->
 revoked_key(Hosts, KeyType, EncKey, [<<"@revoked ",RestLine/binary>> | Lines]) ->
     case binary:split(RestLine, <<" ">>, [global,trim_all]) of
         [Patterns, KeyType, EncKey|_Comment] ->
-            %% Very likeley to be a revoked key,
+            %% Very likely to be a revoked key,
             %% but does any of the hosts match the pattern?
             case host_match(Hosts, Patterns) of
                 true ->

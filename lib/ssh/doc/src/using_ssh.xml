@@ -201,7 +201,7 @@ ok
     <p>To close the connection, call the function <seemfa marker="ssh#close/1"><c>ssh:close(ConnectionRef)</c></seemfa>.
     As an alternative, set the option
     <seetype marker="ssh#max_idle_time_common_option"><c>{idle_time, 1}</c></seetype>
-    when opening the connection. This will cause the connection to be closed automaticaly when there are
+    when opening the connection. This will cause the connection to be closed automatically when there are
     no channels open for the specified time period, in this case 1 ms.
     </p>
     </section>

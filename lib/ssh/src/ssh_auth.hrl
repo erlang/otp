@@ -59,7 +59,7 @@
 -record(ssh_msg_userauth_passwd_changereq,
 	{
 	  prompt,     %% string
-	  languge     %% string
+	  language     %% string
 	 }).
 
 -record(ssh_msg_userauth_pk_ok,

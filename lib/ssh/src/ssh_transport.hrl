@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSH-tansport layer 
+%% Purpose: Record and constant definitions for the SSH-tansport layer 
 %% protocol see RFC 4253
 %%----------------------------------------------------------------------
 

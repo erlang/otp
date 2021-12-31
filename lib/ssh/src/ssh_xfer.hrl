@@ -226,7 +226,7 @@
 
 -record(ssh_xfer_attr,
 	{
-	  type,    %% regular, dirctory, symlink, ...
+	  type,    %% regular, directory, symlink, ...
 	  size,
 	  owner,
 	  group,

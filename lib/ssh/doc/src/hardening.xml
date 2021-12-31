@@ -64,7 +64,7 @@
       <item>
 	If the client fails to send the first ssh message after a tcp connection setup
 	within this time (in milliseconds), the connection is closed.
-	The default value is 30 seconds. This is actualy a generous time, so it can lowered
+	The default value is 30 seconds. This is actually a generous time, so it can lowered
 	to make the daemon less prone to DoS attacks.
       </item>
       <tag><seetype marker="ssh#negotiation_timeout_daemon_option">negotiation_timeout</seetype></tag>
@@ -251,7 +251,7 @@ end.
       <code>
 	ssh:daemon(1234, [{id_string,"hi there"}, ... ]).
       </code>
-      <p>and the deamon will present itself as:</p>
+      <p>and the daemon will present itself as:</p>
       <pre>SSH-2.0-hi there</pre>
       <p>It is possible to replace the string with one randomly generated for each connection attempt.
       See the reference manual for <seetype marker="ssh#id_string_common_option">id_string</seetype>.

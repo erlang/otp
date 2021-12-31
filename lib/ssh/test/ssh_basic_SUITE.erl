@@ -251,7 +251,7 @@ appup_test(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test that we can set some misc options not tested elsewhere
 %%% some options not yet present are not decided if we should support or
-%%% if they need thier own test case.
+%%% if they need their own test case.
 misc_ssh_options(Config) when is_list(Config) ->  
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -520,7 +520,7 @@ shell_socket(Config) when is_list(Config) ->
     ct:log("~p:~p udp socket failed ok", [?MODULE,?LINE]),
     gen_udp:close(BadSock),
 
-    %% And finaly test with passive mode (which should work):
+    %% And finally test with passive mode (which should work):
     IO = ssh_test_lib:start_io_server(),
     {ok,Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
     Shell = ssh_test_lib:start_shell(Sock, IO, [{user_dir,UserDir}]),
@@ -659,7 +659,7 @@ cli_exit_status(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test that get correct error message if you try to start a daemon
-%%% on an adress that already runs a daemon see also seq10667
+%%% on an address that already runs a daemon see also seq10667
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1393,7 +1393,7 @@ login_bad_pwd_no_retry(Config, AuthMethods) ->
 		{ok,Conn} ->
 		    ssh:close(Conn),
 		    ssh:stop_daemon(DaemonRef),
-		    {fail, "Connect erroneosly succeded"}
+		    {fail, "Connect erroneosly succeeded"}
 	    end
     end.
 
@@ -1465,7 +1465,7 @@ setopts_getopts(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 %% Due to timing the error message may or may not be delivered to
-%% the "tcp-application" before the socket closed message is recived
+%% the "tcp-application" before the socket closed message is received
 check_error("Invalid state") -> ok;
 check_error("Connection closed") -> ok;
 check_error("Selection of key exchange algorithm failed"++_) -> ok;
@@ -1582,7 +1582,7 @@ prompt_prefix() ->
 new_do_shell_prompt(IO, N, type, Str, More) ->
     ct:log("Matched prompt ~p to trigger sending of next line to server",[N]),
     IO ! {input, self(), Str++"\r\n"},
-    ct:log("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
+    ct:log("Prompt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
     new_do_shell(IO, N, More);
 new_do_shell_prompt(IO, N, Op, Str, More) ->
     ct:log("Matched prompt ~p",[N]),
