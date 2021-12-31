@@ -61,7 +61,7 @@ selected_absolute_N(_)->
 
 selected_list_rows() ->
     {selected,["ID", "DATA"],[["1", "bar"],["2","foo"]]}.
-    
+
 first_list_rows() ->
     {error, driver_does_not_support_function}.
 last_list_rows() ->
@@ -94,7 +94,7 @@ create_fixed_char_table(Size) ->
 var_char_min() ->
     1.
 var_char_max() ->
-    2000. 
+    2000.
 
 create_var_char_table(Size) ->
     " (FIELD varchar2(" ++ integer_to_list(Size) ++ "))".
@@ -103,14 +103,14 @@ create_var_char_table(Size) ->
 text_min() ->
     1.
 text_max() ->
-   2147483646. % 2147483647. %% 2^31 - 1 
+   2147483646. % 2147483647. %% 2^31 - 1
 
 create_text_table() ->
     " (FIELD long)". %Oracle long is variable length char data
 
 %-------------------------------------------------------------------------
 create_timestamp_table() ->
-    " (FIELD DATETIME)". 
+    " (FIELD DATETIME)".
 
 %-------------------------------------------------------------------------
 tiny_int_min() ->
@@ -160,7 +160,7 @@ int_max_selected() ->
 %-------------------------------------------------------------------------
 big_int_min() ->
     -99999999999999999999999999999999999999.
-   
+
 big_int_max() ->
     99999999999999999999999999999999999999.
 
@@ -176,7 +176,7 @@ big_int_max_selected() ->
 %-------------------------------------------------------------------------
 float_min() ->
     1.40129846432481707e-45.
-    
+
 float_max() ->
     3.40282346638528860e+38.
 
@@ -192,6 +192,17 @@ float_zero_selected() ->
     {selected,["FIELD"],[{0.00000e+0}]}.
 
 %-------------------------------------------------------------------------
+
+% Only really works with a subset of the possible precision and scale combinations
+% It should ideally mirror the function map_dec_num_2_c_column
+expected_value(Precision, _Scale, In) when Precision > 15 ->
+    erlang:float_to_list(In);
+
+expected_value(_Precision, _Scale, In) ->
+    In.
+
+%-------------------------------------------------------------------------
+
 param_select_small_int() ->
     {selected,["FIELD"],[{"1"}, {"2"}]}.
 
@@ -230,9 +241,9 @@ param_select() ->
 describe_integer() ->
     {ok,[{"MYINT1",{sql_decimal,38,0}},{"MYINT2",{sql_decimal,38,0}},
 	 {"MYINT3",{sql_decimal,38,0}}]}.
-    
+
 describe_string() ->
-    {ok,[{"STR1",{sql_char,10}},                           
+    {ok,[{"STR1",{sql_char,10}},
 	 {"STR2",{sql_char,10}},
 	 {"STR3",{sql_varchar,10}},
 	 {"STR4",{sql_varchar,10}}]}.

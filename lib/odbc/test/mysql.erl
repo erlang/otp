@@ -193,6 +193,9 @@ bit_false_selected() ->
 bit_true_selected() ->
     {selected,["FIELD"], [{"1"}]}.
 
+non_bit_promotes_to() ->
+    error.
+
 %-------------------------------------------------------------------------
 
 %% Do not test float min/max as value is only theoretical defined in
@@ -221,6 +224,15 @@ create_real_table() ->
 
 real_zero_selected() ->
     {selected,["FIELD"],[{0.00000e+0}]}.
+
+%-------------------------------------------------------------------------
+% Only really works with a subset of the possible precision and scale combinations
+% It should ideally mirror the function map_dec_num_2_c_column
+expected_value(Precision, _Scale, In) when Precision > 15 ->
+    erlang:float_to_list(In);
+
+expected_value(_Precision, _Scale, In) ->
+    In.
 
 %-------------------------------------------------------------------------
 param_select_small_int() ->
