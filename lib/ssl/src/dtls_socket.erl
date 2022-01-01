@@ -70,10 +70,10 @@ listen(Port, #config{inet_ssl = SockOpts,
 
 accept(dtls, #config{transport_info = {Transport,_,_,_,_},
                      connection_cb = ConnectionCb,
-                     dtls_handler = {Listner, _}}, _Timeout) -> 
-    case dtls_packet_demux:accept(Listner, self()) of
+                     dtls_handler = {Listener, _}}, _Timeout) -> 
+    case dtls_packet_demux:accept(Listener, self()) of
 	{ok, Pid, Socket} ->
-	    {ok, socket([Pid], Transport, {Listner, Socket}, ConnectionCb)};
+	    {ok, socket([Pid], Transport, {Listener, Socket}, ConnectionCb)};
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -110,11 +110,11 @@ close(Transport, {_Client, Socket}) ->
 socket(Pids, gen_udp = Transport,
        PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb) ->
     #sslsocket{pid = Pids, 
-	       %% "The name "fd" is keept for backwards compatibility
+	       %% "The name "fd" is kept for backwards compatibility
 	       fd = {Transport, PeerAndSock, ConnectionCb}};
 socket(Pids, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pids, 
-	       %% "The name "fd" is keept for backwards compatibility
+	       %% "The name "fd" is kept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
 setopts(_, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),

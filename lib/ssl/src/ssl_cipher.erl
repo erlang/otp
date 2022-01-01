@@ -569,13 +569,13 @@ hash_size(sha512) ->
 is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% PRE TLS-1.3
     lists:member(SignAlgo, HashSigns) orelse
         lists:member({Hash, rsa_pss_rsae}, HashSigns);
-is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
     lists:member(SignAlgo, HashSigns) orelse
         lists:member(rsa_pss_rsae_sha256, HashSigns);
-is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
     lists:member(SignAlgo, HashSigns) orelse
         lists:member(rsa_pss_rsae_sha384, HashSigns);
-is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 leagcy
+is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy
     lists:member(SignAlgo, HashSigns) orelse
         lists:member(rsa_pss_rsae_sha512, HashSigns);
 is_supported_sign(SignAlgo, HashSigns) -> %% PRE TLS-1.3 SignAlgo::tuple() TLS-1.3 SignAlgo::atom()
@@ -970,7 +970,7 @@ is_correct_padding(#generic_block_cipher{padding_length = Len,
     Len == byte_size(Padding); %% Only length check is done in SSL 3.0 spec
 %% For interoperability reasons it is possible to disable
 %% the padding check when using TLS 1.0, as it is not strictly required 
-%% in the spec (only recommended), howerver this makes TLS 1.0 vunrable to the Poodle attack 
+%% in the spec (only recommended), however this makes TLS 1.0 vunrable to the Poodle attack 
 %% so by default this clause will not match
 is_correct_padding(GenBlockCipher, {3, 1}, false) ->
     is_correct_padding(GenBlockCipher, {3, 0}, false);

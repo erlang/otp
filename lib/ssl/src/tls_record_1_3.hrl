@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the TLS-1.3-record protocol
+%% Purpose: Record and constant definitions for the TLS-1.3-record protocol
 %% see RFC 8446 not present in earlier versions
 %%----------------------------------------------------------------------
 

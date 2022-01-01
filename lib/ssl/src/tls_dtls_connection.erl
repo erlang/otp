@@ -50,7 +50,7 @@
 -export([handle_session/7,
          handle_sni_extension/2]).
 
-%% General state handlingfor TLS-1.0 to TLS-1.2 and gen_handshake that wrapps
+%% General state handlingfor TLS-1.0 to TLS-1.2 and gen_handshake that wraps
 %% handling of common state handling for handshake messages for error handling
 -export([hello/3,
          user_hello/3,
@@ -373,7 +373,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
     
     Params = ssl_handshake:decode_server_key(Keys, KexAlg, ssl:tls_version(Version)),
 
-    %% Use negotiated value if TLS-1.2 otherwhise return default
+    %% Use negotiated value if TLS-1.2 otherwise return default
     HashSign = negotiated_hashsign(Params#server_key_params.hashsign, KexAlg, PubKeyInfo, ssl:tls_version(Version)),
 
     case is_anonymous(KexAlg) of
@@ -410,7 +410,7 @@ certify(internal, #certificate_request{},
                                         protocol_cb = Connection},
                session = #session{own_certificates = undefined}} = State) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail 
-    %% or accept the connection by its own preference. No signature algorihms needed as there is
+    %% or accept the connection by its own preference. No signature algorithms needed as there is
     %% no certificate to verify.
     Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_requested = true});
 certify(internal, #certificate_request{} = CertRequest,
@@ -558,7 +558,7 @@ cipher(internal, #certificate_verify{signature = Signature,
 	     } = State) ->
     
     TLSVersion = ssl:tls_version(Version),
-    %% Use negotiated value if TLS-1.2 otherwhise return default
+    %% Use negotiated value if TLS-1.2 otherwise return default
     HashSign = negotiated_hashsign(CertHashSign, KexAlg, PubKeyInfo, TLSVersion),
     case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
 					  TLSVersion, HashSign, MasterSecret, Hist) of
@@ -780,10 +780,10 @@ update_server_random(#{pending_read := #{security_parameters := ReadSecParams0} 
 %%   44 4F 57 4E 47 52 44 00
 override_server_random(<<Random0:24/binary,_:8/binary>> = Random, {M,N}, {Major,Minor})
   when Major > 3 orelse Major =:= 3 andalso Minor >= 4 -> %% TLS 1.3 or above
-    if M =:= 3 andalso N =:= 3 ->                         %% Negotating TLS 1.2
+    if M =:= 3 andalso N =:= 3 ->                         %% Negotiating TLS 1.2
             Down = ?RANDOM_OVERRIDE_TLS12,
             <<Random0/binary,Down/binary>>;
-       M =:= 3 andalso N < 3 ->                           %% Negotating TLS 1.1 or prior
+       M =:= 3 andalso N < 3 ->                           %% Negotiating TLS 1.1 or prior
             Down = ?RANDOM_OVERRIDE_TLS11,
             <<Random0/binary,Down/binary>>;
        true ->
@@ -791,7 +791,7 @@ override_server_random(<<Random0:24/binary,_:8/binary>> = Random, {M,N}, {Major,
     end;
 override_server_random(<<Random0:24/binary,_:8/binary>> = Random, {M,N}, {Major,Minor})
   when Major =:= 3 andalso Minor =:= 3 ->   %% TLS 1.2
-    if M =:= 3 andalso N < 3 ->             %% Negotating TLS 1.1 or prior
+    if M =:= 3 andalso N < 3 ->             %% Negotiating TLS 1.1 or prior
             Down = ?RANDOM_OVERRIDE_TLS11,
             <<Random0/binary,Down/binary>>;
        true ->

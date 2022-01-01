@@ -19,7 +19,7 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the TLS-handshake protocol
+%% Purpose: Record and constant definitions for the TLS-handshake protocol
 %% see RFC 8446. Also includes supported hello extensions.
 %%----------------------------------------------------------------------
 
@@ -27,7 +27,7 @@
 -define(tls_handshake_1_3, true).
 
 %% Common to TLS-1.3 and previous TLS versions 
-%% Some defenitions may not exist in TLS-1.3 this is 
+%% Some definitions may not exist in TLS-1.3 this is 
 %% handled elsewhere
 -include("tls_handshake.hrl"). 
 

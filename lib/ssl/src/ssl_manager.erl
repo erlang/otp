@@ -369,7 +369,7 @@ handle_info({clean_cert_db, Ref, File},
 	    #state{certificate_db = [CertDb, {RefDb, FileMapDb} | _]} = State) ->
     
     case ssl_pkix_db:lookup(Ref, RefDb) of
-	undefined -> %% Alredy cleaned
+	undefined -> %% Already cleaned
 	    ok;
 	_ ->
 	    clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File)

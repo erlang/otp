@@ -202,7 +202,7 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
         %% above SSL-3.0 
         {ok, [?HANDSHAKE, ?TLS_MAJOR, Minor]} when Minor > ?SSL_3_0_MINOR ->
             ok;
-        {error, timout} ->       
+        {error, timeout} ->       
             ct:fail(ssl3_record_not_accepted)
     end.
 %%--------------------------------------------------------------------

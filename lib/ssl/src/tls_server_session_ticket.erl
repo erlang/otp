@@ -58,8 +58,8 @@
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Listner, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Listner, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
+start_link(Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -239,7 +239,7 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk,
     StatefulTicket = {NewSessionTicket, Hash, Psk},
     case gb_trees:size(Tree0) of
         Max ->
-            %% Trow away oldes ticket
+            %% Trow away oldest ticket
             {_, {#new_session_ticket{ticket = OldRef},_,_}, Tree1} 
                 = gb_trees:take_smallest(Tree0),
             Tree = gb_trees:insert(Id, StatefulTicket, Tree1),
@@ -311,7 +311,7 @@ stateful_living_ticket({TimeStamp,_},
 
 stateful_psk_ticket_id(Key) ->
     Unique = erlang:unique_integer(),
-    %% Obfuscate to avoid DoS attack possiblities
+    %% Obfuscate to avoid DoS attack possibilities
     %% that could invalidate tickets and render them
     %% unusable. This id should be unpredictable
     %% and unique but have no other cryptographic requirements.

@@ -401,7 +401,7 @@ tls_shutdown_error(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 tls_client_closes_socket() ->
-    [{doc,"Test what happens when client closes socket before handshake is compleated"}].
+    [{doc,"Test what happens when client closes socket before handshake is completed"}].
 
 tls_client_closes_socket(Config) when is_list(Config) -> 
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
@@ -461,7 +461,7 @@ tls_reset_in_active_once(Config) when is_list(Config) ->
 tls_closed_in_active_once() ->
     [{doc, "Test that active once can be used to deliver not only all data"
       " but even the close message, see ERL-1409, in normal operation." 
-      " This is also test, with slighly diffrent circumstances in"
+      " This is also test, with slightly different circumstances in"
       " the old tls_closed_in_active_once test"
       " renamed tls_reset_in_active_once"}].
 
@@ -492,7 +492,7 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 tls_monitor_listener() ->
-    [{doc, "Check that TLS server processes are shutdown when listner socket is closed."
+    [{doc, "Check that TLS server processes are shutdown when listener socket is closed."
       "Note that individual already established connections may live longer."}].
 
 tls_monitor_listener(Config) when is_list(Config) ->
@@ -642,7 +642,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     
 %%--------------------------------------------------------------------
 tls_tcp_error_propagation_in_active_mode() ->
-    [{doc,"Test that process recives {ssl_error, Socket, closed} when tcp error ocurres"}].
+    [{doc,"Test that process receives {ssl_error, Socket, closed} when tcp error ocurres"}].
 tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),

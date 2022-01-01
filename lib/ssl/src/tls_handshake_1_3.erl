@@ -19,7 +19,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the TLS 1.3 (specific parts of)
+%% Purpose: Help functions for handling the TLS 1.3 (specific parts of)
 %%% TLS handshake protocol
 %%----------------------------------------------------------------------
 
@@ -859,7 +859,7 @@ do_negotiated({start_handshake, PSK0},
                 true ->
                     ssl_record:step_encryption_state_write(State3);
                 false ->
-                    %% Read state is overwritten when hanshake secrets are set.
+                    %% Read state is overwritten when handshake secrets are set.
                     %% Trial_decryption and early_data_limit must be set here!
                     update_current_read(
                       ssl_record:step_encryption_state(State3),
@@ -2138,7 +2138,7 @@ context_string(client) ->
     <<"TLS 1.3, client CertificateVerify">>.
 
 
-%% Return context string for verifing peer signature
+%% Return context string for verifying peer signature
 peer_context_string(server) ->
     <<"TLS 1.3, client CertificateVerify">>;
 peer_context_string(client) ->
@@ -2620,7 +2620,7 @@ truncate_client_hello(HelloBin0) ->
     %% the input can result in a different handshake binary.
     %% The original length of the binders can still be determined by
     %% re-encoding the original ClientHello and using its size as reference
-    %% when we substract the size of the truncated binary.
+    %% when we subtract the size of the truncated binary.
     TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, {3,4})),
     RefSize = iolist_size(tls_handshake:encode_handshake(CH0, {3,4})),
     BindersSize = RefSize - TruncatedSize,

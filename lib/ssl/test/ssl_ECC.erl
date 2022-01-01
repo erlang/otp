@@ -40,8 +40,8 @@
          client_ecdhe_ecdsa_server_ecdhe_ecdsa/1
         ]).
 
-%% Test diffrent certificate chain types, note that it is the servers
-%% chain that affect what cipher suite that will be choosen
+%% Test different certificate chain types, note that it is the servers
+%% chain that affect what cipher suite that will be chosen
 
 %% ECDH_RSA 
 client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->

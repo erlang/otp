@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the DTLS-handshake protocol
+%% Purpose: Record and constant definitions for the DTLS-handshake protocol
 %% that differs from TLS see RFC 6347 
 %%----------------------------------------------------------------------
 -ifndef(dtls_handshake).

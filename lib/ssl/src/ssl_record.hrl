@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL-record protocol
+%% Purpose: Record and constant definitions for the SSL-record protocol
 % see RFC 2246
 %%----------------------------------------------------------------------
 
@@ -100,8 +100,8 @@
 -define(AES_GCM, 8).
 -define(CHACHA20_POLY1305, 9).
 %% Following two are not defined in any RFC but we want to have the
-%% same type of handling internaly, all of these "bulk_cipher_algorithm"
-%% enums are only used internaly anyway.
+%% same type of handling internally, all of these "bulk_cipher_algorithm"
+%% enums are only used internally anyway.
 -define(AES_CCM, 10). 
 -define(AES_CCM_8, 11). 
 

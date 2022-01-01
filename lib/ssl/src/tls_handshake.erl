@@ -19,7 +19,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the TLS (specific parts of)
+%% Purpose: Help functions for handling the TLS (specific parts of)
 %%% SSL/TLS/DTLS handshake protocol
 %%----------------------------------------------------------------------
 
@@ -41,7 +41,7 @@
 %% Handshake encoding
 -export([encode_handshake/2]).
 
-%% Handshake decodeing
+%% Handshake decoding
 -export([get_tls_handshake/4, decode_handshake/3]).
 
 %% Handshake helper
@@ -281,7 +281,7 @@ encode_handshake(Package, Version) ->
 
 
 %%--------------------------------------------------------------------
-%%% Handshake decodeing
+%%% Handshake decoding
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------

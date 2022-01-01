@@ -232,7 +232,7 @@ client_unique_session(Config) when is_list(Config) ->
     ssl_test_lib:close(LastClient).
 		
 session_cleanup() ->
-    [{doc, "Test that sessions are cleand up eventually, so that the session table "
+    [{doc, "Test that sessions are cleaned up eventually, so that the session table "
      "does not grow and grow ..."}].
 session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),

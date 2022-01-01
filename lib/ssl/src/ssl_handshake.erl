@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 %----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the SSL-handshake protocol (common
+%% Purpose: Help functions for handling the SSL-handshake protocol (common
 %% to SSL/TLS and DTLS
 %%----------------------------------------------------------------------
 
@@ -1516,7 +1516,7 @@ select_curve(undefined, _, {_,Minor}, _) ->
             {namedCurve, CurveOid}
     end;
 select_curve({supported_groups, Groups}, Server,{_, Minor} = Version, HonorServerOrder) ->
-    %% TLS-1.3 hello but lesser version choosen
+    %% TLS-1.3 hello but lesser version chosen
     TLSCommonCurves = [secp256r1,secp384r1,secp521r1],
     Curves = [tls_v1:enum_to_oid(tls_v1:group_to_enum(Name)) || Name <- Groups, lists:member(Name, TLSCommonCurves)],
     case tls_v1:ecc_curves(Minor, Curves) of
@@ -2141,7 +2141,7 @@ maybe_check_crl(OtpCert, #{crl_check := Check,
 				  dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel),
 				  Options);
 	DpsAndCRLs ->  %% This DP list may be empty if relevant CRLs existed 
-	    %% but could not be retrived, will result in {bad_cert, revocation_status_undetermined}
+	    %% but could not be retrieved, will result in {bad_cert, revocation_status_undetermined}
 	    case public_key:pkix_crls_validate(OtpCert, DpsAndCRLs, Options) of
 		{bad_cert, {revocation_status_undetermined, _}} ->
 		    crl_check_same_issuer(OtpCert, Check, 
@@ -2889,7 +2889,7 @@ decode_extensions(<<?UINT16(?EC_POINT_FORMATS_EXT), ?UINT16(Len),
 decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
                     Rest/binary>>, Version, MessageType, Acc) when Len == 0 ->
     decode_extensions(Rest, Version, MessageType,
-                      Acc#{sni => #sni{hostname = ""}}); %% Server may send an empy SNI
+                      Acc#{sni => #sni{hostname = ""}}); %% Server may send an empty SNI
 
 decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
                 ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -3286,7 +3286,7 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
       KeyExchange == dhe_dss;
       KeyExchange == srp_dss ->							       
     do_filter_hashsigns(dsa, Suite, Suites, Algos, HashSigns, Version, Acc);
-filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Verion,
+filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
                  Acc) when 
       KeyExchange == dh_dss; 
       KeyExchange == dh_rsa; 
@@ -3296,7 +3296,7 @@ filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], Has
       %%  Fixed DH certificates MAY be signed with any hash/signature
       %%  algorithm pair appearing in the hash_sign extension.  The names
     %%  DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are historical.
-    filter_hashsigns(Suites, Algos, HashSigns, Verion, [Suite| Acc]);
+    filter_hashsigns(Suites, Algos, HashSigns, Version, [Suite| Acc]);
 filter_hashsigns([Suite | Suites], [#{key_exchange := KeyExchange} | Algos], HashSigns, Version,
                  Acc) when 
       KeyExchange == dh_anon;

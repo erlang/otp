@@ -45,7 +45,7 @@ init(_Options) ->
     gb_trees:empty().
 
 %%--------------------------------------------------------------------
-%% Description: Looks up a cach entry. Should be callable from any
+%% Description: Looks up a cache entry. Should be callable from any
 %% process.
 %%--------------------------------------------------------------------
 lookup(Cache, Key) ->
@@ -64,7 +64,7 @@ update(Cache, Key, Session) ->
     gb_trees:insert(Key, Session, Cache).
 
 %%--------------------------------------------------------------------
-%% Description: Delets a cache entry.
+%% Description: Deletes a cache entry.
 %% Will only be called from the ssl_server_cache process.
 %%--------------------------------------------------------------------
 delete(Cache, Key) ->

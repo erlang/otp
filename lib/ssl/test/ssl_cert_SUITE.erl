@@ -512,7 +512,7 @@ missing_root_cert_auth(Config) when is_list(Config) ->
     
 %%--------------------------------------------------------------------
 missing_root_cert_auth_user_verify_fun_accept() ->
-    [{doc, "Test that the client succeds if the ROOT CA is unknown in verify_peer mode"
+    [{doc, "Test that the client succeeds if the ROOT CA is unknown in verify_peer mode"
      " with a verify_fun that accepts the unknown CA error"}].
 
 missing_root_cert_auth_user_verify_fun_accept(Config) ->

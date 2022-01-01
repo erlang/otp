@@ -998,7 +998,7 @@ versions(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 versions_option_based_on_sni() ->
-    [{doc,"Test that SNI versions option is selected over defalt versions"}].
+    [{doc,"Test that SNI versions option is selected over default versions"}].
 
 versions_option_based_on_sni(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
@@ -1519,7 +1519,7 @@ controller_dies(Config) when is_list(Config) ->
 	    Client3 ! die_nice 
     end,
 
-    ct:log("Wating on exit ~p~n",[Client3]),
+    ct:log("Waiting on exit ~p~n",[Client3]),
     receive {'EXIT', Client3, normal} -> ok end,
     
     receive   %% Client3 is dead but that doesn't matter, socket should not be closed.
@@ -2575,7 +2575,7 @@ warn_verify_none(Config) when is_list(Config)->
     ssl_test_lib:close(Server).
 
 suppress_warn_verify_none() ->
-    [{doc, "Test that explicit verify_none supresses warning."}].
+    [{doc, "Test that explicit verify_none suppresses warning."}].
 suppress_warn_verify_none(Config) when is_list(Config)->
     ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
 
@@ -2681,7 +2681,7 @@ connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
     case  length(Info) > 3 of
 	true -> 
-	    %% Atleast one ssl_option() is set
+	    %% At least one ssl_option() is set
 	    ct:log("Info ~p", [Info]),
 	    ok;
 	false ->

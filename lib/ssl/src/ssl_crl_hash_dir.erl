@@ -53,7 +53,7 @@ select([{directoryName, Issuer} | _], {_DbHandle, [{dir, Dir}]}) ->
         {#{reason := [_|_]} = Report, DERs} ->
             {logger, {notice, Report, ?LOCATION}, DERs};
         {error, Error} ->
-            {logger, {error, #{description => "CRL retrival",
+            {logger, {error, #{description => "CRL retrieval",
                                reason => [{cannot_find_crl, Error},
                                           {dir, Dir}]}, ?LOCATION}, []}
     end;

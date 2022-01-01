@@ -19,7 +19,7 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Provid help function to handle generic parts of TLS
+%% Purpose: Provide help function to handle generic parts of TLS
 %% connection fsms
 %%----------------------------------------------------------------------
 
@@ -616,7 +616,7 @@ connection({call, From},
         {ok, Write} ->
             %% User downgrades connection
             %% When downgrading an TLS connection to a transport connection
-            %% we must recive the close alert from the peer before releasing the
+            %% we must receive the close alert from the peer before releasing the
             %% transport socket. Also after sending our close alert nothing 
             %% more may be sent by the tls_sender process.
             State = Connection:send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),

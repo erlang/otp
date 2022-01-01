@@ -63,7 +63,7 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 alerts() ->
-    [{doc, "Test ssl_alert formating code"}].
+    [{doc, "Test ssl_alert formatting code"}].
 alerts(Config) when is_list(Config) ->
     Descriptions = [?CLOSE_NOTIFY, ?UNEXPECTED_MESSAGE, ?BAD_RECORD_MAC,
 		    ?DECRYPTION_FAILED_RESERVED, ?RECORD_OVERFLOW, ?DECOMPRESSION_FAILURE,
@@ -75,7 +75,7 @@ alerts(Config) when is_list(Config) ->
 		    ?NO_RENEGOTIATION, ?UNSUPPORTED_EXTENSION, ?CERTIFICATE_UNOBTAINABLE,
 		    ?UNRECOGNIZED_NAME, ?BAD_CERTIFICATE_STATUS_RESPONSE,
 		    ?BAD_CERTIFICATE_HASH_VALUE, ?UNKNOWN_PSK_IDENTITY, 
-		    255 %% Unsupported/unknow alert will result in a description too
+		    255 %% Unsupported/unknown alert will result in a description too
 		   ],
     Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
 	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],

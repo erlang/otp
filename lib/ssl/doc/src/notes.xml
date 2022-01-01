@@ -206,7 +206,7 @@
 	    Properly handle default session data storage.</p>
           <p>
 	    When a client tries to reuse an expired session the
-	    default server storage handling would crash loosing other
+	    default server storage handling would crash losing other
 	    session data. This would cause a error report and
 	    possible loss of abbreviated handshakes.</p>
           <p>
@@ -981,7 +981,7 @@
         <item>
           <p>
 	    Improve interoperability by implementing the middlebox
-	    compatiblity mode.</p>
+	    compatibility mode.</p>
           <p>
 	    The middlebox compatibility mode makes the TLS 1.3
 	    handshake look more like a TLS 1.2 handshake and
@@ -1521,14 +1521,14 @@
         <item>
           <p>
 	    Hibernation now works as expected in all cases, was
-	    accidently broken by optimization efforts.</p>
+	    accidentally broken by optimization efforts.</p>
           <p>
 	    Own Id: OTP-15910</p>
         </item>
         <item>
           <p>
 	    Fix interoperability problems with openssl when the TLS
-	    1.3 server is configured wirh the option
+	    1.3 server is configured with the option
 	    signature_algs_cert.</p>
           <p>
 	    Own Id: OTP-15913</p>
@@ -1747,7 +1747,7 @@
         <item>
           <p>
 	    Hibernation now works as expected in all cases, was
-	    accidently broken by optimization efforts.</p>
+	    accidentally broken by optimization efforts.</p>
           <p>
 	    Own Id: OTP-15910</p>
         </item>
@@ -2250,7 +2250,7 @@
           <p>
 	    Correct cipher suite handling for ECDHE_*, the incorrect
 	    handling could cause an incorrrect suite to be selected
-	    and most likly fail the handshake.</p>
+	    and most likely fail the handshake.</p>
           <p>
 	    Own Id: OTP-15203</p>
         </item>
@@ -2292,7 +2292,7 @@
         </item>
         <item>
           <p>
-	    Add suport for ECDHE_PSK cipher suites</p>
+	    Add support for ECDHE_PSK cipher suites</p>
           <p>
 	    Own Id: OTP-14547</p>
         </item>
@@ -2387,7 +2387,7 @@
         <item>
           <p>
 	    Add utility function for converting erlang cipher suites
-	    to a string represenation (ERL-600).</p>
+	    to a string representation (ERL-600).</p>
           <p>
 	    Own Id: OTP-15106</p>
         </item>
@@ -2448,7 +2448,7 @@
           <p>
 	    Correct cipher suite handling for ECDHE_*, the incorrect
 	    handling could cause an incorrrect suite to be selected
-	    and most likly fail the handshake.</p>
+	    and most likely fail the handshake.</p>
           <p>
 	    Own Id: OTP-15203</p>
         </item>
@@ -2764,7 +2764,7 @@
       <list>
         <item>
           <p>
-	    ECDH-ECDSA key exchange supported, was accidently
+	    ECDH-ECDSA key exchange supported, was accidentally
 	    dismissed in earlier versions.</p>
           <p>
 	    Own Id: OTP-14421</p>
@@ -3474,9 +3474,9 @@
       <list>
         <item>
           <p>
-	    Correct cipher suites conversion and gaurd expression.
+	    Correct cipher suites conversion and guard expression.
 	    Caused problems with GCM cipher suites and client side
-	    option to set signature_algorithms extention values.</p>
+	    option to set signature_algorithms extension values.</p>
           <p>
 	    Own Id: OTP-13525</p>
         </item>
@@ -3689,10 +3689,10 @@
           <p>
 	    If upper limit is reached, invalidate the current cache
 	    entries, e.i the session lifetime is the max time a
-	    session will be keept, but it may be invalidated earlier
+	    session will be kept, but it may be invalidated earlier
 	    if the max limit for the table is reached. This will keep
 	    the ssl manager process well behaved, not exhusting
-	    memeory. Invalidating the entries will incrementally
+	    memory. Invalidating the entries will incrementally
 	    empty the cache to make room for fresh sessions entries.</p>
           <p>
 	    Own Id: OTP-12392</p>
@@ -3871,7 +3871,7 @@
       <list>
         <item>
           <p>
-	    Terminate gracefully when receving bad input to premaster
+	    Terminate gracefully when receiving bad input to premaster
 	    secret calculation</p>
           <p>
 	    Own Id: OTP-12783</p>
@@ -4219,7 +4219,7 @@
 	    Added option honor_cipher_order. This instructs the
 	    server to prefer its own cipher ordering rather than the
 	    client's and can help protect against things like BEAST
-	    while maintaining compatability with clients which only
+	    while maintaining compatibility with clients which only
 	    support older ciphers. </p>
           <p>
 	    Thanks to Andrew Thompson for the implementation, and
@@ -4247,8 +4247,8 @@
         <item>
           <p>
 	    Correct clean up of certificate database when certs are
-	    inputed in pure DER format.The incorrect code could cause
-	    a memory leek when certs where inputed in DER. Thanks to
+	    inputted in pure DER format.The incorrect code could cause
+	    a memory leek when certs where inputted in DER. Thanks to
 	    Bernard Duggan for reporting this.</p>
           <p>
 	    Own Id: OTP-11733</p>
@@ -4709,9 +4709,9 @@
         <item>
           <p>
 	    ssl:recv/3 could "loose" data when the timeout occurs. If
-	    the timout in ssl:connect or ssl:ssl_accept expired the
+	    the timeout in ssl:connect or ssl:ssl_accept expired the
 	    ssl connection process was not terminated as it should,
-	    this due to gen_fsm:send_all_state_event timout is a
+	    this due to gen_fsm:send_all_state_event timeout is a
 	    client side time out. These timouts are now handled by
 	    the gen_fsm-procss instead.</p>
           <p>
@@ -4807,7 +4807,7 @@
           <p>
 	    Fix a bug where ssl_tls_dist_proxy would crash at caller
 	    timeout. Fix a bug where a timeout from the SSL layer
-	    would block the distribution indefinately. Run the proxy
+	    would block the distribution indefinitely. Run the proxy
 	    exclusively on the loopback interface. (Thanks to Paul
 	    Guyot)</p>
           <p>
@@ -4817,7 +4817,7 @@
           <p>
 	    Fix setup loop of SSL TLS dist proxy</p>
           <p>
-	    Fix potential leak of processes waiting indefinately for
+	    Fix potential leak of processes waiting indefinitely for
 	    data from closed sockets during socket setup phase.
 	    (Thanks to Paul Guyot)</p>
           <p>
@@ -4997,7 +4997,7 @@
       <item>
 	<p>Calling gen_tcp:connect with option {ip, {127,0,0,1}} results in 
 	an exit with reason badarg. Neither SSL nor INETS This was not 
-	catched, resulting in crashes with incomprehensible reasons.</p>
+	caught, resulting in crashes with incomprehensible reasons.</p>
 	<p>Own Id: OTP-9289 Aux Id: seq11845</p>
       </item>
     </list>

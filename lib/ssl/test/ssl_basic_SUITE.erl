@@ -270,7 +270,7 @@ fallback(Config) when is_list(Config) ->
    
 %%--------------------------------------------------------------------
 cipher_format() ->
-    [{doc, "Test that cipher conversion from maps | tuples | stings to binarys works"}].
+    [{doc, "Test that cipher conversion from maps | tuples | strings to binarys works"}].
 cipher_format(Config) when is_list(Config) ->
     {ok, Socket0} = ssl:listen(0, [{ciphers, ssl:cipher_suites(default, 'tlsv1.2')}]),
     ssl:close(Socket0).
@@ -725,7 +725,7 @@ incompleat_chain_length(Config) when is_list(Config)->
     VerifyFun = {fun(_,{bad_cert, unknown_ca}, UserState) -> 
                          %% accept this error to provoke the 
                          %% building of an shorter incomplete chain
-                         %% than the one recived  
+                         %% than the one received  
                          {valid, UserState};
                     (_,{extension, _} = Extension, #{ext := N} = UserState) ->
                          ct:pal("~p", [Extension]),
@@ -787,7 +787,7 @@ connect_dist_c(S) ->
 
 dummy(_Socket) ->
     %% Should not happen as the ssl connection will not be established
-    %% due to fatal handshake failiure
+    %% due to fatal handshake failure
     exit(kill).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
