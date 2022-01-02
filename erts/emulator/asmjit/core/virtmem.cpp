@@ -65,10 +65,17 @@
 
 #include <atomic>
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__BIONIC__)
   #define ASMJIT_VM_SHM_DETECT 0
 #else
   #define ASMJIT_VM_SHM_DETECT 1
+#endif
+
+// Android NDK doesn't provide `shm_open()` and `shm_unlink()`.
+#if defined(__BIONIC__)
+  #define ASMJIT_VM_SHM_AVAILABLE 0
+#else
+  #define ASMJIT_VM_SHM_AVAILABLE 1
 #endif
 
 #if defined(__APPLE__) && ASMJIT_ARCH_ARM >= 64
@@ -367,6 +374,7 @@ public:
           return kErrorOk;
         }
       }
+#if ASMJIT_VM_SHM_AVAILABLE
       else {
         _tmpName.assignFormat(kShmFormat, (unsigned long long)bits);
         _fd = ::shm_open(_tmpName.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
@@ -375,6 +383,7 @@ public:
           return kErrorOk;
         }
       }
+#endif
 
       int e = errno;
       if (e != EEXIST)
@@ -389,10 +398,12 @@ public:
     FileType type = _fileType;
     _fileType = kFileTypeNone;
 
-    if (type == kFileTypeShm)
-      ::shm_unlink(_tmpName.data());
-    else if (type == kFileTypeTmp)
+    if (type == kFileTypeTmp)
       ::unlink(_tmpName.data());
+#if ASMJIT_VM_SHM_AVAILABLE
+    else if (type == kFileTypeShm)
+      ::shm_unlink(_tmpName.data());
+#endif
   }
 
   void close() noexcept {
