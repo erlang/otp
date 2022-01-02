@@ -62,10 +62,17 @@
 
 #include <atomic>
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__BIONIC__)
   #define ASMJIT_VM_SHM_DETECT 0
 #else
   #define ASMJIT_VM_SHM_DETECT 1
+#endif
+
+// Android NDK doesn't provide `shm_open()` and `shm_unlink()`.
+#if defined(__BIONIC__)
+  #define ASMJIT_VM_SHM_AVAILABLE 0
+#else
+  #define ASMJIT_VM_SHM_AVAILABLE 1
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -258,8 +265,10 @@ public:
 
     if (type == kFileTypeTmp)
       return unlink(tmpName.data());
+#if ASMJIT_VM_SHM_AVAILABLE
     else if (type == kFileTypeShm)
       return shm_unlink(tmpName.data());
+#endif
     else
       return 0;
   }
@@ -448,6 +457,7 @@ static Error VirtMem_openAnonymousMemory(AnonymousMemory* anonMem, bool preferTm
         return kErrorOk;
       }
     }
+#if ASMJIT_VM_SHM_AVAILABLE
     else {
       anonMem->tmpName.assignFormat(kShmFormat, (unsigned long long)bits);
       anonMem->fd = shm_open(anonMem->tmpName.data(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
@@ -456,6 +466,7 @@ static Error VirtMem_openAnonymousMemory(AnonymousMemory* anonMem, bool preferTm
         return kErrorOk;
       }
     }
+#endif
 
     int e = errno;
     if (e != EEXIST)
