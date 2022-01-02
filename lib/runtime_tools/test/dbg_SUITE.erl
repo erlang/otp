@@ -161,9 +161,9 @@ message(Config) when is_list(Config) ->
 
 send(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     rpc:call(Node, code, add_patha,
-             [filename:join(proplists:get_value(data_dir, Config), "..")]),
+             [filename:dirname(proplists:get_value(data_dir, Config))]),
     try
         Echo = fun F() ->
                        receive {From, M} ->
@@ -172,7 +172,7 @@ send(Config) when is_list(Config) ->
                        end
                end,
 	Rcvr = spawn_link(Echo),
-        RemoteRcvr = spawn_link(Node, Echo),
+        RemoteRcvr = spawn(Node, Echo),
 
 	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, send),
 
@@ -222,7 +222,7 @@ send(Config) when is_list(Config) ->
         %% Test that distributed dbg works
         dbg:tracer(Node, process, {fun myhandler/2, self()}),
         Rcvr2 = spawn_link(Echo),
-        RemoteRcvr2 = spawn_link(Node, Echo),
+        RemoteRcvr2 = spawn(Node, Echo),
         dbg:p(Rcvr2, [send]),
         dbg:p(RemoteRcvr2, [send]),
         dbg:tpe(send, [{['_', hej],[],[]}]),
@@ -235,7 +235,8 @@ send(Config) when is_list(Config) ->
         ok
 
     after
-	dbg:stop_clear()
+	dbg:stop_clear(),
+        peer:stop(Peer)
     end.
 
 send_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -270,7 +271,7 @@ send_test_rcv(Pid, Msg, S, TraceEvent) ->
 
 recv(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     rpc:call(Node, code, add_patha,
              [filename:join(proplists:get_value(data_dir, Config), "..")]),
     try
@@ -281,7 +282,7 @@ recv(Config) when is_list(Config) ->
                        end
                end,
 	Rcvr = spawn_link(Echo),
-        RemoteRcvr = spawn_link(Node, Echo),
+        RemoteRcvr = spawn(Node, Echo),
 
 	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, 'receive'),
 
@@ -333,7 +334,7 @@ recv(Config) when is_list(Config) ->
         %% Test that distributed dbg works
         dbg:tracer(Node, process, {fun myhandler/2, self()}),
         Rcvr2 = spawn_link(Echo),
-        RemoteRcvr2 = spawn_link(Node, Echo),
+        RemoteRcvr2 = spawn(Node, Echo),
         dbg:p(Rcvr2, ['receive']),
         dbg:p(RemoteRcvr2, ['receive']),
         dbg:tpe('receive', [{[node(), '_', '$1'],[{'==',{element,2,'$1'}, hej}],[]}]),
@@ -346,7 +347,8 @@ recv(Config) when is_list(Config) ->
         ok
 
     after
-	dbg:stop_clear()
+	dbg:stop_clear(),
+        peer:stop(Peer)
     end.
 
 recv_test(Pid, Pattern, Msg, TraceEvent) ->
@@ -382,7 +384,7 @@ recv_test_rcv(Pid, Msg, TraceEvent) ->
 %% Simple test of distributed tracing
 distributed(Config) when is_list(Config) ->
     {ok, _} = start(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     try
         RexPid = rpc:call(Node, erlang, whereis, [rex]),
         RexPidList = pid_to_list(RexPid),
@@ -411,7 +413,7 @@ distributed(Config) when is_list(Config) ->
         stop()
     after
         dbg:stop_clear(),
-        stop_slave(Node)
+        peer:stop(Peer)
     end,
     ok.
 
@@ -870,7 +872,7 @@ distributed_erl_tracer(Config) ->
     ok = load_nif(Config),
 
     LNode = node(),
-    RNode = start_slave(),
+    {ok, Peer, RNode} = ?CT_PEER(),
     true = rpc:call(RNode, code, add_patha, [filename:join(proplists:get_value(data_dir, Config), "..")]),
     ok = rpc:call(RNode, ?MODULE, load_nif, [Config]),
 
@@ -899,7 +901,7 @@ distributed_erl_tracer(Config) ->
     RCall = spawn_link(RNode, fun() -> ?MODULE:dummy() end),
     [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, #{}}] = flush(),
 
-
+    peer:stop(Peer),
     ok.
 
 load_nif(Config) ->
@@ -921,29 +923,6 @@ trace(_, _, _, _, _) ->
 %%
 %% Support functions
 %%
-
-start_slave() ->
-    Name = "asdkxlkmd" ++ integer_to_list(erlang:unique_integer([positive])),
-    {ok, Node} = test_server:start_node(Name,slave,[]),
-    ok = wait_node(Node, 15),
-    Node.
-
-stop_slave(Node) ->
-    test_server:stop_node(Node).
-
-wait_node(_,0) ->
-    no;
-wait_node(Node, N) ->
-    case net_adm:ping(Node) of
-        pong ->
-            ok;
-        pang ->
-            receive
-            after 1000 ->
-                      ok
-            end,
-            wait_node(Node, N - 1)
-    end.
 
 myhandler(Message, {wait_for_go,Pid}) ->
     receive
