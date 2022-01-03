@@ -152,7 +152,7 @@ $(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 $(DEP_FILE): $(ERL_FILES)
 	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
 	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)@../../..@g" \
+	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../\1@g" 2> /dev/null \
 	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
 	| sed 's@^ssh_@$$(EBIN)/ssh_@' \
 	| sed 's@^sshc_@$$(EBIN)/sshc_@' \
