@@ -332,8 +332,8 @@ variables_2([], S) ->
 -define(MINIMUM_RANGE, 100).
 -define(START_RANGE_FACTOR, 100).
 -define(MAX_RETRIES, 3).    % retries before enlarging range
--define(ENLARGE_ENUM, 8).   % range enlargment enumerator
--define(ENLARGE_DENOM, 1).  % range enlargment denominator
+-define(ENLARGE_ENUM, 8).   % range enlargement enumerator
+-define(ENLARGE_DENOM, 1).  % range enlargement denominator
 
 default_variable_name(N) ->
     list_to_atom("V" ++ integer_to_list(N)).
