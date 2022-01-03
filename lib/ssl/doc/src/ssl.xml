@@ -961,7 +961,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       and saved for later reuse. The session ID can be fetched with 
       <seemfa marker="#connection_information/2">connection_information/2</seemfa>
       and used with the client option <seetype marker="#client_reuse_session">reuse_session</seetype>
-      The boolean value true specifies that if possible, automatized session reuse will
+      The boolean value true specifies that if possible, automated session reuse will
       be performed. If a new session is created, and is unique in regard 
       to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3</p>
       </desc>

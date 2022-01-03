@@ -125,7 +125,7 @@ client_auth_empty_cert_rejected(Config) ->
     end.
 %%--------------------------------------------------------------------
 client_auth_partial_chain() ->
-    [{doc, "Client sends an incompleate chain, by default not acceptable."}].
+    [{doc, "Client sends an incomplete chain, by default not acceptable."}].
 
 client_auth_partial_chain(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
@@ -164,7 +164,7 @@ client_auth_allow_partial_chain(Config) when is_list(Config) ->
 
  %%--------------------------------------------------------------------
 client_auth_do_not_allow_partial_chain() ->
-    [{doc, "Server does not accept the chain sent by the client as ROOT CA is unkown, "
+    [{doc, "Server does not accept the chain sent by the client as ROOT CA is unknown, "
       "and we do not choose to trust the intermediate CA. (partial_chain option)"}].
 
 client_auth_do_not_allow_partial_chain(Config) when is_list(Config) ->
@@ -250,7 +250,7 @@ client_auth_seelfsigned_peer(Config) when is_list(Config) ->
                                                                      {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
-     [{doc,"Test that the client succeds if the ROOT CA is unknown in verify_none mode"}].
+     [{doc,"Test that the client succeeds if the ROOT CA is unknown in verify_none mode"}].
 
 missing_root_cert_no_auth(Config) ->
     ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],

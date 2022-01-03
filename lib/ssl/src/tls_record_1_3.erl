@@ -111,7 +111,7 @@ encode_iolist(Type, Data, ConnectionStates0) ->
                                  ssl_record:connection_states()}| #alert{}.
 %%
 %% Description: Decode cipher text, use legacy type ssl_tls instead of tls_cipher_text
-%% in decoding context so that we can reuse the code from erlier versions. 
+%% in decoding context so that we can reuse the code from earlier versions. 
 %%--------------------------------------------------------------------
 decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
                             version = ?LEGACY_VERSION,

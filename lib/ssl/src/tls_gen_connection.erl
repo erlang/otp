@@ -296,7 +296,7 @@ handle_info({CloseTag, Socket}, StateName,
         false ->
             %% As invalidate_sessions here causes performance issues,
             %% we will conform to the widespread implementation
-            %% practice and go aginst the spec
+            %% practice and go against the spec
             %% case Version of
             %%     {3, N} when N >= 1 ->
             %%         ok;
@@ -494,7 +494,7 @@ close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates) ->
     %% data sent to the tcp port is really delivered to the
     %% peer application before tcp port is closed so that the peer will
     %% get the correct TLS alert message and not only a transport close.
-    %% Will return when other side has closed or after timout millisec
+    %% Will return when other side has closed or after timeout millisec
     %% e.g. we do not want to hang if something goes wrong
     %% with the network but we want to maximise the odds that
     %% peer application gets all data sent on the tcp connection.
@@ -606,7 +606,7 @@ flow_ctrl(#state{user_data_buffer = {_,Size,_},
                  socket_options = #socket_options{active = false},
                  bytes_to_read = undefined} = State)  when Size =/= 0 ->
     %% Passive mode wait for new recv request or socket activation
-    %% that is preserv some tcp back pressure by waiting to activate
+    %% that is preserve some tcp back pressure by waiting to activate
     %% socket
     {no_record, State};
 %%%%%%%%%% A packet mode is set and socket is passive %%%%%%%%%%
@@ -684,7 +684,7 @@ next_record(#state{connection_env = #connection_env{negotiated_version = {3,4} =
                     next_record(State, CipherTexts, ConnectionStates, Check, Acc)
             end;
         {Record, ConnectionStates} when Acc =:= [] ->
-            %% Singelton non-?APPLICATION_DATA record - deliver
+            %% Singleton non-?APPLICATION_DATA record - deliver
             next_record_done(State, CipherTexts, ConnectionStates, Record);
         {_Record, _ConnectionStates_to_forget} ->
             %% Not ?APPLICATION_DATA but we have accumulated fragments
@@ -721,7 +721,7 @@ next_record(#state{connection_env = #connection_env{negotiated_version = Version
             [CT|CipherTexts], ConnectionStates0, Check, []) ->
     case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of      
         {Record, ConnectionStates} ->
-            %% Singelton non-?APPLICATION_DATA record - deliver
+            %% Singleton non-?APPLICATION_DATA record - deliver
             next_record_done(State, CipherTexts, ConnectionStates, Record);
         #alert{} = Alert ->
             Alert

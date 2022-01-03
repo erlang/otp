@@ -261,7 +261,7 @@ compute_shared_secret(
 %%
 %% For an connection net_kernel calls setup/5 which spawns the
 %% Controller process as linked to net_kernel.  This Controller process
-%% connects to the other node's listen socket and when that is succesful
+%% connects to the other node's listen socket and when that is successful
 %% spawns the DistCtrl process as linked to the controller and transfers
 %% socket ownership to it.
 %%
@@ -905,7 +905,7 @@ reply({Ref, Pid}, Msg) ->
 %% While the sender generates a new key pair at every rekey,
 %% which changes the shared secret at every rekey.
 %%
-%% The only reaction to errors is to crash noisily (?) wich will bring
+%% The only reaction to errors is to crash noisily (?) which will bring
 %% down the connection and hopefully produce something useful
 %% in the local log, but all the other end sees is a closed connection.
 %% -------------------------------------------------------------------------

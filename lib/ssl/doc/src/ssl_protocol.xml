@@ -42,7 +42,7 @@
   though you can plug in any other reliable transport protocol
   with the same Application Programming Interface (API) as the
   <c>gen_tcp</c> module in Kernel. DTLS is by default run over UDP/IP,
-  which means that application data has no delivery guarentees. Other 
+  which means that application data has no delivery guarantees. Other 
   transports, such as SCTP, may be supported in future releases.</p>
   
   <p>If a client and a server wants to use an upgrade mechanism, such as

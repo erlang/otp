@@ -122,7 +122,7 @@ init_per_suite(Config0) ->
     _ = end_per_suite(Config0),
     try crypto:start() of
 	ok ->
-	    %% Currently no ct function avilable for is_cover!
+	    %% Currently no ct function available for is_cover!
 	    case test_server:is_cover() of
 		false ->
 		    Config = add_ssl_opts_config(Config0),

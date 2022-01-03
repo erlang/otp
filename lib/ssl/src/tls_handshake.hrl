@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the TLS-handshake protocol
+%% Purpose: Record and constant definitions for the TLS-handshake protocol
 %% see RFC 5246. 
 %%----------------------------------------------------------------------
 -ifndef(tls_handshake).

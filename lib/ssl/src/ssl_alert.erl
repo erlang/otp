@@ -44,7 +44,7 @@
 %%--------------------------------------------------------------------
 -spec decode(binary()) -> [#alert{}] | #alert{}.
 %%
-%% Description: Decode alert(s), will return a singel own alert if peer
+%% Description: Decode alert(s), will return a single own alert if peer
 %% sends garbage or too many warning alerts.
 %%--------------------------------------------------------------------
 decode(Bin) ->

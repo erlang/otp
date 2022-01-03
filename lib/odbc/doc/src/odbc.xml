@@ -176,7 +176,7 @@
 	  <p>The default timeout is infinity </p>
 	  
 	  <p> >If the option binary_strings is turned on all strings
-	  will be returned as binaries and strings inputed to
+	  will be returned as binaries and strings inputted to
 	  param_query will be expected to be binaries. The user needs
 	  to ensure that the binary is in an encoding that the
 	  database expects. By default this option is turned off.</p>
@@ -193,7 +193,7 @@
           connection, limiting the API but gaining speed.</p>
 
 	  <note><p>Turning the scrollable_cursors option off is noted
-	  to make old odbc-drivers able to connect that will otherwhise fail.</p></note>
+	  to make old odbc-drivers able to connect that will otherwise fail.</p></note>
 	  
         <p>If trace mode is turned on this tells the ODBC driver to
           write a trace log to the file SQL.LOG that is placed in the
@@ -210,14 +210,14 @@
 
 		  <p>The <c>extended_errors</c> option enables extended ODBC error
 			  information when an operation fails. Rather than returning <c>{error, Reason}</c>,
-			  the failing function will reutrn <c>{error, {ODBCErrorCode, NativeErrorCode, Reason}}</c>.
+			  the failing function will return <c>{error, {ODBCErrorCode, NativeErrorCode, Reason}}</c>.
 			  Note that this information is probably of little use when writing database-independent code,
 			  but can be of assistance in providing more sophisticated error handling when dealing with
 			  a known underlying database.
 	           </p>
 			 <list type="bulleted">
 				  <item><c>ODBCErrorCode</c> is the ODBC error string returned by the ODBC driver.</item>
-				  <item><c>NativeErrorCode</c> is the numberic error code returned by the underlying database. The possible values
+				  <item><c>NativeErrorCode</c> is the numeric error code returned by the underlying database. The possible values
 					  and their meanings are dependent on the database being used.</item>
 				  <item><c>Reason</c> is as per the <c>Reason</c> field when extended errors are not enabled.</item>
 		  </list>
@@ -225,7 +225,7 @@
         <note>
             <p>The current implementation spawns a port program
             written in C that utilizes the actual ODBC driver. There
-            is a default timeout of 5000 msec for this port programm
+            is a default timeout of 5000 msec for this port program
             to connect to the Erlang ODBC application. This timeout
             can be changed by setting an application specific
             environment variable 'port_timeout' with the number of
@@ -260,7 +260,7 @@
       <fsummary>Queries the database to find out the data types of the columns of the table <c>Table</c>. </fsummary>
       <type>
         <v>Ref = connection_reference()</v>
-        <v>Table = string() - Name of databas table.</v>
+        <v>Table = string() - Name of database table.</v>
         <v>TimeOut = time_out()</v>
         <v>Description = [{col_name(), odbc_data_type()}]</v>
         <v>Reason = common_reason()</v>

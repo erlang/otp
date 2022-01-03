@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL ciphers and
+%% Purpose: Record and constant definitions for the SSL ciphers and
 %% the SSL-cipher protocol see RFC 4346, RFC 3268
 %%----------------------------------------------------------------------
 

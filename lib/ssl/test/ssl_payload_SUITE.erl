@@ -556,7 +556,7 @@ client_echos_active_huge(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 client_active_once_server_close() ->
     [{doc, "Server sends 500000 bytes and immediately after closes the connection"
-     "Make sure client recives all data if possible"}].
+     "Make sure client receives all data if possible"}].
 
 client_active_once_server_close(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),

@@ -33,7 +33,7 @@
 	  dtls_handshake_next_seq = 0,
 	  dtls_flight_last,
 	  dtls_handshake_next_fragments = [], %% Fragments of the next handshake message
-	  dtls_handshake_later_fragments = [], %% Fragments of handsake messages come after the one in next buffer
+	  dtls_handshake_later_fragments = [], %% Fragments of handshake messages come after the one in next buffer
 	  dtls_cipher_texts = []         %%:: [binary()],
 	 }).
 

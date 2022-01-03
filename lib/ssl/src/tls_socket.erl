@@ -148,7 +148,7 @@ connect(Address, Port,
 
 socket(Pids, Transport, Socket, ConnectionCb, Trackers) ->
     #sslsocket{pid = Pids, 
-	       %% "The name "fd" is keept for backwards compatibility
+	       %% "The name "fd" is kept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb, Trackers}}.
 setopts(gen_tcp, Socket = #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),

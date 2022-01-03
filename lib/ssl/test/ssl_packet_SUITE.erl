@@ -875,7 +875,7 @@ packet_size_passive(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 packet_switch() ->
-    [{doc,"Test packet option {packet, 2} followd by {packet, 4}"}].
+    [{doc,"Test packet option {packet, 2} followed by {packet, 4}"}].
 
 packet_switch(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
