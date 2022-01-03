@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL-handshake protocol
+%% Purpose: Record and constant definitions for the SSL-handshake protocol
 %% see RFC 5246. Also includes supported hello extensions.
 %%----------------------------------------------------------------------
 
@@ -59,7 +59,7 @@
 -define(DEFAULT_DIFFIE_HELLMAN_PRIME, ssl_dh_groups:modp2048_prime()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Handsake protocol - RFC 4346 section 7.4
+%%% Handshake protocol - RFC 4346 section 7.4
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% enum {

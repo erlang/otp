@@ -314,7 +314,7 @@ init_per_group(GroupName, Config0) ->
 
 working_openssl_client() ->
     case portable_cmd("openssl", ["version"]) of
-        %% Theses versions of OpenSSL has a client that
+        %% These versions of OpenSSL has a client that
         %% can not handle hello extensions. And will
         %% fail with bad packet length if they are present
         %% in ServerHello
@@ -984,7 +984,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
                             ct:sleep(?SLEEP),
                             run_client(Opts);
                         _ ->
-                            ?LOG("~nClient faild several times: connection failed: ~p ~n", [Reason]),
+                            ?LOG("~nClient failed several times: connection failed: ~p ~n", [Reason]),
                             Pid ! {self(), {error, Reason}}
                     end
             end;
@@ -996,7 +996,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 		    ct:sleep(?SLEEP),
 		    run_client(Opts);
 	       _ ->
-		    ?LOG("~nClient faild several times: connection failed: ~p ~n", [Reason]),
+		    ?LOG("~nClient failed several times: connection failed: ~p ~n", [Reason]),
 		    Pid ! {self(), {error, Reason}}
 	    end;
 	{error, Reason} ->
@@ -3088,7 +3088,7 @@ is_fips(crypto) ->
 is_fips(_) ->
     false.
 
-%% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
+%% Actual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
 openssl_sane_dtls() -> 
     case portable_cmd("openssl", ["version"]) of
         "OpenSSL 0." ++ _ ->

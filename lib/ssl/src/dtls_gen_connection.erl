@@ -551,7 +551,7 @@ handle_info({CloseTag, Socket}, StateName,
                 _ ->
                     %% As invalidate_sessions here causes performance issues,
                     %% we will conform to the widespread implementation
-                    %% practice and go aginst the spec
+                    %% practice and go against the spec
                     %%invalidate_session(Role, Host, Port, Session)
                     ok
             end,
@@ -735,6 +735,6 @@ log_ignore_alert(Level, StateName, #alert{where = Location} = Alert, Role) ->
 
 dtls_version(hello, Version, #state{static_env = #static_env{role = server},
                                     connection_env = CEnv} = State) ->
-    State#state{connection_env = CEnv#connection_env{negotiated_version = Version}}; %%Inital version
+    State#state{connection_env = CEnv#connection_env{negotiated_version = Version}}; %%Initial version
 dtls_version(_,_, State) ->
     State.

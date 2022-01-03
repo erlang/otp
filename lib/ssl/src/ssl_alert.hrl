@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the SSL-alert protocol
+%% Purpose: Record and constant definitions for the SSL-alert protocol
 %% see RFC 2246
 %%----------------------------------------------------------------------
 

@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Convert between diffrent cipher suite representations
+%% Purpose: Convert between different cipher suite representations
 %% 
 %%----------------------------------------------------------------------
 -module(ssl_cipher_format).

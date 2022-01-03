@@ -54,7 +54,7 @@
                 max,
                 session_order,
                 id_generator,
-                listner
+                listener
                }).
 
 %%%===================================================================
@@ -65,10 +65,10 @@
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(ssl_unknown_listener = Listner, Map) ->
-    gen_server:start_link({local, Listner}, ?MODULE, [Listner, Map], []);
-start_link(Listner, Map) ->
-    gen_server:start_link(?MODULE, [Listner, Map], []).
+start_link(ssl_unknown_listener = Listener, Map) ->
+    gen_server:start_link({local, Listener}, ?MODULE, [Listener, Map], []);
+start_link(Listener, Map) ->
+    gen_server:start_link(?MODULE, [Listener, Map], []).
 
 %%--------------------------------------------------------------------
 -spec new_session_id(Pid::pid()) -> ssl:session_id().
@@ -108,13 +108,13 @@ register_session(Pid, Session) ->
 %%% gen_server callbacks
 %%%===================================================================
 -spec init(Args :: term()) -> {ok, State :: term()}.
-init([Listner, #{lifetime := Lifetime,
+init([Listener, #{lifetime := Lifetime,
                  session_cb := Cb,
                  session_cb_init_args := InitArgs,
                  max := Max
                 }]) ->
     process_flag(trap_exit, true),
-    Monitor = monitor_listener(Listner),
+    Monitor = monitor_listener(Listener),
     DbRef = init(Cb, [{role, server} | InitArgs]),
     State = #state{store_cb = Cb,
                    lifetime = Lifetime,
@@ -122,7 +122,7 @@ init([Listner, #{lifetime := Lifetime,
                    max = Max,
                    session_order = gb_trees:empty(),
                    id_generator = crypto:strong_rand_bytes(16),
-                   listner = Monitor
+                   listener = Monitor
                   },
     {ok, State}.
 
@@ -192,7 +192,7 @@ handle_cast({register_session, #session{session_id = SessionId, time_stamp = Tim
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
           {noreply, NewState :: term()}.
-handle_info({'DOWN', Monitor, _, _, _}, #state{listner = Monitor} = State) ->
+handle_info({'DOWN', Monitor, _, _, _}, #state{listener = Monitor} = State) ->
      {stop, normal, State};
 handle_info(_, State) ->
     {noreply, State}.
@@ -213,7 +213,7 @@ call(Pid, Msg) ->
 session_id(Key) ->
     Unique1 = erlang:unique_integer(),
     Unique2 = erlang:unique_integer(),
-    %% Obfuscate to avoid DoS attack possiblities
+    %% Obfuscate to avoid DoS attack possibilities
     %% This id should be unpredictable an 32 bytes
     %% and unique but have no other cryptographic requirements.
     Bin1 = crypto:crypto_one_time(aes_128_ecb, Key, <<Unique1:128>>, true),

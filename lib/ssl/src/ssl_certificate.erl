@@ -19,7 +19,7 @@
 %%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling certificat verification.
+%% Purpose: Help functions for handling certificate verification.
 %% The path validation defined in ssl_handshake.erl that mainly
 %% calls functions in this module is described in RFC 3280. 
 %% The basic verification checks are done by
@@ -27,7 +27,7 @@
 %%
 %% TLS code handles construction of alternative certificate paths
 %% that can be used as input to public_key:pkix_path_validation/3
-%% to try and find one path that is considerd valid.
+%% to try and find one path that is considered valid.
 %%
 %% The TLS protocol will send certificate chains that should consist
 %% of [PeerCert, CA0 ... CAN, ROOTCert]. The path will be the reverse of the
@@ -516,7 +516,7 @@ verify_cert_extensions(Cert, #{ocsp_responder_certs := ResponderCerts,
             {fail, Status}
     end;
 verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
-    %% Skip unknow extensions!
+    %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context).
 
 verify_sign(_, #{version := {_, Minor}}) when Minor < 3 ->
@@ -570,7 +570,7 @@ paths([Root], _, _, Path) ->
 paths([#cert{otp=C1}=Cert1, #cert{otp=C2}=Cert2 | Rest], Chain, CertDbHandle, Path) ->
     case public_key:pkix_is_issuer(C1, C2) of
         true ->
-            %% Chain orded so far
+            %% Chain ordered so far
             paths([Cert2 | Rest], Chain, CertDbHandle, [Cert1 | Path]);
         false ->
             %% Chain is unorded and/or contains extraneous certificates
@@ -632,7 +632,7 @@ maybe_shorten_path(Path, PartialChainHandler, Default) ->
     %% certificate path to be validated with
     %% public_key:pkix_path_validation by letting
     %% the user put its trust in an intermidate cert
-    %% from the certifcate chain sent by the peer.
+    %% from the certificate chain sent by the peer.
     DerCerts = [Der || #cert{der=Der} <- Path],
     try PartialChainHandler(DerCerts) of
         {trusted_ca, Root} ->

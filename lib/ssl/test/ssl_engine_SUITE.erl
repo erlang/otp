@@ -159,10 +159,10 @@ private_key(Config) when is_list(Config) ->
     test_tls_connection([{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineServerConf], 
                         [{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineClientConf], Config),
     
-    %% Test with engine and present file arugments
+    %% Test with engine and present file arguments
     test_tls_connection(EngineFileServerConf, EngineFileClientConf, Config),
     
-    %% Test that sofware fallback is available
+    %% Test that software fallback is available
     test_tls_connection(ServerConf, [{reuse_sessions, false} |ClientConf], Config).
     
 engine_key(Conf) ->

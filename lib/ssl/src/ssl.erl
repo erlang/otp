@@ -762,7 +762,7 @@ handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout
       Reason :: closed | timeout | error_alert().
 %%
 %%
-%% Description: Continues the handshke possible with newly supplied options.
+%% Description: Continues the handshake possible with newly supplied options.
 %%--------------------------------------------------------------------
 handshake_continue(Socket, SSLOptions) ->
     handshake_continue(Socket, SSLOptions, infinity).
@@ -776,7 +776,7 @@ handshake_continue(Socket, SSLOptions) ->
       Reason :: closed | timeout | error_alert().
 %%
 %%
-%% Description: Continues the handshke possible with newly supplied options.
+%% Description: Continues the handshake possible with newly supplied options.
 %%--------------------------------------------------------------------
 handshake_continue(Socket, SSLOptions, Timeout) ->
     ssl_gen_statem:handshake_continue(Socket, SSLOptions, Timeout).
@@ -817,7 +817,7 @@ close(#sslsocket{pid = [TLSPid|_]},
 				       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     case ssl_gen_statem:close(TLSPid, {close, DownGrade}) of
         ok -> %% In normal close {error, closed} is regarded as ok, as it is not interesting which side
-            %% that got to do the actual close. But in the downgrade case only {ok, Port} is a sucess.
+            %% that got to do the actual close. But in the downgrade case only {ok, Port} is a success.
             {error, closed};
         Other ->
             Other
@@ -1056,7 +1056,7 @@ filter_cipher_suites(Suites, Filters0) ->
       Preferred :: ciphers() | cipher_filters(),
       Suites :: ciphers().
 
-%% Description: Make <Preferred> suites become the most prefered
+%% Description: Make <Preferred> suites become the most preferred
 %%      suites that is put them at the head of the cipher suite list
 %%      and remove them from <Suites> if present. <Preferred> may be a
 %%      list of cipher suites or a list of filters in which case the
@@ -1075,7 +1075,7 @@ prepend_cipher_suites(Filters, Suites) ->
       Suites :: ciphers().
 
 %% Description: Make <Deferred> suites suites become the 
-%% least prefered suites that is put them at the end of the cipher suite list
+%% least preferred suites that is put them at the end of the cipher suite list
 %% and removed them from <Suites> if present.
 %%
 %%--------------------------------------------------------------------
@@ -1246,9 +1246,9 @@ getstat(Socket) ->
 %% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
 getstat(#sslsocket{pid = {dtls, #config{transport_info = {Transport, _, _, _, _},
-                                        dtls_handler = {Listner, _}}}},
+                                        dtls_handler = {Listener, _}}}},
         Options) when is_list(Options) ->
-    dtls_socket:getstat(Transport, Listner, Options);
+    dtls_socket:getstat(Transport, Listener, Options);
 getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _, _}}}},
         Options) when is_port(Listen), is_list(Options) ->
     tls_socket:getstat(Transport, Listen, Options);
@@ -1954,7 +1954,7 @@ expand_options(Opts0, Rules) ->
                       {list, [{mode, list}]}], Opts0),
     Opts2 = handle_option_format(Opts1, []),
 
-    %% Remove depricated ssl_imp option
+    %% Remove deprecated ssl_imp option
     Opts = proplists:delete(ssl_imp, Opts2),
     AllOpts = maps:keys(Rules),
     SockOpts = lists:foldl(fun(Key, PropList) -> proplists:delete(Key, PropList) end,
@@ -2070,7 +2070,7 @@ validate_option(beast_mitigation, Value, _)
        Value == zero_n orelse
        Value == disabled ->
   Value;
-%% certfile must be present in some cases otherwhise it can be set
+%% certfile must be present in some cases otherwise it can be set
 %% to the empty string.
 validate_option(cacertfile, undefined, _) ->
    <<>>;

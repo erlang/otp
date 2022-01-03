@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the TLS-record protocol
+%% Purpose: Record and constant definitions for the TLS-record protocol
 %% see RFC 5246
 %%----------------------------------------------------------------------
 

@@ -403,7 +403,7 @@ invalid_inet_set_option_not_list(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 invalid_inet_set_option_improper_list() ->
-    [{doc,"Test handling of invalid tye in setopts"}].
+    [{doc,"Test handling of invalid type in setopts"}].
 
 invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),

@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Record and constant defenitions for the DTLS-record protocol
+%% Purpose: Record and constant definitions for the DTLS-record protocol
 %% see RFC 6347
 %%----------------------------------------------------------------------
 

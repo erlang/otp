@@ -170,7 +170,7 @@ init_per_group(rsa = Group, Config0) ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
-    %% Make sure _rsa* suite is choosen by ssl_test_lib:start_server
+    %% Make sure _rsa* suite is chosen by ssl_test_lib:start_server
     Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_cert_tests:test_ciphers(fun(dhe_rsa) -> 
                                                   true;
@@ -194,7 +194,7 @@ init_per_group(rsa_1_3 = Group, Config0) ->
     Config = ssl_test_lib:make_rsa_cert(Config0),
     COpts = proplists:get_value(client_rsa_opts, Config),
     SOpts = proplists:get_value(server_rsa_opts, Config),
-    %% Make sure _rsa* suite is choosen by ssl_test_lib:start_server
+    %% Make sure _rsa* suite is chosen by ssl_test_lib:start_server
     Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_cert_tests:test_ciphers(undefined, Version),
     case Ciphers of
@@ -240,7 +240,7 @@ init_per_group(ecdsa = Group, Config0) ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
             COpts = proplists:get_value(client_ecdsa_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
-            %% Make sure ecdh* suite is choosen by ssl_test_lib:start_server
+            %% Make sure ecdh* suite is chosen by ssl_test_lib:start_server
             Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(fun(ecdh_ecdsa) -> 
                                                            true;
@@ -274,7 +274,7 @@ init_per_group(ecdsa_1_3 = Group, Config0) ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
             COpts = proplists:get_value(client_ecdsa_opts, Config),
             SOpts = proplists:get_value(server_ecdsa_opts, Config),
-            %% Make sure ecdh* suite is choosen by ssl_test_lib:start_server
+            %% Make sure ecdh* suite is chosen by ssl_test_lib:start_server
             Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(undefined, Version),
             case Ciphers of
@@ -326,7 +326,7 @@ init_per_group(dsa = Group, Config0) ->
             Config = ssl_test_lib:make_dsa_cert(Config0),    
             COpts = proplists:get_value(client_dsa_opts, Config),
             SOpts = proplists:get_value(server_dsa_opts, Config),
-            %% Make sure dhe_dss* suite is choosen by ssl_test_lib:start_server
+            %% Make sure dhe_dss* suite is chosen by ssl_test_lib:start_server
             Version = ssl_test_lib:protocol_version(Config),
             Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) -> 
                                                            true;

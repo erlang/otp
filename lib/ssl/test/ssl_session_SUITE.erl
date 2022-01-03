@@ -596,7 +596,7 @@ server_max_session_table(Config) when is_list(Config)->
     %% Explicit check table size
     SupName = sup_name(ServerOpts),
     Sup = whereis(SupName),
-    %% Will only be one process, that is one server, in our test senario
+    %% Will only be one process, that is one server, in our test scenario
     [{_, SessionCachePid, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
     {SessionCacheCb, SessionCacheDb} = session_cachce_info(SessionCachePid),
     N = SessionCacheCb:size(SessionCacheDb),

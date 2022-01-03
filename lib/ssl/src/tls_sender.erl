@@ -129,7 +129,7 @@ send_alert(Pid, Alert) ->
 %%--------------------------------------------------------------------
 -spec send_and_ack_alert(pid(), #alert{}) -> _.
 %% Description: TLS connection process wants to send an Alert
-%% in the connection state and recive an ack.
+%% in the connection state and receive an ack.
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
     gen_statem:call(Pid, {ack_alert, Alert}, ?DEFAULT_TIMEOUT).
@@ -209,7 +209,7 @@ init(_) ->
     %% As this process is now correctly supervised
     %% together with the connection process and the significant
     %% child mechanism we want to handle supervisor shutdown
-    %% to achive a normal shutdown avoiding SASL reports.
+    %% to achieve a normal shutdown avoiding SASL reports.
     process_flag(trap_exit, true),
     {ok, init, #data{}}.
 
@@ -247,7 +247,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
 init(info = Type, Msg, StateData) ->
     handle_common(Type, Msg, StateData);
 init(_, _, _) ->
-    %% Just in case anything else sneeks through
+    %% Just in case anything else sneaks through
     {keep_state_and_data, [postpone]}.
 
 %%--------------------------------------------------------------------
@@ -425,11 +425,11 @@ handle_common(info, {'EXIT', _Sup, shutdown},
 handle_common(info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
 handle_common(info, Msg, #data{static = #static{log_level = Level}}) ->
-    ssl_logger:log(info, Level, #{event => "TLS sender recived unexpected info", 
+    ssl_logger:log(info, Level, #{event => "TLS sender received unexpected info", 
                                   reason => [{message, Msg}]}, ?LOCATION),
     keep_state_and_data;
 handle_common(Type, Msg, #data{static = #static{log_level = Level}}) ->
-    ssl_logger:log(error, Level, #{event => "TLS sender recived unexpected event", 
+    ssl_logger:log(error, Level, #{event => "TLS sender received unexpected event", 
                                    reason => [{type, Type}, {message, Msg}]}, ?LOCATION),
     keep_state_and_data.
 

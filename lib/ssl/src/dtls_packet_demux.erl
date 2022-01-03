@@ -355,8 +355,8 @@ emulated_opts_list(Opts, [active | Rest], Acc) ->
 %% Regardless of the option reuse_sessions we need the session_id_tracker
 %% to generate session ids, but no sessions will be stored unless
 %% reuse_sessions = true.
-session_id_tracker(Listner,_) ->
-    dtls_server_session_cache_sup:start_child(Listner).
+session_id_tracker(Listener,_) ->
+    dtls_server_session_cache_sup:start_child(Listener).
 
 get_internal_active_n() ->
     case application:get_env(ssl, internal_active_n) of

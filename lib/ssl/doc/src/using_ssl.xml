@@ -257,7 +257,7 @@ ssl:connect("localhost", 9999,
     handshake. To minimize memory consumption only unique sessions
     will be saved unless the special <c>save</c> value is specified
     for the following option <c> {reuse_sessions, boolean() |
-    save}</c> in which case a full handhake will be performed and that
+    save}</c> in which case a full handshake will be performed and that
     specific session will have been saved before the handshake
     returns. The session id and even an opaque binary containing the
     session data can be retrieved using

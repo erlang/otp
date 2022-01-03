@@ -152,7 +152,7 @@
 	  marker="public_key:public_key_records"> X509 certificates records</seeguide>,
 	  originating form <c>#'DistributionPoint'.cRLissuer</c> and  
 	  representing different mechanism to obtain the CRLs. The cache
-	  callback needs to use the appropriate entry to retrive the CRLs or
+	  callback needs to use the appropriate entry to retrieve the CRLs or
 	  return an empty list if it does not exist.
 	  </p>
 

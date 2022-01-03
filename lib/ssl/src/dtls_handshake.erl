@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 %%----------------------------------------------------------------------
-%% Purpose: Help funtions for handling the DTLS (specific parts of)
+%% Purpose: Help functions for handling the DTLS (specific parts of)
 %%% SSL/TLS/DTLS handshake protocol
 %%----------------------------------------------------------------------
 -module(dtls_handshake).
@@ -36,7 +36,7 @@
 %% Handshake encoding
 -export([fragment_handshake/2, encode_handshake/3]).
 
-%% Handshake decodeing
+%% Handshake decoding
 -export([get_dtls_handshake/4]).
 
 -type dtls_handshake() :: #client_hello{} | #hello_verify_request{} |
@@ -150,7 +150,7 @@ encode_handshake(Handshake, Version, Seq) ->
     [MsgType, ?uint24(Len), ?uint16(Seq), ?uint24(0), ?uint24(Len), Bin].
   
 %%--------------------------------------------------------------------
-%%% Handshake decodeing
+%%% Handshake decoding
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
