@@ -421,7 +421,15 @@ handle_common({call, From}, {set_opts, Opts},
      [{reply, From, ok}]};
 handle_common(info, {'EXIT', _Sup, shutdown},
               #data{static = #static{dist_handle = Handle}} = StateData) when Handle =/= undefined ->
+    %% When the connection is on its way down operations
+    %% begin to fail. We wait for 5 seconds to receive
+    %% possible exit signals for one of our links to the other
+    %% involved distribution parties, in which case we want to use
+    %% their exit reason for the connection teardown.
     {next_state, death_row, StateData, [{state_timeout, 5000, shutdown}]};
+handle_common(info, {'EXIT', _Dist, Reason},
+              #data{static = #static{dist_handle = Handle}} = StateData) when Handle =/= undefined ->
+    {stop, {shutdown, Reason}, StateData};
 handle_common(info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
 handle_common(info, Msg, #data{static = #static{log_level = Level}}) ->
