@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -10633,7 +10633,7 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec* ev)
     tcp_descriptor* desc = (tcp_descriptor*)e;
     desc->inet.caller = driver_caller(desc->inet.port);
 
-    DEBUGF(("tcp_inet_commanv(%p) {s=%d\r\n", 
+    DEBUGF(("tcp_inet_commandv(%p) {s=%d\r\n",
 	    desc->inet.port, desc->inet.s)); 
     if (!IS_CONNECTED(INETP(desc))) {
 	if (desc->tcp_add_flags & TCP_ADDF_DELAYED_CLOSE_SEND) {
@@ -11607,8 +11607,6 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
          h_len = 4;
          break;
      default:
-         if (len == 0)
-             return 0;
          h_len = 0;
          break;
      }
@@ -11626,6 +11624,11 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
     if ((desc->tcp_add_flags & TCP_ADDF_SENDFILE) || sz > 0) {
 	driver_enqv(ix, ev, 0);
 	if (sz+ev->size >= desc->high) {
+            if (desc->send_timeout == 0) {
+                /* Shortcut to speed up polling of high water mark */
+                inet_reply_error_am(INETP(desc), am_timeout);
+                return 1;
+            }
 	    DEBUGF(("tcp_sendv(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
@@ -11641,9 +11644,13 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	}
     }
     else {
-	int vsize = (ev->vsize > MAX_VSIZE) ? MAX_VSIZE : ev->vsize;
+	int vsize;
 	
-	DEBUGF(("tcp_sendv(%p): s=%d, "
+        if ((h_len == 0) && (len == 0)) /* Shortcut for empty send */
+            return 0;
+        vsize = (ev->vsize > MAX_VSIZE) ? MAX_VSIZE : ev->vsize;
+
+        DEBUGF(("tcp_sendv(%p): s=%d, "
                 "about to send "LLU","LLU" bytes\r\n",
 		desc->inet.port, desc->inet.s,
                 (llu_t)h_len, (llu_t)len));
@@ -11695,7 +11702,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 */
 static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 {
-    int sz;
+    ErlDrvSizeT sz;
     char buf[4];
     int h_len;
     int n;
@@ -11716,8 +11723,6 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	h_len = 4; 
 	break;
     default:
-	if (len == 0)
-	    return 0;
 	h_len = 0;
 	break;
     }
@@ -11731,6 +11736,11 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	    driver_enq(ix, buf, h_len);
 	driver_enq(ix, ptr, len);
 	if (sz+h_len+len >= desc->high) {
+            if (desc->send_timeout == 0) {
+                /* Shortcut to speed up polling of high water mark */
+                inet_reply_error_am(INETP(desc), am_timeout);
+                return 1;
+            }
 	    DEBUGF(("tcp_send(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
@@ -11746,6 +11756,9 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	}
     }
     else {
+        if ((h_len == 0) && (len == 0)) /* Shortcut for empty send */
+            return 0;
+
 	iov[0].iov_base = buf;
 	iov[0].iov_len = h_len;
 	iov[1].iov_base = ptr;
