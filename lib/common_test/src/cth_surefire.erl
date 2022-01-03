@@ -47,12 +47,12 @@
 -export([terminate/1]).
 
 -record(state, { filepath, axis, properties, package, hostname,
-		 curr_suite, curr_suite_ts, curr_group = [],
+		 curr_suite, curr_suite_file, curr_suite_ts, curr_group = [],
 		 curr_log_dir, timer, tc_log, url_base,
 		 test_cases = [],
 		 test_suites = [] }).
 
--record(testcase, { log, url, group, classname, name, time, result, timestamp }).
+-record(testcase, { log, url, group, file, line, classname, name, time, result, timestamp }).
 -record(testsuite, { errors, failures, skipped, hostname, name, tests,
 		     time, timestamp, id, package,
 		     properties, testcases, log, url }).
@@ -100,12 +100,27 @@ pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
 	end,
     {Config, init_tc(State#state{ filepath = Path,
 				  curr_suite = Suite,
+                                  curr_suite_file = get_file(Suite),
 				  curr_suite_ts = ?now,
 				  curr_log_dir = CurrLogDir},
 		     Config) };
 pre_init_per_suite(Suite,Config,State) ->
     %% Have to close the previous suite
     pre_init_per_suite(Suite,Config,close_suite(State)).
+
+get_file(Suite) ->
+    case beam_lib:chunks(code:which(Suite),["CInf"]) of
+        {ok,{_,[{"CInf",Bin}]}} ->
+            Source = proplists:get_value(source,binary_to_term(Bin)),
+            case filelib:is_file(Source) of
+                true ->
+                    Source;
+                false ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
 
 post_init_per_suite(_Suite,Config, Result, State) ->
     {Result, end_tc(init_per_suite,Config,Result,State)}.
@@ -138,13 +153,31 @@ post_end_per_testcase(_Suite,TC,Config,Result,State) ->
 
 on_tc_fail(_Suite,_TC, _Res, State = #state{test_cases = []}) ->
     State;
-on_tc_fail(_Suite,_TC, Res, State) ->
+on_tc_fail(Suite, _TC, Res, State) ->
     TCs = State#state.test_cases,
     TC = hd(TCs),
+    Line = case get_line_from_result(Suite, Res) of
+               undefined ->
+                   TC#testcase.line;
+               L -> L
+           end,
     NewTC = TC#testcase{
+              line = Line,
 	      result =
 		  {fail,lists:flatten(io_lib:format("~tp",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
+
+get_line_from_result(Suite, {_Error, [{__M,__F,__A,__I}|_] = StackTrace}) ->
+    case lists:filter(fun({Mod, _Func, _Arity, _Info}) ->
+                               Mod =:= Suite
+                       end, StackTrace) of
+        [{Suite,_F,_A, Info} | _ ] ->
+            proplists:get_value(line, Info);
+        _ ->
+            undefined
+    end;
+get_line_from_result(_, _) ->
+    undefined.
 
 on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
     on_tc_skip(Suite,ConfigFunc, Res, State);
@@ -200,6 +233,8 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					  group = PGroup,
 					  name = Name,
 					  time = TimeTakes,
+                                          file = State#state.curr_suite_file,
+                                          line = get_line_from_suite(Suite, Name),
 					  result = passed }|
 			       State#state.test_cases],
 		 tc_log = ""}. % so old tc_log is not set if next is on_tc_skip
@@ -242,15 +277,39 @@ terminate(State) ->
     %% Have to close the last suite
     terminate(close_suite(State)).
 
+get_line_from_suite(Suite, TC) ->
+    case beam_lib:chunks(code:which(Suite),[debug_info]) of
+        {ok,{Suite,[{debug_info,
+                     {debug_info_v1,
+                      erl_abstract_code,
+                      {Abstr,_Opts}}}]}} ->
+            case [Anno || {function,Anno,Name,1,_} <- Abstr, TC =:= atom_to_list(Name)] of
+                [{Line,_Col}] ->
+                    Line;
+                _ ->
+                    case [Anno || {function,Anno,Name,_,_} <- Abstr, TC =:= atom_to_list(Name)] of
+                        [{Line,_}|_] ->
+                            Line;
+                        _ ->
+                            undefined
+                    end
+            end;
+        _ ->
+            undefined
+    end.
 
 
-to_xml(#testcase{ group = Group, classname = CL, log = L, url = U, name = N, time = T, timestamp = TS, result = R}) ->
+to_xml(#testcase{ group = Group, classname = CL, log = L, url = U,
+                  file = File, line = Line,
+                  name = N, time = T, timestamp = TS, result = R}) ->
     ["<testcase ",
      [["group=\"",Group,"\" "]||Group /= ""],
      "name=\"",N,"\" "
      "time=\"",T,"\" "
      "timestamp=\"",TS,"\" ",
      [["url=\"",U,"\" "]||U /= undefined],
+     [["file=\"",File,"\" "]||File /= undefined],
+     [["line=\"",integer_to_list(Line),"\" "]||Line /= undefined],
      "log=\"",L,"\">",
      case R of
 	 passed ->
