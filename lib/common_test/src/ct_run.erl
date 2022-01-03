@@ -212,10 +212,10 @@ finish(Tracing, ExitStatus, Args) ->
             case get_start_opt(halt_with,
                                fun([HaltMod,HaltFunc]) -> 
                                        {list_to_atom(HaltMod),
-                                        list_to_atom(HaltFunc)} end,
-                               Args) of
+                                        list_to_atom(HaltFunc)}
+                               end, Args) of
                 undefined ->
-                    halt(ExitStatus);
+                    halt(ExitStatus, [{flush, false}]);
                 {M,F} ->
                     apply(M, F, [ExitStatus])
             end
