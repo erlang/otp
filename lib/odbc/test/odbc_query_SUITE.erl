@@ -531,7 +531,7 @@ duplicate_key(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 not_connection_owner() ->
     [{doc, "Test what happens if a process that did not start the connection"
-	   " tries to acess it."}].
+	   " tries to access it."}].
 not_connection_owner(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1409,7 +1409,7 @@ describe_string(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 describe_floating() ->
-    [{doc,"Test describe_table/[2,3] for floting columns."}].
+    [{doc,"Test describe_table/[2,3] for floating columns."}].
 describe_floating(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),

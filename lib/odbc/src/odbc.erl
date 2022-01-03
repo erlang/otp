@@ -52,7 +52,7 @@
 		owner,                       % Pid of the connection owner
 		result_set = undefined,      % exists | undefined
 		auto_commit_mode = on,       % on | off
-		%% Indicates if first, last and "select absolut"
+		%% Indicates if first, last and "select absolute"
 		%% is supported by the odbc driver.
 		absolute_pos,                % true | false  
 		%% Indicates if prev and "select relative"
@@ -129,11 +129,11 @@ disconnect(ConnectionReference) when is_pid(ConnectionReference)->
     case call(ConnectionReference, {disconnect, ODBCCmd}, 5000) of 
 	{error, connection_closed} ->
 	    %% If the connection has already been closed the effect of
-	    %% disconnect has already been acomplished
+	    %% disconnect has already been accomplished
 	    ok; 
 	%% Note a time out of this call will return ok, as disconnect
 	%% will always succeed, the time out is to make sure
-	%% the connection is killed brutaly if it will not be shut down
+	%% the connection is killed brutally if it will not be shut down
 	%% gracefully.
 	ok ->
 	    ok;
@@ -603,7 +603,7 @@ handle_msg({select_cmd, _Type, _ODBCCmd}, _Timeout, State) ->
     {reply, Reply, State#state{reply_to = undefined}};
 
 %---------------------------------------------------------------------------
-%% Catch all -  This can oly happen if the application programmer writes 
+%% Catch all -  This can only happen if the application programmer writes 
 %% really bad code that violates the API.
 handle_msg(Request, _Timeout, State) ->
     {stop, {'API_violation_connection_colsed', Request},
@@ -624,7 +624,7 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------------
 %% handle_info(Msg, State) -> {noreply, State} | {noreply, State, Timeout} |
 %%			      {stop, Reason, State}
-%% Description: Handles timouts, replys from the port-program and EXIT and
+%% Description: Handles timouts, replies from the port-program and EXIT and
 %%		down messages.
 %% Note: The order of the function clauses is significant.
 %%--------------------------------------------------------------------------
@@ -745,7 +745,7 @@ handle_info({'EXIT', Port, _}, State = #state{erlang_port = Port,
 handle_info({'EXIT', Port, Reason}, State = #state{erlang_port = Port}) ->
     {stop, Reason, State};
 
-%%% If the owning process dies there is no reson to go on
+%%% If the owning process dies there is no reason to go on
 handle_info({'DOWN', _Ref, _Type, _Process, normal}, State) ->
     {stop, normal, State#state{reply_to = undefined}};
     
