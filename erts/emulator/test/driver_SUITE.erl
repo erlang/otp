@@ -198,7 +198,7 @@ end_per_group(_GroupName, Config) ->
         undefined ->
             Config;
         {Peer, _Node} ->
-            peer:stop(Peer),
+            ok = peer:stop(Peer),
             {save_config, proplists:delete(node, Config)}
     end.
 
@@ -216,6 +216,9 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     [{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) ->
+    %% Logs some info about the system
+    ct_os_cmd("epmd -names"),
+    ct_os_cmd("ps aux"),
     erlang:display({end_per_testcase, Case}),
     try rpc(Config, fun() ->
                             get_stable_check_io_info(),
@@ -224,9 +227,6 @@ end_per_testcase(Case, Config) ->
         CIOD ->
             0 = element(1, CIOD)
     catch _E:_R:_ST ->
-            %% Logs some info about the system
-            ct_os_cmd("epmd -names"),
-            ct_os_cmd("ps aux"),
             %% Restart the node
             case proplists:get_value(node, Config) of
                 undefined ->
@@ -1089,7 +1089,7 @@ get_stable_check_io_info(N) ->
 %% Merge return from erlang:system_info(check_io)
 %% as if it was one big pollset.
 get_check_io_total(ChkIo) ->
-    ct:log("ChkIo = ~p~n",[ChkIo]),
+    ct:log("ChkIo = ~p (~p)~n",[ChkIo, nodes()]),
     {Fallback, Rest} = get_fallback(ChkIo),
     OnlyPollThreads = [PS || PS <- Rest, not is_scheduler_pollset(PS)],
     add_fallback_infos(Fallback,
