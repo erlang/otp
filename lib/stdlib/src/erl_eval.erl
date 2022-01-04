@@ -501,9 +501,7 @@ expr({bin,_,Fs}, Bs0, Lf, Ef, RBs, FUVs) ->
     {value,V,Bs} = eval_bits:expr_grp(Fs, Bs0, EvalFun),
     ret_expr(V, Bs, RBs);
 expr({remote,_,_,_}, _Bs, _Lf, _Ef, _RBs, _FUVs) ->
-    erlang:raise(error, {badexpr,':'}, ?STACKTRACE);
-expr({value,_,Val}, Bs, _Lf, _Ef, RBs, _FUVs) ->    % Special case straight values.
-    ret_expr(Val, Bs, RBs).
+    erlang:raise(error, {badexpr,':'}, ?STACKTRACE).
 
 find_maxline(LC) ->
     put('$erl_eval_max_line', 0),
@@ -636,24 +634,11 @@ bif(apply, [F,As], Bs, Ef, RBs) ->
 bif(Name, As, Bs, Ef, RBs) ->
     do_apply(erlang, Name, As, Bs, Ef, RBs).
 
-%% do_apply(MF, Arguments, Bindings, ExternalFuncHandler, RBs) ->
+%% do_apply(Func, Arguments, Bindings, ExternalFuncHandler, RBs) ->
 %%	{value,Value,Bindings} | Value when
-%%	ExternalFuncHandler = {value,F} | none.
-%% MF is a tuple {Module,Function} or a fun.
+%%	ExternalFuncHandler = {value,F} | none,
+%%  Func = fun()
 
-do_apply({M,F}=Func, As, Bs0, Ef, RBs)
-  when tuple_size(M) >= 1, is_atom(element(1, M)), is_atom(F) ->
-    case Ef of
-        none when RBs =:= value ->
-            %% Make tail recursive calls when possible.
-            apply(M, F, As);
-        none ->
-            ret_expr(apply(M, F, As), Bs0, RBs);
-        {value,Fun} when RBs =:= value ->
-            Fun(Func, As);
-        {value,Fun} ->
-            ret_expr(Fun(Func, As), Bs0, RBs)
-    end;
 do_apply(Func, As, Bs0, Ef, RBs) ->
     Env = if
               is_function(Func) ->
