@@ -2187,7 +2187,6 @@ stop_nodes([Node|Nodes], Acc, File, Line) ->
     
 
 stop_node(Node, File, Line) when is_atom(Node) ->
-    p("try stop node ~p", [Node]),
     case stop_node(Node) of
         ok ->
             ok;

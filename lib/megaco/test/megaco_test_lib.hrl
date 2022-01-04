@@ -49,6 +49,9 @@
 -define(SKIP(Reason),
 	?LIB:skip(Reason, ?MODULE, ?LINE)).
 
+-define(FAIL(Reason),
+	exit({Reason, ?MODULE, ?LINE})).
+
 -define(VERIFYL(Expected, Expr),
 	fun(A,B) when list(A), list(B) ->
 		A1 = lists:sort(A),
@@ -125,3 +128,6 @@
 	io:format(user, "~n*** ~s *** case ~w:~w init~n~n", 
 		  [?FTS(), ?MODULE, C])).
 
+-define(UNIQUE(__PreName__),
+        list_to_atom(
+          ?F("~w_~w", [__PreName__, erlang:system_time(millisecond)]))).

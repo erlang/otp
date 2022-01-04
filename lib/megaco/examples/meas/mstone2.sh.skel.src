@@ -1,0 +1,178 @@
+#!/bin/sh
+
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2022-2022. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+
+# Skeleton for a script intended to run the mstone1(N) 
+# performance test.
+#
+
+# Get the name of the program
+program=`echo $0 | sed 's#.*/##g'`
+
+usage="\
+Usage: $program [options]
+
+This shell script is used to run the mstone 1 (factor) performance 
+test. It is not intended to test the megaco stack but instead to 
+give a \"performance value\" of the host on which it is run.
+
+Options:
+ -help                  display this help and exit.
+ -mp <message package>  message package to use for test
+                        default is time_test
+ -h <num>               default process heap size
+ -a <num>               async thread pool size (default is 0)
+ -t <run time>          The runtime of the test
+                        Format: <value>[unit], where unit can be:
+                           s: seconds
+                           m: minutes (default)
+                           h: hours
+                        If no unit is provided, minutes is assumed.
+                        defaults to 10 minutes
+ -s <num sched>         normally we let the VM decide the number of schedulers
+                        but if this option is given, the number of
+                        schedulers is fixed (to the value set by this option).
+                        The options -s and -f cannot both be present.
+ -d <drv-mode>          driver mode for the test:
+                        std  - all codec config(s) will be used
+                        flex - only the text codec config(s) utilizing the 
+                               flex scanner will be used
+                        nd   - only codec config(s) without drivers will be used
+                        od   - only codec config(s) with drivers will be used
+ -sbt <bind-type>       Set scheduler bind type. See erl man page for more info.
+                        tnnps - Thread no node processor spread (default)
+                        u     - Unbound
+                        ns    - No spread
+                        ts    - Thread spread
+                        ps    - Processor spread
+                        s     - Spread
+                        nnts  - No node thread spread
+                        nnps  - No node processor spread
+ --                     everything after this is just passed on to erl.
+"
+
+ERL_HOME=<path to otp top dir>
+MEGACO_HOME=$ERL_HOME/lib/erlang/lib/megaco-%VSN%
+MEAS_HOME=$MEGACO_HOME/examples/meas
+PATH=$ERL_HOME/bin:$PATH
+
+MODULE=megaco_codec_mstone2
+STARTF="start"
+MODE=standard
+MSG_PACK=time_test
+SBT="+sbt tnnps"
+RT=1
+SCHED=default
+
+while test $# != 0; do
+    # echo "DBG: Value = $1"
+    case  $1 in
+        -help)
+            echo "$usage" ;
+            exit 0;;
+
+        -mp)
+            MSG_PACK="$2";
+            shift ; shift ;;
+
+        -h)
+            PHS="+h $2";
+            shift ; shift ;;
+
+        -a)
+            ATP="+A $2";
+            shift ; shift ;;
+
+        -t)
+            RT="$2";
+            shift ; shift ;;
+
+        -d)
+	    case $2 in
+		std)
+		    MODE="standard";
+		    shift ; shift ;;
+		flex)
+		    MODE="flex";
+		    shift ; shift ;;
+		nd)
+		    MODE="no_drv";
+		    shift ; shift ;;
+		od)
+		    MODE="only_drv";
+		    shift ; shift ;;
+		*)
+		    echo "unknown driver mode: $2";
+		    echo "$usage" ;
+		    exit 0
+	    esac;;
+	    
+        -sbt)
+	    case $2 in
+		tnnps|u|ns|ts|ps|s|nnts|nnps)
+		    SBT="+sbt $2";
+		    shift ; shift ;;
+		*)
+		    echo "unknown scheduler bind type: $2";
+		    echo "$usage" ;
+		    exit 0
+	    esac;;
+	    
+        -s)
+            SCHED="$2";
+            shift ; shift ;;
+
+        --)
+            shift ;
+            break;;
+
+        *)
+            echo "unknown option: $1";
+            echo "$usage" ;
+            exit 0
+    esac
+done
+
+MSTONE="-s $MODULE $STARTF $RT $MODE $MSG_PACK"
+
+if [ $SCHED = default ]; then
+    SMP_OPTS=""
+else
+    SMP_OPTS="-smp +S $SCHED"
+fi
+LOG="mstone2-$SCHED.log"
+
+echo ""
+echo "---------------------------------------------"
+echo ""
+
+ERL="erl \
+     -noshell \
+     $SBT \
+     $PHS \
+     $ATP \
+     $SMP_OPTS \
+     -pa $MEAS_HOME \
+     $MSTONE \
+     $* \
+     -s init stop"
+
+echo $ERL
+$ERL | tee $LOG

@@ -22,8 +22,6 @@
 %%----------------------------------------------------------------------
 %% 
 %% megaco_codec_mstone2:start().
-%% megaco_codec_mstone2:start_no_drv().
-%% megaco_codec_mstone2:start_only_drv().
 %% 
 %%----------------------------------------------------------------------
 %% Purpose: mstone 2 measurement
@@ -54,10 +52,7 @@
 
 %% Exports
 -export([
-	 start/0,          start/1, 
-	 start_flex/0,     start_flex/1, 
-	 start_no_drv/0,   start_no_drv/1, 
-	 start_only_drv/0, start_only_drv/1
+	 start/0, start/1, start/2, start/3
 	]).
 
 
@@ -66,11 +61,6 @@
 %%%----------------------------------------------------------------------
 
 -define(LIB, megaco_codec_mstone_lib).
-
--ifndef(MSTONE_TIME).
--define(MSTONE_TIME, 10).
--endif.
--define(MSTONE_RUN_TIME, timer:minutes(?MSTONE_TIME)).
 
 -ifndef(MSTONE_VERSION3).
 -define(MSTONE_VERSION3, v3).
@@ -82,18 +72,14 @@
 -endif.
 
 -define(DEFAULT_MESSAGE_PACKAGE, megaco_codec_transform:default_message_package()).
--define(DEFAULT_FACTOR,          1).
--define(DEFAULT_DRV_INCLUDE,     ignore).
+-define(DEFAULT_MODE,            standard).
+-define(DEFAULT_TIME,            1).
+-define(DEFAULT_RUN_TIME,        timer:minutes(?DEFAULT_TIME)).
 
--ifndef(MSTONE_RUNNER_MIN_HEAP_SZ).
-%% -define(MSTONE_RUNNER_MIN_HEAP_SZ,  16#7fff).
--define(MSTONE_RUNNER_MIN_HEAP_SZ,  16#ffff).
+%% -define(MSTONE_RUNNER_MIN_HEAP_SZ, 16#7fff).
+%% -define(MSTONE_RUNNER_MIN_HEAP_SZ, 16#ffff).
 %% -define(MSTONE_RUNNER_MIN_HEAP_SZ, 16#17ffe).
 %% -define(MSTONE_RUNNER_MIN_HEAP_SZ, 16#1ffff).
-%% -define(MSTONE_RUNNER_OPTS, [link]).
--endif.
--define(MSTONE_RUNNER_OPTS, 
-        [link, {min_heap_size, ?MSTONE_RUNNER_MIN_HEAP_SZ}]).
 
 
 %%%----------------------------------------------------------------------
@@ -102,7 +88,12 @@
 
 -record(codec_data, {ref, mod, config = [], msgs = []}).
 
--record(state, {timer, running = [], idle = [], flex_handler, flex_conf}).
+-record(state, {min_heap_sz = default, % ?MSTONE_RUNNER_MIN_HEAP_SZ
+                timer,
+                running     = [],
+                idle        = [],
+                flex_handler,
+                flex_conf}).
 
 
 %%%----------------------------------------------------------------------
@@ -110,48 +101,47 @@
 %%%----------------------------------------------------------------------
 
 start() ->
-    start(?DEFAULT_MESSAGE_PACKAGE).
+    do_start(?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
 
-start([MessagePackage]) ->
-    do_start(MessagePackage, ?DEFAULT_DRV_INCLUDE);
+start([RunTimeAtom, Mode, MessagePackage])
+  when is_atom(RunTimeAtom) andalso
+       is_atom(Mode) andalso
+       is_atom(MessagePackage) ->
+    do_start(?LIB:parse_runtime(RunTimeAtom), Mode, MessagePackage);
+start(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
+    do_start(time:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(MessagePackage) ->
-    do_start(MessagePackage, ?DEFAULT_DRV_INCLUDE).
+    do_start(?DEFAULT_RUN_TIME, ?DEFAULT_MODE, MessagePackage).
 
+start(RunTime, Mode)
+  when is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE);
+start(RunTime, MessagePackage) when is_integer(RunTime) andalso (RunTime > 0) ->
+    do_start(timer:minutes(RunTime), ?DEFAULT_MODE, MessagePackage);
+start(Mode, MessagePackage)
+  when (Mode =:= standard) orelse
+       (Mode =:= flex) orelse
+       (Mode =:= no_drv) orelse
+       (Mode =:= only_drv) ->
+    do_start(?DEFAULT_RUN_TIME, Mode, MessagePackage).
 
-start_flex() ->
-    start_flex(?DEFAULT_MESSAGE_PACKAGE).
+start(RunTime, Mode, MessagePackage)
+  when is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(timer:minutes(RunTime), Mode, MessagePackage).
 
-start_flex([MessagePackage]) ->
-    do_start(MessagePackage, flex);
-start_flex(MessagePackage) ->
-    do_start(MessagePackage, flex).
-
-
-start_no_drv() ->
-    start_no_drv(?DEFAULT_MESSAGE_PACKAGE).
-
-start_no_drv([MessagePackage]) ->
-    do_start(MessagePackage, no_drv);
-start_no_drv(MessagePackage) ->
-    do_start(MessagePackage, no_drv).
-
-
-start_only_drv() ->
-    start_only_drv(?DEFAULT_MESSAGE_PACKAGE).
-
-start_only_drv([MessagePackage]) ->
-    do_start(MessagePackage, only_drv);
-start_only_drv(MessagePackage) ->
-    do_start(MessagePackage, only_drv).
-
-
-do_start(MessagePackageRaw, DrvInclude) ->
-%%     io:format("do_start -> entry with"
-%% 	      "~n   MessagePackageRaw: ~p"
-%% 	      "~n   DrvInclude:        ~p"
-%% 	      "~n", [MessagePackageRaw, DrvInclude]), 
+do_start(RunTime, Mode, MessagePackageRaw) ->
     MessagePackage = parse_message_package(MessagePackageRaw),
-    mstone_init(MessagePackage, DrvInclude).
+    mstone_init(RunTime, Mode, MessagePackage).
     
 parse_message_package(MessagePackageRaw) when is_list(MessagePackageRaw) ->
     list_to_atom(MessagePackageRaw);
@@ -161,21 +151,28 @@ parse_message_package(BadMessagePackage) ->
     throw({error, {bad_message_package, BadMessagePackage}}).
 
 
-mstone_init(MessagePackage, DrvInclude) ->
+mstone_init(RunTime, Mode, MessagePackage) ->
     io:format("~n", []),
+    %% io:format("MStone init with"
+    %%           "~n   Run Time:        ~p ms"
+    %%           "~n   Mode:            ~p"
+    %%           "~n   Message Package: ~p"
+    %%           "~n", [RunTime, Mode, MessagePackage]),
     ?LIB:display_os_info(),
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
     io:format("~n", []),
     Ref = erlang:monitor(process, 
 			 spawn(fun() -> 
-				       loader(MessagePackage, DrvInclude) 
+				       loader(RunTime, Mode, MessagePackage) 
 			       end)),
     receive
 	{'DOWN', Ref, process, _Pid, {done, Result}} ->
 	    display_result(Result);
 	{'DOWN', Ref, process, _Pid, Result} ->
-	    io:format("Unexpected result:~n~p~n", [Result]),
+	    io:format("Unexpected result:"
+                      "~n      ~p"
+                      "~n", [Result]),
 	    ok
     end.
 
@@ -213,13 +210,6 @@ image_of(megaco_erl_dist_encoder, Conf) ->
     erl_image("erl_dist", Conf).
 
 bin_image(Bin, Conf) ->
-    Drv = 
-	case lists:member(driver, Conf) of
-	    true ->
-		[driver];
-	    false ->
-		[]
-	end,
     Nat = 
 	case lists:member(native, Conf) of
 	    true ->
@@ -227,7 +217,7 @@ bin_image(Bin, Conf) ->
 	    false ->
 		[]
 	end,
-    io_lib:format("~s ~w", [Bin, Drv ++ Nat]).
+    io_lib:format("~s ~w", [Bin, Nat]).
 
 text_image(Txt, Conf) ->
     Flex = 
@@ -259,8 +249,8 @@ erl_image(Erl, Conf) ->
 
 %%%----------------------------------------------------------------------
 
-loader(MessagePackage, DrvInclude) ->
-    loader(?MSTONE_CODECS, MessagePackage, DrvInclude).
+loader(RunTime, Mode, MessagePackage) ->
+    loader(RunTime, Mode, ?MSTONE_CODECS, MessagePackage).
 
 
 %% Codecs is a list of megaco codec shortnames: 
@@ -268,24 +258,24 @@ loader(MessagePackage, DrvInclude) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-loader(Codecs, MessagePackage, DrvInclude) ->
+loader(RunTime, Mode, Codecs, MessagePackage) ->
     process_flag(trap_exit, true),
-    case (catch init(Codecs, MessagePackage, DrvInclude)) of
+    case (catch init(RunTime, Mode, Codecs, MessagePackage)) of
 	{ok, State} ->
 	    loader_loop(running, State);
 	Error ->
 	    exit(Error)
     end.
 
-init(Codecs, MessagePackage, DrvInclude) ->
+init(RunTime, Mode, Codecs, MessagePackage) ->
     ets:new(mstone, [set, private, named_table, {keypos, 1}]),
     ets:insert(mstone, {worker_cnt, 0}),
     {Pid, FlexConf} = ?LIB:start_flex_scanner(),
     io:format("prepare messages", []),
-    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
+    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
     io:format("~ninit codec data", []),
     CodecData = init_codec_data(EMessages, FlexConf),
-    Timer = erlang:send_after(?MSTONE_RUN_TIME, self(), mstone_finished), 
+    Timer = erlang:send_after(RunTime, self(), mstone_finished), 
     io:format("~n", []),
     {ok, #state{timer        = Timer, 
 		idle         = CodecData, 
@@ -325,28 +315,34 @@ loader_loop(finishing, #state{flex_handler = Pid, running = []}) ->
 loader_loop(finishing, State) ->
     receive
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
+            %% io:format("[loader:finishing] worker done~n", []),
 	    loader_loop(finishing, done_worker(Ref, Codec, Conf, Cnt, State))
     end;
 
 loader_loop(running, #state{idle = []} = State) ->	    
     receive
 	mstone_finished ->
+            %% io:format("[loader:running,idle] -> finish~n", []),
 	    loader_loop(finishing, State);
 
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
+            %% io:format("[loader:running] worker done~n", []),
 	    loader_loop(running, done_worker(Ref, Codec, Conf, Cnt, State))
     end;
 
 loader_loop(running, State) ->	
     receive
 	mstone_finished ->
+            %% io:format("[loader:running] -> finish~n", []),
 	    loader_loop(finishing, State);
 
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
+            %% io:format("[loader:running] worker done~n", []),
 	    State2 = done_worker(Ref, Codec, Conf, Cnt, State),
 	    loader_loop(running, State2)
 
     after 0 ->
+            %% io:format("[loader:running] start worker~n", []),
 	    loader_loop(running, start_worker(State))
     end.
 
@@ -359,12 +355,20 @@ done_worker(Ref, Codec, Conf, Cnt,
     CD = Running -- Running2,
     State#state{running = Running2, idle = lists:append(Idle, CD)}.
 
-start_worker(#state{running = Running, idle = [H|T]} = State) ->
+start_worker(#state{min_heap_sz = SZ,
+                    running = Running, idle = [H|T]} = State) ->
     #codec_data{mod = Codec, config = Conf, msgs = Msgs} = H,
-    Worker = fun() -> worker(Codec, Conf, Msgs, 0) end, 
-    Ref    = erlang:monitor(process, spawn(Worker)),
+    Worker = fun() -> worker(Codec, Conf, Msgs, 0) end,
+    {_, Ref} = erlang:spawn_opt(Worker, worker_spawn_opts(SZ)),
+    %% Ref    = erlang:monitor(process, spawn(Worker)),
     CD = H#codec_data{ref = Ref},
     State#state{running = [CD | Running], idle = T}.
+
+
+worker_spawn_opts(SZ) when is_integer(SZ) andalso (SZ > 0) ->
+    [monitor, {min_heap_size, SZ}];
+worker_spawn_opts(_) ->
+    [monitor].
 
 
 %%%----------------------------------------------------------------------

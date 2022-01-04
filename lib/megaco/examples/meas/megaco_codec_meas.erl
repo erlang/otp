@@ -50,7 +50,7 @@
 -export([start1/0]).
 
 %% Internal exports
--export([do_measure_codec/7, do_measure_codec_loop/7]).
+-export([do_measure_codec/8, do_measure_codec_loop/7]).
 -export([flex_scanner_handler/1]).
 
 
@@ -84,16 +84,18 @@ start1() ->
     start().
 
 start() ->
-    meas_init(?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
+    meas_init(1, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
 
 start([MessagePackage]) ->
-    do_start(MessagePackage, ?MEASURE_CODECS);
+    do_start(1, MessagePackage, ?MEASURE_CODECS);
+start(Factor) when is_integer(Factor) andalso (Factor > 0) ->
+    do_start(Factor, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS);
 start(MessagePackage) ->
-    do_start(MessagePackage, ?MEASURE_CODECS).
+    do_start(1, MessagePackage, ?MEASURE_CODECS).
 
-do_start(MessagePackageRaw, Codecs) ->
+do_start(Factor, MessagePackageRaw, Codecs) ->
     MessagePackage = parse_message_package(MessagePackageRaw), 
-    meas_init(MessagePackage, Codecs).
+    meas_init(Factor, MessagePackage, Codecs).
     
 parse_message_package(MessagePackageRaw) when is_list(MessagePackageRaw) ->
     list_to_atom(MessagePackageRaw);
@@ -113,7 +115,7 @@ parse_message_package(BadMessagePackage) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-meas_init(MessagePackage, Codecs) ->
+meas_init(Factor, MessagePackage, Codecs) ->
     %% process_flag(trap_exit, true),
     io:format("~nRun meas on message package: ~p~n~n", [MessagePackage]),
     display_os_info(),
@@ -124,7 +126,7 @@ meas_init(MessagePackage, Codecs) ->
     case megaco_codec_transform:messages(MessagePackage) of
 	Messages when is_list(Messages) ->
 	    ExpandedMessages = expand_messages(Codecs, Messages),
-	    Results = t1(ExpandedMessages, []), 
+	    Results = t1(Factor, ExpandedMessages, []), 
 	    display_time(Started, os:timestamp()),
 	    store_results(Results);
 	Error ->
@@ -228,41 +230,41 @@ format_diff(Start, Fin) ->
     
     
 			      
-t1([], Results) ->
+t1(_Factor, [], Results) ->
     lists:reverse(Results);
-t1([{Id, Codec, Conf, _, _} = ECodec|EMsgs], Results) ->
-    case (catch measure(ECodec)) of
+t1(Factor, [{Id, Codec, Conf, _, _} = ECodec|EMsgs], Results) ->
+    case (catch measure(Factor, ECodec)) of
 	{'EXIT', Reason} ->
 	    error("measure of codec ~p exited: ~n~p", [Codec, Reason]),
-	    t1(EMsgs, Results);
+	    t1(Factor, EMsgs, Results);
 	{error, Reason} ->
 	    error("skipping codec ~p: ~n~p", [Codec, Reason]),
-	    t1(EMsgs, Results);
+	    t1(Factor, EMsgs, Results);
 	{ok, Res} ->
-	    t1(EMsgs, [{Id, Conf, Res}| Results])
+	    t1(Factor, EMsgs, [{Id, Conf, Res}| Results])
     end.
 
 
-measure({Id, Codec, Conf, Count, Msgs}) ->
+measure(Factor, {Id, Codec, Conf, Count, Msgs}) ->
     io:format("measure using codec ~p ~p~n ", [Codec, Conf]),
     {Init, Conf1} = measure_init(Conf),
     Conf2 = [{version3,?V3}|Conf1],
-    Res = measure(Id, Codec, Conf2, Msgs, [], Count),
+    Res = measure(Factor, Id, Codec, Conf2, Msgs, [], Count),
     measure_fin(Init),
     Res.
 
 
 expand_messages(Codecs, Messages) ->
     ECodecs = expand_codecs(Codecs, []),
-    expand_messages(ECodecs, Messages, []).
+    do_expand_messages(ECodecs, Messages, []).
 
-expand_messages([], _, EMessages) ->
+do_expand_messages([], _, EMessages) ->
     lists:reverse(EMessages);
-expand_messages([{Id, Codec, Conf, Count} | ECodecs], Messages, EMessages) ->
+do_expand_messages([{Id, Codec, Conf, Count} | ECodecs], Messages, EMessages) ->
     case lists:keysearch(Id, 1, Messages) of
 	{value, {Id, Msgs}} ->
-	    expand_messages(ECodecs, Messages, 
-			    [{Id, Codec, Conf, Count, Msgs}|EMessages]);
+	    do_expand_messages(ECodecs, Messages, 
+                               [{Id, Codec, Conf, Count, Msgs}|EMessages]);
 	false ->
 	    exit({error, {no_such_codec_data, Id}})
     end.
@@ -273,6 +275,8 @@ expand_codecs([Codec|Codecs], ECodecs) when is_atom(Codec) ->
     ECodec = expand_codec(Codec),
     expand_codecs(Codecs, [ECodec|ECodecs]).
 
+%% Make "sure" the factor is evenly divisible by the message count
+%% for *all* codec's.
 expand_codec(Codec) ->
     case Codec of
 	pretty ->
@@ -312,10 +316,10 @@ measure_fin(_) ->
     ok.
 
 
-measure(_Dir, _Codec, _Conf, [], [], _MCount) ->
+measure(_Factor, _Dir, _Codec, _Conf, [], [], _MCount) ->
     {error, no_messages};
 
-measure(_Dir, _Codec, _Conf, [], Res, _MCount) ->
+measure(_Factor, _Dir, _Codec, _Conf, [], Res, _MCount) ->
 
     Eavg = avg([Etime/Ecnt || #stat{ecount = Ecnt, etime = Etime} <- Res]),
     Davg = avg([Dtime/Dcnt || #stat{dcount = Dcnt, dtime = Dtime} <- Res]),
@@ -329,16 +333,16 @@ measure(_Dir, _Codec, _Conf, [], Res, _MCount) ->
 
     {ok, lists:reverse(Res)};
 
-measure(Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
+measure(Factor, Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
     io:format(" ~p", [Name]),
-    case (catch do_measure(Dir, Codec, Conf, Name, Bin, MCount)) of
+    case (catch do_measure(Factor, Dir, Codec, Conf, Name, Bin, MCount)) of
 	{ok, Stat} ->
-	    measure(Dir, Codec, Conf, Msgs, [Stat | Results], MCount);
+	    measure(Factor, Dir, Codec, Conf, Msgs, [Stat | Results], MCount);
 
 	{error, S} ->
 	    io:format("~n~s failed: ~n", [Name]),
 	    error(S,[]),
-	    measure(Dir, Codec, Conf, Msgs, Results, MCount);
+	    measure(Factor, Dir, Codec, Conf, Msgs, Results, MCount);
 
 	{info, S} ->
 	    case get(verbose) of
@@ -348,16 +352,16 @@ measure(Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
 		_ ->
 		    io:format("~n~s skipped~n", [Name])
 	    end,
-	    measure(Dir, Codec, Conf, Msgs, Results, MCount)
+	    measure(Factor, Dir, Codec, Conf, Msgs, Results, MCount)
 
     end.
 
 
-do_measure(_Id, Codec, Conf, Name, BinMsg, MCount) ->
+do_measure(Factor, _Id, Codec, Conf, Name, BinMsg, MCount) ->
     %% io:format("~n~s~n", [binary_to_list(BinMsg)]),
     {Version, NewBin}  = detect_version(Codec, Conf, BinMsg),
-    {Msg, Dcnt, Dtime} = measure_decode(Codec, Conf, Version, NewBin, MCount),
-    {_,   Ecnt, Etime} = measure_encode(Codec, Conf, Version, Msg, MCount),
+    {Msg, Dcnt, Dtime} = measure_decode(Factor, Codec, Conf, Version, NewBin, MCount),
+    {_,   Ecnt, Etime} = measure_encode(Factor, Codec, Conf, Version, Msg, MCount),
 
     {ok, #stat{name   = Name, 
 	       ecount = Ecnt, etime = Etime, 
@@ -378,8 +382,8 @@ detect_version(Codec, Conf, Bin) ->
     end.
 	    
 
-measure_decode(Codec, Conf, Version, Bin, MCount) ->
-    case measure_codec(Codec, decode_message, Conf, Version, Bin, MCount) of
+measure_decode(Factor, Codec, Conf, Version, Bin, MCount) ->
+    case measure_codec(Factor, Codec, decode_message, Conf, Version, Bin, MCount) of
 	{ok, Res} ->
 	    Res;
 	{error, Reason} ->
@@ -387,8 +391,8 @@ measure_decode(Codec, Conf, Version, Bin, MCount) ->
 	    throw({error, S})
     end.
 
-measure_encode(Codec, Conf, Version, Bin, MCount) ->
-    case measure_codec(Codec, encode_message, Conf, Version, Bin, MCount) of
+measure_encode(Factor, Codec, Conf, Version, Bin, MCount) ->
+    case measure_codec(Factor, Codec, encode_message, Conf, Version, Bin, MCount) of
 	{ok, Res} ->
 	    Res;
 	{error, Reason} ->
@@ -397,9 +401,9 @@ measure_encode(Codec, Conf, Version, Bin, MCount) ->
     end.
 
 
-measure_codec(Codec, Func, Conf, Version, Bin, MCount) ->
+measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
     Pid = spawn_link(?MODULE, do_measure_codec, 
-                     [self(), Codec, Func, Conf, Version, Bin, MCount]),
+                     [Factor, self(), Codec, Func, Conf, Version, Bin, MCount]),
     receive
 	{measure_result, Pid, Func, Res} ->
 	    {ok, Res};
@@ -420,21 +424,26 @@ measure_codec(Codec, Func, Conf, Version, Bin, MCount) ->
     end.
 
 
-do_measure_codec(Parent, Codec, Func, Conf, Version, Bin, MCount) ->
+do_measure_codec(Factor, Parent, Codec, Func, Conf, Version, Bin, MCount) ->
     {ok, Count} = measure_warmup(Codec, Func, Conf, Version, Bin, MCount),
+    Count2      = Count div Factor,
+    %% io:format("do_measure_codec(~w, ~w) -> warmed up:"
+    %%           "~n      MCount: ~w"
+    %%           "~n      Count:  ~w"
+    %%           "~n      Count2: ~w", [Codec, Func, MCount, Count, Count2]),
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
-		   [Codec, Func, Conf, Version, Bin, Count, dummy]),
+		   [Codec, Func, Conf, Version, Bin, Count2, dummy]),
     case Res of
 	{Time, {ok, M}} ->
 	    %% io:format("~w ", [Time]),
-	    Parent ! {measure_result, self(), Func, {M, Count, Time}};
+	    Parent ! {measure_result, self(), Func, {M, Count2, Time}};
 	{_Time, Error} ->
 	    Parent ! {error, self(), Error}
     end,
     unlink(Parent). % Make sure Parent don't get our exit signal
 
 
-%% This function does more mor less what the real measure function
+%% This function does more or less what the real measure function
 %% above does. But with the diff:
 %% 1) Warmup to ensure that all used code are loaded
 %% 2) To aproximate the encoding time, to ensure that 
