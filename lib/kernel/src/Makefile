@@ -188,7 +188,7 @@ ERL_COMPILE_FLAGS += -I../include
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 
 # Note: In the open-source build clean must not destroyed the preloaded
 # beam files.

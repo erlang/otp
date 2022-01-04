@@ -56,7 +56,7 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES)
+tests $(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

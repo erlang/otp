@@ -47,7 +47,8 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
-TYPES = @TYPES@
+TYPES = opt debug lcnt valgrind asan gcov
+DEFAULT_TYPES = @DEFAULT_TYPES@
 FLAVORS = @FLAVORS@
 PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 

@@ -41,7 +41,7 @@ docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
 
 .PHONY: debug opt lcnt clean test
-debug opt lcnt clean:
+$(TYPES) clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
@@ -57,7 +57,7 @@ test:
 
 .PHONY: $(FLAVORS)
 $(FLAVORS):
-	$(V_at)for type in $(TYPES); do \
+	$(V_at)for type in $(DEFAULT_TYPES); do \
 		( $(MAKE) FLAVOR=$@ $$type ) || exit $$?; \
 	done
 
@@ -150,7 +150,7 @@ makefiles:
 .PHONY: release
 release:
 ifeq ($(TYPE),)
-	for t in $(TYPES); do \
+	for t in $(DEFAULT_TYPES); do \
 	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
 else

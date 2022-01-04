@@ -99,7 +99,7 @@ ERL_COMPILE_FLAGS += +warn_export_vars +warn_unused_import +warn_missing_spec
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 docs:
 

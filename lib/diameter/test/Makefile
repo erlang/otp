@@ -64,7 +64,7 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
 # Targets
 # ----------------------------------------------------
 
-all debug opt: $(TARGET_FILES)
+all $(TYPES): $(TARGET_FILES)
 
 strict:
 	$(MAKE) opt STRICT_FLAGS=-Werror

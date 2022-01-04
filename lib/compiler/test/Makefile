@@ -202,7 +202,7 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES
 	$(ERL_TOP)/make/make_emakefile +dialyzer $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(DIALYZER_MODULES) >> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:

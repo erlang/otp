@@ -100,7 +100,7 @@ $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/lib/jinterface/vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) $(ERL_TOP)/lib/jinterface/vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(JINTERFACE_VSN);' $< > $@
 
-debug opt: make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
+$(TYPES): make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
 
 make_dirs:
 	$(V_at)if [ ! -d "$(JAVA_DEST_ROOT)" ];then mkdir "$(JAVA_DEST_ROOT)"; fi

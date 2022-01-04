@@ -105,8 +105,8 @@ endif
 # ----------------------------------------------------
 opt: $(TARGET_FILES) 
 
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:
 	rm -f $(TARGET_FILES) 

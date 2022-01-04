@@ -141,7 +141,7 @@ ERL_COMPILE_FLAGS += +inline +warn_unused_import \
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 docs:
 

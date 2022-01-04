@@ -128,7 +128,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET)
+tests $(TYPES): $(BUILDTARGET)
 
 targets: $(TARGET_FILES)
 

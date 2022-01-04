@@ -76,8 +76,8 @@ ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin -I../include -Werror
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 

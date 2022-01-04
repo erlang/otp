@@ -106,8 +106,8 @@ ERL_COMPILE_FLAGS += \
 
 opt: $(TARGET_FILES)
 
-debug:
-	@${MAKE} TYPE=debug
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:
 	rm -f $(TARGET_FILES)

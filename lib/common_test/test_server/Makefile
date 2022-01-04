@@ -64,7 +64,7 @@ ERL_COMPILE_FLAGS += -I../include -Werror
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TS_TARGETS)
+tests $(TYPES): $(TS_TARGETS)
 
 clean:
 	rm -f $(TS_TARGET_FILES)

@@ -408,7 +408,10 @@ MDD_EIOBJECTS  = $(addprefix $(MDD_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
 # FIXME this assumes execution order
 # FIXME move up and add exe prefix if needed....
 
-debug opt: $(TARGETS)
+opt: $(TARGETS)
+
+debug lcnt asan valgrind gcov:
+	@${MAKE} TYPE=$@
 
 docs:
 

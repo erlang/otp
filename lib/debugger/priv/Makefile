@@ -42,7 +42,7 @@ TOOLBAR_FILES = \
 # Rules
 #
 
-debug opt:
+$(TYPES):
 
 docs:
 

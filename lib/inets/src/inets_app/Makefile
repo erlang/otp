@@ -86,7 +86,7 @@ ERL_COMPILE_FLAGS += \
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

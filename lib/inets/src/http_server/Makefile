@@ -117,7 +117,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES)

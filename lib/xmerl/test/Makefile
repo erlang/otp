@@ -92,7 +92,7 @@ ERL_COMPILE_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-tests debug opt:  xmerl_test.erl
+tests $(TYPES):  xmerl_test.erl
 
 info:
 	@echo "HRL_FILES: $(HRL_FILES)"

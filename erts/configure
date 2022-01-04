@@ -682,7 +682,7 @@ EMU_THR_DEFS
 EMU_THR_LIBS
 EMU_THR_X_LIBS
 EMU_THR_LIB_NAME
-TYPES
+DEFAULT_TYPES
 DIRTY_SCHEDULER_TEST
 ETHR_X86_SSE2_ASM
 ETHR_THR_LIB_BASE_DIR
@@ -15015,7 +15015,7 @@ if test "X$ETHR_LIB_NAME" = "X"; then
    as_fn_error $? "cannot build emulator since no thread library was found" "$LINENO" 5
 fi
 
-TYPES=opt
+DEFAULT_TYPES="opt"
 
 DIRTY_SCHEDULER_TEST=$enable_dirty_schedulers_test
 
@@ -15259,7 +15259,7 @@ printf %s "checking whether lock counters should be enabled... " >&6; }
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $enable_lock_count" >&5
 printf "%s\n" "$enable_lock_count" >&6; }
 if test "x$enable_lock_count" != "xno"; then
-    TYPES="$TYPES lcnt"
+    DEFAULT_TYPES="$DEFAULT_TYPES lcnt"
 fi
 
 case $host_os in

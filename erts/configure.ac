@@ -1012,7 +1012,7 @@ if test "X$ETHR_LIB_NAME" = "X"; then
    AC_MSG_ERROR([cannot build emulator since no thread library was found])
 fi
 
-TYPES=opt
+DEFAULT_TYPES="opt"
 
 DIRTY_SCHEDULER_TEST=$enable_dirty_schedulers_test
 AC_SUBST(DIRTY_SCHEDULER_TEST)
@@ -1091,7 +1091,7 @@ EOF
 	;;
 
 esac
-AC_SUBST(TYPES)
+AC_SUBST(DEFAULT_TYPES)
 
 AC_CHECK_FUNCS([posix_fadvise closefrom])
 AC_CHECK_HEADERS([linux/falloc.h])
@@ -1178,7 +1178,7 @@ fi
 AC_MSG_CHECKING(whether lock counters should be enabled)
 AC_MSG_RESULT($enable_lock_count)
 if test "x$enable_lock_count" != "xno"; then
-    TYPES="$TYPES lcnt"
+    DEFAULT_TYPES="$DEFAULT_TYPES lcnt"
 fi
 
 case $host_os in

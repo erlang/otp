@@ -173,7 +173,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
-opt debug: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
 
 deps: $(DEP_FILE)
 

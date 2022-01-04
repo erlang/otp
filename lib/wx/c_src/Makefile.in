@@ -130,8 +130,8 @@ CXX_O_NO_OPT    = $(V_CXX) -c $(CXX_NO_OPT_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLA
 
 opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT) $(WEBVIEW_LOADER_DLL_DEST)
 
-debug:   
-	@${MAKE} TYPE=debug
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:  
 	rm -f $(OBJECTS) 

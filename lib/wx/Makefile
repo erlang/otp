@@ -19,11 +19,11 @@
 #
 
 include ./vsn.mk
+include ./config.mk
 
 ifdef TERTIARY_BOOTSTRAP
  SUBDIRS = src
 else # Normal build
- include ./config.mk
  SUBDIRS = src
  ifeq ($(CAN_BUILD_DRIVER), true)
  SUBDIRS += c_src

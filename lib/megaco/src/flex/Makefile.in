@@ -187,9 +187,9 @@ endif
 # ----------------------------------------------------
 
 ifeq ($(ENABLE_MEGACO_FLEX_SCANNER),true)
-debug opt: $(TARGET_FILES) $(C_TARGETS) solibs
+$(TYPES): $(TARGET_FILES) $(C_TARGETS) solibs
 else
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 endif
 
 clean:

@@ -58,7 +58,7 @@ TARGET_FILES = \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-tests debug opt:
+tests $(TYPES):
 
 clean:
 	rm -f $(TARGET_FILES)

@@ -81,8 +81,8 @@ endif
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES)
 

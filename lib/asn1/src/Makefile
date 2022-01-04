@@ -108,7 +108,7 @@ YRL_FLAGS =
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 
 clean:

@@ -65,8 +65,8 @@ ERL_COMPILE_FLAGS += +'{parse_transform,sys_pre_attributes}' \
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 

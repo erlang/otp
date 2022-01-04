@@ -136,7 +136,7 @@ make_emakefile:
 		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) \
 	> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:

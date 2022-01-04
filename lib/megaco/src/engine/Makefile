@@ -74,8 +74,8 @@ ERL_COMPILE_FLAGS += \
 
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES) 
 
