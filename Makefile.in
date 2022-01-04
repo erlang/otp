@@ -509,10 +509,11 @@ endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
+NO_DIALYZER_APPS=$(filter-out dialyzer, $(APPS)) ## The dialyzer make target should not build the app
 
-.PHONY: $(APPS)
+.PHONY: $(NO_DIALYZER_APPS)
 
-$(APPS):
+$(NO_DIALYZER_APPS):
 	$(make_verbose)cd lib/$@ && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE) BUILD_ALL=true
