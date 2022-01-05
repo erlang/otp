@@ -17,6 +17,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 SPEC_FILES = \
 	crypto.spec \
+	crypto_gh.spec \
 	crypto_bench.spec
 
 COVER_FILE = crypto.cover
@@ -35,7 +36,7 @@ EBIN = .
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-tests debug opt: $(TARGET_FILES)
+tests opt debug: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

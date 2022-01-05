@@ -17,7 +17,7 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE  = diameter.spec
+TEST_SPEC_FILE  = diameter.spec diameter_gh.spec
 COVER_SPEC_FILE = diameter.cover
 
 MODULES = \
