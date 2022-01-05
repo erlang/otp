@@ -58,7 +58,7 @@
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
-         enumerate/1, error_info/1]).
+   enumerate/1, foldlwhile/1, error_info/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -122,7 +122,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, enumerate, error_info]}
+			 hof, droplast, search, enumerate, foldlwhile, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -2759,6 +2759,23 @@ enumerate(Config) when is_list(Config) ->
 
     ok.
 
+%% Test lists:foldlwhile/3
+foldlwhile(_Config) ->
+    0 = lists:foldlwhile(fun(X, _Acc) -> {cont, X} end, 0, []),
+    0 = lists:foldlwhile(fun(X, _Acc) -> {halt, X} end, 0, []),
+
+    6 = lists:foldlwhile(
+          fun
+              (X, Acc) when X < 3 -> {cont, Acc + X};
+              (X, Acc) -> {halt, Acc + X}
+          end,
+          0,
+          [1, 2, 3, 4, 5]
+        ),
+
+    one = lists:foldlwhile(fun(_, Acc) -> {halt, Acc} end, one, [a, b, c]),
+    ok.
+
 error_info(_Config) ->
     L = [{keyfind, [whatever, bad_position, bad_list], [{2,".*"},{3,".*"}]},
          {keymember, [key, 0, bad_list], [{2,".*"}, {3,".*"}]},
@@ -2783,3 +2800,4 @@ do_error_info(L0) ->
     NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
     L = lists:sort(NYI ++ L1),
     error_info_lib:test_error_info(lists, L, [snifs_only]).
+
