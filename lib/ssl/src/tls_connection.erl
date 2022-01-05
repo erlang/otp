@@ -141,11 +141,12 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
 	State1 = #state{static_env = #static_env{session_cache = Cache,
                                                  session_cache_cb = CacheCb
                                                 },
+                        connection_env = #connection_env{cert_key_pairs = CertKeyPairs},
                         ssl_options = SslOptions,
                         session = Session0} = ssl_gen_statem:ssl_config(State0#state.ssl_options, Role, State0),
         State = case Role of
                     client ->
-                        Session = ssl_session:client_select_session({Host, Port, SslOptions}, Cache, CacheCb, Session0),
+                        Session = ssl_session:client_select_session({Host, Port, SslOptions}, Cache, CacheCb, Session0, CertKeyPairs),
                         State1#state{session = Session};
                     server ->
                         State1
@@ -348,16 +349,17 @@ connection(internal, #hello_request{},
                   handshake_env = #handshake_env{
                       renegotiation = {Renegotiation, peer},
                       ocsp_stapling_state = OcspState},
-		  session = #session{own_certificates = OwnCerts} = Session0,
+                  connection_env = #connection_env{cert_key_pairs = CertKeyPairs},
+		  session = Session0,
 		  ssl_options = SslOpts, 
                   protocol_specific = #{sender := Pid},
 		  connection_states = ConnectionStates} = State0) ->
     try tls_sender:peer_renegotiate(Pid) of
         {ok, Write} ->
-            Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0),
+            Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0, CertKeyPairs),
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                                Session#session.session_id,
-                                               Renegotiation, OwnCerts, undefined,
+                                               Renegotiation, undefined,
                                                undefined, maps:get(ocsp_nonce, OcspState, undefined)),
             {State, Actions} = tls_gen_connection:send_handshake(Hello, 
                                                                  State0#state{connection_states = 
@@ -375,11 +377,10 @@ connection(internal, #hello_request{},
                   handshake_env = #handshake_env{
                       renegotiation = {Renegotiation, _},
                       ocsp_stapling_state = OcspState},
-		  session = #session{own_certificates = OwnCerts},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-                                       <<>>, Renegotiation, OwnCerts, undefined,
+                                       <<>>, Renegotiation, undefined,
                                        undefined, maps:get(ocsp_nonce, OcspState, undefined)),
 
     {State, Actions} = tls_gen_connection:send_handshake(Hello, State0),
@@ -503,8 +504,8 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
                               renegotiation = {Renegotiation, _},
                               negotiated_protocol = CurrentProtocol,
                               sni_guided_cert_selection = SNICertSelection} = HsEnv,
-           connection_env = CEnv,
-           session = #session{own_certificates = OwnCerts} = Session0,
+           connection_env = #connection_env{cert_key_pairs = CertKeyPairs} = CEnv,
+           session = Session0,
            ssl_options = SslOpts} = State,
     SessionTracker = proplists:get_value(session_id_tracker, Trackers),
     {Version, {Type, Session},
@@ -512,7 +513,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
         tls_handshake:hello(Hello,
                             SslOpts,
                             {SessionTracker, Session0,
-                             ConnectionStates0, OwnCerts, KeyExAlg},
+                             ConnectionStates0, CertKeyPairs, KeyExAlg},
                             Renegotiation),
     Protocol = case Protocol0 of
                    undefined -> CurrentProtocol;

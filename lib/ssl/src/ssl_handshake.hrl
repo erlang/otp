@@ -42,6 +42,7 @@
                   internal_id,
                   peer_certificate,
                   own_certificates,
+                  private_key,
                   compression_method,
                   cipher_suite,
                   master_secret,

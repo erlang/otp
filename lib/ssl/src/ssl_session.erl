@@ -30,7 +30,7 @@
 -include("ssl_api.hrl").
 
 %% Internal application API
--export([is_new/2, client_select_session/4, server_select_session/5, valid_session/2, legacy_session_id/0]).
+-export([is_new/2, client_select_session/5, server_select_session/5, valid_session/2, legacy_session_id/0]).
 
 -type seconds()   :: integer(). 
 
@@ -60,14 +60,14 @@ is_new(_ClientSuggestion, _ServerDecision) ->
 
 %%--------------------------------------------------------------------
 -spec client_select_session({ssl:host(), inet:port_number(), map()}, db_handle(), atom(),
-	 #session{}) -> #session{}.
+                            #session{}, list()) -> #session{}.
 %%
 %% Description: Should be called by the client side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
 client_select_session({_, _, #{versions := Versions,
                                protocol := Protocol}} = ClientInfo, 
-                      Cache, CacheCb, NewSession) ->
+                      Cache, CacheCb, NewSession, CertKeyPairs) ->
     
     RecordCb = record_cb(Protocol),
     Version = RecordCb:lowest_protocol_version(Versions),
@@ -76,20 +76,20 @@ client_select_session({_, _, #{versions := Versions,
         {3, N} when N >= 4 ->
           NewSession#session{session_id = legacy_session_id()};
         _ ->
-            do_client_select_session(ClientInfo, Cache, CacheCb, NewSession)  
+            do_client_select_session(ClientInfo, Cache, CacheCb, NewSession, CertKeyPairs)
     end.  
 
 %%--------------------------------------------------------------------
 -spec server_select_session(ssl_record:ssl_version(), pid(), binary(), map(),
-                            binary())  -> {binary(), #session{} | undefined}.
+                            list())  -> {binary(), #session{} | undefined}.
 %%
 %% Description: Should be called by the server side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-server_select_session(_, SessIdTracker, <<>>, _SslOpts, _Cert) ->
+server_select_session(_, SessIdTracker, <<>>, _SslOpts, _CertKeyPairs) ->
     {ssl_server_session_cache:new_session_id(SessIdTracker), undefined};
-server_select_session(_, SessIdTracker, SuggestedId, Options, Cert) ->
-    case is_resumable(SuggestedId, SessIdTracker, Options, Cert)
+server_select_session(_, SessIdTracker, SuggestedId, Options, CertKeyPairs) ->
+    case is_resumable(SuggestedId, SessIdTracker, Options, CertKeyPairs)
     of
 	{true, Resumed} ->
 	    {SuggestedId, Resumed};
@@ -111,8 +111,8 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}}, _, _, NewSession) when is_binary(SessionId) andalso
-                                                                                                      is_binary(SessionData) ->
+do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}}, _, _, NewSession, _) when is_binary(SessionId) andalso
+                                                                                                         is_binary(SessionData) ->
     try binary_to_term(SessionData, [safe]) of
         Session ->
             Session
@@ -120,37 +120,43 @@ do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}}, _
         _:_ ->
             NewSession#session{session_id = <<>>}
     end;
-do_client_select_session({Host, Port, #{reuse_session := SessionId}}, Cache, CacheCb, NewSession) when is_binary(SessionId)->
+do_client_select_session({Host, Port, #{reuse_session := SessionId}}, Cache, CacheCb, NewSession, _) when is_binary(SessionId)->
     case CacheCb:lookup(Cache, {{Host, Port}, SessionId}) of
         undefined ->
 	    NewSession#session{session_id = <<>>};
 	#session{} = Session->
 	    Session
     end;
-do_client_select_session(ClientInfo, 
-                      Cache, CacheCb, #session{own_certificates = OwnCerts} = NewSession) ->
-    case select_session(ClientInfo, Cache, CacheCb, OwnCerts) of
+do_client_select_session(ClientInfo, Cache, CacheCb, NewSession, CertKeyPairs) ->
+    case select_session(ClientInfo, Cache, CacheCb, CertKeyPairs) of
         no_session ->
             NewSession#session{session_id = <<>>};
         Session ->
             Session
     end.
 
-select_session({_, _, #{reuse_sessions := Reuse}}, _Cache, _CacheCb, _OwnCert) when Reuse =/= true ->
+select_session({_, _, #{reuse_sessions := Reuse}}, _Cache, _CacheCb, _) when Reuse =/= true ->
     %% If reuse_sessions == false | save a new session should be created
     no_session;
-select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCerts) ->
+select_session({HostIP, Port, SslOpts}, Cache, CacheCb, CertKeyPairs) ->
     Sessions = CacheCb:select_session(Cache, {HostIP, Port}),
-    select_session(Sessions, SslOpts, OwnCerts).
+    select_session(Sessions, SslOpts, CertKeyPairs).
 
 select_session([], _, _) ->
     no_session;
-select_session(Sessions, #{ciphers := Ciphers}, OwnCerts) ->
+select_session(Sessions, #{ciphers := Ciphers}, CertKeyPairs) ->
     IsNotResumable =
 	fun(Session) ->
+                SessionOwnCert =
+                    case Session#session.own_certificates of
+                        [OwnCert |_] ->
+                            OwnCert;
+                        Other ->
+                            Other
+                    end,
 		not (resumable(Session#session.is_resumable) andalso
 		     lists:member(Session#session.cipher_suite, Ciphers)
-		     andalso (OwnCerts == Session#session.own_certificates))
+		     andalso (is_owncert(SessionOwnCert, CertKeyPairs) orelse (SessionOwnCert == undefined)))
  	end,
     case lists:dropwhile(IsNotResumable, Sessions) of
 	[] ->   no_session;
@@ -159,7 +165,7 @@ select_session(Sessions, #{ciphers := Ciphers}, OwnCerts) ->
 
 is_resumable(_, _, #{reuse_sessions := false}, _) ->
     {false, undefined};
-is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = Options, OwnCert) ->
+is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = Options, OwnCertKeyPairs) ->
     case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
                  own_certificates =  [SessionOwnCert | _],
@@ -167,7 +173,7 @@ is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = O
 		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
 	    case resumable(IsResumable)
-		andalso (OwnCert == SessionOwnCert)
+		andalso is_owncert(SessionOwnCert, OwnCertKeyPairs)
 		andalso reusable_options(Options, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
 				 Compression, CipherSuite)
@@ -178,6 +184,13 @@ is_resumable(SuggestedSessionId, SessIdTracker, #{reuse_session := ReuseFun} = O
 	not_reusable ->
  	    {false, undefined}
     end.
+
+is_owncert(_, []) ->
+    false;
+is_owncert(SessionOwnCert, [#{certs := [SessionOwnCert | _]} | _]) ->
+    true;
+is_owncert(SessionOwnCert, [_| Rest]) ->
+    is_owncert(SessionOwnCert, Rest).
 
 resumable(new) ->
     false;

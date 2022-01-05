@@ -67,7 +67,7 @@
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_signature_algs/2,  available_signature_algs/4, 
+-export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
          cipher_suites/3, prf/6, select_session/9, supported_ecc/1,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
@@ -1000,11 +1000,11 @@ available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
 available_signature_algs(_, _) ->
     undefined.
 
-available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
+available_signature_algs(undefined, SupportedHashSigns, Version) when
       Version >= {3,3} ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
-                         _, Version) when Version >= {3,3} ->
+                         Version) when Version >= {3,3} ->
     SupportedHashSigns =
         case (Version == {3,3}) andalso contains_scheme(SupportedHashSigns0) of
             true ->
@@ -1014,7 +1014,7 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
         end,
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
-available_signature_algs(_, _, _, _) -> 
+available_signature_algs(_, _, _) ->
     undefined.
 
 contains_scheme([]) ->
@@ -1042,23 +1042,55 @@ cipher_suites(Suites, true) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, #session{ecc = ECCCurve0} =
-		   Session, Version,
-	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,Cert) ->
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyPairs) ->
     {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
-                                                             SslOpts, Cert),
+                                                             SslOpts, CertKeyPairs),
     case Resumed of
         undefined ->
-	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
-	    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
-            {ECCCurve, CipherSuite} = cert_curve(Cert, ECCCurve0, CipherSuite0),
-	    Compression = select_compression(Compressions),
-	    {new, Session#session{session_id = SessionId,
-                                  ecc = ECCCurve,
-				  cipher_suite = CipherSuite,
-				  compression_method = Compression}};
+            %% Select Cert
+            Session = new_session_parameters(SessionId, Session0, CipherSuites,
+                                             SslOpts, Version, Compressions,
+                                             HashSigns, CertKeyPairs),
+	    {new, Session};
 	_ ->
 	    {resumed, Resumed}
+    end.
+
+
+new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSuites, SslOpts,
+                       Version, Compressions, HashSigns, CertKeyPairs) ->
+    Compression = select_compression(Compressions),
+    {Certs, Key, {ECCCurve, CipherSuite}} = select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
+                                                                            ECCCurve0, SslOpts, Version),
+    Session#session{session_id = SessionId,
+                    ecc = ECCCurve,
+                    own_certificates = Certs,
+                    private_key = Key,
+                    cipher_suite = CipherSuite,
+                    compression_method = Compression}.
+
+%% Possibly support part of "trusted_ca_keys" that correspnds to TLS-1.3 certificate_authorities?!
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := undefined, certs := undefined}], HashSigns, ECCCurve0,
+              #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
+    Suites = available_suites(undefined, UserSuites, Version, HashSigns, ECCCurve0),
+    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+    CurveAndSuite = cert_curve(undefined, ECCCurve0, CipherSuite0),
+    {[undefined], undefined, CurveAndSuite};
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
+                                #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
+    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
+    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+    CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+    {Certs, Key, CurveAndSuite};
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
+                 #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = Opts, Version) ->
+    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
+    case select_cipher_suite(CipherSuites, Suites, HonorCipherOrder) of
+        no_suite ->
+            select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
+        CipherSuite0 ->
+            CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+            {Certs, Key, CurveAndSuite}
     end.
 
 supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
@@ -1606,7 +1638,7 @@ select_hashsign(#certificate_request{
                    certificate_types = Types},
                 Cert,
                 SupportedHashSigns,
-		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
+		{3, 3}) ->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
     PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
@@ -1632,10 +1664,12 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
 
 
 do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
-    case lists:filter(fun({H, rsa_pss_pss = S}) when S == PublicKeyAlgo ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
-                         ({H, rsa_pss_rsae = S}) when PublicKeyAlgo == rsa ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+    case lists:filter(fun({H, rsa_pss_pss = S} = Algos) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
+                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
+                         ({H, rsa_pss_rsae = S} = Algos) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
+                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
                          ({_, S} = Algos) when S == PublicKeyAlgo ->
                               is_acceptable_hash_sign(Algos, SupportedHashSigns);
                          (_A)  ->
@@ -3492,6 +3526,8 @@ sign_algo(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
 sign_algo(Alg, _) ->
     public_key:pkix_sign_types(Alg).
 
+sign_type(rsa_pss_pss) ->
+    ?RSA_SIGN;
 sign_type(rsa) ->
     ?RSA_SIGN;
 sign_type(dsa) ->
