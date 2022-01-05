@@ -84,6 +84,9 @@ endif
 
 JAVA_OPTIONS = -Xlint 
 
+ZIP = zip
+ZIPFLAGS = -oqrX # --latest-time --quiet --recursive-paths --no-extra
+
 ifeq ($(TESTROOT),)
 RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)"
 else
@@ -105,8 +108,24 @@ debug opt: make_dirs $(JAVA_DEST_ROOT)$(JARFILE)
 make_dirs:
 	$(V_at)if [ ! -d "$(JAVA_DEST_ROOT)" ];then mkdir "$(JAVA_DEST_ROOT)"; fi
 
+# Deterministic build not supported on win32 for now
+ifeq ($(TARGET),win32)
 $(JAVA_DEST_ROOT)$(JARFILE): $(TARGET_FILES)
 	@(cd $(JAVA_DEST_ROOT) ; $(JAR) $(JARFLAGS) $(JARFILE) $(JAVA_CLASS_SUBDIR))
+else
+# Handrolled jar file for deterministic build
+$(JAVA_DEST_ROOT)$(JARFILE): $(TARGET_FILES)
+	@mkdir -p $(JAVA_DEST_ROOT)/META-INF
+	@echo -n "Manifest-Version: 1.0\n\n" > $(JAVA_DEST_ROOT)/META-INF/MANIFEST.MF
+	# This is the timestamp strip-nondeterminism uses
+	@touch --date="1980-01-01 11:01:00+00:00" \
+		$(JAVA_DEST_ROOT)/META-INF \
+		$(JAVA_DEST_ROOT)/META-INF/MANIFEST.MF \
+		$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR) \
+		$(JAVA_DEST_ROOT)$(JAVA_CLASS_SUBDIR)/*.class
+	@(cd $(JAVA_DEST_ROOT) ; \
+		$(ZIP) $(ZIPFLAGS) $(JARFILE) META-INF $(JAVA_CLASS_SUBDIR))
+endif
 
 clean:
 	$(V_at)rm -f $(TARGET_FILES) *~
