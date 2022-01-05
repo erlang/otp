@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
+         send_timeout_resume/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
          otp_12242/1, delay_send_error/1, bidirectional_traffic/1]).
@@ -139,8 +140,8 @@ all_cases() ->
      accept_timeouts_in_order7, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
-     active_once_closed, send_timeout, send_timeout_active, otp_7731,
-     wrapping_oct,
+     active_once_closed, send_timeout, send_timeout_active,
+     send_timeout_resume, otp_7731, wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
      otp_12242, delay_send_error, bidirectional_traffic].
 
@@ -4422,7 +4423,153 @@ timeout_sink_loop(Action, N) ->
                 Other]),
 	    {Other, N2}
     end.
-     
+
+
+
+send_timeout_resume(Config) when is_list(Config) ->
+    ct:timetrap(?SECS(16)),
+    ?TC_TRY(
+       send_timeout_resume,
+       fun () -> do_send_timeout_resume(Config) end).
+
+do_send_timeout_resume(Config) ->
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,RNode} =
+        test_server:start_node(
+          ?UNIQ_NODE_NAME, slave, [{args,"-pa " ++ Dir}]),
+    try
+        do_send_timeout_resume(Config, RNode, 12)
+    after
+        test_server:stop_node(RNode)
+    end.
+
+do_send_timeout_resume(Config, RNode, BlockPow) ->
+    N = 8,
+    BlockSize = 1 bsl BlockPow,
+    1 = rand:uniform(1),
+    Seed = rand:export_seed(),
+    ListenOpts =
+        [inet,
+         {backlog, 2},
+         {active, false},
+         binary,
+         {sndbuf, BlockSize},
+         {recbuf, BlockSize},
+         {buffer, BlockSize bsl 1}],
+    ConnectOpts =
+        [inet,
+         {send_timeout, 0},
+         {active, false},
+         binary,
+         {high_watermark, BlockSize},
+         {low_watermark, BlockSize bsr 1},
+         {sndbuf, BlockSize},
+         {recbuf, BlockSize},
+         {buffer, BlockSize bsl 1}],
+    Client = self(),
+    Tag = make_ref(),
+    {Server, Mref} =
+        spawn_opt(
+          RNode,
+          fun () ->
+                  send_timeout_resume_srv(
+                    Config, Seed, Client, Tag, ListenOpts)
+          end, [monitor, link]),
+    ?P("Client=~p Server=~p Tag=~p~n", [Client, Server, Tag]),
+    receive {Tag, P} -> ok end,
+    ?P("connecting to ~p~n", [P]),
+    {ok, C} = ?CONNECT(Config, localhost, P, ConnectOpts),
+    try
+        Timeouts = do_send_timeout_resume_send(C, BlockSize, 0, N),
+        receive
+            {'DOWN', Mref, _, _, Result} ->
+                ?P("N=~p BlockSize=~p Timeouts=~p Result=~p~n",
+                   [N, BlockSize, Timeouts, Result]),
+                case Result of
+                    {ok, Count} ->
+                        Count = N * BlockSize,
+                        true = N < Timeouts,
+                        ok;
+                    _ ->
+                        ct:fail(Result)
+                end
+        end
+    after
+        gen_tcp:close(C)
+    end.
+
+do_send_timeout_resume_send(S, _BlockSize, Timeouts, 0) ->
+    ok = gen_tcp:close(S),
+    Timeouts;
+do_send_timeout_resume_send(S, BlockSize, Timeouts, N) ->
+    Bin = random_data(BlockSize),
+    Timeouts_1 = do_send_timeout_resume_send(S, Bin, Timeouts),
+    do_send_timeout_resume_send(S, BlockSize, Timeouts_1, N - 1).
+
+do_send_timeout_resume_send(S, Bin, Timeouts) ->
+    case gen_tcp:send(S, Bin) of
+        ok ->
+            Timeouts;
+        {error, Reason} ->
+            case Reason of
+                timeout ->
+                    receive after 100 -> ok end,
+                    do_send_timeout_resume_send(S, <<>>, Timeouts + 1);
+                {timeout, RestData} ->
+                    receive after 100 -> ok end,
+                    do_send_timeout_resume_send(S, RestData, Timeouts + 1);
+                _ ->
+                    error({Reason, Timeouts})
+            end
+    end.
+
+random_data(0) ->
+    <<>>;
+random_data(Size) ->
+    <<(rand:uniform(256) - 1), (random_data(Size - 1))/binary>>.
+
+compare_data(<<>>, Count) ->
+    Count;
+compare_data(<<Byte, Bin/binary>>, Count) ->
+    case rand:uniform(256) - 1 of
+        Byte ->
+            compare_data(Bin, Count + 1);
+        _ ->
+            error({diff, Count})
+    end.
+
+send_timeout_resume_srv(Config, Seed, Client, Tag, ListenOpts) ->
+    rand:seed(Seed),
+    {ok, L} = ?LISTEN(Config, 0, ListenOpts),
+    Count =
+        try
+            {ok, P} = inet:port(L),
+            Client ! {Tag, P},
+            {ok, A} = gen_tcp:accept(L, 2000),
+            ?P("accept success ~p~n", [A]),
+            receive after 2000 -> ok end,
+            try send_timeout_resume_srv(A, 0)
+            after
+                gen_tcp:close(A)
+            end
+        after
+            gen_tcp:close(L)
+        end,
+    exit({ok, Count}).
+
+send_timeout_resume_srv(S, Count) ->
+    case gen_tcp:recv(S, 0) of
+        {ok, Data} ->
+            Count_1 = compare_data(Data, Count),
+            send_timeout_resume_srv(S, Count_1);
+        {error, closed} ->
+            Count;
+        {error, Reason} ->
+            error({Reason, Count})
+    end.
+
+
+
 has_superfluous_schedulers() ->
     case {erlang:system_info(schedulers),
 	  erlang:system_info(logical_processors)} of
@@ -5094,7 +5241,9 @@ delay_send_error(Config) ->
                     ?P("closed (expected)"),
             ok
     end,
-    ok = gen_tcp:close(C).
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(L).
 
 
 delay_send_error2(Sock) ->
