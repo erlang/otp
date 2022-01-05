@@ -69,10 +69,10 @@ highlighting(X)			  % Function definitions should be highlighted
     not_a_guard:is_list([]),
     %% Other Types
 
-    atom,			  % not (currently) hightlighted
+    atom,			  % not (currently) highlighted
     234234,
     234.43,
 
-    [list, are, not, higlighted],
+    [list, are, not, highlighted],
     {nor, is, tuple},
     ok.

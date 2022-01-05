@@ -36,7 +36,7 @@ a source file.  The first directory in the list will be used,
 if there is no match.")
 
 (defvar erlang-eunit-autosave nil
-  "*Set to non-nil to automtically save unsaved buffers before running tests.
+  "*Set to non-nil to automatically save unsaved buffers before running tests.
 This is useful, reducing the save-compile-load-test cycle to one keychord.")
 
 (defvar erlang-eunit-recent-info '((mode . nil) (module . nil) (test . nil) (cover . nil))

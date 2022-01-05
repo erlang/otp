@@ -485,7 +485,7 @@
           <item>Includes a section containing call statistics
            for all calls regardless of process, in the analysis.</item>
           <tag><c>{totals, false}</c></tag>
-          <item>Supresses the totals section in the analysis, which is
+          <item>Suppresses the totals section in the analysis, which is
            the default.</item>
           <tag><c>details</c> | <c>{details, true}</c></tag>
           <item>Prints call statistics for each process in the
@@ -686,7 +686,7 @@ create_file_slow(FD, M, N) ->
   {{fprof,apply_start_stop,4},            1,    0.000,    0.000}],     
  { suspend,                             299,   32.002,    0.000},     %
  [ ]}.</pre>
-    <p>We find no particulary long suspend times, so no function seems
+    <p>We find no particularly long suspend times, so no function seems
       to have waited in a receive statement. Actually,
       <c>prim_file:drv_command/4</c> contains a receive statement, but
       in this test program, the message lies in the process receive

@@ -74,9 +74,9 @@
   "Find manual page for NAME, where NAME is module:function." t)
 
 (autoload 'erlang-find-tag "erlang"
-  "Like `find-tag'.  Capable of retreiving Erlang modules.")
+  "Like `find-tag'.  Capable of retrieving Erlang modules.")
 (autoload 'erlang-find-tag-other-window "erlang"
-  "Like `find-tag-other-window'.  Capable of retreiving Erlang modules.")
+  "Like `find-tag-other-window'.  Capable of retrieving Erlang modules.")
 
 ;;
 ;; Declare functions in "erlang-edoc.el".

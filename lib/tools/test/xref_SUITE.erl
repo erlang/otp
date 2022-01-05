@@ -1679,7 +1679,7 @@ fun_mfa(Conf) when is_list(Conf) ->
     ok = file:delete(Beam),
     ok.
 
-%% fun M:F/A with varibles.
+%% fun M:F/A with variables.
 fun_mfa_vars(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "fun_mfa_vars.erl"),

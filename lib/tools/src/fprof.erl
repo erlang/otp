@@ -21,7 +21,7 @@
 %%%----------------------------------------------------------------------
 %%% File    : fprof.erl
 %%% Author  : Raimo Niskanen <raimo@erix.ericsson.se>
-%%% Purpose : File tracing profiling tool wich accumulated times.
+%%% Purpose : File tracing profiling tool which accumulated times.
 %%% Created : 18 Jun 2001 by Raimo Niskanen <raimo@erix.ericsson.se>
 %%%----------------------------------------------------------------------
 

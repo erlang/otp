@@ -37,7 +37,7 @@
     </p>
   <p><c>cprof</c> uses breakpoints similar to local call trace,
     but containing counters, to collect profiling
-    data. Therfore there is no need for special compilation of any
+    data. Therefore there is no need for special compilation of any
     module to be profiled. 
     </p>
   <p><c>cprof</c> presents all profiled modules in decreasing total

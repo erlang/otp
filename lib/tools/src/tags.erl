@@ -59,7 +59,7 @@
 %%			         directories in `DirList'.
 %%
 %%  subdir(Dir [, Options])   -- Descend recursively down `Dir' and create
-%%				 a TAGS file convering all files found.
+%%				 a TAGS file covering all files found.
 %%  subdirs(DirList [, Options])
 %%			      -- Dito, for all directories in `DirList'.
 %%
