@@ -109,7 +109,11 @@ handle_info({'DOWN',Ref,process,Pid,_},
     gen_server:reply(NextFrom, locked),
     NextRef = monitor(process, NextPid),
     {noreply,State#state{ locked = {true, NextPid, NextRef},
-			  requests = Rest } }.
+			  requests = Rest } };
+handle_info({'DOWN',Ref,process,Pid,_},
+	    #state{ locked = {true, Pid, Ref},
+		    requests = [] } = State) ->
+    {noreply, State#state{ locked = false } }.
 
 terminate(_Reason, _State) ->
     ok.
