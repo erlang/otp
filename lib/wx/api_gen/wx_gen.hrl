@@ -26,7 +26,7 @@
 	  file    = undefined,
 	  options  = undefined,
 	  abstract = false,
-	  id,                      % Unique integer identifer
+	  id,                      % Unique integer identifier
 	  doc
 	 }).
 

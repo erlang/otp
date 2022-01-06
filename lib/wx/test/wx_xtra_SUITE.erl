@@ -68,7 +68,7 @@ end_per_group(_GroupName, Config) ->
 %%  before wx:destroy is called.
 destroy_app(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 destroy_app(_Config) ->
-    %% This is timing releated but we test a couple of times
+    %% This is timing related but we test a couple of times
     wx_test_lib:flush(),
     ?m(ok, destroy_app_test(15)).
 
@@ -102,7 +102,7 @@ destroy_app2(_Config) ->
     ok.
 
 
-%% This should work, and does but not when run automaticly on windows 
+%% This should work, and does but not when run automatically on windows 
 %% for some strange reason (it just hangs), run it last.
 app_dies(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 app_dies(_Config) ->
@@ -160,7 +160,7 @@ oops(Die, Line) when (Die =:= last) orelse (Die =< Line) ->
 oops(_,_) -> ok.
 
 
-%% This have happend often enough that I have special code to handle 
+%% This have happened often enough that I have special code to handle 
 %% this user error (i.e. using the a window twice in an sizer).
 multiple_add_in_sizer(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 multiple_add_in_sizer(Config) ->

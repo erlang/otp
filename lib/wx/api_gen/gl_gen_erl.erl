@@ -149,7 +149,7 @@ glu_api(Fs) ->
 
     w("%% @doc General purpose polygon triangulation.~n",[]),
     w("%% The first argument is the normal and the second a list of~n"
-      "%% vertex positions. Returned is a list of indecies of the vertices~n"
+      "%% vertex positions. Returned is a list of indices of the vertices~n"
       "%% and a binary (64bit native float) containing an array of~n"
       "%% vertex positions, it starts with the vertices in Vs and~n"
       "%% may contain newly created vertices in the end.~n", []),

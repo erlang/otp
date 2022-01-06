@@ -55,7 +55,7 @@
 
 %% @doc General purpose polygon triangulation.
 %% The first argument is the normal and the second a list of
-%% vertex positions. Returned is a list of indecies of the vertices
+%% vertex positions. Returned is a list of indices of the vertices
 %% and a binary (64bit native float) containing an array of
 %% vertex positions, it starts with the vertices in Vs and
 %% may contain newly created vertices in the end.

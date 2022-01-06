@@ -74,7 +74,7 @@ init_env(SilentStart) ->
 
 
 %%--------------------------------------------------------------------
-%% Initalizes the opengl library
+%% Initializes the opengl library
 %%--------------------------------------------------------------------
 init_opengl() ->
     case get(wx_init_opengl) of

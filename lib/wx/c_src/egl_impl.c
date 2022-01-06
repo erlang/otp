@@ -279,7 +279,7 @@ int egl_load_functions() {
 }
 
 /* *******************************************************************************
- * GLU Tesselation special
+ * GLU Tessellation special
  * ******************************************************************************/
 
 static GLUtesselator* tess;
@@ -355,7 +355,7 @@ egl_ogla_error(GLenum errorCode)
 {
     // const GLubyte *err;
     // err = gluErrorString(errorCode);
-    // fprintf(stderr, "Tesselation error: %d: %s\r\n", (int) errorCode, err);
+    // fprintf(stderr, "Tessellation error: %d: %s\r\n", (int) errorCode, err);
 }
 
 void init_tess()
