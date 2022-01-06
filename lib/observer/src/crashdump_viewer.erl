@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,15 +14,15 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(crashdump_viewer).
 
-%% 
+%%
 %% This module is the main module in the crashdump viewer. It implements
 %% the server backend for the crashdump viewer tool.
-%% 
+%%
 %% Tables
 %% ------
 %% cdv_dump_index_table: This table holds all tags read from the
@@ -1084,6 +1084,7 @@ get_slogan_and_sysvsn(Fd,Acc) ->
 
 get_general_info(Fd,GenInfo) ->
     case line_head(Fd) of
+        %% The compile time info was generated in older crash dump versions
 	"Compiled" ->
 	    get_general_info(Fd,GenInfo#general_info{compile_time=bytes(Fd)});
 	"Taints" ->

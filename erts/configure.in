@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2021. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2022. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -293,15 +293,6 @@ AC_ARG_ENABLE(systemd,
 AS_HELP_STRING([--enable-systemd], [enable systemd support in epmd]),
 [],
 [enable_systemd=no])
-
-AC_ARG_ENABLE(saved-compile-time,
-AS_HELP_STRING([--disable-saved-compile-time], [disable saved compile time]),
-[ case "$enableval" in
-    no) save_compile_time=0 ;;
-    *)  save_compile_time=1 ;;
-  esac ], save_compile_time=1)
-
-AC_DEFINE_UNQUOTED(ERTS_SAVED_COMPILE_TIME, $save_compile_time, [Save compile time?])
 
 AC_ARG_WITH(microstate-accounting,
 AS_HELP_STRING([--with-microstate-accounting={yes|extra}],
