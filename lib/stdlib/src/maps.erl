@@ -26,7 +26,8 @@
          without/2, with/2,
          iterator/1, next/1,
          intersect/2, intersect_with/3,
-         merge_with/3]).
+         merge_with/3,
+         groups_from_list/2, groups_from_list/3]).
 
 %% BIFs
 -export([get/2, find/2, from_list/1, from_keys/2,
@@ -496,6 +497,69 @@ with_1([K|Ks], Map) ->
         #{} -> with_1(Ks, Map)
     end;
 with_1([], _Map) -> [].
+
+%% groups_from_list/2 & groups_from_list/3
+
+-spec groups_from_list(Fun, List) -> MapOut when
+    Fun :: fun((Elem :: T) -> Selected),
+    MapOut :: #{Selected => List},
+    Selected :: term(),
+    List :: [T],
+    T :: term().
+
+groups_from_list(Fun, List0) when is_function(Fun, 1) ->
+    try lists:reverse(List0) of
+        List ->
+            groups_from_list_1(Fun, List, #{})
+    catch
+        error:_ ->
+            badarg_with_info([Fun, List0])
+    end;
+groups_from_list(Fun, List) ->
+    badarg_with_info([Fun, List]).
+
+groups_from_list_1(Fun, [H | Tail], Acc) ->
+    K = Fun(H),
+    NewAcc = case Acc of
+                 #{K := Vs} -> Acc#{K := [H | Vs]};
+                 #{} -> Acc#{K => [H]}
+             end,
+    groups_from_list_1(Fun, Tail, NewAcc);
+groups_from_list_1(_Fun, [], Acc) ->
+    Acc.
+
+-spec groups_from_list(Fun, ValueFun, List) -> MapOut when
+    Fun :: fun((Elem :: T) -> Key),
+    ValueFun :: fun((Elem :: T) -> ValOut),
+    MapOut :: #{Key := ListOut},
+    Key :: term(),
+    ValOut :: term(),
+    List :: [T],
+    ListOut :: [ValOut],
+    T :: term().
+
+groups_from_list(Fun, ValueFun, List0) when is_function(Fun, 1),
+                                            is_function(ValueFun, 1) ->
+    try lists:reverse(List0) of
+        List ->
+            groups_from_list_2(Fun, ValueFun, List, #{})
+    catch
+        error:_ ->
+            badarg_with_info([Fun, ValueFun, List0])
+    end;
+groups_from_list(Fun, ValueFun, List) ->
+    badarg_with_info([Fun, ValueFun, List]).
+
+groups_from_list_2(Fun, ValueFun, [H | Tail], Acc) ->
+    K = Fun(H),
+    V = ValueFun(H),
+    NewAcc = case Acc of
+                 #{K := Vs} -> Acc#{K := [V | Vs]};
+                 #{} -> Acc#{K => [V]}
+             end,
+    groups_from_list_2(Fun, ValueFun, Tail, NewAcc);
+groups_from_list_2(_Fun, _ValueFun, [], Acc) ->
+    Acc.
 
 error_type(M) when is_map(M) -> badarg;
 error_type(V) -> {badmap, V}.

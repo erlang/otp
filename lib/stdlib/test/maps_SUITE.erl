@@ -42,7 +42,8 @@
          t_from_list_check_trapping/1,
          t_from_keys_check_trapping/1,
          t_keys_trapping/1,
-         t_values_trapping/1]).
+         t_values_trapping/1,
+         t_groups_from_list/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -68,7 +69,8 @@ all() ->
      t_from_list_check_trapping,
      t_from_keys_check_trapping,
      t_keys_trapping,
-     t_values_trapping].
+     t_values_trapping,
+     t_groups_from_list].
 
 t_from_list_kill_process(Config) when is_list(Config) ->
     Killer = self(),
@@ -770,6 +772,16 @@ t_size_1(Config) when is_list(Config) ->
     {'EXIT', {{badmap,<<>>}, _}} = (catch maps:size(id(<<>>))),
     ok.
 
+t_groups_from_list(_Config) ->
+    #{} = maps:groups_from_list(fun erlang:length/1, []),
+    #{3 := ["tna","tac"], 5 := ["ognid"], 7 := ["olaffub"]} =
+        maps:groups_from_list(
+          fun erlang:length/1,
+          fun lists:reverse/1,
+          ["ant", "buffalo", "cat", "dingo"]
+         ),
+    #{0 := [2], 1 := [1, 3]} = maps:groups_from_list(fun(X) -> X rem 2 end, [1, 2, 3]).
+
 error_info(_Config) ->
     BadIterator = [-1|#{}],
     GoodIterator = maps:iterator(#{}),
@@ -805,6 +817,13 @@ error_info(_Config) ->
          {get, [key, #{}]},
          {get, [key, {no,map}]},
          {get, [key, {no,map}, default]},
+
+         {groups_from_list, [not_a_fun, []]},
+         {groups_from_list, [fun hd/1, not_a_list]},
+
+         {groups_from_list, [not_a_fun, fun(_) -> ok end, []]},
+         {groups_from_list, [fun(_) -> ok end, not_a_fun, []]},
+         {groups_from_list, [fun(_) -> ok end, fun(_) -> ok end, not_a_list]},
 
          {intersect, [#{a => b}, y]},
          {intersect, [x, #{a => b}]},
