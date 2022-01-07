@@ -213,9 +213,9 @@ multicall_node_dies(Config) when is_list(Config) ->
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ok = io:format("~p:~p~p~n", [Mod, Func, Args]),
     PA = filename:dirname(code:which(?MODULE)),
-    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', slave,
+    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', peer,
 				      [{args, "-pa " ++ PA}]),
-    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', slave,
+    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', peer,
 				      [{args, "-pa " ++ PA}]),
     Nodes = [N1, N2],
     {[], Nodes} = rpc:multicall(Nodes, Mod, Func, Args),

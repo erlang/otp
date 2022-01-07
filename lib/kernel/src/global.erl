@@ -32,11 +32,12 @@
 	 whereis_name/1,  register_name/2,
          register_name/3, register_name_external/2, register_name_external/3,
          unregister_name_external/1,re_register_name/2, re_register_name/3,
-	 unregister_name/1, registered_names/0, send/2, node_disconnected/1,
+	 unregister_name/1, registered_names/0, send/2,
 	 set_lock/1, set_lock/2, set_lock/3,
 	 del_lock/1, del_lock/2,
 	 trans/2, trans/3, trans/4,
-	 random_exit_name/3, random_notify_name/3, notify_all_name/3]).
+	 random_exit_name/3, random_notify_name/3, notify_all_name/3,
+         prepare_shutdown/0]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -70,6 +71,9 @@
 -define(trace(_), ok).
 -endif.
 
+-define(MAX_64BIT_SMALL_INT, ((1 bsl 59) - 1)).
+-define(MIN_64BIT_SMALL_INT, (-(1 bsl 59))).
+
 %% These are the protocol versions:
 %% Vsn 1 is the original protocol.
 %% Vsn 2 is enhanced with code to take care of registration of names from
@@ -84,6 +88,8 @@
 %%       nodes, but uses the server as a proxy.
 %% Vsn 7 - propagate global versions between nodes, so we always know
 %%         versions of known nodes
+%%       - prevent overlapping partitions by explicitly disconnecting
+%%         nodes
 
 %% Current version of global does not support vsn 4 or earlier.
 
@@ -172,6 +178,21 @@ start_link() ->
 stop() -> 
     gen_server:call(global_name_server, stop, infinity).
 
+prepare_shutdown() ->
+    %% Called by init:stop(), init:restart(), etc, before
+    %% global_name_server is shut down...
+    case whereis(global_name_server) of
+        undefined ->
+            ok;
+        Pid ->
+            try
+                gen_server:call(Pid, prepare_shutdown, infinity)
+            catch
+                _:_ ->
+                    ok
+            end
+    end.
+
 -spec sync() -> 'ok' | {'error', Reason :: term()}.
 sync() ->
     case check_sync_nodes() of
@@ -208,9 +229,6 @@ send(Name, Msg) ->
       Name :: term().
 whereis_name(Name) ->
     where(Name).
-
-node_disconnected(Node) ->
-    global_name_server ! {nodedown, Node}.
 
 %%-----------------------------------------------------------------
 %% Method = function(Name, Pid1, Pid2) -> Pid | Pid2 | none
@@ -475,6 +493,12 @@ init([]) ->
                trace = T0,
                the_registrar = start_the_registrar(),
                connect_all = Ca},
+    _ = rand:seed(exsss,
+                  (erlang:monotonic_time(nanosecond) rem 1000000000)
+                  + (erlang:system_time(nanosecond) rem 1000000000)),
+    CreX = ((rand:uniform(?MAX_64BIT_SMALL_INT - ?MIN_64BIT_SMALL_INT)
+             - 1) band (bnot ((1 bsl 2) -1))),
+    put(creation_extention, CreX),
     {ok, trace_message(S, {init, node()}, [])}.
 
 %%-----------------------------------------------------------------
@@ -663,6 +687,12 @@ handle_call(high_level_trace_get, _From, #state{trace = Trace}=S) ->
 
 handle_call(stop, _From, S) ->
     {stop, normal, stopped, S};
+
+handle_call(prepare_shutdown, _From, S0) ->
+    %% Prevent lost_connection messages being sent due to
+    %% connections being taken down during the shutdown...
+    S1 = S0#state{connect_all = false},
+    {reply, ok, S1};
 
 handle_call(Request, From, S) ->
     error_logger:warning_msg("The global_name_server "
@@ -873,13 +903,20 @@ handle_info({nodedown, Node}, S) when Node =:= S#state.node_name ->
 handle_info({nodedown, Node}, S0) ->
     ?trace({'####', nodedown, {node,Node}}),
     S1 = trace_message(S0, {nodedown, Node}, []),
-    S = handle_nodedown(Node, S1),
+    S = handle_nodedown(Node, S1, disconnected),
     {noreply, S};
 
 handle_info({extra_nodedown, Node}, S0) ->
     ?trace({'####', extra_nodedown, {node,Node}}),
     S1 = trace_message(S0, {extra_nodedown, Node}, []),
-    S = handle_nodedown(Node, S1),
+    S = handle_nodedown(Node, S1, disconnected),
+    {noreply, S};
+
+handle_info({ignore_node, Node}, S0) ->
+    %% global_group wants us to ignore this node...
+    ?trace({'####', ignore_node, {node,Node}}),
+    S1 = trace_message(S0, {ignore_node, Node}, []),
+    S = handle_nodedown(Node, S1, ignore_node),
     {noreply, S};
 
 handle_info({nodeup, Node}, S) when Node =:= node() ->
@@ -932,6 +969,76 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
 handle_info({whereis, Name, From}, S) ->
     do_whereis(Name, From),
     {noreply, S};
+
+handle_info({lost_connection, _NodeA, _XCreationA, _OpIdA, _NodeB},
+            #state{connect_all = false} = S) ->
+    {noreply, S};
+
+handle_info({lost_connection, NodeA, XCreationA, OpIdA, NodeB} = Msg,
+            #state{connect_all = true} = S0) ->
+    %% NodeA reports that it lost connection to NodeB. If we got a
+    %% connection to NodeB, we need to disconnect it in order to
+    %% prevent overlapping partitions...
+    S2 = case get({lost_connection, NodeA, NodeB}) of
+             {XCreationA, OpId} when OpIdA =< OpId ->
+                 %% We have already handled this lost connection...
+                 S0;
+             _ ->
+                 put({lost_connection, NodeA, NodeB}, {XCreationA, OpIdA}),
+                 S1 = case is_node_potentially_known(NodeB, S0) of
+                          false ->
+                              S0;
+                          true ->
+                              case node_vsn(NodeB, S0) of
+                                  Vsn when Vsn < 7 ->
+                                      erlang:disconnect_node(NodeB),
+                                      error_logger:warning_msg(
+                                        "'global' at node ~p disconnected "
+                                        "old node ~p in order to prevent "
+                                        "overlapping partitions",
+                                        [node(), NodeB]),
+                                      ok;
+                                  _Vsn ->
+                                      _ = erlang:send({global_name_server,
+                                                       NodeB},
+                                                      {remove_connection,
+                                                       node()},
+                                                      [noconnect]),
+                                      error_logger:warning_msg(
+                                        "'global' at node ~p requested "
+                                        "disconnect from node ~p in order "
+                                        "to prevent overlapping partitions",
+                                        [node(), NodeB]),
+                                      ok
+                              end,
+                              handle_nodedown(NodeB, S0, remove_connection)
+                      end,
+
+                 %% Inform all other nodes we know of about this as well. This
+                 %% in order to prevent that some nodes in this cluster wont
+                 %% get the original message from NodeA. This ensures that all
+                 %% nodes will know of this connection loss, even if some nodes
+                 %% lose connection to NodeA while NodeA is multicasting that
+                 %% it lost the connection to NodeB.
+                 inform_connection_loss(Msg, NodeA, S1),
+                 S1
+         end,
+
+    {noreply, S2};
+
+handle_info({remove_connection, Node}, S0) ->
+    S2 = case is_node_potentially_known(Node, S0) of
+             false ->
+                 S0;
+             true ->
+                 erlang:disconnect_node(Node),
+                 S1 = handle_nodedown(Node, S0, remove_connection),
+                 error_logger:warning_msg(
+                   "'global' at node ~p disconnected node ~p in order to "
+                   "prevent overlapping partitions", [node(), Node]),
+                 S1
+         end,
+    {noreply, S2};
 
 handle_info(known, S) ->
     io:format(">>>> ~p\n",[S#state.known]),
@@ -2085,14 +2192,65 @@ pid_locks(Ref) ->
 ref_is_locking(Ref, PidRefs) ->
     lists:keyfind(Ref, 2, PidRefs) =/= false.
 
-handle_nodedown(Node, S) ->
+handle_nodedown(Node, S, What) ->
     %% DOWN signals from monitors have removed locks and registered names.
     #state{synced = Syncs} = S,
     NewS = cancel_locker(Node, S, get({sync_tag_my, Node})),
     NewS#state.the_locker ! {remove_from_known, Node},
     reset_node_state(Node),
+    case What of
+        remove_connection ->
+            put({remove_connection, Node}, yes);
+        ignore_node ->
+            erase({remove_connection, Node});
+        disconnected ->
+            case get({remove_connection, Node}) of
+                yes -> erase({remove_connection, Node});
+                undefined -> inform_connection_loss(Node, S)
+            end
+    end,
     NewS#state{known = maps:remove(Node, S#state.known),
                synced = lists:delete(Node, Syncs)}.
+
+inform_connection_loss(_Node, #state{connect_all = false}) ->
+    ok;
+inform_connection_loss(Node, #state{connect_all = true} = S) ->
+    Msg = {lost_connection,
+           node(),
+           (get(creation_extention)
+            + erlang:system_info(creation)
+            - ?MIN_64BIT_SMALL_INT),
+           erlang:unique_integer([monotonic]),
+           Node},
+    inform_connection_loss(Msg, Node, S).
+
+inform_connection_loss(_Msg, _IgnoreNode, #state{connect_all = false}) ->
+    ok;
+inform_connection_loss(Msg, IgnoreNode, #state{known = Known,
+                                               connect_all = true}) ->
+    lists:foreach(fun (N) when N == IgnoreNode ->
+                          ok;
+                      (N) ->
+                          case maps:get(N, Known) of
+                              V when V < 7 ->
+                                  ok;
+                              _V ->
+                                  _= erlang:send({global_name_server, N},
+                                                 Msg,
+                                                 [noconnect])
+                          end
+                  end, maps:keys(Known)).
+
+is_node_potentially_known(Node, #state{known = Known}) ->
+    case maps:is_key(Node, Known) of
+        true ->
+            true;
+        false ->
+            case get({pending_known, Node}) of
+                undefined -> false;
+                Ver when is_integer(Ver) -> true
+            end
+    end.
 
 node_vsn(Node, #state{known = Known}) ->
     case maps:find(Node, Known) of
