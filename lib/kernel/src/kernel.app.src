@@ -146,9 +146,10 @@
                 pg2]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         {prevent_overlapping_partitions, false}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-10.6", "stdlib-3.5", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-17843@", "stdlib-3.5", "sasl-3.0"]}
  ]
 }.
