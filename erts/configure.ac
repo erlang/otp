@@ -3608,7 +3608,6 @@ dnl
 AC_CONFIG_FILES([
   ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
-  ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
   ])
 
 AC_CONFIG_FILES([../make/install_dir_data.sh:../make/install_dir_data.sh.in], [chmod +x ../make/install_dir_data.sh])

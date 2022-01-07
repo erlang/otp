@@ -1,2 +1,1 @@
 {topcase, {dir, "../tools_test"}}.
-{skip, {emem_SUITE, "Not on windows, yet. FIXME!!!"}}.

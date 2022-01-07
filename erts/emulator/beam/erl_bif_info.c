@@ -38,7 +38,6 @@
 #include "erl_message.h"
 #include "erl_binary.h"
 #include "erl_db.h"
-#include "erl_mtrace.h"
 #include "dist.h"
 #include "erl_gc.h"
 #include "erl_cpu_topology.h"
@@ -3060,9 +3059,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	if (sz)
 	    hp = HAlloc(BIF_P, sz);
 	BIF_RET(c_compiler_used(&hp, NULL));
-    } else if (ERTS_IS_ATOM_STR("stop_memory_trace", BIF_ARG_1)) {
-	erts_mtrace_stop();
-	BIF_RET(am_true);
     } else if (ERTS_IS_ATOM_STR("context_reductions", BIF_ARG_1)) {
 	BIF_RET(make_small(CONTEXT_REDS));
     } else if (ERTS_IS_ATOM_STR("kernel_poll", BIF_ARG_1)) {

@@ -37,7 +37,6 @@
 #include "erl_mseg.h"
 #include "erl_threads.h"
 #include "erl_hl_timer.h"
-#include "erl_mtrace.h"
 #include "erl_printf_term.h"
 #include "erl_misc_utils.h"
 #include "packet_parser.h"
@@ -2590,9 +2589,6 @@ static __decl_noreturn void __noreturn
 erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list args2)
 {
     system_cleanup(flush_async);
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_exit((Uint32) n);
 
     if (fmt != NULL && *fmt != '\0')
 	erl_error(fmt, args2);	/* Print error message. */

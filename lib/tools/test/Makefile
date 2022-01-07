@@ -24,7 +24,6 @@ MODULES =  \
 	cover_SUITE \
 	eprof_SUITE \
 	emacs_SUITE \
-	emem_SUITE \
 	fprof_SUITE \
 	cprof_SUITE \
 	instrument_SUITE \

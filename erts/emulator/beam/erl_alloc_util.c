@@ -43,7 +43,6 @@
 #include "global.h"
 #include "big.h"
 #include "erl_mmap.h"
-#include "erl_mtrace.h"
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
 #include "erl_mseg.h"
@@ -1091,8 +1090,6 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 #endif
 	res = erts_sys_alloc(0, NULL, size);
     INC_CC(allctr->calls.sys_alloc);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_alloc(res, allctr->alloc_no, ERTS_ALC_A_SYSTEM, size);
     return res;
 }
 
@@ -1109,12 +1106,6 @@ erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, 
 #endif
 	res = erts_sys_realloc(0, NULL, ptr, size);
     INC_CC(allctr->calls.sys_realloc);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_realloc(res,
-				allctr->alloc_no,
-				ERTS_ALC_A_SYSTEM,
-				ptr,
-				size);
     return res;
 }
 
@@ -1128,8 +1119,6 @@ erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 #endif
 	erts_sys_free(0, NULL, ptr);
     INC_CC(allctr->calls.sys_free);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(allctr->alloc_no, ERTS_ALC_A_SYSTEM, ptr);
 }
 
 #ifdef ARCH_32

@@ -170,15 +170,6 @@ else
 THR_DEFS = $(filter-out -D_GNU_SOURCE%, $(ETHR_DEFS))
 endif
 
-#
-# erts (public) library
-#
-
-ERTS_LIB_SRCS =	common/erl_memory_trace_parser.c
-
-ERTS_LIB_DIR=../lib/$(TARGET)
-CREATE_DIRS += $(ERTS_LIB_DIR)
-
 ifeq ($(USING_VC),yes)
 # Windows obj dir
 MD_OBJ_DIR=$(OBJ_DIR)/MD
@@ -191,10 +182,10 @@ CREATE_DIRS +=	$(MD_OBJ_DIR) \
 		$(MT_OBJ_DIR) \
 		$(MTd_OBJ_DIR)
 
-ERTS_MD_LIB_OBJS=$(addprefix $(MD_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
-ERTS_MDd_LIB_OBJS=$(addprefix $(MDd_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
-ERTS_MT_LIB_OBJS=$(addprefix $(MT_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
-ERTS_MTd_LIB_OBJS=$(addprefix $(MTd_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+ERTS_MD_LIB_OBJS=$(addprefix $(MD_OBJ_DIR)/,$(notdir $(.c=.o)))
+ERTS_MDd_LIB_OBJS=$(addprefix $(MDd_OBJ_DIR)/,$(notdir $(.c=.o)))
+ERTS_MT_LIB_OBJS=$(addprefix $(MT_OBJ_DIR)/,$(notdir $(.c=.o)))
+ERTS_MTd_LIB_OBJS=$(addprefix $(MTd_OBJ_DIR)/,$(notdir $(.c=.o)))
 
 else # --- Not windows ---
 
@@ -202,31 +193,9 @@ else # --- Not windows ---
 ifneq ($(strip $(ETHR_LIB_NAME)),)
 r_OBJ_DIR = $(OBJ_DIR)/r
 CREATE_DIRS += $(r_OBJ_DIR)
-ERTS_r_LIB_OBJS=$(addprefix $(r_OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
+ERTS_r_LIB_OBJS=$(addprefix $(r_OBJ_DIR)/,$(notdir $(.c=.o)))
 endif
-ERTS_LIB_OBJS=$(addprefix $(OBJ_DIR)/,$(notdir $(ERTS_LIB_SRCS:.c=.o)))
-
-endif
-
-ifeq ($(USING_VC),yes)
-ERTS_MD_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MD$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_MDd_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MDd$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_MT_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MT$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_MTd_LIB=$(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_MTd$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_LIBS += \
-	$(ERTS_MD_LIB) \
-	$(ERTS_MDd_LIB) \
-	$(ERTS_MT_LIB) \
-	$(ERTS_MTd_LIB)
-else
-
-ERTS_LIB = $(ERTS_LIB_DIR)/$(LIB_PREFIX)erts$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_LIBS += $(ERTS_LIB)
-
-ifneq ($(strip $(ETHR_LIB_NAME)),)
-ERTS_r_LIB = $(ERTS_LIB_DIR)/$(LIB_PREFIX)erts_r$(TYPE_SUFFIX)$(LIB_SUFFIX)
-ERTS_LIBS += $(ERTS_r_LIB)
-endif
+ERTS_LIB_OBJS=$(addprefix $(OBJ_DIR)/,$(notdir $(.c=.o)))
 
 endif
 
@@ -340,7 +309,7 @@ YCF_SOURCE_DIR=$(ERL_TOP)/erts/lib_src/yielding_c_fun
 
 include $(YCF_SOURCE_DIR)/main_target.mk
 
-$(OBJ_DIR)/MADE: $(YCF_EXECUTABLE) $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+$(OBJ_DIR)/MADE: $(YCF_EXECUTABLE) $(ETHREAD_LIB) $(ERTS_INTERNAL_LIBS)
 	$(gen_verbose)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -462,10 +431,8 @@ include ../vsn.mk
 RELSYSDIR = $(RELEASE_PATH)/erts-$(VSN)
 
 RELEASE_INCLUDES= \
-	$(ERTS_INCL)/erl_memory_trace_parser.h \
 	$(ERTS_INCL)/$(TARGET)/erl_int_sizes_config.h \
 	$(ERTS_INCL)/erl_fixed_size_int_types.h
-RELEASE_LIBS=$(ERTS_LIBS)
 
 INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/README \
@@ -479,7 +446,6 @@ INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/$(TARGET)/ethread_header_config.h \
 	$(ERTS_INCL_INT)/erl_printf.h \
 	$(ERTS_INCL_INT)/erl_printf_format.h \
-	$(ERTS_INCL_INT)/erl_memory_trace_protocol.h \
 	$(ERTS_INCL_INT)/erl_misc_utils.h \
 	$(ERTS_INCL_INT)/erl_errno.h
 
@@ -510,12 +476,6 @@ ifneq ($(strip $(INTERNAL_X_RELEASE_INCLUDE_DIRS)),)
 		$(INSTALL_DATA) $(ERTS_INCL_INT)/$$xdir/*.h \
 			"$(RELSYSDIR)/include/internal/$$xdir"; \
 	done
-endif
-ifneq ($(strip $(RELEASE_LIBS)),)
-	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
-	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELSYSDIR)/lib"
-	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELEASE_PATH)/usr/lib"
 endif
 ifneq ($(strip $(INTERNAL_RELEASE_LIBS)),)
 	$(INSTALL_DIR) "$(RELSYSDIR)/lib/internal"
