@@ -1499,7 +1499,7 @@ get_digit([],_,[],_Str) ->
 get_digit([],_,_,Str) ->
     {"0",Str};
 get_digit(_,_,_,Str) ->
-    %% this matches both the case when reaching another delimeter and
+    %% this matches both the case when reaching another delimiter and
     %% when the string already are emptied.
     {"0",Str}.
 

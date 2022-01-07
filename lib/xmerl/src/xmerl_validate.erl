@@ -509,7 +509,7 @@ choice([CH|CHS],[_XML|_T]=XMLS,Rules,WSaction,S)->
 	{[],XMLS1} -> %% Maybe a sequence with * or ? elements that
                       %% didn't match
  	    case CHS of
- 		[] -> % choice has succeded but without matching XMLS1
+ 		[] -> % choice has succeeded but without matching XMLS1
  		    {[],XMLS1};
  		_ -> % there are more choice alternatives to try with
  		    choice(CHS,XMLS1,Rules,WSaction,S)

@@ -445,7 +445,7 @@ generate_heading_col(N) ->
 %% ticket_5998
 %%
 %% A Kleene Closure child in a sequence consumed all following
-%% childs. This problem has been fixed.
+%% child's. This problem has been fixed.
 %%
 ticket_5998(Config) ->
     DataDir = datadir(Config),
@@ -477,7 +477,7 @@ ticket_5998(Config) ->
 %% ticket_7211
 %%
 %% A Kleene Closure child in a sequence consumed all following
-%% childs. This problem has been fixed.
+%% child's. This problem has been fixed.
 %%
 ticket_7211(Config) ->
     DataDir = datadir(Config),
@@ -507,7 +507,7 @@ ticket_7211(Config) ->
 %% ticket_7214
 %%
 %% Now validating xhtml1-transitional.dtd.
-%% A certain contentspec with a succeding choice, that didn't match
+%% A certain contentspec with a succeeding choice, that didn't match
 %% all content, followed by other child elements caused a
 %% failure. This is now corrected.
 %%
@@ -607,7 +607,7 @@ ticket_9457_cont(Continue, Exception, GlobalState) ->
     end.
 
 
-%% Test that comments are handled correct whith
+%% Test that comments are handled correct with
 ticket_9664_schema(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_schema.xml"]),[]),
     {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,[misc,"motorcycles.xsd"])),
@@ -620,7 +620,7 @@ ticket_9664_schema(Config) ->
                               {validation, schema}]),
     ok.
 
-%% Test that comments are handled correct whith
+%% Test that comments are handled correct with
 ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),

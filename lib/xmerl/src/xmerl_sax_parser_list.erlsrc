@@ -34,7 +34,7 @@
 -define(APPEND_STRING(Rest, New), Rest ++ New).
 -define(TO_INPUT_FORMAT(Val), Val).
 
-%%  In the list case we can't use a '++' when matchin against an unbound variable 
+%%  In the list case we can't use a '++' when matching against an unbound variable 
 -define(STRING_UNBOUND_REST(MatchChar, Rest), [MatchChar | Rest]).
 
 -define(PARSE_BYTE_ORDER_MARK(Bytes, State),
