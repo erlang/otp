@@ -2508,8 +2508,16 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                                      "connect to *this* client"),
                                   ok = gen_udp:connect(Sock, CIP1, CPort1),
                                   ?P("[server] send reply"),
-                                  ok = gen_udp:send(Sock, "hopp"),
-                                  {CIP1, CPort1}
+                                  case gen_udp:send(Sock, "hopp") of
+                                      ok -> 
+                                          {CIP1, CPort1};
+                                      {error, ehostunreach = Reason1} ->
+                                          ?P("[server] send failed: ~p",
+                                             [Reason1]),
+                                          exit({skip, Reason1});
+                                      {error, Reason1} ->
+                                          exit({send_failed, Reason1})
+                                  end
                           after 5000 ->
                                   ?P("[server] receive (1) timeout:"
                                      "~n      ~p", [mq()]),
@@ -2525,7 +2533,16 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
                             when (CIP2 =:= CIP) andalso (CPort2 =:= CPort) ->
                               ?P("[server] received expected message 2 - "
                                  "send reply"),
-                              ok = gen_udp:send(Sock, "hopp")
+                              case gen_udp:send(Sock, "hopp") of
+                                  ok -> 
+                                      ok;
+                                  {error, ehostunreach = Reason2} ->
+                                      ?P("[server] send failed: ~p",
+                                         [Reason2]),
+                                      exit({skip, Reason2});
+                                  {error, Reason2} ->
+                                      exit({send_failed, Reason2})
+                              end
                       after 5000 ->
                               ?P("[server] receive (2) timeout:"
                                  "~n      ~p", [mq()]),
@@ -2622,6 +2639,11 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
             ?P("[csock 1] received expected reply message 1"),
             ok;
 
+        {'EXIT', Server, {skip, SReason1}} ->
+            ?P("received unexpected server skip exit (1):"
+               "~n      ~p", [SReason1]),
+            ?SKIPT(?F("server send (1,1) failed: ~p", [SReason1]));
+
         {'EXIT', Server, SReason1} ->
             ?P("received unexpected server exit (1):"
                "~n      ~p", [SReason1]),
@@ -2656,6 +2678,11 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
         {udp, CSock1, _, _, <<"hopp">>} ->
             ?P("[csock 1] received expected reply message 2"),
             ok;
+
+        {'EXIT', Server, {skip, SReason2}} ->
+            ?P("received unexpected server skip exit (2):"
+               "~n      ~p", [SReason2]),
+            ?SKIPT(?F("server send (1,2) failed: ~p", [SReason2]));
 
         {'EXIT', Server, SReason2} ->
             ?P("received unexpected server exit (2):"
