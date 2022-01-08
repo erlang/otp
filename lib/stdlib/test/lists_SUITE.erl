@@ -2766,8 +2766,8 @@ foldlwhile(_Config) ->
 
     6 = lists:foldlwhile(
           fun
-              (X, Acc) when X < 3 -> {cont, Acc + X};
-              (X, Acc) -> {halt, Acc + X}
+              (X, Acc) when X =< 3 -> {cont, Acc + X};
+              (_X, Acc) -> {halt, Acc}
           end,
           0,
           [1, 2, 3, 4, 5]

@@ -324,6 +324,28 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
+      <name name="foldlwhile" arity="3" since=""/>
+      <fsummary>Fold a function over a list until <anno>halt</anno> is returned</fsummary>
+      <desc>
+        <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>, <anno>AccIn</anno>)</c>
+          on successive elements <c>A</c> of <c><anno>List</anno></c>, starting
+          with <c><anno>AccIn</anno> == <anno>Acc0</anno></c>.
+          <c><anno>Fun</anno>/2</c> must return a tuple <c>{cont, Acc}</c>
+          to continue or <c>{halt, Acc}</c>
+          to stop the folding. The second element of the tuple is the accumulator, which is
+          passed to the next call. The function returns the final value of
+          the accumulator. <c><anno>Acc0</anno></c> is returned if the list is
+          empty.</p>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>lists:foldlwhile(fun(X, Sum) when X=&lt;3 -> {cont, X + Sum}; (_X, Sum) -> {halt, Sum} end, 0, [1,2,3,4,5]).</input>
+6
+> <input>lists:foldlwhile(fun(X, Prod) when X=&lt;3 -> {cont, X * Prod}; (_X, Prod} -> {halt, Prod} end, 1, [1,2,3,4,5]).</input>
+6</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over a list.</fsummary>
       <desc>

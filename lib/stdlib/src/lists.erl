@@ -39,7 +39,7 @@
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,foldlwhile/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,
-         search/2, splitwith/2,split/2,
+	 search/2, splitwith/2,split/2,
 	 join/2]).
 
 %%% BIFs
@@ -1347,11 +1347,11 @@ foldr_1(_F, Accu, []) ->
 %%  example:
 %%  lists:foldlwhile(
 %%    fun
-%%      (X, Acc) when X < 3 ->
-%%        {cont, Acc+X};
-%%      (X, Acc) ->
-%%        {halt, Acc+X}
-%%    end, 0, [1,2,3,4,5]).
+%%      (X, Acc) when X =< 3 ->
+%%        {cont, Acc + X};
+%%      (_X, Acc) ->
+%%        {halt, Acc}
+%%    end, 0, [1, 2, 3, 4, 5]).
 %%  > 6
 
 -spec foldlwhile(Fun, Acc0, List) -> Acc1 when
@@ -1363,7 +1363,6 @@ foldr_1(_F, Accu, []) ->
       List :: [T],
       T :: term().
 
-foldlwhile(_F, Accu, []) -> Accu;
 foldlwhile(F, Accu, List) when is_function(F, 2) ->
     foldlwhile_1(F, Accu, List).
 
