@@ -98,7 +98,7 @@ AC_ARG_VAR(CPPFLAGS, [C/C++ preprocessor flags])
 AC_ARG_VAR(CXX, [C++ compiler])
 AC_ARG_VAR(CXXFLAGS, [C++ compiler flags])
 AC_ARG_VAR(LD, [linker (is often overridden by configure)])
-AC_ARG_VAR(LDFLAGS, [linker flags (can be risky to set since LD may be overriden by configure)])
+AC_ARG_VAR(LDFLAGS, [linker flags (can be risky to set since LD may be overridden by configure)])
 AC_ARG_VAR(LIBS, [libraries])
 AC_ARG_VAR(DED_LD, [linker for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LDFLAGS, [linker flags for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
@@ -158,7 +158,7 @@ AS_IF(
     AS_IF(
       [test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""],
       [
-	dnl We should perhaps give up if we have'nt found it by now, but at
+	dnl We should perhaps give up if we haven't found it by now, but at
 	dnl least in one Tilera MDE `getconf' under sysroot is a bourne
 	dnl shell script which we can use. We try to find `<HOST>-getconf'
     	dnl or `getconf' under sysconf, but only under sysconf since
@@ -526,7 +526,7 @@ dnl
 dnl LM_SYS_IPV6
 dnl
 dnl Check for ipv6 support and what the in6_addr structure is called.
-dnl (early linux used in_addr6 insted of in6_addr)
+dnl (early linux used in_addr6 instead of in6_addr)
 dnl
 
 AC_DEFUN(LM_SYS_IPV6,
@@ -2356,7 +2356,7 @@ AS_CASE(
     CFLAGS="$save_CFLAGS"
 
     if test "$gcc_cmpxchg8b_pic_no_clobber_ebx" = "yes"; then
-      AC_DEFINE(ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX, 1, [Define if gcc wont let you clobber ebx with cmpxchg8b and position independent code])
+      AC_DEFINE(ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX, 1, [Define if gcc won't let you clobber ebx with cmpxchg8b and position independent code])
     fi
     if test "$gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage" = "yes"; then
       AC_DEFINE(ETHR_CMPXCHG8B_REGISTER_SHORTAGE, 1, [Define if you get a register shortage with cmpxchg8b and position independent code])
