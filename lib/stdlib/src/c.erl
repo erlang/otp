@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -840,12 +840,9 @@ bi(I) ->
 m(M) ->
     L = M:module_info(),
     {exports,E} = lists:keyfind(exports, 1, L),
-    Time = get_compile_time(L),
     COpts = get_compile_options(L),
     format("Module: ~w~n", [M]),
     print_md5(L),
-    format("Compiled: "),
-    print_time(Time),
     print_object_file(M),
     format("Compiler options:  ~p~n", [COpts]),
     format("Exports: ~n",[]), print_exports(keysort(1, E)).
@@ -862,12 +859,6 @@ print_md5(L) ->
     case lists:keyfind(md5, 1, L) of
         {md5,<<MD5:128>>} -> io:format("MD5: ~.16b~n",[MD5]);
         _ -> ok
-    end.
-
-get_compile_time(L) ->
-    case get_compile_info(L, time) of
-	{ok,Val} -> Val;
-	error -> notime
     end.
 
 get_compile_options(L) ->
@@ -909,25 +900,6 @@ split_print_exports([{F1, A1}|T1], [{F2, A2} | T2]) ->
     format("~-30ts~tw/~w~n", [Str, F2, A2]),
     split_print_exports(T1, T2);
 split_print_exports([], []) -> ok.
-
-print_time({Year,Month,Day,Hour,Min,_Secs}) ->
-    format("~s ~w ~w, ", [month(Month),Day,Year]),
-    format("~.2.0w:~.2.0w~n", [Hour,Min]);
-print_time(notime) ->
-    format("No compile time info available~n",[]).
-
-month(1) -> "January";
-month(2) -> "February";
-month(3) -> "March";
-month(4) -> "April";
-month(5) -> "May";
-month(6) -> "June";
-month(7) -> "July";
-month(8) -> "August";
-month(9) -> "September";
-month(10) -> "October";
-month(11) -> "November";
-month(12) -> "December".
 
 %% Just because we can't eval receive statements...
 -spec flush() -> 'ok'.

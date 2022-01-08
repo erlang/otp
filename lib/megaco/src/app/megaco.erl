@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -623,25 +623,15 @@ print_mod_info({Module, Info}) ->
 	    _ ->
 		"Not found"
 	end,
-    CompDate = 
-	case key1search(compile_time, Info) of
-	    {value, {Year, Month, Day, Hour, Min, Sec}} ->
-		lists:flatten(
-		  io_lib:format("~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w", 
-				[Year, Month, Day, Hour, Min, Sec]));
-	    _ ->
-		"Not found"
-	end,
     io:format("   ~w:~n"
 	      "      Vsn:          ~s~n"
 	      "      App vsn:      ~s~n"
 	      "      ASN.1 vsn:    ~s~n"
-	      "      Compiler ver: ~s~n"
-	      "      Compile time: ~s~n", 
-	      [Module, Vsn, AppVsn, Asn1Vsn, CompVer, CompDate]),
+	      "      Compiler ver: ~s~n",
+	      [Module, Vsn, AppVsn, Asn1Vsn, CompVer]),
     ok.
-    
-    
+
+
 
 key1search(Key, Vals) ->
     case lists:keysearch(Key, 1, Vals) of
@@ -691,11 +681,9 @@ mod_version_info(Mod) ->
     {value, {app_vsn,    AppVsn}} = lists:keysearch(app_vsn,    1, Attr),
     {value, {compile,    Comp}}   = lists:keysearch(compile,    1, Info),
     {value, {version,    Ver}}    = lists:keysearch(version,    1, Comp),
-    {value, {time,       Time}}   = lists:keysearch(time,       1, Comp),
     {Mod, [{vsn,              Vsn}, 
 	   {app_vsn,          AppVsn}, 
-	   {compiler_version, Ver}, 
-	   {compile_time,     Time}]}.
+	   {compiler_version, Ver}]}.
 
 sys_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),
