@@ -5522,13 +5522,11 @@ erts_alcu_info_options(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
     res = info_options(allctr, print_to_p, print_to_arg, hpp, szp);
     if (allctr->thread_safe) { 
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
     return res;
 }
@@ -5561,7 +5559,6 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
 
@@ -5599,7 +5596,6 @@ erts_alcu_sz_info(Allctr_t *allctr,
 
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
 
     return res;
@@ -5632,7 +5628,6 @@ erts_alcu_info(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
 
@@ -5687,7 +5682,6 @@ erts_alcu_info(Allctr_t *allctr,
 
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
 
     return res;

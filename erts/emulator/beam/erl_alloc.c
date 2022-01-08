@@ -654,9 +654,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     if (ncpu < 1)
 	ncpu = 1;
 
-    erts_tsd_key_create(&erts_allctr_prelock_tsd_key,
-			"erts_allctr_prelock_tsd_key");
-
     erts_sys_alloc_init();
     erts_init_utils_mem();
 
@@ -3438,54 +3435,6 @@ badarg:
     ERTS_BIF_PREP_ERROR(res, c_p, EXC_BADARG);
     return res;
 }
-
-/* 
- * The allocator wrapper prelocking stuff below is about the locking order.
- * It only affects wrappers (erl_mtrace.c) that keep locks during
- * alloc/realloc/free.
- *
- * Some query functions in erl_alloc_util.c lock the allocator mutex and then
- * use erts_printf that in turn may call the sys allocator through the wrappers.
- * To avoid breaking locking order these query functions first "pre-locks" all
- * allocator wrappers.
- */
-ErtsAllocatorWrapper_t *erts_allctr_wrappers;
-int erts_allctr_wrapper_prelocked = 0;
-erts_tsd_key_t erts_allctr_prelock_tsd_key;
-
-void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper)
-{
-    ASSERT(wrapper->lock && wrapper->unlock);
-    wrapper->next = erts_allctr_wrappers;
-    erts_allctr_wrappers = wrapper;
-}
-
-void erts_allctr_wrapper_pre_lock(void)
-{
-    if (erts_allctr_wrappers) {
-	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
-	for ( ; wrapper; wrapper = wrapper->next) {
-	    wrapper->lock();
-	}
-	ASSERT(!erts_allctr_wrapper_prelocked);
-	erts_allctr_wrapper_prelocked = 1;
-	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)1);
-    }
-}
-
-void erts_allctr_wrapper_pre_unlock(void)
-{
-    if (erts_allctr_wrappers) {
-	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
-	
-	erts_allctr_wrapper_prelocked = 0;
-	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)0);
-	for ( ; wrapper; wrapper = wrapper->next) {
-	    wrapper->unlock();
-	}
-    }
-}
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * NOTE: erts_alc_test() is only supposed to be used for testing.            *
