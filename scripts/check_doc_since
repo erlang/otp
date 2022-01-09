@@ -608,7 +608,7 @@ sub read_xml_functions {
 sub read_edoc_functions {
     my($tag, $module) = @_;
     
-    open(FILE, $filename) or die "Cant open erl file \"$filename\"\n";
+    open(FILE, $filename) or die "Can't open erl file \"$filename\"\n";
     local $/ = undef;
     my $lines = <FILE>;
     close(FILE);
@@ -812,7 +812,7 @@ sub seen_it {
 }
  
  
-# Trim leading and traling whitespace
+# Trim leading and trailing whitespace
 sub trim {
     my $s = shift;
     $s =~ s/^\s+|\s+$//g;

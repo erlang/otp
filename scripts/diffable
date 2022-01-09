@@ -86,7 +86,7 @@ opts(["--deterministic"|Args], #{copts:=Copts}=Opts) ->
 opts(["--co",Opt|Args], #{copts:=Copts}=Opts) ->
     opts(Args, Opts#{copts:=Copts++[list_to_atom(Opt)]});
 opts(["--"++Opt|_], _Opts) ->
-    io:format("Uknown option: --~ts\n\n", [Opt]),
+    io:format("Unknown option: --~ts\n\n", [Opt]),
     usage();
 opts(Args, Opts) ->
     {Args,Opts}.
