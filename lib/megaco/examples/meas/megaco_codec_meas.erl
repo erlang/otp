@@ -74,6 +74,9 @@
 
 -define(DEFAULT_MESSAGE_PACKAGE, megaco_codec_transform:default_message_package()).
 
+-define(FTS(), formated_timestamp()).
+
+
 -record(stat, {name, ecount, etime, dcount, dtime, size}).
 
 
@@ -202,6 +205,9 @@ display_time(Start, Fin) ->
     io:format("          ~s~n~n~n", [FormatDiff]),
     ok.
     
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
 format_timestamp({_N1, _N2, N3} = Now) ->
     {Date, Time}   = calendar:now_to_datetime(Now),
     {YYYY,MM,DD}   = Date,
@@ -246,7 +252,7 @@ t1(Factor, [{Id, Codec, Conf, _, _} = ECodec|EMsgs], Results) ->
 
 
 measure(Factor, {Id, Codec, Conf, Count, Msgs}) ->
-    io:format("measure using codec ~p ~p~n ", [Codec, Conf]),
+    io:format("[~s] measure using codec ~p ~p~n ", [?FTS(), Codec, Conf]),
     {Init, Conf1} = measure_init(Conf),
     Conf2 = [{version3,?V3}|Conf1],
     Res = measure(Factor, Id, Codec, Conf2, Msgs, [], Count),
@@ -325,11 +331,12 @@ measure(_Factor, _Dir, _Codec, _Conf, [], Res, _MCount) ->
     Davg = avg([Dtime/Dcnt || #stat{dcount = Dcnt, dtime = Dtime} <- Res]),
     Savg = avg([Size       || #stat{size = Size} <- Res]),
 
-    io:format("~n  Measurment on ~p messages:"
-	      "~n  Average size:   ~w bytes, "
-	      "~n          encode: ~w microsec, "
-	      "~n          decode: ~w microsec~n~n", 
-	      [length(Res), Savg, Eavg, Davg]),
+    io:format("~n[~s] Measurment on ~p messages:"
+	      "~n  Average:"
+              "~n      Size:   ~w bytes, "
+	      "~n      Encode: ~w microsec, "
+	      "~n      Decode: ~w microsec~n~n", 
+	      [?FTS(), length(Res), Savg, Eavg, Davg]),
 
     {ok, lists:reverse(Res)};
 
@@ -340,7 +347,7 @@ measure(Factor, Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
 	    measure(Factor, Dir, Codec, Conf, Msgs, [Stat | Results], MCount);
 
 	{error, S} ->
-	    io:format("~n~s failed: ~n", [Name]),
+	    io:format("~n[~s] ~s failed: ~n", [?FTS(), Name]),
 	    error(S,[]),
 	    measure(Factor, Dir, Codec, Conf, Msgs, Results, MCount);
 
