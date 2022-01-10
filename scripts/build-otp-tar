@@ -422,7 +422,7 @@ fi
 
 if [ "x$build_dir" != "x" ]; then
 
-    progress "Using already built OTP distibution in: $build_dir"
+    progress "Using already built OTP distribution in: $build_dir"
 
 else
 

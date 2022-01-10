@@ -16,7 +16,7 @@ undef $/;			# No record separator reading files
 ###########################################################################
 #
 #  When we talk about "a page" we mean the actual page/file
-#  When we talk about "a link" we mean a referense to a page/file.
+#  When we talk about "a link" we mean a reference to a page/file.
 #  All links/URL's start with an slash except the top link that is
 #  the empty string.
 #
@@ -88,7 +88,7 @@ push(@links,["","/doc/index.html"]) unless @links;
 ###########################################################################
 #
 #  Traverse all files and directories and put all possible URL's into
-#  the set %pages. When we later find a referense to a page that URL
+#  the set %pages. When we later find a reference to a page that URL
 #  is removed from the set. When we have followed all links the set
 #  contains the pages never visited.
 #
@@ -205,7 +205,7 @@ sub get_page_links {
   # FIXME: Now we have the raw links, if we want to complain about
   # spaces etc this is the time.
 
-  # Remove referenses to the same page  FIXME??? Was removed , why...
+  # Remove references to the same page  FIXME??? Was removed , why...
 #  @links = grep {$_ and $_ !~ /^\#/} @links;
 
   # Find the URL to the current directory
@@ -284,7 +284,7 @@ sub normalize_link {
 	# The empty link is a reference to URL directory
 	return $rpath;
     } elsif ($link =~ /^#(.*)$/s) {
-	# Lokal reference to anchor
+	# Local reference to anchor
         my $anchor = $1;
         $anchor =~ s/%([\da-fA-F]{2})/chr(hex($1))/eg; # Translate hex to char
         $anchor =~ s/&lt;/</g; # 
@@ -380,7 +380,7 @@ if (keys %missing) {
 }
 
 
-# Entrys in %pages that has the value 0 is not visited
+# Entries in %pages that has the value 0 is not visited
 if (keys %pages) {
     print "\n\n\n**** Files not used (that I can see)\n\n";
     foreach my $page (sort keys %pages) {
