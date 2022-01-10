@@ -2043,7 +2043,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME,
             fun() ->
                     ?LIB:has_support_ipv6(),
-                    is_net_supported()
+                    is_net_supported(),
+                    is_not_freebsd()
             end,
             fun() ->
                     Domain = inet6,
@@ -2567,6 +2568,19 @@ is_net_supported() ->
     catch
         error : notsup ->
             not_supported(net)
+    end.
+
+
+is_not_freebsd() ->
+    is_not_platform(freebsd, "FreeBSD").
+
+is_not_platform(Platform, PlatformStr)
+  when is_atom(Platform) andalso is_list(PlatformStr) ->
+      case os:type() of
+        {unix, Platform} ->
+            skip("This does not work on " ++ PlatformStr);
+        _ ->
+            ok
     end.
 
 
