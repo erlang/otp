@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-17730@">create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
+      <name since="OTP @OTP-17304@">create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <name since="">create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <fsummary>Creates an initial <c>RELEASES</c> file.</fsummary>
       <type>

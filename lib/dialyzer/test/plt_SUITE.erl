@@ -91,7 +91,7 @@ build_xdg_plt(Config) ->
                   {win32, _} ->
                       [Drive | Path] = filename:split(TestHome),
                       [{"APPDATA", filename:join(TestHome,"AppData")},
-                       {"HOMEDRIVE", Drive}, {"HOMEPATH", Path}];
+                       {"HOMEDRIVE", Drive}, {"HOMEPATH", filename:join(Path)}];
                   _ ->
                       [{"HOME", TestHome}]
               end,

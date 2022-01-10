@@ -1916,9 +1916,14 @@ do_socknames_tcp0(_Config) ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
             do_socknames_tcp1([{inet_backend, socket}])
     catch
-        error : notsup ->
+        error:notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
-            ok
+            ok;
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,info,[],_}|_] ->
+                    ?P("Skip test of socknames for 'new' socket (=socket nif)")
+            end
     end.
 
 
@@ -1995,7 +2000,12 @@ do_socknames_udp0(_Config) ->
     catch
         error : notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
-            ok
+            ok;
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,info,[],_}|_] ->
+                    ?P("Skip test of socknames for 'new' socket (=socket nif)")
+            end
     end.
 
 

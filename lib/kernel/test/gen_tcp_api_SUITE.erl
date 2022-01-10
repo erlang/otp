@@ -1109,7 +1109,7 @@ do_accept_inet6_tclass(Config) ->
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
     ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() -> is_not_windows() end,
+            fun() -> has_socket_support() end,
             fun() -> do_s_accept_with_explicit_socket_backend() end).
 
 do_s_accept_with_explicit_socket_backend() ->
@@ -1127,12 +1127,15 @@ do_s_accept_with_explicit_socket_backend() ->
 
 %%% Utilities
 
-is_not_windows() ->
+has_socket_support() ->
     case os:type() of
         {win32, _} ->
             {skip, "Windows not supported"};
         _ ->
-            ok
+            case code:is_loaded(prim_socket) of
+                false -> {skip, "Compiled without socket support"};
+                _ -> ok
+            end
     end.
 
 

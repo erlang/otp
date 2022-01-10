@@ -69,7 +69,8 @@ undefined_functions(Config) when is_list(Config) ->
                       [UndefS,ExcludeFrom]),
     {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
 
-    Filters = [fun ssl_crypto_filter/1,
+    Filters = [fun erts_filter/1,
+               fun ssl_crypto_filter/1,
                fun eunit_filter/1,
                fun dialyzer_filter/1,
                fun wx_filter/1,
@@ -153,6 +154,20 @@ diameter_filter(Undef) ->
                    false;
               (_) -> true
            end, Undef).
+
+erts_filter(Undef) ->
+    %% Filter away prim_socket calls if that module is not available
+    %% prim_socket is not available if system is compiled with --disable-esock
+    case code:is_loaded(prim_socket) of
+        {file,preloaded} ->
+            Undef;
+        _ ->
+            filter(fun({_,{prim_socket,_,_}}) ->
+                           false;
+                      (_) ->
+                           true
+                   end, Undef)
+    end.
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     Server = proplists:get_value(xref_server, Config),
@@ -643,7 +658,7 @@ find_dep_in_rel_dir(Dep, RelDirRoot) ->
                     ErrorMessage =
                         io_lib:format("ERROR: Could not find ~p in ~p (where it is supposed to be)."
                                       "Found ~p~n", [Dep, RelDirRoot, DepPaths]),
-                    io:format(ErrorMessage),
+                    io:format(lists:flatten(ErrorMessage)),
                     ct:fail(ErrorMessage)
 
             end;
