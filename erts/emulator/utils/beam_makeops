@@ -746,7 +746,8 @@ sub emulator_output {
         open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
         comment('C');
 
-        foreach $key (keys %specific_op) {
+        # Sort the generated code to create beamasm_protos.h deterministically
+        foreach $key (sort keys %specific_op) {
             foreach (@{$specific_op{$key}}) {
                 my($name, $hotness, $varargs, @args) = @$_;
 
