@@ -76,9 +76,9 @@ basic(Config) when is_list(Config) ->
 
     os:putenv("ERL_ZFLAGS", ZFlgs ++ SbctMod),
 
-    {ok, Node1} = start_node(Config),
+    {ok, Peer1, Node1} = ?CT_PEER(),
     ok = rpc:call(Node1, ?MODULE, make_basic_config, [ErtsAllocConfig]),
-    stop_node(Node1),
+    peer:stop(Peer1),
 
     display_file(ErtsAllocConfig),
 
@@ -90,13 +90,12 @@ basic(Config) when is_list(Config) ->
 
     os:putenv("ERL_ZFLAGS", ZFlgs),
 
-    {ok, Node2} = start_node(Config,
-                             "-args_file " ++ ErtsAllocConfig
-                             ++ " -args_file " ++ ManualConfig),
+    {ok, Peer2, Node2} = ?CT_PEER(["-args_file", ErtsAllocConfig,
+                             "-args_file", ManualConfig]),
 
     {_, _, _, Cfg} = rpc:call(Node2, erlang, system_info, [allocator]),
 
-    stop_node(Node2),
+    peer:stop(Peer2),
 
     {value,{binary_alloc, BCfg}} = lists:keysearch(binary_alloc, 1, Cfg),
     {value,{sbct, 2097152}} = lists:keysearch(sbct, 1, BCfg),
@@ -159,26 +158,6 @@ display_file(FileName) ->
     io:format("~s", [binary_to_list(Bin)]),
     io:format("eof: ~s~n", [FileName]),
     ok.
-
-mk_name(Config) when is_list(Config) ->
-    {A, B, C} = erlang:timestamp(),
-    list_to_atom(atom_to_list(?MODULE)
-                 ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-                 ++ "-" ++ integer_to_list(A)
-                 ++ "-" ++ integer_to_list(B)
-                 ++ "-" ++ integer_to_list(C)).
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(mk_name(Config),
-                           slave,
-                           [{args, "-pa " ++ Pa ++ " " ++ Args}]).
-
-stop_node(Node) ->
-    true = test_server:stop_node(Node).
 
 privfile(Name, Config) ->
     filename:join([proplists:get_value(priv_dir, Config),
