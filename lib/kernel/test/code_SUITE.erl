@@ -303,7 +303,7 @@ replace_path(Config) when is_list(Config) ->
     true = code:set_path(P),			%Reset path
     ok = file:del_dir("./kernel-2.11"),
 
-    %% Add a completly new application.
+    %% Add a completely new application.
 
     NewAppName = 'blurf_blarfer',
     NewAppDir = filename:join(Cwd, atom_to_list(NewAppName) ++ "-6.33.1"),
@@ -776,7 +776,7 @@ clash(Config) when is_list(Config) ->
     true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
     case os:type() of
         {win32,_} ->
-	    %% The file wont be deleted on windows until it's closed, why we
+	    %% The file won't be deleted on windows until it's closed, why we
 	    %% need to rename instead.
 	    ok = file:rename(TmpEzFile,TmpEzFile++".moved");
 	 _ ->

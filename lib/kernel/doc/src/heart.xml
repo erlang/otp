@@ -98,7 +98,7 @@
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
       <item><p>Setting the environment variable to a negative value does not
-        reboot the runtime system until the crash dump file is completly
+        reboot the runtime system until the crash dump file is completely
         written.</p>
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>

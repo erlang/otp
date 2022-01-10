@@ -218,7 +218,7 @@
       <pre>fun((<seetype marker="logger#report"><c>logger:report()</c></seetype>) -> {<seetype marker="stdlib:io#format"><c>io:format()</c></seetype>,[term()]})</pre>
       <p>If it takes two arguments, the first is the report, and the
 	second is a map containing extra data that allows direct
-	coversion to a string:</p>
+	conversion to a string:</p>
       <pre>fun((<seetype marker="logger#report"><c>logger:report()</c></seetype>,<seetype marker="logger#report_cb_config"><c>logger:report_cb_config()</c></seetype>) -> <seetype marker="stdlib:unicode#chardata"><c>unicode:chardata()</c></seetype>)
       </pre>
       <p>The fun must obey the <c>depth</c> and <c>chars_limit</c>
@@ -925,7 +925,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  and progress reports.</p>
 	<p>Prior to Erlang/OTP 21.0, these reports were only logged
 	  when the SASL application was running, and they were printed
-	  trough SASL's own event handlers <c>sasl_report_tty_h</c>
+	  through SASL's own event handlers <c>sasl_report_tty_h</c>
 	  and <c>sasl_report_file_h</c>.</p>
 	<p>The destination of these log events was configured by
 	  <seeapp marker="sasl:sasl_app#deprecated_error_logger_config">SASL

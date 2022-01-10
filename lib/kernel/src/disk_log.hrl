@@ -143,7 +143,7 @@
 					%% since log was opened if info/1
 					%% has not yet been used on this log.
 	 accFull  :: non_neg_integer()}	%% noFull+accFull is number of
-					%% oveflows since the log was opened.
+					%% overflows since the log was opened.
        ).
 
 -record(log,

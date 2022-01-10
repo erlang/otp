@@ -1039,7 +1039,7 @@ static int try_lock(char *sockname, Byte *p_creation)
     }
     lseek(lockfd, 0, SEEK_SET);
     write(lockfd, &creation, 1);
-    fsync(lockfd); /* This could be concidered dangerous (blocking) */
+    fsync(lockfd); /* This could be considered dangerous (blocking) */
     *p_creation = creation;
     return lockfd;
 }

@@ -58,7 +58,7 @@ suite() ->
     ].
 
 all() ->
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -399,9 +399,9 @@ do_recv_delim(Config) ->
     ok = gen_tcp:send(A, "abcXefgX"),
 
     ?P("await the first chunk"),
-    receive {tcp, Client, "abcX"} -> ?P("received first chunck") end,
+    receive {tcp, Client, "abcX"} -> ?P("received first chunk") end,
     ?P("await the second chunk"),
-    receive {tcp, Client, "efgX"} -> ?P("received second chunck") end,
+    receive {tcp, Client, "efgX"} -> ?P("received second chunk") end,
 
     ?P("cleanup"),
     ok = gen_tcp:close(Client),
@@ -584,7 +584,7 @@ do_t_fdconnect(Config) ->
                 ct:fail({unexpected_listen_error, LReason, LOpts})
         catch
             LC : LE : LS ->
-                ?P("UNEXPECTED ERROR - catched listen: "
+                ?P("UNEXPECTED ERROR - caught listen: "
                    "~n   LOpts: ~p"
                    "~n   C:     ~p"
                    "~n   E:     ~p"
@@ -610,7 +610,7 @@ do_t_fdconnect(Config) ->
                      ct:fail({unexpected_connect_error, CReason, COpts})
              catch
                  CC : CE : CS ->
-                     ?P("UNEXPECTED ERROR - catched connect: "
+                     ?P("UNEXPECTED ERROR - caught connect: "
                         "~n   COpts: ~p"
                         "~n   C:     ~p"
                         "~n   E:     ~p"
@@ -632,7 +632,7 @@ do_t_fdconnect(Config) ->
                      ct:fail({unexpected_accept_error, AReason})
              catch
                  AC : AE : AS ->
-                     ?P("UNEXPECTED ERROR - catched accept: "
+                     ?P("UNEXPECTED ERROR - caught accept: "
                         "~n   C: ~p"
                         "~n   E: ~p"
                         "~n   S: ~p", [AC, AE, AS]),

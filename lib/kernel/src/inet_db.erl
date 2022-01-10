@@ -308,7 +308,7 @@ translate_lookup([]) -> [].
 valid_lookup() -> [dns, file, yp, nis, nisplus, native].
     
 
-%% Reconstruct an inetrc sturcture from inet_db
+%% Reconstruct an inetrc structure from inet_db
 get_rc() -> 
     get_rc([hosts, domain, nameservers, search, alt_nameservers,
 	    timeout, retry, servfail_retry_timeout, inet6, usevc,
@@ -899,7 +899,7 @@ take_socket_type(MRef) ->
 %% --------------------
 %% {node_auth,N}  Ls              - List of authentication for node N
 %% {node_crypt,N} Ls              - List of encryption methods for node N
-%% node_auth      Ls              - Default authenication
+%% node_auth      Ls              - Default authentication
 %% node_crypt     Ls              - Default encryption
 %%
 %% Socket type (used for socket monitors)
@@ -1205,7 +1205,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    Reply = handle_put_socket_type(State#state.sockets, MRef, Type),
 	    {reply, Reply, State};
 
-	%% Take (in the 'maps' sence of the word) the socket type of
+	%% Take (in the 'maps' sense of the word) the socket type of
 	%% this socket monitor (reference).
 	{take_socket_type, MRef} ->
 	    Reply = handle_take_socket_type(State#state.sockets, MRef),
@@ -1728,7 +1728,7 @@ lookup_cache_data(LcDomain, Type) ->
             <- match_rr(dns_rr_match(LcDomain, in, Type))].
 
 %% We are simultaneously updating the table from all clients
-%% and the server, so we might get duplicate recource records
+%% and the server, so we might get duplicate resource records
 %% in the table, i.e identical domain, class, type and data.
 %% We embrace that and eliminate duplicates here.
 %%
@@ -1960,7 +1960,7 @@ delete_oldest(CacheDb, TM, N) ->
         %% many duplicate times, which is not unlikely
         %% given the second resolution.  Therefore it is
         %% possible that gb_trees and storing the number
-        %% of occurences for a cnt time might be needed,
+        %% of occurrences for a cnt time might be needed,
         %% so insertion gets more complicated and slower,
         %% and we need our own concept of set size.
         %%

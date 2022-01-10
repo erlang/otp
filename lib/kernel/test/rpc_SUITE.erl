@@ -727,7 +727,7 @@ call_old_against_new(Config) ->
     end.
 
 call_old_against_new_test([NodeOld], [NodeCurr]) ->
-    %% Excecuted on an OTP old node
+    %% Executed on an OTP old node
 
     NodeOld = rpc:call(NodeOld, erlang, node, []),
     NodeCurr = rpc:call(NodeCurr, erlang, node, []),
@@ -761,7 +761,7 @@ multicall_old_against_new(Config) ->
     end.
 
 multicall_old_against_new_test([NodeOldA, NodeOldB], [NodeCurrA, NodeCurrB]) ->
-    %% Excecuted on an OTP old node
+    %% Executed on an OTP old node
 
     AllNodes = [NodeCurrA, NodeOldA, NodeCurrB, NodeOldB],
     NoNodes = length(AllNodes),
@@ -798,7 +798,7 @@ cast_old_against_new(Config) ->
     end.
 
 cast_old_against_new_test([NodeOld], [NodeCurr]) ->
-    %% Excecuted on an OTP old node
+    %% Executed on an OTP old node
 
     Me = self(),
     Ref = make_ref(),
@@ -880,7 +880,7 @@ test_on_old_node(Config, Test, NoOld, NoCurr) ->
     {ok, ?MODULE, BeamCode} = rpc:call(hd(NodesOld), compile, file, [SrcFile, [binary]]),
     LoadResult = lists:duplicate(length(NodesOld), {module, ?MODULE}),
     {LoadResult, []} = rpc:multicall(NodesOld, code, load_binary, [?MODULE, SrcFile, BeamCode]),
-    %% Excecute test on first old node...
+    %% Execute test on first old node...
     Pid = spawn_link(hd(NodesOld), ?MODULE, Test, [tl(NodesOld), NodesCurr]),
     Mon = erlang:monitor(process, Pid),
     receive

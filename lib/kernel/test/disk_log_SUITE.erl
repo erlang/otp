@@ -1045,7 +1045,7 @@ m() ->
     one_line("halt,int.inf. (10,1000)", W5, R5, Rep5, C5),
     io:format("\n"),
     io:format("\tWrap log time depends on how often the log wraps, as this\n"),
-    io:format("\tinvolves opening of new files, which costs alot."),
+    io:format("\tinvolves opening of new files, which costs a lot."),
     io:format("\n").
 
 one_line(Txt, W, R, Rep, C) ->

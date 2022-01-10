@@ -997,7 +997,7 @@ get_primary_metadata() ->
         {ok, Meta} ->
             throw({logger_metadata, Meta});
         undefined ->
-            %% This case is here to keep bug compatability. Can be removed in OTP 25.
+            %% This case is here to keep bug compatibility. Can be removed in OTP 25.
             case application:get_env(kernel,logger_default_metadata,#{}) of
                 Meta when is_map(Meta) ->
                     Meta;
@@ -1213,7 +1213,7 @@ default(pid) -> self();
 default(gl) -> group_leader();
 default(time) -> timestamp().
 
-%% Remove everything upto and including this module from the stacktrace
+%% Remove everything up to and including this module from the stacktrace
 filter_stacktrace(Module,[{Module,_,_,_}|_]) ->
     [];
 filter_stacktrace(Module,[H|T]) ->

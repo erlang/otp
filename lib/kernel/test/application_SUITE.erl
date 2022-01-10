@@ -225,7 +225,7 @@ failover(Conf) when is_list(Conf) ->
 %%-----------------------------------------------------------------
 %% Tests failover and takeover for distributed applications.  Tests
 %% start, load etc implicitly. The applications do not use start_phases
-%% i.e. the failover should be transfered to normal start type.
+%% i.e. the failover should be transferred to normal start type.
 failover_comp(Conf) when is_list(Conf) ->
     %% start a help process to check the start type
     StPid = spawn_link(?MODULE, start_type, []),
@@ -371,7 +371,7 @@ permissions(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp3),
     true = is_started(app1, Cp2),
 
-    %% Start app3, make sure noone starts it
+    %% Start app3, make sure no one starts it
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app3()]),
     ?UNTIL(is_loaded(app3, Cps)),
@@ -744,7 +744,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    %% Unpermit it agin
+    %% Unpermit it again
     ok = rpc:call(Cp1, application, permit, [app1, false]),
     ct:sleep(1000),
     false = is_started(app1, Cp1),
@@ -1225,7 +1225,7 @@ otp_2718(Conf) when is_list(Conf) ->
 %% Ticket: OTP-2973
 %% Slogan: application:start does not test if an appl is already starting...
 %%-----------------------------------------------------------------
-%% Test of two processes simultanously starting the same application.
+%% Test of two processes simultaneously starting the same application.
 otp_2973(Conf) when is_list(Conf) ->
     %% Write a .app file
     {ok, Fd} = file:open("app0.app", [write]),

@@ -368,7 +368,7 @@ pid2name(Pid) ->
     end.
 
 %% This function Takes 3 args, a Log, a Continuation and N.
-%% It retuns a {Cont2, ObjList} | eof | {error, Reason}
+%% It returns a {Cont2, ObjList} | eof | {error, Reason}
 %% The initial continuation is the atom 'start'
 
 -type chunk_error_rsn() :: no_such_log
@@ -1151,7 +1151,7 @@ system_terminate(Reason, _Parent, _, State) ->
     exit(Reason).
 
 %%-----------------------------------------------------------------
-%% Temporay code for upgrade.
+%% Temporary code for upgrade.
 %%-----------------------------------------------------------------
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.

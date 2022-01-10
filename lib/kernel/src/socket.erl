@@ -619,7 +619,7 @@
 %% Even if we are able to decode both level and type, we may not be
 %% able to decode the data.  The data is always delivered as a binary()
 %% and a decoded value is delivered in the 'value' field, if decoding
-%% is succesful.
+%% is successful.
 
 -type cmsg() :: cmsg_recv() | cmsg_send().
 
@@ -806,7 +806,7 @@ number_of() ->
 %% *** which_sockets/0,1 ***
 %%
 %% Interface function to the socket registry
-%% Returns a list of all the sockets, accoring to the filter rule.
+%% Returns a list of all the sockets, according to the filter rule.
 %%
 
 -spec which_sockets() -> [socket()].
@@ -976,7 +976,7 @@ use_registry(D) when is_boolean(D) ->
 %%
 %% This produces a list of "all" the sockets, and some info about each one.
 %% This function is intended as a utility and debug function.
-%% The sockets can be selected from domain, type or porotocol.
+%% The sockets can be selected from domain, type or protocol.
 %% The sockets are not sorted.
 %% 
 %% ===========================================================================
@@ -1287,7 +1287,7 @@ cancel_monitor(MRef) ->
 %%
 %% supports - get information about what the platform "supports".
 %%
-%% Generates a list of various info about what the plaform can support. 
+%% Generates a list of various info about what the platform can support. 
 %% The most obvious case is 'options'. 
 %%
 %% Each item in a 'supports'-list will appear only *one* time.
@@ -1348,7 +1348,7 @@ is_supported(options, Level, Opt) when is_atom(Level), is_atom(Opt) ->
 %% The nif sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
-%% We may therefor need monitor function(s): 
+%% We may therefore need monitor function(s): 
 %%
 %%               socket:monitor(Socket)
 %%               socket:demonitor(Socket)
@@ -3955,7 +3955,7 @@ setopt_native(Socket, SocketOption, Value) ->
 %% If its an "invalid" option, we should not crash but return some
 %% useful error...
 %%
-%% When specifying level as an integer, and therefor using "native mode",
+%% When specifying level as an integer, and therefore using "native mode",
 %% we should make it possible to specify common types instead of the
 %% value size. Example: int | bool | {string, pos_integer()} | non_neg_integer()
 %%

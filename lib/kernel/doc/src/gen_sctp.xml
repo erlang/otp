@@ -817,7 +817,7 @@ connect(Socket, Ip, Port>,
           <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC 2960</url>
           and
           <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets
-          API Extenstions for SCTP</url>.</p>
+          API Extensions for SCTP</url>.</p>
       </item>
       <tag><c>{sctp_peer_addr_params, #sctp_paddrparams{}}</c></tag>
       <item>

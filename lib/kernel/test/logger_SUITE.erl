@@ -850,7 +850,7 @@ via_logger_process(Config) ->
 
     case os:type() of
         {win32,_} ->
-            %% Skip this part on windows - cant change file mode"
+            %% Skip this part on windows - can't change file mode"
             ok;
         _ ->
             %% This should trigger the same thing from erl_prim_loader

@@ -673,7 +673,7 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
     end.
 	    
 %% A hack that tries to inform the caller about the position where the
-%% error occured.
+%% error occurred.
 invalid_unicode_error(Mod, Func, XtraArg, S) ->
     try
         {erl_scan,tokens,_Args} = XtraArg,

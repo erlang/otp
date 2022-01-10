@@ -63,7 +63,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -611,7 +611,7 @@ read_packets(Config) when is_list(Config) ->
 		       true ->
                            %% We have not (yet) implemented support for 
                            %% this option. We accept it but do not use it.
-			   {skip, "Not complient with socket"};
+			   {skip, "Not compliant with socket"};
 		       false ->
 			   ok
 		   end
@@ -1755,7 +1755,7 @@ do_implicit_inet6(Config) ->
 implicit_inet6(Config, Host, Addr) ->
     Active = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
-    ?P("try 1 with explit inet6 on loopback"),
+    ?P("try 1 with explicit inet6 on loopback"),
     S1 = case ?OPEN(Config, 0, [inet6, Active, {ip, Loopback}]) of
              {ok, Sock1} ->
                  Sock1;

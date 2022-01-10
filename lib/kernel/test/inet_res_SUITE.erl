@@ -174,7 +174,7 @@ init_per_testcase(Func, Config) ->
 	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
     catch
 	SkipReason ->
-            ?P("init_per_testcase -> catched:"
+            ?P("init_per_testcase -> caught:"
                "~n      SkipReason: ~p", [SkipReason]),
 	    {skip, SkipReason}
     end.
@@ -1241,7 +1241,7 @@ last_ms_answer(Config) when is_list(Config) ->
     PSpec = proxy_start(last_ms_answer, NS),
     ProxyNS = proxy_ns(PSpec),
     %%
-    %% resolve; whith short timeout to trigger Timeout =:= 0 in inet_res
+    %% resolve; with short timeout to trigger Timeout =:= 0 in inet_res
     {error,timeout} =
 	inet_res:resolve(
 	  Name, in, a, [{nameservers,[ProxyNS]},verbose], Time + 10),

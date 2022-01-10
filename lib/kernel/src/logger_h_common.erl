@@ -396,7 +396,7 @@ do_log_to_binary(Log,Config) ->
                                      {config,FormatterConfig},
                                      {log_event,Log},
                                      {bad_return_value,String},
-                                     {catched,{C2,R2,S2}}]),
+                                     {caught,{C2,R2,S2}}]),
             <<"FORMATTER ERROR: bad return value\n">>
     end.
 

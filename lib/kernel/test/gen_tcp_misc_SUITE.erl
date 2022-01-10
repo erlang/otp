@@ -121,7 +121,7 @@ suite() ->
      {timetrap,{minutes,4}}].
 
 all() ->
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -425,7 +425,7 @@ do_default_options(Config) ->
 			       "-kernel inet_default_listen_options "
 			       "\"{delay_send,true}\"",
 			       fun() -> do_delay_send_2(Config) end),
-    %% Active is to dangerous and is supressed
+    %% Active is to dangerous and is suppressed
     {true,true,true} =
 	do_delay_on_other_node("-kernel inet_default_connect_options "
 			       "\"{active,false}\" "
@@ -984,10 +984,10 @@ iter_max_socks(Config) when is_list(Config) ->
     %% Run on a different node in order to limit the effect if this test fails.
     Dir = filename:dirname(code:which(?MODULE)),
     {ok, Node} = ?START_SLAVE_NODE(test_iter_max_socks, "+Q 2048 -pa " ++ Dir),
-    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initialize]),
     L = iter_max_socks_run(Node,
                            fun() ->
-                                   exit(do_iter_max_socks(Config, Tries, initalize))
+                                   exit(do_iter_max_socks(Config, Tries, initialize))
                            end),
     ?STOP_NODE(Node),
 
@@ -1019,7 +1019,7 @@ iter_max_socks_run(Node, F) ->
 do_iter_max_socks(_Config, 0, _) ->
     ?P("do_iter_max_socks(0,-) -> done"),
     [];
-do_iter_max_socks(Config, N, initalize = First) ->
+do_iter_max_socks(Config, N, initialize = First) ->
     ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
     MS = max_socks(Config),
     [MS|do_iter_max_socks(Config, N-1, MS)];
@@ -2310,11 +2310,11 @@ lz_ensure_non_empty_queue(Sock, Payload, OS, N) ->
     ?P("try verify client socket queue size"),
     case erlang:port_info(Sock, queue_size) of
 	{queue_size, QSz} when QSz > 0 ->
-            ?P("queue size verification *successfull* (~p) - port info: "
+            ?P("queue size verification *successful* (~p) - port info: "
                "~n   ~p", [QSz, erlang:port_info(Sock)]),
             ok;
 	{queue_size, 0} when OS =:= win32 ->
-            ?P("queue size verification *successfull* - port info: "
+            ?P("queue size verification *successful* - port info: "
                "~n   ~p", [erlang:port_info(Sock)]),
             ok;
 	{queue_size, 0} ->
@@ -3271,7 +3271,7 @@ test_prio_accept_async(Config) ->
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
         {Ref,Error} ->
-            ct:fail({missmatch,Error})
+            ct:fail({mismatch,Error})
     after 5000 -> ct:fail({error,"helper process timeout"})
     end,
     ?P("test_prio_accept_async -> await prio and tos for accepted socket"),
@@ -3279,7 +3279,7 @@ test_prio_accept_async(Config) ->
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
         {Ref,Error2} ->
-            ct:fail({missmatch,Error2})
+            ct:fail({mismatch,Error2})
     after 5000 -> ct:fail({error,"helper process timeout"})
     end,
 
@@ -3328,7 +3328,7 @@ test_prio_udp() ->
 so_priority(Config) when is_list(Config) ->
     ?TC_TRY(so_priority,
 	    %% Normally we should have the condition funm here,
-	    %% but since we are (currently) not platform independant,
+	    %% but since we are (currently) not platform independent,
 	    %% we can't...check in the test case instead.
 	    fun() -> do_so_priority(Config) end).
 
@@ -4670,7 +4670,7 @@ accept_system_limit(Config) when is_list(Config) ->
     Cond = fun() ->
 		   case ?IS_SOCKET_BACKEND(Config) of
 		       true ->
-			   {skip, "Not complient with socket"};
+			   {skip, "Not compliant with socket"};
 		       false ->
 			   ok
 		   end
@@ -5017,11 +5017,11 @@ do_send_timeout(Config) ->
     ?P("await (timeout checker) process death"),
     receive {'DOWN', Mon, process, Pid, _} -> ok end,
 
-    %% Check that parallell writers do not hang forever
-    ?P("check parallell writers wo autoclose"),
+    %% Check that parallel writers do not hang forever
+    ?P("check parallel writers wo autoclose"),
     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		      false, RNode),
-    ?P("check parallell writers w autoclose"),
+    ?P("check parallel writers w autoclose"),
     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		      true, RNode),
 
@@ -5088,7 +5088,7 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
                                   ?F("UNKNOWN: ~p", [X2])
                           catch
                               C2:E2:S2 ->
-                                  ?F("CATCHED: ~p, ~p, ~p", [C2, E2, S2])
+                                  ?F("CAUGHT: ~p, ~p, ~p", [C2, E2, S2])
                           end
                   end,
 
@@ -6359,7 +6359,7 @@ otp_12242(Config) when is_list(Config) ->
 			   %% Even if we set sndbuf and recbuf to small sizes
 			   %% Windows either happily accepts to send GBytes of
 			   %% data in no time, so the second send below that
-			   %% is supposed to time out just succedes, or the 
+			   %% is supposed to time out just succeeds, or the 
 			   %% first send that is supposed to fill the inet_drv
 			   %% I/O queue and start waiting for when more data
 			   %% can be sent instead sends all data but suffers
@@ -6368,7 +6368,7 @@ otp_12242(Config) when is_list(Config) ->
 		       _ ->
 			   case ?IS_SOCKET_BACKEND(Config) of
 			       true ->
-				   {skip, "Not complient with socket"};
+				   {skip, "Not compliant with socket"};
 			       false ->
 				   ok
 			   end
@@ -6541,7 +6541,7 @@ otp_12242_closer(C) ->
                           ok = Result
                   catch
                       Class:Reason:Stacktrace ->
-                          ?P("[closer] catched gen_tcp:close(C):"
+                          ?P("[closer] caught gen_tcp:close(C):"
 			     "~n      Error Class:  ~p"
 			     "~n      Error:        ~p"
 			     "~n      Stack trace:  ~p",
@@ -6611,7 +6611,7 @@ delay_send_error2(Sock) ->
 
 delay_send_error2(Sock, 0) ->
     gen_tcp:close(Sock),
-    ct:fail("Unxpected send success");
+    ct:fail("Unexpected send success");
 delay_send_error2(Sock, N) ->
     %% Sleep in order for delay_send to have time to trigger
     %% This used to result in a double free

@@ -444,7 +444,7 @@ hs_data_common(DistCtrl) ->
 %%   the connection down if no incoming traffic is seen.
 %%   This process also executes on max priority.
 %%
-%%   These parties are linked togheter so should one
+%%   These parties are linked together so should one
 %%   of them fail, all of them are terminated and the
 %%   connection is taken down.
 %%
@@ -569,7 +569,7 @@ call_ctrlr(Ctrlr, Msg) ->
 %% non-blocking send operation exposed in its API
 %% and we don't want to run the distribution
 %% controller under high priority. Therefore this
-%% sparate process with max prio that dispatches
+%% separate process with max prio that dispatches
 %% ticks.
 %%
 dist_cntrlr_tick_handler(Socket) ->
@@ -700,7 +700,7 @@ dist_cntrlr_setup_loop(Socket, TickHandler, Sup) ->
 
 dist_cntrlr_input_setup(DHandle, Socket, Sup) ->
     link(Sup),
-    %% Ensure we don't try to put data before registerd
+    %% Ensure we don't try to put data before we are registered
     %% as input handler...
     receive
         DHandle ->
@@ -775,7 +775,7 @@ death_row() ->
 
 death_row(normal) ->
     %% We do not want to exit with normal
-    %% exit reason since it wont bring down
+    %% exit reason since it won't bring down
     %% linked processes...
     death_row();
 death_row(Reason) ->

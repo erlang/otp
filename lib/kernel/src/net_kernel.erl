@@ -458,7 +458,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                     {reply, false, State};
 
                 %% This might happen due to connection close
-                %% not beeing propagated to user space yet.
+                %% not being propagated to user space yet.
                 %% Save the day by just not connecting...
                 {ok, once} when ConnLookup =/= [],
                                 (hd(ConnLookup))#connection.state =:= up ->

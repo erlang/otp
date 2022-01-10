@@ -1660,7 +1660,7 @@ open_bind(
 open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
     DoNotBind =
 	%% We do not do any binding if no port+addr options
-	%% were given, in order to keep backwards compatability
+	%% were given, in order to keep backwards compatibility
 	%% with pre Erlang/OTP 17
         BAddr =:= undefined, % Presumably already bound
     if

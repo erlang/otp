@@ -524,7 +524,7 @@ gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
 
 
 %%
-%% The differrent stages of the MD5 handshake
+%% The different stages of the MD5 handshake
 %%
 
 send_status(Socket, Stat) ->

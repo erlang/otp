@@ -336,7 +336,7 @@ $ <input>erl -sname foobar</input></pre>
 	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
 	a connected node or <c>new</c>.</p>
 	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
-	will then also be added to kernel configration parameters
+	will then also be added to kernel configuration parameters
 	<seeapp marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seeapp>
 	and
 	<seeapp marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seeapp>.</p>
