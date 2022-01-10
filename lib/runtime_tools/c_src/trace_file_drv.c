@@ -117,7 +117,7 @@
 **    0 = binary, 1 = drop
 **    If Op is 1, then Size reflects the number of dropped messages. The 
 **    op 1 is never used in this driver.
-** Size, a 32 bit interger in network byte order:
+** Size, a 32 bit integer in network byte order:
 **    Either the size of the binary term, or the number of packet's dropped.
 ** Term, an array of bytes:
 **    An erlang term in the external format or simply empty if Op == 1, the
