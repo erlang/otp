@@ -583,7 +583,7 @@ meas(suite) ->
     [];
 meas(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ct:timetrap(?MINS(2)),
+    ct:timetrap(?MINS(5)),
     WorkerNode = ?config(worker_node, Config),
     do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_meas, start, [100]).
 
@@ -596,6 +596,11 @@ do_meas(SName, Node, Mod, Func, Args) ->
     {Pid, MRef} = spawn_monitor(F),
     p("await completion"),
     receive
+        {'DOWN', MRef, process, Pid,
+         {error, {failed_loading_flex_scanner_driver, Reason}}} ->
+            p("<ERROR> worker process failed loading flex scanner: "
+              "~n      ~p", [Reason]),
+            ?SKIP(Reason);
         {'DOWN', MRef, process, Pid, {error, Reason}} ->
             p("<ERROR> worker process terminated: "
               "~n      ~p", [Reason]),

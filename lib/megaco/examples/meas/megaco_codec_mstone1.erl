@@ -212,13 +212,15 @@ mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     Pid = spawn(
 	    fun() -> 
 		    process_flag(trap_exit, true),
-		    do_mstone(MessagePackage,
-                              RunTime, Factor, Codecs, DrvInclude),  
-		    Parent ! {done, self()}
+		    Done = do_mstone(MessagePackage,
+                                     RunTime, Factor, Codecs, DrvInclude),  
+		    Parent ! {Done, self()}
 	    end),
     receive
 	{done, Pid} ->
-	    ok
+	    ok;
+        {{error, _} = ERROR, Pid} ->
+            ERROR
     end.
 			 
 do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
@@ -227,14 +229,21 @@ do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
     io:format("~n", []),
-    {Pid, Conf} = ?LIB:start_flex_scanner(),
-    put(flex_scanner_conf, Conf),
-    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
-    EMsgs  = duplicate(Factor, EMessages),
-    MStone = t1(RunTime, EMsgs),
-    ?LIB:stop_flex_scanner(Pid),
-    io:format("~n", []),
-    io:format("MStone: ~p~n", [MStone]).
+    case ?LIB:start_flex_scanner() of
+        {Pid, Conf} when is_pid(Pid) ->
+            put(flex_scanner_conf, Conf),
+            EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
+            EMsgs  = duplicate(Factor, EMessages),
+            MStone = t1(RunTime, EMsgs),
+            ?LIB:stop_flex_scanner(Pid),
+            io:format("~n", []),
+            io:format("MStone: ~p~n", [MStone]),
+            done;
+        {error, Reason} = ERROR ->
+            io:format("<ERROR> Failed starting flex scanner: "
+                      "~n      ~p", [Reason]),
+            ERROR
+    end.
 
 duplicate(N, Elements) ->
     duplicate(N, Elements, []).
