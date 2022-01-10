@@ -404,13 +404,14 @@ footer       { }
 
 .doc-table-wrapper, .doc-image-wrapper{
     width: 100%;
+    overflow-x: scroll;
 }
 
 .doc-image-wrapper{
     text-align: center;
 }
 
-.doc-svg {
+.doc-svg, doc-image {
     width: 100%;
 }
 
