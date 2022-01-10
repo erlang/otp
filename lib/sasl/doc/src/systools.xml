@@ -251,8 +251,8 @@
           warnings are issued for calls to undefined functions.</p>
         <p>By default, errors and warnings are printed to tty and
           the function returns <c>ok</c> or <c>error</c>. If option
-          <c>{ok,Module,Warnings}</c> or <c>{error,Module,Error}</c>.
           <c>silent</c> is specified, the function instead returns
+          <c>{ok,Module,Warnings}</c> or <c>{error,Module,Error}</c>.
           Warnings and errors can be converted to strings by calling
           <c>Module:format_warning(Warnings)</c> or
           <c>Module:format_error(Error)</c>.</p>
