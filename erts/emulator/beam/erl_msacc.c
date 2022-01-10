@@ -42,7 +42,7 @@
 #include "erl_msacc.h"
 #include "erl_bif_table.h"
 
-#if ERTS_ENABLE_MSACC
+#ifdef ERTS_ENABLE_MSACC
 
 static Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory);
 static void erts_msacc_reset(ErtsMsAcc *msacc);
