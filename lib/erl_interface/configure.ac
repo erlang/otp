@@ -161,8 +161,8 @@ case $host_os in
 esac
 
 # Checks for libraries.
-AC_CHECK_LIB([nsl], [gethostbyname])
-AC_CHECK_LIB([socket], [getpeername])
+AC_SEARCH_LIBS([gethostbyname], [nsl])
+AC_SEARCH_LIBS([getpeername], [socket])
 
 # Checks for header files.
 AC_CHECK_INCLUDES_DEFAULT
