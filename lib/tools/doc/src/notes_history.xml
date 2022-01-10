@@ -91,7 +91,7 @@
           <p>Own Id: OTP-4594</p>
         </item>
         <item>
-          <p>Improvments for support of Emacs 21 contributed by Dave
+          <p>Improvements for support of Emacs 21 contributed by Dave
             Love. The bulk of the changes are actually cosmetic
             commentary/doc fixes. The significant ones make it play
             better with Emacs 21 with up-to-date facilities. In

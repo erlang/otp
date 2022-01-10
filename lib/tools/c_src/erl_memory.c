@@ -666,7 +666,7 @@ write_title(char **bufp, size_t *overflow, size_t width, char *str)
      * Writes at least one '|' character at the beginning.
      * Right aligns "str".
      * If "str" is larger than "width - 1" and overflow is NULL,
-     * then "str" is trucated; otherwise, string is not truncated.
+     * then "str" is truncated; otherwise, string is not truncated.
      */
 
     if (width <= 0)

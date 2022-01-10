@@ -368,7 +368,7 @@ Please see the function `tempo-define-template'.")
     "%% supervisor_bridge callbacks" n
     (erlang-skel-double-separator 2)
     (erlang-skel-separator 2)
-    "%% Funcion: init(Args) -> {ok,  Pid, State} |" n
+    "%% Function: init(Args) -> {ok,  Pid, State} |" n
     "%%                        ignore            |" n
     "%%                        {error, Reason}    " n
     "%% Description:Creates a supervisor_bridge process, linked to the calling" n

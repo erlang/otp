@@ -559,7 +559,7 @@ reconnect(Config) ->
     cover:flush(N1),
     rpc:call(N1,f,f1,[]),
 
-    %% This will cause first casue the N1 node to initiate a
+    %% This will cause first cause the N1 node to initiate a
     %% disconnect and then call f:f2() when nodes() =:= [] on N1.
     rpc:cast(N1,f,call_f2_when_isolated,[]),
     timer:sleep(500), % allow some to detect disconnect and for f:f2() call
@@ -861,7 +861,7 @@ export_import(Config) when is_list(Config) ->
     ok = cover:stop(),
 
     %% Check that same data exists after import and that info is written about
-    %% data comming from imported file
+    %% data coming from imported file
     ok = cover:import("f_exported"),
     test_server:capture_start(),
     check_f_calls(1,0),
@@ -1005,7 +1005,7 @@ otp_6115(Config) when is_list(Config) ->
     {ok, f1} = cover:compile(f1),
 
     %% This test used to ensure that a process containing a
-    %% fun refering to cover compiled code was killed.
+    %% fun referring to cover compiled code was killed.
     %% check_process_code may however ignore funs as of ERTS
     %% version 8.1. The test has therefore been rewritten to
     %% check that a process with a direct reference (in this

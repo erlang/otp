@@ -1466,8 +1466,8 @@ Other commands:
       (modify-syntax-entry ?\n ">" table)
       (modify-syntax-entry ?\" "\"" table)
       (modify-syntax-entry ?# "." table)
-      ;; (modify-syntax-entry ?$ "\\" table)   ;; Creates problems with indention afterwards
-      ;; (modify-syntax-entry ?$ "'" table)    ;; Creates syntax highlighting and indention problems
+      ;; (modify-syntax-entry ?$ "\\" table)   ;; Creates problems with indentation afterwards
+      ;; (modify-syntax-entry ?$ "'" table)    ;; Creates syntax highlighting and indentation problems
       (modify-syntax-entry ?$ "/" table)    ;; Misses the corner case "string that ends with $"
       ;; we have to live with that for now..it is the best alternative
       ;; that can be worked around with "string that ends with \$"
@@ -2768,7 +2768,7 @@ Value is list (stack token-start token-type in-what)."
 
             ((looking-at "\\(fun\\)[^_a-zA-Z0-9]")
              ;; Push a new layer if we are defining a `fun'
-             ;; expression, not when we are refering an existing
+             ;; expression, not when we are referring an existing
              ;; function.  'fun's defines are only indented one level now.
              (if (save-excursion
                    (goto-char (match-end 1))
@@ -2820,7 +2820,7 @@ Value is list (stack token-start token-type in-what)."
         (forward-char 1))
        (t
         ;; Maybe a character literal, quote the next char to avoid
-        ;; situations as $" being seen as the begining of a string.
+        ;; situations as $" being seen as the beginning of a string.
         ;; Note the quoting something in the middle of a string is harmless.
         (quote (following-char))
         (forward-char 1))))
@@ -3222,7 +3222,7 @@ Return nil if inside string, t if in a comment."
                 (progn
                   (if (memq (car stack-top) '(-> ||))
                       (erlang-pop stack))
-                  ;; Take parent identation + offset,
+                  ;; Take parent indentation + offset,
                   ;; else just erlang-indent-level if no parent
                   (if stack
                       (+ (caddr (car stack))
@@ -6068,7 +6068,7 @@ unless the optional NO-DISPLAY is non-nil."
                 erlang-compile-erlang-function
                 module-name
                 (inferior-erlang-format-comma-opts opts))
-      (let (;; Hopefully, noone else will ever use these...
+      (let (;; Hopefully, no one else will ever use these...
             (tmpvar "Tmp7236")
             (tmpvar2 "Tmp8742"))
         (format

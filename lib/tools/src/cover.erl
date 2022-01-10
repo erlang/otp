@@ -430,7 +430,7 @@ get_mods_and_beams([{Module,File}|ModFiles],Acc) ->
 	    %% Duplicate, but same file so ignore
 	    get_mods_and_beams(ModFiles,Acc);
 	{ok,Module,_OtherFile} ->
-	    %% Duplicate and differnet file - error
+	    %% Duplicate and different file - error
 	    get_mods_and_beams(ModFiles,[{error,{duplicate,Module}}|Acc]);
 	_ ->
 	    get_mods_and_beams(ModFiles,[{ok,Module,File}|Acc])
@@ -1958,7 +1958,7 @@ munge({function,Anno,Function,Arity,Clauses},Vars,_MainFile,on) ->
     {MungedClauses, Vars3} = munge_clauses(Clauses, Vars2),
     {{function,Anno,Function,Arity,MungedClauses},Vars3,on};
 munge(Form={attribute,_,file,{MainFile,_}},Vars,MainFile,_Switch) ->
-    {Form,Vars,on};                     % Switch on tranformation!
+    {Form,Vars,on};                     % Switch on transformation!
 munge(Form={attribute,_,file,{_InclFile,_}},Vars,_MainFile,_Switch) ->
     {Form,Vars,off};                    % Switch off transformation!
 munge({attribute,_,compile,{parse_transform,_}},_Vars,_MainFile,_Switch) ->

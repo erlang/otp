@@ -272,7 +272,7 @@ creating the root directory and for naming application files."
      erlang-skel-normal-header erlang-skel-header)
     ("Large Header"  "large-header"
      erlang-skel-large-header erlang-skel-header)
-    ("No Moudle Header"  "nomodule-header"
+    ("No Module Header"  "nomodule-header"
      erlang-skel-nomodule-header erlang-skel-header)
     ()
     ("Small Server"   "small-server"
@@ -302,7 +302,7 @@ The first element is the name which shows up in the menu.  The second
 is the `tempo' identfier (The string \"erlang-\" will be added in
 front of it).  The third is the skeleton descriptor, a variable
 containing `tempo' attributes as described in the function
-`tempo-define-template'.  The optinal fourth elements denotes a
+`tempo-define-template'.  The optional fourth elements denotes a
 function which should be called when the menu is selected.
 
 Functions corresponding to every template will be created.  The name
@@ -310,7 +310,7 @@ of the function will be `tempo-template-erlang-X' where `X' is the
 tempo identifier as specified in the second argument of the elements
 in this list.
 
-A list with zero elemets means that the a horisontal line should
+A list with zero elements means that the a horisontal line should
 be placed in the menu.")  
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -451,7 +451,7 @@ Example:
        ((\"Yellow\" function-yellow)
         (\"Blue\" function-blue)))
       nil
-      (\"Region Funtion\" spook-function midnight-variable))
+      (\"Region Function\" spook-function midnight-variable))
 
 Call the function `erlang-menu-init' after modifying this variable.")
 

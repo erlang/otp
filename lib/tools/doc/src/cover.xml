@@ -110,7 +110,7 @@
     <p>If the connection to a remote node goes down, the main node
       will mark it as lost. If the node comes back it will be added
       again. If the remote node was alive during the disconnected
-      periode, cover data from before and during this periode will be
+      period, cover data from before and during this period will be
       included in the analysis.</p>
   </description>
   <funcs>
