@@ -123,7 +123,7 @@
 -define(heap_binary_size, 64).
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [{ct_hooks,[cth_log_redirect,ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
@@ -171,9 +171,24 @@ groups() ->
        ioq_exit_timeout_async]}].
 
 init_per_suite(Config) ->
+    logger:add_handler_filter(default,
+      checkio_filter,
+      {fun F(#{ msg := {string,Str}} = Log, _State) ->
+               case re:run(Str,"(fds in pollset)|(Bad value on output port)") of
+                   {match,_} ->
+                       stop;
+                   _ ->
+                       Log
+               end;
+           F(#{ msg := {Fmt,Args}} = Log, State) when not is_atom(Fmt) ->
+               F(Log#{ msg := {string,io_lib:format(Fmt,Args)}}, State);
+           F(Log, _State) ->
+               Log
+       end, undefined}),
     Config.
 
 end_per_suite(_Config) ->
+    logger:remove_handler_filter(default, checkio_filter),
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(poll_thread, Config) ->

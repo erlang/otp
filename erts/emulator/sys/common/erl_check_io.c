@@ -2955,12 +2955,8 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
     erts_dsprintf(dsbufp, "internal fds=%d\n", counters.internal_fds);
 #endif
     erts_dsprintf(dsbufp, "---------------------------------------------------------\n");
-    if (counters.num_errors > 0)
-        erts_send_error_to_logger_nogl(dsbufp);
-    else {
-        erts_free(ERTS_ALC_T_LOGGER_DSBUF, (void *) dsbufp->str);
-        erts_free(ERTS_ALC_T_LOGGER_DSBUF, (void *) dsbufp);
-    }
+
+    erts_send_error_to_logger_nogl(dsbufp);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_free(ERTS_ALC_T_TMP, (void *) counters.epep);
 #endif
