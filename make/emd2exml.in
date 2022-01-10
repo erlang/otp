@@ -317,7 +317,7 @@ parse(#state{line = Line} = S) ->
     parse(get_line(put_text(S, Line))).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Auxilary functions
+%%% Auxiliary functions
 %%%
 
 %%

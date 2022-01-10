@@ -1555,7 +1555,7 @@ Some influential environment variables:
   CXX         C++ compiler
   CXXFLAGS    C++ compiler flags
   LD          linker (is often overridden by configure)
-  LDFLAGS     linker flags (can be risky to set since LD may be overriden by
+  LDFLAGS     linker flags (can be risky to set since LD may be overridden by
               configure)
   LIBS        libraries
   DED_LD      linker for Dynamic Erlang Drivers (set all DED_LD* variables or

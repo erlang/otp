@@ -681,7 +681,7 @@ EOF
 done
 
 # Remove after possible old install (done in a separate pass since I think
-# the output looks nicer than if mixed). Note that we cannot test for existance
+# the output looks nicer than if mixed). Note that we cannot test for existence
 # in a portable way, so force remove.
 for file in "$@"; do
     test "$file" != "" || continue
