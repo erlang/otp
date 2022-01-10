@@ -496,9 +496,13 @@ cache_module_level(cleanup,_Config) ->
 
 format_report(_Config) ->
     {"~ts",["string"]} = logger:format_report("string"),
+    {"~tp",["strin"++$g]} =
+        logger:format_report("strin"++$g), %% improper list
     {"~tp",[term]} = logger:format_report(term),
     {"~tp",[[]]} = logger:format_report([]),
     {"    ~tp: ~tp",[key,value]} = logger:format_report([{key,value}]),
+    {"    ~tp: ~tp",[key,"strin"++$g]} =
+        logger:format_report([{key,"strin"++$g}]), %% improper list
     KeyVals = [{key1,value1},{key2,"value2"},{key3,[]}],
     KeyValRes =
         {"    ~tp: ~tp\n    ~tp: ~ts\n    ~tp: ~tp",
