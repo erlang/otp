@@ -152,7 +152,7 @@ static int ins_chars(byte *,int);
 static int del_chars(int);
 static int step_over_chars(int);
 static int insert_buf(byte*,int);
-static int write_buf(Uint32 *,int);
+static int write_buf(Uint32 *,int,int);
 static int outc(int c);
 static int move_cursor(int,int);
 static int cp_pos_to_col(int cp_pos);
@@ -942,7 +942,7 @@ static int put_chars(byte *s, int l)
     if (lpos > llen)
         llen = lpos;
     if (n > 0)
-      write_buf(lbuf + lpos - n, n);
+        write_buf(lbuf + lpos - n, n, 0);
     return TRUE;
 }
 
@@ -981,7 +981,7 @@ static int ins_chars(byte *s, int l)
 	driver_free(tbuf);
     }
     llen += n;
-    write_buf(lbuf + (lpos - n), llen - (lpos - n));
+    write_buf(lbuf + (lpos - n), llen - (lpos - n), 0);
     move_cursor(llen, lpos);
     return TRUE;
 }
@@ -1011,7 +1011,7 @@ static int del_chars(int n)
 	    memmove(lbuf + lpos, lbuf + pos, r * sizeof(Uint32));
 	llen -= l;
 	/* Write out characters after, blank the tail and jump back to lpos. */
-	write_buf(lbuf + lpos, r);
+	write_buf(lbuf + lpos, r, 0);
 	for (i = gcs ; i > 0; --i)
 	  outc(' ');
 	if (xn && COL(cp_pos_to_col(llen)+gcs) == 0)
@@ -1031,7 +1031,7 @@ static int del_chars(int n)
 	lpos -= l;
 	llen -= l;
 	/* Write out characters after, blank the tail and jump back to lpos. */
-	write_buf(lbuf + lpos, r);
+	write_buf(lbuf + lpos, r, 0);
 	for (i = gcs ; i > 0; --i)
           outc(' ');
         if (xn && COL(cp_pos_to_col(llen)+gcs) == 0)
@@ -1101,7 +1101,7 @@ static int insert_buf(byte *s, int n)
 	    DEBUGLOG(("insert_buf: ANSI Escape: \\e"));
 	    lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
 	} else if (ch == '\n' || ch == '\r') {
-	    write_buf(lbuf + buffpos, lpos - buffpos);
+	    write_buf(lbuf + buffpos, lpos - buffpos, 1);
                 outc('\r');
                 if (ch == '\n')
                     outc('\n');
@@ -1128,13 +1128,15 @@ static int insert_buf(byte *s, int n)
  * occur normally.
  */
 
-static int write_buf(Uint32 *s, int n)
+static int write_buf(Uint32 *s, int n, int next_char_is_crnl)
 {
     byte ubuf[4];
     int ubytes = 0, i;
     byte lastput = ' ';
 
     update_cols();
+
+    DEBUGLOG(("write_buf(%d, %d)",n,next_char_is_crnl));
 
     while (n > 0) {
 	if (!(*s & TAG_MASK) ) {
@@ -1199,9 +1201,22 @@ static int write_buf(Uint32 *s, int n)
 	    --s;
 	}
     }
-    /* Check landed in first column of new line and have 'xn' bug. */
+    /* Check landed in first column of new line and have 'xn' bug.
+     *   https://www.gnu.org/software/termutils/manual/termcap-1.3/html_node/termcap_27.html
+     *
+     * The 'xn' bugs (from what I understand) is that the terminal cursor does
+     * not wrap to the next line when the current line is full. For example:
+     *
+     * If the terminal column size is 20 and we output 20 'a' the cursor will be
+     * on row 1, column 21. While we actually want it at row 2 column 0. So to
+     * achieve this the code below emits " \b", which will move the cursor to the
+     * correct place.
+     *
+     * We should not apply this 'xn' workaround if we know that the next character
+     * to be emitted is a cr|nl as that will wrap by itself.
+     */
     n = s - lbuf;
-    if (xn && n != 0 && COL(cp_pos_to_col(n)) == 0) {
+    if (!next_char_is_crnl && xn && n != 0 && COL(cp_pos_to_col(n)) == 0) {
 	if (n >= llen) {
 	    outc(' ');
 	} else if (lastput == 0) { /* A multibyte UTF8 character */
