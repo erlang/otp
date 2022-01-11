@@ -602,18 +602,20 @@ meas(Config) when is_list(Config) ->
     {Time, Factor} =
         if
             (MFactor =:= 1) ->
-                {2, 100};
-            (MFactor =:= 2) ->
                 {3, 100};
+            (MFactor =:= 2) ->
+                {4, 100};
             (MFactor =:= 3) ->
-                {3, 200};
-            (MFactor =:= 4) ->
                 {4, 200};
             (MFactor =:= 4) ->
-                {4, 400};
+                {5, 200};
+            (MFactor =:= 5) ->
+                {5, 400};
             true ->
-                {5, 400}
+                {6, 400}
         end,
+    p("      Timetrap: ~p mins"
+      "~n      Factor:   ~p", [Time, Factor]),
     ct:timetrap(?MINS(Time)),
     WorkerNode = ?config(worker_node, Config),
     do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_meas, start, [Factor]).

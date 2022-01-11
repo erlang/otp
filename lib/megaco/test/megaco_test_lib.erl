@@ -940,7 +940,7 @@ linux_which_cpuinfo(wind_river) ->
     end;
 
 linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD)
+    %% Check for x86 (Intel or AMD or Power)
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
@@ -1447,13 +1447,23 @@ analyze_darwin_hw_model_identifier(HwInfo) ->
     proplists:get_value("model identifier", HwInfo, "-").
 
 analyze_darwin_hw_processor_name(HwInfo) ->
-    proplists:get_value("processor name", HwInfo, "-").
+    case proplists:get_value("processor name", HwInfo, "-") of
+        "-" ->
+            proplists:get_value("chip", HwInfo, "-");
+        N ->
+            N
+    end.
 
 analyze_darwin_hw_processor_speed(HwInfo) ->
     proplists:get_value("processor speed", HwInfo, "-").
 
 analyze_darwin_hw_number_of_processors(HwInfo) ->
-    proplists:get_value("number of processors", HwInfo, "-").
+    case analyze_darwin_hw_processor_name(HwInfo) of
+        "Apple M" ++ _ ->
+            proplists:get_value("number of processors", HwInfo, "1");
+        _ ->
+            proplists:get_value("number of processors", HwInfo, "-")
+    end.
 
 analyze_darwin_hw_total_number_of_cores(HwInfo) ->
     proplists:get_value("total number of cores", HwInfo, "-").
@@ -1534,8 +1544,65 @@ analyze_darwin_memory_to_factor(Mem) ->
 %% the speed may be a float, which we transforms into an integer of MHz.
 %% To calculate a factor based on processor speed, number of procs
 %% and number of cores is ... not an exact ... science ...
+%%
+%% If Apple processor, we don't know the speed, so ignore that for now...
+analyze_darwin_cpu_to_factor("Apple M" ++ _ = _ProcName,
+                             _ProcSpeedStr, NumProcStr, NumCoresStr) ->
+    %% io:format("analyze_darwin_cpu_to_factor(apple) -> entry with"
+    %%           "~n  ProcName:     ~p"
+    %%           "~n  ProcSpeedStr: ~p"
+    %%           "~n  NumProcStr:   ~p"
+    %%           "~n  NumCoresStr:  ~p"
+    %%           "~n", [_ProcName, _ProcSpeedStr, NumProcStr, NumCoresStr]),
+    NumProc = try list_to_integer(NumProcStr) of
+                  NumProcI ->
+                      NumProcI
+              catch
+                  _:_:_ ->
+                      1
+              end,
+    %% This is a string that looks like this: X (Y performance and Z efficiency)
+    NumCores = try string:tokens(NumCoresStr, [$\ ]) of
+                   [NCStr | _] ->
+                       try list_to_integer(NCStr) of
+                           NumCoresI ->
+                               NumCoresI
+                       catch
+                           _:_:_ ->
+                               1
+                       end
+               catch
+                   _:_:_ ->
+                       1
+               end,
+    if
+        (NumProc =:= 1) ->
+            if
+                (NumCores < 2) ->
+                    5;
+                (NumCores < 4) ->
+                    3;
+                (NumCores < 6) ->
+                    2;
+                true ->
+                    1
+            end;
+        true ->
+            if
+                (NumCores < 4) ->
+                    2;
+                true ->
+                    1
+            end
+    end;
 analyze_darwin_cpu_to_factor(_ProcName,
                              ProcSpeedStr, NumProcStr, NumCoresStr) ->
+    %% io:format("analyze_darwin_cpu_to_factor -> entry with"
+    %%           "~n  ProcName:     ~p"
+    %%           "~n  ProcSpeedStr: ~p"
+    %%           "~n  NumProcStr:   ~p"
+    %%           "~n  NumCoresStr:  ~p"
+    %%           "~n", [_ProcName, ProcSpeedStr, NumProcStr, NumCoresStr]),
     Speed = 
         case [string:to_lower(S) || S <- string:tokens(ProcSpeedStr, [$\ ])] of
             [SpeedStr, "mhz"] ->
