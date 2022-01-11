@@ -598,9 +598,25 @@ meas(suite) ->
     [];
 meas(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ct:timetrap(?MINS(5)),
+    MFactor = ?config(megaco_factor, Config),
+    {Time, Factor} =
+        if
+            (MFactor =:= 1) ->
+                {2, 100};
+            (MFactor =:= 2) ->
+                {3, 100};
+            (MFactor =:= 3) ->
+                {3, 200};
+            (MFactor =:= 4) ->
+                {4, 200};
+            (MFactor =:= 4) ->
+                {4, 400};
+            true ->
+                {5, 400}
+        end,
+    ct:timetrap(?MINS(Time)),
     WorkerNode = ?config(worker_node, Config),
-    do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_meas, start, [100]).
+    do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_meas, start, [Factor]).
 
 do_meas(SName, Node, Mod, Func, Args) ->
     put(sname, SName),
