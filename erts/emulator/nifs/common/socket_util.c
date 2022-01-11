@@ -225,7 +225,7 @@ void esock_encode_iov(ErlNifEnv*    env,
  * Decode an IO Vector. In erlang we represented this as a list of binaries.
  *
  * We assume that we have already figured out how long the iov (actually
- * eIOV) is (len), and therefor allocated an array of bins and iov to be
+ * eIOV) is (len), and therefore allocated an array of bins and iov to be
  * used.
  */
 
@@ -932,7 +932,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
  *    ifindex:  integer()
  *    hatype:   integer() (should be an atom really)
  *    pkttype:  integer() (should be an atom really)
- *    addr:     list()    (should be something usefull...)
+ *    addr:     list()    (should be something useful...)
  *
  */
 

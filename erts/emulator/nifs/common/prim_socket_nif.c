@@ -5791,7 +5791,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
      * Before we do anything else, we try to retrieve domain, type and protocol
      * This information is either present in the eopts map or if not we need
      * to "get" it from the system (getsockopt).
-     * Note that its not possible to get all of these on all platoforms,
+     * Note that its not possible to get all of these on all platforms,
      * and in those cases the user *must* provide us with them (eopts).
      *
      * We try the system first (since its more reliable) and if that fails
@@ -6160,8 +6160,8 @@ BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto)
 /* We should really have another API, so that we can return errno... */
 
 /* *** change network namespace ***
- * Retreive the current namespace and set the new.
- * Return result and previous namespace if successfull.
+ * Retrieve the current namespace and set the new.
+ * Return result and previous namespace if successful.
  */
 #ifndef __WIN32__
 static
@@ -7059,7 +7059,7 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
 
 /* *** esock_accept_accepting_other ***
  * Handles when the another acceptor makes an attempt, which
- * results (maybe) in the request beeing pushed onto the
+ * results (maybe) in the request being pushed onto the
  * acceptor queue.
  */
 #ifndef __WIN32__
@@ -7101,7 +7101,7 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
         ESOCK_ASSERT( DEMONP("esock_accept_busy_retry - select failed",
                              env, descP, &descP->currentAcceptor.mon) == 0);
         /* It is very unlikely that a next acceptor will be able
-         * to do anything succesful, but we will clean the queue
+         * to do anything successful, but we will clean the queue
          */
         if (!activate_next_acceptor(env, descP, sockRef)) {
             SSDBG( descP,
@@ -8353,7 +8353,7 @@ esock_sendfile(ErlNifEnv       *env,
 
             if ((res < 0) && (error == EINVAL)) {
                 /* On e.b SunOS 5.10 using sfv_len > file size
-                 * lands here - we regard this as a succesful send.
+                 * lands here - we regard this as a successful send.
                  * All other causes for EINVAL are avoided,
                  * except for .sfv_fd not seekable, which would
                  * give bytes_sent == 0 that we would interpret
@@ -9527,7 +9527,7 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
 #endif
 
     /* This nif is executed in a dirty scheduler just so that
-     * it can "hang" (whith minumum effect on the VM) while the
+     * it can "hang" (with minimum effect on the VM) while the
      * kernel writes our buffers. IF we have set the linger option
      * for this ({true, integer() > 0}). For this to work we must
      * be blocking...
@@ -12895,7 +12895,7 @@ ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
 		  "\r\n", descP->sock, keys[3], vals[3]) );
 	}
 
-	/* Guard agains cut-and-paste errors */
+	/* Guard against cut-and-paste errors */
 	ESOCK_ASSERT( numKeys == NUM(vals) );
 
 	/* Make control message header map */
@@ -15211,7 +15211,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
 
 /* *** send_error_waiting_writers ***
  *
- * Process all waiting writers when a fatal error has occured.
+ * Process all waiting writers when a fatal error has occurred.
  * All waiting writers will be "aborted", that is a
  * nif_abort message will be sent (with ref and reason).
  */
@@ -15245,7 +15245,7 @@ void send_error_waiting_writers(ErlNifEnv*       env,
 
 /* *** send_check_retry ***
  *
- * Processing done upon uncomplete or blocked send.
+ * Processing done upon incomplete or blocked send.
  *
  * We failed to write the *entire* packet (anything less
  * then size of the packet, which is 0 <= written < sizeof
@@ -15509,7 +15509,7 @@ recv_update_current_reader(ErlNifEnv*       env,
 /* *** recv_error_current_reader ***
  *
  * Process the current reader and any waiting readers
- * when a read (fatal) error has occured.
+ * when a read (fatal) error has occurred.
  * All waiting readers will be "aborted", that is a 
  * nif_abort message will be sent (with ref and reason).
  */
@@ -15680,7 +15680,7 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
         /* Send up each chunk of data for each of the read
          * and let the erlang code assemble it: {more, Bin}
          * (when complete it should return {ok, Bin}).
-         * We need to read atleast one more time to be sure if its
+         * We need to read at least one more time to be sure if its
          * done...
          *
          * Also, we need to check if the rNumCnt has reached its max (rNum),
@@ -15887,7 +15887,7 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
 /* *** recv_check_fail_econnreset ***
  *
- * We detected that the socket was closed wile reading.
+ * We detected that the socket was closed while reading.
  * Inform current and waiting readers.
  */
 #ifndef __WIN32__
@@ -15988,7 +15988,7 @@ ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
 
 /* *** recv_check_partial ***
  *
- * Handle a sucessful recv which only partly filled the specified buffer.
+ * Handle a successful recv which only partly filled the specified buffer.
  */
 #ifndef __WIN32__
 static
@@ -16201,7 +16201,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
     } else {
 
-        /* +++ We sucessfully got a message - time to encode the address +++ */
+        /* +++ We successfully got a message - time to encode the address +++ */
 
         ERL_NIF_TERM eSockAddr;
 
@@ -16308,7 +16308,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
 
     } else {
 
-        /* +++ We sucessfully got a message - time to encode it +++ */
+        /* +++ We successfully got a message - time to encode it +++ */
 
         res = recvmsg_check_msg(env, descP, read, msgHdrP,
                                 dataBufP, ctrlBufP, sockRef);
@@ -16595,7 +16595,7 @@ void encode_cmsgs(ErlNifEnv*       env,
                         "\r\n   %T: %T"
                         "\r\n", descP->sock, keys[3], vals[3]) );
 
-            /* Guard agains cut-and-paste errors */
+            /* Guard against cut-and-paste errors */
             ESOCK_ASSERT( numKeys == NUM(vals) );
             ESOCK_ASSERT( MKMA(env, keys, vals,
                                numKeys - (have_value ? 0 : 1), &cmsgHdr) );
@@ -17409,7 +17409,7 @@ BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
         return FALSE;
     }
 
-    // Succesful decode
+    // Successful decode
 
     type = cmsgSpecP->type;
 
@@ -17509,7 +17509,7 @@ BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*   env,
         return FALSE;
     }
 
-    // Succesful decode
+    // Successful decode
 
     SSDBG( descP,
            ("SOCKET",
@@ -19198,7 +19198,7 @@ ESockRequestQueueElement* qpop(ESockRequestQueue* q)
     ESockRequestQueueElement* e = q->first;
     
     if (e != NULL) {
-        /* Atleast one element in the queue */
+        /* At least one element in the queue */
         if (e == q->last) {
             /* Only one element in the queue */
             q->first = q->last = NULL;

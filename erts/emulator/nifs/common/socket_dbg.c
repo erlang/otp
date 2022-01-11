@@ -85,7 +85,7 @@ BOOLEAN_T esock_dbg_init(char* filename)
 
     if (fp != NULL) {
         esock_dbgout = fp;
-        return TRUE; // Succesful file open
+        return TRUE; // Successful file open
     }
 
     esock_dbgout = stdout;

@@ -750,7 +750,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 
 
 
-/* Given the provided sock(et) address (and flags), retreive the host and
+/* Given the provided sock(et) address (and flags), retrieve the host and
  * service info.
  */
 #if !defined(__WIN32__) && defined(HAVE_GETNAMEINFO)
@@ -1251,7 +1251,7 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
 
 
 
-/* Calculate the length of the interface adress linked list
+/* Calculate the length of the interface address linked list
  * The list is NULL-terminated, so the only way is to
  * iterate through the list until we find next = NULL.
  */
@@ -1994,7 +1994,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
 
 
 
-/* Calculate the length of the adress info linked list
+/* Calculate the length of the address info linked list
  * The list is NULL-terminated, so the only way is to
  * iterate through the list until we find next = NULL.
  */
@@ -2107,8 +2107,8 @@ void make_address_info(ErlNifEnv*    env,
 /* We should really have another API, so that we can return errno... */
 
 /* *** change network namespace ***
- * Retreive the current namespace and set the new.
- * Return result and previous namespace if successfull.
+ * Retrieve the current namespace and set the new.
+ * Return result and previous namespace if successful.
  */
 #if !defined(__WIN32__)
 static
