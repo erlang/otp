@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,6 @@ static ErlNifFunc nif_funcs[] = {
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
-    {"engine_finish_nif", 1, engine_finish_nif, 0},
     {"engine_free_nif", 1, engine_free_nif, 0},
     {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif, 0},
     {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif, 0},
@@ -124,7 +123,9 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_next_nif", 1, engine_get_next_nif, 0},
     {"engine_get_id_nif", 1, engine_get_id_nif, 0},
     {"engine_get_name_nif", 1, engine_get_name_nif, 0},
-    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0},
+    {"ensure_engine_loaded_nif", 3, ensure_engine_loaded_nif, 0},
+    {"ensure_engine_unloaded_nif", 2, ensure_engine_unloaded_nif, 0}
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
@@ -199,6 +200,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         return __LINE__;
     }
     if (!init_engine_ctx(env)) {
+        return __LINE__;
+    }
+    if (!create_engine_mutex(env)) {
         return __LINE__;
     }
 
@@ -301,5 +305,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
-    --library_refc;
+    if(--library_refc == 0) {
+        destroy_engine_mutex(env);
+    }
 }
