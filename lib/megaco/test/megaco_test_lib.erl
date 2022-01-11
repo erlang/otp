@@ -1915,10 +1915,10 @@ analyze_and_print_win_host_info(Version) ->
               "~n   System Manufacturer:    ~s"
               "~n   System Model:           ~s"
               "~n   Number of Processor(s): ~s"
-              "~n   Total Physical Memory:  ~s"
+              "~n   Total Physical Memory:  ~s (~w)"
               "~n   Num Online Schedulers:  ~s"
               "~n", [OsName, OsVersion, Version,
-		     SysMan, SysMod, NumProcs, TotPhysMem,
+		     SysMan, SysMod, NumProcs, TotPhysMem, TotPhysMem,
 		     str_num_schedulers()]),
     MemFactor =
         try
