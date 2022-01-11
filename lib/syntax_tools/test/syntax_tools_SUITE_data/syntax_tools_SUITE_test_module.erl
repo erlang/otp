@@ -235,8 +235,8 @@ substr1(String, _L) when is_list(String) -> [].	     %Be nice!
 substr2(String, 1) when is_list(String) -> String;
 substr2([_|String], S) -> substr2(String, S-1).
 
-%% tokens(String, Seperators).
-%%  Return a list of tokens seperated by characters in Seperators.
+%% tokens(String, Separators).
+%%  Return a list of tokens separated by characters in Separators.
 
 -spec tokens(String, SeparatorList) -> Tokens when
       String :: string(),
