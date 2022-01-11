@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ZONELIST_H_INCLUDED
 #define ASMJIT_CORE_ZONELIST_H_INCLUDED
@@ -31,17 +13,28 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_zone
 //! \{
 
-// ============================================================================
-// [asmjit::ZoneListNode]
-// ============================================================================
-
 //! Node used by \ref ZoneList template.
 template<typename NodeT>
 class ZoneListNode {
 public:
   ASMJIT_NONCOPYABLE(ZoneListNode)
 
-  NodeT* _listNodes[Globals::kLinkCount];
+  //! \name Constants
+  //! \{
+
+  enum : size_t {
+    kNodeIndexPrev = 0,
+    kNodeIndexNext = 1
+  };
+
+  //! \}
+
+  //! \name Members
+  //! \{
+
+  NodeT* _listNodes[2];
+
+  //! \}
 
   //! \name Construction & Destruction
   //! \{
@@ -57,18 +50,14 @@ public:
   //! \name Accessors
   //! \{
 
-  inline bool hasPrev() const noexcept { return _listNodes[Globals::kLinkPrev] != nullptr; }
-  inline bool hasNext() const noexcept { return _listNodes[Globals::kLinkNext] != nullptr; }
+  inline bool hasPrev() const noexcept { return _listNodes[kNodeIndexPrev] != nullptr; }
+  inline bool hasNext() const noexcept { return _listNodes[kNodeIndexNext] != nullptr; }
 
-  inline NodeT* prev() const noexcept { return _listNodes[Globals::kLinkPrev]; }
-  inline NodeT* next() const noexcept { return _listNodes[Globals::kLinkNext]; }
+  inline NodeT* prev() const noexcept { return _listNodes[kNodeIndexPrev]; }
+  inline NodeT* next() const noexcept { return _listNodes[kNodeIndexNext]; }
 
   //! \}
 };
-
-// ============================================================================
-// [asmjit::ZoneList<T>]
-// ============================================================================
 
 //! Zone allocated list container that uses nodes of `NodeT` type.
 template <typename NodeT>
@@ -76,7 +65,22 @@ class ZoneList {
 public:
   ASMJIT_NONCOPYABLE(ZoneList)
 
-  NodeT* _nodes[Globals::kLinkCount];
+  //! \name Constants
+  //! \{
+
+  enum : size_t {
+    kNodeIndexFirst = 0,
+    kNodeIndexLast = 1
+  };
+
+  //! \}
+
+  //! \name Members
+  //! \{
+
+  NodeT* _nodes[2];
+
+  //! \}
 
   //! \name Construction & Destruction
   //! \{
@@ -98,8 +102,8 @@ public:
   //! \{
 
   inline bool empty() const noexcept { return _nodes[0] == nullptr; }
-  inline NodeT* first() const noexcept { return _nodes[Globals::kLinkFirst]; }
-  inline NodeT* last() const noexcept { return _nodes[Globals::kLinkLast]; }
+  inline NodeT* first() const noexcept { return _nodes[kNodeIndexFirst]; }
+  inline NodeT* last() const noexcept { return _nodes[kNodeIndexLast]; }
 
   //! \}
 
@@ -140,11 +144,11 @@ public:
     node->_listNodes[ dir] = next;
   }
 
-  inline void append(NodeT* node) noexcept { _addNode(node, Globals::kLinkLast); }
-  inline void prepend(NodeT* node) noexcept { _addNode(node, Globals::kLinkFirst); }
+  inline void append(NodeT* node) noexcept { _addNode(node, kNodeIndexLast); }
+  inline void prepend(NodeT* node) noexcept { _addNode(node, kNodeIndexFirst); }
 
-  inline void insertAfter(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, Globals::kLinkNext); }
-  inline void insertBefore(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, Globals::kLinkPrev); }
+  inline void insertAfter(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexNext); }
+  inline void insertBefore(NodeT* ref, NodeT* node) noexcept { _insertNode(ref, node, NodeT::kNodeIndexPrev); }
 
   inline NodeT* unlink(NodeT* node) noexcept {
     NodeT* prev = node->prev();

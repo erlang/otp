@@ -95,20 +95,20 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
                                          unsigned num_functions)
         : BeamModuleAssembler(ga, mod, num_labels) {
     codeHeader = a.newLabel();
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(codeHeader);
 
     embed_zeros(sizeof(BeamCodeHeader) +
                 sizeof(ErtsCodeInfo *) * num_functions);
 
     floatMax = a.newLabel();
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(floatMax);
     double max = DBL_MAX;
     a.embed((char *)&max, sizeof(double));
 
     floatSignMask = a.newLabel();
-    a.align(kAlignCode, 16); /* 128-bit aligned */
+    a.align(AlignMode::kCode, 16); /* 128-bit aligned */
     a.bind(floatSignMask);
     uint64_t signMask = 0x7FFFFFFFFFFFFFFFul;
     a.embed((char *)&signMask, sizeof(double));
@@ -116,31 +116,31 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     /* Shared trampoline for function_clause errors, which can't jump straight
      * to `i_func_info_shared` due to size restrictions. */
     funcInfo = a.newLabel();
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(funcInfo);
     abs_jmp(ga->get_i_func_info_shared());
 
     /* Shared trampoline for yielding on function ingress. */
     funcYield = a.newLabel();
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(funcYield);
     abs_jmp(ga->get_i_test_yield_shared());
 
     /* Setup the early_nif/breakpoint trampoline. */
     genericBPTramp = a.newLabel();
-    a.align(kAlignCode, 16);
+    a.align(AlignMode::kCode, 16);
     a.bind(genericBPTramp);
     {
         a.ret();
 
-        a.align(kAlignCode, 16);
+        a.align(AlignMode::kCode, 16);
         abs_jmp(ga->get_call_nif_early());
 
-        a.align(kAlignCode, 16);
+        a.align(AlignMode::kCode, 16);
         aligned_call(ga->get_generic_bp_local());
         a.ret();
 
-        a.align(kAlignCode, 16);
+        a.align(AlignMode::kCode, 16);
         ASSERT(a.offset() - code.labelOffsetFromBase(genericBPTramp) == 16 * 3);
         aligned_call(ga->get_generic_bp_local());
         abs_jmp(ga->get_call_nif_early());
@@ -204,7 +204,7 @@ Label BeamModuleAssembler::embed_vararg_rodata(const std::vector<ArgVal> &args,
             char as_char[1];
         } data;
 
-        a.align(kAlignData, 8);
+        a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
         case TAG_x:
             data.as_beam = make_loader_x_reg(arg.getValue());
@@ -274,7 +274,7 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
         a.ud2();
     }
 
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(next);
     ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
@@ -378,7 +378,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
         a.nop();
     }
 
-    a.align(kAlignCode, sizeof(UWord));
+    a.align(AlignMode::kCode, sizeof(UWord));
     a.embed(&info.u.gen_bp, sizeof(info.u.gen_bp));
     a.embed(&info.mfa, sizeof(info.mfa));
 }
@@ -391,7 +391,7 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
 void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
                                              const ArgVal &Alignment) {
     ASSERT(Alignment.getType() == ArgVal::u);
-    a.align(kAlignCode, Alignment.getValue());
+    a.align(AlignMode::kCode, Alignment.getValue());
     emit_label(Label);
 }
 
@@ -550,7 +550,7 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
     code.relocateToBase((uint64_t)buff);
     code.copyFlattenedData(buff,
                            code.codeSize(),
-                           CodeHolder::kCopyPadSectionBuffer);
+                           CopySectionFlags::kPadSectionBuffer);
 }
 
 BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {

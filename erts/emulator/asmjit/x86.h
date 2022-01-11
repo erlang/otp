@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_H_INCLUDED
 #define ASMJIT_X86_H_INCLUDED
@@ -40,15 +22,14 @@
 //! ### Supported Instructions
 //!
 //!   - Emitters:
-//!     - \ref x86::EmitterExplicitT - Provides all instructions that use
-//!       explicit operands, provides also utility functions. The member
-//!       functions provided are part of all X86 emitters.
-//!     - \ref x86::EmitterImplicitT - Provides all instructions that use
-//!       implicit operands, these cannot be used with \ref x86::Compiler.
+//!     - \ref x86::EmitterExplicitT - Provides all instructions that use explicit operands, provides also utility
+//!       functions. The member functions provided are part of all X86 emitters.
+//!     - \ref x86::EmitterImplicitT - Provides all instructions that use implicit operands, these cannot be used
+//!       with \ref x86::Compiler.
 //!
 //!   - Instruction representation:
-//!     - \ref x86::Inst::Id - instruction identifiers.
-//!     - \ref x86::Inst::Options - instruction options.
+//!     - \ref x86::Inst::Id - Provides instruction identifiers for both X86/X86_64 architectures.
+//!     - \ref InstOptions - Provides generic and X86/X86_64 specific options.
 //!
 //! ### Register Operands
 //!
@@ -74,34 +55,28 @@
 //!
 //! ### Memory Operands
 //!
-//!   - \ref x86::Mem - X86/X64 memory operand that provides support for all
-//!     X86 and X64 addressing features including absolute addresses, index
-//!     scales, and segment override prefixes.
-//!
-//! ### Other
-//!
-//!   - \ref x86::Features - X86/X64 CPU features on top of \ref BaseFeatures.
+//!   - \ref x86::Mem - X86/X64 memory operand that provides support for all X86 and X64 addressing features
+//!     including absolute addresses, index scales, and segment override prefixes.
 //!
 //! ### Status and Control Words
 //!
-//!   - \ref asmjit::x86::FpuWord::Status - FPU status word.
-//!   - \ref asmjit::x86::FpuWord::Control - FPU control word.
+//!   - \ref x86::FpuStatusWord - FPU status word bits / decomposition.
+//!   - \ref x86::FpuControlWord - FPU control word bits / decomposition.
 //!
-//! ### Predicates
+//! ### Predicates (immediate values)
 //!
-//!   - \ref x86::Predicate - namespace that provides X86/X64 predicates.
-//!     - \ref x86::Predicate::Cmp - `CMP[PD|PS|SD|SS]` predicate (SSE+).
-//!     - \ref x86::Predicate::PCmpStr - `[V]PCMP[I|E]STR[I|M]` predicate (SSE4.1+).
-//!     - \ref x86::Predicate::Round - `ROUND[PD|PS|SD|SS]` predicate (SSE+).
-//!     - \ref x86::Predicate::VCmp - `VCMP[PD|PS|SD|SS]` predicate (AVX+).
-//!     - \ref x86::Predicate::VFixupImm - `VFIXUPIMM[PD|PS|SD|SS]` predicate (AVX512+).
-//!     - \ref x86::Predicate::VFPClass - `VFPCLASS[PD|PS|SD|SS]` predicate (AVX512+).
-//!     - \ref x86::Predicate::VGetMant - `VGETMANT[PD|PS|SD|SS]` predicate (AVX512+).
-//!     - \ref x86::Predicate::VPCmp - `VPCMP[U][B|W|D|Q]` predicate (AVX512+).
-//!     - \ref x86::Predicate::VPCom - `VPCOM[U][B|W|D|Q]` predicate (XOP).
-//!     - \ref x86::Predicate::VRange - `VRANGE[PD|PS|SD|SS]` predicate (AVX512+).
-//!     - \ref x86::Predicate::VReduce - `REDUCE[PD|PS|SD|SS]` predicate (AVX512+).
-//!   - \ref x86::TLog - namespace that provides `VPTERNLOG[D|Q]` predicate / operations.
+//!   - \ref x86::CmpImm - `CMP[PD|PS|SD|SS]` predicate (SSE+).
+//!   - \ref x86::PCmpStrImm - `[V]PCMP[I|E]STR[I|M]` predicate (SSE4.1+, AVX+).
+//!   - \ref x86::RoundImm - `[V]ROUND[PD|PS|SD|SS]` predicate (SSE+, AVX+).
+//!   - \ref x86::VCmpImm - `VCMP[PD|PS|SD|SS]` predicate (AVX+).
+//!   - \ref x86::VFixupImm - `VFIXUPIMM[PD|PS|SD|SS]` predicate (AVX512+).
+//!   - \ref x86::VFPClassImm - `VFPCLASS[PD|PS|SD|SS]` predicate (AVX512+).
+//!   - \ref x86::VGetMantImm - `VGETMANT[PD|PS|SD|SS]` predicate (AVX512+).
+//!   - \ref x86::VPCmpImm - `VPCMP[U][B|W|D|Q]` predicate (AVX512+).
+//!   - \ref x86::VPComImm - `VPCOM[U][B|W|D|Q]` predicate (XOP).
+//!   - \ref x86::VRangeImm - `VRANGE[PD|PS|SD|SS]` predicate (AVX512+).
+//!   - \ref x86::VReduceImm - `REDUCE[PD|PS|SD|SS]` predicate (AVX512+).
+//!   - \ref x86::TLogImm - `VPTERNLOG[D|Q]` predicate and operations (AVX512+).
 
 #include "core.h"
 
@@ -110,7 +85,6 @@
 #include "x86/x86builder.h"
 #include "x86/x86compiler.h"
 #include "x86/x86emitter.h"
-#include "x86/x86features.h"
 #include "x86/x86globals.h"
 #include "x86/x86instdb.h"
 #include "x86/x86operand.h"

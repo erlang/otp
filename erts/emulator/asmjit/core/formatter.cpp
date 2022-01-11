@@ -1,43 +1,26 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #ifndef ASMJIT_NO_LOGGING
 
+#include "../core/archtraits.h"
 #include "../core/builder.h"
 #include "../core/codeholder.h"
 #include "../core/compiler.h"
 #include "../core/emitter.h"
-#include "../core/formatter.h"
+#include "../core/formatter_p.h"
 #include "../core/string.h"
 #include "../core/support.h"
 #include "../core/type.h"
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   #include "../x86/x86formatter_p.h"
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   #include "../arm/armformatter_p.h"
 #endif
 
@@ -47,46 +30,64 @@ ASMJIT_BEGIN_NAMESPACE
 class VirtReg;
 #endif
 
-// ============================================================================
-// [asmjit::Formatter]
-// ============================================================================
-
 namespace Formatter {
 
-Error formatTypeId(String& sb, uint32_t typeId) noexcept {
-  if (typeId == Type::kIdVoid)
+static const char wordNameTable[][8] = {
+  "db",
+  "dw",
+  "dd",
+  "dq",
+  "byte",
+  "half",
+  "word",
+  "hword",
+  "dword",
+  "qword",
+  "xword",
+  "short",
+  "long",
+  "quad"
+};
+
+
+Error formatTypeId(String& sb, TypeId typeId) noexcept {
+  if (typeId == TypeId::kVoid)
     return sb.append("void");
 
-  if (!Type::isValid(typeId))
+  if (!TypeUtils::isValid(typeId))
     return sb.append("unknown");
 
   const char* typeName = "unknown";
-  uint32_t typeSize = Type::sizeOf(typeId);
+  uint32_t typeSize = TypeUtils::sizeOf(typeId);
+  TypeId scalarType = TypeUtils::scalarOf(typeId);
 
-  uint32_t baseId = Type::baseOf(typeId);
-  switch (baseId) {
-    case Type::kIdIntPtr : typeName = "iptr"  ; break;
-    case Type::kIdUIntPtr: typeName = "uptr"  ; break;
-    case Type::kIdI8     : typeName = "i8"    ; break;
-    case Type::kIdU8     : typeName = "u8"    ; break;
-    case Type::kIdI16    : typeName = "i16"   ; break;
-    case Type::kIdU16    : typeName = "u16"   ; break;
-    case Type::kIdI32    : typeName = "i32"   ; break;
-    case Type::kIdU32    : typeName = "u32"   ; break;
-    case Type::kIdI64    : typeName = "i64"   ; break;
-    case Type::kIdU64    : typeName = "u64"   ; break;
-    case Type::kIdF32    : typeName = "f32"   ; break;
-    case Type::kIdF64    : typeName = "f64"   ; break;
-    case Type::kIdF80    : typeName = "f80"   ; break;
-    case Type::kIdMask8  : typeName = "mask8" ; break;
-    case Type::kIdMask16 : typeName = "mask16"; break;
-    case Type::kIdMask32 : typeName = "mask32"; break;
-    case Type::kIdMask64 : typeName = "mask64"; break;
-    case Type::kIdMmx32  : typeName = "mmx32" ; break;
-    case Type::kIdMmx64  : typeName = "mmx64" ; break;
+  switch (scalarType) {
+    case TypeId::kIntPtr : typeName = "intptr" ; break;
+    case TypeId::kUIntPtr: typeName = "uintptr"; break;
+    case TypeId::kInt8   : typeName = "int8"   ; break;
+    case TypeId::kUInt8  : typeName = "uint8"  ; break;
+    case TypeId::kInt16  : typeName = "int16"  ; break;
+    case TypeId::kUInt16 : typeName = "uint16" ; break;
+    case TypeId::kInt32  : typeName = "int32"  ; break;
+    case TypeId::kUInt32 : typeName = "uint32" ; break;
+    case TypeId::kInt64  : typeName = "int64"  ; break;
+    case TypeId::kUInt64 : typeName = "uint64" ; break;
+    case TypeId::kFloat32: typeName = "float32"; break;
+    case TypeId::kFloat64: typeName = "float64"; break;
+    case TypeId::kFloat80: typeName = "float80"; break;
+    case TypeId::kMask8  : typeName = "mask8"  ; break;
+    case TypeId::kMask16 : typeName = "mask16" ; break;
+    case TypeId::kMask32 : typeName = "mask32" ; break;
+    case TypeId::kMask64 : typeName = "mask64" ; break;
+    case TypeId::kMmx32  : typeName = "mmx32"  ; break;
+    case TypeId::kMmx64  : typeName = "mmx64"  ; break;
+
+    default:
+      typeName = "unknown";
+      break;
   }
 
-  uint32_t baseSize = Type::sizeOf(baseId);
+  uint32_t baseSize = TypeUtils::sizeOf(scalarType);
   if (typeSize > baseSize) {
     uint32_t count = typeSize / baseSize;
     return sb.appendFormat("%sx%u", typeName, unsigned(count));
@@ -98,15 +99,15 @@ Error formatTypeId(String& sb, uint32_t typeId) noexcept {
 
 Error formatFeature(
   String& sb,
-  uint32_t arch,
+  Arch arch,
   uint32_t featureId) noexcept {
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::FormatterInternal::formatFeature(sb, featureId);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatFeature(sb, featureId);
 #endif
@@ -116,7 +117,7 @@ Error formatFeature(
 
 Error formatLabel(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
   uint32_t labelId) noexcept {
 
@@ -140,6 +141,9 @@ Error formatLabel(
 
       ASMJIT_PROPAGATE(sb.append('.'));
     }
+
+    if (le->type() == LabelType::kAnonymous)
+      ASMJIT_PROPAGATE(sb.append("L%u@", labelId));
     return sb.append(le->name());
   }
   else {
@@ -149,18 +153,18 @@ Error formatLabel(
 
 Error formatRegister(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
-  uint32_t regType,
+  Arch arch,
+  RegType regType,
   uint32_t regId) noexcept {
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
@@ -170,17 +174,17 @@ Error formatRegister(
 
 Error formatOperand(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const Operand_& op) noexcept {
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
@@ -188,19 +192,97 @@ Error formatOperand(
   return kErrorInvalidArch;
 }
 
+ASMJIT_API Error formatDataType(
+  String& sb,
+  FormatFlags formatFlags,
+  Arch arch,
+  TypeId typeId) noexcept
+{
+  DebugUtils::unused(formatFlags);
+
+  if (ASMJIT_UNLIKELY(uint32_t(arch) > uint32_t(Arch::kMaxValue)))
+    return DebugUtils::errored(kErrorInvalidArch);
+
+  uint32_t typeSize = TypeUtils::sizeOf(typeId);
+  if (typeSize == 0 || typeSize > 8)
+    return DebugUtils::errored(kErrorInvalidState);
+
+  uint32_t typeSizeLog2 = Support::ctz(typeSize);
+  return sb.append(wordNameTable[size_t(ArchTraits::byArch(arch).typeNameIdByIndex(typeSizeLog2))]);
+}
+
+static Error formatDataHelper(String& sb, const char* typeName, uint32_t typeSize, const uint8_t* data, size_t itemCount) noexcept {
+  sb.append('.');
+  sb.append(typeName);
+  sb.append(' ');
+
+  for (size_t i = 0; i < itemCount; i++) {
+    uint64_t v = 0;
+
+    if (i != 0)
+      ASMJIT_PROPAGATE(sb.append(", ", 2));
+
+    switch (typeSize) {
+      case 1: v = data[0]; break;
+      case 2: v = Support::readU16u(data); break;
+      case 4: v = Support::readU32u(data); break;
+      case 8: v = Support::readU64u(data); break;
+    }
+
+    ASMJIT_PROPAGATE(sb.appendUInt(v, 16, typeSize * 2, StringFormatFlags::kAlternate));
+    data += typeSize;
+  }
+
+  return kErrorOk;
+}
+
+Error formatData(
+  String& sb,
+  FormatFlags formatFlags,
+  Arch arch,
+  TypeId typeId, const void* data, size_t itemCount, size_t repeatCount) noexcept
+{
+  DebugUtils::unused(formatFlags);
+
+  if (ASMJIT_UNLIKELY(!Environment::isDefinedArch(arch)))
+    return DebugUtils::errored(kErrorInvalidArch);
+
+  uint32_t typeSize = TypeUtils::sizeOf(typeId);
+  if (typeSize == 0)
+    return DebugUtils::errored(kErrorInvalidState);
+
+  if (!Support::isPowerOf2(typeSize)) {
+    itemCount *= typeSize;
+    typeSize = 1;
+  }
+
+  while (typeSize > 8u) {
+    typeSize >>= 1;
+    itemCount <<= 1;
+  }
+
+  uint32_t typeSizeLog2 = Support::ctz(typeSize);
+  const char* wordName = wordNameTable[size_t(ArchTraits::byArch(arch).typeNameIdByIndex(typeSizeLog2))];
+
+  if (repeatCount > 1)
+    ASMJIT_PROPAGATE(sb.appendFormat(".repeat %zu ", repeatCount));
+
+  return formatDataHelper(sb, wordName, typeSize, static_cast<const uint8_t*>(data), itemCount);
+}
+
 Error formatInstruction(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept {
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
 #endif
@@ -211,8 +293,8 @@ Error formatInstruction(
 #ifndef ASMJIT_NO_BUILDER
 
 #ifndef ASMJIT_NO_COMPILER
-static Error formatFuncValue(String& sb, uint32_t formatFlags, const BaseEmitter* emitter, FuncValue value) noexcept {
-  uint32_t typeId = value.typeId();
+static Error formatFuncValue(String& sb, FormatFlags formatFlags, const BaseEmitter* emitter, FuncValue value) noexcept {
+  TypeId typeId = value.typeId();
   ASMJIT_PROPAGATE(formatTypeId(sb, typeId));
 
   if (value.isAssigned()) {
@@ -241,10 +323,10 @@ static Error formatFuncValue(String& sb, uint32_t formatFlags, const BaseEmitter
 
 static Error formatFuncValuePack(
   String& sb,
-  uint32_t formatFlags,
-  const BaseEmitter* emitter,
+  FormatFlags formatFlags,
+  const BaseCompiler* cc,
   const FuncValuePack& pack,
-  VirtReg* const* vRegs) noexcept {
+  const RegOnly* vRegs) noexcept {
 
   size_t count = pack.count();
   if (!count)
@@ -261,11 +343,16 @@ static Error formatFuncValuePack(
     if (valueIndex)
       ASMJIT_PROPAGATE(sb.append(", "));
 
-    ASMJIT_PROPAGATE(formatFuncValue(sb, formatFlags, emitter, value));
+    ASMJIT_PROPAGATE(formatFuncValue(sb, formatFlags, cc, value));
 
     if (vRegs) {
-      static const char nullRet[] = "<none>";
-      ASMJIT_PROPAGATE(sb.appendFormat(" %s", vRegs[valueIndex] ? vRegs[valueIndex]->name() : nullRet));
+      const VirtReg* virtReg = nullptr;
+      static const char nullReg[] = "<none>";
+
+      if (vRegs[valueIndex].isReg() && cc->isVirtIdValid(vRegs[valueIndex].id()))
+        virtReg = cc->virtRegById(vRegs[valueIndex].id());
+
+      ASMJIT_PROPAGATE(sb.appendFormat(" %s", virtReg ? virtReg->name() : nullReg));
     }
   }
 
@@ -277,17 +364,17 @@ static Error formatFuncValuePack(
 
 static Error formatFuncRets(
   String& sb,
-  uint32_t formatFlags,
-  const BaseEmitter* emitter,
+  FormatFlags formatFlags,
+  const BaseCompiler* cc,
   const FuncDetail& fd) noexcept {
 
-  return formatFuncValuePack(sb, formatFlags, emitter, fd.retPack(), nullptr);
+  return formatFuncValuePack(sb, formatFlags, cc, fd.retPack(), nullptr);
 }
 
 static Error formatFuncArgs(
   String& sb,
-  uint32_t formatFlags,
-  const BaseEmitter* emitter,
+  FormatFlags formatFlags,
+  const BaseCompiler* cc,
   const FuncDetail& fd,
   const FuncNode::ArgPack* argPacks) noexcept {
 
@@ -299,7 +386,7 @@ static Error formatFuncArgs(
     if (argIndex)
       ASMJIT_PROPAGATE(sb.append(", "));
 
-    ASMJIT_PROPAGATE(formatFuncValuePack(sb, formatFlags, emitter, fd.argPack(argIndex), argPacks[argIndex]._data));
+    ASMJIT_PROPAGATE(formatFuncValuePack(sb, formatFlags, cc, fd.argPack(argIndex), argPacks[argIndex]._data));
   }
 
   return kErrorOk;
@@ -308,25 +395,26 @@ static Error formatFuncArgs(
 
 Error formatNode(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder,
   const BaseNode* node) noexcept {
 
-  if (node->hasPosition() && (formatFlags & FormatOptions::kFlagPositions) != 0)
+  if (node->hasPosition() && formatOptions.hasFlag(FormatFlags::kPositions))
     ASMJIT_PROPAGATE(sb.appendFormat("<%05u> ", node->position()));
 
+  size_t startLineIndex = sb.size();
+
   switch (node->type()) {
-    case BaseNode::kNodeInst:
-    case BaseNode::kNodeJump: {
+    case NodeType::kInst:
+    case NodeType::kJump: {
       const InstNode* instNode = node->as<InstNode>();
-      ASMJIT_PROPAGATE(
-        formatInstruction(sb, formatFlags, builder,
-          builder->arch(),
-          instNode->baseInst(), instNode->operands(), instNode->opCount()));
+      ASMJIT_PROPAGATE(formatInstruction(sb, formatOptions.flags(), builder,
+        builder->arch(),
+        instNode->baseInst(), instNode->operands(), instNode->opCount()));
       break;
     }
 
-    case BaseNode::kNodeSection: {
+    case NodeType::kSection: {
       const SectionNode* sectionNode = node->as<SectionNode>();
       if (builder->_code->isSectionValid(sectionNode->id())) {
         const Section* section = builder->_code->sectionById(sectionNode->id());
@@ -335,60 +423,64 @@ Error formatNode(
       break;
     }
 
-    case BaseNode::kNodeLabel: {
+    case NodeType::kLabel: {
       const LabelNode* labelNode = node->as<LabelNode>();
-      ASMJIT_PROPAGATE(formatLabel(sb, formatFlags, builder, labelNode->labelId()));
+      ASMJIT_PROPAGATE(formatLabel(sb, formatOptions.flags(), builder, labelNode->labelId()));
       ASMJIT_PROPAGATE(sb.append(":"));
       break;
     }
 
-    case BaseNode::kNodeAlign: {
+    case NodeType::kAlign: {
       const AlignNode* alignNode = node->as<AlignNode>();
-      ASMJIT_PROPAGATE(
-        sb.appendFormat("align %u (%s)",
-          alignNode->alignment(),
-          alignNode->alignMode() == kAlignCode ? "code" : "data"));
+      ASMJIT_PROPAGATE(sb.appendFormat(".align %u (%s)",
+        alignNode->alignment(),
+        alignNode->alignMode() == AlignMode::kCode ? "code" : "data"));
       break;
     }
 
-    case BaseNode::kNodeEmbedData: {
+    case NodeType::kEmbedData: {
       const EmbedDataNode* embedNode = node->as<EmbedDataNode>();
-      ASMJIT_PROPAGATE(sb.append("embed "));
-      if (embedNode->repeatCount() != 1)
-        ASMJIT_PROPAGATE(sb.appendFormat("[repeat=%zu] ", size_t(embedNode->repeatCount())));
-      ASMJIT_PROPAGATE(sb.appendFormat("%u bytes", embedNode->dataSize()));
+      ASMJIT_PROPAGATE(sb.append('.'));
+      ASMJIT_PROPAGATE(formatDataType(sb, formatOptions.flags(), builder->arch(), embedNode->typeId()));
+      ASMJIT_PROPAGATE(sb.appendFormat(" {Count=%zu Repeat=%zu TotalSize=%zu}", embedNode->itemCount(), embedNode->repeatCount(), embedNode->dataSize()));
       break;
     }
 
-    case BaseNode::kNodeEmbedLabel: {
+    case NodeType::kEmbedLabel: {
       const EmbedLabelNode* embedNode = node->as<EmbedLabelNode>();
       ASMJIT_PROPAGATE(sb.append(".label "));
-      ASMJIT_PROPAGATE(formatLabel(sb, formatFlags, builder, embedNode->labelId()));
+      ASMJIT_PROPAGATE(formatLabel(sb, formatOptions.flags(), builder, embedNode->labelId()));
       break;
     }
 
-    case BaseNode::kNodeEmbedLabelDelta: {
+    case NodeType::kEmbedLabelDelta: {
       const EmbedLabelDeltaNode* embedNode = node->as<EmbedLabelDeltaNode>();
       ASMJIT_PROPAGATE(sb.append(".label ("));
-      ASMJIT_PROPAGATE(formatLabel(sb, formatFlags, builder, embedNode->labelId()));
+      ASMJIT_PROPAGATE(formatLabel(sb, formatOptions.flags(), builder, embedNode->labelId()));
       ASMJIT_PROPAGATE(sb.append(" - "));
-      ASMJIT_PROPAGATE(formatLabel(sb, formatFlags, builder, embedNode->baseLabelId()));
+      ASMJIT_PROPAGATE(formatLabel(sb, formatOptions.flags(), builder, embedNode->baseLabelId()));
       ASMJIT_PROPAGATE(sb.append(")"));
       break;
     }
 
-    case BaseNode::kNodeComment: {
+    case NodeType::kConstPool: {
+      const ConstPoolNode* constPoolNode = node->as<ConstPoolNode>();
+      ASMJIT_PROPAGATE(sb.appendFormat("[ConstPool Size=%zu Alignment=%zu]", constPoolNode->size(), constPoolNode->alignment()));
+      break;
+    };
+
+    case NodeType::kComment: {
       const CommentNode* commentNode = node->as<CommentNode>();
       ASMJIT_PROPAGATE(sb.appendFormat("; %s", commentNode->inlineComment()));
       break;
     }
 
-    case BaseNode::kNodeSentinel: {
+    case NodeType::kSentinel: {
       const SentinelNode* sentinelNode = node->as<SentinelNode>();
       const char* sentinelName = nullptr;
 
       switch (sentinelNode->sentinelType()) {
-        case SentinelNode::kSentinelFuncEnd:
+        case SentinelType::kFuncEnd:
           sentinelName = "[FuncEnd]";
           break;
 
@@ -402,20 +494,22 @@ Error formatNode(
     }
 
 #ifndef ASMJIT_NO_COMPILER
-    case BaseNode::kNodeFunc: {
+    case NodeType::kFunc: {
       const FuncNode* funcNode = node->as<FuncNode>();
 
-      ASMJIT_PROPAGATE(formatLabel(sb, formatFlags, builder, funcNode->labelId()));
-      ASMJIT_PROPAGATE(sb.append(": "));
+      if (builder->isCompiler()) {
+        ASMJIT_PROPAGATE(formatLabel(sb, formatOptions.flags(), builder, funcNode->labelId()));
+        ASMJIT_PROPAGATE(sb.append(": "));
 
-      ASMJIT_PROPAGATE(formatFuncRets(sb, formatFlags, builder, funcNode->detail()));
-      ASMJIT_PROPAGATE(sb.append(" Func("));
-      ASMJIT_PROPAGATE(formatFuncArgs(sb, formatFlags, builder, funcNode->detail(), funcNode->argPacks()));
-      ASMJIT_PROPAGATE(sb.append(")"));
+        ASMJIT_PROPAGATE(formatFuncRets(sb, formatOptions.flags(), static_cast<const BaseCompiler*>(builder), funcNode->detail()));
+        ASMJIT_PROPAGATE(sb.append(" Func("));
+        ASMJIT_PROPAGATE(formatFuncArgs(sb, formatOptions.flags(), static_cast<const BaseCompiler*>(builder), funcNode->detail(), funcNode->argPacks()));
+        ASMJIT_PROPAGATE(sb.append(")"));
+      }
       break;
     }
 
-    case BaseNode::kNodeFuncRet: {
+    case NodeType::kFuncRet: {
       const FuncRetNode* retNode = node->as<FuncRetNode>();
       ASMJIT_PROPAGATE(sb.append("[FuncRet]"));
 
@@ -423,18 +517,17 @@ Error formatNode(
         const Operand_& op = retNode->_opArray[i];
         if (!op.isNone()) {
           ASMJIT_PROPAGATE(sb.append(i == 0 ? " " : ", "));
-          ASMJIT_PROPAGATE(formatOperand(sb, formatFlags, builder, builder->arch(), op));
+          ASMJIT_PROPAGATE(formatOperand(sb, formatOptions.flags(), builder, builder->arch(), op));
         }
       }
       break;
     }
 
-    case BaseNode::kNodeInvoke: {
+    case NodeType::kInvoke: {
       const InvokeNode* invokeNode = node->as<InvokeNode>();
-      ASMJIT_PROPAGATE(
-        formatInstruction(sb, formatFlags, builder,
-          builder->arch(),
-          invokeNode->baseInst(), invokeNode->operands(), invokeNode->opCount()));
+      ASMJIT_PROPAGATE(formatInstruction(sb, formatOptions.flags(), builder,
+        builder->arch(),
+        invokeNode->baseInst(), invokeNode->operands(), invokeNode->opCount()));
       break;
     }
 #endif
@@ -445,28 +538,38 @@ Error formatNode(
     }
   }
 
+  if (node->hasInlineComment()) {
+    size_t requiredPadding = paddingFromOptions(formatOptions, FormatPaddingGroup::kRegularLine);
+    size_t currentPadding = sb.size() - startLineIndex;
+
+    if (currentPadding < requiredPadding)
+      ASMJIT_PROPAGATE(sb.appendChars(' ', requiredPadding - currentPadding));
+
+    ASMJIT_PROPAGATE(sb.append("; "));
+    ASMJIT_PROPAGATE(sb.append(node->inlineComment()));
+  }
+
   return kErrorOk;
 }
 
-
 Error formatNodeList(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder) noexcept {
 
-  return formatNodeList(sb, formatFlags, builder, builder->firstNode(), nullptr);
+  return formatNodeList(sb, formatOptions, builder, builder->firstNode(), nullptr);
 }
 
 Error formatNodeList(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder,
   const BaseNode* begin,
   const BaseNode* end) noexcept {
 
   const BaseNode* node = begin;
   while (node != end) {
-    ASMJIT_PROPAGATE(formatNode(sb, formatFlags, builder, node));
+    ASMJIT_PROPAGATE(formatNode(sb, formatOptions, builder, node));
     ASMJIT_PROPAGATE(sb.append('\n'));
     node = node->next();
   }

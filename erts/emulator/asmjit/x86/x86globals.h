@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86GLOBALS_H_INCLUDED
 #define ASMJIT_X86_X86GLOBALS_H_INCLUDED
@@ -37,14 +19,100 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! \addtogroup asmjit_x86
 //! \{
 
-// ============================================================================
-// [asmjit::x86::Inst]
-// ============================================================================
+//! Condition code.
+enum class CondCode : uint8_t {
+  kO             = 0x00u,       //!<         OF==1
+  kNO            = 0x01u,       //!<         OF==0
+  kC             = 0x02u,       //!< CF==1
+  kB             = 0x02u,       //!< CF==1          (unsigned < )
+  kNAE           = 0x02u,       //!< CF==1          (unsigned < )
+  kNC            = 0x03u,       //!< CF==0
+  kAE            = 0x03u,       //!< CF==0          (unsigned >=)
+  kNB            = 0x03u,       //!< CF==0          (unsigned >=)
+  kE             = 0x04u,       //!<         ZF==1  (any_sign ==)
+  kZ             = 0x04u,       //!<         ZF==1  (any_sign ==)
+  kNE            = 0x05u,       //!<         ZF==0  (any_sign !=)
+  kNZ            = 0x05u,       //!<         ZF==0  (any_sign !=)
+  kBE            = 0x06u,       //!< CF==1 | ZF==1  (unsigned <=)
+  kNA            = 0x06u,       //!< CF==1 | ZF==1  (unsigned <=)
+  kA             = 0x07u,       //!< CF==0 & ZF==0  (unsigned > )
+  kNBE           = 0x07u,       //!< CF==0 & ZF==0  (unsigned > )
+  kS             = 0x08u,       //!<         SF==1  (is negative)
+  kNS            = 0x09u,       //!<         SF==0  (is positive or zero)
+  kP             = 0x0Au,       //!< PF==1
+  kPE            = 0x0Au,       //!< PF==1
+  kPO            = 0x0Bu,       //!< PF==0
+  kNP            = 0x0Bu,       //!< PF==0
+  kL             = 0x0Cu,       //!<         SF!=OF (signed < )
+  kNGE           = 0x0Cu,       //!<         SF!=OF (signed < )
+  kGE            = 0x0Du,       //!<         SF==OF (signed >=)
+  kNL            = 0x0Du,       //!<         SF==OF (signed >=)
+  kLE            = 0x0Eu,       //!< ZF==1 | SF!=OF (signed <=)
+  kNG            = 0x0Eu,       //!< ZF==1 | SF!=OF (signed <=)
+  kG             = 0x0Fu,       //!< ZF==0 & SF==OF (signed > )
+  kNLE           = 0x0Fu,       //!< ZF==0 & SF==OF (signed > )
+
+  kZero          = kZ,          //!< Zero flag.
+  kNotZero       = kNZ,         //!< Non-zero flag.
+
+  kSign          = kS,          //!< Sign flag.
+  kNotSign       = kNS,         //!< No sign flag.
+
+  kNegative      = kS,          //!< Sign flag.
+  kPositive      = kNS,         //!< No sign flag.
+
+  kOverflow      = kO,          //!< Overflow (signed).
+  kNotOverflow   = kNO,         //!< Not overflow (signed).
+
+  kEqual         = kE,          //!< `a == b` (equal).
+  kNotEqual      = kNE,         //!< `a != b` (not equal).
+
+  kSignedLT      = kL,          //!< `a <  b` (signed).
+  kSignedLE      = kLE,         //!< `a <= b` (signed).
+  kSignedGT      = kG,          //!< `a >  b` (signed).
+  kSignedGE      = kGE,         //!< `a >= b` (signed).
+
+  kUnsignedLT    = kB,          //!< `a <  b` (unsigned).
+  kUnsignedLE    = kBE,         //!< `a <= b` (unsigned).
+  kUnsignedGT    = kA,          //!< `a >  b` (unsigned).
+  kUnsignedGE    = kAE,         //!< `a >= b` (unsigned).
+
+  kParityEven    = kP,          //!< Even parity flag.
+  kParityOdd     = kPO,         //!< Odd parity flag.
+
+  kMaxValue      = 0x0Fu
+};
+
+//! \cond
+static constexpr CondCode _reverseCondTable[] = {
+  CondCode::kO,  // O  <- O
+  CondCode::kNO, // NO <- NO
+  CondCode::kA , // A  <- B
+  CondCode::kBE, // BE <- AE
+  CondCode::kE,  // E  <- E
+  CondCode::kNE, // NE <- NE
+  CondCode::kAE, // AE <- BE
+  CondCode::kB , // B  <- A
+  CondCode::kS,  // S  <- S
+  CondCode::kNS, // NS <- NS
+  CondCode::kPE, // PE <- PE
+  CondCode::kPO, // PO <- PO
+  CondCode::kG,  // G  <- L
+  CondCode::kLE, // LE <- GE
+  CondCode::kGE, // GE <- LE
+  CondCode::kL   // L  <- G
+};
+//! \endcond
+
+//! Reverses a condition code (reverses the corresponding operands of a comparison).
+static inline constexpr CondCode reverseCond(CondCode cond) noexcept { return _reverseCondTable[uint8_t(cond)]; }
+//! Negates a condition code.
+static inline constexpr CondCode negateCond(CondCode cond) noexcept { return CondCode(uint8_t(cond) ^ 1u); }
 
 //! Instruction.
 //!
-//! \note Only used to hold x86-specific enumerations and static functions.
-struct Inst : public BaseInst {
+//! \note Only used to hold x86-specific instruction identifiers and some additional helper functions.
+namespace Inst {
   //! Instruction id.
   enum Id : uint32_t {
     // ${InstId:Begin}
@@ -851,8 +919,10 @@ struct Inst : public BaseInst {
     kIdV4fnmaddps,                       //!< Instruction 'v4fnmaddps' {AVX512_4FMAPS}.
     kIdV4fnmaddss,                       //!< Instruction 'v4fnmaddss' {AVX512_4FMAPS}.
     kIdVaddpd,                           //!< Instruction 'vaddpd' {AVX|AVX512_F+VL}.
+    kIdVaddph,                           //!< Instruction 'vaddph' {AVX512_FP16+VL}.
     kIdVaddps,                           //!< Instruction 'vaddps' {AVX|AVX512_F+VL}.
     kIdVaddsd,                           //!< Instruction 'vaddsd' {AVX|AVX512_F}.
+    kIdVaddsh,                           //!< Instruction 'vaddsh' {AVX512_FP16}.
     kIdVaddss,                           //!< Instruction 'vaddss' {AVX|AVX512_F}.
     kIdVaddsubpd,                        //!< Instruction 'vaddsubpd' {AVX}.
     kIdVaddsubps,                        //!< Instruction 'vaddsubps' {AVX}.
@@ -889,61 +959,98 @@ struct Inst : public BaseInst {
     kIdVbroadcastsd,                     //!< Instruction 'vbroadcastsd' {AVX|AVX2|AVX512_F+VL}.
     kIdVbroadcastss,                     //!< Instruction 'vbroadcastss' {AVX|AVX2|AVX512_F+VL}.
     kIdVcmppd,                           //!< Instruction 'vcmppd' {AVX|AVX512_F+VL}.
+    kIdVcmpph,                           //!< Instruction 'vcmpph' {AVX512_FP16+VL}.
     kIdVcmpps,                           //!< Instruction 'vcmpps' {AVX|AVX512_F+VL}.
     kIdVcmpsd,                           //!< Instruction 'vcmpsd' {AVX|AVX512_F}.
+    kIdVcmpsh,                           //!< Instruction 'vcmpsh' {AVX512_FP16}.
     kIdVcmpss,                           //!< Instruction 'vcmpss' {AVX|AVX512_F}.
     kIdVcomisd,                          //!< Instruction 'vcomisd' {AVX|AVX512_F}.
+    kIdVcomish,                          //!< Instruction 'vcomish' {AVX512_FP16}.
     kIdVcomiss,                          //!< Instruction 'vcomiss' {AVX|AVX512_F}.
     kIdVcompresspd,                      //!< Instruction 'vcompresspd' {AVX512_F+VL}.
     kIdVcompressps,                      //!< Instruction 'vcompressps' {AVX512_F+VL}.
     kIdVcvtdq2pd,                        //!< Instruction 'vcvtdq2pd' {AVX|AVX512_F+VL}.
+    kIdVcvtdq2ph,                        //!< Instruction 'vcvtdq2ph' {AVX512_FP16+VL}.
     kIdVcvtdq2ps,                        //!< Instruction 'vcvtdq2ps' {AVX|AVX512_F+VL}.
     kIdVcvtne2ps2bf16,                   //!< Instruction 'vcvtne2ps2bf16' {AVX512_BF16+VL}.
     kIdVcvtneps2bf16,                    //!< Instruction 'vcvtneps2bf16' {AVX512_BF16+VL}.
     kIdVcvtpd2dq,                        //!< Instruction 'vcvtpd2dq' {AVX|AVX512_F+VL}.
+    kIdVcvtpd2ph,                        //!< Instruction 'vcvtpd2ph' {AVX512_FP16+VL}.
     kIdVcvtpd2ps,                        //!< Instruction 'vcvtpd2ps' {AVX|AVX512_F+VL}.
     kIdVcvtpd2qq,                        //!< Instruction 'vcvtpd2qq' {AVX512_DQ+VL}.
     kIdVcvtpd2udq,                       //!< Instruction 'vcvtpd2udq' {AVX512_F+VL}.
     kIdVcvtpd2uqq,                       //!< Instruction 'vcvtpd2uqq' {AVX512_DQ+VL}.
+    kIdVcvtph2dq,                        //!< Instruction 'vcvtph2dq' {AVX512_FP16+VL}.
+    kIdVcvtph2pd,                        //!< Instruction 'vcvtph2pd' {AVX512_FP16+VL}.
     kIdVcvtph2ps,                        //!< Instruction 'vcvtph2ps' {AVX512_F+VL & F16C}.
+    kIdVcvtph2psx,                       //!< Instruction 'vcvtph2psx' {AVX512_FP16+VL}.
+    kIdVcvtph2qq,                        //!< Instruction 'vcvtph2qq' {AVX512_FP16+VL}.
+    kIdVcvtph2udq,                       //!< Instruction 'vcvtph2udq' {AVX512_FP16+VL}.
+    kIdVcvtph2uqq,                       //!< Instruction 'vcvtph2uqq' {AVX512_FP16+VL}.
+    kIdVcvtph2uw,                        //!< Instruction 'vcvtph2uw' {AVX512_FP16+VL}.
+    kIdVcvtph2w,                         //!< Instruction 'vcvtph2w' {AVX512_FP16+VL}.
     kIdVcvtps2dq,                        //!< Instruction 'vcvtps2dq' {AVX|AVX512_F+VL}.
     kIdVcvtps2pd,                        //!< Instruction 'vcvtps2pd' {AVX|AVX512_F+VL}.
     kIdVcvtps2ph,                        //!< Instruction 'vcvtps2ph' {AVX512_F+VL & F16C}.
+    kIdVcvtps2phx,                       //!< Instruction 'vcvtps2phx' {AVX512_FP16+VL}.
     kIdVcvtps2qq,                        //!< Instruction 'vcvtps2qq' {AVX512_DQ+VL}.
     kIdVcvtps2udq,                       //!< Instruction 'vcvtps2udq' {AVX512_F+VL}.
     kIdVcvtps2uqq,                       //!< Instruction 'vcvtps2uqq' {AVX512_DQ+VL}.
     kIdVcvtqq2pd,                        //!< Instruction 'vcvtqq2pd' {AVX512_DQ+VL}.
+    kIdVcvtqq2ph,                        //!< Instruction 'vcvtqq2ph' {AVX512_FP16+VL}.
     kIdVcvtqq2ps,                        //!< Instruction 'vcvtqq2ps' {AVX512_DQ+VL}.
+    kIdVcvtsd2sh,                        //!< Instruction 'vcvtsd2sh' {AVX512_FP16}.
     kIdVcvtsd2si,                        //!< Instruction 'vcvtsd2si' {AVX|AVX512_F}.
     kIdVcvtsd2ss,                        //!< Instruction 'vcvtsd2ss' {AVX|AVX512_F}.
     kIdVcvtsd2usi,                       //!< Instruction 'vcvtsd2usi' {AVX512_F}.
+    kIdVcvtsh2sd,                        //!< Instruction 'vcvtsh2sd' {AVX512_FP16}.
+    kIdVcvtsh2si,                        //!< Instruction 'vcvtsh2si' {AVX512_FP16}.
+    kIdVcvtsh2ss,                        //!< Instruction 'vcvtsh2ss' {AVX512_FP16}.
+    kIdVcvtsh2usi,                       //!< Instruction 'vcvtsh2usi' {AVX512_FP16}.
     kIdVcvtsi2sd,                        //!< Instruction 'vcvtsi2sd' {AVX|AVX512_F}.
+    kIdVcvtsi2sh,                        //!< Instruction 'vcvtsi2sh' {AVX512_FP16}.
     kIdVcvtsi2ss,                        //!< Instruction 'vcvtsi2ss' {AVX|AVX512_F}.
     kIdVcvtss2sd,                        //!< Instruction 'vcvtss2sd' {AVX|AVX512_F}.
+    kIdVcvtss2sh,                        //!< Instruction 'vcvtss2sh' {AVX512_FP16}.
     kIdVcvtss2si,                        //!< Instruction 'vcvtss2si' {AVX|AVX512_F}.
     kIdVcvtss2usi,                       //!< Instruction 'vcvtss2usi' {AVX512_F}.
     kIdVcvttpd2dq,                       //!< Instruction 'vcvttpd2dq' {AVX|AVX512_F+VL}.
     kIdVcvttpd2qq,                       //!< Instruction 'vcvttpd2qq' {AVX512_F+VL}.
     kIdVcvttpd2udq,                      //!< Instruction 'vcvttpd2udq' {AVX512_F+VL}.
     kIdVcvttpd2uqq,                      //!< Instruction 'vcvttpd2uqq' {AVX512_DQ+VL}.
+    kIdVcvttph2dq,                       //!< Instruction 'vcvttph2dq' {AVX512_FP16+VL}.
+    kIdVcvttph2qq,                       //!< Instruction 'vcvttph2qq' {AVX512_FP16+VL}.
+    kIdVcvttph2udq,                      //!< Instruction 'vcvttph2udq' {AVX512_FP16+VL}.
+    kIdVcvttph2uqq,                      //!< Instruction 'vcvttph2uqq' {AVX512_FP16+VL}.
+    kIdVcvttph2uw,                       //!< Instruction 'vcvttph2uw' {AVX512_FP16+VL}.
+    kIdVcvttph2w,                        //!< Instruction 'vcvttph2w' {AVX512_FP16+VL}.
     kIdVcvttps2dq,                       //!< Instruction 'vcvttps2dq' {AVX|AVX512_F+VL}.
     kIdVcvttps2qq,                       //!< Instruction 'vcvttps2qq' {AVX512_DQ+VL}.
     kIdVcvttps2udq,                      //!< Instruction 'vcvttps2udq' {AVX512_F+VL}.
     kIdVcvttps2uqq,                      //!< Instruction 'vcvttps2uqq' {AVX512_DQ+VL}.
     kIdVcvttsd2si,                       //!< Instruction 'vcvttsd2si' {AVX|AVX512_F}.
     kIdVcvttsd2usi,                      //!< Instruction 'vcvttsd2usi' {AVX512_F}.
+    kIdVcvttsh2si,                       //!< Instruction 'vcvttsh2si' {AVX512_FP16}.
+    kIdVcvttsh2usi,                      //!< Instruction 'vcvttsh2usi' {AVX512_FP16}.
     kIdVcvttss2si,                       //!< Instruction 'vcvttss2si' {AVX|AVX512_F}.
     kIdVcvttss2usi,                      //!< Instruction 'vcvttss2usi' {AVX512_F}.
     kIdVcvtudq2pd,                       //!< Instruction 'vcvtudq2pd' {AVX512_F+VL}.
+    kIdVcvtudq2ph,                       //!< Instruction 'vcvtudq2ph' {AVX512_FP16+VL}.
     kIdVcvtudq2ps,                       //!< Instruction 'vcvtudq2ps' {AVX512_F+VL}.
     kIdVcvtuqq2pd,                       //!< Instruction 'vcvtuqq2pd' {AVX512_DQ+VL}.
+    kIdVcvtuqq2ph,                       //!< Instruction 'vcvtuqq2ph' {AVX512_FP16+VL}.
     kIdVcvtuqq2ps,                       //!< Instruction 'vcvtuqq2ps' {AVX512_DQ+VL}.
     kIdVcvtusi2sd,                       //!< Instruction 'vcvtusi2sd' {AVX512_F}.
+    kIdVcvtusi2sh,                       //!< Instruction 'vcvtusi2sh' {AVX512_FP16}.
     kIdVcvtusi2ss,                       //!< Instruction 'vcvtusi2ss' {AVX512_F}.
+    kIdVcvtuw2ph,                        //!< Instruction 'vcvtuw2ph' {AVX512_FP16+VL}.
+    kIdVcvtw2ph,                         //!< Instruction 'vcvtw2ph' {AVX512_FP16+VL}.
     kIdVdbpsadbw,                        //!< Instruction 'vdbpsadbw' {AVX512_BW+VL}.
     kIdVdivpd,                           //!< Instruction 'vdivpd' {AVX|AVX512_F+VL}.
+    kIdVdivph,                           //!< Instruction 'vdivph' {AVX512_FP16+VL}.
     kIdVdivps,                           //!< Instruction 'vdivps' {AVX|AVX512_F+VL}.
     kIdVdivsd,                           //!< Instruction 'vdivsd' {AVX|AVX512_F}.
+    kIdVdivsh,                           //!< Instruction 'vdivsh' {AVX512_FP16}.
     kIdVdivss,                           //!< Instruction 'vdivss' {AVX|AVX512_F}.
     kIdVdpbf16ps,                        //!< Instruction 'vdpbf16ps' {AVX512_BF16+VL}.
     kIdVdppd,                            //!< Instruction 'vdppd' {AVX}.
@@ -965,51 +1072,75 @@ struct Inst : public BaseInst {
     kIdVextracti64x2,                    //!< Instruction 'vextracti64x2' {AVX512_DQ+VL}.
     kIdVextracti64x4,                    //!< Instruction 'vextracti64x4' {AVX512_F}.
     kIdVextractps,                       //!< Instruction 'vextractps' {AVX|AVX512_F}.
+    kIdVfcmaddcph,                       //!< Instruction 'vfcmaddcph' {AVX512_FP16+VL}.
+    kIdVfcmaddcsh,                       //!< Instruction 'vfcmaddcsh' {AVX512_FP16+VL}.
+    kIdVfcmulcph,                        //!< Instruction 'vfcmulcph' {AVX512_FP16+VL}.
+    kIdVfcmulcsh,                        //!< Instruction 'vfcmulcsh' {AVX512_FP16+VL}.
     kIdVfixupimmpd,                      //!< Instruction 'vfixupimmpd' {AVX512_F+VL}.
     kIdVfixupimmps,                      //!< Instruction 'vfixupimmps' {AVX512_F+VL}.
     kIdVfixupimmsd,                      //!< Instruction 'vfixupimmsd' {AVX512_F}.
     kIdVfixupimmss,                      //!< Instruction 'vfixupimmss' {AVX512_F}.
     kIdVfmadd132pd,                      //!< Instruction 'vfmadd132pd' {FMA|AVX512_F+VL}.
+    kIdVfmadd132ph,                      //!< Instruction 'vfmadd132ph' {AVX512_FP16+VL}.
     kIdVfmadd132ps,                      //!< Instruction 'vfmadd132ps' {FMA|AVX512_F+VL}.
     kIdVfmadd132sd,                      //!< Instruction 'vfmadd132sd' {FMA|AVX512_F}.
+    kIdVfmadd132sh,                      //!< Instruction 'vfmadd132sh' {AVX512_FP16}.
     kIdVfmadd132ss,                      //!< Instruction 'vfmadd132ss' {FMA|AVX512_F}.
     kIdVfmadd213pd,                      //!< Instruction 'vfmadd213pd' {FMA|AVX512_F+VL}.
+    kIdVfmadd213ph,                      //!< Instruction 'vfmadd213ph' {AVX512_FP16+VL}.
     kIdVfmadd213ps,                      //!< Instruction 'vfmadd213ps' {FMA|AVX512_F+VL}.
     kIdVfmadd213sd,                      //!< Instruction 'vfmadd213sd' {FMA|AVX512_F}.
+    kIdVfmadd213sh,                      //!< Instruction 'vfmadd213sh' {AVX512_FP16}.
     kIdVfmadd213ss,                      //!< Instruction 'vfmadd213ss' {FMA|AVX512_F}.
     kIdVfmadd231pd,                      //!< Instruction 'vfmadd231pd' {FMA|AVX512_F+VL}.
+    kIdVfmadd231ph,                      //!< Instruction 'vfmadd231ph' {AVX512_FP16+VL}.
     kIdVfmadd231ps,                      //!< Instruction 'vfmadd231ps' {FMA|AVX512_F+VL}.
     kIdVfmadd231sd,                      //!< Instruction 'vfmadd231sd' {FMA|AVX512_F}.
+    kIdVfmadd231sh,                      //!< Instruction 'vfmadd231sh' {AVX512_FP16}.
     kIdVfmadd231ss,                      //!< Instruction 'vfmadd231ss' {FMA|AVX512_F}.
+    kIdVfmaddcph,                        //!< Instruction 'vfmaddcph' {AVX512_FP16+VL}.
+    kIdVfmaddcsh,                        //!< Instruction 'vfmaddcsh' {AVX512_FP16+VL}.
     kIdVfmaddpd,                         //!< Instruction 'vfmaddpd' {FMA4}.
     kIdVfmaddps,                         //!< Instruction 'vfmaddps' {FMA4}.
     kIdVfmaddsd,                         //!< Instruction 'vfmaddsd' {FMA4}.
     kIdVfmaddss,                         //!< Instruction 'vfmaddss' {FMA4}.
     kIdVfmaddsub132pd,                   //!< Instruction 'vfmaddsub132pd' {FMA|AVX512_F+VL}.
+    kIdVfmaddsub132ph,                   //!< Instruction 'vfmaddsub132ph' {AVX512_FP16+VL}.
     kIdVfmaddsub132ps,                   //!< Instruction 'vfmaddsub132ps' {FMA|AVX512_F+VL}.
     kIdVfmaddsub213pd,                   //!< Instruction 'vfmaddsub213pd' {FMA|AVX512_F+VL}.
+    kIdVfmaddsub213ph,                   //!< Instruction 'vfmaddsub213ph' {AVX512_FP16+VL}.
     kIdVfmaddsub213ps,                   //!< Instruction 'vfmaddsub213ps' {FMA|AVX512_F+VL}.
     kIdVfmaddsub231pd,                   //!< Instruction 'vfmaddsub231pd' {FMA|AVX512_F+VL}.
+    kIdVfmaddsub231ph,                   //!< Instruction 'vfmaddsub231ph' {AVX512_FP16+VL}.
     kIdVfmaddsub231ps,                   //!< Instruction 'vfmaddsub231ps' {FMA|AVX512_F+VL}.
     kIdVfmaddsubpd,                      //!< Instruction 'vfmaddsubpd' {FMA4}.
     kIdVfmaddsubps,                      //!< Instruction 'vfmaddsubps' {FMA4}.
     kIdVfmsub132pd,                      //!< Instruction 'vfmsub132pd' {FMA|AVX512_F+VL}.
+    kIdVfmsub132ph,                      //!< Instruction 'vfmsub132ph' {AVX512_FP16+VL}.
     kIdVfmsub132ps,                      //!< Instruction 'vfmsub132ps' {FMA|AVX512_F+VL}.
     kIdVfmsub132sd,                      //!< Instruction 'vfmsub132sd' {FMA|AVX512_F}.
+    kIdVfmsub132sh,                      //!< Instruction 'vfmsub132sh' {AVX512_FP16}.
     kIdVfmsub132ss,                      //!< Instruction 'vfmsub132ss' {FMA|AVX512_F}.
     kIdVfmsub213pd,                      //!< Instruction 'vfmsub213pd' {FMA|AVX512_F+VL}.
+    kIdVfmsub213ph,                      //!< Instruction 'vfmsub213ph' {AVX512_FP16+VL}.
     kIdVfmsub213ps,                      //!< Instruction 'vfmsub213ps' {FMA|AVX512_F+VL}.
     kIdVfmsub213sd,                      //!< Instruction 'vfmsub213sd' {FMA|AVX512_F}.
+    kIdVfmsub213sh,                      //!< Instruction 'vfmsub213sh' {AVX512_FP16}.
     kIdVfmsub213ss,                      //!< Instruction 'vfmsub213ss' {FMA|AVX512_F}.
     kIdVfmsub231pd,                      //!< Instruction 'vfmsub231pd' {FMA|AVX512_F+VL}.
+    kIdVfmsub231ph,                      //!< Instruction 'vfmsub231ph' {AVX512_FP16+VL}.
     kIdVfmsub231ps,                      //!< Instruction 'vfmsub231ps' {FMA|AVX512_F+VL}.
     kIdVfmsub231sd,                      //!< Instruction 'vfmsub231sd' {FMA|AVX512_F}.
+    kIdVfmsub231sh,                      //!< Instruction 'vfmsub231sh' {AVX512_FP16}.
     kIdVfmsub231ss,                      //!< Instruction 'vfmsub231ss' {FMA|AVX512_F}.
     kIdVfmsubadd132pd,                   //!< Instruction 'vfmsubadd132pd' {FMA|AVX512_F+VL}.
+    kIdVfmsubadd132ph,                   //!< Instruction 'vfmsubadd132ph' {AVX512_FP16+VL}.
     kIdVfmsubadd132ps,                   //!< Instruction 'vfmsubadd132ps' {FMA|AVX512_F+VL}.
     kIdVfmsubadd213pd,                   //!< Instruction 'vfmsubadd213pd' {FMA|AVX512_F+VL}.
+    kIdVfmsubadd213ph,                   //!< Instruction 'vfmsubadd213ph' {AVX512_FP16+VL}.
     kIdVfmsubadd213ps,                   //!< Instruction 'vfmsubadd213ps' {FMA|AVX512_F+VL}.
     kIdVfmsubadd231pd,                   //!< Instruction 'vfmsubadd231pd' {FMA|AVX512_F+VL}.
+    kIdVfmsubadd231ph,                   //!< Instruction 'vfmsubadd231ph' {AVX512_FP16+VL}.
     kIdVfmsubadd231ps,                   //!< Instruction 'vfmsubadd231ps' {FMA|AVX512_F+VL}.
     kIdVfmsubaddpd,                      //!< Instruction 'vfmsubaddpd' {FMA4}.
     kIdVfmsubaddps,                      //!< Instruction 'vfmsubaddps' {FMA4}.
@@ -1017,41 +1148,57 @@ struct Inst : public BaseInst {
     kIdVfmsubps,                         //!< Instruction 'vfmsubps' {FMA4}.
     kIdVfmsubsd,                         //!< Instruction 'vfmsubsd' {FMA4}.
     kIdVfmsubss,                         //!< Instruction 'vfmsubss' {FMA4}.
+    kIdVfmulcph,                         //!< Instruction 'vfmulcph' {AVX512_FP16+VL}.
+    kIdVfmulcsh,                         //!< Instruction 'vfmulcsh' {AVX512_FP16+VL}.
     kIdVfnmadd132pd,                     //!< Instruction 'vfnmadd132pd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd132ph,                     //!< Instruction 'vfnmadd132ph' {AVX512_FP16+VL}.
     kIdVfnmadd132ps,                     //!< Instruction 'vfnmadd132ps' {FMA|AVX512_F+VL}.
     kIdVfnmadd132sd,                     //!< Instruction 'vfnmadd132sd' {FMA|AVX512_F}.
+    kIdVfnmadd132sh,                     //!< Instruction 'vfnmadd132sh' {AVX512_FP16}.
     kIdVfnmadd132ss,                     //!< Instruction 'vfnmadd132ss' {FMA|AVX512_F}.
     kIdVfnmadd213pd,                     //!< Instruction 'vfnmadd213pd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd213ph,                     //!< Instruction 'vfnmadd213ph' {AVX512_FP16+VL}.
     kIdVfnmadd213ps,                     //!< Instruction 'vfnmadd213ps' {FMA|AVX512_F+VL}.
     kIdVfnmadd213sd,                     //!< Instruction 'vfnmadd213sd' {FMA|AVX512_F}.
+    kIdVfnmadd213sh,                     //!< Instruction 'vfnmadd213sh' {AVX512_FP16}.
     kIdVfnmadd213ss,                     //!< Instruction 'vfnmadd213ss' {FMA|AVX512_F}.
     kIdVfnmadd231pd,                     //!< Instruction 'vfnmadd231pd' {FMA|AVX512_F+VL}.
+    kIdVfnmadd231ph,                     //!< Instruction 'vfnmadd231ph' {AVX512_FP16+VL}.
     kIdVfnmadd231ps,                     //!< Instruction 'vfnmadd231ps' {FMA|AVX512_F+VL}.
     kIdVfnmadd231sd,                     //!< Instruction 'vfnmadd231sd' {FMA|AVX512_F}.
+    kIdVfnmadd231sh,                     //!< Instruction 'vfnmadd231sh' {AVX512_FP16}.
     kIdVfnmadd231ss,                     //!< Instruction 'vfnmadd231ss' {FMA|AVX512_F}.
     kIdVfnmaddpd,                        //!< Instruction 'vfnmaddpd' {FMA4}.
     kIdVfnmaddps,                        //!< Instruction 'vfnmaddps' {FMA4}.
     kIdVfnmaddsd,                        //!< Instruction 'vfnmaddsd' {FMA4}.
     kIdVfnmaddss,                        //!< Instruction 'vfnmaddss' {FMA4}.
     kIdVfnmsub132pd,                     //!< Instruction 'vfnmsub132pd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub132ph,                     //!< Instruction 'vfnmsub132ph' {AVX512_FP16+VL}.
     kIdVfnmsub132ps,                     //!< Instruction 'vfnmsub132ps' {FMA|AVX512_F+VL}.
     kIdVfnmsub132sd,                     //!< Instruction 'vfnmsub132sd' {FMA|AVX512_F}.
+    kIdVfnmsub132sh,                     //!< Instruction 'vfnmsub132sh' {AVX512_FP16}.
     kIdVfnmsub132ss,                     //!< Instruction 'vfnmsub132ss' {FMA|AVX512_F}.
     kIdVfnmsub213pd,                     //!< Instruction 'vfnmsub213pd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub213ph,                     //!< Instruction 'vfnmsub213ph' {AVX512_FP16+VL}.
     kIdVfnmsub213ps,                     //!< Instruction 'vfnmsub213ps' {FMA|AVX512_F+VL}.
     kIdVfnmsub213sd,                     //!< Instruction 'vfnmsub213sd' {FMA|AVX512_F}.
+    kIdVfnmsub213sh,                     //!< Instruction 'vfnmsub213sh' {AVX512_FP16}.
     kIdVfnmsub213ss,                     //!< Instruction 'vfnmsub213ss' {FMA|AVX512_F}.
     kIdVfnmsub231pd,                     //!< Instruction 'vfnmsub231pd' {FMA|AVX512_F+VL}.
+    kIdVfnmsub231ph,                     //!< Instruction 'vfnmsub231ph' {AVX512_FP16+VL}.
     kIdVfnmsub231ps,                     //!< Instruction 'vfnmsub231ps' {FMA|AVX512_F+VL}.
     kIdVfnmsub231sd,                     //!< Instruction 'vfnmsub231sd' {FMA|AVX512_F}.
+    kIdVfnmsub231sh,                     //!< Instruction 'vfnmsub231sh' {AVX512_FP16}.
     kIdVfnmsub231ss,                     //!< Instruction 'vfnmsub231ss' {FMA|AVX512_F}.
     kIdVfnmsubpd,                        //!< Instruction 'vfnmsubpd' {FMA4}.
     kIdVfnmsubps,                        //!< Instruction 'vfnmsubps' {FMA4}.
     kIdVfnmsubsd,                        //!< Instruction 'vfnmsubsd' {FMA4}.
     kIdVfnmsubss,                        //!< Instruction 'vfnmsubss' {FMA4}.
     kIdVfpclasspd,                       //!< Instruction 'vfpclasspd' {AVX512_DQ+VL}.
+    kIdVfpclassph,                       //!< Instruction 'vfpclassph' {AVX512_FP16+VL}.
     kIdVfpclassps,                       //!< Instruction 'vfpclassps' {AVX512_DQ+VL}.
     kIdVfpclasssd,                       //!< Instruction 'vfpclasssd' {AVX512_DQ}.
+    kIdVfpclasssh,                       //!< Instruction 'vfpclasssh' {AVX512_FP16}.
     kIdVfpclassss,                       //!< Instruction 'vfpclassss' {AVX512_DQ}.
     kIdVfrczpd,                          //!< Instruction 'vfrczpd' {XOP}.
     kIdVfrczps,                          //!< Instruction 'vfrczps' {XOP}.
@@ -1070,12 +1217,16 @@ struct Inst : public BaseInst {
     kIdVgatherqpd,                       //!< Instruction 'vgatherqpd' {AVX2|AVX512_F+VL}.
     kIdVgatherqps,                       //!< Instruction 'vgatherqps' {AVX2|AVX512_F+VL}.
     kIdVgetexppd,                        //!< Instruction 'vgetexppd' {AVX512_F+VL}.
+    kIdVgetexpph,                        //!< Instruction 'vgetexpph' {AVX512_FP16+VL}.
     kIdVgetexpps,                        //!< Instruction 'vgetexpps' {AVX512_F+VL}.
     kIdVgetexpsd,                        //!< Instruction 'vgetexpsd' {AVX512_F}.
+    kIdVgetexpsh,                        //!< Instruction 'vgetexpsh' {AVX512_FP16}.
     kIdVgetexpss,                        //!< Instruction 'vgetexpss' {AVX512_F}.
     kIdVgetmantpd,                       //!< Instruction 'vgetmantpd' {AVX512_F+VL}.
+    kIdVgetmantph,                       //!< Instruction 'vgetmantph' {AVX512_FP16+VL}.
     kIdVgetmantps,                       //!< Instruction 'vgetmantps' {AVX512_F+VL}.
     kIdVgetmantsd,                       //!< Instruction 'vgetmantsd' {AVX512_F}.
+    kIdVgetmantsh,                       //!< Instruction 'vgetmantsh' {AVX512_FP16}.
     kIdVgetmantss,                       //!< Instruction 'vgetmantss' {AVX512_F}.
     kIdVgf2p8affineinvqb,                //!< Instruction 'vgf2p8affineinvqb' {AVX|AVX512_F+VL & GFNI}.
     kIdVgf2p8affineqb,                   //!< Instruction 'vgf2p8affineqb' {AVX|AVX512_F+VL & GFNI}.
@@ -1101,15 +1252,19 @@ struct Inst : public BaseInst {
     kIdVmaskmovpd,                       //!< Instruction 'vmaskmovpd' {AVX}.
     kIdVmaskmovps,                       //!< Instruction 'vmaskmovps' {AVX}.
     kIdVmaxpd,                           //!< Instruction 'vmaxpd' {AVX|AVX512_F+VL}.
+    kIdVmaxph,                           //!< Instruction 'vmaxph' {AVX512_FP16+VL}.
     kIdVmaxps,                           //!< Instruction 'vmaxps' {AVX|AVX512_F+VL}.
     kIdVmaxsd,                           //!< Instruction 'vmaxsd' {AVX|AVX512_F+VL}.
+    kIdVmaxsh,                           //!< Instruction 'vmaxsh' {AVX512_FP16}.
     kIdVmaxss,                           //!< Instruction 'vmaxss' {AVX|AVX512_F+VL}.
     kIdVmcall,                           //!< Instruction 'vmcall' {VMX}.
     kIdVmclear,                          //!< Instruction 'vmclear' {VMX}.
     kIdVmfunc,                           //!< Instruction 'vmfunc' {VMX}.
     kIdVminpd,                           //!< Instruction 'vminpd' {AVX|AVX512_F+VL}.
+    kIdVminph,                           //!< Instruction 'vminph' {AVX512_FP16+VL}.
     kIdVminps,                           //!< Instruction 'vminps' {AVX|AVX512_F+VL}.
     kIdVminsd,                           //!< Instruction 'vminsd' {AVX|AVX512_F+VL}.
+    kIdVminsh,                           //!< Instruction 'vminsh' {AVX512_FP16}.
     kIdVminss,                           //!< Instruction 'vminss' {AVX|AVX512_F+VL}.
     kIdVmlaunch,                         //!< Instruction 'vmlaunch' {VMX}.
     kIdVmload,                           //!< Instruction 'vmload' {SVM}.
@@ -1140,11 +1295,13 @@ struct Inst : public BaseInst {
     kIdVmovntps,                         //!< Instruction 'vmovntps' {AVX|AVX512_F+VL}.
     kIdVmovq,                            //!< Instruction 'vmovq' {AVX|AVX512_F}.
     kIdVmovsd,                           //!< Instruction 'vmovsd' {AVX|AVX512_F}.
+    kIdVmovsh,                           //!< Instruction 'vmovsh' {AVX512_FP16}.
     kIdVmovshdup,                        //!< Instruction 'vmovshdup' {AVX|AVX512_F+VL}.
     kIdVmovsldup,                        //!< Instruction 'vmovsldup' {AVX|AVX512_F+VL}.
     kIdVmovss,                           //!< Instruction 'vmovss' {AVX|AVX512_F}.
     kIdVmovupd,                          //!< Instruction 'vmovupd' {AVX|AVX512_F+VL}.
     kIdVmovups,                          //!< Instruction 'vmovups' {AVX|AVX512_F+VL}.
+    kIdVmovw,                            //!< Instruction 'vmovw' {AVX512_FP16}.
     kIdVmpsadbw,                         //!< Instruction 'vmpsadbw' {AVX|AVX2}.
     kIdVmptrld,                          //!< Instruction 'vmptrld' {VMX}.
     kIdVmptrst,                          //!< Instruction 'vmptrst' {VMX}.
@@ -1153,8 +1310,10 @@ struct Inst : public BaseInst {
     kIdVmrun,                            //!< Instruction 'vmrun' {SVM}.
     kIdVmsave,                           //!< Instruction 'vmsave' {SVM}.
     kIdVmulpd,                           //!< Instruction 'vmulpd' {AVX|AVX512_F+VL}.
+    kIdVmulph,                           //!< Instruction 'vmulph' {AVX512_FP16+VL}.
     kIdVmulps,                           //!< Instruction 'vmulps' {AVX|AVX512_F+VL}.
     kIdVmulsd,                           //!< Instruction 'vmulsd' {AVX|AVX512_F}.
+    kIdVmulsh,                           //!< Instruction 'vmulsh' {AVX512_FP16}.
     kIdVmulss,                           //!< Instruction 'vmulss' {AVX|AVX512_F}.
     kIdVmwrite,                          //!< Instruction 'vmwrite' {VMX}.
     kIdVmxon,                            //!< Instruction 'vmxon' {VMX}.
@@ -1503,15 +1662,21 @@ struct Inst : public BaseInst {
     kIdVrcp28ps,                         //!< Instruction 'vrcp28ps' {AVX512_ERI}.
     kIdVrcp28sd,                         //!< Instruction 'vrcp28sd' {AVX512_ERI}.
     kIdVrcp28ss,                         //!< Instruction 'vrcp28ss' {AVX512_ERI}.
+    kIdVrcpph,                           //!< Instruction 'vrcpph' {AVX512_FP16}.
     kIdVrcpps,                           //!< Instruction 'vrcpps' {AVX}.
+    kIdVrcpsh,                           //!< Instruction 'vrcpsh' {AVX512_FP16}.
     kIdVrcpss,                           //!< Instruction 'vrcpss' {AVX}.
     kIdVreducepd,                        //!< Instruction 'vreducepd' {AVX512_DQ+VL}.
+    kIdVreduceph,                        //!< Instruction 'vreduceph' {AVX512_FP16+VL}.
     kIdVreduceps,                        //!< Instruction 'vreduceps' {AVX512_DQ+VL}.
     kIdVreducesd,                        //!< Instruction 'vreducesd' {AVX512_DQ}.
+    kIdVreducesh,                        //!< Instruction 'vreducesh' {AVX512_FP16}.
     kIdVreducess,                        //!< Instruction 'vreducess' {AVX512_DQ}.
     kIdVrndscalepd,                      //!< Instruction 'vrndscalepd' {AVX512_F+VL}.
+    kIdVrndscaleph,                      //!< Instruction 'vrndscaleph' {AVX512_FP16+VL}.
     kIdVrndscaleps,                      //!< Instruction 'vrndscaleps' {AVX512_F+VL}.
     kIdVrndscalesd,                      //!< Instruction 'vrndscalesd' {AVX512_F}.
+    kIdVrndscalesh,                      //!< Instruction 'vrndscalesh' {AVX512_FP16}.
     kIdVrndscaless,                      //!< Instruction 'vrndscaless' {AVX512_F}.
     kIdVroundpd,                         //!< Instruction 'vroundpd' {AVX}.
     kIdVroundps,                         //!< Instruction 'vroundps' {AVX}.
@@ -1525,11 +1690,15 @@ struct Inst : public BaseInst {
     kIdVrsqrt28ps,                       //!< Instruction 'vrsqrt28ps' {AVX512_ERI}.
     kIdVrsqrt28sd,                       //!< Instruction 'vrsqrt28sd' {AVX512_ERI}.
     kIdVrsqrt28ss,                       //!< Instruction 'vrsqrt28ss' {AVX512_ERI}.
+    kIdVrsqrtph,                         //!< Instruction 'vrsqrtph' {AVX512_FP16+VL}.
     kIdVrsqrtps,                         //!< Instruction 'vrsqrtps' {AVX}.
+    kIdVrsqrtsh,                         //!< Instruction 'vrsqrtsh' {AVX512_FP16}.
     kIdVrsqrtss,                         //!< Instruction 'vrsqrtss' {AVX}.
     kIdVscalefpd,                        //!< Instruction 'vscalefpd' {AVX512_F+VL}.
+    kIdVscalefph,                        //!< Instruction 'vscalefph' {AVX512_FP16+VL}.
     kIdVscalefps,                        //!< Instruction 'vscalefps' {AVX512_F+VL}.
     kIdVscalefsd,                        //!< Instruction 'vscalefsd' {AVX512_F}.
+    kIdVscalefsh,                        //!< Instruction 'vscalefsh' {AVX512_FP16}.
     kIdVscalefss,                        //!< Instruction 'vscalefss' {AVX512_F}.
     kIdVscatterdpd,                      //!< Instruction 'vscatterdpd' {AVX512_F+VL}.
     kIdVscatterdps,                      //!< Instruction 'vscatterdps' {AVX512_F+VL}.
@@ -1550,17 +1719,22 @@ struct Inst : public BaseInst {
     kIdVshufpd,                          //!< Instruction 'vshufpd' {AVX|AVX512_F+VL}.
     kIdVshufps,                          //!< Instruction 'vshufps' {AVX|AVX512_F+VL}.
     kIdVsqrtpd,                          //!< Instruction 'vsqrtpd' {AVX|AVX512_F+VL}.
+    kIdVsqrtph,                          //!< Instruction 'vsqrtph' {AVX512_FP16+VL}.
     kIdVsqrtps,                          //!< Instruction 'vsqrtps' {AVX|AVX512_F+VL}.
     kIdVsqrtsd,                          //!< Instruction 'vsqrtsd' {AVX|AVX512_F}.
+    kIdVsqrtsh,                          //!< Instruction 'vsqrtsh' {AVX512_FP16}.
     kIdVsqrtss,                          //!< Instruction 'vsqrtss' {AVX|AVX512_F}.
     kIdVstmxcsr,                         //!< Instruction 'vstmxcsr' {AVX}.
     kIdVsubpd,                           //!< Instruction 'vsubpd' {AVX|AVX512_F+VL}.
+    kIdVsubph,                           //!< Instruction 'vsubph' {AVX512_FP16+VL}.
     kIdVsubps,                           //!< Instruction 'vsubps' {AVX|AVX512_F+VL}.
     kIdVsubsd,                           //!< Instruction 'vsubsd' {AVX|AVX512_F}.
+    kIdVsubsh,                           //!< Instruction 'vsubsh' {AVX512_FP16}.
     kIdVsubss,                           //!< Instruction 'vsubss' {AVX|AVX512_F}.
     kIdVtestpd,                          //!< Instruction 'vtestpd' {AVX}.
     kIdVtestps,                          //!< Instruction 'vtestps' {AVX}.
     kIdVucomisd,                         //!< Instruction 'vucomisd' {AVX|AVX512_F}.
+    kIdVucomish,                         //!< Instruction 'vucomish' {AVX512_FP16}.
     kIdVucomiss,                         //!< Instruction 'vucomiss' {AVX|AVX512_F}.
     kIdVunpckhpd,                        //!< Instruction 'vunpckhpd' {AVX|AVX512_F+VL}.
     kIdVunpckhps,                        //!< Instruction 'vunpckhps' {AVX|AVX512_F+VL}.
@@ -1609,560 +1783,383 @@ struct Inst : public BaseInst {
     // ${InstId:End}
   };
 
-  //! Instruction options.
-  enum Options : uint32_t {
-    kOptionModMR          = 0x00000100u, //!< Use ModMR instead of ModRM if applicable.
-    kOptionModRM          = 0x00000200u, //!< Use ModRM instead of ModMR if applicable.
-    kOptionVex3           = 0x00000400u, //!< Use 3-byte VEX prefix if possible (AVX) (must be 0x00000400).
-    kOptionVex            = 0x00000800u, //!< Use VEX prefix when both VEX|EVEX prefixes are available (HINT: AVX_VNNI).
-    kOptionEvex           = 0x00001000u, //!< Use 4-byte EVEX prefix if possible (AVX-512) (must be 0x00001000).
+  //! Tests whether the `instId` is defined.
+  static inline constexpr bool isDefinedId(InstId instId) noexcept { return instId < _kIdCount; }
 
-    kOptionLock           = 0x00002000u, //!< LOCK prefix (lock-enabled instructions only).
-    kOptionRep            = 0x00004000u, //!< REP prefix (string instructions only).
-    kOptionRepne          = 0x00008000u, //!< REPNE prefix (string instructions only).
-
-    kOptionXAcquire       = 0x00010000u, //!< XACQUIRE prefix (only allowed instructions).
-    kOptionXRelease       = 0x00020000u, //!< XRELEASE prefix (only allowed instructions).
-
-    kOptionER             = 0x00040000u, //!< AVX-512: embedded-rounding {er} and implicit {sae}.
-    kOptionSAE            = 0x00080000u, //!< AVX-512: suppress-all-exceptions {sae}.
-    kOptionRN_SAE         = 0x00000000u, //!< AVX-512: round-to-nearest (even)      {rn-sae} (bits 00).
-    kOptionRD_SAE         = 0x00200000u, //!< AVX-512: round-down (toward -inf)     {rd-sae} (bits 01).
-    kOptionRU_SAE         = 0x00400000u, //!< AVX-512: round-up (toward +inf)       {ru-sae} (bits 10).
-    kOptionRZ_SAE         = 0x00600000u, //!< AVX-512: round-toward-zero (truncate) {rz-sae} (bits 11).
-    kOptionZMask          = 0x00800000u, //!< AVX-512: Use zeroing {k}{z} instead of merging {k}.
-    _kOptionAvx512Mask    = 0x00FC0000u, //!< AVX-512: Mask of all possible AVX-512 options except EVEX prefix flag.
-
-    kOptionOpCodeB        = 0x01000000u, //!< REX.B and/or VEX.B field (X64).
-    kOptionOpCodeX        = 0x02000000u, //!< REX.X and/or VEX.X field (X64).
-    kOptionOpCodeR        = 0x04000000u, //!< REX.R and/or VEX.R field (X64).
-    kOptionOpCodeW        = 0x08000000u, //!< REX.W and/or VEX.W field (X64).
-    kOptionRex            = 0x40000000u, //!< Force REX prefix (X64).
-    _kOptionInvalidRex    = 0x80000000u  //!< Invalid REX prefix (set by X86 or when AH|BH|CH|DH regs are used on X64).
-  };
-
-  // --------------------------------------------------------------------------
-  // [Statics]
-  // --------------------------------------------------------------------------
-
-  //! Tests whether the `instId` is defined (counts also Inst::kIdNone, which must be zero).
-  static inline bool isDefinedId(uint32_t instId) noexcept { return instId < _kIdCount; }
-};
-
-// ============================================================================
-// [asmjit::x86::Condition]
-// ============================================================================
-
-namespace Condition {
-  //! Condition code.
-  enum Code : uint32_t {
-    kO                    = 0x00u,       //!<                 OF==1
-    kNO                   = 0x01u,       //!<                 OF==0
-    kB                    = 0x02u,       //!< CF==1                  (unsigned < )
-    kC                    = 0x02u,       //!< CF==1
-    kNAE                  = 0x02u,       //!< CF==1                  (unsigned < )
-    kAE                   = 0x03u,       //!< CF==0                  (unsigned >=)
-    kNB                   = 0x03u,       //!< CF==0                  (unsigned >=)
-    kNC                   = 0x03u,       //!< CF==0
-    kE                    = 0x04u,       //!<         ZF==1          (any_sign ==)
-    kZ                    = 0x04u,       //!<         ZF==1          (any_sign ==)
-    kNE                   = 0x05u,       //!<         ZF==0          (any_sign !=)
-    kNZ                   = 0x05u,       //!<         ZF==0          (any_sign !=)
-    kBE                   = 0x06u,       //!< CF==1 | ZF==1          (unsigned <=)
-    kNA                   = 0x06u,       //!< CF==1 | ZF==1          (unsigned <=)
-    kA                    = 0x07u,       //!< CF==0 & ZF==0          (unsigned > )
-    kNBE                  = 0x07u,       //!< CF==0 & ZF==0          (unsigned > )
-    kS                    = 0x08u,       //!<                 SF==1  (is negative)
-    kNS                   = 0x09u,       //!<                 SF==0  (is positive or zero)
-    kP                    = 0x0Au,       //!< PF==1
-    kPE                   = 0x0Au,       //!< PF==1
-    kPO                   = 0x0Bu,       //!< PF==0
-    kNP                   = 0x0Bu,       //!< PF==0
-    kL                    = 0x0Cu,       //!<                 SF!=OF (signed   < )
-    kNGE                  = 0x0Cu,       //!<                 SF!=OF (signed   < )
-    kGE                   = 0x0Du,       //!<                 SF==OF (signed   >=)
-    kNL                   = 0x0Du,       //!<                 SF==OF (signed   >=)
-    kLE                   = 0x0Eu,       //!<         ZF==1 | SF!=OF (signed   <=)
-    kNG                   = 0x0Eu,       //!<         ZF==1 | SF!=OF (signed   <=)
-    kG                    = 0x0Fu,       //!<         ZF==0 & SF==OF (signed   > )
-    kNLE                  = 0x0Fu,       //!<         ZF==0 & SF==OF (signed   > )
-    kCount                = 0x10u,
-
-    kSign                 = kS,          //!< Sign.
-    kNotSign              = kNS,         //!< Not Sign.
-
-    kOverflow             = kO,          //!< Signed overflow.
-    kNotOverflow          = kNO,         //!< Not signed overflow.
-
-    kEqual                = kE,          //!< Equal      `a == b`.
-    kNotEqual             = kNE,         //!< Not Equal  `a != b`.
-
-    kSignedLT             = kL,          //!< Signed     `a <  b`.
-    kSignedLE             = kLE,         //!< Signed     `a <= b`.
-    kSignedGT             = kG,          //!< Signed     `a >  b`.
-    kSignedGE             = kGE,         //!< Signed     `a >= b`.
-
-    kUnsignedLT           = kB,          //!< Unsigned   `a <  b`.
-    kUnsignedLE           = kBE,         //!< Unsigned   `a <= b`.
-    kUnsignedGT           = kA,          //!< Unsigned   `a >  b`.
-    kUnsignedGE           = kAE,         //!< Unsigned   `a >= b`.
-
-    kZero                 = kZ,          //!< Zero flag.
-    kNotZero              = kNZ,         //!< Non-zero flag.
-
-    kNegative             = kS,          //!< Sign flag.
-    kPositive             = kNS,         //!< No sign flag.
-
-    kParityEven           = kP,          //!< Even parity flag.
-    kParityOdd            = kPO          //!< Odd parity flag.
-  };
-
-  static constexpr uint8_t reverseTable[kCount] = {
-    kO, kNO, kA , kBE, // O|NO|B |AE
-    kE, kNE, kAE, kB , // E|NE|BE|A
-    kS, kNS, kPE, kPO, // S|NS|PE|PO
-    kG, kLE, kGE, kL   // L|GE|LE|G
-  };
-
+  //! \cond
   #define ASMJIT_INST_FROM_COND(ID) \
     ID##o, ID##no, ID##b , ID##ae,  \
     ID##e, ID##ne, ID##be, ID##a ,  \
     ID##s, ID##ns, ID##pe, ID##po,  \
     ID##l, ID##ge, ID##le, ID##g
-  static constexpr uint16_t jccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdJ) };
-  static constexpr uint16_t setccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdSet) };
-  static constexpr uint16_t cmovccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdCmov) };
-  #undef ASMJIT_INST_FROM_COND
 
-  //! Reverses a condition code (reverses the corresponding operands of a comparison).
-  static constexpr uint32_t reverse(uint32_t cond) noexcept { return reverseTable[cond]; }
-  //! Negates a condition code.
-  static constexpr uint32_t negate(uint32_t cond) noexcept { return cond ^ 1u; }
+    static constexpr uint16_t _jccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdJ) };
+    static constexpr uint16_t _setccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdSet) };
+    static constexpr uint16_t _cmovccTable[] = { ASMJIT_INST_FROM_COND(Inst::kIdCmov) };
+
+  #undef ASMJIT_INST_FROM_COND
+  //! \endcond
 
   //! Translates a condition code `cond` to a `jcc` instruction id.
-  static constexpr uint32_t toJcc(uint32_t cond) noexcept { return jccTable[cond]; }
+  static constexpr InstId jccFromCond(CondCode cond) noexcept { return _jccTable[uint8_t(cond)]; }
   //! Translates a condition code `cond` to a `setcc` instruction id.
-  static constexpr uint32_t toSetcc(uint32_t cond) noexcept { return setccTable[cond]; }
+  static constexpr InstId setccFromCond(CondCode cond) noexcept { return _setccTable[uint8_t(cond)]; }
   //! Translates a condition code `cond` to a `cmovcc` instruction id.
-  static constexpr uint32_t toCmovcc(uint32_t cond) noexcept { return cmovccTable[cond]; }
+  static constexpr InstId cmovccFromCond(CondCode cond) noexcept { return _cmovccTable[uint8_t(cond)]; }
+} // {Inst}
+
+//! FPU status word bits.
+enum class FpuStatusWord : uint16_t {
+  kNone          = 0x0000u,     //!< No bits set.
+
+  kInvalid       = 0x0001u,     //!< Invalid operation.
+  kDenormalized  = 0x0002u,     //!< Denormalized operand.
+  kDivByZero     = 0x0004u,     //!< Division by zero.
+  kOverflow      = 0x0008u,     //!< Overflown.
+  kUnderflow     = 0x0010u,     //!< Underflown.
+  kPrecision     = 0x0020u,     //!< Precision lost.
+  kStackFault    = 0x0040u,     //!< Stack fault.
+  kInterrupt     = 0x0080u,     //!< Interrupt.
+  kC0            = 0x0100u,     //!< C0 flag.
+  kC1            = 0x0200u,     //!< C1 flag.
+  kC2            = 0x0400u,     //!< C2 flag.
+  kTopMask       = 0x3800u,     //!< Top of the stack (mask).
+  kC3            = 0x4000u,     //!< C3 flag.
+  kBusy          = 0x8000u      //!< FPU is busy.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(FpuStatusWord)
+
+//! FPU control word bits.
+enum class FpuControlWord : uint16_t {
+  kNone          = 0x0000u,     //!< No bits set.
+
+  // Bits 0-5
+  // --------
+
+  kEM_Mask       = 0x003Fu,     //!< Exception mask (0x3F).
+  kEM_Invalid    = 0x0001u,     //!< Invalid operation exception.
+  kEM_Denormal   = 0x0002u,     //!< Denormalized operand exception.
+  kEM_DivByZero  = 0x0004u,     //!< Division by zero exception.
+  kEM_Overflow   = 0x0008u,     //!< Overflow exception.
+  kEM_Underflow  = 0x0010u,     //!< Underflow exception.
+  kEM_Inexact    = 0x0020u,     //!< Inexact operation exception.
+
+  // Bits 8-9
+  // --------
+
+  kPC_Mask       = 0x0300u,     //!< Precision control mask.
+  kPC_Float      = 0x0000u,     //!< Single precision (24 bits).
+  kPC_Reserved   = 0x0100u,     //!< Reserved.
+  kPC_Double     = 0x0200u,     //!< Double precision (53 bits).
+  kPC_Extended   = 0x0300u,     //!< Extended precision (64 bits).
+
+  // Bits 10-11
+  // ----------
+
+  kRC_Mask       = 0x0C00u,     //!< Rounding control mask.
+  kRC_Nearest    = 0x0000u,     //!< Round to nearest even.
+  kRC_Down       = 0x0400u,     //!< Round down (floor).
+  kRC_Up         = 0x0800u,     //!< Round up (ceil).
+  kRC_Truncate   = 0x0C00u,     //!< Round towards zero (truncate).
+
+  // Bit 12
+  // ------
+
+  kIC_Mask       = 0x1000u,     //!< Infinity control.
+  kIC_Projective = 0x0000u,     //!< Projective (not supported on X64).
+  kIC_Affine     = 0x1000u      //!< Affine (default).
+};
+ASMJIT_DEFINE_ENUM_FLAGS(FpuControlWord)
+
+//! An immediate value that can be used with CMP[PD|PS|SD|SS] instructions.
+enum class CmpImm : uint8_t {
+  kEQ            = 0x00u,       //!< Equal (Quiet), same as \ref VCmpImm::kEQ_OQ.
+  kLT            = 0x01u,       //!< Less (Signaling), same as \ref VCmpImm::kLT_OS.
+  kLE            = 0x02u,       //!< Less/Equal (Signaling), same as \ref VCmpImm::kLE_OS.
+  kUNORD         = 0x03u,       //!< Unordered (Quiet), same as \ref VCmpImm::kUNORD_Q.
+  kNEQ           = 0x04u,       //!< Not Equal (Quiet), same as \ref VCmpImm::kNEQ_UQ.
+  kNLT           = 0x05u,       //!< Not Less (Signaling), same as \ref VCmpImm::kNLT_US.
+  kNLE           = 0x06u,       //!< Not Less/Equal (Signaling), same as \ref VCmpImm::kNLE_US.
+  kORD           = 0x07u        //!< Ordered (Quiet), same as \ref VCmpImm::kORD_Q.
+};
+
+//! An immediate value that can be used with [V]PCMP[I|E]STR[I|M] instructions.
+enum class PCmpStrImm : uint8_t {
+  // Source Data Format
+  // ------------------
+
+  kUB            = 0x00u << 0,  //!< The source data format is unsigned bytes.
+  kUW            = 0x01u << 0,  //!< The source data format is unsigned words.
+  kSB            = 0x02u << 0,  //!< The source data format is signed bytes.
+  kSW            = 0x03u << 0,  //!< The source data format is signed words.
+
+  // Aggregation Operation
+  // ---------------------
+
+  kEqualAny      = 0x00u << 2,  //!< The arithmetic comparison is "equal".
+  kRanges        = 0x01u << 2,  //!< The arithmetic comparison is "greater than or equal" between even indexed
+                                //!< elements and "less than or equal" between odd indexed elements.
+  kEqualEach     = 0x02u << 2,  //!< The arithmetic comparison is "equal".
+  kEqualOrdered  = 0x03u << 2,  //!< The arithmetic comparison is "equal".
+
+  // Polarity
+  // --------
+
+  kPosPolarity   = 0x00u << 4,  //!< IntRes2 = IntRes1.
+  kNegPolarity   = 0x01u << 4,  //!< IntRes2 = -1 XOR IntRes1.
+  kPosMasked     = 0x02u << 4,  //!< IntRes2 = IntRes1.
+  kNegMasked     = 0x03u << 4,  //!< IntRes2[i] = second[i] == invalid ? IntRes1[i] : ~IntRes1[i].
+
+  // Output Selection (pcmpstri)
+  // ---------------------------
+
+  kOutputLSI     = 0x00u << 6,  //!< The index returned to ECX is of the least significant set bit in IntRes2.
+  kOutputMSI     = 0x01u << 6,  //!< The index returned to ECX is of the most significant set bit in IntRes2.
+
+  // Output Selection (pcmpstrm)
+  // ---------------------------
+
+  kBitMask       = 0x00u << 6,  //!< IntRes2 is returned as the mask to the least significant bits of XMM0.
+  kIndexMask     = 0x01u << 6   //!< IntRes2 is expanded into a byte/word mask and placed in XMM0.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(PCmpStrImm)
+
+//! An immediate value that can be used with ROUND[PD|PS|SD|SS] instructions.
+//!
+//! \note `kSuppress` is a mask that can be used with any other value.
+enum class RoundImm : uint8_t {
+  kNearest       = 0x00u,       //!< Round to nearest (even).
+  kDown          = 0x01u,       //!< Round to down toward -INF (floor),
+  kUp            = 0x02u,       //!< Round to up toward +INF (ceil).
+  kTrunc         = 0x03u,       //!< Round toward zero (truncate).
+  kCurrent       = 0x04u,       //!< Round to the current rounding mode set (ignores other RC bits).
+  kSuppress      = 0x08u        //!< Supress exceptions (avoids inexact exception, if set).
+};
+ASMJIT_DEFINE_ENUM_FLAGS(RoundImm)
+
+//! An immediate value that can be used with VCMP[PD|PS|SD|SS] instructions (AVX).
+//!
+//! The first 8 values are compatible with \ref CmpImm.
+enum class VCmpImm : uint8_t {
+  kEQ_OQ         = 0x00u,       //!< Equal             (Quiet    , Ordered)  , same as \ref CmpImm::kEQ.
+  kLT_OS         = 0x01u,       //!< Less              (Signaling, Ordered)  , same as \ref CmpImm::kLT.
+  kLE_OS         = 0x02u,       //!< Less/Equal        (Signaling, Ordered)  , same as \ref CmpImm::kLE.
+  kUNORD_Q       = 0x03u,       //!< Unordered         (Quiet)               , same as \ref CmpImm::kUNORD.
+  kNEQ_UQ        = 0x04u,       //!< Not Equal         (Quiet    , Unordered), same as \ref CmpImm::kNEQ.
+  kNLT_US        = 0x05u,       //!< Not Less          (Signaling, Unordered), same as \ref CmpImm::kNLT.
+  kNLE_US        = 0x06u,       //!< Not Less/Equal    (Signaling, Unordered), same as \ref CmpImm::kNLE.
+  kORD_Q         = 0x07u,       //!< Ordered           (Quiet)               , same as \ref CmpImm::kORD.
+  kEQ_UQ         = 0x08u,       //!< Equal             (Quiet    , Unordered).
+  kNGE_US        = 0x09u,       //!< Not Greater/Equal (Signaling, Unordered).
+  kNGT_US        = 0x0Au,       //!< Not Greater       (Signaling, Unordered).
+  kFALSE_OQ      = 0x0Bu,       //!< False             (Quiet    , Ordered).
+  kNEQ_OQ        = 0x0Cu,       //!< Not Equal         (Quiet    , Ordered).
+  kGE_OS         = 0x0Du,       //!< Greater/Equal     (Signaling, Ordered).
+  kGT_OS         = 0x0Eu,       //!< Greater           (Signaling, Ordered).
+  kTRUE_UQ       = 0x0Fu,       //!< True              (Quiet    , Unordered).
+  kEQ_OS         = 0x10u,       //!< Equal             (Signaling, Ordered).
+  kLT_OQ         = 0x11u,       //!< Less              (Quiet    , Ordered).
+  kLE_OQ         = 0x12u,       //!< Less/Equal        (Quiet    , Ordered).
+  kUNORD_S       = 0x13u,       //!< Unordered         (Signaling).
+  kNEQ_US        = 0x14u,       //!< Not Equal         (Signaling, Unordered).
+  kNLT_UQ        = 0x15u,       //!< Not Less          (Quiet    , Unordered).
+  kNLE_UQ        = 0x16u,       //!< Not Less/Equal    (Quiet    , Unordered).
+  kORD_S         = 0x17u,       //!< Ordered           (Signaling).
+  kEQ_US         = 0x18u,       //!< Equal             (Signaling, Unordered).
+  kNGE_UQ        = 0x19u,       //!< Not Greater/Equal (Quiet    , Unordered).
+  kNGT_UQ        = 0x1Au,       //!< Not Greater       (Quiet    , Unordered).
+  kFALSE_OS      = 0x1Bu,       //!< False             (Signaling, Ordered).
+  kNEQ_OS        = 0x1Cu,       //!< Not Equal         (Signaling, Ordered).
+  kGE_OQ         = 0x1Du,       //!< Greater/Equal     (Quiet    , Ordered).
+  kGT_OQ         = 0x1Eu,       //!< Greater           (Quiet    , Ordered).
+  kTRUE_US       = 0x1Fu        //!< True              (Signaling, Unordered).
+};
+
+//! An immediate value that can be used with VFIXUPIMM[PD|PS|SD|SS] instructions (AVX-512).
+//!
+//! The final immediate is a combination of all possible control bits.
+enum class VFixupImm : uint8_t {
+  kNone          = 0x00u,
+  kZEOnZero      = 0x01u,
+  kIEOnZero      = 0x02u,
+  kZEOnOne       = 0x04u,
+  kIEOnOne       = 0x08u,
+  kIEOnSNaN      = 0x10u,
+  kIEOnNInf      = 0x20u,
+  kIEOnNegative  = 0x40u,
+  kIEOnPInf      = 0x80u
+};
+ASMJIT_DEFINE_ENUM_FLAGS(VFixupImm)
+
+//! An immediate value that can be used with VFPCLASS[PD|PS|SD|SS] instructions (AVX-512).
+//!
+//! The values can be combined together to form the final 8-bit mask.
+enum class VFPClassImm : uint8_t {
+  kNone          = 0x00u,
+  kQNaN          = 0x01u,       //!< Checks for QNaN.
+  kPZero         = 0x02u,       //!< Checks for +0.
+  kNZero         = 0x04u,       //!< Checks for -0.
+  kPInf          = 0x08u,       //!< Checks for +Inf.
+  kNInf          = 0x10u,       //!< Checks for -Inf.
+  kDenormal      = 0x20u,       //!< Checks for denormal.
+  kNegative      = 0x40u,       //!< Checks for negative finite value.
+  kSNaN          = 0x80u        //!< Checks for SNaN.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(VFPClassImm)
+
+//! An immediate value that can be used with VGETMANT[PD|PS|SD|SS] instructions (AVX-512).
+//!
+//! The value is a combination of a normalization interval and a sign control.
+enum class VGetMantImm : uint8_t {
+  // Normalization Interval
+  // ----------------------
+
+  k1To2          = 0x00u,       //!< Normalization interval is [1, 2)
+  k1Div2To2      = 0x01u,       //!< Normalization interval is [0.5, 2)
+  k1Div2To1      = 0x02u,       //!< Normalization interval is [0.5, 1)
+  k3Div4To3Div2  = 0x03u,       //!< Normalization interval is [3/4, 3/2)
+
+  // Sign Control
+  // ------------
+
+  kSrcSign       = 0x00u,       //!< Source sign.
+  kNoSign        = 0x04u,       //!< Zero sign
+  kQNaNIfSign    = 0x08u        //!< QNAN_Indefinite if sign(src) != 0, regardless of `kSignSrc` or `kNoSign`.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(VGetMantImm)
+
+//! A predicate used by VPCMP[U][B|W|D|Q] instructions (AVX-512).
+enum class VPCmpImm : uint8_t {
+  kEQ            = 0x00u,       //!< Equal.
+  kLT            = 0x01u,       //!< Less.
+  kLE            = 0x02u,       //!< Less/Equal.
+  kFALSE         = 0x03u,       //!< False.
+  kNE            = 0x04u,       //!< Not Equal.
+  kGE            = 0x05u,       //!< Greater/Equal.
+  kGT            = 0x06u,       //!< Greater.
+  kTRUE          = 0x07u        //!< True.
+};
+
+//! A predicate used by VPCOM[U][B|W|D|Q] instructions (XOP).
+enum class VPComImm : uint8_t {
+  kLT            = 0x00u,       //!< Less.
+  kLE            = 0x01u,       //!< Less/Equal
+  kGT            = 0x02u,       //!< Greater.
+  kGE            = 0x03u,       //!< Greater/Equal.
+  kEQ            = 0x04u,       //!< Equal.
+  kNE            = 0x05u,       //!< Not Equal.
+  kFALSE         = 0x06u,       //!< False.
+  kTRUE          = 0x07u        //!< True.
+};
+
+//! A predicate used by VRANGE[PD|PS|SD|SS] instructions (AVX-512).
+enum class VRangeImm : uint8_t {
+  // Selector
+  // --------
+
+  kSelectMin     = 0x00u,       //!< Select minimum value.
+  kSelectMax     = 0x01u,       //!< Select maximum value.
+  kSelectAbsMin  = 0x02u,       //!< Select minimum absolute value.
+  kSelectAbsMax  = 0x03u,       //!< Select maximum absolute value.
+
+  // Sign
+  // ----
+
+  kSignSrc1      = 0x00u,       //!< Select sign of SRC1.
+  kSignSrc2      = 0x04u,       //!< Select sign of SRC2.
+  kSign0         = 0x08u,       //!< Set sign to 0.
+  kSign1         = 0x0Cu        //!< Set sign to 1.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(VRangeImm)
+
+//! A predicate used by VREDUCE[PD|PS|SD|SS] instructions (AVX-512).
+enum class VReduceImm : uint8_t {
+  kRoundEven     = 0x00u,       //!< Round to nearest even.
+  kRoundDown     = 0x01u,       //!< Round down.
+  kRoundUp       = 0x02u,       //!< Round up.
+  kRoundTrunc    = 0x03u,       //!< Truncate.
+  kRoundCurrent  = 0x04u,       //!< Round to the current mode set.
+  kSuppress      = 0x08u,       //!< Suppress exceptions.
+  kFixedImmMask  = 0xF0u        //!< Fixed length value mask.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(VReduceImm)
+
+//! Creates a \ref VReduceImm from a combination of `flags` and `fixedPointLength`.
+static inline constexpr VReduceImm vReduceImm(VReduceImm flags, uint32_t fixedPointLength) noexcept {
+  return flags | VReduceImm(fixedPointLength << 4);
 }
 
-// ============================================================================
-// [asmjit::x86::FpuWord]
-// ============================================================================
+//! A predicate that can be used as an immediate value with VPTERNLOG[D|Q] instruction.
+//!
+//! There are 3 inputs to the instruction (\ref kA, \ref kB, \ref kC). Ternary logic can define any combination
+//! that would be performed on these 3 inputs to get the desired output - any combination of AND, OR, XOR, NOT
+//! is possible.
+//!
+//! \sa \ref tLogFromBits and \ref fLogIfElse
+enum class TLogImm : uint8_t {
+  k0             = 0x00u,       //!< 0 value.
+  k1             = 0xFFu,       //!< 1 value.
+  kA             = 0xF0u,       //!< A value.
+  kB             = 0xCCu,       //!< B value.
+  kC             = 0xAAu,       //!< C value.
 
-//! FPU control and status words.
-namespace FpuWord {
-  //! FPU status word.
-  enum Status : uint32_t {
-    //! Invalid operation.
-    kStatusInvalid        = 0x0001u,
-    //! Denormalized operand.
-    kStatusDenormalized   = 0x0002u,
-    //! Division by zero.
-    kStatusDivByZero      = 0x0004u,
-    //! Overflown.
-    kStatusOverflow       = 0x0008u,
-    //! Underflown.
-    kStatusUnderflow      = 0x0010u,
-    //! Precision lost.
-    kStatusPrecision      = 0x0020u,
-    //! Stack fault.
-    kStatusStackFault     = 0x0040u,
-    //! Interrupt.
-    kStatusInterrupt      = 0x0080u,
-    //! C0 flag.
-    kStatusC0             = 0x0100u,
-    //! C1 flag.
-    kStatusC1             = 0x0200u,
-    //! C2 flag.
-    kStatusC2             = 0x0400u,
-    //! Top of the stack.
-    kStatusTop            = 0x3800u,
-    //! C3 flag.
-    kStatusC3             = 0x4000u,
-    //! FPU is busy.
-    kStatusBusy           = 0x8000u
-  };
+  kNotA          = kA ^ k1,     //!< `!A` expression.
+  kNotB          = kB ^ k1,     //!< `!B` expression.
+  kNotC          = kC ^ k1,     //!< `!C` expression.
 
-  //! FPU control word.
-  enum Control : uint32_t {
-    // [Bits 0-5]
+  kAB            = kA & kB,     //!< `A & B` expression.
+  kAC            = kA & kC,     //!< `A & C` expression.
+  kBC            = kB & kC,     //!< `B & C` expression.
+  kNotAB         = kAB ^ k1,    //!< `!(A & B)` expression.
+  kNotAC         = kAC ^ k1,    //!< `!(A & C)` expression.
+  kNotBC         = kBC ^ k1,    //!< `!(B & C)` expression.
 
-    //! Exception mask (0x3F).
-    kControlEM_Mask       = 0x003Fu,
-    //! Invalid operation exception.
-    kControlEM_Invalid    = 0x0001u,
-    //! Denormalized operand exception.
-    kControlEM_Denormal   = 0x0002u,
-    //! Division by zero exception.
-    kControlEM_DivByZero  = 0x0004u,
-    //! Overflow exception.
-    kControlEM_Overflow   = 0x0008u,
-    //! Underflow exception.
-    kControlEM_Underflow  = 0x0010u,
-    //! Inexact operation exception.
-    kControlEM_Inexact    = 0x0020u,
+  kABC           = kAB & kC,    //!< `A & B & C` expression.
+  kNotABC        = kABC ^ k1    //!< `!(A & B & C)` expression.
+};
+ASMJIT_DEFINE_ENUM_FLAGS(TLogImm)
 
-    // [Bits 8-9]
-
-    //! Precision control mask.
-    kControlPC_Mask       = 0x0300u,
-    //! Single precision (24 bits).
-    kControlPC_Float      = 0x0000u,
-    //! Reserved.
-    kControlPC_Reserved   = 0x0100u,
-    //! Double precision (53 bits).
-    kControlPC_Double     = 0x0200u,
-    //! Extended precision (64 bits).
-    kControlPC_Extended   = 0x0300u,
-
-    // [Bits 10-11]
-
-    //! Rounding control mask.
-    kControlRC_Mask       = 0x0C00u,
-    //! Round to nearest even.
-    kControlRC_Nearest    = 0x0000u,
-    //! Round down (floor).
-    kControlRC_Down       = 0x0400u,
-    //! Round up (ceil).
-    kControlRC_Up         = 0x0800u,
-    //! Round towards zero (truncate).
-    kControlRC_Truncate   = 0x0C00u,
-
-    // [Bit 12]
-
-    //! Infinity control.
-    kControlIC_Mask       = 0x1000u,
-    //! Projective (not supported on X64).
-    kControlIC_Projective = 0x0000u,
-    //! Affine (default).
-    kControlIC_Affine     = 0x1000u
-  };
+//! Creates an immediate that can be used by VPTERNLOG[D|Q] instructions.
+static inline constexpr TLogImm tLogFromBits(uint8_t b000, uint8_t b001, uint8_t b010, uint8_t b011, uint8_t b100, uint8_t b101, uint8_t b110, uint8_t b111) noexcept {
+  return TLogImm(uint8_t(b000 << 0) |
+                 uint8_t(b001 << 1) |
+                 uint8_t(b010 << 2) |
+                 uint8_t(b011 << 3) |
+                 uint8_t(b100 << 4) |
+                 uint8_t(b101 << 5) |
+                 uint8_t(b110 << 6) |
+                 uint8_t(b111 << 7));
 }
 
-// ============================================================================
-// [asmjit::x86::Status]
-// ============================================================================
+//! Creates an if/else logic that can be used by VPTERNLOG[D|Q] instructions.
+static inline constexpr TLogImm fLogIfElse(TLogImm condition, TLogImm a, TLogImm b) noexcept { return (condition & a) | (~condition & b); }
 
-//! CPU and FPU status flags.
-namespace Status {
-  //! CPU and FPU status flags used by `InstRWInfo`
-  enum Flags : uint32_t {
-    // ------------------------------------------------------------------------
-    // [Architecture Neutral Flags - 0x000000FF]
-    // ------------------------------------------------------------------------
-
-    //! Carry flag.
-    kCF = 0x00000001u,
-    //! Signed overflow flag.
-    kOF = 0x00000002u,
-    //! Sign flag (negative/sign, if set).
-    kSF = 0x00000004u,
-    //! Zero and/or equality flag (1 if zero/equal).
-    kZF = 0x00000008u,
-
-    // ------------------------------------------------------------------------
-    // [Architecture Specific Flags - 0xFFFFFF00]
-    // ------------------------------------------------------------------------
-
-    //! Adjust flag.
-    kAF = 0x00000100u,
-    //! Parity flag.
-    kPF = 0x00000200u,
-    //! Direction flag.
-    kDF = 0x00000400u,
-    //! Interrupt enable flag.
-    kIF = 0x00000800u,
-
-    //! Alignment check.
-    kAC = 0x00001000u,
-
-    //! FPU C0 status flag.
-    kC0 = 0x00010000u,
-    //! FPU C1 status flag.
-    kC1 = 0x00020000u,
-    //! FPU C2 status flag.
-    kC2 = 0x00040000u,
-    //! FPU C3 status flag.
-    kC3 = 0x00080000u
-  };
+//! Creates a shuffle immediate value that be used with SSE/AVX/AVX-512 instructions to shuffle 2 elements in a vector.
+//!
+//! \param a Position of the first  component [0, 1].
+//! \param b Position of the second component [0, 1].
+//!
+//! Shuffle constants can be used to encode an immediate for these instructions:
+//!   - `shufpd|vshufpd`
+static inline constexpr uint32_t shuffleImm(uint32_t a, uint32_t b) noexcept {
+  return (a << 1) | b;
 }
 
-// ============================================================================
-// [asmjit::x86::Predicate]
-// ============================================================================
-
-//! Contains predicates used by SIMD instructions.
-namespace Predicate {
-  //! A predicate used by CMP[PD|PS|SD|SS] instructions.
-  enum Cmp : uint32_t {
-    kCmpEQ                = 0x00u,       //!< Equal (Quiet).
-    kCmpLT                = 0x01u,       //!< Less (Signaling).
-    kCmpLE                = 0x02u,       //!< Less/Equal (Signaling).
-    kCmpUNORD             = 0x03u,       //!< Unordered (Quiet).
-    kCmpNEQ               = 0x04u,       //!< Not Equal (Quiet).
-    kCmpNLT               = 0x05u,       //!< Not Less (Signaling).
-    kCmpNLE               = 0x06u,       //!< Not Less/Equal (Signaling).
-    kCmpORD               = 0x07u        //!< Ordered (Quiet).
-  };
-
-  //! A predicate used by [V]PCMP[I|E]STR[I|M] instructions.
-  enum PCmpStr : uint32_t {
-    // Source data format:
-    kPCmpStrUB            = 0x00u << 0,  //!< The source data format is unsigned bytes.
-    kPCmpStrUW            = 0x01u << 0,  //!< The source data format is unsigned words.
-    kPCmpStrSB            = 0x02u << 0,  //!< The source data format is signed bytes.
-    kPCmpStrSW            = 0x03u << 0,  //!< The source data format is signed words.
-
-    // Aggregation operation:
-    kPCmpStrEqualAny      = 0x00u << 2,  //!< The arithmetic comparison is "equal".
-    kPCmpStrRanges        = 0x01u << 2,  //!< The arithmetic comparison is "greater than or equal"
-                                         //!< between even indexed elements and "less than or equal"
-                                         //!< between odd indexed elements.
-    kPCmpStrEqualEach     = 0x02u << 2,  //!< The arithmetic comparison is "equal".
-    kPCmpStrEqualOrdered  = 0x03u << 2,  //!< The arithmetic comparison is "equal".
-
-    // Polarity:
-    kPCmpStrPosPolarity   = 0x00u << 4,  //!< IntRes2 = IntRes1.
-    kPCmpStrNegPolarity   = 0x01u << 4,  //!< IntRes2 = -1 XOR IntRes1.
-    kPCmpStrPosMasked     = 0x02u << 4,  //!< IntRes2 = IntRes1.
-    kPCmpStrNegMasked     = 0x03u << 4,  //!< IntRes2[i] = second[i] == invalid ? IntRes1[i] : ~IntRes1[i].
-
-    // Output selection (pcmpstri):
-    kPCmpStrOutputLSI     = 0x00u << 6,  //!< The index returned to ECX is of the least significant set bit in IntRes2.
-    kPCmpStrOutputMSI     = 0x01u << 6,  //!< The index returned to ECX is of the most significant set bit in IntRes2.
-
-    // Output selection (pcmpstrm):
-    kPCmpStrBitMask       = 0x00u << 6,  //!< IntRes2 is returned as the mask to the least significant bits of XMM0.
-    kPCmpStrIndexMask     = 0x01u << 6   //!< IntRes2 is expanded into a byte/word mask and placed in XMM0.
-  };
-
-  //! A predicate used by ROUND[PD|PS|SD|SS] instructions.
-  enum Round : uint32_t {
-    //! Round to nearest (even).
-    kRoundNearest = 0x00u,
-    //! Round to down toward -INF (floor),
-    kRoundDown = 0x01u,
-    //! Round to up toward +INF (ceil).
-    kRoundUp = 0x02u,
-    //! Round toward zero (truncate).
-    kRoundTrunc = 0x03u,
-    //! Round to the current rounding mode set (ignores other RC bits).
-    kRoundCurrent = 0x04u,
-    //! Avoids inexact exception, if set.
-    kRoundInexact = 0x08u
-  };
-
-  //! A predicate used by VCMP[PD|PS|SD|SS] instructions.
-  //!
-  //! The first 8 values are compatible with `Cmp`.
-  enum VCmp : uint32_t {
-    kVCmpEQ_OQ            = kCmpEQ,      //!< Equal             (Quiet    , Ordered).
-    kVCmpLT_OS            = kCmpLT,      //!< Less              (Signaling, Ordered).
-    kVCmpLE_OS            = kCmpLE,      //!< Less/Equal        (Signaling, Ordered).
-    kVCmpUNORD_Q          = kCmpUNORD,   //!< Unordered         (Quiet).
-    kVCmpNEQ_UQ           = kCmpNEQ,     //!< Not Equal         (Quiet    , Unordered).
-    kVCmpNLT_US           = kCmpNLT,     //!< Not Less          (Signaling, Unordered).
-    kVCmpNLE_US           = kCmpNLE,     //!< Not Less/Equal    (Signaling, Unordered).
-    kVCmpORD_Q            = kCmpORD,     //!< Ordered           (Quiet).
-    kVCmpEQ_UQ            = 0x08u,       //!< Equal             (Quiet    , Unordered).
-    kVCmpNGE_US           = 0x09u,       //!< Not Greater/Equal (Signaling, Unordered).
-    kVCmpNGT_US           = 0x0Au,       //!< Not Greater       (Signaling, Unordered).
-    kVCmpFALSE_OQ         = 0x0Bu,       //!< False             (Quiet    , Ordered).
-    kVCmpNEQ_OQ           = 0x0Cu,       //!< Not Equal         (Quiet    , Ordered).
-    kVCmpGE_OS            = 0x0Du,       //!< Greater/Equal     (Signaling, Ordered).
-    kVCmpGT_OS            = 0x0Eu,       //!< Greater           (Signaling, Ordered).
-    kVCmpTRUE_UQ          = 0x0Fu,       //!< True              (Quiet    , Unordered).
-    kVCmpEQ_OS            = 0x10u,       //!< Equal             (Signaling, Ordered).
-    kVCmpLT_OQ            = 0x11u,       //!< Less              (Quiet    , Ordered).
-    kVCmpLE_OQ            = 0x12u,       //!< Less/Equal        (Quiet    , Ordered).
-    kVCmpUNORD_S          = 0x13u,       //!< Unordered         (Signaling).
-    kVCmpNEQ_US           = 0x14u,       //!< Not Equal         (Signaling, Unordered).
-    kVCmpNLT_UQ           = 0x15u,       //!< Not Less          (Quiet    , Unordered).
-    kVCmpNLE_UQ           = 0x16u,       //!< Not Less/Equal    (Quiet    , Unordered).
-    kVCmpORD_S            = 0x17u,       //!< Ordered           (Signaling).
-    kVCmpEQ_US            = 0x18u,       //!< Equal             (Signaling, Unordered).
-    kVCmpNGE_UQ           = 0x19u,       //!< Not Greater/Equal (Quiet    , Unordered).
-    kVCmpNGT_UQ           = 0x1Au,       //!< Not Greater       (Quiet    , Unordered).
-    kVCmpFALSE_OS         = 0x1Bu,       //!< False             (Signaling, Ordered).
-    kVCmpNEQ_OS           = 0x1Cu,       //!< Not Equal         (Signaling, Ordered).
-    kVCmpGE_OQ            = 0x1Du,       //!< Greater/Equal     (Quiet    , Ordered).
-    kVCmpGT_OQ            = 0x1Eu,       //!< Greater           (Quiet    , Ordered).
-    kVCmpTRUE_US          = 0x1Fu        //!< True              (Signaling, Unordered).
-  };
-
-  //! A predicate used by VFIXUPIMM[PD|PS|SD|SS] instructions (AVX-512).
-  enum VFixupImm : uint32_t {
-    kVFixupImmZEOnZero    = 0x01u,
-    kVFixupImmIEOnZero    = 0x02u,
-    kVFixupImmZEOnOne     = 0x04u,
-    kVFixupImmIEOnOne     = 0x08u,
-    kVFixupImmIEOnSNaN    = 0x10u,
-    kVFixupImmIEOnNInf    = 0x20u,
-    kVFixupImmIEOnNegative= 0x40u,
-    kVFixupImmIEOnPInf    = 0x80u
-  };
-
-  //! A predicate used by VFPCLASS[PD|PS|SD|SS] instructions (AVX-512).
-  //!
-  //! \note Values can be combined together to form the final 8-bit mask.
-  enum VFPClass : uint32_t {
-    kVFPClassQNaN         = 0x01u,       //!< Checks for QNaN.
-    kVFPClassPZero        = 0x02u,       //!< Checks for +0.
-    kVFPClassNZero        = 0x04u,       //!< Checks for -0.
-    kVFPClassPInf         = 0x08u,       //!< Checks for +Inf.
-    kVFPClassNInf         = 0x10u,       //!< Checks for -Inf.
-    kVFPClassDenormal     = 0x20u,       //!< Checks for denormal.
-    kVFPClassNegative     = 0x40u,       //!< Checks for negative finite value.
-    kVFPClassSNaN         = 0x80u        //!< Checks for SNaN.
-  };
-
-  //! A predicate used by VGETMANT[PD|PS|SD|SS] instructions (AVX-512).
-  enum VGetMant : uint32_t {
-    kVGetMant1To2         = 0x00u,
-    kVGetMant1Div2To2     = 0x01u,
-    kVGetMant1Div2To1     = 0x02u,
-    kVGetMant3Div4To3Div2 = 0x03u,
-    kVGetMantNoSign       = 0x04u,
-    kVGetMantQNaNIfSign   = 0x08u
-  };
-
-  //! A predicate used by VPCMP[U][B|W|D|Q] instructions (AVX-512).
-  enum VPCmp : uint32_t {
-    kVPCmpEQ              = 0x00u,       //!< Equal.
-    kVPCmpLT              = 0x01u,       //!< Less.
-    kVPCmpLE              = 0x02u,       //!< Less/Equal.
-    kVPCmpFALSE           = 0x03u,       //!< False.
-    kVPCmpNE              = 0x04u,       //!< Not Equal.
-    kVPCmpGE              = 0x05u,       //!< Greater/Equal.
-    kVPCmpGT              = 0x06u,       //!< Greater.
-    kVPCmpTRUE            = 0x07u        //!< True.
-  };
-
-  //! A predicate used by VPCOM[U][B|W|D|Q] instructions (XOP).
-  enum VPCom : uint32_t {
-    kVPComLT              = 0x00u,       //!< Less.
-    kVPComLE              = 0x01u,       //!< Less/Equal
-    kVPComGT              = 0x02u,       //!< Greater.
-    kVPComGE              = 0x03u,       //!< Greater/Equal.
-    kVPComEQ              = 0x04u,       //!< Equal.
-    kVPComNE              = 0x05u,       //!< Not Equal.
-    kVPComFALSE           = 0x06u,       //!< False.
-    kVPComTRUE            = 0x07u        //!< True.
-  };
-
-  //! A predicate used by VRANGE[PD|PS|SD|SS] instructions (AVX-512).
-  enum VRange : uint32_t {
-    kVRangeSelectMin      = 0x00u,       //!< Select minimum value.
-    kVRangeSelectMax      = 0x01u,       //!< Select maximum value.
-    kVRangeSelectAbsMin   = 0x02u,       //!< Select minimum absolute value.
-    kVRangeSelectAbsMax   = 0x03u,       //!< Select maximum absolute value.
-    kVRangeSignSrc1       = 0x00u,       //!< Select sign of SRC1.
-    kVRangeSignSrc2       = 0x04u,       //!< Select sign of SRC2.
-    kVRangeSign0          = 0x08u,       //!< Set sign to 0.
-    kVRangeSign1          = 0x0Cu        //!< Set sign to 1.
-  };
-
-  //! A predicate used by VREDUCE[PD|PS|SD|SS] instructions (AVX-512).
-  enum VReduce : uint32_t {
-    kVReduceRoundCurrent  = 0x00u,       //!< Round to the current mode set.
-    kVReduceRoundEven     = 0x04u,       //!< Round to nearest even.
-    kVReduceRoundDown     = 0x05u,       //!< Round down.
-    kVReduceRoundUp       = 0x06u,       //!< Round up.
-    kVReduceRoundTrunc    = 0x07u,       //!< Truncate.
-    kVReduceSuppress      = 0x08u        //!< Suppress exceptions.
-  };
-
-  //! Pack a shuffle constant to be used by SSE/AVX/AVX-512 instructions (2 values).
-  //!
-  //! \param a Position of the first  component [0, 1].
-  //! \param b Position of the second component [0, 1].
-  //!
-  //! Shuffle constants can be used to encode an immediate for these instructions:
-  //!   - `shufpd|vshufpd`
-  static constexpr uint32_t shuf(uint32_t a, uint32_t b) noexcept {
-    return (a << 1) | b;
-  }
-
-  //! Pack a shuffle constant to be used by SSE/AVX/AVX-512 instructions (4 values).
-  //!
-  //! \param a Position of the first  component [0, 3].
-  //! \param b Position of the second component [0, 3].
-  //! \param c Position of the third  component [0, 3].
-  //! \param d Position of the fourth component [0, 3].
-  //!
-  //! Shuffle constants can be used to encode an immediate for these instructions:
-  //!   - `pshufw`
-  //!   - `pshuflw|vpshuflw`
-  //!   - `pshufhw|vpshufhw`
-  //!   - `pshufd|vpshufd`
-  //!   - `shufps|vshufps`
-  static constexpr uint32_t shuf(uint32_t a, uint32_t b, uint32_t c, uint32_t d) noexcept {
-    return (a << 6) | (b << 4) | (c << 2) | d;
-  }
-}
-
-// ============================================================================
-// [asmjit::x86::TLog]
-// ============================================================================
-
-//! Bitwise ternary logic between 3 operands introduced by AVX-512.
-namespace TLog {
-  //! A predicate that can be used to create a common predicate for VPTERNLOG[D|Q].
-  //!
-  //! There are 3 inputs to the instruction (\ref kA, \ref kB, \ref kC), and
-  //! ternary logic can define any combination that would be performed on these
-  //! 3 inputs to get the desired output - any combination of AND, OR, XOR, NOT.
-  enum Operator : uint32_t {
-    //! 0 value.
-    k0 = 0x00u,
-    //! 1 value.
-    k1 = 0xFFu,
-    //! A value.
-    kA = 0xF0u,
-    //! B value.
-    kB = 0xCCu,
-    //! C value.
-    kC = 0xAAu,
-
-    //! `!A` expression.
-    kNotA = kA ^ k1,
-    //! `!B` expression.
-    kNotB = kB ^ k1,
-    //! `!C` expression.
-    kNotC = kC ^ k1,
-
-    //! `A & B` expression.
-    kAB = kA & kB,
-    //! `A & C` expression.
-    kAC = kA & kC,
-    //! `B & C` expression.
-    kBC = kB & kC,
-    //! `!(A & B)` expression.
-    kNotAB = kAB ^ k1,
-    //! `!(A & C)` expression.
-    kNotAC = kAC ^ k1,
-    //! `!(B & C)` expression.
-    kNotBC = kBC ^ k1,
-
-    //! `A & B & C` expression.
-    kABC = kAB & kC,
-    //! `!(A & B & C)` expression.
-    kNotABC = kABC ^ k1
-  };
-
-  //! Creates an immediate that can be used by VPTERNLOG[D|Q] instructions.
-  static constexpr uint32_t make(uint32_t b000, uint32_t b001, uint32_t b010, uint32_t b011, uint32_t b100, uint32_t b101, uint32_t b110, uint32_t b111) noexcept {
-    return (b000 << 0) | (b001 << 1) | (b010 << 2) | (b011 << 3) | (b100 << 4) | (b101 << 5) | (b110 << 6) | (b111 << 7);
-  }
-
-  //! Creates an immediate that can be used by VPTERNLOG[D|Q] instructions.
-  static constexpr uint32_t value(uint32_t x) noexcept { return x & 0xFF; }
-  //! Negate an immediate that can be used by VPTERNLOG[D|Q] instructions.
-  static constexpr uint32_t negate(uint32_t x) noexcept { return x ^ 0xFF; }
-  //! Creates an if/else logic that can be used by VPTERNLOG[D|Q] instructions.
-  static constexpr uint32_t ifElse(uint32_t condition, uint32_t a, uint32_t b) noexcept { return (condition & a) | (negate(condition) & b); }
+//! Creates a shuffle immediate value that be used with SSE/AVX/AVX-512 instructions to shuffle 4 elements in a vector.
+//!
+//! \param a Position of the first  component [0, 3].
+//! \param b Position of the second component [0, 3].
+//! \param c Position of the third  component [0, 3].
+//! \param d Position of the fourth component [0, 3].
+//!
+//! Shuffle constants can be used to encode an immediate for these instructions:
+//!   - `pshufw`
+//!   - `pshuflw|vpshuflw`
+//!   - `pshufhw|vpshufhw`
+//!   - `pshufd|vpshufd`
+//!   - `shufps|vshufps`
+static inline constexpr uint32_t shuffleImm(uint32_t a, uint32_t b, uint32_t c, uint32_t d) noexcept {
+  return (a << 6) | (b << 4) | (c << 2) | d;
 }
 
 //! \}

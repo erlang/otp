@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/support.h"
@@ -27,17 +9,15 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::Zone - Statics]
-// ============================================================================
+// Zone - Globals
+// ==============
 
-// Zero size block used by `Zone` that doesn't have any memory allocated.
-// Should be allocated in read-only memory and should never be modified.
+// Zero size block used by `Zone` that doesn't have any memory allocated. Should be allocated in read-only memory
+// and should never be modified.
 const Zone::Block Zone::_zeroBlock = { nullptr, nullptr, 0 };
 
-// ============================================================================
-// [asmjit::Zone - Init / Reset]
-// ============================================================================
+// Zone - Init & Reset
+// ===================
 
 void Zone::_init(size_t blockSize, size_t blockAlignment, const Support::Temporary* temporary) noexcept {
   ASMJIT_ASSERT(blockSize >= kMinBlockSize);
@@ -66,28 +46,27 @@ void Zone::_init(size_t blockSize, size_t blockAlignment, const Support::Tempora
   }
 }
 
-void Zone::reset(uint32_t resetPolicy) noexcept {
+void Zone::reset(ResetPolicy resetPolicy) noexcept {
   Block* cur = _block;
 
   // Can't be altered.
   if (cur == &_zeroBlock)
     return;
 
-  if (resetPolicy == Globals::kResetHard) {
+  if (resetPolicy == ResetPolicy::kHard) {
     Block* initial = const_cast<Zone::Block*>(&_zeroBlock);
     _ptr = initial->data();
     _end = initial->data();
     _block = initial;
 
-    // Since cur can be in the middle of the double-linked list, we have to
-    // traverse both directions (`prev` and `next`) separately to visit all.
+    // Since cur can be in the middle of the double-linked list, we have to traverse both directions (`prev` and
+    // `next`) separately to visit all.
     Block* next = cur->next;
     do {
       Block* prev = cur->prev;
 
-      // If this is the first block and this ZoneTmp is temporary then the
-      // first block is statically allocated. We cannot free it and it makes
-      // sense to keep it even when this is hard reset.
+      // If this is the first block and this ZoneTmp is temporary then the first block is statically allocated.
+      // We cannot free it and it makes sense to keep it even when this is hard reset.
       if (prev == nullptr && _isTemporary) {
         cur->prev = nullptr;
         cur->next = nullptr;
@@ -113,9 +92,8 @@ void Zone::reset(uint32_t resetPolicy) noexcept {
   }
 }
 
-// ============================================================================
-// [asmjit::Zone - Alloc]
-// ============================================================================
+// Zone - Alloc
+// ============
 
 void* Zone::_alloc(size_t size, size_t alignment) noexcept {
   Block* curBlock = _block;
@@ -124,10 +102,9 @@ void* Zone::_alloc(size_t size, size_t alignment) noexcept {
   size_t rawBlockAlignment = blockAlignment();
   size_t minimumAlignment = Support::max<size_t>(alignment, rawBlockAlignment);
 
-  // If the `Zone` has been cleared the current block doesn't have to be the
-  // last one. Check if there is a block that can be used instead of allocating
-  // a new one. If there is a `next` block it's completely unused, we don't have
-  // to check for remaining bytes in that case.
+  // If the `Zone` has been cleared the current block doesn't have to be the last one. Check if there is a block
+  // that can be used instead of allocating a new one. If there is a `next` block it's completely unused, we don't
+  // have to check for remaining bytes in that case.
   if (next) {
     uint8_t* ptr = Support::alignUp(next->data(), minimumAlignment);
     uint8_t* end = Support::alignDown(next->data() + next->size, rawBlockAlignment);
@@ -147,18 +124,16 @@ void* Zone::_alloc(size_t size, size_t alignment) noexcept {
   if (ASMJIT_UNLIKELY(newSize > SIZE_MAX - kBlockSize - blockAlignmentOverhead))
     return nullptr;
 
-  // Allocate new block - we add alignment overhead to `newSize`, which becomes the
-  // new block size, and we also add `kBlockOverhead` to the allocator as it includes
-  // members of `Zone::Block` structure.
+  // Allocate new block - we add alignment overhead to `newSize`, which becomes the new block size, and we also add
+  // `kBlockOverhead` to the allocator as it includes members of `Zone::Block` structure.
   newSize += blockAlignmentOverhead;
   Block* newBlock = static_cast<Block*>(::malloc(newSize + kBlockSize));
 
   if (ASMJIT_UNLIKELY(!newBlock))
     return nullptr;
 
-  // Align the pointer to `minimumAlignment` and adjust the size of this block
-  // accordingly. It's the same as using `minimumAlignment - Support::alignUpDiff()`,
-  // just written differently.
+  // Align the pointer to `minimumAlignment` and adjust the size of this block accordingly. It's the same as using
+  // `minimumAlignment - Support::alignUpDiff()`, just written differently.
   {
     newBlock->prev = nullptr;
     newBlock->next = nullptr;
@@ -168,9 +143,8 @@ void* Zone::_alloc(size_t size, size_t alignment) noexcept {
       newBlock->prev = curBlock;
       curBlock->next = newBlock;
 
-      // Does only happen if there is a next block, but the requested memory
-      // can't fit into it. In this case a new buffer is allocated and inserted
-      // between the current block and the next one.
+      // Does only happen if there is a next block, but the requested memory can't fit into it. In this case a new
+      // buffer is allocated and inserted between the current block and the next one.
       if (next) {
         newBlock->next = next;
         next->prev = newBlock;
@@ -226,9 +200,8 @@ char* Zone::sformat(const char* fmt, ...) noexcept {
   return static_cast<char*>(dup(buf, size));
 }
 
-// ============================================================================
-// [asmjit::ZoneAllocator - Helpers]
-// ============================================================================
+// ZoneAllocator - Utilities
+// =========================
 
 #if defined(ASMJIT_BUILD_DEBUG)
 static bool ZoneAllocator_hasDynamicBlock(ZoneAllocator* self, ZoneAllocator::DynamicBlock* block) noexcept {
@@ -242,9 +215,8 @@ static bool ZoneAllocator_hasDynamicBlock(ZoneAllocator* self, ZoneAllocator::Dy
 }
 #endif
 
-// ============================================================================
-// [asmjit::ZoneAllocator - Init / Reset]
-// ============================================================================
+// ZoneAllocator - Init & Reset
+// ============================
 
 void ZoneAllocator::reset(Zone* zone) noexcept {
   // Free dynamic blocks.
@@ -260,9 +232,8 @@ void ZoneAllocator::reset(Zone* zone) noexcept {
   _zone = zone;
 }
 
-// ============================================================================
-// [asmjit::ZoneAllocator - Alloc / Release]
-// ============================================================================
+// asmjit::ZoneAllocator - Alloc & Release
+// =======================================
 
 void* ZoneAllocator::_alloc(size_t size, size_t& allocatedSize) noexcept {
   ASMJIT_ASSERT(isInitialized());

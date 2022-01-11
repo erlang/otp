@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #ifndef ASMJIT_NO_COMPILER
@@ -35,12 +17,13 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::GlobalConstPoolPass]
-// ============================================================================
+// GlobalConstPoolPass
+// ===================
 
 class GlobalConstPoolPass : public Pass {
+public:
   typedef Pass Base;
+public:
   ASMJIT_NONCOPYABLE(GlobalConstPoolPass)
 
   GlobalConstPoolPass() noexcept : Pass("GlobalConstPoolPass") {}
@@ -50,53 +33,50 @@ class GlobalConstPoolPass : public Pass {
 
     // Flush the global constant pool.
     BaseCompiler* compiler = static_cast<BaseCompiler*>(_cb);
-    if (compiler->_globalConstPool) {
-      compiler->addAfter(compiler->_globalConstPool, compiler->lastNode());
-      compiler->_globalConstPool = nullptr;
+    ConstPoolNode* globalConstPool = compiler->_constPools[uint32_t(ConstPoolScope::kGlobal)];
+
+    if (globalConstPool) {
+      compiler->addAfter(globalConstPool, compiler->lastNode());
+      compiler->_constPools[uint32_t(ConstPoolScope::kGlobal)] = nullptr;
     }
 
     return kErrorOk;
   }
 };
 
-// ============================================================================
-// [asmjit::BaseCompiler - Construction / Destruction]
-// ============================================================================
+// BaseCompiler - Construction & Destruction
+// =========================================
 
 BaseCompiler::BaseCompiler() noexcept
   : BaseBuilder(),
     _func(nullptr),
     _vRegZone(4096 - Zone::kBlockOverhead),
     _vRegArray(),
-    _localConstPool(nullptr),
-    _globalConstPool(nullptr) {
-
-  _emitterType = uint8_t(kTypeCompiler);
-  _validationFlags = uint8_t(InstAPI::kValidationFlagVirtRegs);
+    _constPools { nullptr, nullptr } {
+  _emitterType = EmitterType::kCompiler;
+  _validationFlags = ValidationFlags::kEnableVirtRegs;
 }
 BaseCompiler::~BaseCompiler() noexcept {}
 
-// ============================================================================
-// [asmjit::BaseCompiler - Function Management]
-// ============================================================================
+// BaseCompiler - Function Management
+// ==================================
 
-Error BaseCompiler::_newFuncNode(FuncNode** out, const FuncSignature& signature) {
+Error BaseCompiler::newFuncNode(FuncNode** out, const FuncSignature& signature) {
   *out = nullptr;
 
   // Create FuncNode together with all the required surrounding nodes.
   FuncNode* funcNode;
   ASMJIT_PROPAGATE(_newNodeT<FuncNode>(&funcNode));
-  ASMJIT_PROPAGATE(_newLabelNode(&funcNode->_exitNode));
-  ASMJIT_PROPAGATE(_newNodeT<SentinelNode>(&funcNode->_end, SentinelNode::kSentinelFuncEnd));
+  ASMJIT_PROPAGATE(newLabelNode(&funcNode->_exitNode));
+  ASMJIT_PROPAGATE(_newNodeT<SentinelNode>(&funcNode->_end, SentinelType::kFuncEnd));
 
   // Initialize the function's detail info.
   Error err = funcNode->detail().init(signature, environment());
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
-  // If the Target guarantees greater stack alignment than required by the
-  // calling convention then override it as we can prevent having to perform
-  // dynamic stack alignment
+  // If the Target guarantees greater stack alignment than required by the calling convention
+  // then override it as we can prevent having to perform dynamic stack alignment
   uint32_t environmentStackAlignment = _environment.stackAlignment();
 
   if (funcNode->_funcDetail._callConv.naturalStackAlignment() < environmentStackAlignment)
@@ -122,17 +102,21 @@ Error BaseCompiler::_newFuncNode(FuncNode** out, const FuncSignature& signature)
   return kErrorOk;
 }
 
-Error BaseCompiler::_addFuncNode(FuncNode** out, const FuncSignature& signature) {
-  ASMJIT_PROPAGATE(_newFuncNode(out, signature));
+Error BaseCompiler::addFuncNode(FuncNode** out, const FuncSignature& signature) {
+  ASMJIT_PROPAGATE(newFuncNode(out, signature));
+  ASMJIT_ASSUME(*out != nullptr);
+
   addFunc(*out);
   return kErrorOk;
 }
 
-Error BaseCompiler::_newRetNode(FuncRetNode** out, const Operand_& o0, const Operand_& o1) {
+Error BaseCompiler::newFuncRetNode(FuncRetNode** out, const Operand_& o0, const Operand_& o1) {
   uint32_t opCount = !o1.isNone() ? 2u : !o0.isNone() ? 1u : 0u;
   FuncRetNode* node;
 
   ASMJIT_PROPAGATE(_newNodeT<FuncRetNode>(&node));
+  ASMJIT_ASSUME(node != nullptr);
+
   node->setOpCount(opCount);
   node->setOp(0, o0);
   node->setOp(1, o1);
@@ -142,14 +126,13 @@ Error BaseCompiler::_newRetNode(FuncRetNode** out, const Operand_& o0, const Ope
   return kErrorOk;
 }
 
-Error BaseCompiler::_addRetNode(FuncRetNode** out, const Operand_& o0, const Operand_& o1) {
-  ASMJIT_PROPAGATE(_newRetNode(out, o0, o1));
+Error BaseCompiler::addFuncRetNode(FuncRetNode** out, const Operand_& o0, const Operand_& o1) {
+  ASMJIT_PROPAGATE(newFuncRetNode(out, o0, o1));
   addNode(*out);
   return kErrorOk;
 }
 
 FuncNode* BaseCompiler::addFunc(FuncNode* func) {
-  ASMJIT_ASSERT(_func == nullptr);
   _func = func;
 
   addNode(func);                 // Function node.
@@ -168,10 +151,11 @@ Error BaseCompiler::endFunc() {
     return reportError(DebugUtils::errored(kErrorInvalidState));
 
   // Add the local constant pool at the end of the function (if exists).
-  if (_localConstPool) {
+  ConstPoolNode* localConstPool = _constPools[uint32_t(ConstPoolScope::kLocal)];
+  if (localConstPool) {
     setCursor(func->endNode()->prev());
-    addNode(_localConstPool);
-    _localConstPool = nullptr;
+    addNode(localConstPool);
+    _constPools[uint32_t(ConstPoolScope::kLocal)] = nullptr;
   }
 
   // Mark as finished.
@@ -183,28 +167,12 @@ Error BaseCompiler::endFunc() {
   return kErrorOk;
 }
 
-Error BaseCompiler::_setArg(size_t argIndex, size_t valueIndex, const BaseReg& r) {
-  FuncNode* func = _func;
+// BaseCompiler - Function Invocation
+// ==================================
 
-  if (ASMJIT_UNLIKELY(!func))
-    return reportError(DebugUtils::errored(kErrorInvalidState));
-
-  if (ASMJIT_UNLIKELY(!isVirtRegValid(r)))
-    return reportError(DebugUtils::errored(kErrorInvalidVirtId));
-
-  VirtReg* vReg = virtRegByReg(r);
-  func->setArg(argIndex, valueIndex, vReg);
-
-  return kErrorOk;
-}
-
-// ============================================================================
-// [asmjit::BaseCompiler - Function Invocation]
-// ============================================================================
-
-Error BaseCompiler::_newInvokeNode(InvokeNode** out, uint32_t instId, const Operand_& o0, const FuncSignature& signature) {
+Error BaseCompiler::newInvokeNode(InvokeNode** out, InstId instId, const Operand_& o0, const FuncSignature& signature) {
   InvokeNode* node;
-  ASMJIT_PROPAGATE(_newNodeT<InvokeNode>(&node, instId, 0u));
+  ASMJIT_PROPAGATE(_newNodeT<InvokeNode>(&node, instId, InstOptions::kNone));
 
   node->setOpCount(1);
   node->setOp(0, o0);
@@ -219,7 +187,7 @@ Error BaseCompiler::_newInvokeNode(InvokeNode** out, uint32_t instId, const Oper
   if (argCount) {
     node->_args = static_cast<InvokeNode::OperandPack*>(_allocator.alloc(argCount * sizeof(InvokeNode::OperandPack)));
     if (!node->_args)
-      reportError(DebugUtils::errored(kErrorOutOfMemory));
+      return reportError(DebugUtils::errored(kErrorOutOfMemory));
     memset(node->_args, 0, argCount * sizeof(InvokeNode::OperandPack));
   }
 
@@ -227,15 +195,14 @@ Error BaseCompiler::_newInvokeNode(InvokeNode** out, uint32_t instId, const Oper
   return kErrorOk;
 }
 
-Error BaseCompiler::_addInvokeNode(InvokeNode** out, uint32_t instId, const Operand_& o0, const FuncSignature& signature) {
-  ASMJIT_PROPAGATE(_newInvokeNode(out, instId, o0, signature));
+Error BaseCompiler::addInvokeNode(InvokeNode** out, InstId instId, const Operand_& o0, const FuncSignature& signature) {
+  ASMJIT_PROPAGATE(newInvokeNode(out, instId, o0, signature));
   addNode(*out);
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::BaseCompiler - Virtual Registers]
-// ============================================================================
+// BaseCompiler - Virtual Registers
+// ================================
 
 static void BaseCompiler_assignGenericName(BaseCompiler* self, VirtReg* vReg) {
   uint32_t index = unsigned(Operand::virtIdToIndex(vReg->_id));
@@ -247,7 +214,7 @@ static void BaseCompiler_assignGenericName(BaseCompiler* self, VirtReg* vReg) {
   vReg->_name.setData(&self->_dataZone, buf, unsigned(size));
 }
 
-Error BaseCompiler::newVirtReg(VirtReg** out, uint32_t typeId, uint32_t signature, const char* name) {
+Error BaseCompiler::newVirtReg(VirtReg** out, TypeId typeId, OperandSignature signature, const char* name) {
   *out = nullptr;
   uint32_t index = _vRegArray.size();
 
@@ -261,10 +228,10 @@ Error BaseCompiler::newVirtReg(VirtReg** out, uint32_t typeId, uint32_t signatur
   if (ASMJIT_UNLIKELY(!vReg))
     return reportError(DebugUtils::errored(kErrorOutOfMemory));
 
-  uint32_t size = Type::sizeOf(typeId);
+  uint32_t size = TypeUtils::sizeOf(typeId);
   uint32_t alignment = Support::min<uint32_t>(size, 64);
 
-  vReg = new(vReg) VirtReg(Operand::indexToVirtId(index), signature, size, alignment, typeId);
+  vReg = new(vReg) VirtReg(signature, Operand::indexToVirtId(index), size, alignment, typeId);
 
 #ifndef ASMJIT_NO_LOGGING
   if (name && name[0] != '\0')
@@ -281,22 +248,23 @@ Error BaseCompiler::newVirtReg(VirtReg** out, uint32_t typeId, uint32_t signatur
   return kErrorOk;
 }
 
-Error BaseCompiler::_newReg(BaseReg* out, uint32_t typeId, const char* name) {
-  RegInfo regInfo;
+Error BaseCompiler::_newReg(BaseReg* out, TypeId typeId, const char* name) {
+  OperandSignature regSignature;
   out->reset();
 
-  Error err = ArchUtils::typeIdToRegInfo(arch(), typeId, &typeId, &regInfo);
+  Error err = ArchUtils::typeIdToRegSignature(arch(), typeId, &typeId, &regSignature);
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
   VirtReg* vReg;
-  ASMJIT_PROPAGATE(newVirtReg(&vReg, typeId, regInfo.signature(), name));
+  ASMJIT_PROPAGATE(newVirtReg(&vReg, typeId, regSignature, name));
+  ASMJIT_ASSUME(vReg != nullptr);
 
-  out->_initReg(regInfo.signature(), vReg->id());
+  out->_initReg(regSignature, vReg->id());
   return kErrorOk;
 }
 
-Error BaseCompiler::_newRegFmt(BaseReg* out, uint32_t typeId, const char* fmt, ...) {
+Error BaseCompiler::_newRegFmt(BaseReg* out, TypeId typeId, const char* fmt, ...) {
   va_list ap;
   StringTmp<256> sb;
 
@@ -310,75 +278,73 @@ Error BaseCompiler::_newRegFmt(BaseReg* out, uint32_t typeId, const char* fmt, .
 Error BaseCompiler::_newReg(BaseReg* out, const BaseReg& ref, const char* name) {
   out->reset();
 
-  RegInfo regInfo;
-  uint32_t typeId;
+  OperandSignature regSignature;
+  TypeId typeId;
 
   if (isVirtRegValid(ref)) {
     VirtReg* vRef = virtRegByReg(ref);
     typeId = vRef->typeId();
 
-    // NOTE: It's possible to cast one register type to another if it's the
-    // same register group. However, VirtReg always contains the TypeId that
-    // was used to create the register. This means that in some cases we may
-    // end up having different size of `ref` and `vRef`. In such case we
-    // adjust the TypeId to match the `ref` register type instead of the
-    // original register type, which should be the expected behavior.
-    uint32_t typeSize = Type::sizeOf(typeId);
+    // NOTE: It's possible to cast one register type to another if it's the same register group. However, VirtReg
+    // always contains the TypeId that was used to create the register. This means that in some cases we may end
+    // up having different size of `ref` and `vRef`. In such case we adjust the TypeId to match the `ref` register
+    // type instead of the original register type, which should be the expected behavior.
+    uint32_t typeSize = TypeUtils::sizeOf(typeId);
     uint32_t refSize = ref.size();
 
     if (typeSize != refSize) {
-      if (Type::isInt(typeId)) {
+      if (TypeUtils::isInt(typeId)) {
         // GP register - change TypeId to match `ref`, but keep sign of `vRef`.
         switch (refSize) {
-          case  1: typeId = Type::kIdI8  | (typeId & 1); break;
-          case  2: typeId = Type::kIdI16 | (typeId & 1); break;
-          case  4: typeId = Type::kIdI32 | (typeId & 1); break;
-          case  8: typeId = Type::kIdI64 | (typeId & 1); break;
-          default: typeId = Type::kIdVoid; break;
+          case  1: typeId = TypeId(uint32_t(TypeId::kInt8 ) | (uint32_t(typeId) & 1)); break;
+          case  2: typeId = TypeId(uint32_t(TypeId::kInt16) | (uint32_t(typeId) & 1)); break;
+          case  4: typeId = TypeId(uint32_t(TypeId::kInt32) | (uint32_t(typeId) & 1)); break;
+          case  8: typeId = TypeId(uint32_t(TypeId::kInt64) | (uint32_t(typeId) & 1)); break;
+          default: typeId = TypeId::kVoid; break;
         }
       }
-      else if (Type::isMmx(typeId)) {
+      else if (TypeUtils::isMmx(typeId)) {
         // MMX register - always use 64-bit.
-        typeId = Type::kIdMmx64;
+        typeId = TypeId::kMmx64;
       }
-      else if (Type::isMask(typeId)) {
+      else if (TypeUtils::isMask(typeId)) {
         // Mask register - change TypeId to match `ref` size.
         switch (refSize) {
-          case  1: typeId = Type::kIdMask8; break;
-          case  2: typeId = Type::kIdMask16; break;
-          case  4: typeId = Type::kIdMask32; break;
-          case  8: typeId = Type::kIdMask64; break;
-          default: typeId = Type::kIdVoid; break;
+          case  1: typeId = TypeId::kMask8; break;
+          case  2: typeId = TypeId::kMask16; break;
+          case  4: typeId = TypeId::kMask32; break;
+          case  8: typeId = TypeId::kMask64; break;
+          default: typeId = TypeId::kVoid; break;
         }
       }
       else {
-        // VEC register - change TypeId to match `ref` size, keep vector metadata.
-        uint32_t elementTypeId = Type::baseOf(typeId);
-
+        // Vector register - change TypeId to match `ref` size, keep vector metadata.
+        TypeId scalarTypeId = TypeUtils::scalarOf(typeId);
         switch (refSize) {
-          case 16: typeId = Type::_kIdVec128Start + (elementTypeId - Type::kIdI8); break;
-          case 32: typeId = Type::_kIdVec256Start + (elementTypeId - Type::kIdI8); break;
-          case 64: typeId = Type::_kIdVec512Start + (elementTypeId - Type::kIdI8); break;
-          default: typeId = Type::kIdVoid; break;
+          case 16: typeId = TypeUtils::scalarToVector(scalarTypeId, TypeId::_kVec128Start); break;
+          case 32: typeId = TypeUtils::scalarToVector(scalarTypeId, TypeId::_kVec256Start); break;
+          case 64: typeId = TypeUtils::scalarToVector(scalarTypeId, TypeId::_kVec512Start); break;
+          default: typeId = TypeId::kVoid; break;
         }
       }
 
-      if (typeId == Type::kIdVoid)
+      if (typeId == TypeId::kVoid)
         return reportError(DebugUtils::errored(kErrorInvalidState));
     }
   }
   else {
-    typeId = ref.type();
+    typeId = ArchTraits::byArch(arch()).regTypeToTypeId(ref.type());
   }
 
-  Error err = ArchUtils::typeIdToRegInfo(arch(), typeId, &typeId, &regInfo);
+  Error err = ArchUtils::typeIdToRegSignature(arch(), typeId, &typeId, &regSignature);
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
   VirtReg* vReg;
-  ASMJIT_PROPAGATE(newVirtReg(&vReg, typeId, regInfo.signature(), name));
+  ASMJIT_PROPAGATE(newVirtReg(&vReg, typeId, regSignature, name));
+  ASMJIT_ASSUME(vReg != nullptr);
 
-  out->_initReg(regInfo.signature(), vReg->id());
+  out->_initReg(regSignature, vReg->id());
   return kErrorOk;
 }
 
@@ -409,14 +375,18 @@ Error BaseCompiler::_newStack(BaseMem* out, uint32_t size, uint32_t alignment, c
     alignment = 64;
 
   VirtReg* vReg;
-  ASMJIT_PROPAGATE(newVirtReg(&vReg, 0, 0, name));
+  ASMJIT_PROPAGATE(newVirtReg(&vReg, TypeId::kVoid, OperandSignature{0}, name));
+  ASMJIT_ASSUME(vReg != nullptr);
 
   vReg->_virtSize = size;
   vReg->_isStack = true;
   vReg->_alignment = uint8_t(alignment);
 
   // Set the memory operand to GPD/GPQ and its id to VirtReg.
-  *out = BaseMem(BaseMem::Decomposed { _gpRegInfo.type(), vReg->id(), BaseReg::kTypeNone, 0, 0, 0, BaseMem::kSignatureMemRegHomeFlag });
+  *out = BaseMem(OperandSignature::fromOpType(OperandType::kMem) |
+                 OperandSignature::fromMemBaseType(_gpSignature.regType()) |
+                 OperandSignature::fromBits(OperandSignature::kMemRegHomeFlag),
+                 vReg->id(), 0, 0);
   return kErrorOk;
 }
 
@@ -437,9 +407,8 @@ Error BaseCompiler::setStackSize(uint32_t virtId, uint32_t newSize, uint32_t new
   if (newAlignment)
     vReg->_alignment = uint8_t(newAlignment);
 
-  // This is required if the RAPass is already running. There is a chance that
-  // a stack-slot has been already allocated and in that case it has to be
-  // updated as well, otherwise we would allocate wrong amount of memory.
+  // This is required if the RAPass is already running. There is a chance that a stack-slot has been already
+  // allocated and in that case it has to be updated as well, otherwise we would allocate wrong amount of memory.
   RAWorkReg* workReg = vReg->_workReg;
   if (workReg && workReg->_stackSlot) {
     workReg->_stackSlot->_size = vReg->_virtSize;
@@ -449,37 +418,26 @@ Error BaseCompiler::setStackSize(uint32_t virtId, uint32_t newSize, uint32_t new
   return kErrorOk;
 }
 
-Error BaseCompiler::_newConst(BaseMem* out, uint32_t scope, const void* data, size_t size) {
+Error BaseCompiler::_newConst(BaseMem* out, ConstPoolScope scope, const void* data, size_t size) {
   out->reset();
-  ConstPoolNode** pPool;
 
-  if (scope == ConstPool::kScopeLocal)
-    pPool = &_localConstPool;
-  else if (scope == ConstPool::kScopeGlobal)
-    pPool = &_globalConstPool;
-  else
+  if (uint32_t(scope) > 1)
     return reportError(DebugUtils::errored(kErrorInvalidArgument));
 
-  if (!*pPool)
-    ASMJIT_PROPAGATE(_newConstPoolNode(pPool));
+  if (!_constPools[uint32_t(scope)])
+    ASMJIT_PROPAGATE(newConstPoolNode(&_constPools[uint32_t(scope)]));
 
-  ConstPoolNode* pool = *pPool;
+  ConstPoolNode* pool = _constPools[uint32_t(scope)];
   size_t off;
   Error err = pool->add(data, size, off);
 
   if (ASMJIT_UNLIKELY(err))
     return reportError(err);
 
-  *out = BaseMem(BaseMem::Decomposed {
-    Label::kLabelTag,      // Base type.
-    pool->labelId(),       // Base id.
-    0,                     // Index type.
-    0,                     // Index id.
-    int32_t(off),          // Offset.
-    uint32_t(size),        // Size.
-    0                      // Flags.
-  });
-
+  *out = BaseMem(OperandSignature::fromOpType(OperandType::kMem) |
+                 OperandSignature::fromMemBaseType(RegType::kLabelTag) |
+                 OperandSignature::fromSize(uint32_t(size)),
+                 pool->labelId(), 0, int32_t(off));
   return kErrorOk;
 }
 
@@ -504,11 +462,10 @@ void BaseCompiler::rename(const BaseReg& reg, const char* fmt, ...) {
   }
 }
 
-// ============================================================================
-// [asmjit::BaseCompiler - Jump Annotations]
-// ============================================================================
+// BaseCompiler - Jump Annotations
+// ===============================
 
-Error BaseCompiler::newJumpNode(JumpNode** out, uint32_t instId, uint32_t instOptions, const Operand_& o0, JumpAnnotation* annotation) {
+Error BaseCompiler::newJumpNode(JumpNode** out, InstId instId, InstOptions instOptions, const Operand_& o0, JumpAnnotation* annotation) {
   JumpNode* node = _allocator.allocT<JumpNode>();
   uint32_t opCount = 1;
 
@@ -523,8 +480,8 @@ Error BaseCompiler::newJumpNode(JumpNode** out, uint32_t instId, uint32_t instOp
   return kErrorOk;
 }
 
-Error BaseCompiler::emitAnnotatedJump(uint32_t instId, const Operand_& o0, JumpAnnotation* annotation) {
-  uint32_t options = instOptions() | forcedInstOptions();
+Error BaseCompiler::emitAnnotatedJump(InstId instId, const Operand_& o0, JumpAnnotation* annotation) {
+  InstOptions options = instOptions() | forcedInstOptions();
   RegOnly extra = extraReg();
   const char* comment = inlineComment();
 
@@ -561,16 +518,15 @@ JumpAnnotation* BaseCompiler::newJumpAnnotation() {
   return jumpAnnotation;
 }
 
-// ============================================================================
-// [asmjit::BaseCompiler - Events]
-// ============================================================================
+// BaseCompiler - Events
+// =====================
 
 Error BaseCompiler::onAttach(CodeHolder* code) noexcept {
   ASMJIT_PROPAGATE(Base::onAttach(code));
 
   const ArchTraits& archTraits = ArchTraits::byArch(code->arch());
-  uint32_t nativeRegType = Environment::is32Bit(code->arch()) ? BaseReg::kTypeGp32 : BaseReg::kTypeGp64;
-  _gpRegInfo.setSignature(archTraits.regTypeToSignature(nativeRegType));
+  RegType nativeRegType = Environment::is32Bit(code->arch()) ? RegType::kGp32 : RegType::kGp64;
+  _gpSignature = archTraits.regTypeToSignature(nativeRegType);
 
   Error err = addPassT<GlobalConstPoolPass>();
   if (ASMJIT_UNLIKELY(err)) {
@@ -583,8 +539,8 @@ Error BaseCompiler::onAttach(CodeHolder* code) noexcept {
 
 Error BaseCompiler::onDetach(CodeHolder* code) noexcept {
   _func = nullptr;
-  _localConstPool = nullptr;
-  _globalConstPool = nullptr;
+  _constPools[uint32_t(ConstPoolScope::kLocal)] = nullptr;
+  _constPools[uint32_t(ConstPoolScope::kGlobal)] = nullptr;
 
   _vRegArray.reset();
   _vRegZone.reset();
@@ -592,32 +548,30 @@ Error BaseCompiler::onDetach(CodeHolder* code) noexcept {
   return Base::onDetach(code);
 }
 
-// ============================================================================
-// [asmjit::FuncPass - Construction / Destruction]
-// ============================================================================
+// FuncPass - Construction & Destruction
+// =====================================
 
 FuncPass::FuncPass(const char* name) noexcept
   : Pass(name) {}
 
-// ============================================================================
-// [asmjit::FuncPass - Run]
-// ============================================================================
+// FuncPass - Run
+// ==============
 
 Error FuncPass::run(Zone* zone, Logger* logger) {
   BaseNode* node = cb()->firstNode();
   if (!node) return kErrorOk;
 
   do {
-    if (node->type() == BaseNode::kNodeFunc) {
+    if (node->type() == NodeType::kFunc) {
       FuncNode* func = node->as<FuncNode>();
       node = func->endNode();
       ASMJIT_PROPAGATE(runOnFunction(zone, logger, func));
     }
 
-    // Find a function by skipping all nodes that are not `kNodeFunc`.
+    // Find a function by skipping all nodes that are not `NodeType::kFunc`.
     do {
       node = node->next();
-    } while (node && node->type() != BaseNode::kNodeFunc);
+    } while (node && node->type() != NodeType::kFunc);
   } while (node);
 
   return kErrorOk;

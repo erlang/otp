@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86BUILDER_H_INCLUDED
 #define ASMJIT_X86_X86BUILDER_H_INCLUDED
@@ -28,7 +10,6 @@
 #ifndef ASMJIT_NO_BUILDER
 
 #include "../core/builder.h"
-#include "../core/datatypes.h"
 #include "../x86/x86emitter.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
@@ -36,19 +17,13 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! \addtogroup asmjit_x86
 //! \{
 
-// ============================================================================
-// [asmjit::x86::Builder]
-// ============================================================================
-
 //! X86/X64 builder implementation.
 //!
-//! The code representation used by \ref BaseBuilder is compatible with everything
-//! AsmJit provides. Each instruction is stored as \ref InstNode, which contains
-//! instruction id, options, and operands. Each instruction emitted will create
-//! a new \ref InstNode instance and add it to the current cursor in the double-linked
-//! list of nodes. Since the instruction stream used by \ref BaseBuilder can be
-//! manipulated, we can rewrite the SumInts example from \ref asmjit_assembler
-//! into the following:
+//! The code representation used by \ref BaseBuilder is compatible with everything AsmJit provides. Each instruction
+//! is stored as \ref InstNode, which contains instruction id, options, and operands. Each instruction emitted will
+//! create a new \ref InstNode instance and add it to the current cursor in the double-linked list of nodes. Since
+//! the instruction stream used by \ref BaseBuilder can be manipulated, we can rewrite the SumInts example from
+//! \ref asmjit_assembler into the following:
 //!
 //! ```
 //! #include <asmjit/x86.h>
@@ -72,9 +47,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   code.init(rt.environment());      // Initialize code to match the JIT environment.
 //!   x86::Builder cb(&code);           // Create and attach x86::Builder to `code`.
 //!
-//!   // Decide which registers will be mapped to function arguments. Try changing
-//!   // registers of `dst`, `srcA`, and `srcB` and see what happens in function's
-//!   // prolog and epilog.
+//!   // Decide which registers will be mapped to function arguments. Try changing registers
+//!   // of `dst`, `srcA`, and `srcB` and see what happens in function's prolog and epilog.
 //!   x86::Gp dst = cb.zax();
 //!   x86::Gp srcA = cb.zcx();
 //!   x86::Gp srcB = cb.zdx();
@@ -84,7 +58,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // Create and initialize `FuncDetail`.
 //!   FuncDetail func;
-//!   func.init(FuncSignatureT<void, int*, const int*, const int*>(CallConv::kIdHost));
+//!   func.init(FuncSignatureT<void, int*, const int*, const int*>(CallConvId::kHost));
 //!
 //!   // Remember prolog insertion point.
 //!   BaseNode* prologInsertionPoint = cb.cursor();
@@ -106,8 +80,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   FuncFrame frame;
 //!   frame.init(func);
 //!
-//!   // Make XMM0 and XMM1 dirty; `kGroupVec` describes XMM|YMM|ZMM registers.
-//!   frame.setDirtyRegs(x86::Reg::kGroupVec, IntUtils::mask(0, 1));
+//!   // Make XMM0 and XMM1 dirty; RegGroup::kVec describes XMM|YMM|ZMM registers.
+//!   frame.setDirtyRegs(RegGroup::kVec, IntUtils::mask(0, 1));
 //!
 //!   FuncArgsAssignment args(&func);   // Create arguments assignment context.
 //!   args.assignAll(dst, srcA, srcB);  // Assign our registers to arguments.
@@ -148,8 +122,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! }
 //! ```
 //!
-//! When the example is executed it should output the following (this one using
-//! AMD64-SystemV ABI):
+//! When the example is executed it should output the following (this one using AMD64-SystemV ABI):
 //!
 //! ```
 //! Raw Function:
@@ -170,23 +143,21 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! {5 8 4 9}
 //! ```
 //!
-//! The number of use-cases of \ref BaseBuilder is not limited and highly depends
-//! on your creativity and experience. The previous example can be easily improved
-//! to collect all dirty registers inside the function programmatically and to pass
-//! them to \ref FuncFrame::setDirtyRegs().
+//! The number of use-cases of \ref BaseBuilder is not limited and highly depends on your creativity and experience.
+//! The previous example can be easily improved to collect all dirty registers inside the function programmatically
+//! and to pass them to \ref FuncFrame::setDirtyRegs().
 //!
 //! ```
 //! #include <asmjit/x86.h>
 //!
 //! using namespace asmjit;
 //!
-//! // NOTE: This function doesn't cover all possible constructs. It ignores
-//! // instructions that write to implicit registers that are not part of the
-//! // operand list. It also counts read-only registers. Real implementation
-//! // would be a bit more complicated, but still relatively easy to implement.
+//! // NOTE: This function doesn't cover all possible constructs. It ignores instructions that write
+//! // to implicit registers that are not part of the operand list. It also counts read-only registers.
+//! // Real implementation would be a bit more complicated, but still relatively easy to implement.
 //! static void collectDirtyRegs(const BaseNode* first,
 //!                              const BaseNode* last,
-//!                              uint32_t regMask[BaseReg::kGroupVirt]) {
+//!                              Support::Array<RegMask, Globals::kNumVirtGroups>& regMask) {
 //!   const BaseNode* node = first;
 //!   while (node) {
 //!     if (node->actsAsInst()) {
@@ -197,7 +168,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!         const Operand& op = opArray[i];
 //!         if (op.isReg()) {
 //!           const x86::Reg& reg = op.as<x86::Reg>();
-//!           if (reg.group() < BaseReg::kGroupVirt) {
+//!           if (reg.group() <= RegGroup::kMaxVirt) {
 //!             regMask[reg.group()] |= 1u << reg.id();
 //!           }
 //!         }
@@ -211,23 +182,21 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! }
 //!
 //! static void setDirtyRegsOfFuncFrame(const x86::Builder& builder, FuncFrame& frame) {
-//!   uint32_t regMask[BaseReg::kGroupVirt] {};
+//!   Support::Array<RegMask, Globals::kNumVirtGroups> regMask {};
 //!   collectDirtyRegs(builder.firstNode(), builder.lastNode(), regMask);
 //!
 //!   // X86/X64 ABIs only require to save GP/XMM registers:
-//!   frame.setDirtyRegs(x86::Reg::kGroupGp , regMask[x86::Reg::kGroupGp ]);
-//!   frame.setDirtyRegs(x86::Reg::kGroupVec, regMask[x86::Reg::kGroupVec]);
+//!   frame.setDirtyRegs(RegGroup::kGp, regMask[RegGroup::kGp]);
+//!   frame.setDirtyRegs(RegGroup::kVec, regMask[RegGroup::kVec]);
 //! }
 //! ```
 //!
 //! ### Casting Between Various Emitters
 //!
-//! Even when \ref BaseAssembler and \ref BaseBuilder provide the same interface
-//! as defined by \ref BaseEmitter their platform dependent variants like \ref
-//! x86::Assembler and \ref x86::Builder cannot be interchanged or casted
-//! to each other by using a C++ `static_cast<>`. The main reason is the
-//! inheritance graph of these classes is different and cast-incompatible, as
-//! illustrated below:
+//! Even when \ref BaseAssembler and \ref BaseBuilder provide the same interface as defined by \ref BaseEmitter their
+//! platform dependent variants like \ref x86::Assembler and \ref x86::Builder cannot be interchanged or casted to each
+//! other by using a C++ `static_cast<>`. The main reason is the inheritance graph of these classes is different and
+//! cast-incompatible, as illustrated below:
 //!
 //! ```
 //!                                             +--------------+      +=========================+
@@ -250,15 +219,12 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!                           (abstract)            (final)                   (mixin)
 //! ```
 //!
-//! The graph basically shows that it's not possible to cast between \ref
-//! x86::Assembler and \ref x86::Builder. However, since both share the
-//! base interface (\ref BaseEmitter) it's possible to cast them to a class
-//! that cannot be instantiated, but defines the same interface - the class
-//! is called \ref x86::Emitter and was introduced to make it possible to
-//! write a function that can emit to both \ref x86::Assembler and \ref
-//! x86::Builder. Note that \ref x86::Emitter cannot be created, it's abstract
-//! and has private constructors and destructors; it was only designed to be
-//! casted to and used as an interface.
+//! The graph basically shows that it's not possible to cast between \ref x86::Assembler and \ref x86::Builder.
+//! However, since both share the base interface (\ref BaseEmitter) it's possible to cast them to a class that
+//! cannot be instantiated, but defines the same interface - the class is called \ref x86::Emitter and was
+//! introduced to make it possible to write a function that can emit to both \ref x86::Assembler and \ref
+//! x86::Builder. Note that \ref x86::Emitter cannot be created, it's abstract and has private constructors and
+//! destructors; it was only designed to be casted to and used as an interface.
 //!
 //! Each architecture-specific emitter implements a member function called
 //! `as<arch::Emitter>()`, which casts the instance to the architecture
@@ -289,19 +255,16 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! }
 //! ```
 //!
-//! The example above shows how to create a function that can emit code to
-//! either \ref x86::Assembler or \ref x86::Builder through \ref x86::Emitter,
-//! which provides emitter-neutral functionality. \ref x86::Emitter, however,
-//! doesn't provide any emitter-specific functionality like `setCursor()`.
+//! The example above shows how to create a function that can emit code to either \ref x86::Assembler or \ref
+//! x86::Builder through \ref x86::Emitter, which provides emitter-neutral functionality. \ref x86::Emitter,
+//! however, doesn't provide any emitter-specific functionality like `setCursor()`.
 //!
 //! ### Code Injection and Manipulation
 //!
-//! \ref BaseBuilder emitter stores its nodes in a double-linked list, which
-//! makes it easy to manipulate that list during the code generation or
-//! afterwards. Each node is always emitted next to the current cursor and the
-//! cursor is advanced to that newly emitted node. The cursor can be retrieved
-//! and changed by \ref BaseBuilder::cursor() and \ref BaseBuilder::setCursor(),
-//! respectively.
+//! \ref BaseBuilder emitter stores its nodes in a double-linked list, which makes it easy to manipulate that
+//! list during the code generation or afterwards. Each node is always emitted next to the current cursor and
+//! the cursor is advanced to that newly emitted node. The cursor can be retrieved and changed by \ref
+//! BaseBuilder::cursor() and \ref BaseBuilder::setCursor(), respectively.
 //!
 //! The example below demonstrates how to remember a node and inject something
 //! next to it.

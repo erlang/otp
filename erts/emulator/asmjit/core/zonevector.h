@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ZONEVECTOR_H_INCLUDED
 #define ASMJIT_CORE_ZONEVECTOR_H_INCLUDED
@@ -31,10 +13,6 @@ ASMJIT_BEGIN_NAMESPACE
 
 //! \addtogroup asmjit_zone
 //! \{
-
-// ============================================================================
-// [asmjit::ZoneVectorBase]
-// ============================================================================
 
 //! Base class used by \ref ZoneVector template.
 class ZoneVectorBase {
@@ -129,10 +107,6 @@ public:
   //! \}
 };
 
-// ============================================================================
-// [asmjit::ZoneVector<T>]
-// ============================================================================
-
 //! Template used to store and manage array of Zone allocated data.
 //!
 //! This template has these advantages over other std::vector<>:
@@ -143,7 +117,7 @@ public:
 template <typename T>
 class ZoneVector : public ZoneVectorBase {
 public:
-  ASMJIT_NONCOPYABLE(ZoneVector<T>)
+  ASMJIT_NONCOPYABLE(ZoneVector)
 
   // STL compatibility;
   typedef T value_type;
@@ -213,10 +187,10 @@ public:
   //! \{
 
   //! Swaps this vector with `other`.
-  inline void swap(ZoneVector<T>& other) noexcept { _swap(other); }
+  ASMJIT_FORCE_INLINE void swap(ZoneVector<T>& other) noexcept { _swap(other); }
 
   //! Prepends `item` to the vector.
-  inline Error prepend(ZoneAllocator* allocator, const T& item) noexcept {
+  ASMJIT_FORCE_INLINE Error prepend(ZoneAllocator* allocator, const T& item) noexcept {
     if (ASMJIT_UNLIKELY(_size == _capacity))
       ASMJIT_PROPAGATE(grow(allocator, 1));
 
@@ -228,7 +202,7 @@ public:
   }
 
   //! Inserts an `item` at the specified `index`.
-  inline Error insert(ZoneAllocator* allocator, size_t index, const T& item) noexcept {
+  ASMJIT_FORCE_INLINE Error insert(ZoneAllocator* allocator, size_t index, const T& item) noexcept {
     ASMJIT_ASSERT(index <= _size);
 
     if (ASMJIT_UNLIKELY(_size == _capacity))
@@ -243,7 +217,7 @@ public:
   }
 
   //! Appends `item` to the vector.
-  inline Error append(ZoneAllocator* allocator, const T& item) noexcept {
+  ASMJIT_FORCE_INLINE Error append(ZoneAllocator* allocator, const T& item) noexcept {
     if (ASMJIT_UNLIKELY(_size == _capacity))
       ASMJIT_PROPAGATE(grow(allocator, 1));
 
@@ -254,7 +228,7 @@ public:
   }
 
   //! Appends `other` vector at the end of this vector.
-  inline Error concat(ZoneAllocator* allocator, const ZoneVector<T>& other) noexcept {
+  ASMJIT_FORCE_INLINE Error concat(ZoneAllocator* allocator, const ZoneVector<T>& other) noexcept {
     uint32_t size = other._size;
     if (_capacity - _size < size)
       ASMJIT_PROPAGATE(grow(allocator, size));
@@ -269,10 +243,9 @@ public:
 
   //! Prepends `item` to the vector (unsafe case).
   //!
-  //! Can only be used together with `willGrow()`. If `willGrow(N)` returns
-  //! `kErrorOk` then N elements can be added to the vector without checking
-  //! if there is a place for them. Used mostly internally.
-  inline void prependUnsafe(const T& item) noexcept {
+  //! Can only be used together with `willGrow()`. If `willGrow(N)` returns `kErrorOk` then N elements
+  //! can be added to the vector without checking if there is a place for them. Used mostly internally.
+  ASMJIT_FORCE_INLINE void prependUnsafe(const T& item) noexcept {
     ASMJIT_ASSERT(_size < _capacity);
     T* data = static_cast<T*>(_data);
 
@@ -285,10 +258,9 @@ public:
 
   //! Append s`item` to the vector (unsafe case).
   //!
-  //! Can only be used together with `willGrow()`. If `willGrow(N)` returns
-  //! `kErrorOk` then N elements can be added to the vector without checking
-  //! if there is a place for them. Used mostly internally.
-  inline void appendUnsafe(const T& item) noexcept {
+  //! Can only be used together with `willGrow()`. If `willGrow(N)` returns `kErrorOk` then N elements
+  //! can be added to the vector without checking if there is a place for them. Used mostly internally.
+  ASMJIT_FORCE_INLINE void appendUnsafe(const T& item) noexcept {
     ASMJIT_ASSERT(_size < _capacity);
 
     memcpy(static_cast<T*>(_data) + _size, &item, sizeof(T));
@@ -296,7 +268,7 @@ public:
   }
 
   //! Inserts an `item` at the specified `index` (unsafe case).
-  inline void insertUnsafe(size_t index, const T& item) noexcept {
+  ASMJIT_FORCE_INLINE void insertUnsafe(size_t index, const T& item) noexcept {
     ASMJIT_ASSERT(_size < _capacity);
     ASMJIT_ASSERT(index <= _size);
 
@@ -306,7 +278,7 @@ public:
     _size++;
   }
   //! Concatenates all items of `other` at the end of the vector.
-  inline void concatUnsafe(const ZoneVector<T>& other) noexcept {
+  ASMJIT_FORCE_INLINE void concatUnsafe(const ZoneVector<T>& other) noexcept {
     uint32_t size = other._size;
     ASMJIT_ASSERT(_capacity - _size >= size);
 
@@ -317,7 +289,7 @@ public:
   }
 
   //! Returns index of the given `val` or `Globals::kNotFound` if it doesn't exist.
-  inline uint32_t indexOf(const T& val) const noexcept {
+  ASMJIT_FORCE_INLINE uint32_t indexOf(const T& val) const noexcept {
     const T* data = static_cast<const T*>(_data);
     uint32_t size = _size;
 
@@ -351,7 +323,7 @@ public:
     return data()[index];
   }
 
-  template<typename CompareT = Support::Compare<Support::kSortAscending>>
+  template<typename CompareT = Support::Compare<Support::SortOrder::kAscending>>
   inline void sort(const CompareT& cmp = CompareT()) noexcept {
     Support::qSort<T, CompareT>(data(), size(), cmp);
   }
@@ -370,18 +342,16 @@ public:
 
   //! Returns a reference to the first element of the vector.
   //!
-  //! \note The vector must have at least one element. Attempting to use
-  //! `first()` on empty vector will trigger an assertion failure in debug
-  //! builds.
+  //! \note The vector must have at least one element. Attempting to use `first()` on empty vector will trigger
+  //! an assertion failure in debug builds.
   inline T& first() noexcept { return operator[](0); }
   //! \overload
   inline const T& first() const noexcept { return operator[](0); }
 
   //! Returns a reference to the last element of the vector.
   //!
-  //! \note The vector must have at least one element. Attempting to use
-  //! `last()` on empty vector will trigger an assertion failure in debug
-  //! builds.
+  //! \note The vector must have at least one element. Attempting to use `last()` on empty vector will trigger
+  //! an assertion failure in debug builds.
   inline T& last() noexcept { return operator[](_size - 1); }
   //! \overload
   inline const T& last() const noexcept { return operator[](_size - 1); }
@@ -403,9 +373,8 @@ public:
 
   //! Resizes the vector to hold `n` elements.
   //!
-  //! If `n` is greater than the current size then the additional elements'
-  //! content will be initialized to zero. If `n` is less than the current
-  //! size then the vector will be truncated to exactly `n` elements.
+  //! If `n` is greater than the current size then the additional elements' content will be initialized to zero.
+  //! If `n` is less than the current size then the vector will be truncated to exactly `n` elements.
   inline Error resize(ZoneAllocator* allocator, uint32_t n) noexcept {
     return ZoneVectorBase::_resize(allocator, sizeof(T), n);
   }
@@ -422,15 +391,24 @@ public:
   //! \}
 };
 
-// ============================================================================
-// [asmjit::ZoneBitVector]
-// ============================================================================
-
 //! Zone-allocated bit vector.
 class ZoneBitVector {
 public:
   typedef Support::BitWord BitWord;
-  static constexpr uint32_t kBitWordSizeInBits = Support::kBitWordSizeInBits;
+
+  ASMJIT_NONCOPYABLE(ZoneBitVector)
+
+  //! \name Constants
+  //! \{
+
+  enum : uint32_t {
+    kBitWordSizeInBits = Support::kBitWordSizeInBits
+  };
+
+  //! \}
+
+  //! \name Members
+  //! \{
 
   //! Bits.
   BitWord* _data = nullptr;
@@ -439,7 +417,7 @@ public:
   //! Capacity of the bit-vector (in bits).
   uint32_t _capacity = 0;
 
-  ASMJIT_NONCOPYABLE(ZoneBitVector)
+  //! \}
 
   //! \cond INTERNAL
   //! \name Internal
@@ -548,7 +526,7 @@ public:
     Support::bitVectorFlipBit(_data, index);
   }
 
-  ASMJIT_INLINE Error append(ZoneAllocator* allocator, bool value) noexcept {
+  ASMJIT_FORCE_INLINE Error append(ZoneAllocator* allocator, bool value) noexcept {
     uint32_t index = _size;
     if (ASMJIT_UNLIKELY(index >= _capacity))
       return _append(allocator, value);
@@ -567,35 +545,34 @@ public:
 
   ASMJIT_API Error copyFrom(ZoneAllocator* allocator, const ZoneBitVector& other) noexcept;
 
-  inline void clearAll() noexcept {
+  ASMJIT_FORCE_INLINE void clearAll() noexcept {
     _zeroBits(_data, _wordsPerBits(_size));
   }
 
-  inline void fillAll() noexcept {
+  ASMJIT_FORCE_INLINE void fillAll() noexcept {
     _fillBits(_data, _wordsPerBits(_size));
     _clearUnusedBits();
   }
 
-  inline void clearBits(uint32_t start, uint32_t count) noexcept {
+  ASMJIT_FORCE_INLINE void clearBits(uint32_t start, uint32_t count) noexcept {
     ASMJIT_ASSERT(start <= _size);
     ASMJIT_ASSERT(_size - start >= count);
 
     Support::bitVectorClear(_data, start, count);
   }
 
-  inline void fillBits(uint32_t start, uint32_t count) noexcept {
+  ASMJIT_FORCE_INLINE void fillBits(uint32_t start, uint32_t count) noexcept {
     ASMJIT_ASSERT(start <= _size);
     ASMJIT_ASSERT(_size - start >= count);
 
     Support::bitVectorFill(_data, start, count);
   }
 
-  //! Performs a logical bitwise AND between bits specified in this array and bits
-  //! in `other`. If `other` has less bits than `this` then all remaining bits are
-  //! set to zero.
+  //! Performs a logical bitwise AND between bits specified in this array and bits in `other`. If `other` has less
+  //! bits than `this` then all remaining bits are set to zero.
   //!
   //! \note The size of the BitVector is unaffected by this operation.
-  inline void and_(const ZoneBitVector& other) noexcept {
+  ASMJIT_FORCE_INLINE void and_(const ZoneBitVector& other) noexcept {
     BitWord* dst = _data;
     const BitWord* src = other._data;
 
@@ -615,12 +592,11 @@ public:
     }
   }
 
-  //! Performs a logical bitwise AND between bits specified in this array and
-  //! negated bits in `other`. If `other` has less bits than `this` then all
-  //! remaining bits are kept intact.
+  //! Performs a logical bitwise AND between bits specified in this array and negated bits in `other`. If `other`
+  //! has less bits than `this` then all remaining bits are kept intact.
   //!
   //! \note The size of the BitVector is unaffected by this operation.
-  inline void andNot(const ZoneBitVector& other) noexcept {
+  ASMJIT_FORCE_INLINE void andNot(const ZoneBitVector& other) noexcept {
     BitWord* dst = _data;
     const BitWord* src = other._data;
 
@@ -629,12 +605,11 @@ public:
       dst[i] = dst[i] & ~src[i];
   }
 
-  //! Performs a logical bitwise OP between bits specified in this array and bits
-  //! in `other`. If `other` has less bits than `this` then all remaining bits
-  //! are kept intact.
+  //! Performs a logical bitwise OP between bits specified in this array and bits in `other`. If `other` has less
+  //! bits than `this` then all remaining bits are kept intact.
   //!
   //! \note The size of the BitVector is unaffected by this operation.
-  inline void or_(const ZoneBitVector& other) noexcept {
+  ASMJIT_FORCE_INLINE void or_(const ZoneBitVector& other) noexcept {
     BitWord* dst = _data;
     const BitWord* src = other._data;
 
@@ -644,15 +619,16 @@ public:
     _clearUnusedBits();
   }
 
-  inline void _clearUnusedBits() noexcept {
+  ASMJIT_FORCE_INLINE void _clearUnusedBits() noexcept {
     uint32_t idx = _size / kBitWordSizeInBits;
     uint32_t bit = _size % kBitWordSizeInBits;
 
-    if (!bit) return;
+    if (!bit)
+      return;
     _data[idx] &= (BitWord(1) << bit) - 1u;
   }
 
-  inline bool eq(const ZoneBitVector& other) const noexcept {
+  ASMJIT_FORCE_INLINE bool eq(const ZoneBitVector& other) const noexcept {
     if (_size != other._size)
       return false;
 
@@ -691,14 +667,14 @@ public:
 
   class ForEachBitSet : public Support::BitVectorIterator<BitWord> {
   public:
-    ASMJIT_INLINE explicit ForEachBitSet(const ZoneBitVector& bitVector) noexcept
+    inline explicit ForEachBitSet(const ZoneBitVector& bitVector) noexcept
       : Support::BitVectorIterator<BitWord>(bitVector.data(), bitVector.sizeInBitWords()) {}
   };
 
   template<class Operator>
   class ForEachBitOp : public Support::BitVectorOpIterator<BitWord, Operator> {
   public:
-    ASMJIT_INLINE ForEachBitOp(const ZoneBitVector& a, const ZoneBitVector& b) noexcept
+    inline ForEachBitOp(const ZoneBitVector& a, const ZoneBitVector& b) noexcept
       : Support::BitVectorOpIterator<BitWord, Operator>(a.data(), b.data(), a.sizeInBitWords()) {
       ASMJIT_ASSERT(a.size() == b.size());
     }
