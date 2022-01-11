@@ -9394,10 +9394,36 @@ ok
       <fsummary>Set system flag scheduler_wall_time.</fsummary>
       <desc>
         <p>
-          Turns on or off scheduler wall time measurements.</p>
-        <p>For more information, see
-          <seeerl marker="#statistics_scheduler_wall_time">
-          <c>statistics(scheduler_wall_time)</c></seeerl>.</p>
+          Try enable or disable scheduler wall time measurements by passing
+	  <c><anno>Boolean</anno></c> as either <c>true</c> or <c>false</c>.
+	</p>
+	<p>
+	  For more information about how to use scheduler wall time
+	  measurements, see <seeerl marker="#statistics_scheduler_wall_time">
+          <c>statistics(scheduler_wall_time)</c></seeerl>.
+	</p>
+	<p>
+	  Scheduler wall time measurements has a node global state. It is either
+	  enabled for all processes on the node or disabled for all
+	  processes. Each process has a logical counter initialized as zero. A
+	  call with <c><anno>Boolean</anno></c> as <c>true</c> will increase
+	  that counter one step for the calling process. A call with
+	  <c>false</c> will decrease it one step unless it already is
+	  zero. The node global state for <c>scheduler_wall_time</c> will be
+	  enabled as long as there is at least one process alive with a counter
+	  value larger than zero. When a process terminates, its counter will
+	  also disappear. To ensure <c>scheduler_wall_time</c> is kept enabled,
+	  the process that enabled it must therefore be kept alive.
+	</p>
+	<p>
+	  Returns the old value of the node global state, <c>true</c> if
+	  scheduler wall time measurements were enabled, <c>false</c>
+	  if it were disabled.
+	</p>
+	<p>
+	  Scheduler wall time measurements do consume some cpu overhead and
+	  should not be left turned on unless used.
+	</p>
       </desc>
     </func>
 
