@@ -18,8 +18,8 @@
 %% %CopyrightEnd%
 %%
 %%
-%% Description: This module impements a temporary process that 
-%% performes progress reporting during file transfer calling a user 
+%% Description: This module implements a temporary process that 
+%% performs progress reporting during file transfer calling a user 
 %% defined callback function. Its life span is as long as the ftp connection
 %% processes that spawned it lives. The purpose of this process is to 
 %% shild the ftp connection process from errors and time consuming operations

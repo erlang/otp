@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%
-%% Description: This module impements handling of ftp server responses.
+%% Description: This module implements handling of ftp server responses.
 
 -module(ftp_response).
 
@@ -50,7 +50,7 @@
 %%                                             {continue, {Data, 
 %%                                                       AccLines, StatusCode}}
 %%
-%% Data = binary() - data recived on the control connection from the 
+%% Data = binary() - data received on the control connection from the 
 %%                   ftp-server. 
 %% AccLines = [string()] 
 %% StatusCode     =  start | {byte(), byte(), byte()} | finish -
@@ -95,7 +95,7 @@ parse_lines(<<?CR, ?LF, C1, C2, C3, ?WHITE_SPACE, Rest/binary>>, Lines, {C1, C2,
 %% Potential end found  wait for more data 
 parse_lines(<<?CR, ?LF, C1, C2, C3>> = Bin, Lines, {C1, C2, C3}) ->
     {continue, {Bin, Lines, {C1, C2, C3}}};
-%% Intermidate line begining with status code
+%% Intermidate line beginning with status code
 parse_lines(<<?CR, ?LF, C1, C2, C3, Rest/binary>>, Lines, {C1, C2, C3}) ->
     parse_lines(Rest, [C3, C2, C1, ?LF, ?CR  | Lines], {C1, C2, C3});
 
@@ -184,7 +184,7 @@ interpret_status(?POS_PREL,_,_)                   -> pos_prel;
 interpret_status(?POS_COMPL, ?AUTH_ACC, 4)        -> tls_upgrade; 
 %% Positive Completion Reply
 interpret_status(?POS_COMPL,_,_)                  -> pos_compl;
-%% Positive Intermediate Reply nedd account
+%% Positive Intermediate Reply need account
 interpret_status(?POS_INTERM,?AUTH_ACC,2)         -> pos_interm_acct;
 %% Positive Intermediate Reply
 interpret_status(?POS_INTERM,_,_)                 -> pos_interm; 
