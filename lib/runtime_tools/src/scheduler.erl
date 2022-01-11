@@ -23,8 +23,8 @@
 
 -module(scheduler).
 
--export([sample/0,
-         sample_all/0,
+-export([sample/0, get_sample/0,
+         sample_all/0, get_sample_all/0,
          utilization/1,
          utilization/2]).
 
@@ -54,11 +54,31 @@ sample(Stats) ->
             sample(Stats);
         
         List ->
-            Sorted = lists:sort(List),
-            Tagged = lists:map(fun({I, A, T}) -> {sched_tag(I), I, A, T} end,
-                               Sorted),
-            {Stats, Tagged}
+            create_sample(Stats, List)
     end.
+
+-spec get_sample() -> sched_sample() | undefined.
+get_sample() ->
+    get_sample(scheduler_wall_time).
+
+-spec get_sample_all() -> sched_sample() | undefined.
+get_sample_all() ->
+    get_sample(scheduler_wall_time_all).
+
+get_sample(Stats) ->
+    case erlang:statistics(Stats) of
+        undefined ->
+            undefined;
+        List ->
+            create_sample(Stats, List)
+    end.
+
+create_sample(Stats, List) ->
+    Sorted = lists:sort(List),
+    Tagged = lists:map(fun({I, A, T}) -> {sched_tag(I), I, A, T} end,
+                       Sorted),
+    {Stats, Tagged}.
+
 
 -type sched_util_result() ::
         [{sched_type(), sched_id(), float(), string()} |
@@ -70,16 +90,11 @@ sample(Stats) ->
                  (Sample) -> sched_util_result() when
       Sample :: sched_sample().
 utilization(Seconds) when is_integer(Seconds), Seconds > 0 ->
-    OldFlag = erlang:system_flag(scheduler_wall_time, true),
+    _ = erlang:system_flag(scheduler_wall_time, true),
     T0 = sample(),
     receive after Seconds*1000 -> ok end,
     T1 = sample(),
-    case OldFlag of
-        false ->
-            erlang:system_flag(scheduler_wall_time, OldFlag);
-        true ->
-            ok
-    end,
+    _ = erlang:system_flag(scheduler_wall_time, false),
     utilization(T0,T1);
 
 utilization({Stats, _}=T0) when Stats =:= scheduler_wall_time;
