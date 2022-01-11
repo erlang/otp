@@ -332,7 +332,7 @@ badarg(Reply, _A) ->
     Reply.
 
 otp_7223(Config) when is_list(Config) ->
-    {'EXIT', {{case_clause,{1}},_}} = (catch otp_7223_1(1)),
+    {'EXIT', {function_clause, [{?MODULE,_,[1],_}|_]}} = (catch otp_7223_1(1)),
     ok.
 
 -compile({inline,[{otp_7223_1,1}]}).

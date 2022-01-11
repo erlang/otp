@@ -73,14 +73,16 @@
 
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,member/2,partition/2,
-                reverse/1,reverse/2,sort/1,splitwith/2,zip/2]).
+                reverse/1,reverse/2,seq/2,sort/1,
+                splitwith/2,usort/1,zip/2]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
 
 module(#b_module{body=Fs0}=Module, Opts) ->
     Ps = passes(Opts),
-    Fs = functions(Fs0, Ps),
+    Fs1 = functions(Fs0, Ps),
+    Fs = fc_stubs(Fs1, Module),
     {ok,Module#b_module{body=Fs}}.
 
 functions([F|Fs], Ps) ->
@@ -835,19 +837,21 @@ match_fail_instrs_1([{L,#b_blk{is=Is0}=Blk}|Bs], Arity, Blocks0) ->
 match_fail_instrs_1([], _Arity, Blocks) -> Blocks.
 
 match_fail_instrs_blk([#b_set{op=put_tuple,dst=Dst,
-                              args=[#b_literal{val=Tag},Val]},
+                              args=[#b_literal{val=Tag}|Values]},
                        #b_set{op=call,
                               args=[#b_remote{mod=#b_literal{val=erlang},
                                               name=#b_literal{val=error}},
                                     Dst]}=Call|Is],
                       _Arity, Acc) ->
-    match_fail_instr(Call, Tag, Val, Is, Acc);
+    match_fail_instr(Call, Tag, Values, Is, Acc);
 match_fail_instrs_blk([#b_set{op=call,
                               args=[#b_remote{mod=#b_literal{val=erlang},
                                               name=#b_literal{val=error}},
-                                    #b_literal{val={Tag,Val}}]}=Call|Is],
-                      _Arity, Acc) ->
-    match_fail_instr(Call, Tag, #b_literal{val=Val}, Is, Acc);
+                                    #b_literal{val=Tuple}]}=Call|Is],
+                      _Arity, Acc) when tuple_size(Tuple) >= 1 ->
+    [Tag|Values0] = tuple_to_list(Tuple),
+    Values = [#b_literal{val=V} || V <- Values0],
+    match_fail_instr(Call, Tag, Values, Is, Acc);
 match_fail_instrs_blk([#b_set{op=call,
                               args=[#b_remote{mod=#b_literal{val=erlang},
                                               name=#b_literal{val=error}},
@@ -860,34 +864,29 @@ match_fail_instrs_blk([#b_set{op=call,anno=Anno,
                                               name=#b_literal{val=error}},
                                     #b_literal{val=function_clause},
                                     Stk]}=Call],
-                      {Arity,Location}, Acc) ->
-    case match_fail_stk(Stk, Acc, [], []) of
-        {[_|_]=Vars,Is} when length(Vars) =:= Arity ->
-            case maps:get(location, Anno, none) of
-                Location ->
-                    I = Call#b_set{op=match_fail,
-                                   args=[#b_literal{val=function_clause}|Vars]},
-                    Is ++ [I];
-                _ ->
-                    %% erlang:error/2 has a different location than the
-                    %% func_info instruction at the beginning of the function
-                    %% (probably because of inlining). Keep the original call.
-                    reverse(Acc, [Call])
-            end;
-        _ ->
-            %% Either the stacktrace could not be picked apart (for example,
-            %% if the call to erlang:error/2 was handwritten) or the number
-            %% of arguments in the stacktrace was different from the arity
-            %% of the host function (because it is the implementation of a
-            %% fun). Keep the original call.
-            reverse(Acc, [Call])
-    end;
+                      Arity, Acc) ->
+    match_fail_fc(Anno, Call, Stk, Arity, Acc);
 match_fail_instrs_blk([I|Is], Arity, Acc) ->
     match_fail_instrs_blk(Is, Arity, [I|Acc]);
 match_fail_instrs_blk(_, _, _) ->
     none.
 
-match_fail_instr(Call, Tag, Val, Is, Acc) ->
+match_fail_instr(Call, function_clause, Values, Is, Acc) ->
+    case beam_ssa:get_anno(inlined, Call, none) of
+        none ->
+            %% If there is no `inlined` annotation, it implies that
+            %% the call to erlang:error/1 was handwritten.
+            none;
+        {Name,Arity} ->
+            %% A `function_clause` in inlined code. Convert it to
+            %% a call to a stub function that will raise a proper
+            %% `function_clause` exception. (The stub function will
+            %% be created later by fc_stubs/2.)
+            Target = #b_local{name=#b_literal{val=Name},arity=Arity},
+            I = Call#b_set{args=[Target|Values]},
+            reverse(Acc, [I|Is])
+    end;
+match_fail_instr(Call, Tag, [Val], Is, Acc) ->
     Op = case Tag of
              badmatch -> Tag;
              case_clause -> case_end;
@@ -900,18 +899,83 @@ match_fail_instr(Call, Tag, Val, Is, Acc) ->
         _ ->
             I = Call#b_set{op=match_fail,args=[#b_literal{val=Op},Val]},
             reverse(Acc, [I|Is])
+    end;
+match_fail_instr(_, _, _, _, _) -> none.
+
+match_fail_fc(Anno, Call, Stk, {Arity,Location}, Acc) ->
+    case match_fail_stk(Stk, Acc, [], []) of
+        {[_|_]=Vars,Is} when length(Vars) =:= Arity ->
+            case maps:get(location, Anno, none) of
+                Location ->
+                    I = Call#b_set{op=match_fail,
+                                   args=[#b_literal{val=function_clause}|Vars]},
+                    Is ++ [I];
+                _ ->
+                    %% erlang:error/2 has a different location than
+                    %% the func_info instruction at the beginning of
+                    %% the function (probably because of
+                    %% inlining). Keep the original call.
+                    reverse(Acc, [Call])
+            end;
+        _ ->
+            %% Either the stacktrace could not be picked apart (for
+            %% example, if the call to erlang:error/2 was handwritten)
+            %% or the number of arguments in the stacktrace was
+            %% different from the arity of the host function (because
+            %% it is the implementation of a fun). Keep the original
+            %% call.
+            reverse(Acc, [Call])
     end.
 
 match_fail_stk(#b_var{}=V, [#b_set{op=put_list,dst=V,args=[H,T]}|Is], IAcc, VAcc) ->
     match_fail_stk(T, Is, IAcc, [H|VAcc]);
 match_fail_stk(#b_literal{val=[H|T]}, Is, IAcc, VAcc) ->
     match_fail_stk(#b_literal{val=T}, Is, IAcc, [#b_literal{val=H}|VAcc]);
-match_fail_stk(#b_literal{val=[]}, [], IAcc, VAcc) ->
-    {reverse(VAcc),IAcc};
+match_fail_stk(#b_literal{val=[]}, Is, IAcc, VAcc) ->
+    {reverse(VAcc),reverse(Is, IAcc)};
 match_fail_stk(T, [#b_set{op=Op}=I|Is], IAcc, VAcc)
   when Op =:= bs_get_tail; Op =:= bs_set_position ->
     match_fail_stk(T, Is, [I|IAcc], VAcc);
 match_fail_stk(_, _, _, _) -> none.
+
+%% Create stubs for `function_clause` exceptions generated by
+%% inlined code.
+fc_stubs(Fs, #b_module{name=Mod}) ->
+    Stubs0 = usort(find_fc_calls(Fs, [])),
+    Stubs = [begin
+                 Seq = seq(0, Arity-1),
+                 Args = [#b_var{name=V} || V <- Seq],
+                 XRegs = [{x,V} || V <- Seq],
+                 Ret = #b_var{name='@ssa_ret'},
+                 Regs = maps:from_list([{Ret,{x,0}}|zip(Args, XRegs)]),
+                 Anno = #{func_info => {Mod,Name,Arity},
+                          location => Location,
+                          parameter_info => #{},
+                          registers => Regs},
+                 Fc = #b_set{op=match_fail,dst=Ret,
+                             args=[#b_literal{val=function_clause}|Args]},
+                 Blk = #b_blk{is=[Fc],last=#b_ret{arg=Ret}},
+                 #b_function{anno=Anno,args=Args,
+                             bs=#{0 => Blk},
+                             cnt=1}
+             end || {{Name,Arity},Location} <- Stubs0],
+    Fs ++ Stubs.
+
+find_fc_calls([#b_function{bs=Blocks}|Fs], Acc0) ->
+    F = fun(#b_set{anno=Anno,op=call}, A) ->
+                case Anno of
+                    #{inlined := FA} ->
+                        [{FA,maps:get(location, Anno, [])}|A];
+                    #{} ->
+                        A
+                end;
+           (_, A) ->
+                A
+        end,
+    Acc = beam_ssa:fold_instrs(F, maps:keys(Blocks), Acc0, Blocks),
+    find_fc_calls(Fs, Acc);
+find_fc_calls([], Acc) -> Acc.
+
 
 %%%
 %%% Introduce the set_tuple_element instructions to make

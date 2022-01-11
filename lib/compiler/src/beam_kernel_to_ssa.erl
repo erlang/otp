@@ -25,7 +25,7 @@
 -export([module/2]).
 
 -import(lists, [all/2,append/1,flatmap/2,foldl/3,
-                keysort/2,mapfoldl/3,member/2,
+                keyfind/3,keysort/2,mapfoldl/3,member/2,
                 reverse/1,sort/1]).
 
 -include("v3_kernel.hrl").
@@ -672,7 +672,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% Ordinary function call in a function body.
             Args = ssa_args([Func|As], St0),
             {Ret,St1} = new_ssa_var(R, St0),
-            Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=Args},
+            Call = #b_set{anno=call_anno(Le),op=call,dst=Ret,args=Args},
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
@@ -685,8 +685,15 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
 enter_cg(Func, As0, Le, St0) ->
     As = ssa_args([Func|As0], St0),
     {Ret,St} = new_ssa_var('@ssa_ret', St0),
-    Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
+    Call = #b_set{anno=call_anno(Le),op=call,dst=Ret,args=As},
     {[Call,#b_ret{arg=Ret}],St}.
+
+call_anno(Le) ->
+    Anno = line_anno(Le),
+    case keyfind(inlined, 1, Le) of
+        false -> Anno;
+        {inlined,NameArity} -> Anno#{inlined => NameArity}
+    end.
 
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.

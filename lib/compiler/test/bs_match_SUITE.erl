@@ -1468,10 +1468,11 @@ haystack_2(Haystack) ->
 fc({'EXIT',{function_clause,_}}) -> ok;
 fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_match_inline_SUITE -> ok.
 
-fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args,_}|_]}}) -> ok;
-fc(_, Args, {'EXIT',{{case_clause,ActualArgs},_}})
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args,_}|_]}}) ->
+    ok;
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,_,Args,_}|_]}})
   when ?MODULE =:= bs_match_inline_SUITE ->
-    Args = tuple_to_list(ActualArgs).
+    ok.
 
 %% Cover the clause handling bs_context to binary in
 %% beam_block:initialized_regs/2.
