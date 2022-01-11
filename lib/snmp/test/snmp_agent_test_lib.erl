@@ -1144,8 +1144,13 @@ get_timeout() ->
 receive_pdu(To) ->
     receive
 	{snmp_pdu, PDU} when is_record(PDU, pdu) ->
-	    PDU
+	    PDU;
+        {error, Reason} = ERROR ->
+	    ?EPRINT("[await response-pdu] received unexpected error: "
+                    "~n      ~p", [Reason]),
+            ERROR
     after To ->
+	    ?EPRINT("[await response-pdu] unexpected timeout"),
 	    {error, timeout}
     end.
 
