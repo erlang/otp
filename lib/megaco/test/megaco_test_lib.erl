@@ -1048,14 +1048,16 @@ linux_which_meminfo() ->
                                 throw(noinfo)
                         end,
                     if
-                        (MemSz3 >= 8388608) ->
+                        (MemSz3 >= 16777216) ->
                             0;
-                        (MemSz3 >= 4194304) ->
+                        (MemSz3 >= 8388608) ->
                             1;
-                        (MemSz3 >= 2097152) ->
+                        (MemSz3 >= 4194304) ->
                             3;
+                        (MemSz3 >= 2097152) ->
+                            5;
                         true ->
-                            5
+                            8
                     end;
                 _X ->
                     0
