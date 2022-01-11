@@ -1334,23 +1334,30 @@ format_log_1(_Config) ->
 
     Warning = #{label=>{gen_event,no_handle_info},
                 module=>?MODULE,
-                message=>Term},
+                message=> Term},
     {WF1,WA1} = gen_event:format_log(Warning),
     WFExpected1 = "** Undefined handle_info in ~p\n"
                   "** Unhandled message: ~tp\n",
     ct:log("WF1: ~ts~nWA1: ~tp", [WF1,WA1]),
     WFExpected1 = WF1,
     [?MODULE,Term] = WA1,
+    WarningLimited = [1,2,3,4,5,6,7,8,9,'...'],
 
     Depth = 10,
     ok = application:set_env(kernel, error_logger_format_depth, Depth),
-    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    Limited = [1,2,3,4,5,6,7,8,'...'],
+    LastMsg = ["Last msg" | Term],
+    State   = ["State" | Term],
+    Reason  = ["Reason" | Term],
+    LastMsgLimited = ["Last msg" | Limited],
+    StateLimited   = ["State" | Limited],
+    ReasonLimited  = ["Reason" | Limited],
     {F2,A2} = gen_event:format_log(#{label=>{gen_event,terminate},
                                      handler=>Handler,
                                      name=>Name,
-                                     last_message=>Term,
-                                     state=>Term,
-                                     reason=>Term}),
+                                     last_message=>LastMsg,
+                                     state=>State,
+                                     reason=>Reason}),
     FExpected2 = "** gen_event handler ~tP crashed.\n"
         "** Was installed in ~tP\n"
         "** Last event was: ~tP\n"
@@ -1358,14 +1365,15 @@ format_log_1(_Config) ->
         "** Reason == ~tP\n",
     ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
     FExpected2 = F2,
-    [Handler,Depth,Name,Depth,Limited,Depth,Limited,Depth,Limited,Depth] = A2,
+    [Handler,Depth,Name,Depth,LastMsgLimited,Depth,StateLimited,Depth,ReasonLimited,Depth] = A2,
 
     {WF2,WA2} = gen_event:format_log(Warning),
     WFExpected2 = "** Undefined handle_info in ~p\n"
                   "** Unhandled message: ~tP\n",
     ct:log("WF2: ~ts~nWA2: ~tp", [WF2,WA2]),
     WFExpected2 = WF2,
-    [?MODULE,Limited,Depth] = WA2,
+    ct:log("WF2: ~tp~nWA2: ~tp", [[?MODULE,WarningLimited,Depth], WA2]),
+    [?MODULE,WarningLimited,Depth] = WA2,
 
     case FD of
         undefined ->
