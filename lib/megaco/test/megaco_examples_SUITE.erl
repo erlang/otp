@@ -158,8 +158,13 @@ init_per_testcase(meas = Case, Config) ->
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    megaco_test_global_sys_monitor:reset_events(),
-    init_per_testcase_meas(Case, example_meas_meas_modules(), Config);
+    case megaco_flex_scanner:is_enabled() of
+        true ->
+            megaco_test_global_sys_monitor:reset_events(),
+            init_per_testcase_meas(Case, example_meas_meas_modules(), Config);
+        false ->
+            ?SKIP(flex_scanner_not_enabled)
+    end;
 
 init_per_testcase(mstone1 = Case, Config) ->
 
@@ -167,8 +172,13 @@ init_per_testcase(mstone1 = Case, Config) ->
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    megaco_test_global_sys_monitor:reset_events(),
-    init_per_testcase_meas(Case, example_meas_mstone1_modules(), Config);
+    case megaco_flex_scanner:is_enabled() of
+        true ->
+            megaco_test_global_sys_monitor:reset_events(),
+            init_per_testcase_meas(Case, example_meas_mstone1_modules(), Config);
+        false ->
+            ?SKIP(flex_scanner_not_enabled)
+    end;
 
 init_per_testcase(mstone2 = Case, Config) ->
 
@@ -176,8 +186,13 @@ init_per_testcase(mstone2 = Case, Config) ->
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    megaco_test_global_sys_monitor:reset_events(),
-    init_per_testcase_meas(Case, example_meas_mstone2_modules(), Config).
+    case megaco_flex_scanner:is_enabled() of
+        true ->
+            megaco_test_global_sys_monitor:reset_events(),
+            init_per_testcase_meas(Case, example_meas_mstone2_modules(), Config);
+        false ->
+            ?SKIP(flex_scanner_not_enabled)
+    end.
 
 
 init_per_testcase_meas(Case, Mods, Config) ->

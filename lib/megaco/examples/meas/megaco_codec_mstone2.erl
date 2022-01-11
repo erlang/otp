@@ -168,12 +168,14 @@ mstone_init(RunTime, Mode, MessagePackage) ->
 			       end)),
     receive
 	{'DOWN', Ref, process, _Pid, {done, Result}} ->
-	    display_result(Result);
+	    display_result(Result),
+            ok;
+
 	{'DOWN', Ref, process, _Pid, Result} ->
 	    io:format("Unexpected result:"
                       "~n      ~p"
                       "~n", [Result]),
-	    ok
+	    Result
     end.
 
 
@@ -270,17 +272,23 @@ loader(RunTime, Mode, Codecs, MessagePackage) ->
 init(RunTime, Mode, Codecs, MessagePackage) ->
     ets:new(mstone, [set, private, named_table, {keypos, 1}]),
     ets:insert(mstone, {worker_cnt, 0}),
-    {Pid, FlexConf} = ?LIB:start_flex_scanner(),
-    io:format("prepare messages", []),
-    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
-    io:format("~ninit codec data", []),
-    CodecData = init_codec_data(EMessages, FlexConf),
-    Timer = erlang:send_after(RunTime, self(), mstone_finished), 
-    io:format("~n", []),
-    {ok, #state{timer        = Timer, 
-		idle         = CodecData, 
-		flex_handler = Pid, 
-		flex_conf    = FlexConf}}.
+    case ?LIB:start_flex_scanner() of
+        {Pid, FlexConf} when is_pid(Pid) ->
+            io:format("prepare messages", []),
+            EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
+            io:format("~ninit codec data", []),
+            CodecData = init_codec_data(EMessages, FlexConf),
+            Timer = erlang:send_after(RunTime, self(), mstone_finished), 
+            io:format("~n", []),
+            {ok, #state{timer        = Timer, 
+                        idle         = CodecData, 
+                        flex_handler = Pid, 
+                        flex_conf    = FlexConf}};
+        {error, Reason} = ERROR ->
+            io:format("<ERROR> Failed starting flex scanner: "
+                      "~n      ~p", [Reason]),
+            ERROR
+    end.
 
 init_codec_data(EMsgs, FlexConf) ->
     [init_codec_data(Codec, Mod, Conf, Msgs, FlexConf) || 
