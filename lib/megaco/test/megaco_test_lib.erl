@@ -762,18 +762,35 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
-                    (BogoMIPS > 20000) ->
+                    (BogoMIPS > 50000) ->
                         1;
-                    (BogoMIPS > 10000) ->
+                    (BogoMIPS > 30000) ->
                         2;
-                    (BogoMIPS > 5000) ->
+                    (BogoMIPS > 10000) ->
                         3;
-                    (BogoMIPS > 2000) ->
+                    (BogoMIPS > 5000) ->
                         5;
-                    (BogoMIPS > 1000) ->
+                    (BogoMIPS > 3000) ->
                         8;
                     true ->
                         10
+                end;
+            {ok, CPU} when (CPU =:= "POWER9") ->
+                case linux_cpuinfo_clock() of
+                    Clock when is_integer(Clock) andalso (Clock > 0) ->
+                        io:format("CPU: "
+                                  "~n   Model:                 ~s"
+                                  "~n   CPU Speed:             ~w"
+                                  "~n   Num Online Schedulers: ~s"
+                                  "~n", [CPU, Clock, str_num_schedulers()]),
+                        if
+                            (Clock > 2000) ->
+                                num_schedulers_to_factor();
+                            true ->
+                                2 + num_schedulers_to_factor()
+                        end;
+                    _ ->
+                        num_schedulers_to_factor()
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
@@ -796,22 +813,6 @@ analyze_and_print_linux_host_info(Version) ->
 
 linux_cpuinfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/cpuinfo").
-
-linux_cpuinfo_cpu() ->
-    case linux_cpuinfo_lookup("cpu") of
-        [Model] ->
-            Model;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_motherboard() ->
-    case linux_cpuinfo_lookup("motherboard") of
-        [MB] ->
-            MB;
-        _ ->
-            "-"
-    end.
 
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
@@ -876,12 +877,56 @@ linux_cpuinfo_model_name() ->
             "-"
     end.
 
+linux_cpuinfo_cpu() ->
+    case linux_cpuinfo_lookup("cpu") of
+        [Model] ->
+            Model;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_motherboard() ->
+    case linux_cpuinfo_lookup("motherboard") of
+        [MB] ->
+            MB;
+        _ ->
+            "-"
+    end.
+
 linux_cpuinfo_processor() ->
     case linux_cpuinfo_lookup("Processor") of
         [P] ->
             P;
         _ ->
             "-"
+    end.
+
+linux_cpuinfo_clock() ->
+    %% This is written as: "3783.000000MHz"
+    %% So, check unit MHz (handle nothing else).
+    %% Also, check for both float and integer
+    case linux_cpuinfo_lookup("clock") of
+        [C] when is_list(C) ->
+            case lists:reverse(string:to_lower(C)) of
+                "zhm" ++ CRev ->
+                    try trunc(list_to_float(lists:reverse(CRev))) of
+                        I ->
+                            I
+                    catch
+                        _:_:_ ->
+                            try list_to_integer(lists:reverse(CRev)) of
+                                I ->
+                                    I
+                            catch
+                                _:_:_ ->
+                                    0
+                            end
+                    end;
+                _ ->
+                    0
+            end;
+        _ ->
+            0
     end.
 
 linux_which_cpuinfo(montavista) ->
@@ -947,8 +992,14 @@ linux_which_cpuinfo(other) ->
                 %% ARM (at least some distros...)
                 case linux_cpuinfo_processor() of
                     "-" ->
-                        %% Ok, we give up
-                        throw(noinfo);
+                        %% POWER (at least some distros...)
+                        case linux_cpuinfo_cpu() of
+                            "-" ->
+                                %% Ok, we give up
+                                throw(noinfo);
+                            C ->
+                                C
+                        end;
                     Proc ->
                         Proc
                 end;
