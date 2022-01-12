@@ -775,7 +775,10 @@ analyze_and_print_linux_host_info(Version) ->
                     true ->
                         10
                 end;
-            {ok, CPU} when (CPU =:= "POWER9") ->
+            {ok, "POWER9" ++ _ = CPU} ->
+                %% For some reason this host is really slow
+                %% Consider the CPU, it really should not be...
+                %% But, to not fail a bunch of test cases, we add 5
                 case linux_cpuinfo_clock() of
                     Clock when is_integer(Clock) andalso (Clock > 0) ->
                         io:format("CPU: "
@@ -785,9 +788,9 @@ analyze_and_print_linux_host_info(Version) ->
                                   "~n", [CPU, Clock, str_num_schedulers()]),
                         if
                             (Clock > 2000) ->
-                                num_schedulers_to_factor();
+                                5 + num_schedulers_to_factor();
                             true ->
-                                2 + num_schedulers_to_factor()
+                                10 + num_schedulers_to_factor()
                         end;
                     _ ->
                         num_schedulers_to_factor()
@@ -816,6 +819,8 @@ linux_cpuinfo_lookup(Key) when is_list(Key) ->
 
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
+        [] ->
+            "-";
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -879,8 +884,8 @@ linux_cpuinfo_model_name() ->
 
 linux_cpuinfo_cpu() ->
     case linux_cpuinfo_lookup("cpu") of
-        [Model] ->
-            Model;
+        [C|_] ->
+            C;
         _ ->
             "-"
     end.
@@ -905,8 +910,9 @@ linux_cpuinfo_clock() ->
     %% This is written as: "3783.000000MHz"
     %% So, check unit MHz (handle nothing else).
     %% Also, check for both float and integer
+    %% Also,  the freq is per core, and can vary...
     case linux_cpuinfo_lookup("clock") of
-        [C] when is_list(C) ->
+        [C|_] when is_list(C) ->
             case lists:reverse(string:to_lower(C)) of
                 "zhm" ++ CRev ->
                     try trunc(list_to_float(lists:reverse(CRev))) of

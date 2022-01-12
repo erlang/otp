@@ -614,7 +614,7 @@ meas(Config) when is_list(Config) ->
             true ->
                 {6, 400}
         end,
-    p("      Timetrap: ~p mins"
+    p("    Timetrap: ~p mins"
       "~n      Factor:   ~p", [Time, Factor]),
     ct:timetrap(?MINS(Time)),
     WorkerNode = ?config(worker_node, Config),
