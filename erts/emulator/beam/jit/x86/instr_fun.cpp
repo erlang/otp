@@ -149,9 +149,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
  * Keep in mind that this runs in the limbo between caller and callee, so we
  * must not enter a frame here.
  *
- * ARG3 = arity
- * ARG4 = fun thing
- * ARG5 = current PC */
+ * ARG4 = fun thing */
 void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
                                                    const ArgVal &Lbl,
                                                    const ArgVal &Arity,
@@ -160,15 +158,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
     const ssize_t num_free = NumFree.getValue();
     ssize_t i;
 
-    auto &lambda = lambdas[Index.getValue()];
-
-    if (NumFree.getValue() == 0) {
-        /* No free variables, let the lambda jump directly to our target. */
-        lambda.trampoline = resolve_beam_label(Lbl);
-        return;
-    }
-
-    lambda.trampoline = a.newLabel();
+    const auto &lambda = lambdas[Index.getValue()];
     a.bind(lambda.trampoline);
 
     emit_ptr_val(ARG4, ARG4);
@@ -373,54 +363,77 @@ x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     return ARG1;
 }
 
-void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Safe,
+void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
                                            const ArgVal &Arity,
                                            const ArgVal &Func) {
-    x86::Gp target;
-
-    mov_imm(ARG3, Arity.getValue());
     mov_arg(ARG4, Func);
 
-    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
-                                   BEAM_TYPE_FUN,
-                           Safe.getValue() == am_true);
+    if (Tag.isImmed()) {
+        x86::Gp target;
 
-    erlang_call(target, ARG6);
+        ASSERT(is_atom(Tag.getValue()));
+
+        mov_imm(ARG3, Arity.getValue());
+
+        target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                               masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
+                                       BEAM_TYPE_FUN,
+                               Tag.getValue() == am_safe);
+
+        erlang_call(target, ARG6);
+    } else {
+        ASSERT(Tag.getType() == ArgVal::FunEntry);
+
+        const auto &trampoline = lambdas[Tag.getValue()].trampoline;
+        erlang_call(trampoline, RET);
+    }
 }
 
-void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Safe,
+void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
                                                 const ArgVal &Arity,
                                                 const ArgVal &Func,
                                                 const ArgVal &Deallocate) {
-    x86::Gp target;
-
-    mov_imm(ARG3, Arity.getValue());
     mov_arg(ARG4, Func);
 
-    target = emit_call_fun(always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                           masked_types(Func, BEAM_TYPE_MASK_BOXED) ==
-                                   BEAM_TYPE_FUN,
-                           Safe.getValue() == am_true);
+    if (Tag.isImmed()) {
+        ASSERT(is_atom(Tag.getValue()));
 
-    emit_deallocate(Deallocate);
-    emit_leave_frame();
-    a.jmp(target);
+        mov_imm(ARG3, Arity.getValue());
+
+        auto target = emit_call_fun(
+                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
+                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                Tag.getValue() == am_safe);
+
+        emit_deallocate(Deallocate);
+        emit_leave_frame();
+
+        a.jmp(target);
+    } else {
+        ASSERT(Tag.getType() == ArgVal::FunEntry);
+
+        const auto &trampoline = lambdas[Tag.getValue()].trampoline;
+
+        emit_deallocate(Deallocate);
+        emit_leave_frame();
+
+        a.jmp(trampoline);
+    }
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
     const ArgVal Func(ArgVal::XReg, Arity.getValue());
-    const ArgVal Safe(ArgVal::Immediate, am_false);
+    const ArgVal Tag(ArgVal::Immediate, am_unsafe);
 
-    emit_i_call_fun2(Safe, Arity, Func);
+    emit_i_call_fun2(Tag, Arity, Func);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Arity,
                                                const ArgVal &Deallocate) {
     const ArgVal Func(ArgVal::XReg, Arity.getValue());
-    const ArgVal Safe(ArgVal::Immediate, am_false);
+    const ArgVal Tag(ArgVal::Immediate, am_unsafe);
 
-    emit_i_call_fun2_last(Safe, Arity, Func, Deallocate);
+    emit_i_call_fun2_last(Tag, Arity, Func, Deallocate);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */

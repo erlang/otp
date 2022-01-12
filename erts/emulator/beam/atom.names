@@ -726,6 +726,7 @@ atom unless_suspending
 atom unloaded
 atom unloaded_only
 atom unload_cancelled
+atom unsafe
 atom value
 atom version
 atom visible

@@ -88,6 +88,7 @@
 -record(t_bs_matchable, {tail_unit=1 :: pos_integer()}).
 -record(t_float, {elements=any :: 'any' | {float(),float()}}).
 -record(t_fun, {arity=any :: arity() | 'any',
+                target=any :: {atom(), non_neg_integer()} | 'any',
                 type=any :: type() }).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 

@@ -1576,17 +1576,17 @@ cg_call(#cg_set{anno=Anno0,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
             {Is,St}
     end;
 cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[Func | Args0]},
-        Where, Context, St) ->
+        Where, Context, St0) ->
     Line = call_line(Where, Func, Anno),
-    Args = beam_args(Args0 ++ [Func], St),
+    Args = beam_args(Args0 ++ [Func], St0),
 
     Arity = length(Args0),
-    Dst = beam_arg(Dst0, St),
+    Dst = beam_arg(Dst0, St0),
 
     %% Note that we only inspect the (possible) type of the fun while building
     %% the call, we don't want the arguments to be typed.
-    [TypedFunc] = typed_args([Func], Anno, St),
-    Call = build_call(call_fun, Arity, TypedFunc, Context, Dst),
+    [TypedFunc] = typed_args([Func], Anno, St0),
+    {Call, St} = build_fun_call(Arity, TypedFunc, Context, Dst, St0),
 
     Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
     case Anno of
@@ -1633,30 +1633,6 @@ build_stk([V|Vs], TmpReg, Tail) ->
 build_stk([], _TmpReg, nil) ->
     [{move,nil,{x,1}}].
 
-build_call(call_fun, Arity, #tr{}=Func0, none, Dst) ->
-    %% Func0 was the source register prior to copying arguments, and has been
-    %% moved to {x, Arity}. Update it to match.
-    Func = Func0#tr{r={x,Arity}},
-    Safe = is_fun_call_safe(Arity, Func),
-    [{call_fun2,{atom,Safe},Arity,Func}|copy({x,0}, Dst)];
-build_call(call_fun, Arity, #tr{}=Func0, {return,Dst,N}, Dst)
-  when is_integer(N) ->
-    Func = Func0#tr{r={x,Arity}},
-    Safe = is_fun_call_safe(Arity, Func),
-    [{call_fun2,{atom,Safe},Arity,Func},{deallocate,N},return];
-build_call(call_fun, Arity, #tr{}=Func0, {return,Val,N}, _Dst)
- when is_integer(N) ->
-    Func = Func0#tr{r={x,Arity}},
-    Safe = is_fun_call_safe(Arity, Func),
-    [{call_fun2,{atom,Safe},Arity,Func},
-     {move,Val,{x,0}},
-     {deallocate,N},return];
-build_call(call_fun, Arity, _Func, none, Dst) ->
-    [{call_fun,Arity}|copy({x,0}, Dst)];
-build_call(call_fun, Arity, _Func, {return,Dst,N}, Dst) when is_integer(N) ->
-    [{call_fun,Arity},{deallocate,N},return];
-build_call(call_fun, Arity, _Func, {return,Val,N}, _Dst) when is_integer(N) ->
-    [{call_fun,Arity},{move,Val,{x,0}},{deallocate,N},return];
 build_call(call_ext, 2, {extfunc,erlang,'!',2}, none, Dst) ->
     [send|copy({x,0}, Dst)];
 build_call(call_ext, 2, {extfunc,erlang,'!',2}, {return,Dst,N}, Dst)
@@ -1682,11 +1658,41 @@ build_call(I, Arity, Func, {return,Val,N}, _Dst) when is_integer(N) ->
 build_call(I, Arity, Func, none, Dst) ->
     [{I,Arity,Func}|copy({x,0}, Dst)].
 
-%% Returns whether a call of the given fun is guaranteed to succeed.
-is_fun_call_safe(Arity, #tr{t=#t_fun{arity=Arity}}) ->
-    true;
-is_fun_call_safe(_Arity, _Func) ->
-    false.
+build_fun_call(Arity, #tr{}=Func0, none, Dst, St0) ->
+    %% Func0 was the source register prior to copying arguments, and has been
+    %% moved to {x, Arity}. Update it to match.
+    Func = Func0#tr{r={x,Arity}},
+    {Tag, St} = fun_call_tag(Arity, Func, St0),
+    Is = [{call_fun2,Tag,Arity,Func}|copy({x,0}, Dst)],
+    {Is, St};
+build_fun_call(Arity, #tr{}=Func0, {return,Dst,N}, Dst, St0)
+  when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    {Tag, St} = fun_call_tag(Arity, Func, St0),
+    Is = [{call_fun2,Tag,Arity,Func},{deallocate,N},return],
+    {Is, St};
+build_fun_call(Arity, #tr{}=Func0, {return,Val,N}, _Dst, St0)
+  when is_integer(N) ->
+    Func = Func0#tr{r={x,Arity}},
+    {Tag, St} = fun_call_tag(Arity, Func, St0),
+    Is = [{call_fun2,Tag,Arity,Func},
+          {move,Val,{x,0}},
+          {deallocate,N},return],
+    {Is, St};
+build_fun_call(Arity, _Func, none, Dst, St) ->
+    {[{call_fun,Arity}|copy({x,0}, Dst)], St};
+build_fun_call(Arity, _Func, {return,Dst,N}, Dst, St) when is_integer(N) ->
+    {[{call_fun,Arity},{deallocate,N},return], St};
+build_fun_call(Arity, _Func, {return,Val,N}, _Dst, St) when is_integer(N) ->
+    {[{call_fun,Arity},{move,Val,{x,0}},{deallocate,N},return], St}.
+
+fun_call_tag(Arity, #tr{t=#t_fun{arity=Arity,target={Name,TotalArity}}}, St0) ->
+    {FuncLbl, St} = local_func_label(Name, TotalArity, St0),
+    {{f,FuncLbl}, St};
+fun_call_tag(Arity, #tr{t=#t_fun{arity=Arity}}, St) ->
+    {{atom,safe}, St};
+fun_call_tag(_Arity, _Func, St) ->
+    {{atom,unsafe}, St}.
 
 build_apply(Arity, {return,Dst,N}, Dst) when is_integer(N) ->
     [{apply_last,Arity,N}];

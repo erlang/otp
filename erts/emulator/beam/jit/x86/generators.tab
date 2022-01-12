@@ -539,23 +539,26 @@ gen.func_end(Func_Label, Entry_Label) {
     if (S->labels[Entry_Label.val].lambda_index != -1) {
         int index = S->labels[Entry_Label.val].lambda_index;
         BeamFile_LambdaEntry *lambda_entry;
-        BeamOp *lambda;
 
         lambda_entry = &S->beam.lambdas.entries[index];
 
-        $NewBeamOp(S, lambda);
-        $BeamOpNameArity(lambda, i_lambda_trampoline, 4);
+        if (lambda_entry->num_free > 0) {
+            BeamOp *lambda;
 
-        lambda->a[0].type = TAG_u;
-        lambda->a[0].val = index;
-        lambda->a[1] = Entry_Label;
-        lambda->a[2].type = TAG_u;
-        lambda->a[2].val = lambda_entry->arity;
-        lambda->a[3].type = TAG_u;
-        lambda->a[3].val = lambda_entry->num_free;
+            $NewBeamOp(S, lambda);
+            $BeamOpNameArity(lambda, i_lambda_trampoline, 4);
 
-        lambda->next = op;
-        op = lambda;
+            lambda->a[0].type = TAG_u;
+            lambda->a[0].val = index;
+            lambda->a[1] = Entry_Label;
+            lambda->a[2].type = TAG_u;
+            lambda->a[2].val = lambda_entry->arity;
+            lambda->a[3].type = TAG_u;
+            lambda->a[3].val = lambda_entry->num_free;
+
+            lambda->next = op;
+            op = lambda;
+        }
     }
 
     if (S->may_load_nif && (S->load_hdr->are_nifs == NULL ||
