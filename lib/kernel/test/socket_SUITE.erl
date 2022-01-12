@@ -24226,17 +24226,39 @@ api_to_connect_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
                                    State1 = maps:remove(node_id, State),
                                    State2 = maps:remove(node,    State1),
                                    {ok, State2}
-                           end
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node_id, State),
+                           State2 = maps:remove(node,    State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -33627,17 +33649,39 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
                                    State1 = maps:remove(node_id, State),
                                    State2 = maps:remove(node,    State1),
                                    {ok, State2}
-                           end
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node_id, State),
+                           State2 = maps:remove(node,    State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -34651,17 +34695,39 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
                                    State1 = maps:remove(node_id, State),
                                    State2 = maps:remove(node,    State1),
                                    {ok, State2}
-                           end
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node_id, State),
+                           State2 = maps:remove(node,    State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -39019,15 +39085,37 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(node, State)}
-                           end
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
+                                   State1 = maps:remove(node, State),
+                                   {ok, State1}
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1}
                    end},
 
          %% *** We are done ***
@@ -40716,15 +40804,37 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(node, State)}
-                           end
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
+                                   State1 = maps:remove(node, State),
+                                   {ok, State1}
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1}
                    end},
 
          %% *** We are done ***
@@ -41643,15 +41753,37 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop client node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(node, State)}
-                           end
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
+                                   State1 = maps:remove(node, State),
+                                   {ok, State1}
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1}
                    end},
 
          %% *** We are done ***
@@ -48159,15 +48291,37 @@ ttest_tcp(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "stop (server) node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await (server) node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(node, State)}
-                           end
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
+                                   State1 = maps:remove(node, State),
+                                   {ok, State1}
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1}
                    end},
 
 
@@ -48313,15 +48467,37 @@ ttest_tcp(InitState) ->
                            end
                    end},
          #{desc => "stop (client) node",
-           cmd  => fun(#{node := Node} = _State) ->
-                           stop_node(Node)
+           cmd  => fun(#{node := Node} = State) ->
+                           {ok,
+                            try stop_node(Node) of
+                                ok ->
+                                    State#{node_stop => ok};
+                                {error, Reason} ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   ~p", [Reason]),
+                                    State#{node_stop => error}
+                            catch
+                                C:E:S ->
+                                    ?SEV_EPRINT("Unexpected node stop result: "
+                                                "~n   Class: ~p"
+                                                "~n   Error: ~p"
+                                                "~n   Stack: ~p",[C, E, S]),
+                                    State#{node_stop => error}
+                            end}
                    end},
          #{desc => "await (client) node termination",
-           cmd  => fun(#{node := Node} = State) ->
+           cmd  => fun(#{node := Node, node_stop := ok} = State) ->
+                           ?SEV_IPRINT("Success node stop - await nodedown"),
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(node, State)}
-                           end
+                                   ?SEV_IPRINT("nodedown received - cleanup"),
+                                   State1 = maps:remove(node, State),
+                                   {ok, State1}
+                           end;
+                      (#{node_stop := error} = State) ->
+                           ?SEV_IPRINT("Failed node stop - cleanup"),
+                           State1 = maps:remove(node, State),
+                           {ok, State1}
                    end},
 
 
