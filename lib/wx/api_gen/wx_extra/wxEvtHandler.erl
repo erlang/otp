@@ -13,10 +13,11 @@
 %% (in another process) to handle the event. The callback should be of
 %% arity 2.  fun(EventRecord::wx(), EventObject::wxObject()).
 %%
-%% Beware that the callback will be in executed in new process each time.
+%% Beware that the callback will be executed in a new process each
+%% time unless it is specified as `{nospawn,Fun}'.
 %%
 %% <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html">
-%% The orginal documentation</a>. 
+%% The orginal documentation</a>.
 %%
 %%
 -module(wxEvtHandler).
@@ -38,26 +39,30 @@ connect(This, EventType) ->
     connect(This, EventType, []).
 
 %% @doc This function subscribes the to events of EventType,
-%% in the range id, lastId. The events will be received as messages 
+%% in the range id, lastId. The events will be received as messages
 %% if no callback is supplied.
 %%
-%% Options: 
-%%    {id, integer()},      The identifier (or first of the identifier range) to be 
-%%                            associated with this event handler. 
+%% Options:
+%%    {id, integer()},      The identifier (or first of the identifier range) to be
+%%                          associated with this event handler.
 %%                          Default ?wxID_ANY
-%%    {lastId, integer()},  The second part of the identifier range. 
+%%    {lastId, integer()},  The second part of the identifier range.
 %%                          If used 'id' must be set as the starting identifier range.
 %%                          Default ?wxID_ANY
 %%    {skip,  boolean()},   If skip is true further event_handlers will be called.
-%%                          This is not used if the 'callback' option is used. 
+%%                          This is not used if the 'callback' option is used.
 %%                          Default false.
-%%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject()) 
+%%    callback              Use `wx_object' callback `handle_sync_event/3'.
+%%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject())
 %%                          to process the event. Default not specfied i.e. a message will
 %%                          be delivered to the process calling this function.
+%%    {callback, {nospawn, function()}} Similar to `{callback, function()}'
+%%                          without spawning a new process each time.
 %%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> 'ok' when
       Option :: {'id', integer()} | {'lastId', integer()} | {'skip', boolean()} |
-		'callback' | {'callback', function()} | {'userData', term()}.
+		'callback' | {'callback', function()} |
+		{'callback', {'nospawn', function()}} | {'userData', term()}.
 connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
     EvH = parse_opts(Options, #evh{et=EventType}),
     ?CLASS(ThisT,wxEvtHandler),
