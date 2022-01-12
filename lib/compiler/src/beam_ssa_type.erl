@@ -1819,13 +1819,22 @@ type(bs_get_tail, [Ctx], _Anno, Ts, _Ds) ->
     #t_bs_context{tail_unit=Unit} = concrete_type(Ctx, Ts),
     #t_bitstring{size_unit=Unit};
 type(call, [#b_remote{mod=#b_literal{val=Mod},
-                      name=#b_literal{val=Name}}|Args], _Anno, Ts, _Ds) ->
+                      name=#b_literal{val=Name}}|Args], _Anno, Ts, _Ds)
+  when is_atom(Mod), is_atom(Name) ->
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(Mod, Name, ArgTypes),
     RetType;
-type(call, [#b_remote{} | _Args], _Anno, _Ts, _Ds) ->
-    %% Remote call with variable Module and/or Function.
-    any;
+type(call, [#b_remote{mod=Mod,name=Name} | _Args], _Anno, Ts, _Ds) ->
+    %% Remote call with variable Module and/or Function, we can't say much
+    %% about it other than that it will crash when either of the two is not an
+    %% atom.
+    ModType = beam_types:meet(concrete_type(Mod, Ts), #t_atom{}),
+    NameType = beam_types:meet(concrete_type(Name, Ts), #t_atom{}),
+    case {ModType, NameType} of
+        {none, _} -> none;
+        {_, none} -> none;
+        {_, _} -> any
+    end;
 type(call, [#b_local{} | _Args], Anno, _Ts, _Ds) ->
     case Anno of
         #{ result_type := Type } -> Type;
