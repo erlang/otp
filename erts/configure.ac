@@ -1781,7 +1781,8 @@ AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
   [
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
-    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs \
+                    sctp_connectx])
         AC_CHECK_MEMBERS([struct sctp_accoc_value.assoc_id], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>

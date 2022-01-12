@@ -30,7 +30,8 @@
 -export([open/0, open/1, open/2, close/1]).
 -export([listen/2, peeloff/2]).
 -export([connect/3, connect/4, connect/5,
-         connect_init/3, connect_init/4, connect_init/5]).
+         connect_init/3, connect_init/4, connect_init/5,
+         connectx_init/3, connectx_init/4,connectx_init/5]).
 -export([eof/2, abort/2]).
 -export([send/3, send/4, recv/1, recv/2]).
 -export([error_string/1]).
@@ -386,6 +387,134 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait)
 	Error -> Error
     end;
 do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
+    badarg.
+
+-spec connectx_init(Socket, SockAddrs, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket   :: sctp_socket(),
+      SockAddrs:: [socket:sockaddr_in() | socket:sockaddr_in6()],
+      Opts     :: [option()].
+
+connectx_init(S, SockAddrs, Opts) ->
+    connectx_init(S, SockAddrs, Opts, infinity).
+
+-spec connectx_init(Socket, SockAddrs, Opts, Timeout) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      SockAddrs :: [socket:sockaddr_in() | socket:sockaddr_in6()],
+      Opts :: [option()],
+      Timeout  :: timeout();
+                   (Socket, Addrs, Port, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Opts :: [option()].
+
+connectx_init(S, [SockAddr|_]=SockAddrs, Opts, Timeout)
+  when is_map(SockAddr) andalso is_list(Opts) ->
+    case do_connectx(S, SockAddrs, Opts, Timeout) of
+	badarg ->
+	    erlang:error(badarg, [S, SockAddrs, Opts, Timeout]);
+	Result ->
+	    Result
+    end;
+connectx_init(S, Addrs, Port, Opts) ->
+    connectx_init(S, Addrs, Port, Opts, infinity).
+
+-spec connectx_init(Socket, Addrs, Port, Opts, Timeout) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Opts :: [option()],
+      Timeout :: timeout().
+
+connectx_init(S, Addrs, Port, Opts, Timeout) ->
+    case do_connectx(S, Addrs, Port, Opts, Timeout) of
+	badarg ->
+	    erlang:error(badarg, [S,Addrs,Port,Opts,Timeout]);
+	Result ->
+	    Result
+    end.
+
+do_connectx(S, SockAddrs, Opts, Timeout) when is_port(S), is_list(SockAddrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+        {ok,Mod} ->
+            try inet:start_timer(Timeout) of
+                Timer ->
+                    try
+                        EnsuredAddrs = [inet:ensure_sockaddr(SockAddr) || SockAddr <- SockAddrs],
+                        EnsuredPorts = ensure_ports(EnsuredAddrs),
+                        Mod:connectx(S, EnsuredPorts, Opts)
+                    after
+                        _ = inet:stop_timer(Timer)
+                    end
+            catch
+                error:badarg ->
+                    badarg
+            end;
+        Error ->
+            Error
+    end;
+do_connectx(_S, _SockAddrs, _Opts, _Timeout) ->
+    badarg.
+
+%% ensure the ports given in a list of SockAddr are the same or zero
+%% except that all ports cannot be zero
+ensure_ports([#{port := Port}|_]=SockAddrs) when Port > 0 ->
+    ensure_ports(SockAddrs, Port);
+ensure_ports(SockAddrs) ->
+    ensure_portsz(SockAddrs, []).
+
+%% handle any leading SockAddrs with port == 0
+ensure_portsz([#{port := 0}=SockAddr|T], ZeroPorts) ->
+    ensure_portsz(T, ZeroPorts++[SockAddr]);
+ensure_portsz([#{port := Port}|_]=SockAddrs, ZeroPorts) ->
+    [Z#{port => Port} || Z<-ZeroPorts] ++ ensure_ports(SockAddrs, Port);
+ensure_portsz(_, _) ->
+    erlang:error(badarg).
+
+%% check all ports are the same, replace any zeros
+ensure_ports([#{port := 0}=SockAddr|T], Port) ->
+    [SockAddr#{port => Port} | ensure_ports(T, Port)];
+ensure_ports([#{port := Port}=SockAddr|T], Port) ->
+    [SockAddr | ensure_ports(T, Port)];
+ensure_ports([], _Port) ->
+    [];
+ensure_ports(_, _) ->
+    erlang:error(badarg).
+
+
+do_connectx(S, Addrs, Port, Opts, Timeout) when is_port(S), is_list(Addrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    case Mod:getserv(Port) of
+		{ok,Port} ->
+		    try inet:start_timer(Timeout) of
+			Timer ->
+			    try
+				IPs = lists:map(fun(Addr) ->
+							case Mod:getaddr(Addr, Timer) of
+							    {ok,IP} -> IP;
+							    Error -> throw({?MODULE, Error})
+							end
+						end, Addrs),
+				Mod:connectx(S, IPs, Port, Opts)
+			    catch throw:{?MODULE, Error} ->
+				    Error
+			    after
+				_ = inet:stop_timer(Timer)
+			    end
+		    catch
+			error:badarg ->
+			    badarg
+		    end;
+		Error -> Error
+	    end;
+	Error -> Error
+    end;
+do_connectx(_S, _Addrs, _Port, _Opts, _Timeout) ->
     badarg.
 
 

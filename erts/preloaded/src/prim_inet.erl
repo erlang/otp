@@ -28,7 +28,7 @@
 
 -export([open/3, open/4, fdopen/4, fdopen/5, close/1]).
 -export([bind/3, listen/1, listen/2, peeloff/2]).
--export([connect/3, connect/4, async_connect/4]).
+-export([connect/3, connect/4, async_connect/4, connectx/2, connectx/3]).
 -export([accept/1, accept/2, accept/3, async_accept/2]).
 -export([shutdown/2]).
 -export([send/2, send/3, sendto/4, sendmsg/3, sendfile/4]).
@@ -332,7 +332,7 @@ bindx_check_addrs([Addr|Addrs]) ->
 bindx_check_addrs([]) ->
     true.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% CONNECT(insock(), IP, Port [,Timeout]) -> ok | {error, Reason}
 %%
@@ -407,6 +407,41 @@ async_connect0(S, Addr, Time) ->
     of
 	{ok, [R1,R0]} -> {ok, S, ?u16(R1,R0)};
 	{error, _}=Error -> Error
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% CONNECTX(insock(), IPs, Port) -> {ok, AssocId} | {error, Reason}
+%% CONNECTX(insock(), SockAddrs) -> {ok, AssocId} | {error, Reason}
+%%
+%% For SCTP sockets only
+%%
+%% connect the insock() to the addresses given by IPs and Port or SockAddrs
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+connectx(S, IPs, Port) ->
+    connectx(S, {IPs, Port}).
+
+connectx(S, AddrList) ->
+    case type_value(set, addr_list, AddrList) of
+	true ->
+	    connectx0(S, AddrList);
+	false ->
+	    {error, einval}
+    end.
+
+
+connectx0(S, Addrs) ->
+    Args = [enc_time(-1),enc_value(set, addr_list, Addrs)],
+    case ctl_cmd(S, ?INET_REQ_CONNECT, Args) of
+	{ok, [R1,R0]} ->
+	    Ref = ?u16(R1,R0),
+	    receive
+		{inet_async, S, Ref, Status} ->
+		    Status
+	    end;
+	Error ->
+	    Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1936,6 +1971,16 @@ type_value_2(addr, {local,Addr}) ->
 		    false
 	    end
     end;
+type_value_2(addr_list, [SockAddr0|_]=SockAddrs)
+  when is_map(SockAddr0) andalso length(SockAddrs) < 255 ->
+    lists:all(fun(SockAddr) -> type_value_2(addr, SockAddr) end, SockAddrs);
+type_value_2(addr_list, {Addrs, Port})
+  when length(Addrs) > 0 andalso length(Addrs) < 255 ->
+    lists:all(fun({A,B,C,D}) when ?ip(A,B,C,D) -> true;
+                 ({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) -> true;
+                 (_) -> false
+              end, Addrs)
+	andalso type_value_2(uint16, Port);
 %%
 type_value_2(ether,[X1,X2,X3,X4,X5,X6])
   when ?ether(X1,X2,X3,X4,X5,X6)                    -> true;
@@ -2091,6 +2136,10 @@ enc_value_2(addr, {local,Addr}) ->
 		  Addr, file:native_name_encoding())
 	end,
     [?INET_AF_LOCAL,byte_size(Bin),Bin];
+enc_value_2(addr_list, {Addrs, Port}) ->
+    [?INET_AF_LIST, length(Addrs) | [enc_value_2(addr, {Addr, Port}) || Addr <- Addrs]];
+enc_value_2(addr_list, SockAddrs) ->
+    [?INET_AF_LIST, length(SockAddrs) | [enc_value_2(addr, SockAddr) || SockAddr <- SockAddrs]];
 %%
 enc_value_2(ether, [_,_,_,_,_,_]=Xs) -> Xs;
 enc_value_2(sockaddr, any) ->
