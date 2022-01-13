@@ -289,6 +289,14 @@ static int get_init_args(ErlNifEnv* env,
     
     /* Here: (*cipherp)->cipher.p != NULL and ivec_len has a value */
 
+#if defined(HAS_3_0_API) // Temp disallow dyn iv for >=3.0 (may core dump)
+    if (argv[ivec_arg_num] == atom_undefined)
+        {
+            *return_term = EXCP_NOTSUP(env, "Dynamic IV is not supported for libcrypto versions >= 3.0");
+            goto err;
+        }
+#endif
+  
     /* Fetch IV */
     if (ivec_len && (argv[ivec_arg_num] != atom_undefined)) {
         if (!enif_inspect_iolist_as_binary(env, argv[ivec_arg_num], &ivec_bin))
@@ -724,6 +732,10 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     
     if (argc == 3) {
         /* We have an IV in this call. Make a copy of the context */
+#if defined(HAS_3_0_API) // Temp disallow dyn iv for >=3.0 (may core dump)
+        ret = EXCP_NOTSUP(env, "Dynamic IV is not supported for libcrypto versions >= 3.0");
+        goto err;
+#else
         ErlNifBinary ivec_bin;
 
         /* First check the IV provided in the call of this function: */
@@ -785,6 +797,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         get_update_args(env, &ctx_res_copy, argv, 1, &ret);
 
         ctx_res->size = ctx_res_copy.size;
+#endif // Temp disallow dyn iv for >=3.0 (may core dump)
     } else
         /* argc != 3, that is, argc = 2 (we don't have an IV in this call) */
         get_update_args(env, ctx_res, argv, 1, &ret);

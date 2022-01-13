@@ -871,8 +871,13 @@ api_ng_tls() ->
      [{doc, "Test special tls api"}].
 
 api_ng_tls(Config) when is_list(Config) ->
-    [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-    lists:foreach(fun do_api_ng_tls/1, Ciphers).
+    try
+        [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
+        lists:foreach(fun do_api_ng_tls/1, Ciphers)
+    catch
+        error:{notsup,_,Reason} ->
+            {skip, Reason}
+    end.
 
 
 do_api_ng_tls({Type, Key, PlainTexts}) ->
@@ -4322,8 +4327,8 @@ bad_combo(_Config) ->
                   error:_).
 
 bad_key_length(_Config) ->
-    ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<1>>, true),
-                  error:{error,{"api_ng.c",_},"Can't initialize context, key_length"++_}).
+    ?chk_api_name(crypto:crypto_init(aes_128_ctr, <<1>>, <<0:128>>, true),
+                  error:{badarg,_,"Bad key size"++_}).
 
 bad_cipher_name(_Config) ->
     ?chk_api_name(crypto:crypto_init(foobar, <<1:128>>, true),
