@@ -686,7 +686,7 @@ ssh2_privkey_encode({ed_pri, Alg, Pub, Priv}) ->
     Name = atom_to_binary(Alg),
     <<?STRING(<<"ssh-",Name/binary>>),
       ?STRING(Pub),
-      ?STRING(Priv)>>.
+      ?STRING(<<Priv/binary,Pub/binary>>)>>.
 
 %%%--------
 ssh2_privkey_decode2(<<?UINT32(7), "ssh-rsa",
@@ -736,12 +736,16 @@ ssh2_privkey_decode2(<<?UINT32(TL), "ecdsa-sha2-",KeyRest/binary>>) ->
                     }, Rest};
 ssh2_privkey_decode2(<<?UINT32(11), "ssh-ed25519",
                        ?DEC_BIN(Pub,_Lpub),
-                       ?DEC_BIN(Priv,_Lpriv),
+                       64:32/unsigned-big-integer,
+                       Priv:32/binary,
+                       _Pub:32/binary,
                        Rest/binary>>) ->
     {{ed_pri, ed25519, Pub, Priv}, Rest};
 ssh2_privkey_decode2(<<?UINT32(9), "ssh-ed448",
                        ?DEC_BIN(Pub,_Lpub),
-                       ?DEC_BIN(Priv,_Lpriv),
+                       114:32/unsigned-big-integer,
+                       Priv:57/binary,
+                       _Pub:57/binary,
                        Rest/binary>>) ->
     {{ed_pri, ed448, Pub, Priv}, Rest}.
 
@@ -938,4 +942,3 @@ ssh_dbg_format(raw_messages, {return_from,{?MODULE,encode,1},BytesPT}) ->
 ?wr_record(ssh_msg_channel_failure);
 
 wr_record(R) -> io_lib:format('~p~n',[R]).
-
