@@ -1887,7 +1887,7 @@ type(get_tuple_element, [Tuple, Offset], _Anno, _Ts, _Ds) ->
     fun(Ts) ->
             #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
             true = Index =< Size,               %Assertion.
-            beam_types:get_tuple_element(N + 1, Es)
+            beam_types:get_tuple_element(Index, Es)
     end;
 type(has_map_field, [_, _]=Args0, _Anno, Ts, _Ds) ->
     [#t_map{}=Map, Key] = normalized_types(Args0, Ts), %Assertion.
