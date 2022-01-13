@@ -52,7 +52,7 @@
 
 %% Exports
 -export([
-	 start/0, start/1, start/2, start/3
+	 start/0, start/1, start/2, start/3, start/4
 	]).
 
 
@@ -74,6 +74,7 @@
 -define(DEFAULT_MESSAGE_PACKAGE, megaco_codec_transform:default_message_package()).
 -define(DEFAULT_MODE,            standard).
 -define(DEFAULT_TIME,            1).
+-define(DEFAULT_FACTOR,          1).
 -define(DEFAULT_RUN_TIME,        timer:minutes(?DEFAULT_TIME)).
 
 %% -define(MSTONE_RUNNER_MIN_HEAP_SZ, 16#7fff).
@@ -101,17 +102,21 @@
 %%%----------------------------------------------------------------------
 
 start() ->
-    do_start(?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
+    do_start(?DEFAULT_FACTOR,
+             ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
 
 start([RunTimeAtom, Mode, MessagePackage])
   when is_atom(RunTimeAtom) andalso
        is_atom(Mode) andalso
        is_atom(MessagePackage) ->
-    do_start(?LIB:parse_runtime(RunTimeAtom), Mode, MessagePackage);
+    do_start(?DEFAULT_FACTOR,
+             ?LIB:parse_runtime(RunTimeAtom), Mode, MessagePackage);
 start(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
-    do_start(time:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
+    do_start(?DEFAULT_FACTOR,
+             time:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(MessagePackage) ->
-    do_start(?DEFAULT_RUN_TIME, ?DEFAULT_MODE, MessagePackage).
+    do_start(?DEFAULT_FACTOR,
+             ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, MessagePackage).
 
 start(RunTime, Mode)
   when is_integer(RunTime) andalso
@@ -120,15 +125,25 @@ start(RunTime, Mode)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE);
+    do_start(?DEFAULT_FACTOR,
+             timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE);
+start(Factor, RunTime)
+  when is_integer(Factor) andalso
+       (Factor > 0) andalso
+       is_integer(RunTime) andalso
+       (RunTime > 0) ->
+    do_start(Factor, timer:minutes(RunTime),
+             ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(RunTime, MessagePackage) when is_integer(RunTime) andalso (RunTime > 0) ->
-    do_start(timer:minutes(RunTime), ?DEFAULT_MODE, MessagePackage);
+    do_start(?DEFAULT_FACTOR,
+             timer:minutes(RunTime), ?DEFAULT_MODE, MessagePackage);
 start(Mode, MessagePackage)
   when (Mode =:= standard) orelse
        (Mode =:= flex) orelse
        (Mode =:= no_drv) orelse
        (Mode =:= only_drv) ->
-    do_start(?DEFAULT_RUN_TIME, Mode, MessagePackage).
+    do_start(?DEFAULT_FACTOR,
+             ?DEFAULT_RUN_TIME, Mode, MessagePackage).
 
 start(RunTime, Mode, MessagePackage)
   when is_integer(RunTime) andalso
@@ -137,11 +152,35 @@ start(RunTime, Mode, MessagePackage)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(timer:minutes(RunTime), Mode, MessagePackage).
+    do_start(?DEFAULT_FACTOR,
+             timer:minutes(RunTime), Mode, MessagePackage);
+start(Factor, RunTime, Mode)
+  when is_integer(Factor) andalso
+       (Factor > 0) andalso
+       is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(Factor,
+             timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE).
 
-do_start(RunTime, Mode, MessagePackageRaw) ->
+
+start(Factor, RunTime, Mode, MessagePackage)
+  when is_integer(Factor) andalso
+       (Factor > 0) andalso
+       is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(Factor, timer:minutes(RunTime), Mode, MessagePackage).
+
+do_start(Factor, RunTime, Mode, MessagePackageRaw) ->
     MessagePackage = parse_message_package(MessagePackageRaw),
-    mstone_init(RunTime, Mode, MessagePackage).
+    mstone_init(Factor, RunTime, Mode, MessagePackage).
     
 parse_message_package(MessagePackageRaw) when is_list(MessagePackageRaw) ->
     list_to_atom(MessagePackageRaw);
@@ -151,7 +190,7 @@ parse_message_package(BadMessagePackage) ->
     throw({error, {bad_message_package, BadMessagePackage}}).
 
 
-mstone_init(RunTime, Mode, MessagePackage) ->
+mstone_init(Factor, RunTime, Mode, MessagePackage) ->
     io:format("~n", []),
     %% io:format("MStone init with"
     %%           "~n   Run Time:        ~p ms"
@@ -164,7 +203,7 @@ mstone_init(RunTime, Mode, MessagePackage) ->
     io:format("~n", []),
     Ref = erlang:monitor(process, 
 			 spawn(fun() -> 
-				       loader(RunTime, Mode, MessagePackage) 
+				       loader(Factor, RunTime, Mode, MessagePackage) 
 			       end)),
     receive
 	{'DOWN', Ref, process, _Pid, {done, Result}} ->
@@ -251,8 +290,8 @@ erl_image(Erl, Conf) ->
 
 %%%----------------------------------------------------------------------
 
-loader(RunTime, Mode, MessagePackage) ->
-    loader(RunTime, Mode, ?MSTONE_CODECS, MessagePackage).
+loader(Factor, RunTime, Mode, MessagePackage) ->
+    loader(Factor, RunTime, Mode, ?MSTONE_CODECS, MessagePackage).
 
 
 %% Codecs is a list of megaco codec shortnames: 
@@ -260,16 +299,16 @@ loader(RunTime, Mode, MessagePackage) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-loader(RunTime, Mode, Codecs, MessagePackage) ->
+loader(Factor, RunTime, Mode, Codecs, MessagePackage) ->
     process_flag(trap_exit, true),
-    case (catch init(RunTime, Mode, Codecs, MessagePackage)) of
+    case (catch init(Factor, RunTime, Mode, Codecs, MessagePackage)) of
 	{ok, State} ->
 	    loader_loop(running, State);
 	Error ->
 	    exit(Error)
     end.
 
-init(RunTime, Mode, Codecs, MessagePackage) ->
+init(Factor, RunTime, Mode, Codecs, MessagePackage) ->
     ets:new(mstone, [set, private, named_table, {keypos, 1}]),
     ets:insert(mstone, {worker_cnt, 0}),
     case ?LIB:start_flex_scanner() of
@@ -277,9 +316,9 @@ init(RunTime, Mode, Codecs, MessagePackage) ->
             io:format("prepare messages", []),
             EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
             io:format("~ninit codec data", []),
-            CodecData = init_codec_data(EMessages, FlexConf),
+            CodecData = init_codec_data(Factor, EMessages, FlexConf),
             Timer = erlang:send_after(RunTime, self(), mstone_finished), 
-            io:format("~n", []),
+            io:format(" => ~w concurrent workers~n", [length(CodecData)]),
             {ok, #state{timer        = Timer, 
                         idle         = CodecData, 
                         flex_handler = Pid, 
@@ -289,6 +328,14 @@ init(RunTime, Mode, Codecs, MessagePackage) ->
                       "~n      ~p", [Reason]),
             ERROR
     end.
+
+init_codec_data(Factor, EMsgs, FlexConf) ->
+    init_codec_data_expand(Factor, init_codec_data(EMsgs, FlexConf)).
+
+init_codec_data_expand(1 = _Factor, CodecData) ->
+    CodecData;
+init_codec_data_expand(Factor, CodecData) ->
+    lists:flatten(lists:duplicate(Factor, CodecData)).
 
 init_codec_data(EMsgs, FlexConf) ->
     [init_codec_data(Codec, Mod, Conf, Msgs, FlexConf) || 
