@@ -1308,14 +1308,15 @@ typedef struct {
     ErlDrvEntry* de;
     int taint;
 } ErtsStaticDriver;
-typedef void *(*ErtsStaticNifInitFPtr)(void);
-typedef struct ErtsStaticNifEntry_ {
-    const char *nif_name;
-    ErtsStaticNifInitFPtr nif_init;
-    int taint;
-} ErtsStaticNifEntry;
-ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len);
-int erts_is_static_nif(void *handle);
+typedef void* ErtsStaticNifInitF(void);
+typedef struct {
+    ErtsStaticNifInitF* const nif_init;
+    const int taint;
+
+    Eterm mod_atom;
+    ErlNifEntry* entry;
+} ErtsStaticNif;
+extern ErtsStaticNif erts_static_nif_tab[];
 void erts_init_static_drivers(void);
 
 /* erl_drv_thread.c */
