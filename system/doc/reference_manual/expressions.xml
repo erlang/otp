@@ -1575,7 +1575,11 @@ end</pre>
 <c>BitStringExpr</c> must be an expression, which evaluates to a
        bitstring.</item>
       <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>.</item>
+      <c>true</c> or <c>false</c>, or a
+      <seeguide marker="#guard_expressions">guard expression</seeguide>.
+      If the filter is not a guard expression and evaluates
+      to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
     </list>
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
@@ -1626,8 +1630,12 @@ end</pre>
        &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
 <c>BitStringExpr</c> must be an expression that evaluates to a
        bitstring.</item>
-      <item>A <em>filter</em> is an expression that evaluates to
-      <c>true</c> or <c>false</c>.</item>
+      <item>A <em>filter</em> is an expression, which evaluates to
+      <c>true</c> or <c>false</c>, or a
+      <seeguide marker="#guard_expressions">guard expression</seeguide>.
+      If the filter is not a guard expression and evaluates
+      to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
     </list>
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
