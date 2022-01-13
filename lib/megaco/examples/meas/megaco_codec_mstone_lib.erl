@@ -289,11 +289,11 @@ display_asn1_info() ->
 %% 
 %%----------------------------------------------------------------------
 
-expanded_messages(Codecs, DrvInclude) ->
+expanded_messages(Codecs, DrvInclude) when is_list(Codecs) ->
     MessagePackage = time_test, 
     expanded_messages(MessagePackage, Codecs, DrvInclude).
 
-expanded_messages(MessagePackage, Codecs, DrvInclude) ->
+expanded_messages(MessagePackage, Codecs, DrvInclude) when is_list(Codecs) ->
     ECodecs  = expand_codecs(Codecs, DrvInclude), 
     Messages = megaco_codec_transform:messages(MessagePackage), 
     expanded_messages2(ECodecs, Messages, []).

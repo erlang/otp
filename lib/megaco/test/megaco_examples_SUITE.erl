@@ -638,6 +638,10 @@ do_meas(SName, Node, Mod, Func, Args) ->
             p("<ERROR> worker process terminated: "
               "~n      ~p", [Reason]),
             ?FAIL(Reason);
+        {'DOWN', MRef, process, Pid, {badrpc, BadRpc}} ->
+            p("<ERROR> worker process terminated - badrpc: "
+              "~n      ~p", [BadRpc]),
+            ?FAIL(BadRpc);
         {'DOWN', MRef, process, Pid, Reason} ->
             p("worker process terminated: "
               "~n      ~p", [Reason]),
@@ -654,9 +658,22 @@ mstone1(suite) ->
     [];
 mstone1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ct:timetrap(?MINS(2)),
     WorkerNode = ?config(worker_node, Config),
-    do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_mstone1, start, [1, default]).
+    %% The point of this is
+    %% to make sure we utilize as much of the host as possible...
+    RunTime    = 1, % Minute
+    NumSched   = try erlang:system_info(schedulers_online) of N -> N
+                 catch _:_:_ -> 1
+                 end,
+    Factor     = 1 + (NumSched div 12),
+    Mod        = megaco_codec_mstone1,
+    Func       = start,
+    Args       = [RunTime, Factor],
+    p("Run with: "
+      "~n      Run Time: ~p min(s)"
+      "~n      Factor:   ~p", [RunTime, Factor]),
+    ct:timetrap(?MINS(RunTime + 1)),
+    do_meas(?FUNCTION_NAME, WorkerNode, Mod, Func, Args).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -667,9 +684,17 @@ mstone2(suite) ->
     [];
 mstone2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ct:timetrap(?MINS(2)),
     WorkerNode = ?config(worker_node, Config),
-    do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_mstone2, start, [1, standard]).
+    RunTime = 1, % Minutes
+    Mode    = standard,
+    Mod     = megaco_codec_mstone2,
+    Func    = start,
+    Args    = [RunTime, Mode],
+    p("Run with: "
+      "~n      Run Time: ~p min(s)"
+      "~n      Mode:     ~p", [RunTime, Mode]),
+    ct:timetrap(?MINS(RunTime + 1)),
+    do_meas(?FUNCTION_NAME, WorkerNode, Mod, Func, Args).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

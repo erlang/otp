@@ -29,7 +29,7 @@
 
 %% API
 -export([
-	 start/0,          start/1,          start/2,
+	 start/0, start/1, start/2, start/3,
 	 start_flex/0,     start_flex/1,     start_flex/2,
 	 start_no_drv/0,   start_no_drv/1,   start_no_drv/2,
 	 start_only_drv/0, start_only_drv/1, start_only_drv/2

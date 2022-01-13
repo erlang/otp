@@ -46,8 +46,8 @@ Options:
                            h: hours
                         If no unit is provided, minutes is assumed.
                         defaults to 10 minutes
- -f <factor>            normally the test is run with 16 processes 
-                        (factor 1), one for each codec config. The test 
+ -f <factor>            normally the test is run with one process per codec
+                        (= 12) (factor 1), one for each codec config. The test 
                         can however be run with other factors, e.g. 
                         factor 10 means that 10 processes will be started 
                         for each megaco codec config.
