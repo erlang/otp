@@ -358,11 +358,11 @@
     <datatype>
       <name name="key_password"/>
       <desc>
-	<p>String containing the user's password. Only used if the 
+	<p>String containing the user's password or a function returning same type. Only used if the
 	private keyfile is password-protected.</p>
       </desc>
     </datatype>
-    
+
     <datatype>
       <name name="cipher_suites"/>
       <desc>
