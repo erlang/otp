@@ -266,23 +266,29 @@ init_tc(State, Config) when is_list(Config) == false ->
     State#state{ timer = ?now, tc_log =  "" };
 init_tc(State, Config) ->
     State#state{ timer = ?now,
-		 tc_log =  proplists:get_value(tc_logfile, Config, [])}.
+		 tc_log = proplists:get_value(tc_logfile, Config, [])}.
 
 end_tc(Func, Config, Res, State) when is_atom(Func) ->
     end_tc(atom_to_list(Func), Config, Res, State);
+end_tc(Func, Config, Res, State = #state{ tc_log = "" }) ->
+    end_tc(Func, Config, Res, State#state{ tc_log = proplists:get_value(tc_logfile, Config) });
 end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					    curr_group = Groups,
 					    curr_log_dir = CurrLogDir,
 					    timer = TS,
-					    tc_log = Log0,
 					    url_base = UrlBase } ) ->
     Log =
-	case Log0 of
-	    "" ->
+	case State#state.tc_log of
+	    undefined ->
 		LowerSuiteName = string:lowercase(atom_to_list(Suite)),
-		filename:join(CurrLogDir,LowerSuiteName++"."++Name++".html");
-	    _ ->
-		Log0
+		case filelib:wildcard(filename:join(CurrLogDir,LowerSuiteName++"."++Name++".*html")) of
+                    [] ->
+                        "";
+                    [LogFile|_] ->
+                        LogFile
+                end;
+	    LogFile ->
+		LogFile
 	end,
     Url = make_url(UrlBase,Log),
     ClassName = atom_to_list(Suite),
