@@ -32,11 +32,12 @@
 	 whereis_name/1,  register_name/2,
          register_name/3, register_name_external/2, register_name_external/3,
          unregister_name_external/1,re_register_name/2, re_register_name/3,
-	 unregister_name/1, registered_names/0, send/2, node_disconnected/1,
+	 unregister_name/1, registered_names/0, send/2,
 	 set_lock/1, set_lock/2, set_lock/3,
 	 del_lock/1, del_lock/2,
 	 trans/2, trans/3, trans/4,
-	 random_exit_name/3, random_notify_name/3, notify_all_name/3]).
+	 random_exit_name/3, random_notify_name/3, notify_all_name/3,
+         prepare_shutdown/0]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -70,6 +71,9 @@
 -define(trace(_), ok).
 -endif.
 
+-define(MAX_64BIT_SMALL_INT, ((1 bsl 59) - 1)).
+-define(MIN_64BIT_SMALL_INT, (-(1 bsl 59))).
+
 %% These are the protocol versions:
 %% Vsn 1 is the original protocol.
 %% Vsn 2 is enhanced with code to take care of registration of names from
@@ -80,10 +84,16 @@
 %%       when communicating with vsn 3 nodes. (-R10B)
 %% Vsn 5 uses an ordered list of self() and HisTheLocker when locking
 %%       nodes in the own partition. (R11B-)
+%% Vsn 6 does not send any message between locker processes on different
+%%       nodes, but uses the server as a proxy.
+%% Vsn 7 - propagate global versions between nodes, so we always know
+%%         versions of known nodes
+%%       - prevent overlapping partitions by explicitly disconnecting
+%%         nodes
 
 %% Current version of global does not support vsn 4 or earlier.
 
--define(vsn, 5).
+-define(vsn, 7).
 
 %%-----------------------------------------------------------------
 %% connect_all = boolean() - true if we are supposed to set up a
@@ -111,7 +121,7 @@
 %% {lock_id, Node} = The resource locking the partitions
 %%-----------------------------------------------------------------
 -record(state, {connect_all        :: boolean(),
-		known = []         :: [node()],
+		known = #{},
 		synced = []        :: [node()],
 		resolvers = [],
 		syncers = []       :: [pid()],
@@ -156,6 +166,8 @@
 %%% The new_nodes messages has been augmented with the global lock id.
 %%%
 %%% R14A (OTP-8527): The deleter process has been removed.
+%%%
+%%% Erlang/OTP 22.0: The extra process calling erlang:monitor() is removed.
 
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
@@ -165,6 +177,21 @@ start_link() ->
 
 stop() -> 
     gen_server:call(global_name_server, stop, infinity).
+
+prepare_shutdown() ->
+    %% Called by init:stop(), init:restart(), etc, before
+    %% global_name_server is shut down...
+    case whereis(global_name_server) of
+        undefined ->
+            ok;
+        Pid ->
+            try
+                gen_server:call(Pid, prepare_shutdown, infinity)
+            catch
+                _:_ ->
+                    ok
+            end
+    end.
 
 -spec sync() -> 'ok' | {'error', Reason :: term()}.
 sync() ->
@@ -202,9 +229,6 @@ send(Name, Msg) ->
       Name :: term().
 whereis_name(Name) ->
     where(Name).
-
-node_disconnected(Node) ->
-    global_name_server ! {nodedown, Node}.
 
 %%-----------------------------------------------------------------
 %% Method = function(Name, Pid1, Pid2) -> Pid | Pid2 | none
@@ -469,6 +493,12 @@ init([]) ->
                trace = T0,
                the_registrar = start_the_registrar(),
                connect_all = Ca},
+    _ = rand:seed(exsss,
+                  (erlang:monotonic_time(nanosecond) rem 1000000000)
+                  + (erlang:system_time(nanosecond) rem 1000000000)),
+    CreX = ((rand:uniform(?MAX_64BIT_SMALL_INT - ?MIN_64BIT_SMALL_INT)
+             - 1) band (bnot ((1 bsl 32) -1))),
+    put(creation_extention, CreX),
     {ok, trace_message(S, {init, node()}, [])}.
 
 %%-----------------------------------------------------------------
@@ -567,17 +597,24 @@ init([]) ->
 %%    {exchange, Node, ListOfNames, _ListOfNamesExt, Tag}
 %%    {resolved, Node, HisOps, HisKnown, _Unused, ListOfNamesExt, Tag}
 %%         HisKnown = list of known nodes in Node's partition
-%% 2. Between lockers on connecting nodes
-%%    {his_locker, Pid} (from our global)
-%%    {lock, Bool} loop until both lockers have lock = true,
-%%          then send to global_name_server {lock_is_set, Node, Tag}
-%% 3. Connecting node's global_name_server informs other nodes in the same 
+%% 2. Between global_name_server and my locker (the local locker)
+%%    {nodeup, Node, Tag}
+%%    {his_the_locker, Pid, {Vsn, HisKnown}, MyKnown}
+%%    {cancel, Node, Tag, Fun | no_fun}
+%%    {add_to_known, Nodes}
+%%    {remove_from_known, Nodes}
+%%    {lock_set, Pid, LockIsSet, HisKnown} (acting as proxy)
+%% 3. Between lockers on connecting nodes (via proxy global_name_server)
+%%    {lock_set, Pid, LockIsSet, HisKnown}
+%%      loop until both lockers have LockIsSet =:= true,
+%%      then send to global_name_server {lock_is_set, Node, Tag, LockId}
+%% 4. Connecting node's global_name_server informs other nodes in the same
 %%    partition about hitherto unknown nodes in the other partition
 %%    {new_nodes, Node, Ops, ListOfNamesExt, NewNodes, ExtraInfo}
-%% 4. Between global_name_server and resolver
+%% 5. Between global_name_server and resolver
 %%    {resolve, NameList, Node} to resolver
 %%    {exchange_ops, Node, Tag, Ops, Resolved} from resolver
-%% 5. sync protocol, between global_name_servers in different partitions
+%% 6. sync protocol, between global_name_servers in different partitions
 %%    {in_sync, Node, IsKnown}
 %%          sent by each node to all new nodes (Node becomes known to them)
 %%-----------------------------------------------------------------
@@ -614,7 +651,7 @@ handle_call({del_lock, Lock}, {Pid, _Tag}, S0) ->
     {reply, true, S};
 
 handle_call(get_known, _From, S) ->
-    {reply, S#state.known, S};
+    {reply, mk_known_list(-1, S), S};
 
 handle_call(get_synced, _From, S) ->
     {reply, S#state.synced, S};
@@ -651,6 +688,12 @@ handle_call(high_level_trace_get, _From, #state{trace = Trace}=S) ->
 handle_call(stop, _From, S) ->
     {stop, normal, stopped, S};
 
+handle_call(prepare_shutdown, _From, S0) ->
+    %% Prevent lost_connection messages being sent due to
+    %% connections being taken down during the shutdown...
+    S1 = S0#state{connect_all = false},
+    {reply, ok, S1};
+
 handle_call(Request, From, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
@@ -672,13 +715,16 @@ handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
 	%% It is always the responsibility of newer versions to understand
 	%% older versions of the protocol.
 	{HisVsn, HisTag} when HisVsn > ?vsn ->
+            put({pending_known, Node}, HisVsn),
 	    init_connect(?vsn, Node, InitMsg, HisTag, S#state.resolvers, S);
 	{HisVsn, HisTag} ->
+            put({pending_known, Node}, HisVsn),
 	    init_connect(HisVsn, Node, InitMsg, HisTag, S#state.resolvers, S);
 	%% To be future compatible
 	Tuple when is_tuple(Tuple) ->
 	    List = tuple_to_list(Tuple),
-	    [_HisVsn, HisTag | _] = List,
+	    [HisVsn, HisTag | _] = List,
+            put({pending_known, Node}, HisVsn),
 	    %% use own version handling if his is newer.
 	    init_connect(?vsn, Node, InitMsg, HisTag, S#state.resolvers, S);
 	_ ->
@@ -734,10 +780,10 @@ handle_cast({exchange_ops, Node, MyTag, Ops, Resolved}, S0) ->
     S = trace_message(S0, {exit_resolver, Node}, [MyTag]),
     case get({sync_tag_my, Node}) of
 	MyTag ->
-            Known = S#state.known,
+            Known = mk_known_list(node_vsn(Node, S), S),
 	    gen_server:cast({global_name_server, Node},
 			    {resolved, node(), Resolved, Known,
-			     Known,get_names_ext(),get({sync_tag_his,Node})}),
+			     unused,get_names_ext(),get({sync_tag_his,Node})}),
             case get({save_ops, Node}) of
                 {resolved, HisKnown, Names_ext, HisResolved} ->
                     put({save_ops, Node}, Ops),
@@ -757,7 +803,7 @@ handle_cast({exchange_ops, Node, MyTag, Ops, Resolved}, S0) ->
 %%
 %% Here the name clashes are resolved.
 %%========================================================================
-handle_cast({resolved, Node, HisResolved, HisKnown, _HisKnown_v2, 
+handle_cast({resolved, Node, HisResolved, HisKnown, _Unused, 
              Names_ext, MyTag}, S) ->
     %% Sent from global_name_server at Node.
     ?trace({'####', resolved, {his_resolved,HisResolved}, {node,Node}}),
@@ -820,6 +866,11 @@ handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
     %% R14A nodes and later do not send async_del_lock messages.
     {noreply, S};
 
+handle_cast({lock_set, _Pid, _Set, _HisKnown} = Message, S) ->
+    #state{the_locker = Locker} = S,
+    Locker ! Message,
+    {noreply, S};
+
 handle_cast(Request, S) ->
     error_logger:warning_msg("The global_name_server "
                              "received an unexpected message:\n"
@@ -852,13 +903,20 @@ handle_info({nodedown, Node}, S) when Node =:= S#state.node_name ->
 handle_info({nodedown, Node}, S0) ->
     ?trace({'####', nodedown, {node,Node}}),
     S1 = trace_message(S0, {nodedown, Node}, []),
-    S = handle_nodedown(Node, S1),
+    S = handle_nodedown(Node, S1, disconnected),
     {noreply, S};
 
 handle_info({extra_nodedown, Node}, S0) ->
     ?trace({'####', extra_nodedown, {node,Node}}),
     S1 = trace_message(S0, {extra_nodedown, Node}, []),
-    S = handle_nodedown(Node, S1),
+    S = handle_nodedown(Node, S1, disconnected),
+    {noreply, S};
+
+handle_info({ignore_node, Node}, S0) ->
+    %% global_group wants us to ignore this node...
+    ?trace({'####', ignore_node, {node,Node}}),
+    S1 = trace_message(S0, {ignore_node, Node}, []),
+    S = handle_nodedown(Node, S1, ignore_node),
     {noreply, S};
 
 handle_info({nodeup, Node}, S) when Node =:= node() ->
@@ -871,7 +929,7 @@ handle_info({nodeup, _Node}, S) when not S#state.connect_all ->
     {noreply, S};
 
 handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
-    IsKnown = lists:member(Node, S0#state.known) or
+    IsKnown = maps:is_key(Node, S0#state.known) or
               %% This one is only for double nodeups (shouldn't occur!)
               lists:keymember(Node, 1, S0#state.resolvers),
     ?trace({'####', nodeup, {node,Node}, {isknown,IsKnown}}),
@@ -911,6 +969,76 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
 handle_info({whereis, Name, From}, S) ->
     _ = do_whereis(Name, From),
     {noreply, S};
+
+handle_info({lost_connection, _NodeA, _XCreationA, _OpIdA, _NodeB},
+            #state{connect_all = false} = S) ->
+    {noreply, S};
+
+handle_info({lost_connection, NodeA, XCreationA, OpIdA, NodeB} = Msg,
+            #state{connect_all = true} = S0) ->
+    %% NodeA reports that it lost connection to NodeB. If we got a
+    %% connection to NodeB, we need to disconnect it in order to
+    %% prevent overlapping partitions...
+    S2 = case get({lost_connection, NodeA, NodeB}) of
+             {XCreationA, OpId} when OpIdA =< OpId ->
+                 %% We have already handled this lost connection...
+                 S0;
+             _ ->
+                 put({lost_connection, NodeA, NodeB}, {XCreationA, OpIdA}),
+                 S1 = case is_node_potentially_known(NodeB, S0) of
+                          false ->
+                              S0;
+                          true ->
+                              case node_vsn(NodeB, S0) of
+                                  Vsn when Vsn < 7 ->
+                                      erlang:disconnect_node(NodeB),
+                                      error_logger:warning_msg(
+                                        "'global' at node ~p disconnected "
+                                        "old node ~p in order to prevent "
+                                        "overlapping partitions",
+                                        [node(), NodeB]),
+                                      ok;
+                                  _Vsn ->
+                                      _ = erlang:send({global_name_server,
+                                                       NodeB},
+                                                      {remove_connection,
+                                                       node()},
+                                                      [noconnect]),
+                                      error_logger:warning_msg(
+                                        "'global' at node ~p requested "
+                                        "disconnect from node ~p in order "
+                                        "to prevent overlapping partitions",
+                                        [node(), NodeB]),
+                                      ok
+                              end,
+                              handle_nodedown(NodeB, S0, remove_connection)
+                      end,
+
+                 %% Inform all other nodes we know of about this as well. This
+                 %% in order to prevent that some nodes in this cluster wont
+                 %% get the original message from NodeA. This ensures that all
+                 %% nodes will know of this connection loss, even if some nodes
+                 %% lose connection to NodeA while NodeA is multicasting that
+                 %% it lost the connection to NodeB.
+                 inform_connection_loss(Msg, NodeA, S1),
+                 S1
+         end,
+
+    {noreply, S2};
+
+handle_info({remove_connection, Node}, S0) ->
+    S2 = case is_node_potentially_known(Node, S0) of
+             false ->
+                 S0;
+             true ->
+                 erlang:disconnect_node(Node),
+                 S1 = handle_nodedown(Node, S0, remove_connection),
+                 error_logger:warning_msg(
+                   "'global' at node ~p disconnected node ~p in order to "
+                   "prevent overlapping partitions", [node(), Node]),
+                 S1
+         end,
+    {noreply, S2};
 
 handle_info(known, S) ->
     io:format(">>>> ~p\n",[S#state.known]),
@@ -1113,8 +1241,9 @@ resolved(Node, HisResolved, HisKnown, Names_ext, S0) ->
     %% Known may have shrunk since the lock was taken (due to nodedowns).
     Known = S0#state.known,
     Synced = S0#state.synced,
-    NewNodes = [Node | HisKnown],
-    sync_others(HisKnown),
+    NewNodes = make_node_vsn_list([Node | HisKnown], S0),
+    HisKnownNodes = node_list(HisKnown),
+    sync_others(HisKnownNodes),
     ExtraInfo = [{vsn,get({prot_vsn, Node})}, {lock, get({lock_id, Node})}],
     S = do_ops(Ops, node(), Names_ext, ExtraInfo, S0),
     %% I am synced with Node, but not with HisKnown yet
@@ -1122,25 +1251,35 @@ resolved(Node, HisResolved, HisKnown, Names_ext, S0) ->
     S3 = lists:foldl(fun(Node1, S1) -> 
                              F = fun(Tag) -> cancel_locker(Node1,S1,Tag) end,
                              cancel_resolved_locker(Node1, F)
-                     end, S, HisKnown),
+                     end, S, HisKnownNodes),
     %% The locker that took the lock is asked to send 
     %% the {new_nodes, ...} message. This ensures that
     %% {del_lock, ...} is received after {new_nodes, ...} 
-    %% (except when abcast spawns process(es)...).
+    NewNodesMsg = {new_nodes, node(), Ops, Names_ext, NewNodes, ExtraInfo},
     NewNodesF = fun() ->
-                        gen_server:abcast(Known, global_name_server,
-                                          {new_nodes, node(), Ops, Names_ext,
-                                           NewNodes, ExtraInfo})
+                        lists:foreach(
+                          fun (N) ->
+                                  case maps:get(N, Known) of
+                                      V when V >= 7 ->
+                                          gen_server:cast({global_name_server, N},
+                                                          NewNodesMsg);
+                                      _OldV ->
+                                          gen_server:cast({global_name_server, N},
+                                                          {new_nodes, node(), Ops,
+                                                           Names_ext, node_list(NewNodes),
+                                                           ExtraInfo})
+                                  end
+                          end,
+                          maps:keys(Known))
                 end,
     F = fun(Tag) -> cancel_locker(Node, S3, Tag, NewNodesF) end,
     S4 = cancel_resolved_locker(Node, F),
     %% See (*) below... we're node b in that description
-    AddedNodes = (NewNodes -- Known),
-    NewKnown = Known ++ AddedNodes,
-    S4#state.the_locker ! {add_to_known, AddedNodes},
-    NewS = trace_message(S4, {added, AddedNodes}, 
-                         [{new_nodes, NewNodes}, {abcast, Known}, {ops,Ops}]),
-    NewS#state{known = NewKnown, synced = [Node | Synced]}.
+    {AddedNodes, S5} = add_to_known(NewNodes, S4),
+    S5#state.the_locker ! {add_to_known, AddedNodes},
+    S6 = trace_message(S5, {added, AddedNodes}, 
+                       [{new_nodes, NewNodes}, {abcast, Known}, {ops,Ops}]),
+    S6#state{synced = [Node | Synced]}.
 
 cancel_resolved_locker(Node, CancelFun) ->
     Tag = get({sync_tag_my, Node}),
@@ -1150,19 +1289,17 @@ cancel_resolved_locker(Node, CancelFun) ->
     S.
 
 new_nodes(Ops, ConnNode, Names_ext, Nodes, ExtraInfo, S0) ->
-    Known = S0#state.known,
     %% (*) This one requires some thought...
     %% We're node a, other nodes b and c:
     %% The problem is that {in_sync, a} may arrive before {resolved, [a]} to
     %% b from c, leading to b sending {new_nodes, [a]} to us (node a).
     %% Therefore, we make sure we never get duplicates in Known.
-    AddedNodes = lists:delete(node(), Nodes -- Known),
+    {AddedNodes, S1} = add_to_known(Nodes, S0),
     sync_others(AddedNodes),
-    S = do_ops(Ops, ConnNode, Names_ext, ExtraInfo, S0),
+    S2 = do_ops(Ops, ConnNode, Names_ext, ExtraInfo, S1),
     ?trace({added_nodes_in_sync,{added_nodes,AddedNodes}}),
-    S#state.the_locker ! {add_to_known, AddedNodes},
-    S1 = trace_message(S, {added, AddedNodes}, [{ops,Ops}]),
-    S1#state{known = Known ++ AddedNodes}.
+    S2#state.the_locker ! {add_to_known, AddedNodes},
+    trace_message(S2, {added, AddedNodes}, [{ops,Ops}]).
 
 do_whereis(Name, From) ->
     case is_global_lock_set() of
@@ -1488,7 +1625,13 @@ delete_global_name(_Name, _Pid) ->
 %% Version 1: used by unpatched R7.
 %% Version 2: the messages exchanged between the lockers include the known 
 %%            nodes (see OTP-3576).
-%%-----------------------------------------------------------------
+
+%% As of version 6 of global, lockers (on different nodes) do not
+%% communicate directly with each other. Instead messages are sent via
+%% the server. This is in order to avoid race conditions where a
+%% {lock_set, ...} message is received after (before) a nodedown
+%% (nodeup).
+%% -----------------------------------------------------------------
 
 -define(locker_vsn, 2).
 
@@ -1603,7 +1746,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
         {true, MyTag, HisVsn} ->
             LockId = locker_lock_id(Pid, HisVsn),
             {IsLockSet, S1} = lock_nodes_safely(LockId, [], S),
-            Pid ! {lock_set, self(), IsLockSet, S1#multi.known},
+            send_lock_set(S1, IsLockSet, Pid, HisVsn),
             Known2 = [node() | S1#multi.known],
             ?trace({the_locker, spontaneous, {known2, Known2},
                     {node,Node}, {is_lock_set,IsLockSet}}),
@@ -1630,7 +1773,7 @@ the_locker_message({lock_set, Pid, true, _HisKnown}, S) ->
             end;
         false ->
             ?trace({the_locker, not_there, {node,Node}}),
-            Pid ! {lock_set, self(), false, S#multi.known},
+            send_lock_set(S, false, Pid, _HisVsn=5),
             loop_the_locker(S)
     end;
 the_locker_message({add_to_known, Nodes}, S) ->
@@ -1672,8 +1815,7 @@ select_node(S) ->
             case IsLockSet of
                 true -> 
                     Known1 = Us ++ S2#multi.known,
-                    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
-                    HisTheLocker ! {lock_set, self(), true, S2#multi.known},
+                    send_lock_set(S2, true, HisTheLocker, HisVsn),
                     S3 = lock_is_set(S2, Him, MyTag, Known1, LockId),
                     loop_the_locker(S3);
                 false ->
@@ -1681,7 +1823,18 @@ select_node(S) ->
             end
     end.
 
-%% Version 5: Both sides use the same requester id. Thereby the nodes
+send_lock_set(S, IsLockSet, HisTheLocker, Vsn) ->
+    ?trace({sending_lock_set, self(), {his,HisTheLocker}}),
+    Message = {lock_set, self(), IsLockSet, S#multi.known},
+    if
+        Vsn < 6 ->
+            HisTheLocker ! Message,
+            ok;
+        true ->
+            gen_server:cast({global_name_server, node(HisTheLocker)}, Message)
+    end.
+
+%% Version 5-6: Both sides use the same requester id. Thereby the nodes
 %% common to both sides are locked by both locker processes. This
 %% means that the lock is still there when the 'new_nodes' message is
 %% received even if the other side has deleted the lock.
@@ -1903,6 +2056,7 @@ cancel_locker(Node, S, Tag, ToBeRunOnLockerF) ->
 
 reset_node_state(Node) ->
     ?trace({{node,Node}, reset_node_state, get()}),
+    erase({pending_known, Node}),
     erase({wait_lock, Node}),
     erase({save_ops, Node}),
     erase({pre_connect, Node}),
@@ -2038,14 +2192,126 @@ pid_locks(Ref) ->
 ref_is_locking(Ref, PidRefs) ->
     lists:keyfind(Ref, 2, PidRefs) =/= false.
 
-handle_nodedown(Node, S) ->
+handle_nodedown(Node, S, What) ->
     %% DOWN signals from monitors have removed locks and registered names.
-    #state{known = Known, synced = Syncs} = S,
+    #state{synced = Syncs} = S,
     NewS = cancel_locker(Node, S, get({sync_tag_my, Node})),
     NewS#state.the_locker ! {remove_from_known, Node},
     reset_node_state(Node),
-    NewS#state{known = lists:delete(Node, Known),
+    case What of
+        remove_connection ->
+            put({remove_connection, Node}, yes);
+        ignore_node ->
+            erase({remove_connection, Node});
+        disconnected ->
+            case get({remove_connection, Node}) of
+                yes -> erase({remove_connection, Node});
+                undefined -> inform_connection_loss(Node, S)
+            end
+    end,
+    NewS#state{known = maps:remove(Node, S#state.known),
                synced = lists:delete(Node, Syncs)}.
+
+inform_connection_loss(_Node, #state{connect_all = false}) ->
+    ok;
+inform_connection_loss(Node, #state{connect_all = true} = S) ->
+    Msg = {lost_connection,
+           node(),
+           (get(creation_extention)
+            + erlang:system_info(creation)
+            - ?MIN_64BIT_SMALL_INT),
+           erlang:unique_integer([monotonic]),
+           Node},
+    inform_connection_loss(Msg, Node, S).
+
+inform_connection_loss(_Msg, _IgnoreNode, #state{connect_all = false}) ->
+    ok;
+inform_connection_loss(Msg, IgnoreNode, #state{known = Known,
+                                               connect_all = true}) ->
+    lists:foreach(fun (N) when N == IgnoreNode ->
+                          ok;
+                      (N) ->
+                          case maps:get(N, Known) of
+                              V when V < 7 ->
+                                  ok;
+                              _V ->
+                                  _= erlang:send({global_name_server, N},
+                                                 Msg,
+                                                 [noconnect])
+                          end
+                  end, maps:keys(Known)).
+
+is_node_potentially_known(Node, #state{known = Known}) ->
+    case maps:is_key(Node, Known) of
+        true ->
+            true;
+        false ->
+            case get({pending_known, Node}) of
+                undefined -> false;
+                Ver when is_integer(Ver) -> true
+            end
+    end.
+
+node_vsn(Node, #state{known = Known}) ->
+    case maps:find(Node, Known) of
+        {ok, Ver} ->
+            Ver;
+        error ->
+            case get({pending_known, Node}) of
+                undefined -> -1;
+                Ver when is_integer(Ver) -> Ver
+            end
+    end.
+
+node_list(NList) ->
+    lists:map(fun (N) when is_atom(N) ->
+                      N;
+                  ({N, _V}) when is_atom(N) ->
+                      N
+              end, NList).
+    
+
+make_node_vsn_list(NList, #state{} = S) ->
+    lists:map(fun ({N, -1}) when is_atom(N) ->
+                      {N, node_vsn(N, S)};
+                  (N) when is_atom(N) ->
+                      {N, node_vsn(N, S)};
+                  ({N, V} = NV) when is_atom(N),
+                                     is_integer(V) ->
+                      NV
+              end, NList).
+                          
+
+mk_known_list(Vsn, #state{known = Known}) when Vsn < 7 ->
+    lists:map(fun ({N, _V}) -> N end, maps:to_list(Known));
+mk_known_list(_Vsn, #state{known = Known}) ->
+    maps:to_list(Known).
+
+add_to_known(AddKnown, #state{known = Known} = S) ->
+    Fun = fun (N, Acc) when N == node() ->
+                  Acc;
+              ({N, _V}, Acc) when N == node() ->
+                  Acc;
+              (N, {A, K} = Acc) when is_atom(N) ->
+                  case maps:is_key(N, K) of
+                      true -> Acc;
+                      false -> {[N|A], maps:put(N, -1, K)}
+                  end;
+              ({N, V}, {A, K} = Acc) ->
+                  case maps:find(N, K) of
+                      error ->
+                          {[N|A], maps:put(N, V, K)};
+                      {ok, NV} when NV >= 0 ->
+                          Acc;
+                      {ok, _UnknownVsn} ->
+                          %% Update version, but don't count
+                          %% it as an added node...
+                          {A, maps:put(N, V, K)}
+                  end
+          end,
+
+    {Added, NewKnown} = lists:foldl(Fun, {[], Known}, AddKnown),
+    {Added, S#state{known = NewKnown}}.
 
 get_names() ->
     ets:select(global_names, 
