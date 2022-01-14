@@ -35553,8 +35553,9 @@ verify_gifdstaddr(Sock, Prefix, IfIdx, IfName) ->
 	    ignore;
 	{error, einval = Reason} when (OsFam =:= unix) andalso
                                       ((OsName =:= darwin) orelse 
-				       (OsName =:= freebsd) orelse 
-				       (OsName =:= netbsd)) ->
+                                       (OsName =:= freebsd) orelse 
+                                       (OsName =:= netbsd) orelse 
+                                       (OsName =:= openbsd)) ->
 	    i("[~s] got unexpected error for interface ~p (~w) => "
 	      "SKIP interface"
 	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
@@ -35675,8 +35676,9 @@ verify_gifbrdaddr(Sock, Prefix, IfIdx, IfName) ->
 	    ignore;
 	{error, einval = Reason} when (OsFam =:= unix) andalso
                                       ((OsName =:= darwin) orelse
-				       (OsName =:= freebsd) orelse
-				       (OsName =:= netbsd)) ->
+                                       (OsName =:= freebsd) orelse
+                                       (OsName =:= netbsd) orelse
+                                       (OsName =:= openbsd)) ->
 	    i("[~s] got unexpected error for interface ~p (~w) => "
 	      "SKIP interface"
 	      "~n      Reason: ~p", [Prefix, IfName, IfIdx, Reason]),
