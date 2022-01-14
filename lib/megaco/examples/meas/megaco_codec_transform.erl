@@ -112,7 +112,8 @@ load_messages(Dir, MessagePackage) ->
 	    {error, {bad_messages, Crap}};
 	
 	Error ->
-	    Error
+	    %% exit({Error, Dir, MessagePackage, Filename})
+            Error
     end.
     
 messages(BaseCodec, Msgs) ->

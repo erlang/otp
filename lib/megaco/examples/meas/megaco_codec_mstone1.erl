@@ -29,7 +29,7 @@
 
 %% API
 -export([
-	 start/0,          start/1,          start/2,
+	 start/0, start/1, start/2, start/3,
 	 start_flex/0,     start_flex/1,     start_flex/2,
 	 start_no_drv/0,   start_no_drv/1,   start_no_drv/2,
 	 start_only_drv/0, start_only_drv/1, start_only_drv/2
@@ -81,7 +81,14 @@ start([MessagePackage, RunTime, Factor]) ->
 start(Factor) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
-start(MessagePackage, Factor) ->
+start(RunTime, default = _Factor)
+  when is_integer(RunTime) ->
+    start(?DEFAULT_MESSAGE_PACKAGE, RunTime, ?DEFAULT_FACTOR);
+start(RunTime, Factor)
+  when is_integer(RunTime) andalso is_integer(Factor) ->
+    start(?DEFAULT_MESSAGE_PACKAGE, RunTime, Factor);
+start(MessagePackage, Factor)
+  when is_atom(MessagePackage) andalso is_integer(Factor) ->
     start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
 
 start(MessagePackage, RunTime, Factor) ->
@@ -152,34 +159,8 @@ do_start(MessagePackageRaw, RunTimeRaw, FactorRaw, DrvInclude) ->
     mstone_init(MessagePackage, RunTime, Factor, DrvInclude).
 
 
-parse_runtime(RunTimeAtom) when is_atom(RunTimeAtom) ->
-    parse_runtime_str(atom_to_list(RunTimeAtom));
-parse_runtime(RunTimeStr) when is_list(RunTimeStr) ->
-    parse_runtime_str(RunTimeStr);
-parse_runtime(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
-    timer:minutes(RunTime);
-parse_runtime(BadRunTime) ->
-    throw({error, {bad_runtime, BadRunTime}}).
-
-parse_runtime_str(RuneTimeStr) ->
-    try
-        begin
-            case lists:reverse(RuneTimeStr) of
-                [$s|Rest] ->
-                    timer:seconds(list_to_integer(lists:reverse(Rest)));
-                [$m|Rest] ->
-                    timer:minutes(list_to_integer(lists:reverse(Rest)));
-                [$h|Rest] ->
-                    timer:hours(list_to_integer(lists:reverse(Rest)));
-                _ ->
-                    timer:minutes(list_to_integer(RuneTimeStr))
-            end
-        end
-    catch
-        _:_:_ ->
-            throw({error, {bad_runtime, RuneTimeStr}})
-    end.
-
+parse_runtime(RunTimeAtom) ->
+    ?LIB:parse_runtime(RunTimeAtom).
 
 parse_factor(FactorAtom) when is_atom(FactorAtom) ->
     case (catch list_to_integer(atom_to_list(FactorAtom))) of
@@ -217,12 +198,12 @@ parse_message_package(BadMessagePackage) ->
 %%
 
 mstone_init(MessagePackage, RunTime, Factor, DrvInclude) ->
-%%     io:format("mstone_init -> entry with"
-%% 	      "~n   MessagePackage: ~p"
-%% 	      "~n   RunTime:        ~p"
-%% 	      "~n   Factor:         ~p"
-%% 	      "~n   DrvInclude:     ~p"
-%% 	      "~n", [MessagePackage, RunTime, Factor, DrvInclude]),
+    %% io:format("MStone init with:"
+    %%           "~n   MessagePackage: ~p"
+    %%           "~n   RunTime:        ~p ms"
+    %%           "~n   Factor:         ~p"
+    %%           "~n   DrvInclude:     ~p"
+    %%           "~n", [MessagePackage, RunTime, Factor, DrvInclude]),
     Codecs = ?MSTONE_CODECS, 
     mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude).
 
@@ -231,13 +212,15 @@ mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     Pid = spawn(
 	    fun() -> 
 		    process_flag(trap_exit, true),
-		    do_mstone(MessagePackage,
-                              RunTime, Factor, Codecs, DrvInclude),  
-		    Parent ! {done, self()}
+		    Done = do_mstone(MessagePackage,
+                                     RunTime, Factor, Codecs, DrvInclude),  
+		    Parent ! {Done, self()}
 	    end),
     receive
 	{done, Pid} ->
-	    ok
+	    ok;
+        {{error, _} = ERROR, Pid} ->
+            ERROR
     end.
 			 
 do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
@@ -246,15 +229,21 @@ do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
     io:format("~n", []),
-    (catch asn1rt_driver_handler:load_driver()),
-    {Pid, Conf} = ?LIB:start_flex_scanner(),
-    put(flex_scanner_conf, Conf),
-    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
-    EMsgs  = duplicate(Factor, EMessages),
-    MStone = t1(RunTime, EMsgs),
-    ?LIB:stop_flex_scanner(Pid),
-    io:format("~n", []),
-    io:format("MStone: ~p~n", [MStone]).
+    case ?LIB:start_flex_scanner() of
+        {Pid, Conf} when is_pid(Pid) ->
+            put(flex_scanner_conf, Conf),
+            EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, DrvInclude), 
+            EMsgs  = duplicate(Factor, EMessages),
+            MStone = t1(RunTime, EMsgs),
+            ?LIB:stop_flex_scanner(Pid),
+            io:format("~n", []),
+            io:format("MStone: ~p~n", [MStone]),
+            done;
+        {error, Reason} = ERROR ->
+            io:format("<ERROR> Failed starting flex scanner: "
+                      "~n      ~p", [Reason]),
+            ERROR
+    end.
 
 duplicate(N, Elements) ->
     duplicate(N, Elements, []).

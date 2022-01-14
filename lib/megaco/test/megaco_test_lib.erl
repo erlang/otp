@@ -762,18 +762,38 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
-                    (BogoMIPS > 20000) ->
+                    (BogoMIPS > 50000) ->
                         1;
-                    (BogoMIPS > 10000) ->
+                    (BogoMIPS > 30000) ->
                         2;
-                    (BogoMIPS > 5000) ->
+                    (BogoMIPS > 10000) ->
                         3;
-                    (BogoMIPS > 2000) ->
+                    (BogoMIPS > 5000) ->
                         5;
-                    (BogoMIPS > 1000) ->
+                    (BogoMIPS > 3000) ->
                         8;
                     true ->
                         10
+                end;
+            {ok, "POWER9" ++ _ = CPU} ->
+                %% For some reason this host is really slow
+                %% Consider the CPU, it really should not be...
+                %% But, to not fail a bunch of test cases, we add 5
+                case linux_cpuinfo_clock() of
+                    Clock when is_integer(Clock) andalso (Clock > 0) ->
+                        io:format("CPU: "
+                                  "~n   Model:                 ~s"
+                                  "~n   CPU Speed:             ~w"
+                                  "~n   Num Online Schedulers: ~s"
+                                  "~n", [CPU, Clock, str_num_schedulers()]),
+                        if
+                            (Clock > 2000) ->
+                                5 + num_schedulers_to_factor();
+                            true ->
+                                10 + num_schedulers_to_factor()
+                        end;
+                    _ ->
+                        num_schedulers_to_factor()
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
@@ -797,24 +817,10 @@ analyze_and_print_linux_host_info(Version) ->
 linux_cpuinfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/cpuinfo").
 
-linux_cpuinfo_cpu() ->
-    case linux_cpuinfo_lookup("cpu") of
-        [Model] ->
-            Model;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_motherboard() ->
-    case linux_cpuinfo_lookup("motherboard") of
-        [MB] ->
-            MB;
-        _ ->
-            "-"
-    end.
-
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
+        [] ->
+            "-";
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -876,12 +882,57 @@ linux_cpuinfo_model_name() ->
             "-"
     end.
 
+linux_cpuinfo_cpu() ->
+    case linux_cpuinfo_lookup("cpu") of
+        [C|_] ->
+            C;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_motherboard() ->
+    case linux_cpuinfo_lookup("motherboard") of
+        [MB] ->
+            MB;
+        _ ->
+            "-"
+    end.
+
 linux_cpuinfo_processor() ->
     case linux_cpuinfo_lookup("Processor") of
         [P] ->
             P;
         _ ->
             "-"
+    end.
+
+linux_cpuinfo_clock() ->
+    %% This is written as: "3783.000000MHz"
+    %% So, check unit MHz (handle nothing else).
+    %% Also, check for both float and integer
+    %% Also,  the freq is per core, and can vary...
+    case linux_cpuinfo_lookup("clock") of
+        [C|_] when is_list(C) ->
+            case lists:reverse(string:to_lower(C)) of
+                "zhm" ++ CRev ->
+                    try trunc(list_to_float(lists:reverse(CRev))) of
+                        I ->
+                            I
+                    catch
+                        _:_:_ ->
+                            try list_to_integer(lists:reverse(CRev)) of
+                                I ->
+                                    I
+                            catch
+                                _:_:_ ->
+                                    0
+                            end
+                    end;
+                _ ->
+                    0
+            end;
+        _ ->
+            0
     end.
 
 linux_which_cpuinfo(montavista) ->
@@ -940,15 +991,21 @@ linux_which_cpuinfo(wind_river) ->
     end;
 
 linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD)
+    %% Check for x86 (Intel or AMD or Power)
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
                 %% ARM (at least some distros...)
                 case linux_cpuinfo_processor() of
                     "-" ->
-                        %% Ok, we give up
-                        throw(noinfo);
+                        %% POWER (at least some distros...)
+                        case linux_cpuinfo_cpu() of
+                            "-" ->
+                                %% Ok, we give up
+                                throw(noinfo);
+                            C ->
+                                C
+                        end;
                     Proc ->
                         Proc
                 end;
@@ -997,14 +1054,16 @@ linux_which_meminfo() ->
                                 throw(noinfo)
                         end,
                     if
-                        (MemSz3 >= 8388608) ->
+                        (MemSz3 >= 16777216) ->
                             0;
-                        (MemSz3 >= 4194304) ->
+                        (MemSz3 >= 8388608) ->
                             1;
-                        (MemSz3 >= 2097152) ->
+                        (MemSz3 >= 4194304) ->
                             3;
+                        (MemSz3 >= 2097152) ->
+                            5;
                         true ->
-                            5
+                            8
                     end;
                 _X ->
                     0
@@ -1447,13 +1506,23 @@ analyze_darwin_hw_model_identifier(HwInfo) ->
     proplists:get_value("model identifier", HwInfo, "-").
 
 analyze_darwin_hw_processor_name(HwInfo) ->
-    proplists:get_value("processor name", HwInfo, "-").
+    case proplists:get_value("processor name", HwInfo, "-") of
+        "-" ->
+            proplists:get_value("chip", HwInfo, "-");
+        N ->
+            N
+    end.
 
 analyze_darwin_hw_processor_speed(HwInfo) ->
     proplists:get_value("processor speed", HwInfo, "-").
 
 analyze_darwin_hw_number_of_processors(HwInfo) ->
-    proplists:get_value("number of processors", HwInfo, "-").
+    case analyze_darwin_hw_processor_name(HwInfo) of
+        "Apple M" ++ _ ->
+            proplists:get_value("number of processors", HwInfo, "1");
+        _ ->
+            proplists:get_value("number of processors", HwInfo, "-")
+    end.
 
 analyze_darwin_hw_total_number_of_cores(HwInfo) ->
     proplists:get_value("total number of cores", HwInfo, "-").
@@ -1534,8 +1603,65 @@ analyze_darwin_memory_to_factor(Mem) ->
 %% the speed may be a float, which we transforms into an integer of MHz.
 %% To calculate a factor based on processor speed, number of procs
 %% and number of cores is ... not an exact ... science ...
+%%
+%% If Apple processor, we don't know the speed, so ignore that for now...
+analyze_darwin_cpu_to_factor("Apple M" ++ _ = _ProcName,
+                             _ProcSpeedStr, NumProcStr, NumCoresStr) ->
+    %% io:format("analyze_darwin_cpu_to_factor(apple) -> entry with"
+    %%           "~n  ProcName:     ~p"
+    %%           "~n  ProcSpeedStr: ~p"
+    %%           "~n  NumProcStr:   ~p"
+    %%           "~n  NumCoresStr:  ~p"
+    %%           "~n", [_ProcName, _ProcSpeedStr, NumProcStr, NumCoresStr]),
+    NumProc = try list_to_integer(NumProcStr) of
+                  NumProcI ->
+                      NumProcI
+              catch
+                  _:_:_ ->
+                      1
+              end,
+    %% This is a string that looks like this: X (Y performance and Z efficiency)
+    NumCores = try string:tokens(NumCoresStr, [$\ ]) of
+                   [NCStr | _] ->
+                       try list_to_integer(NCStr) of
+                           NumCoresI ->
+                               NumCoresI
+                       catch
+                           _:_:_ ->
+                               1
+                       end
+               catch
+                   _:_:_ ->
+                       1
+               end,
+    if
+        (NumProc =:= 1) ->
+            if
+                (NumCores < 2) ->
+                    5;
+                (NumCores < 4) ->
+                    3;
+                (NumCores < 6) ->
+                    2;
+                true ->
+                    1
+            end;
+        true ->
+            if
+                (NumCores < 4) ->
+                    2;
+                true ->
+                    1
+            end
+    end;
 analyze_darwin_cpu_to_factor(_ProcName,
                              ProcSpeedStr, NumProcStr, NumCoresStr) ->
+    %% io:format("analyze_darwin_cpu_to_factor -> entry with"
+    %%           "~n  ProcName:     ~p"
+    %%           "~n  ProcSpeedStr: ~p"
+    %%           "~n  NumProcStr:   ~p"
+    %%           "~n  NumCoresStr:  ~p"
+    %%           "~n", [_ProcName, ProcSpeedStr, NumProcStr, NumCoresStr]),
     Speed = 
         case [string:to_lower(S) || S <- string:tokens(ProcSpeedStr, [$\ ])] of
             [SpeedStr, "mhz"] ->
@@ -1795,10 +1921,10 @@ analyze_and_print_win_host_info(Version) ->
               "~n   System Manufacturer:    ~s"
               "~n   System Model:           ~s"
               "~n   Number of Processor(s): ~s"
-              "~n   Total Physical Memory:  ~s"
+              "~n   Total Physical Memory:  ~s (~w)"
               "~n   Num Online Schedulers:  ~s"
               "~n", [OsName, OsVersion, Version,
-		     SysMan, SysMod, NumProcs, TotPhysMem,
+		     SysMan, SysMod, NumProcs, TotPhysMem, TotPhysMem,
 		     str_num_schedulers()]),
     MemFactor =
         try
@@ -2187,7 +2313,6 @@ stop_nodes([Node|Nodes], Acc, File, Line) ->
     
 
 stop_node(Node, File, Line) when is_atom(Node) ->
-    p("try stop node ~p", [Node]),
     case stop_node(Node) of
         ok ->
             ok;

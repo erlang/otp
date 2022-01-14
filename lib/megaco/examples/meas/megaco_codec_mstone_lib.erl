@@ -35,7 +35,8 @@
 	 display_system_info/0, 
 	 display_alloc_info/0, 
 	 display_app_info/0,
-	 detect_version/3]).
+	 detect_version/3,
+         parse_runtime/1]).
 
 %% Internal exports
 -export([flex_scanner_handler/1]).
@@ -288,11 +289,11 @@ display_asn1_info() ->
 %% 
 %%----------------------------------------------------------------------
 
-expanded_messages(Codecs, DrvInclude) ->
+expanded_messages(Codecs, DrvInclude) when is_list(Codecs) ->
     MessagePackage = time_test, 
     expanded_messages(MessagePackage, Codecs, DrvInclude).
 
-expanded_messages(MessagePackage, Codecs, DrvInclude) ->
+expanded_messages(MessagePackage, Codecs, DrvInclude) when is_list(Codecs) ->
     ECodecs  = expand_codecs(Codecs, DrvInclude), 
     Messages = megaco_codec_transform:messages(MessagePackage), 
     expanded_messages2(ECodecs, Messages, []).
@@ -427,6 +428,37 @@ expand_codec(Codec, _) ->
 	    ];
 	Else ->
 	    error({invalid_codec, Else})
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+parse_runtime(RunTimeAtom) when is_atom(RunTimeAtom) ->
+    parse_runtime_str(atom_to_list(RunTimeAtom));
+parse_runtime(RunTimeStr) when is_list(RunTimeStr) ->
+    parse_runtime_str(RunTimeStr);
+parse_runtime(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
+    timer:minutes(RunTime);
+parse_runtime(BadRunTime) ->
+    throw({error, {bad_runtime, BadRunTime}}).
+
+parse_runtime_str(RuneTimeStr) ->
+    try
+        begin
+            case lists:reverse(RuneTimeStr) of
+                [$s|Rest] ->
+                    timer:seconds(list_to_integer(lists:reverse(Rest)));
+                [$m|Rest] ->
+                    timer:minutes(list_to_integer(lists:reverse(Rest)));
+                [$h|Rest] ->
+                    timer:hours(list_to_integer(lists:reverse(Rest)));
+                _ ->
+                    timer:minutes(list_to_integer(RuneTimeStr))
+            end
+        end
+    catch
+        _:_:_ ->
+            throw({error, {bad_runtime, RuneTimeStr}})
     end.
 
 
