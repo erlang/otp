@@ -119,6 +119,52 @@
     </func>
 
     <func>
+      <name name="connect" arity="2" since="OTP @OTP-17455@" anchor="connect-sockaddr"/>
+      <fsummary>Connect a UDP port.</fsummary>
+      <desc> 
+	<p>Connecting a UDP socket only means storing the specified
+	(destination) socket address, as specified by
+	<c><anno>SockAddr</anno></c>, so that the
+	system knows where to send data. </p>
+
+	<p>This means that it is not necessary to specify the destination
+	address when sending a datagram. That is, we can use
+	<seeerl marker="#send-2"><c>send/2</c></seeerl>. </p>
+
+	<p>It also means that the socket will only received data
+	from this address. </p>
+
+	<!--
+	<p>Depending on the system implementation of connect and send,
+	this could mean that sending becomes much faster. </p>
+	-->
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="3" since="OTP @OTP-17455@" anchor="connect-addr-port"/>
+      <fsummary>Connect a UDP port.</fsummary>
+      <desc>
+	<p>Connecting a UDP socket only means storing the specified
+	(destination) socket address, as specified by
+	<c><anno>Address</anno></c> and <c><anno>Port</anno></c>,
+	so that the system knows where to send data. </p>
+
+	<p>This means that it is not necessary to specify the destination
+	address when sending a datagram. That is, we can use
+	<seeerl marker="#send-2"><c>send/2</c></seeerl>. </p>
+
+	<p>It also means that the socket will only received data
+	from this address. </p>
+
+	<!--
+	<p>Depending on the system implementation of connect and send,
+	this could mean that sending becomes much faster. </p>
+	-->
+      </desc>
+    </func>
+
+    <func>
       <name name="open" arity="1" since=""/>
       <name name="open" arity="2" since=""/>
       <fsummary>Associate a UDP port number with the process calling it.</fsummary>
@@ -128,59 +174,97 @@
         <p>The following options are available:</p>
         <taglist>
           <tag><c>list</c></tag>
-          <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
+	  <item>
+	    <p>Received <c>Packet</c> is delivered as a list.</p>
+	  </item>
           <tag><c>binary</c></tag>
-          <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
+	  <item>
+	    <p>Received <c>Packet</c> is delivered as a binary.</p>
+	  </item>
           <tag><c>{ip, Address}</c></tag>
-          <item><p>If the host has many network interfaces, this option
-            specifies which one to use.</p></item>
+	  <item>
+	    <p>If the host has many network interfaces, this option
+	    specifies which one to use.</p>
+	  </item>
           <tag><c>{ifaddr, Address}</c></tag>
-          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+	  <item>
+	    <p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to
-            use.</p></item>
+	    use.</p>
+	    <p>However, if this instead is an
+	    <seetype marker="socket#sockaddr_in">
+	    <c>socket:sockaddr_in()</c></seetype>
+	    or
+	    <seetype marker="socket#sockaddr_in6">
+	    <c>socket:sockaddr_in6()</c></seetype>
+	    this takes precedence over any value previously set with the
+	    <c>ip</c> options.
+	    If the <c>ip</c> option comes <em>after</em> the <c>ifaddr</c> option,
+	    it may be used to <em>update</em> its corresponding field of the
+	    <c>ifaddr</c> option (the <c>addr</c> field). </p>
+	  </item>
           <tag><c>{fd, integer() >= 0}</c></tag>
-          <item><p>If a socket has somehow been opened without using
+	  <item>
+	    <p>If a socket has somehow been opened without using
             <c>gen_udp</c>, use this option to pass the file descriptor
             for it. If <c><anno>Port</anno></c> is not set to <c>0</c> and/or
             <c>{ip, ip_address()}</c> is combined with this option, the
             <c>fd</c> is bound to the specified interface and port after it is
             being opened. If these options are not specified, it is assumed that
-            the <c>fd</c> is already bound appropriately.</p></item>
+	    the <c>fd</c> is already bound appropriately.</p>
+	  </item>
           <tag><c>inet6</c></tag>
-          <item><p>Sets up the socket for IPv6.</p></item>
+	  <item>
+	    <p>Sets up the socket for IPv6.</p>
+	  </item>
           <tag><c>inet</c></tag>
-          <item><p>Sets up the socket for IPv4.</p></item>
+	  <item>
+	    <p>Sets up the socket for IPv4.</p>
+	  </item>
 	  <tag><c>local</c></tag>
 	  <item>
-            <p>
-	      Sets up a Unix Domain Socket. See
-	      <seetype marker="inet#local_address">
-		<c>inet:local_address()</c>
-	      </seetype>
+	    <p>Sets up a Unix Domain Socket. See
+	    <seetype marker="inet#local_address">
+	      <c>inet:local_address()</c>
+	    </seetype>
 	    </p>
           </item>
           <tag><c>{udp_module, module()}</c></tag>
-          <item><p>Overrides which callback module is used. Defaults to
-            <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p></item>
+	  <item>
+	    <p>Overrides which callback module is used. Defaults to
+	    <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p>
+	  </item>
           <tag><c>{multicast_if, Address}</c></tag>
-          <item><p>Sets the local device for a multicast socket.</p></item>
+	  <item>
+	    <p>Sets the local device for a multicast socket.</p>
+	  </item>
           <tag><c>{multicast_loop, true | false}</c></tag>
-          <item><p>When <c>true</c>, sent multicast packets are looped back to
-            the local sockets.</p></item>
+	  <item>
+	    <p>When <c>true</c>, sent multicast packets are looped back to
+	    the local sockets.</p>
+	  </item>
           <tag><c>{multicast_ttl, Integer}</c></tag>
-          <item><p>Option <c>multicast_ttl</c> changes the time-to-live (TTL)
+	  <item>
+	    <p>Option <c>multicast_ttl</c> changes the time-to-live (TTL)
             for outgoing multicast datagrams to control the scope of the
             multicasts.</p>
             <p>Datagrams with a TTL of 1 are not forwarded beyond the local
-              network. Defaults to <c>1</c>.</p></item>
+	    network. Defaults to <c>1</c>.</p>
+	  </item>
           <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
-          <item><p>Joins a multicast group.</p></item>
+	  <item>
+	    <p>Joins a multicast group.</p>
+	  </item>
           <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
-          <item><p>Leaves a multicast group.</p></item>
+	  <item>
+	    <p>Leaves a multicast group.</p>
+	  </item>
           <tag><c>Opt</c></tag>
-          <item><p>See
+	  <item>
+	    <p>See
             <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.
-            </p></item>
+	    </p>
+	  </item>
         </taglist>
         <p>The returned socket <c><anno>Socket</anno></c> is used to send
           packets from this port with
@@ -255,7 +339,20 @@
     </func>
 
     <func>
-      <name name="send" arity="3" since="OTP 22.1"/>
+      <name name="send" arity="2" since="OTP @OTP-17455@" anchor="send-2"/>
+      <fsummary>Send a packet on a connected socket.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet on a connected socket
+	  (see
+	  <seeerl marker="#connect-sockaddr"><c>connect/2</c></seeerl>
+	  and
+	  <seeerl marker="#connect-addr-port"><c>connect/3</c></seeerl>). </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="3" clause_i="1" anchor="send-3" since="OTP 22.1"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
@@ -269,7 +366,7 @@
     </func>
 
     <func>
-      <name name="send" arity="4" clause_i="1" since=""/>
+      <name name="send" arity="4" clause_i="1" anchor="send-4-1" since=""/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
@@ -307,7 +404,7 @@
     </func>
 
     <func>
-      <name name="send" arity="4" clause_i="3" since="OTP 22.1"/>
+      <name name="send" arity="4" clause_i="3" anchor="send-4-3" since="OTP 22.1"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>

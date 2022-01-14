@@ -21,7 +21,9 @@
 -module(gen_tcp).
 
 
--export([connect/3, connect/4, listen/2, accept/1, accept/2,
+-export([connect/2, connect/3, connect/4,
+         listen/2,
+         accept/1, accept/2,
 	 shutdown/2, close/1]).
 -export([send/2, recv/2, recv/3, unrecv/2]).
 -export([controlling_process/2]).
@@ -112,20 +114,22 @@
         pktoptions |
 	ipv6_v6only.
 -type connect_option() ::
-        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:socket_address()} |
         inet:address_family() |
+        {ifaddr, socket:sockaddr_in() | socket:sockaddr_in6() |
+                 inet:socket_address()} |
+        {ip, inet:socket_address()} |
         {port, inet:port_number()} |
         {tcp_module, module()} |
         {netns, file:filename_all()} |
         {bind_to_device, binary()} |
         option().
 -type listen_option() ::
-        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:socket_address()} |
         inet:address_family() |
+        {ifaddr, socket:sockaddr_in() | socket:sockaddr_in6() |
+                 inet:socket_address()} |
+        {ip, inet:socket_address()} |
         {port, inet:port_number()} |
         {backlog, B :: non_neg_integer()} |
         {tcp_module, module()} |
@@ -137,33 +141,76 @@
 -export_type([option/0, option_name/0, connect_option/0, listen_option/0,
               socket/0, pktoptions_value/0]).
 
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
+
 %%
 %% Connect a socket
 %%
 
--spec connect(Address, Port, Options) -> {ok, Socket} | {error, Reason} when
-      Address :: inet:socket_address() | inet:hostname(),
-      Port :: inet:port_number(),
-      Options :: [connect_option()],
-      Socket :: socket(),
-      Reason :: inet:posix().
+-spec connect(SockAddr, Opts) -> {ok, Socket} | {error, Reason} when
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [inet:inet_backend() | connect_option()],
+      Socket   :: socket(),
+      Reason   :: inet:posix().
 
-connect(Address, Port, Opts) -> 
-    connect(Address,Port,Opts,infinity).
+connect(SockAddr, Opts) ->
+    connect(SockAddr, Opts, infinity).
 
--spec connect(Address, Port, Options, Timeout) ->
+-spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
+      Address  :: inet:socket_address() | inet:hostname(),
+      Port     :: inet:port_number(),
+      Opts     :: [connect_option()],
+      Socket   :: socket(),
+      Reason   :: inet:posix();
+             (SockAddr, Opts, Timeout) -> {ok, Socket} | {error, Reason} when
+      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
+      Opts     :: [inet:inet_backend() | connect_option()],
+      Timeout  :: timeout(),
+      Socket   :: socket(),
+      Reason   :: timeout | inet:posix().
+
+connect(Address, Port, Opts)
+  when is_tuple(Address) orelse
+       is_list(Address)  orelse
+       is_atom(Address)  orelse
+       (Address =:= any) orelse
+       (Address =:= loopback) ->
+    connect(Address, Port, Opts, infinity);
+connect(#{family := Fam} = SockAddr, Opts, Timeout)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) ->
+    %% Ensure that its a proper sockaddr_in6, with all fields
+    SockAddr2 = inet:ensure_sockaddr(SockAddr),
+    case inet:gen_tcp_module(Opts) of
+        {?MODULE, Opts2} ->
+            Timer = inet:start_timer(Timeout),
+            Res = (catch connect2(SockAddr2, Opts2, Timer)),
+            _ = inet:stop_timer(Timer),
+            case Res of
+                {ok, S}          -> {ok,S};
+                {error,  einval} -> exit(badarg);
+                {'EXIT', Reason} -> exit(Reason);
+                Error            -> Error
+            end;
+        {GenTcpMod, Opts} ->
+            GenTcpMod:connect(SockAddr2, Opts, Timeout)
+    end.
+
+
+-spec connect(Address, Port, Opts, Timeout) ->
                      {ok, Socket} | {error, Reason} when
       Address :: inet:socket_address() | inet:hostname(),
-      Port :: inet:port_number(),
-      Options :: [inet:inet_backend() | connect_option()],
+      Port    :: inet:port_number(),
+      Opts    :: [inet:inet_backend() | connect_option()],
       Timeout :: timeout(),
-      Socket :: socket(),
-      Reason :: timeout | inet:posix().
+      Socket  :: socket(),
+      Reason  :: timeout | inet:posix().
 
-connect(Address, Port, Opts0, Time) ->
+connect(Address, Port, Opts0, Timeout) ->
     case inet:gen_tcp_module(Opts0) of
         {?MODULE, Opts} ->
-            Timer = inet:start_timer(Time),
+            Timer = inet:start_timer(Timeout),
             Res = (catch connect1(Address,Port,Opts,Timer)),
             _ = inet:stop_timer(Timer),
             case Res of
@@ -173,12 +220,12 @@ connect(Address, Port, Opts0, Time) ->
                 Error -> Error
             end;
         {GenTcpMod, Opts} ->
-            GenTcpMod:connect(Address, Port, Opts, Time)
+            GenTcpMod:connect(Address, Port, Opts, Timeout)
     end.
 
 connect1(Address, Port, Opts0, Timer) ->
     {Mod, Opts} = inet:tcp_module(Opts0, Address),
-    case Mod:getaddrs(Address,Timer) of
+    case Mod:getaddrs(Address, Timer) of
 	{ok,IPs} ->
 	    case Mod:getserv(Port) of
 		{ok,TP} -> try_connect(IPs,TP,Opts,Timer,Mod,{error,einval});
@@ -186,6 +233,10 @@ connect1(Address, Port, Opts0, Timer) ->
 	    end;
 	Error -> Error
     end.
+
+connect2(SockAddr, Opts0, Timer) ->
+    {Mod, Opts} = inet:tcp_module(Opts0, SockAddr),
+    Mod:connect(SockAddr, Opts, inet:timeout(Timer)).
 
 try_connect([IP|IPs], Port, Opts, Timer, Mod, _) ->
     Time = inet:timeout(Timer),
@@ -211,13 +262,18 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
       Reason :: system_limit | inet:posix().
 
 listen(Port, Opts0) ->
+    %% ?DBG([{port, Port}, {opts0, Opts0}]),
     case inet:gen_tcp_module(Opts0) of
         {?MODULE, Opts1} ->
+            %% ?DBG([{opts1, Opts1}]),
             {Mod, Opts} = inet:tcp_module(Opts1),
+            %% ?DBG([{mod, Mod}, {opts, Opts}]),
             case Mod:getserv(Port) of
-                {ok,TP} ->
+                {ok, TP} ->
+                    %% ?DBG([{tp, TP}]),
                     Mod:listen(TP, Opts);
                 {error,einval} ->
+                    %% ?DBG("failed getserv (einval)"),
                     exit(badarg);
                 Other -> Other
             end;

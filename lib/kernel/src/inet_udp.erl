@@ -20,7 +20,7 @@
 -module(inet_udp).
 
 -export([open/1, open/2, close/1]).
--export([send/2, send/4, recv/2, recv/3, connect/3]).
+-export([send/2, send/4, recv/2, recv/3, connect/2, connect/3]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
@@ -29,8 +29,8 @@
 -include("inet_int.hrl").
 
 -define(FAMILY, inet).
--define(PROTO, udp).
--define(TYPE, dgram).
+-define(PROTO,  udp).
+-define(TYPE,   dgram).
 -define(RECBUF, (8*1024)).
 
 
@@ -56,11 +56,12 @@ open(Port, Opts) ->
 	{error, Reason} -> exit(Reason);
 	{ok,
 	 #udp_opts{
-	    fd = Fd,
+	    fd     = Fd,
 	    ifaddr = BAddr,
-	    port = BPort,
-	    opts = SockOpts}}
-	  when ?port(BPort), ?ip(BAddr);
+	    port   = BPort,
+	    opts   = SockOpts}}
+	  when is_map(BAddr); % sockaddr_in()
+               ?port(BPort), ?ip(BAddr);
                ?port(BPort), BAddr =:= undefined ->
 	    inet:open_bind(
 	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
@@ -70,6 +71,9 @@ open(Port, Opts) ->
 send(S, {A,B,C,D} = IP, Port, Data)
   when ?ip(A,B,C,D), ?port(Port) ->
     prim_inet:sendto(S, {IP, Port}, [], Data);
+send(S, #{addr := {A,B,C,D}, port := Port} = SockAddr, AncData, Data)
+  when ?ip(A,B,C,D), ?port(Port), is_list(AncData) ->
+    prim_inet:sendto(S, SockAddr, AncData, Data);
 send(S, {{A,B,C,D}, Port} = Addr, AncData, Data)
   when ?ip(A,B,C,D), ?port(Port), is_list(AncData) ->
     prim_inet:sendto(S, Addr, AncData, Data);
@@ -83,6 +87,9 @@ send(S, {?FAMILY, {loopback, Port}} = Address, AncData, Data)
 send(S, Data) ->
     prim_inet:sendto(S, {any, 0}, [], Data).
     
+connect(S, #{family := ?FAMILY} = SockAddr) ->
+    prim_inet:connect(S, SockAddr, infinity).
+
 connect(S, Addr = {A,B,C,D}, Port)
   when ?ip(A,B,C,D), ?port(Port) ->
     prim_inet:connect(S, Addr, Port).
