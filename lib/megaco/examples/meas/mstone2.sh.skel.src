@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2019. All Rights Reserved.
+# Copyright Ericsson AB 2022-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,16 +46,9 @@ Options:
                            h: hours
                         If no unit is provided, minutes is assumed.
                         defaults to 10 minutes
- -f <factor>            normally the test is run with one process per codec
-                        (= 12) (factor 1), one for each codec config. The test 
-                        can however be run with other factors, e.g. 
-                        factor 10 means that 10 processes will be started 
-                        for each megaco codec config.
-                        The options -s and -f cannot both be present.
- -s <num sched>         normally the test is run with a fixed factor,
+ -s <num sched>         normally we let the VM decide the number of schedulers
                         but if this option is given, the number of
-                        schedulers is fixed (to the value set by this option)
-                        and the factor is the variable.
+                        schedulers is fixed (to the value set by this option).
                         The options -s and -f cannot both be present.
  -d <drv-mode>          driver mode for the test:
                         std  - all codec config(s) will be used
@@ -80,12 +73,13 @@ MEGACO_HOME=$ERL_HOME/lib/erlang/lib/megaco-%VSN%
 MEAS_HOME=$MEGACO_HOME/examples/meas
 PATH=$ERL_HOME/bin:$PATH
 
-MODULE=megaco_codec_mstone1
+MODULE=megaco_codec_mstone2
 STARTF="start"
-FACTOR=""
+MODE=standard
 MSG_PACK=time_test
 SBT="+sbt tnnps"
-RT=10
+RT=1
+SCHED=default
 
 while test $# != 0; do
     # echo "DBG: Value = $1"
@@ -113,16 +107,16 @@ while test $# != 0; do
         -d)
 	    case $2 in
 		std)
-		    STARTF="start";
+		    MODE="standard";
 		    shift ; shift ;;
 		flex)
-		    STARTF="start_flex";
+		    MODE="flex";
 		    shift ; shift ;;
 		nd)
-		    STARTF="start_no_drv";
+		    MODE="no_drv";
 		    shift ; shift ;;
 		od)
-		    STARTF="start_only_drv";
+		    MODE="only_drv";
 		    shift ; shift ;;
 		*)
 		    echo "unknown driver mode: $2";
@@ -141,24 +135,8 @@ while test $# != 0; do
 		    exit 0
 	    esac;;
 	    
-        -f)
-            if [ "x$SCHED" != "x" ]; then
-                echo "option(s) -s and -f cannot both be given" ;
-                echo "$usage" ;
-                exit 0
-            fi
-            FACTOR="$2";
-            TYPE=factor;
-            shift ; shift ;;
-
         -s)
-            if [ "x$FACTOR" != "x" ]; then
-                echo "option(s) -f and -s cannot both be given" ;
-                echo "$usage" ;
-                exit 0
-            fi
             SCHED="$2";
-            TYPE=sched;
             shift ; shift ;;
 
         --)
@@ -172,94 +150,29 @@ while test $# != 0; do
     esac
 done
 
-if [ $TYPE = factor ]; then
+MSTONE="-s $MODULE $STARTF $RT $MODE $MSG_PACK"
 
-    MSTONE="-s $MODULE $STARTF $MSG_PACK $RT $FACTOR"
-
-    # SCHEDS="01 02 04"
-    # SCHEDS="01 02 04 08"
-    # SCHEDS="01 02 04 08 16"
-    # SCHEDS="01 02 04 08 16 32"
-    # SCHEDS="01 02 04 08 16 32 64"
-    SCHEDS="01 02 03 04 05 06 07 08"
-
-    for i in `echo $SCHEDS`; do
-        case $i in
-            01)
-                SMP_INFO="SMP: 1 scheduler"
-                SMP_OPTS="-smp +S $i"
-                LOG="mstone1-f$FACTOR-s$i.log"
-                ;;
-
-            *)
-                SMP_INFO="SMP: $i schedulers"
-                SMP_OPTS="-smp +S $i"
-                LOG="mstone1-f$FACTOR-s$i.log"
-                ;;
-        esac
-
-        echo ""
-        echo "---------------------------------------------"
-        echo "$SMP_INFO"
-        echo ""
-
-        ERL="erl \
-          -noshell \
-          $SBT \
-          $PHS \
-          $ATP \
-          $SMP_OPTS \
-          -pa $MEAS_HOME \
-          $MSTONE \
-          $* \
-          -s init stop"
-
-        echo $ERL
-        $ERL | tee $LOG
-    done
-
-elif [ $TYPE = sched ]; then
-
-    MSTONE="-s $MODULE $STARTF $MSG_PACK $RT"
-
-    # FACTORS="01 02 03 04"
-    # FACTORS="01 02 03 04 05 06 07 08 09 10"
-    FACTORS="01 02 04 08 16 32"
-    # FACTORS="001 010 100"
-
-    case $SCHED in
-        *)
-            SMP_OPTS="-smp +S $SCHED"
-            ;;
-    esac
-
-    for i in `echo $FACTORS`; do
-        LOG="mstone1-s$SCHED-f$i.log"
-
-        echo ""
-        echo "---------------------------------------------"
-        echo "Factor $i"
-        echo ""
-
-        ERL="erl \
-          -noshell \
-          $SBT \
-          $PHS \
-          $ATP \
-          $SMP_OPTS \
-          -pa $MEAS_HOME \
-          $MSTONE $i \
-          $* \
-          -s init stop"
-
-        echo $ERL
-        $ERL | tee $LOG
-    done
-
-
+if [ $SCHED = default ]; then
+    SMP_OPTS=""
 else
-    echo "Either option -f or -s must be specified"
-    echo "$usage" ;
-    exit 0
-    
+    SMP_OPTS="-smp +S $SCHED"
 fi
+LOG="mstone2-$SCHED.log"
+
+echo ""
+echo "---------------------------------------------"
+echo ""
+
+ERL="erl \
+     -noshell \
+     $SBT \
+     $PHS \
+     $ATP \
+     $SMP_OPTS \
+     -pa $MEAS_HOME \
+     $MSTONE \
+     $* \
+     -s init stop"
+
+echo $ERL
+$ERL | tee $LOG

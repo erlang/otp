@@ -60,13 +60,13 @@
       <title>Requirement</title>
       <list type="bulleted">
         <item>
-          <p>Erlang/OTP, version R13B01 or later.</p>
+          <p>Erlang/OTP, version 24.2 or later.</p>
         </item>
         <item>
-          <p>Version 3.11 or later of <em>this</em> application.</p>
+          <p>Version 4.2 or later of <em>this</em> application.</p>
         </item>
         <item>
-          <p>Version 1.6.10 or later of the <em>asn1</em> application. </p>
+          <p>Version 5.0.17 or later of the <em>asn1</em> application. </p>
         </item>
         <item>
           <p>The flex libraries. Without it, the flex powered codecs cannot 
@@ -145,7 +145,7 @@
         % erl -pa <path-megaco-ebin-dir> -pa <path-to-meas-module-dir>
         Erlang (BEAM) emulator version 5.6 [source]
 
-        Eshell V5.7.1  (abort with ^G)
+        Eshell V12.2  (abort with ^G)
         1> megaco_codec_meas:start().
         ...
         2> halt().
@@ -241,15 +241,11 @@ message() = binary()
           convenient internal form (equivalent with the decoded text message).</p>
         <p>The transformation is done _after_ the actual decode has been 
           done.</p>
-        <p>Furthermore, it is possible to make use of a linked in driver that 
-          performs some of the decode/encode, decode for ber and encode for per 
-          (the 'driver' encoding config).</p>
-        <p>Therefor in the tests, binary codecs are tested with four 
+        <p>Therefor in the tests, binary codecs are tested with two 
           different encoding configs to determine exactly how the
-          different options effect the performance: with transformation and 
-          without driver ([]), without transformation and without driver 
-          ([native]), with transformation and with driver ([driver]) and 
-          finally without transformation and with driver ([driver,native]).</p>
+	  different options effect the performance:
+	  with transformation ([]) and
+	  without transformation ([native]).</p>
       </section>
 
       <section>
@@ -264,7 +260,7 @@ message() = binary()
         <p>Be sure <em>not</em> no name the directory containing the measurement
           binaries starting with 'megaco-', e.g. megaco-meas. This will
           confuse the erlang application loader (erlang applications
-          are named, e.g. megaco-1.0.2).</p>
+          are named, e.g. megaco-5.2).</p>
       </section>
     </section>
   </section>
