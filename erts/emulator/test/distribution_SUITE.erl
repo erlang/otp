@@ -1082,7 +1082,8 @@ dist_auto_connect_relay(Parent) ->
 
 
 dist_parallel_send(Config) when is_list(Config) ->
-    {ok, RNode} = start_node(dist_parallel_receiver),
+    %% hidden so that global wont take down connection to sender
+    {ok, RNode} = start_node(dist_parallel_receiver, "-hidden"),
     {ok, SNode} = start_node(dist_parallel_sender),
     WatchDog = spawn_link(
                  fun () ->
@@ -1105,18 +1106,23 @@ dist_parallel_send(Config) when is_list(Config) ->
                                                    [self(), Receiver, 1000])
                                 end, lists:seq(1, 64))
               end,
+    Parent = self(),
     SndrsStart = fun (Sndrs) ->
-                         Parent = self(),
                          spawn_link(SNode,
                            fun () ->
                                    lists:foreach(fun (P) ->
                                                          P ! {go, Parent}
-                                                 end, Sndrs)
+                                                 end, Sndrs),
+                                   unlink(Parent)
                            end)
                  end,
     SndrsWait = fun (Sndrs) ->
                         lists:foreach(fun (P) ->
-                                              receive {P, done} -> ok end
+                                              receive
+                                                  {P, done} ->
+                                                      unlink(P),
+                                                      ok
+                                              end
                                       end, Sndrs)
                 end,
     DPR = spawn_link(RNode, ?MODULE, dist_parallel_receiver, []),
@@ -1785,7 +1791,8 @@ start_link(Offender,P) ->
 bad_dist_structure(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
 
-    {ok, Offender} = start_node(bad_dist_structure_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_structure_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_structure_victim),
     start_node_monitors([Offender,Victim]),
     Parent = self(),
@@ -1802,7 +1809,7 @@ bad_dist_structure(Config) when is_list(Config) ->
     receive {P, started} -> ok end,
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
     verify_up(Offender, Victim),
-    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [connected])),
     start_monitor(Offender,P),
     P ! one,
     send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal},2),
@@ -1880,7 +1887,8 @@ bad_dist_structure(Config) when is_list(Config) ->
 bad_dist_fragments(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
 
-    {ok, Offender} = start_node(bad_dist_fragment_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_fragment_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_fragment_victim),
 
     Msg = iolist_to_binary(dmsg_ext(lists:duplicate(255,255))),
@@ -1900,7 +1908,7 @@ bad_dist_fragments(Config) when is_list(Config) ->
     receive {P, started} -> ok end,
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
     verify_up(Offender, Victim),
-    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [connected])),
     start_monitor(Offender,P),
     P ! one,
 
@@ -2035,7 +2043,8 @@ send_bad_fragments(Offender,VictimNode,Victim,Ctrl,WhereToPutSelf,Fragments) ->
     end.
 
 bad_dist_ext_receive(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_receive_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_ext_receive_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_ext_receive_victim),
     start_node_monitors([Offender,Victim]),
 
@@ -2055,7 +2064,7 @@ bad_dist_ext_receive(Config) when is_list(Config) ->
     receive {P, started} -> ok end,
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
     verify_up(Offender, Victim),
-    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [connected])),
     P ! one,
     send_bad_msg(Offender, P),
     P ! two,
@@ -2074,9 +2083,9 @@ bad_dist_ext_receive(Config) when is_list(Config) ->
     receive Suspended -> ok end,
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
     verify_up(Offender, Victim),
-    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [connected])),
     send_bad_msgs(Offender, P, 5),
-    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [])),
+    true = lists:member(Offender, rpc:call(Victim, erlang, nodes, [connected])),
     P ! three,
     send_bad_msgs(Offender, P, 5),
 
@@ -2107,7 +2116,8 @@ bad_dist_ext_receive(Config) when is_list(Config) ->
 
 
 bad_dist_ext_process_info(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_ext_process_info_victim),
     start_node_monitors([Offender,Victim]),
 
@@ -2167,7 +2177,8 @@ bad_dist_ext_process_info(Config) when is_list(Config) ->
     stop_node(Victim).
 
 bad_dist_ext_control(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_control_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_ext_control_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_ext_control_victim),
     start_node_monitors([Offender,Victim]),
 
@@ -2186,7 +2197,8 @@ bad_dist_ext_control(Config) when is_list(Config) ->
     stop_node(Victim).
 
 bad_dist_ext_connection_id(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_connection_id_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_ext_connection_id_offender, "-hidden"),
     {ok, Victim} = start_node(bad_dist_ext_connection_id_victim),
     start_node_monitors([Offender,Victim]),
 
@@ -2253,7 +2265,8 @@ bad_dist_ext_connection_id(Config) when is_list(Config) ->
 
 %% OTP-14661: Bad message is discovered by erts_msg_attached_data_size
 bad_dist_ext_size(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
+    %% hidden so that global wont take down connection to victim
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender, "-hidden"),
     %%Prog = "Prog=/home/uabseri/src/otp_new3/bin/cerl -rr -debug",
     Prog = [],
     {ok, Victim} = start_node(bad_dist_ext_process_info_victim, [], Prog),

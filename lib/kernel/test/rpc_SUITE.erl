@@ -312,9 +312,9 @@ multicall_node_dies(Config) when is_list(Config) ->
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ok = io:format("~p:~p~p~n", [Mod, Func, Args]),
     PA = filename:dirname(code:which(?MODULE)),
-    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', slave,
+    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', peer,
 				      [{args, "-pa " ++ PA}]),
-    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', slave,
+    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', peer,
 				      [{args, "-pa " ++ PA}]),
     Nodes = [N1, N2],
     case {Mod, Func, rpc:multicall(Nodes, Mod, Func, Args)} of
@@ -602,17 +602,17 @@ call_against_old_node(Config) ->
     end.
 
 multicall_mix(Config) ->
-    {ok, Node1} = start_node(Config),
-    {ok, Node2} = start_node(Config),
+    {ok, Node1} = start_peer_node(Config),
+    {ok, Node2} = start_peer_node(Config),
     {Node3, OldNodeTest} = case start_22_node(Config) of
                                {ok, N3} ->
                                    {N3, true};
                                _ ->
-                                   {ok, N3} = start_node(Config),
+                                   {ok, N3} = start_peer_node(Config),
                                    {N3, false}
                         end,
-    {ok, Node4} = start_node(Config),
-    {ok, Node5} = start_node(Config),
+    {ok, Node4} = start_peer_node(Config),
+    {ok, Node5} = start_peer_node(Config),
     stop_node(Node2),
     
     [] = flush([]),
@@ -874,6 +874,14 @@ cast_old_against_new_test([Node22], [NodeCurr]) ->
 %%%
 %%% Utility functions.
 %%%
+
+start_peer_node(Config) ->
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+			++ "-" ++ integer_to_list(erlang:system_time(second))
+			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, peer, [{args,  "-pa " ++ Pa}]).
 
 start_node(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)

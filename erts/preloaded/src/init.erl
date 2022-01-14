@@ -664,6 +664,7 @@ stop_heart(State) ->
 
 shutdown_pids(Heart,Logger,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
+    catch global:prepare_shutdown(),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
     kill_all_pids(Heart,Logger), % Even the shutdown timer.
     kill_all_ports(Heart), % Logger has no ports

@@ -925,15 +925,20 @@ handle_info({nodedown, Node}, S) when S#state.sync_state =:= no_conf ->
 handle_info({nodedown, Node}, S) ->
 %    io:format("~p>>>>> nodedown, Node ~p  ~n",[node(), Node]),
     send_monitor(S#state.monitor, {nodedown, Node}, S#state.sync_state),
-    global_name_server ! {nodedown, Node},
     NN = lists:delete(Node, S#state.nodes),
     NSE = lists:delete(Node, S#state.sync_error),
-    NNC = case {lists:member(Node, get_own_nodes()), 
-		lists:member(Node, S#state.no_contact)} of
-	      {true, false} ->
-		  [Node | S#state.no_contact];
-	      _ ->
-		  S#state.no_contact
+    NNC = case lists:member(Node, get_own_nodes()) of
+              false ->
+                  global_name_server ! {ignore_node, Node},
+                  S#state.no_contact;
+              true ->
+                  global_name_server ! {nodedown, Node},
+                  case lists:member(Node, S#state.no_contact) of
+                      false ->
+                          [Node | S#state.no_contact];
+                      true ->
+                          S#state.no_contact
+                  end
 	  end,
     {noreply, S#state{nodes = NN, no_contact = NNC, sync_error = NSE}};
 
@@ -950,8 +955,7 @@ handle_info({disconnect_node, Node}, S) ->
 	_ ->
 	    cont
     end,
-    global_name_server ! {nodedown, Node}, %% nodedown is used to inform global of the
-                                           %% disconnected node
+    global_name_server ! {ignore_node, Node},
     NN = lists:delete(Node, S#state.nodes),
     NNC = lists:delete(Node, S#state.no_contact),
     NSE = lists:delete(Node, S#state.sync_error),
@@ -1264,7 +1268,7 @@ kill_global_group_check() ->
 disconnect_nodes(DisconnectNodes) ->
     lists:foreach(fun(Node) ->
 			  {global_group, Node} ! {disconnect_node, node()},
-			  global:node_disconnected(Node)
+                          global_name_server ! {ignore_node, Node}
 		  end,
 		  DisconnectNodes).
 
@@ -1275,7 +1279,7 @@ disconnect_nodes(DisconnectNodes) ->
 force_nodedown(DisconnectNodes) ->
     lists:foreach(fun(Node) ->
 			  erlang:disconnect_node(Node),
-			  global:node_disconnected(Node)
+                          global_name_server ! {ignore_node, Node}
 		  end,
 		  DisconnectNodes).
 
