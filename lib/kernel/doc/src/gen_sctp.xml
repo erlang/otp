@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2020</year>
+      <year>2007</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -128,7 +128,35 @@
     </func>
 
     <func>
-      <name name="connect" arity="4" since=""/>
+      <name name="connect" arity="3" anchor="connect-sockaddr3" since="OTP @OTP-17455@"/>
+      <fsummary>Same as <c>connect(Socket, SockAddr, Opts, infinity)</c>.</fsummary>
+      <desc>
+        <p>Same as <c>connect(<anno>Socket</anno>, <anno>SockAddr</anno>,
+	<anno>Opts</anno>, infinity)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="4" clause_i="1" anchor="connect-sockaddr4" since="OTP @OTP-17455@"/>
+      <fsummary>Establish a new association for socket <c>Socket</c>, with a
+      peer (SCTP server socket).</fsummary>
+      <desc>
+	<p>This is conceptually the same as
+	<seeerl marker="#connect-addr-port5"><c>connect/5</c></seeerl>,
+	only with the difference that we use a socket address,
+	<seetype marker="socket#sockaddr_in">
+	<c>socket:sockaddr_in()</c></seetype>
+	or
+	<seetype marker="socket#sockaddr_in6">
+	<c>socket:sockaddr_in6()</c></seetype>
+	instead of
+	an address (inet:ip_address() or inet:hostname()) and port-number.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="4" clause_i="2" anchor="connect-addr-port4" since=""/>
       <fsummary>Same as <c>connect(Socket, Addr, Port, Opts, infinity)</c>.</fsummary>
       <desc>
         <p>Same as <c>connect(<anno>Socket</anno>, <anno>Addr</anno>,
@@ -137,7 +165,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="5" since=""/>
+      <name name="connect" arity="5" anchor="connect-addr-port5" since=""/>
       <fsummary>Establish a new association for socket <c>Socket</c>, with a
         peer (SCTP server socket).</fsummary>
       <desc>
@@ -215,7 +243,34 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="4" since="OTP R13B04"/>
+      <name name="connect_init" arity="3" anchor="connect_init-sockaddr3" since="OTP @OTP-17455@"/>
+      <fsummary>Same as <c>connect_init(Socket, SockAddr, Opts, infinity)</c>.</fsummary>
+      <desc>
+        <p>Same as <c>connect_init(<anno>Socket</anno>, <anno>SockAddr</anno>,
+	<anno>Opts</anno>, infinity)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect_init" arity="4" clause_i="1" anchor="connect_init-sockaddr4" since="OTP @OTP-17455@"/>
+      <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>..</fsummary>
+      <desc>
+	<p>This is conceptually the same as
+	<seeerl marker="#connect_init-addr-port5"><c>connect_init/5</c></seeerl>,
+	only with the difference that we use a socket address,
+	<seetype marker="socket#sockaddr_in">
+	<c>socket:sockaddr_in()</c></seetype>
+	or
+	<seetype marker="socket#sockaddr_in6">
+	<c>socket:sockaddr_in6()</c></seetype>
+	instead of
+	an address (inet:ip_address() or inet:hostname()) and port-number.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect_init" arity="4" clause_i="2" anchor="connect_init-addr-port4" since="OTP R13B04"/>
       <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>..</fsummary>
       <desc>
         <p>Same as <c>connect_init(<anno>Socket</anno>, <anno>Addr</anno>,
@@ -224,7 +279,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="5" since="OTP R13B04"/>
+      <name name="connect_init" arity="5" anchor="connect_init-addr-port5" since="OTP R13B04"/>
       <fsummary>Initiate a new association for socket <c>Socket</c>, with a
         peer (SCTP server socket).</fsummary>
       <desc>
@@ -314,7 +369,12 @@ connect(Socket, Ip, Port>,
           options (this feature is called SCTP multi-homing). The default
           <c><anno>IP</anno></c> and <c><anno>Port</anno></c> are <c>any</c>
           and <c>0</c>, meaning bind to all local addresses on any
-          free port.</p>
+	free port.</p>
+	<p>It is also possible to use <c>{ifaddr, <anno>SockAddr</anno>}</c>,
+	in which case it takes precedence over the <c>ip</c> and
+	<c>port</c> options. These options can however be used to update
+	the address and port of ifaddr (if they occur after ifaddr in the
+	options list), although this is not recommended. </p>
         <p>Other options:</p>
         <taglist>
           <tag><c>inet6</c></tag>
