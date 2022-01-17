@@ -42,23 +42,13 @@
 
 will_succeed(erlang, '++', [LHS, _RHS]) ->
     succeeds_if_type(LHS, proper_list());
-will_succeed(erlang, '--', [LHS, RHS]) ->
-    case {succeeds_if_type(LHS, proper_list()),
-          succeeds_if_type(RHS, proper_list())} of
-        {yes, yes} -> yes;
-        {no, _} -> no;
-        {_, no} -> no;
-        {_, _} -> maybe
-    end;
-will_succeed(erlang, BoolOp, [LHS, RHS]) when BoolOp =:= 'and';
-                                              BoolOp =:= 'or' ->
-    case {succeeds_if_type(LHS, beam_types:make_boolean()),
-          succeeds_if_type(RHS, beam_types:make_boolean())} of
-        {yes, yes} -> yes;
-        {no, _} -> no;
-        {_, no} -> no;
-        {_, _} -> maybe
-    end;
+will_succeed(erlang, '--', [_, _] = Args) ->
+    succeeds_if_types(Args, proper_list());
+will_succeed(erlang, BoolOp, [_, _] = Args) when BoolOp =:= 'and';
+                                                 BoolOp =:= 'or' ->
+    succeeds_if_types(Args, beam_types:make_boolean());
+will_succeed(erlang, Op, [_, _] = Args) when Op =:= 'band'; Op =:= 'bor'; Op =:= 'bxor' ->
+    succeeds_if_types(Args, #t_integer{});
 will_succeed(erlang, bit_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, byte_size, [Arg]) ->
@@ -124,6 +114,15 @@ fails_on_conflict([ArgType | Args], [Required | Types]) ->
     end;
 fails_on_conflict([], []) ->
     maybe.
+
+succeeds_if_types([LHS, RHS], Required) ->
+    case {succeeds_if_type(LHS, Required),
+          succeeds_if_type(RHS, Required)} of
+        {yes, yes} -> yes;
+        {no, _} -> no;
+        {_, no} -> no;
+        {_, _} -> maybe
+    end.
 
 succeeds_if_type(ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
