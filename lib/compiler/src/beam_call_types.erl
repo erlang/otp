@@ -133,6 +133,15 @@ succeeds_if_type(ArgType, Required) ->
     end.
 
 %%
+%% Define an upper limit for functions that return sizes of data
+%% structures. The chosen value is about half the maxium size of a
+%% smallnum. That means that adding a small constant to it will result
+%% in a smallnum, but still the value is still sufficiently high to
+%% make it impossible to reach in the foreseeable future.
+%%
+-define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
+
+%%
 %% Returns the inferred return and argument types for known functions, and
 %% whether it's safe to subtract argument types on failure.
 %%
@@ -153,13 +162,18 @@ succeeds_if_type(ArgType, Required) ->
 %% Note that these are all from the erlang module; suitable functions in other
 %% modules could fail due to the module not being loaded.
 types(erlang, 'map_size', [_]) ->
-    sub_safe(#t_integer{}, [#t_map{}]);
-types(erlang, 'tuple_size', [_]) ->
-    sub_safe(#t_integer{}, [#t_tuple{}]);
+    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_map{}]);
+types(erlang, 'tuple_size', [Src]) ->
+    Min = case Src of
+              #t_tuple{size=Sz} -> Sz;
+              _ -> 0
+          end,
+    Max = (1 bsl 24) - 1,                       %Documented max size of a tuple.
+    sub_safe(#t_integer{elements={Min,Max}}, [#t_tuple{}]);
 types(erlang, 'bit_size', [_]) ->
-    sub_safe(#t_integer{}, [#t_bitstring{}]);
+    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bitstring{}]);
 types(erlang, 'byte_size', [_]) ->
-    sub_safe(#t_integer{}, [#t_bitstring{}]);
+    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bitstring{}]);
 types(erlang, hd, [Src]) ->
     RetType = erlang_hd_type(Src),
     sub_safe(RetType, [#t_cons{}]);
@@ -169,8 +183,12 @@ types(erlang, tl, [Src]) ->
 types(erlang, 'not', [_]) ->
     Bool = beam_types:make_boolean(),
     sub_safe(Bool, [Bool]);
-types(erlang, 'length', [_]) ->
-    sub_safe(#t_integer{}, [proper_list()]);
+types(erlang, 'length', [Src]) ->
+    Min = case Src of
+              #t_cons{} -> 1;
+              _ -> 0
+          end,
+    sub_safe(#t_integer{elements={Min,?SIZE_UPPER_LIMIT}}, [proper_list()]);
 
 %% Boolean ops
 types(erlang, 'and', [_,_]) ->
@@ -186,14 +204,21 @@ types(erlang, 'xor', [_,_]) ->
 %% Bitwise ops
 types(erlang, 'band', [_,_]=Args) ->
     sub_unsafe(erlang_band_type(Args), [#t_integer{}, #t_integer{}]);
-types(erlang, 'bor', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
+types(erlang, 'bor', [_,_]=Args) ->
+    sub_unsafe(erlang_bor_type(Args), [#t_integer{}, #t_integer{}]);
 types(erlang, 'bxor', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsl', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
-types(erlang, 'bsr', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
+types(erlang, 'bsr', [_,_]=Types) ->
+    ArgTypes = [#t_integer{}, #t_integer{}],
+    case Types of
+        [#t_integer{elements={Min,Max}},#t_integer{elements={S,S}}] when S > 0 ->
+            T = #t_integer{elements={Min bsr S,Max bsr S}},
+            sub_unsafe(T, ArgTypes);
+        _ ->
+            sub_unsafe(#t_integer{}, ArgTypes)
+    end;
 types(erlang, 'bnot', [_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}]);
 
@@ -210,10 +235,28 @@ types(erlang, 'trunc', [_]) ->
     sub_unsafe(#t_integer{}, [number]);
 types(erlang, '/', [_,_]) ->
     sub_unsafe(#t_float{}, [number, number]);
-types(erlang, 'div', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
-types(erlang, 'rem', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
+types(erlang, 'div', [_,_]=Types) ->
+    ArgTypes = [#t_integer{}, #t_integer{}],
+    case Types of
+        [#t_integer{elements={Min,Max}},#t_integer{elements={D,D}}] when D > 0 ->
+            T = #t_integer{elements={Min div D,Max div D}},
+            sub_unsafe(T, ArgTypes);
+        _ ->
+            sub_unsafe(#t_integer{}, ArgTypes)
+    end;
+types(erlang, 'rem', [T1,T2]) ->
+    ArgTypes = [#t_integer{}, #t_integer{}],
+    case T2 of
+        #t_integer{elements={D,D}} when D > 0 ->
+            Max = abs(D) - 1,
+            Min = case T1 of
+                      #t_integer{elements={N,_}} when N >= 0 -> 0;
+                      _ -> -Max
+                  end,
+            sub_unsafe(#t_integer{elements={Min,Max}}, ArgTypes);
+        _ ->
+            sub_unsafe(#t_integer{}, ArgTypes)
+    end;
 
 %% Mixed-type arithmetic; '+'/2 and friends are handled in the catch-all
 %% clause for the 'erlang' module.
@@ -234,6 +277,11 @@ types(erlang, 'iolist_to_binary', [_]) ->
     %% Arg is an iodata(), despite its name.
     ArgType = beam_types:join(#t_list{}, #t_bitstring{size_unit=8}),
     sub_unsafe(#t_bitstring{size_unit=8}, [ArgType]);
+types(erlang, 'iolist_size', [_]) ->
+    %% Arg is an iodata(), despite its name. The size is NOT limited
+    %% by the size of memory.
+    ArgType = beam_types:join(#t_list{}, #t_bitstring{size_unit=8}),
+    sub_unsafe(#t_integer{}, [ArgType]);
 types(erlang, 'list_to_binary', [_]) ->
     %% Arg is an iolist(), despite its name.
     sub_unsafe(#t_bitstring{size_unit=8}, [#t_list{}]);
@@ -788,6 +836,26 @@ erlang_band_type_1(LHS, Int) ->
             %% negative number, as the latter sign-extends to infinity
             %% and we can't express an inverted range at the moment
             %% (cf. X band -8; either less than -7 or greater than 7).
+            beam_types:meet(LHS, #t_integer{})
+    end.
+
+erlang_bor_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
+    erlang_bor_type_1(RHS, Int);
+erlang_bor_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
+    erlang_bor_type_1(LHS, Int);
+erlang_bor_type(_) ->
+    #t_integer{}.
+
+erlang_bor_type_1(LHS, Int) ->
+    case LHS of
+        #t_integer{elements={Min0,Max0}} when Min0 >= 0, Max0 - Min0 < 1 bsl 256 ->
+            {_Intersection, Union} = range_masks(Min0, Max0),
+
+            Min = max(Min0, Int),
+            Max = Union bor Int,
+
+            #t_integer{elements={Min,Max}};
+        _ ->
             beam_types:meet(LHS, #t_integer{})
     end.
 
