@@ -856,8 +856,7 @@ BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
 BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
 {
     ErlSpawnOpts so;
-    Eterm tmp_heap_mfna[4];
-    Eterm tmp_heap_alist[4 + 2];
+    Eterm *hp;
     Sint arity;
     int opts_error;
     Eterm tag, tmp, error;
@@ -884,16 +883,18 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
         goto badopt;
     }
 
-    /* Make argument list for erts_internal:spawn_init/1 */
-    tmp = TUPLE3(&tmp_heap_alist[0], BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-    tmp = CONS(&tmp_heap_alist[4], tmp, NIL);
+    hp = HAlloc(BIF_P, 4 + 4 + 2);
 
-    so.mfa = TUPLE3(&tmp_heap_mfna[0], BIF_ARG_1, BIF_ARG_2, make_small(arity));    
+    /* Make argument list for erts_internal:spawn_init/1 */
+    tmp = TUPLE3(hp, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3); hp += 4;
+    tmp = CONS(hp, tmp, NIL); hp += 2;
+
+    so.mfa = TUPLE3(hp, BIF_ARG_1, BIF_ARG_2, make_small(arity)); hp += 4;
     so.flags |= SPO_ASYNC;
     so.mref = THE_NON_VALUE;
     so.tag = tag;
     so.opts = BIF_ARG_4;
-    
+
     /*
      * Spawn the process.
      */
