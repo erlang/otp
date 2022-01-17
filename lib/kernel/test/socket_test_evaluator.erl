@@ -612,7 +612,7 @@ pi(Pid, Item) ->
 
 check_down(Pid, DownReason, Pids) ->
     case lists:keymember(Pid, 2, Pids) of
-        {value, {_, Name}} ->
+        {value, {Name, _}} ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, DownReason]),
             {error, {unexpected_exit, Name, DownReason}};
