@@ -33633,18 +33633,27 @@ sc_rc_receive_response_tcp(InitState) ->
                                                      [{rclient, Client}]) of
                                ok ->
                                    {ok, maps:remove(tester, State)};
+                               {error,
+                                {unexpected_exit, rclient, noconnection}} ->
+                                   %% Global might have disconnected => SKIP
+                                   ?SEV_IPRINT("lost connection "
+                                               "to remote client node => SKIP"),
+                                   {skip, {rclient, noconnection}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
          #{desc => "kill remote client",
-           cmd  => fun(#{rclient := Client}) ->
-                           ?SEV_ANNOUNCE_TERMINATE(Client),
+           cmd  => fun(#{rclient := RClient}) ->
+                           ?SEV_IPRINT("try kill remote client ~p", [RClient]),
+                           ?SEV_ANNOUNCE_TERMINATE(RClient),
                            ok
                    end},
          #{desc => "await remote client termination",
-           cmd  => fun(#{rclient := Client} = State) ->
-                           ?SEV_AWAIT_TERMINATION(Client),
+           cmd  => fun(#{rclient := RClient} = State) ->
+                           ?SEV_AWAIT_TERMINATION(RClient),
+                           ?SEV_IPRINT("remote client ~p terminated",
+                                       [RClient]),
                            State1 = maps:remove(rclient, State),
                            {ok, State1}
                    end},
@@ -33669,7 +33678,8 @@ sc_rc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node, node_stop := ok} = State) ->
-                           ?SEV_IPRINT("Success node stop - await nodedown"),
+                           ?SEV_IPRINT("Success node stop - await nodedown: "
+                                       "~n      ~p", [Node]),
                            receive
                                {nodedown, Node} ->
                                    ?SEV_IPRINT("nodedown received - cleanup"),
