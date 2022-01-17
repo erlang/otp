@@ -809,6 +809,16 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
 void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
                                           const ArgVal &Src) {
     auto src = load_source(Src, TMP1);
+
+    if (always_immediate(Src)) {
+        comment("skipped test for boxed since the value is always immediate");
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+
+        return;
+    }
+
     Label next = a.newLabel();
 
     if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
@@ -1338,8 +1348,12 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
     mov_arg(ARG1, LHS);
     mov_arg(ARG2, RHS);
 
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+        a.cmp(ARG1, ARG2);
+        a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(ARG1, ARG2);
@@ -1394,8 +1408,12 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
     mov_arg(ARG1, LHS);
     mov_arg(ARG2, RHS);
 
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+        a.cmp(ARG1, ARG2);
+        a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(ARG1, ARG2);
