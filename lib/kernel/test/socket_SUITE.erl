@@ -40772,6 +40772,17 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                                  [{tester, Tester}]) of
                                {ok, Result} ->
                                    {ok, State#{result => Result}};
+                               {error,
+                                {unexpected_exit, rclient, noconnection}} ->
+                                   %% One guess is that the message is so
+                                   %% "large" that the client node died on us.
+                                   %% Or so "large" that the connection (to
+                                   %% the node) fails/dies.
+                                   %% Either way, we assume this is not actually
+                                   %% related to what we are testing => skip
+                                   ?SEV_IPRINT("lost connection "
+                                               "to remote client node => SKIP"),
+                                   {skip, {rclient, noconnection}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
