@@ -41,6 +41,7 @@ extern "C"
 #include "erl_vm.h"
 #include "global.h"
 #include "beam_catches.h"
+#include "big.h"
 
 #include "beam_asm.h"
 }
@@ -1204,6 +1205,20 @@ protected:
 
     bool exact_type(const ArgVal &arg, int type_id) const {
         return always_one_of(arg, type_id);
+    }
+
+    bool is_product_small(const ArgVal &LHS, const ArgVal &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            Sint64 res, min, max, min1, max1, min2, max2;
+            getIntRange(LHS, min1, max1);
+            getIntRange(RHS, min2, max2);
+            min = std::min(abs(min1), abs(min2));
+            max = std::max(abs(max1), abs(max2));
+            res = min * max;
+            return IS_SSMALL(res);
+        }
     }
 
     /* Helpers */
