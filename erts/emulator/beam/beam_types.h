@@ -37,7 +37,7 @@
 
 #include "sys.h"
 
-#define BEAM_TYPES_VERSION 0
+#define BEAM_TYPES_VERSION 1
 
 #define BEAM_TYPE_NONE               (0)
 
@@ -90,6 +90,10 @@ typedef struct {
     /** @brief A set of the possible types (atom, tuple, etc) this term may
      * be. When a single bit is set, the term will always be of that type. */
     int type_union;
+
+    /** @brief Minimum and maximum values. Only valid if min <= max. */
+    Sint64 min;
+    Sint64 max;
 } BeamType;
 
 int beam_types_decode(const byte *data, Uint size, BeamType *out);

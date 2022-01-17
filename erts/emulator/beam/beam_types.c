@@ -28,20 +28,36 @@
 #include "erl_message.h"
 #include "external.h"
 
+static Sint64 get_sint64(const byte *data);
+
 int beam_types_decode(const byte *data, Uint size, BeamType *out) {
     int types;
 
-    if (size != 2) {
+    if (size != 18) {
         return 0;
     }
 
     types = (Uint16)data[0] << 8 | (Uint16)data[1];
-
     if (types == BEAM_TYPE_NONE) {
         return 0;
     }
 
     out->type_union = types;
 
+    data += 2;
+    out->min = get_sint64(data);
+    data += 8;
+    out->max = get_sint64(data);
+
     return 1;
+}
+
+static Sint64 get_sint64(const byte *data) {
+    Sint64 value = 0;
+    int i;
+
+    for (i = 0; i < 8; i++) {
+        value = value << 8 | (Sint16)data[i];
+    }
+    return value;
 }

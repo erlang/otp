@@ -1191,10 +1191,11 @@ ext_type_mapping() ->
      {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
 
 -spec decode_ext(binary()) -> type().
-decode_ext(<<TypeBits:16/signed-big>>) ->
-    foldl(fun({Id, Type}, Acc) ->
-                  decode_ext_bits(TypeBits, Id, Type, Acc)
-          end, none, ext_type_mapping()).
+decode_ext(<<TypeBits:16/big,Min:64,Max:64>>) ->
+    Res = foldl(fun({Id, Type}, Acc) ->
+                        decode_ext_bits(TypeBits, Id, Type, Acc)
+                end, none, ext_type_mapping()),
+    {Res,Min,Max}.
 
 decode_ext_bits(Input, TypeBit, Type, Acc) ->
     case Input band TypeBit of
@@ -1207,10 +1208,34 @@ encode_ext(Input) ->
     TypeBits = foldl(fun({Id, Type}, Acc) ->
                              encode_ext_bits(Input, Id, Type, Acc)
                      end, 0, ext_type_mapping()),
-    <<TypeBits:16/signed-big>>.
+    case get_integer_range(Input) of
+        none ->
+            <<TypeBits:16/big,0:64,-1:64>>;
+        {Min,Max} ->
+            <<TypeBits:16/big,Min:64,Max:64>>
+    end.
 
 encode_ext_bits(Input, TypeBit, Type, Acc) ->
     case meet(Input, Type) of
         none -> Acc;
         _ -> Acc bor TypeBit
     end.
+
+get_integer_range(#t_integer{elements={Min,Max}}) ->
+    case is_small(Min) andalso is_small(Max) of
+        true ->
+            {Min,Max};
+        false ->
+            %% Not an integer with range, or at least one of the
+            %% endpoints is a bignum.
+            none
+    end;
+get_integer_range(#t_union{number=N}) ->
+    get_integer_range(N);
+get_integer_range(_) -> none.
+
+%% Test whether the number is a small on a 64-bit machine.
+%% (Normally the compiler doesn't know/doesn't care whether something is
+%% bignum, but because the type representation is versioned this is safe.)
+is_small(N) ->
+    -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1.
