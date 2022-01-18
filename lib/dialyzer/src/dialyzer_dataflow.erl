@@ -1030,14 +1030,14 @@ handle_try(Tree, Map, State) ->
     true ->
       Map2 = mark_as_fresh(Vars, Map1),
       {SuccState, SuccMap, SuccType} =
-        case bind_pat_vars(Vars, TypeList, [], Map2, State1) of
+        case bind_pat_vars(Vars, TypeList, Map2, State1) of
           {error, _, _, _, _} ->
             {State1, map__new(), t_none()};
           {SuccMap1, VarTypes} ->
             %% Try to bind the argument. Will only succeed if
             %% it is a simple structured term.
             SuccMap2 =
-              case bind_pat_vars_reverse([Arg], [t_product(VarTypes)], [],
+              case bind_pat_vars_reverse([Arg], [t_product(VarTypes)],
                                          SuccMap1, State1) of
                 {error, _, _, _, _} -> SuccMap1;
                 {SM, _} -> SM
@@ -1073,7 +1073,7 @@ handle_map(Tree,Map,State) ->
       try lists:foldl(InsertPair, ArgType1, TypePairs)
       of ResT ->
 	  BindT = t_map([{K, t_any()} || K <- ExactKeys]),
-	  case bind_pat_vars_reverse([Arg], [BindT], [], Map2, State2) of
+	  case bind_pat_vars_reverse([Arg], [BindT], Map2, State2) of
 	    {error, _, _, _, _} -> {State2, Map2, ResT};
 	    {Map3, _} ->           {State2, Map3, ResT}
 	  end
@@ -1134,7 +1134,7 @@ handle_tuple(Tree, Map, State) ->
                       {State2, Map1, t_none()};
                     false ->
                       case bind_pat_vars(Elements, t_tuple_args(RecType),
-                                         [], Map1, State1) of
+                                         Map1, State1) of
                         {error, bind, ErrorPat, ErrorType, _} ->
                           Msg = {record_constr,
                                  [TagVal, format_patterns(ErrorPat),
@@ -1228,7 +1228,7 @@ do_clause(C, Arg, ArgType, OrigArgType, Map, State, Warns) ->
 	{error, maybe_covered, OrigArgType, ignore, ignore};
       false ->
 	ArgTypes = get_arg_list(ArgType, Pats),
-	bind_pat_vars(Pats, ArgTypes, [], Map1, State)
+	bind_pat_vars(Pats, ArgTypes, Map1, State)
     end,
 
   %% Test whether the binding succeeded.
@@ -1250,7 +1250,7 @@ do_clause(C, Arg, ArgType, OrigArgType, Map, State, Warns) ->
       %% it is a simple structured term.
       Map3 =
         case bind_pat_vars_reverse([Arg], [t_product(PatTypes)],
-                                   [], Map2, State) of
+                                   Map2, State) of
           {error, _, _, _, _} -> Map2;
           {NewMap, _} -> NewMap
 	end,
@@ -1282,7 +1282,7 @@ clause_error(State, Map, {error, maybe_covered, OrigArgType, _, _}, C, Pats, _) 
   %% original argument types of the case.
   OrigArgTypes = get_arg_list(OrigArgType, Pats),
   Msg =
-    case bind_pat_vars(Pats, OrigArgTypes, [], Map, State) of
+    case bind_pat_vars(Pats, OrigArgTypes, Map, State) of
       {_, _} ->
         %% The pattern would match if it had not been covered.
         PatString = format_patterns(Pats),
@@ -1414,27 +1414,23 @@ bind_subst_list([], [], Map) ->
 %% Patterns
 %%
 
-bind_pat_vars(Pats, Types, Acc, Map, State) ->
-  try
-    bind_pat_vars(Pats, Types, Acc, Map, State, false)
-  catch
-    throw:Error -> 
-      %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
-      Error 
-  end.
+bind_pat_vars(Pats, Types, Map, State) ->
+  bind_pat_vars(Pats, Types, Map, State, false).
 
-bind_pat_vars_reverse(Pats, Types, Acc, Map, State) ->
+bind_pat_vars_reverse(Pats, Types, Map, State) ->
+  bind_pat_vars(Pats, Types, Map, State, true).
+
+bind_pat_vars(Pats, Types, Map, State, Rev) ->
   try
-    bind_pat_vars(Pats, Types, Acc, Map, State, true)
+    do_bind_pat_vars(Pats, Types, Map, State, Rev, [])
   catch
-    throw:Error -> 
+    throw:Error ->
       %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
       Error
   end.
 
-bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
-  ?debug("Binding pat: ~tw to ~ts\n", [cerl:type(Pat), format_type(Type, State)]
-),
+do_bind_pat_vars([Pat|Pats], [Type|Types], Map, State, Rev, Acc) ->
+  ?debug("Binding pat: ~tw to ~ts\n", [cerl:type(Pat), format_type(Type, State)]),
   Opaques = State#state.opaques,
   {NewMap, TypeOut} =
     case cerl:type(Pat) of
@@ -1444,157 +1440,48 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	AliasPat = dialyzer_utils:refold_pattern(cerl:alias_pat(Pat)),
 	Var = cerl:alias_var(Pat),
 	Map1 = enter_subst(Var, AliasPat, Map),
-	{Map2, [PatType]} = bind_pat_vars([AliasPat], [Type], [],
-					  Map1, State, Rev),
+        {Map2, [PatType]} = do_bind_pat_vars([AliasPat], [Type],
+                                             Map1, State, Rev, []),
 	{enter_type(Var, PatType, Map2), PatType};
       binary ->
-	%% Cannot bind the binary if we are in reverse match since
-	%% binary patterns and binary construction are not symmetric.
 	case Rev of
-	  true -> {Map, t_bitstr()};
+	  true ->
+            %% Cannot bind the binary if we are in reverse match since
+            %% binary patterns and binary construction are not
+            %% symmetric.
+            {Map, t_bitstr()};
 	  false ->
-	    BinType = t_inf(t_bitstr(), Type, Opaques),
-	    case t_is_none(BinType) of
-	      true ->
-                case t_find_opaque_mismatch(t_bitstr(), Type, Opaques) of
-                  {ok, T1, T2}  ->
-                    bind_error([Pat], T1, T2, opaque);
-                  error ->
-                    bind_error([Pat], Type, t_none(), bind)
-                end;
-	      false ->
-		Segs = cerl:binary_segments(Pat),
-		{Map1, SegTypes} = bind_bin_segs(Segs, BinType, Map, State),
-		{Map1, t_bitstr_concat(SegTypes)}
-	    end
+            BinType = bind_checked_inf(Pat, t_bitstr(), Type, Opaques),
+            Segs = cerl:binary_segments(Pat),
+            {Map1, SegTypes} = bind_bin_segs(Segs, BinType, Map, State),
+            {Map1, t_bitstr_concat(SegTypes)}
 	end;
       cons ->
-	Cons = t_inf(Type, t_cons(), Opaques),
-	case t_is_none(Cons) of
-	  true ->
-	    bind_opaque_pats(t_cons(), Type, Pat, State);
-	  false ->
-	    {Map1, [HdType, TlType]} =
-	      bind_pat_vars([cerl:cons_hd(Pat), cerl:cons_tl(Pat)],
-			    [t_cons_hd(Cons, Opaques),
-                             t_cons_tl(Cons, Opaques)],
-			    [], Map, State, Rev),
-	    {Map1, t_cons(HdType, TlType)}
-	end;
+        Cons = bind_checked_inf(Pat, t_cons(), Type, Opaques),
+        {Map1, [HdType, TlType]} =
+          do_bind_pat_vars([cerl:cons_hd(Pat), cerl:cons_tl(Pat)],
+                           [t_cons_hd(Cons, Opaques),
+                            t_cons_tl(Cons, Opaques)],
+                           Map, State, Rev, []),
+        {Map1, t_cons(HdType, TlType)};
       literal ->
 	Pat0 = dialyzer_utils:refold_pattern(Pat),
 	case cerl:is_literal(Pat0) of
 	  true ->
-	    Literal = literal_type(Pat),
-	    case t_is_none(t_inf(Literal, Type, Opaques)) of
-	      true ->
-		bind_opaque_pats(Literal, Type, Pat, State);
-	      false -> {Map, Literal}
-	    end;
+            LiteralType = bind_checked_inf(Pat, literal_type(Pat), Type, Opaques),
+            {Map, LiteralType};
 	  false ->
-	    %% Retry with the unfolded pattern
-	    {Map1, [PatType]}
-	      = bind_pat_vars([Pat0], [Type], [], Map, State, Rev),
+            {Map1, [PatType]} = do_bind_pat_vars([Pat0], [Type], Map, State, Rev, []),
 	    {Map1, PatType}
 	end;
       map ->
-	MapT = t_inf(Type, t_map(), Opaques),
-	case t_is_none(MapT) of
-	  true ->
-	    bind_opaque_pats(t_map(), Type, Pat, State);
-	  false ->
-	    case Rev of
-	      %% TODO: Reverse matching (propagating a matched subset back to a value)
-	      true -> {Map, MapT};
-	      false ->
-		FoldFun =
-		  fun(Pair, {MapAcc, ListAcc}) ->
-		      %% Only exact (:=) can appear in patterns
-		      exact = cerl:concrete(cerl:map_pair_op(Pair)),
-		      Key = cerl:map_pair_key(Pair),
-		      KeyType =
-			case cerl:type(Key) of
-			  var ->
-			    case state__lookup_type_for_letrec(Key, State) of
-			      error -> lookup_type(Key, MapAcc);
-			      {ok, RecType} -> RecType
-			    end;
-			  literal ->
-			    literal_type(Key)
-			end,
-		      Bind = erl_types:t_map_get(KeyType, MapT),
-		      {MapAcc1, [ValType]} =
-			bind_pat_vars([cerl:map_pair_val(Pair)],
-				      [Bind], [], MapAcc, State, Rev),
-		      case t_is_singleton(KeyType, Opaques) of
-			true  -> {MapAcc1, [{KeyType, ValType}|ListAcc]};
-			false -> {MapAcc1, ListAcc}
-		      end
-		  end,
-		{Map1, Pairs} = lists:foldl(FoldFun, {Map, []}, cerl:map_es(Pat)),
-		{Map1, t_inf(MapT, t_map(Pairs))}
-	    end
-	end;
+        bind_map(Pat, Type, Map, State, Opaques, Rev);
       tuple ->
-	Es = cerl:tuple_es(Pat),
-	{TypedRecord, Prototype} =
-	  case Es of
-	    [] -> {false, t_tuple([])};
-	    [Tag|Left] ->
-	      case cerl:is_c_atom(Tag) andalso is_literal_record(Pat) of
-		true ->
-		  TagAtom = cerl:atom_val(Tag),
-		  case state__lookup_record(TagAtom, length(Left), State) of
-		    error -> {false, t_tuple(length(Es))};
-		    {ok, Record, _FieldNames} ->
-		      [_Head|AnyTail] = [t_any() || _ <- Es],
-		      UntypedRecord = t_tuple([t_atom(TagAtom)|AnyTail]),
-		      {not t_is_equal(Record, UntypedRecord), Record}
-		  end;
-		false -> {false, t_tuple(length(Es))}
-	      end
-	  end,
-	Tuple = t_inf(Prototype, Type, Opaques),
-	case t_is_none(Tuple) of
-	  true ->
-	    bind_opaque_pats(Prototype, Type, Pat, State);
-	  false ->
-	    SubTuples = t_tuple_subtypes(Tuple, Opaques),
-	    %% Need to call the top function to get the try-catch wrapper
-            MapJ = join_maps_begin(Map),
-	    Results =
-	      case Rev of
-		true ->
-		  [bind_pat_vars_reverse(Es, t_tuple_args(SubTuple, Opaques),
-                                         [], MapJ, State)
-		   || SubTuple <- SubTuples];
-		false ->
-		  [bind_pat_vars(Es, t_tuple_args(SubTuple, Opaques), [],
-                                 MapJ, State)
-		   || SubTuple <- SubTuples]
-	      end,
-	    case lists:keyfind(opaque, 2, Results) of
-	      {error, opaque, _PatList, _Type, Opaque} ->
-		bind_error([Pat], Tuple, Opaque, opaque);
-	      false ->
-		case [M || {M, _} <- Results, M =/= error] of
-		  [] ->
-		    case TypedRecord of
-		      true -> bind_error([Pat], Tuple, Prototype, record);
-		      false -> bind_error([Pat], Tuple, t_none(), bind)
-		    end;
-		  Maps ->
-		    Map1 = join_maps_end(Maps, MapJ),
-		    TupleType = t_sup([t_tuple(EsTypes)
-				       || {M, EsTypes} <- Results, M =/= error]),
-		    {Map1, TupleType}
-		end
-	    end
-	end;
+        bind_tuple(Pat, Type, Map, State, Opaques, Rev);
       values ->
 	Es = cerl:values_es(Pat),
-	{Map1, EsTypes} =
-	  bind_pat_vars(Es, t_to_tlist(Type), [], Map, State, Rev),
+	{Map1, EsTypes} = do_bind_pat_vars(Es, t_to_tlist(Type),
+                                           Map, State, Rev, []),
 	{Map1, t_product(EsTypes)};
       var ->
 	VarType1 =
@@ -1603,27 +1490,99 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	    {ok, RecType} -> RecType
 	  end,
 	%% Must do inf when binding args to pats. Vars in pats are fresh.
-	VarType2 = t_inf(VarType1, Type, Opaques),
-	case t_is_none(VarType2) of
-	  true ->
-	    case t_find_opaque_mismatch(VarType1, Type, Opaques) of
-	      {ok, T1, T2}  ->
-		bind_error([Pat], T1, T2, opaque);
-	      error ->
-		bind_error([Pat], Type, t_none(), bind)
-	    end;
-	  false ->
-	    Map1 = enter_type(Pat, VarType2, Map),
-	    {Map1, VarType2}
-	end;
+        VarType2 = bind_checked_inf(Pat, VarType1, Type, Opaques),
+        Map1 = enter_type(Pat, VarType2, Map),
+        {Map1, VarType2};
       _Other ->
 	%% Catch all is needed when binding args to pats
 	?debug("Failed match for ~p\n", [_Other]),
+        Rev = true,                             % Assertion.
 	bind_error([Pat], Type, t_none(), bind)
     end,
-  bind_pat_vars(PatLeft, TypeLeft, [TypeOut|Acc], NewMap, State, Rev);
-bind_pat_vars([], [], Acc, Map, _State, _Rev) ->
+  do_bind_pat_vars(Pats, Types, NewMap, State, Rev, [TypeOut|Acc]);
+do_bind_pat_vars([], [], Map, _State, _Rev, Acc) ->
   {Map, lists:reverse(Acc)}.
+
+bind_map(Pat, Type, Map, State, Opaques, Rev) ->
+  MapT = bind_checked_inf(Pat, t_map(), Type, Opaques),
+  case Rev of
+    %% TODO: Reverse matching (propagating a matched subset back to a value).
+    true ->
+      {Map, MapT};
+    false ->
+      FoldFun =
+        fun(Pair, {MapAcc, ListAcc}) ->
+            %% Only exact (:=) can appear in patterns.
+            exact = cerl:concrete(cerl:map_pair_op(Pair)),
+            Key = cerl:map_pair_key(Pair),
+            KeyType =
+              case cerl:type(Key) of
+                var ->
+                  case state__lookup_type_for_letrec(Key, State) of
+                    error -> lookup_type(Key, MapAcc);
+                    {ok, RecType} -> RecType
+                  end;
+                literal ->
+                  literal_type(Key)
+              end,
+            Bind = erl_types:t_map_get(KeyType, MapT),
+            {MapAcc1, [ValType]} =
+              do_bind_pat_vars([cerl:map_pair_val(Pair)],
+                               [Bind], MapAcc, State, Rev, []),
+            case t_is_singleton(KeyType, Opaques) of
+              true  -> {MapAcc1, [{KeyType, ValType}|ListAcc]};
+              false -> {MapAcc1, ListAcc}
+            end
+        end,
+      {Map1, Pairs} = lists:foldl(FoldFun, {Map, []}, cerl:map_es(Pat)),
+      {Map1, t_inf(MapT, t_map(Pairs))}
+  end.
+
+bind_tuple(Pat, Type, Map, State, Opaques, Rev) ->
+  Es = cerl:tuple_es(Pat),
+  {IsTypedRecord, Prototype} =
+    case Es of
+      [] ->
+        {false, t_tuple([])};
+      [Tag|Tags] ->
+        case cerl:is_c_atom(Tag) andalso is_literal_record(Pat) of
+          true ->
+            Any = t_any(),
+            [_Head|AnyTail] = [Any || _ <- Es],
+            UntypedRecord = t_tuple([Tag|AnyTail]),
+            case state__lookup_record(cerl:atom_val(Tag), length(Tags), State) of
+              error ->
+                {false, UntypedRecord};
+              {ok, Record, _FieldNames} ->
+                {not t_is_equal(Record, UntypedRecord), Record}
+            end;
+          false ->
+            {false, t_tuple(length(Es))}
+        end
+    end,
+  Tuple = bind_checked_inf(Pat, Prototype, Type, Opaques),
+  SubTuples = t_tuple_subtypes(Tuple, Opaques),
+  MapJ = join_maps_begin(Map),
+  %% Need to call the top function to get the try-catch wrapper.
+  Results = [bind_pat_vars(Es, t_tuple_args(SubTuple, Opaques), MapJ, State, Rev) ||
+              SubTuple <- SubTuples],
+  case lists:keyfind(opaque, 2, Results) of
+    {error, opaque, _PatList, _Type, Opaque} ->
+      bind_error([Pat], Tuple, Opaque, opaque);
+    false ->
+      case [M || {M, _} <- Results, M =/= error] of
+        [] ->
+          case IsTypedRecord of
+            true -> bind_error([Pat], Tuple, Prototype, record);
+            false -> bind_error([Pat], Tuple, t_none(), bind)
+          end;
+        Maps ->
+          Map1 = join_maps_end(Maps, MapJ),
+          TupleType = t_sup([t_tuple(EsTypes) ||
+                              {M, EsTypes} <- Results, M =/= error]),
+          {Map1, TupleType}
+      end
+  end.
 
 bind_bin_segs(BinSegs, BinType, Map, State) ->
   bind_bin_segs(BinSegs, BinType, [], Map, State).
@@ -1636,18 +1595,20 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
     all ->
       binary = SegType, [] = Segs, %% just an assert
       T = t_inf(t_bitstr(UnitVal, 0), BinType),
-      {Map1, [Type]} = bind_pat_vars([Val], [T], [], Map, State, false),
+      {Map1, [Type]} = do_bind_pat_vars([Val], [T], Map,
+                                        State, false, []),
       Type1 = remove_local_opaque_types(Type, State#state.opaques),
       bind_bin_segs(Segs, t_bitstr(0, 0), [Type1|Acc], Map1, State);
-    utf -> % XXX: possibly can be strengthened
+    utf ->                         % XXX: can possibly be strengthened
       true = lists:member(SegType, [utf8, utf16, utf32]),
-      {Map1, [_]} = bind_pat_vars([Val], [t_integer()], [], Map, State, false),
+      {Map1, [_]} = do_bind_pat_vars([Val], [t_integer()],
+                                     Map, State, false, []),
       Type = t_binary(),
       bind_bin_segs(Segs, BinType, [Type|Acc], Map1, State);
-    BitSz when is_integer(BitSz) orelse BitSz =:= any ->
+    BitSz when is_integer(BitSz); BitSz =:= any ->
       Size = cerl:bitstr_size(Seg),
-      {Map1, [SizeType]} =
-	bind_pat_vars([Size], [t_non_neg_integer()], [], Map, State, false),
+      {Map1, [SizeType]} = do_bind_pat_vars([Size], [t_non_neg_integer()],
+                                            Map, State, false, []),
       Opaques = State#state.opaques,
       NumberVals = t_number_vals(SizeType, Opaques),
       case t_contains_opaque(SizeType, Opaques) of
@@ -1686,7 +1647,7 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
                 end
 	    end
 	end,
-      {Map2, [_]} = bind_pat_vars([Val], [ValConstr], [], Map1, State, false),
+      {Map2, [_]} = do_bind_pat_vars([Val], [ValConstr], Map1, State, false, []),
       NewBinType = t_bitstr_match(Type, BinType),
       case t_is_none(NewBinType) of
 	true -> bind_error([Seg], BinType, t_none(), bind);
@@ -1695,6 +1656,22 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
   end;
 bind_bin_segs([], _BinType, Acc, Map, _State) ->
   {Map, lists:reverse(Acc)}.
+
+%% Return the infimum (meet) of ExpectedType and Type if is not
+%% t_none(), and raise a bind_error() it is t_none().
+bind_checked_inf(Pat, ExpectedType, Type, Opaques) ->
+  Inf = t_inf(ExpectedType, Type, Opaques),
+  case t_is_none(Inf) of
+    true ->
+      case t_find_opaque_mismatch(ExpectedType, Type, Opaques) of
+        {ok, T1, T2}  ->
+          bind_error([Pat], T1, T2, opaque);
+        error ->
+          bind_error([Pat], Type, t_none(), bind)
+      end;
+    false ->
+      Inf
+  end.
 
 bind_error(Pats, Type, OpaqueType, Error0) ->
   Error = case {Error0, Pats} of
@@ -1706,17 +1683,6 @@ bind_error(Pats, Type, OpaqueType, Error0) ->
             _ -> Error0
           end,
   throw({error, Error, Pats, Type, OpaqueType}).
-
--spec bind_opaque_pats(type(), type(), cerl:c_literal(), state()) ->
-                          no_return().
-
-bind_opaque_pats(GenType, Type, Pat, State) ->
-  case t_find_opaque_mismatch(GenType, Type, State#state.opaques) of
-    {ok, T1, T2}  ->
-	bind_error([Pat], T1, T2, opaque);
-    error ->
-      bind_error([Pat], Type, t_none(), bind)
-  end.
 
 %%----------------------------------------
 %% Guards
@@ -2580,7 +2546,7 @@ bind_guard_case_clauses(GenArgType, GenMap, ArgExpr, [Clause|Left],
 			 true -> Any = t_any(), [Any || _ <- Pats];
 			 false -> t_to_tlist(ArgType)
 		       end,
-	    case bind_pat_vars(Pats, ArgTypes, [], NewMap0, State) of
+	    case bind_pat_vars(Pats, ArgTypes, NewMap0, State) of
 	      {error, _, _, _, _} -> none;
 	      {PatMap, _PatTypes} -> PatMap
 	    end
