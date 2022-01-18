@@ -43,7 +43,7 @@
 init(#{erl_dist := ErlDist,
        key := Key,
        keyfile := KeyFile,
-       password := Password,
+       password := Password, %% Can be fun() or string()
        dh := DH,
        dhfile := DHFile} = SslOpts, Role) ->
     

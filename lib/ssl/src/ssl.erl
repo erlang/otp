@@ -349,7 +349,7 @@
                                        key_id := crypto:key_id(), 
                                        password => crypto:password()}. % exported
 -type key_pem()                   :: file:filename().
--type key_password()              :: string().
+-type key_password()              :: string() | fun(() -> string()).
 -type cipher_suites()             :: ciphers().    
 -type ciphers()                   :: [erl_cipher_suite()] |
                                      string(). % (according to old API) exported
@@ -1739,6 +1739,12 @@ handle_option(padding_check = Option, Value0,  #{versions := Versions} = Options
     assert_option_dependency(Option, versions, Versions, ['tlsv1']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(password = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{password => Value};
+handle_option(password = Option, Value0, OptionsMap, _Env) ->
+    Value = validate_option(Option, Value0),
+    OptionsMap#{password => Value};
 handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
@@ -2285,6 +2291,9 @@ validate_option(partial_chain, Value, _)
     Value;
 validate_option(password, Value, _)
   when is_list(Value) ->
+    Value;
+validate_option(password, Value, _)
+  when is_function(Value, 0) ->
     Value;
 validate_option(protocol, Value = tls, _) ->
     Value;

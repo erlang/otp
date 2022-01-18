@@ -241,8 +241,11 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
 
--spec pem_entry_decode(PemEntry, Password) -> term() when PemEntry :: pem_entry(),
-                                                          Password :: string() .
+-spec pem_entry_decode(PemEntry, Password) -> term() when
+      PemEntry :: pem_entry(),
+      Password :: string() | fun(() -> string()).
+pem_entry_decode(PemEntry, PasswordFun) when is_function(PasswordFun) ->
+     pem_entry_decode(PemEntry, PasswordFun());
 pem_entry_decode({Asn1Type, Der, not_encrypted}, _) when is_atom(Asn1Type),
 							 is_binary(Der) ->
     der_decode(Asn1Type, Der);
@@ -264,8 +267,7 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 				is_binary(Salt) andalso
 				((erlang:byte_size(Salt) == 8) or (erlang:byte_size(Salt) == 16)) andalso
 				is_list(Password) ->
-    do_pem_entry_decode(PemEntry, Password).	
-
+    do_pem_entry_decode(PemEntry, Password).
 
 %%--------------------------------------------------------------------
 %%
