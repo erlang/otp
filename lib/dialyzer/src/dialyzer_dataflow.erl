@@ -929,16 +929,13 @@ handle_case(Tree, Map, State) ->
     false ->
       Map2 = join_maps_begin(Map1),
       {MapList, State3, Type, Warns} =
-	handle_clauses(Clauses, Arg, ArgType, ArgType, State1,
-		       [], Map2, [], [], []),
+	handle_clauses(Clauses, Arg, ArgType, Map2, State1),
       %% Non-Erlang BEAM languages, such as Elixir, expand language constructs
       %% into case statements. In that case, we do not want to warn on
       %% individual clauses not matching unless none of them can.
-      SupressForced = is_compiler_generated(cerl:get_ann(Tree))
-	andalso not (t_is_none(Type)),
+      DoForce = not is_compiler_generated(cerl:get_ann(Tree)) orelse t_is_none(Type),
       State4 = lists:foldl(fun({T,R,M,F}, S) ->
-			       state__add_warning(
-				 S,T,R,M,F andalso (not SupressForced))
+			       state__add_warning(S, T, R, M, F andalso DoForce)
 			   end, State3, Warns),
       Map3 = join_maps_end(MapList, Map2),
       debug_pp_map(Map3),
@@ -1190,19 +1187,24 @@ field_name(Elements, ErrorPat, FieldNames) ->
 %%----------------------------------------
 %% Clauses
 %%
-handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
-	       Acc, NewClauseAcc, WarnAcc0) ->
+
+handle_clauses(Cs, Arg, ArgType, Map, State) ->
+  handle_clauses(Cs, Arg, ArgType, ArgType, Map, State, [], [], []).
+
+handle_clauses([C|Cs], Arg, ArgType, OrigArgType, MapIn, State,
+	       CaseTypes, Acc, WarnAcc0) ->
   {State1, ClauseMap, BodyType, NewArgType, WarnAcc} =
     do_clause(C, Arg, ArgType, OrigArgType, MapIn, State, WarnAcc0),
-  {NewCaseTypes, NewAcc} =
-    case t_is_none(BodyType) of
-      true -> {CaseTypes, Acc};
-      false -> {[BodyType|CaseTypes], [ClauseMap|Acc]}
-    end,
-  handle_clauses(Left, Arg, NewArgType, OrigArgType, State1,
-		 NewCaseTypes, MapIn, NewAcc, NewClauseAcc, WarnAcc);
-handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
-	       _ClauseAcc, WarnAcc) ->
+  case t_is_none(BodyType) of
+    true ->
+      handle_clauses(Cs, Arg, NewArgType, OrigArgType, MapIn, State1,
+                     CaseTypes, Acc, WarnAcc);
+    false ->
+      handle_clauses(Cs, Arg, NewArgType, OrigArgType, MapIn, State1,
+                     [BodyType|CaseTypes], [ClauseMap|Acc], WarnAcc)
+  end;
+handle_clauses([], _Arg, _ArgType, _OrigArgType, _MapIn, State,
+               CaseTypes, Acc, WarnAcc) ->
   {lists:reverse(Acc), State, t_sup(CaseTypes), WarnAcc}.
 
 %%
