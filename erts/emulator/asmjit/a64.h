@@ -1,40 +1,12 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_A64_H_INCLUDED
 #define ASMJIT_A64_H_INCLUDED
 
-//! \defgroup asmjit_a64 AArch64
-//! \brief AArch64 backend.
-
 //! \addtogroup asmjit_a64
-//!
-//! ### Namespace
-//!
-//!   - \ref arm - arm namespace provides base support for both 32-bit and 64-bit ARM.
-//!   - \ref a64 - a64 namespace provides support for AArch64 architecture. In addition
-//!     it includes \ref arm namespace, so you can only use a single namespace when
-//!     targeting AArch64 architecture.
 //!
 //! ### Emitters
 //!
@@ -52,7 +24,6 @@
 //!
 //!   - Instruction representation:
 //!     - \ref a64::Inst::Id - instruction identifiers.
-//!     - \ref a64::Inst::Options - instruction options.
 //!
 //! ### Register Operands
 //!
@@ -75,10 +46,8 @@
 //!
 //! ### Other
 //!
-//!   - \ref arm::Features - ARM/AArch64 CPU features on top of \ref BaseFeatures.
 //!   - \ref arm::Shift - Shift operation and value.
-//!   - \ref a64::Utils - Utilities that can help during code generation for
-//!     ARM target.
+//!   - \ref a64::Utils - Utilities that can help during code generation for ARM target.
 //!
 //! ### Predicates
 //!

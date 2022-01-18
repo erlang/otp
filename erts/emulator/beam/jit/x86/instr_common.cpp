@@ -277,7 +277,7 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (!hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
             goto fallback;
         }
 
@@ -454,7 +454,7 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (!hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
             goto fallback;
         } else {
             x86::Mem dst_ptr = getArgRef(Dst2, 16);
@@ -589,7 +589,7 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
     case ArgVal::Relation::reverse_consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst2, 16);
         comment("(moving and swapping)");
-        if (hasCpuFeature(x86::Features::kAVX)) {
+        if (hasCpuFeature(CpuFeatures::X86::kAVX)) {
             a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
             a.vmovups(dst_ptr, x86::xmm0);
         } else {
@@ -607,7 +607,7 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
 }
 
 void BeamModuleAssembler::emit_swap(const ArgVal &R1, const ArgVal &R2) {
-    if (!hasCpuFeature(x86::Features::kAVX)) {
+    if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
         goto fallback;
     }
 
@@ -654,7 +654,7 @@ void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
-        if (!hasCpuFeature(x86::Features::kAVX)) {
+        if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
             goto fallback;
         }
 
@@ -716,7 +716,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
                 break;
             }
             case ArgVal::reverse_consecutive: {
-                if (!hasCpuFeature(x86::Features::kAVX)) {
+                if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
                     mov_arg(dst_ptr, args[i]);
                 } else {
                     x86::Mem src_ptr = getArgRef(args[i + 1], 16);
@@ -1968,7 +1968,7 @@ void BeamModuleAssembler::emit_i_yield() {
     a.lea(ARG3, x86::qword_ptr(next));
     a.jmp(yieldReturn);
 
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(next);
 #endif
 }

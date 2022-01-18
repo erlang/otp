@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_A64INSTDB_H_INCLUDED
 #define ASMJIT_ARM_A64INSTDB_H_INCLUDED
@@ -34,10 +16,6 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 //! Instruction database (ARM/THUMB/AArch64).
 namespace InstDB {
 
-// ============================================================================
-// [asmjit::a64::InstDB::InstFlags]
-// ============================================================================
-
 //! Instruction flags.
 enum InstFlags : uint32_t {
   //! The instruction provides conditional execution.
@@ -49,12 +27,11 @@ enum InstFlags : uint32_t {
   //! SIMD instruction that does narrowing (Narrow).
   kInstFlagNarrow = 0x00000008u,
   //! SIMD element access of half-words can only be used with v0..15.
-  kInstFlagVH0_15 = 0x00000010u
-};
+  kInstFlagVH0_15 = 0x00000010u,
 
-// ============================================================================
-// [asmjit::a64::InstDB::InstInfo]
-// ============================================================================
+  //! Instruction may consecutive registers if the number of operands is greater than 2.
+  kInstFlagConsecutive = 0x00000080u
+};
 
 //! Instruction information (ARM/THUMB/AArch64).
 struct InstInfo {
@@ -82,7 +59,7 @@ struct InstInfo {
 
 ASMJIT_VARAPI const InstInfo _instInfoTable[];
 
-static inline const InstInfo& infoById(uint32_t instId) noexcept {
+static inline const InstInfo& infoById(InstId instId) noexcept {
   ASMJIT_ASSERT(Inst::isDefinedId(instId));
   return _instInfoTable[instId];
 }

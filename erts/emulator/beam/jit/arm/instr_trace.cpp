@@ -165,7 +165,7 @@ void BeamModuleAssembler::emit_i_return_time_trace() {
 
     a.tst(ARG2, imm(_CPMASK));
     a.sub(ARG2, ARG2, imm(sizeof(ErtsCodeInfo)));
-    a.csel(ARG2, ARG2, ARG3, arm::Cond::kEQ);
+    a.csel(ARG2, ARG2, ARG3, arm::CondCode::kEQ);
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eStack | Update::eHeap>(1);

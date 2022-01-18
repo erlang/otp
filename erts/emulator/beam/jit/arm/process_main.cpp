@@ -240,7 +240,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.ldr(TMP1.w(), arm::Mem(TMP1));
         a.mov(TMP2, imm(ERTS_SAVE_CALLS_CODE_IX));
         a.cmp(ARG1, ZERO);
-        a.csel(active_code_ix, TMP1, TMP2, arm::Cond::kEQ);
+        a.csel(active_code_ix, TMP1, TMP2, arm::CondCode::kEQ);
 
         /* Start executing the Erlang process. Note that reductions have
          * already been set up above. */

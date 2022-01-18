@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_FUNCARGSCONTEXT_P_H_INCLUDED
 #define ASMJIT_CORE_FUNCARGSCONTEXT_P_H_INCLUDED
@@ -37,37 +19,29 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_core
 //! \{
 
-// ============================================================================
-// [TODO: Place somewhere else]
-// ============================================================================
-
-static inline RegInfo getSuitableRegForMemToMemMove(uint32_t arch, uint32_t dstTypeId, uint32_t srcTypeId) noexcept {
+static inline OperandSignature getSuitableRegForMemToMemMove(Arch arch, TypeId dstTypeId, TypeId srcTypeId) noexcept {
   const ArchTraits& archTraits = ArchTraits::byArch(arch);
 
-  uint32_t dstSize = Type::sizeOf(dstTypeId);
-  uint32_t srcSize = Type::sizeOf(srcTypeId);
+  uint32_t dstSize = TypeUtils::sizeOf(dstTypeId);
+  uint32_t srcSize = TypeUtils::sizeOf(srcTypeId);
   uint32_t maxSize = Support::max<uint32_t>(dstSize, srcSize);
   uint32_t regSize = Environment::registerSizeFromArch(arch);
 
-  uint32_t signature = 0;
-  if (maxSize <= regSize || (Type::isInt(dstTypeId) && Type::isInt(srcTypeId)))
-    signature = maxSize <= 4 ? archTraits.regTypeToSignature(BaseReg::kTypeGp32)
-                             : archTraits.regTypeToSignature(BaseReg::kTypeGp64);
-  else if (maxSize <= 8 && archTraits.hasRegType(BaseReg::kTypeVec64))
-    signature = archTraits.regTypeToSignature(BaseReg::kTypeVec64);
-  else if (maxSize <= 16 && archTraits.hasRegType(BaseReg::kTypeVec128))
-    signature = archTraits.regTypeToSignature(BaseReg::kTypeVec128);
-  else if (maxSize <= 32 && archTraits.hasRegType(BaseReg::kTypeVec256))
-    signature = archTraits.regTypeToSignature(BaseReg::kTypeVec256);
-  else if (maxSize <= 64 && archTraits.hasRegType(BaseReg::kTypeVec512))
-    signature = archTraits.regTypeToSignature(BaseReg::kTypeVec512);
+  OperandSignature signature{0};
+  if (maxSize <= regSize || (TypeUtils::isInt(dstTypeId) && TypeUtils::isInt(srcTypeId)))
+    signature = maxSize <= 4 ? archTraits.regTypeToSignature(RegType::kGp32)
+                             : archTraits.regTypeToSignature(RegType::kGp64);
+  else if (maxSize <= 8 && archTraits.hasRegType(RegType::kVec64))
+    signature = archTraits.regTypeToSignature(RegType::kVec64);
+  else if (maxSize <= 16 && archTraits.hasRegType(RegType::kVec128))
+    signature = archTraits.regTypeToSignature(RegType::kVec128);
+  else if (maxSize <= 32 && archTraits.hasRegType(RegType::kVec256))
+    signature = archTraits.regTypeToSignature(RegType::kVec256);
+  else if (maxSize <= 64 && archTraits.hasRegType(RegType::kVec512))
+    signature = archTraits.regTypeToSignature(RegType::kVec512);
 
-  return RegInfo { signature };
+  return signature;
 }
-
-// ============================================================================
-// [asmjit::FuncArgsContext]
-// ============================================================================
 
 class FuncArgsContext {
 public:
@@ -97,17 +71,17 @@ public:
 
   struct WorkData {
     //! All allocable registers provided by the architecture.
-    uint32_t _archRegs;
+    RegMask _archRegs;
     //! All registers that can be used by the shuffler.
-    uint32_t _workRegs;
+    RegMask _workRegs;
     //! Registers used by the shuffler (all).
-    uint32_t _usedRegs;
+    RegMask _usedRegs;
     //! Assigned registers.
-    uint32_t _assignedRegs;
+    RegMask _assignedRegs;
     //! Destination registers assigned to arguments or SA.
-    uint32_t _dstRegs;
+    RegMask _dstRegs;
     //! Destination registers that require shuffling.
-    uint32_t _dstShuf;
+    RegMask _dstShuf;
     //! Number of register swaps.
     uint8_t _numSwaps;
     //! Number of stack loads.
@@ -173,19 +147,20 @@ public:
       _assignedRegs ^= Support::bitMask(regId);
     }
 
-    inline uint32_t archRegs() const noexcept { return _archRegs; }
-    inline uint32_t workRegs() const noexcept { return _workRegs; }
-    inline uint32_t usedRegs() const noexcept { return _usedRegs; }
-    inline uint32_t assignedRegs() const noexcept { return _assignedRegs; }
-    inline uint32_t dstRegs() const noexcept { return _dstRegs; }
-    inline uint32_t availableRegs() const noexcept { return _workRegs & ~_assignedRegs; }
+    inline RegMask archRegs() const noexcept { return _archRegs; }
+    inline RegMask workRegs() const noexcept { return _workRegs; }
+    inline RegMask usedRegs() const noexcept { return _usedRegs; }
+    inline RegMask assignedRegs() const noexcept { return _assignedRegs; }
+    inline RegMask dstRegs() const noexcept { return _dstRegs; }
+    inline RegMask availableRegs() const noexcept { return _workRegs & ~_assignedRegs; }
   };
 
   //! Architecture traits.
   const ArchTraits* _archTraits = nullptr;
+  //! Architecture constraints.
   const RAConstraints* _constraints = nullptr;
-  //! Architecture identifier.
-  uint8_t _arch = 0;
+  //! Target architecture.
+  Arch _arch = Arch::kUnknown;
   //! Has arguments passed via stack (SRC).
   bool _hasStackSrc = false;
   //! Has preserved frame-pointer (FP).
@@ -196,13 +171,13 @@ public:
   uint8_t _regSwapsMask = 0;
   uint8_t _saVarId = kVarIdNone;
   uint32_t _varCount = 0;
-  WorkData _workData[BaseReg::kGroupVirt];
+  Support::Array<WorkData, Globals::kNumVirtGroups> _workData;
   Var _vars[Globals::kMaxFuncArgs * Globals::kMaxValuePack + 1];
 
   FuncArgsContext() noexcept;
 
   inline const ArchTraits& archTraits() const noexcept { return *_archTraits; }
-  inline uint32_t arch() const noexcept { return _arch; }
+  inline Arch arch() const noexcept { return _arch; }
 
   inline uint32_t varCount() const noexcept { return _varCount; }
   inline size_t indexOf(const Var* var) const noexcept { return (size_t)(var - _vars); }

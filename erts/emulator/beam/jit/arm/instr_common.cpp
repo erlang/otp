@@ -847,7 +847,7 @@ void BeamModuleAssembler::emit_is_list(const ArgVal &Fail, const ArgVal &Src) {
 
     a.tst(src.reg, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.mov(TMP2, NIL);
-    a.ccmp(src.reg, TMP2, 4, arm::Cond::kNE);
+    a.ccmp(src.reg, TMP2, 4, arm::CondCode::kNE);
     a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
 }
 
@@ -907,7 +907,7 @@ void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
         a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
 
         a.mov(TMP3, imm(HEADER_FLONUM));
-        a.ccmp(TMP1, TMP3, 4, arm::Cond::kNE);
+        a.ccmp(TMP1, TMP3, 4, arm::CondCode::kNE);
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
     }
 
@@ -985,7 +985,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
-        a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::Cond::kNE);
+        a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::CondCode::kNE);
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
     }
 }
@@ -1010,7 +1010,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
 
     if (Arity.getValue() < 32) {
         cmp_arg(TMP2, Tag);
-        a.ccmp(TMP1, imm(Arity.getValue()), imm(0), arm::Cond::kEQ);
+        a.ccmp(TMP1, imm(Arity.getValue()), imm(0), arm::CondCode::kEQ);
     } else {
         cmp_arg(TMP1, Arity);
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
@@ -1283,7 +1283,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
     mov_imm(TMP5, HEADER_FLONUM);
     a.cmp(TMP3, TMP5);
-    a.ccmp(TMP4, TMP5, 0, arm::Cond::kEQ);
+    a.ccmp(TMP4, TMP5, 0, arm::CondCode::kEQ);
     a.cond_ne().b(generic_compare);
 
     a.ldur(a64::d0, emit_boxed_val(boxed_ptr1, sizeof(Eterm)));
@@ -1586,7 +1586,7 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, ftrace)));
     mov_imm(TMP3, NIL);
     a.cmp(TMP1, TMP3);
-    a.ccmp(TMP2, TMP3, 0, arm::Cond::kEQ);
+    a.ccmp(TMP2, TMP3, 0, arm::CondCode::kEQ);
     a.cond_eq().b(ok);
 
     comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");

@@ -954,7 +954,7 @@ void BeamModuleAssembler::emit_i_bs_utf8_size(const ArgVal &Src,
     a.cmp(TMP1, imm(0x10000UL));
     mov_imm(TMP2, make_small(3));
     mov_imm(TMP3, make_small(4));
-    a.csel(dst_reg.reg, TMP2, TMP3, arm::Cond::kLO);
+    a.csel(dst_reg.reg, TMP2, TMP3, arm::CondCode::kLO);
 
     a.bind(next);
     flush_var(dst_reg);
@@ -1019,7 +1019,7 @@ void BeamModuleAssembler::emit_i_bs_utf16_size(const ArgVal &Src,
     a.cmp(TMP1, imm(0x10000UL));
     mov_imm(TMP1, make_small(2));
     mov_imm(TMP2, make_small(4));
-    a.csel(dst_reg.reg, TMP1, TMP2, arm::Cond::kLO);
+    a.csel(dst_reg.reg, TMP1, TMP2, arm::CondCode::kLO);
 
     flush_var(dst_reg);
 }
@@ -1193,7 +1193,7 @@ void BeamGlobalAssembler::emit_bs_add_guard_shared() {
 
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::Cond::kEQ));
+    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
     a.cond_ne().b(error);
 
     /* Return `Size` + `Add` * `Unit`
@@ -1221,7 +1221,7 @@ void BeamGlobalAssembler::emit_bs_add_body_shared() {
 
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::Cond::kEQ));
+    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
     a.cond_ne().b(error);
 
     /* Return `Size` + `Add` * `Unit`
@@ -1634,7 +1634,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                 a.cmp(TMP1, imm(0x10000UL));
                 mov_imm(TMP2, 3 * 8);
                 mov_imm(TMP3, 4 * 8);
-                a.csel(TMP2, TMP2, TMP3, arm::Cond::kLO);
+                a.csel(TMP2, TMP2, TMP3, arm::CondCode::kLO);
 
                 a.bind(next);
                 a.add(sizeReg, sizeReg, TMP2);
@@ -1651,7 +1651,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                 a.cmp(TMP1, imm(0x10000UL));
                 mov_imm(TMP1, 2 * 8);
                 mov_imm(TMP2, 4 * 8);
-                a.csel(TMP1, TMP1, TMP2, arm::Cond::kLO);
+                a.csel(TMP1, TMP1, TMP2, arm::CondCode::kLO);
                 a.add(sizeReg, sizeReg, TMP1);
                 break;
             }

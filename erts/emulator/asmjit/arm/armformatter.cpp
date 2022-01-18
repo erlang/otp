@@ -1,32 +1,13 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #ifndef ASMJIT_NO_LOGGING
 
 #include "../core/misc_p.h"
 #include "../core/support.h"
-#include "../arm/armfeatures.h"
 #include "../arm/armformatter_p.h"
 #include "../arm/armoperand.h"
 #include "../arm/a64instdb_p.h"
@@ -37,42 +18,43 @@
 
 ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
-// ============================================================================
-// [asmjit::arm::FormatterInternal - Format Feature]
-// ============================================================================
+// arm::FormatterInternal - Format Feature
+// =======================================
 
 Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept {
-  // @EnumStringBegin{"enum": "arm::Features::Id", "output": "sFeature", "strip": "k"}@
+  // @EnumStringBegin{"enum": "CpuFeatures::ARM", "output": "sFeature", "strip": "k"}@
   static const char sFeatureString[] =
     "None\0"
     "THUMB\0"
     "THUMBv2\0"
     "ARMv6\0"
     "ARMv7\0"
-    "ARMv8\0"
-    "ARMv8_1\0"
-    "ARMv8_2\0"
-    "ARMv8_3\0"
-    "ARMv8_4\0"
-    "ARMv8_5\0"
-    "ARMv8_6\0"
+    "ARMv8a\0"
+    "ARMv8_1a\0"
+    "ARMv8_2a\0"
+    "ARMv8_3a\0"
+    "ARMv8_4a\0"
+    "ARMv8_5a\0"
+    "ARMv8_6a\0"
+    "ARMv8_7a\0"
     "VFPv2\0"
     "VFPv3\0"
     "VFPv4\0"
     "VFP_D32\0"
     "AES\0"
+    "ALTNZCV\0"
     "ASIMD\0"
-    "ATOMICS\0"
     "BF16\0"
+    "BTI\0"
     "CPUID\0"
     "CRC32\0"
     "DGH\0"
+    "DIT\0"
     "DOTPROD\0"
     "EDSP\0"
     "FCMA\0"
     "FJCVTZS\0"
     "FLAGM\0"
-    "FLAGM2\0"
     "FP16CONV\0"
     "FP16FML\0"
     "FP16FULL\0"
@@ -80,9 +62,13 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "I8MM\0"
     "IDIVA\0"
     "IDIVT\0"
+    "LSE\0"
     "MTE\0"
-    "RDMA\0"
+    "RCPC_IMMO\0"
+    "RDM\0"
+    "PMU\0"
     "PMULL\0"
+    "RNG\0"
     "SB\0"
     "SHA1\0"
     "SHA2\0"
@@ -102,22 +88,23 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "SVE2_BITPERM\0"
     "SVE2_SHA3\0"
     "SVE2_SM4\0"
+    "TME\0"
     "<Unknown>\0";
 
   static const uint16_t sFeatureIndex[] = {
-    0, 5, 11, 19, 25, 31, 37, 45, 53, 61, 69, 77, 85, 91, 97, 103, 111, 115,
-    121, 129, 134, 140, 146, 150, 158, 163, 168, 176, 182, 189, 198, 206, 215,
-    221, 226, 232, 238, 242, 247, 253, 256, 261, 266, 271, 278, 282, 286, 291,
-    295, 304, 314, 324, 333, 343, 348, 357, 370, 380, 389
+    0, 5, 11, 19, 25, 31, 38, 47, 56, 65, 74, 83, 92, 101, 107, 113, 119, 127,
+    131, 139, 145, 150, 154, 160, 166, 170, 174, 182, 187, 192, 200, 206, 215,
+    223, 232, 238, 243, 249, 255, 259, 263, 273, 277, 281, 287, 291, 294, 299,
+    304, 309, 316, 320, 324, 329, 333, 342, 352, 362, 371, 381, 386, 395, 408,
+    418, 427, 431
   };
   // @EnumStringEnd@
 
-  return sb.append(sFeatureString + sFeatureIndex[Support::min<uint32_t>(featureId, arm::Features::kCount)]);
+  return sb.append(sFeatureString + sFeatureIndex[Support::min<uint32_t>(featureId, uint32_t(CpuFeatures::ARM::kMaxValue) + 1)]);
 }
 
-// ============================================================================
-// [asmjit::arm::FormatterInternal - Format Constants]
-// ============================================================================
+// arm::FormatterInternal - Format Constants
+// =========================================
 
 ASMJIT_FAVOR_SIZE Error FormatterInternal::formatCondCode(String& sb, uint32_t condCode) noexcept {
   static const char condCodeData[] =
@@ -127,38 +114,42 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatCondCode(String& sb, uint32_t c
   return sb.append(condCodeData + Support::min<uint32_t>(condCode, 16u) * 3);
 }
 
-ASMJIT_FAVOR_SIZE Error FormatterInternal::formatShiftOp(String& sb, uint32_t shiftOp) noexcept {
+ASMJIT_FAVOR_SIZE Error FormatterInternal::formatShiftOp(String& sb, ShiftOp shiftOp) noexcept {
   const char* str = "<Unknown>";
   switch (shiftOp) {
-    case Shift::kOpLSL: str = "lsl"; break;
-    case Shift::kOpLSR: str = "lsr"; break;
-    case Shift::kOpASR: str = "asr"; break;
-    case Shift::kOpROR: str = "ror"; break;
-    case Shift::kOpRRX: str = "rrx"; break;
-    case Shift::kOpUXTB: str = "uxtb"; break;
-    case Shift::kOpUXTH: str = "uxth"; break;
-    case Shift::kOpUXTW: str = "uxtw"; break;
-    case Shift::kOpUXTX: str = "uxtx"; break;
-    case Shift::kOpSXTB: str = "sxtb"; break;
-    case Shift::kOpSXTH: str = "sxth"; break;
-    case Shift::kOpSXTW: str = "sxtw"; break;
-    case Shift::kOpSXTX: str = "sxtx"; break;
+    case ShiftOp::kLSL: str = "lsl"; break;
+    case ShiftOp::kLSR: str = "lsr"; break;
+    case ShiftOp::kASR: str = "asr"; break;
+    case ShiftOp::kROR: str = "ror"; break;
+    case ShiftOp::kRRX: str = "rrx"; break;
+    case ShiftOp::kMSL: str = "msl"; break;
+    case ShiftOp::kUXTB: str = "uxtb"; break;
+    case ShiftOp::kUXTH: str = "uxth"; break;
+    case ShiftOp::kUXTW: str = "uxtw"; break;
+    case ShiftOp::kUXTX: str = "uxtx"; break;
+    case ShiftOp::kSXTB: str = "sxtb"; break;
+    case ShiftOp::kSXTH: str = "sxth"; break;
+    case ShiftOp::kSXTW: str = "sxtw"; break;
+    case ShiftOp::kSXTX: str = "sxtx"; break;
   }
   return sb.append(str);
 }
 
-// ============================================================================
-// [asmjit::arm::FormatterInternal - Format Register]
-// ============================================================================
+// arm::FormatterInternal - Format Register
+// ========================================
 
 ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
-  String& sb, uint32_t flags,
+  String& sb,
+  FormatFlags flags,
   const BaseEmitter* emitter,
-  uint32_t arch,
-  uint32_t rType,
+  Arch arch,
+  RegType regType,
   uint32_t rId,
   uint32_t elementType,
   uint32_t elementIndex) noexcept {
+
+  DebugUtils::unused(flags);
+  DebugUtils::unused(arch);
 
   static const char bhsdq[] = "bhsdq";
 
@@ -166,7 +157,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
 
 #ifndef ASMJIT_NO_COMPILER
   if (Operand::isVirtId(rId)) {
-    if (emitter && emitter->emitterType() == BaseEmitter::kTypeCompiler) {
+    if (emitter && emitter->isCompiler()) {
       const BaseCompiler* cc = static_cast<const BaseCompiler*>(emitter);
       if (cc->isVirtIdValid(rId)) {
         VirtReg* vReg = cc->virtRegById(rId);
@@ -188,8 +179,8 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
 
   if (!virtRegFormatted) {
     char letter = '\0';
-    switch (rType) {
-      case Reg::kTypeGpW:
+    switch (regType) {
+      case RegType::kARM_GpW:
         if (rId == Gp::kIdZr)
           return sb.append("wzr");
         if (rId == Gp::kIdSp)
@@ -198,7 +189,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
         letter = 'w';
         break;
 
-      case Reg::kTypeGpX:
+      case RegType::kARM_GpX:
         if (rId == Gp::kIdZr)
           return sb.append("xzr");
         if (rId == Gp::kIdSp)
@@ -207,18 +198,18 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
         letter = 'x';
         break;
 
-      case Reg::kTypeVecB:
-      case Reg::kTypeVecH:
-      case Reg::kTypeVecS:
-      case Reg::kTypeVecD:
-      case Reg::kTypeVecV:
-        letter = bhsdq[rType - Reg::kTypeVecB];
+      case RegType::kARM_VecB:
+      case RegType::kARM_VecH:
+      case RegType::kARM_VecS:
+      case RegType::kARM_VecD:
+      case RegType::kARM_VecV:
+        letter = bhsdq[uint32_t(regType) - uint32_t(RegType::kARM_VecB)];
         if (elementType)
           letter = 'v';
         break;
 
       default:
-        ASMJIT_PROPAGATE(sb.appendFormat("<Reg-%u>?$u", rType, rId));
+        ASMJIT_PROPAGATE(sb.appendFormat("<Reg-%u>?$u", uint32_t(regType), rId));
         break;
     }
 
@@ -257,7 +248,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
 
     if (elementLetter) {
       if (elementIndex == 0xFFFFFFFFu) {
-        if (rType == Reg::kTypeVecD)
+        if (regType == RegType::kARM_VecD)
           elementCount /= 2u;
         ASMJIT_PROPAGATE(sb.appendFormat(".%u%c", elementCount, elementLetter));
       }
@@ -270,15 +261,14 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::arm::FormatterInternal - Format Operand]
-// ============================================================================
+// arm::FormatterInternal - Format Operand
+// =======================================
 
 ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
   String& sb,
-  uint32_t flags,
+  FormatFlags flags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const Operand_& op) noexcept {
 
   if (op.isReg()) {
@@ -302,10 +292,10 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
         ASMJIT_PROPAGATE(Formatter::formatLabel(sb, flags, emitter, m.baseId()));
       }
       else {
-        uint32_t modifiedFlags = flags;
+        FormatFlags modifiedFlags = flags;
         if (m.isRegHome()) {
           ASMJIT_PROPAGATE(sb.append('&'));
-          modifiedFlags &= ~FormatOptions::kFlagRegCasts;
+          modifiedFlags &= ~FormatFlags::kRegCasts;
         }
         ASMJIT_PROPAGATE(formatRegister(sb, modifiedFlags, emitter, arch, m.baseType(), m.baseId()));
       }
@@ -334,7 +324,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
       int64_t off = int64_t(m.offset());
       uint32_t base = 10;
 
-      if ((flags & FormatOptions::kFlagHexOffsets) != 0 && uint64_t(off) > 9)
+      if (Support::test(flags, FormatFlags::kHexOffsets) && uint64_t(off) > 9)
         base = 16;
 
       if (base == 10) {
@@ -349,7 +339,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
     if (m.hasShift()) {
       ASMJIT_PROPAGATE(sb.append(' '));
       if (!m.isPreOrPost())
-        ASMJIT_PROPAGATE(formatShiftOp(sb, m.predicate()));
+        ASMJIT_PROPAGATE(formatShiftOp(sb, (ShiftOp)m.predicate()));
       ASMJIT_PROPAGATE(sb.appendFormat(" %u", m.shift()));
     }
 
@@ -366,7 +356,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
     const Imm& i = op.as<Imm>();
     int64_t val = i.value();
 
-    if ((flags & FormatOptions::kFlagHexImms) != 0 && uint64_t(val) > 9) {
+    if (Support::test(flags, FormatFlags::kHexImms) && uint64_t(val) > 9) {
       ASMJIT_PROPAGATE(sb.append("0x"));
       return sb.appendUInt(uint64_t(val), 16);
     }
@@ -382,18 +372,17 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
   return sb.append("<None>");
 }
 
-// ============================================================================
-// [asmjit::arm::FormatterInternal - Format Instruction]
-// ============================================================================
+// arm::FormatterInternal - Format Instruction
+// ===========================================
 
 ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
   String& sb,
-  uint32_t flags,
+  FormatFlags flags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept {
 
-  uint32_t instId = inst.id();
+  InstId instId = inst.id();
 
   if (Environment::isArchAArch64(arch)) {
     // Format instruction options and instruction mnemonic.
@@ -402,9 +391,9 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
     else
       ASMJIT_PROPAGATE(sb.appendFormat("[InstId=#%u]", unsigned(instId)));
 
-    if (inst.hasOption(a64::Inst::kOptionCondFlagMask)) {
+    if (inst.hasARMCondFlag()) {
       ASMJIT_PROPAGATE(sb.append('.'));
-      ASMJIT_PROPAGATE(formatCondCode(sb, inst.options() >> a64::Inst::kOptionCondCodeShift));
+      ASMJIT_PROPAGATE(formatCondCode(sb, inst.armCondCode()));
     }
   }
   else {

@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_EMITTERUTILS_P_H_INCLUDED
 #define ASMJIT_CORE_EMITTERUTILS_P_H_INCLUDED
@@ -30,26 +12,26 @@
 ASMJIT_BEGIN_NAMESPACE
 
 class BaseAssembler;
+class FormatOptions;
 
 //! \cond INTERNAL
 //! \addtogroup asmjit_core
 //! \{
 
-// ============================================================================
-// [asmjit::EmitterUtils]
-// ============================================================================
-
+//! Utilities used by various emitters, mostly Assembler implementations.
 namespace EmitterUtils {
 
-static const Operand_ noExt[3] {};
+//! Default paddings used by Emitter utils and Formatter.
 
-enum kOpIndex {
+static constexpr Operand noExt[3];
+
+enum kOpIndex : uint32_t {
   kOp3 = 0,
   kOp4 = 1,
   kOp5 = 2
 };
 
-static ASMJIT_INLINE uint32_t opCountFromEmitArgs(const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt) noexcept {
+static ASMJIT_FORCE_INLINE uint32_t opCountFromEmitArgs(const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt) noexcept {
   uint32_t opCount = 0;
 
   if (opExt[kOp3].isNone()) {
@@ -67,7 +49,7 @@ static ASMJIT_INLINE uint32_t opCountFromEmitArgs(const Operand_& o0, const Oper
   return opCount;
 }
 
-static ASMJIT_INLINE void opArrayFromEmitArgs(Operand_ dst[Globals::kMaxOpCount], const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt) noexcept {
+static ASMJIT_FORCE_INLINE void opArrayFromEmitArgs(Operand_ dst[Globals::kMaxOpCount], const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt) noexcept {
   dst[0].copyFrom(o0);
   dst[1].copyFrom(o1);
   dst[2].copyFrom(o2);
@@ -77,25 +59,23 @@ static ASMJIT_INLINE void opArrayFromEmitArgs(Operand_ dst[Globals::kMaxOpCount]
 }
 
 #ifndef ASMJIT_NO_LOGGING
-enum : uint32_t {
-  // Has to be big to be able to hold all metadata compiler can assign to a
-  // single instruction.
-  kMaxInstLineSize = 44,
-  kMaxBinarySize = 26
-};
-
-Error formatLine(String& sb, const uint8_t* binData, size_t binSize, size_t dispSize, size_t immSize, const char* comment) noexcept;
+Error finishFormattedLine(String& sb, const FormatOptions& formatOptions, const uint8_t* binData, size_t binSize, size_t offsetSize, size_t immSize, const char* comment) noexcept;
 
 void logLabelBound(BaseAssembler* self, const Label& label) noexcept;
 
 void logInstructionEmitted(
   BaseAssembler* self,
-  uint32_t instId, uint32_t options, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt,
+  InstId instId,
+  InstOptions options,
+  const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt,
   uint32_t relSize, uint32_t immSize, uint8_t* afterCursor);
 
 Error logInstructionFailed(
   BaseAssembler* self,
-  Error err, uint32_t instId, uint32_t options, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt);
+  Error err,
+  InstId instId,
+  InstOptions options,
+  const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* opExt);
 #endif
 
 }

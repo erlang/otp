@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #if !defined(ASMJIT_NO_ARM)
@@ -33,9 +15,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 namespace InstDB {
 
-// ============================================================================
-// [asmjit::a64::InstDB - InstInfoTable]
-// ============================================================================
+// a64::InstDB - InstInfoTable
+// ===========================
 
 // Don't store `_nameDataIndex` if instruction names are disabled. Since some
 // APIs can use `_nameDataIndex` it's much safer if it's zero if it's not used.
@@ -92,8 +73,8 @@ const InstInfo _instInfoTable[] = {
   INST(Add              , BaseAddSub         , (0b0001011000, 0b0001011001, 0b0010001)                                               , kRWI_W    , 0                         , 0  , 978 ), // #3
   INST(Addg             , BaseRRII           , (0b1001000110000000000000, kX, kSP, kX, kSP, 6, 4, 16, 4, 0, 10)                      , kRWI_W    , 0                         , 0  , 10  ), // #4
   INST(Adds             , BaseAddSub         , (0b0101011000, 0b0101011001, 0b0110001)                                               , kRWI_W    , 0                         , 1  , 15  ), // #5
-  INST(Adr              , BaseAdr            , (0b0001000000000000000000, OffsetFormat::kTypeAArch64_ADR)                            , kRWI_W    , 0                         , 0  , 25  ), // #6
-  INST(Adrp             , BaseAdr            , (0b1001000000000000000000, OffsetFormat::kTypeAArch64_ADRP)                           , kRWI_W    , 0                         , 1  , 29  ), // #7
+  INST(Adr              , BaseAdr            , (0b0001000000000000000000, OffsetType::kAArch64_ADR)                                  , kRWI_W    , 0                         , 0  , 25  ), // #6
+  INST(Adrp             , BaseAdr            , (0b1001000000000000000000, OffsetType::kAArch64_ADRP)                                 , kRWI_W    , 0                         , 1  , 29  ), // #7
   INST(And              , BaseLogical        , (0b0001010000, 0b00100100, 0)                                                         , kRWI_W    , 0                         , 0  , 57  ), // #8
   INST(Ands             , BaseLogical        , (0b1101010000, 0b11100100, 0)                                                         , kRWI_W    , 0                         , 1  , 61  ), // #9
   INST(Asr              , BaseShift          , (0b0001101011000000001010, 0b0001001100000000011111, 0)                               , kRWI_W    , 0                         , 0  , 66  ), // #10
@@ -119,8 +100,8 @@ const InstInfo _instInfoTable[] = {
   INST(Bfi              , BaseBfi            , (0b00110011000000000000000000000000)                                                  , kRWI_X    , 0                         , 0  , 223 ), // #30
   INST(Bfm              , BaseBfm            , (0b00110011000000000000000000000000)                                                  , kRWI_X    , 0                         , 0  , 2514), // #31
   INST(Bfxil            , BaseBfx            , (0b00110011000000000000000000000000)                                                  , kRWI_X    , 0                         , 0  , 250 ), // #32
-  INST(Bic              , BaseLogical        , (0b0001010001, 0b00000000, 0)                                                         , kRWI_W    , 0                         , 2  , 256 ), // #33
-  INST(Bics             , BaseLogical        , (0b1101010001, 0b00000000, 0)                                                         , kRWI_W    , 0                         , 3  , 260 ), // #34
+  INST(Bic              , BaseLogical        , (0b0001010001, 0b00100100, 1)                                                         , kRWI_W    , 0                         , 2  , 256 ), // #33
+  INST(Bics             , BaseLogical        , (0b1101010001, 0b11100100, 1)                                                         , kRWI_W    , 0                         , 3  , 260 ), // #34
   INST(Bl               , BaseBranchRel      , (0b10010100000000000000000000000000)                                                  , 0         , 0                         , 1  , 2831), // #35
   INST(Blr              , BaseBranchReg      , (0b11010110001111110000000000000000)                                                  , kRWI_R    , 0                         , 0  , 269 ), // #36
   INST(Br               , BaseBranchReg      , (0b11010110000111110000000000000000)                                                  , kRWI_R    , 0                         , 1  , 273 ), // #37
@@ -623,14 +604,14 @@ const InstInfo _instInfoTable[] = {
   INST(Fsqrt_v          , FSimdVV            , (0b0001111000100001110000, kHF_A, 0b0010111010100001111110, kHF_B)                    , kRWI_W    , 0                         , 16 , 1117), // #534
   INST(Fsub_v           , FSimdVVV           , (0b0001111000100000001110, kHF_A, 0b0000111010100000110101, kHF_C)                    , kRWI_W    , 0                         , 12 , 1123), // #535
   INST(Ins_v            , SimdIns            , (_)                                                                                   , kRWI_X    , 0                         , 0  , 1145), // #536
-  INST(Ld1_v            , SimdLdNStN         , (0b0000110101000000000000, 0b0000110001000000001000, 1, 0)                            , kRWI_LDn  , 0                         , 0  , 1153), // #537
-  INST(Ld1r_v           , SimdLdNStN         , (0b0000110101000000110000, 0b0000000000000000000000, 1, 1)                            , kRWI_LDn  , 0                         , 1  , 1157), // #538
-  INST(Ld2_v            , SimdLdNStN         , (0b0000110101100000000000, 0b0000110001000000100000, 2, 0)                            , kRWI_LDn  , 0                         , 2  , 1162), // #539
-  INST(Ld2r_v           , SimdLdNStN         , (0b0000110101100000110000, 0b0000000000000000000000, 2, 1)                            , kRWI_LDn  , 0                         , 3  , 1166), // #540
-  INST(Ld3_v            , SimdLdNStN         , (0b0000110101000000001000, 0b0000110001000000010000, 3, 0)                            , kRWI_LDn  , 0                         , 4  , 1171), // #541
-  INST(Ld3r_v           , SimdLdNStN         , (0b0000110101000000111000, 0b0000000000000000000000, 3, 1)                            , kRWI_LDn  , 0                         , 5  , 1175), // #542
-  INST(Ld4_v            , SimdLdNStN         , (0b0000110101100000001000, 0b0000110001000000000000, 4, 0)                            , kRWI_LDn  , 0                         , 6  , 1180), // #543
-  INST(Ld4r_v           , SimdLdNStN         , (0b0000110101100000111000, 0b0000000000000000000000, 4, 1)                            , kRWI_LDn  , 0                         , 7  , 1184), // #544
+  INST(Ld1_v            , SimdLdNStN         , (0b0000110101000000000000, 0b0000110001000000001000, 1, 0)                            , kRWI_LDn  , F(Consecutive)            , 0  , 1153), // #537
+  INST(Ld1r_v           , SimdLdNStN         , (0b0000110101000000110000, 0b0000000000000000000000, 1, 1)                            , kRWI_LDn  , F(Consecutive)            , 1  , 1157), // #538
+  INST(Ld2_v            , SimdLdNStN         , (0b0000110101100000000000, 0b0000110001000000100000, 2, 0)                            , kRWI_LDn  , F(Consecutive)            , 2  , 1162), // #539
+  INST(Ld2r_v           , SimdLdNStN         , (0b0000110101100000110000, 0b0000000000000000000000, 2, 1)                            , kRWI_LDn  , F(Consecutive)            , 3  , 1166), // #540
+  INST(Ld3_v            , SimdLdNStN         , (0b0000110101000000001000, 0b0000110001000000010000, 3, 0)                            , kRWI_LDn  , F(Consecutive)            , 4  , 1171), // #541
+  INST(Ld3r_v           , SimdLdNStN         , (0b0000110101000000111000, 0b0000000000000000000000, 3, 1)                            , kRWI_LDn  , F(Consecutive)            , 5  , 1175), // #542
+  INST(Ld4_v            , SimdLdNStN         , (0b0000110101100000001000, 0b0000110001000000000000, 4, 0)                            , kRWI_LDn  , F(Consecutive)            , 6  , 1180), // #543
+  INST(Ld4r_v           , SimdLdNStN         , (0b0000110101100000111000, 0b0000000000000000000000, 4, 1)                            , kRWI_LDn  , F(Consecutive)            , 7  , 1184), // #544
   INST(Ldnp_v           , SimdLdpStp         , (0b0010110001, 0b0000000000)                                                          , kRWI_WW   , 0                         , 0  , 1537), // #545
   INST(Ldp_v            , SimdLdpStp         , (0b0010110101, 0b0010110011)                                                          , kRWI_WW   , 0                         , 1  , 1542), // #546
   INST(Ldr_v            , SimdLdSt           , (0b0011110101, 0b00111100010, 0b00111100011, 0b00011100, Inst::kIdLdur_v)             , kRWI_W    , 0                         , 0  , 1552), // #547
@@ -763,10 +744,10 @@ const InstInfo _instInfoTable[] = {
   INST(Ssubl2_v         , ISimdVVV           , (0b0100111000100000001000, kVO_V_B16H8S4)                                             , kRWI_W    , F(Long)                   , 36 , 3136), // #674
   INST(Ssubw_v          , ISimdWWV           , (0b0000111000100000001100, kVO_V_B8H4S2)                                              , kRWI_W    , 0                         , 2  , 3143), // #675
   INST(Ssubw2_v         , ISimdWWV           , (0b0000111000100000001100, kVO_V_B16H8S4)                                             , kRWI_X    , 0                         , 3  , 3149), // #676
-  INST(St1_v            , SimdLdNStN         , (0b0000110100000000000000, 0b0000110000000000001000, 1, 0)                            , kRWI_STn  , 0                         , 8  , 3156), // #677
-  INST(St2_v            , SimdLdNStN         , (0b0000110100100000000000, 0b0000110000000000100000, 2, 0)                            , kRWI_STn  , 0                         , 9  , 3160), // #678
-  INST(St3_v            , SimdLdNStN         , (0b0000110100000000001000, 0b0000110000000000010000, 3, 0)                            , kRWI_STn  , 0                         , 10 , 3169), // #679
-  INST(St4_v            , SimdLdNStN         , (0b0000110100100000001000, 0b0000110000000000000000, 4, 0)                            , kRWI_STn  , 0                         , 11 , 3173), // #680
+  INST(St1_v            , SimdLdNStN         , (0b0000110100000000000000, 0b0000110000000000001000, 1, 0)                            , kRWI_STn  , F(Consecutive)            , 8  , 3156), // #677
+  INST(St2_v            , SimdLdNStN         , (0b0000110100100000000000, 0b0000110000000000100000, 2, 0)                            , kRWI_STn  , F(Consecutive)            , 9  , 3160), // #678
+  INST(St3_v            , SimdLdNStN         , (0b0000110100000000001000, 0b0000110000000000010000, 3, 0)                            , kRWI_STn  , F(Consecutive)            , 10 , 3169), // #679
+  INST(St4_v            , SimdLdNStN         , (0b0000110100100000001000, 0b0000110000000000000000, 4, 0)                            , kRWI_STn  , F(Consecutive)            , 11 , 3173), // #680
   INST(Stnp_v           , SimdLdpStp         , (0b0010110000, 0b0000000000)                                                          , kRWI_RRW  , 0                         , 2  , 3383), // #681
   INST(Stp_v            , SimdLdpStp         , (0b0010110100, 0b0010110010)                                                          , kRWI_RRW  , 0                         , 3  , 3388), // #682
   INST(Str_v            , SimdLdSt           , (0b0011110100, 0b00111100000, 0b00111100001, 0b00000000, Inst::kIdStur_v)             , kRWI_RW   , 0                         , 1  , 3392), // #683
@@ -869,8 +850,8 @@ const BaseAddSub baseAddSub[4] = {
 };
 
 const BaseAdr baseAdr[2] = {
-  { 0b0001000000000000000000, OffsetFormat::kTypeAArch64_ADR }, // adr
-  { 0b1001000000000000000000, OffsetFormat::kTypeAArch64_ADRP }  // adrp
+  { 0b0001000000000000000000, OffsetType::kAArch64_ADR }, // adr
+  { 0b1001000000000000000000, OffsetType::kAArch64_ADRP }  // adrp
 };
 
 const BaseAtDcIcTlbi baseAtDcIcTlbi[4] = {
@@ -1176,8 +1157,8 @@ const BaseLdxp baseLdxp[2] = {
 const BaseLogical baseLogical[8] = {
   { 0b0001010000, 0b00100100, 0 }, // and
   { 0b1101010000, 0b11100100, 0 }, // ands
-  { 0b0001010001, 0b00000000, 0 }, // bic
-  { 0b1101010001, 0b00000000, 0 }, // bics
+  { 0b0001010001, 0b00100100, 1 }, // bic
+  { 0b1101010001, 0b11100100, 1 }, // bics
   { 0b1001010001, 0b10100100, 1 }, // eon
   { 0b1001010000, 0b10100100, 0 }, // eor
   { 0b0101010001, 0b01100100, 1 }, // orn
@@ -1868,9 +1849,8 @@ const InstDB::CommonInfo InstDB::commonData[] = {
 // ${CommonData:End}
 */
 
-// ============================================================================
-// [asmjit::ArmUtil - Id <-> Name]
-// ============================================================================
+// ArmUtil - Id <-> Name
+// =====================
 
 #ifndef ASMJIT_DISABLE_TEXT
 // ${NameData:Begin}

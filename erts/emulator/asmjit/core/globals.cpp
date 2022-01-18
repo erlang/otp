@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/globals.h"
@@ -27,9 +9,8 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::DebugUtils]
-// ============================================================================
+// DebugUtils - Error As String
+// ============================
 
 ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
 #ifndef ASMJIT_NO_TEXT
@@ -54,7 +35,6 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
     "LabelNameTooLong\0"
     "InvalidLabelName\0"
     "InvalidParentLabel\0"
-    "NonLocalLabelCannotHaveParent\0"
     "InvalidSection\0"
     "TooManySections\0"
     "InvalidSectionName\0"
@@ -97,6 +77,7 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
     "InvalidUseOfGpq\0"
     "InvalidUseOfF80\0"
     "NotConsecutiveRegs\0"
+    "ConsecutiveRegsAllocation\0"
     "IllegalVirtReg\0"
     "TooManyVirtRegs\0"
     "NoMorePhysRegs\0"
@@ -109,10 +90,10 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
 
   static const uint16_t sErrorIndex[] = {
     0, 3, 15, 31, 44, 56, 71, 90, 108, 123, 132, 148, 165, 178, 192, 210, 230,
-    247, 264, 283, 313, 328, 344, 363, 382, 400, 422, 440, 459, 474, 490, 504,
-    518, 538, 563, 581, 603, 625, 642, 659, 675, 691, 707, 724, 739, 754, 774,
-    794, 814, 847, 867, 882, 899, 918, 939, 959, 973, 994, 1008, 1026, 1042,
-    1058, 1077, 1092, 1108, 1123, 1138, 1168, 1192, 1211, 1239
+    247, 264, 283, 298, 314, 333, 352, 370, 392, 410, 429, 444, 460, 474, 488,
+    508, 533, 551, 573, 595, 612, 629, 645, 661, 677, 694, 709, 724, 744, 764,
+    784, 817, 837, 852, 869, 888, 909, 929, 943, 964, 978, 996, 1012, 1028, 1047,
+    1073, 1088, 1104, 1119, 1134, 1164, 1188, 1207, 1235
   };
   // @EnumStringEnd@
 
@@ -124,6 +105,9 @@ ASMJIT_FAVOR_SIZE const char* DebugUtils::errorAsString(Error err) noexcept {
 #endif
 }
 
+// DebugUtils - Debug Output
+// =========================
+
 ASMJIT_FAVOR_SIZE void DebugUtils::debugOutput(const char* str) noexcept {
 #if defined(_WIN32)
   ::OutputDebugStringA(str);
@@ -131,6 +115,9 @@ ASMJIT_FAVOR_SIZE void DebugUtils::debugOutput(const char* str) noexcept {
   ::fputs(str, stderr);
 #endif
 }
+
+// DebugUtils - Fatal Errors
+// =========================
 
 ASMJIT_FAVOR_SIZE void DebugUtils::assertionFailed(const char* file, int line, const char* msg) noexcept {
   char str[1024];

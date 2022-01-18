@@ -1011,7 +1011,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
         emit_enter_frame();
         a.short_().jmp(dispatch); /* call_op */
 
-        a.align(kAlignCode, 8);
+        a.align(AlignMode::kCode, 8);
         /* ErtsNativeFunc.dfunc */
         a.embedUInt64(Func.getValue());
         /* ErtsNativeFunc.m */

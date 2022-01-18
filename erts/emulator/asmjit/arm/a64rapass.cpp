@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #if !defined(ASMJIT_NO_ARM) && !defined(ASMJIT_NO_COMPILER)
@@ -36,13 +18,12 @@
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - Helpers]
-// ============================================================================
+// a64::ARMRAPass - Helpers
+// ========================
 
 // TODO: [ARM] These should be shared with all backends.
-
-static ASMJIT_INLINE uint64_t raImmMaskFromSize(uint32_t size) noexcept {
+ASMJIT_MAYBE_UNUSED
+static inline uint64_t raImmMaskFromSize(uint32_t size) noexcept {
   ASMJIT_ASSERT(size > 0 && size < 256);
   static const uint64_t masks[] = {
     0x00000000000000FFu, //   1
@@ -58,37 +39,44 @@ static ASMJIT_INLINE uint64_t raImmMaskFromSize(uint32_t size) noexcept {
   return masks[Support::ctz(size)];
 }
 
-static ASMJIT_INLINE uint32_t raUseOutFlagsFromRWFlags(uint32_t rwFlags) noexcept {
-  static const uint32_t map[] = {
-    0,
-    RATiedReg::kRead  | RATiedReg::kUse, // kRead
-    RATiedReg::kWrite | RATiedReg::kOut, // kWrite
-    RATiedReg::kRW    | RATiedReg::kUse, // kRW
+static const RegMask raConsecutiveLeadCountToRegMaskFilter[5] = {
+  0xFFFFFFFFu, // [0] No consecutive.
+  0x00000000u, // [1] Invalid, never used.
+  0x7FFFFFFFu, // [2] 2 consecutive registers.
+  0x3FFFFFFFu, // [3] 3 consecutive registers.
+  0x1FFFFFFFu  // [4] 4 consecutive registers.
+};
+
+static inline RATiedFlags raUseOutFlagsFromRWFlags(OpRWFlags rwFlags) noexcept {
+  static constexpr RATiedFlags map[] = {
+    RATiedFlags::kNone,
+    RATiedFlags::kRead  | RATiedFlags::kUse, // kRead
+    RATiedFlags::kWrite | RATiedFlags::kOut, // kWrite
+    RATiedFlags::kRW    | RATiedFlags::kUse, // kRW
   };
 
-  return map[rwFlags & OpRWInfo::kRW];
+  return map[uint32_t(rwFlags & OpRWFlags::kRW)];
 }
 
-static ASMJIT_INLINE uint32_t raRegRwFlags(uint32_t flags) noexcept {
+static inline RATiedFlags raRegRwFlags(OpRWFlags flags) noexcept {
   return raUseOutFlagsFromRWFlags(flags);
 }
 
-static ASMJIT_INLINE uint32_t raMemBaseRwFlags(uint32_t flags) noexcept {
-  constexpr uint32_t shift = Support::constCtz(OpRWInfo::kMemBaseRW);
-  return raUseOutFlagsFromRWFlags((flags >> shift) & OpRWInfo::kRW);
+static inline RATiedFlags raMemBaseRwFlags(OpRWFlags flags) noexcept {
+  constexpr uint32_t shift = Support::ConstCTZ<uint32_t(OpRWFlags::kMemBaseRW)>::value;
+  return raUseOutFlagsFromRWFlags(OpRWFlags(uint32_t(flags) >> shift) & OpRWFlags::kRW);
 }
 
-static ASMJIT_INLINE uint32_t raMemIndexRwFlags(uint32_t flags) noexcept {
-  constexpr uint32_t shift = Support::constCtz(OpRWInfo::kMemIndexRW);
-  return raUseOutFlagsFromRWFlags((flags >> shift) & OpRWInfo::kRW);
+static inline RATiedFlags raMemIndexRwFlags(OpRWFlags flags) noexcept {
+  constexpr uint32_t shift = Support::ConstCTZ<uint32_t(OpRWFlags::kMemIndexRW)>::value;
+  return raUseOutFlagsFromRWFlags(OpRWFlags(uint32_t(flags) >> shift) & OpRWFlags::kRW);
 }
-// ============================================================================
-// [asmjit::a64::RACFGBuilder]
-// ============================================================================
+// a64::RACFGBuilder
+// =================
 
 class RACFGBuilder : public RACFGBuilderT<RACFGBuilder> {
 public:
-  uint32_t _arch;
+  Arch _arch;
 
   inline RACFGBuilder(ARMRAPass* pass) noexcept
     : RACFGBuilderT<RACFGBuilder>(pass),
@@ -96,7 +84,7 @@ public:
 
   inline Compiler* cc() const noexcept { return static_cast<Compiler*>(_cc); }
 
-  Error onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder& ib) noexcept;
+  Error onInst(InstNode* inst, InstControlFlow& controlType, RAInstBuilder& ib) noexcept;
 
   Error onBeforeInvoke(InvokeNode* invokeNode) noexcept;
   Error onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept;
@@ -109,38 +97,37 @@ public:
   Error onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept;
 };
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - OnInst]
-// ============================================================================
+// a64::RACFGBuilder - OnInst
+// ==========================
 
 // TODO: [ARM] This is just a workaround...
-static uint32_t getControlType(uint32_t instId, uint32_t options) noexcept {
+static InstControlFlow getControlFlowType(InstId instId, InstOptions options) noexcept {
   switch (instId) {
     case Inst::kIdB:
     case Inst::kIdBr:
-      if (options & Inst::kOptionCondFlagMask)
-        return BaseInst::kControlBranch;
+      if (Support::test(options, InstOptions::kARM_CondFlagMask))
+        return InstControlFlow::kBranch;
       else
-        return BaseInst::kControlJump;
+        return InstControlFlow::kJump;
     case Inst::kIdBl:
     case Inst::kIdBlr:
-      return BaseInst::kControlCall;
+      return InstControlFlow::kCall;
     case Inst::kIdCbz:
     case Inst::kIdCbnz:
     case Inst::kIdTbz:
     case Inst::kIdTbnz:
-      return BaseInst::kControlBranch;
+      return InstControlFlow::kBranch;
     case Inst::kIdRet:
-      return BaseInst::kControlReturn;
+      return InstControlFlow::kReturn;
     default:
-      return BaseInst::kControlNone;
+      return InstControlFlow::kRegular;
   }
 }
 
-Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder& ib) noexcept {
+Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstBuilder& ib) noexcept {
   InstRWInfo rwInfo;
 
-  uint32_t instId = inst->id();
+  InstId instId = inst->id();
   if (Inst::isDefinedId(instId)) {
     uint32_t opCount = inst->opCount();
     const Operand* opArray = inst->operands();
@@ -150,6 +137,9 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
     uint32_t singleRegOps = 0;
 
     if (opCount) {
+      uint32_t consecutiveOffset = 0xFFFFFFFFu;
+      uint32_t consecutiveParent = Globals::kInvalidId;
+
       for (uint32_t i = 0; i < opCount; i++) {
         const Operand& op = opArray[i];
         const OpRWInfo& opRwInfo = rwInfo.operand(i);
@@ -159,25 +149,26 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
           // ----------------
           const Reg& reg = op.as<Reg>();
 
-          uint32_t flags = raRegRwFlags(opRwInfo.opFlags());
+          RATiedFlags flags = raRegRwFlags(opRwInfo.opFlags());
           uint32_t vIndex = Operand::virtIdToIndex(reg.id());
 
           if (vIndex < Operand::kVirtIdCount) {
             RAWorkReg* workReg;
             ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(vIndex, &workReg));
 
-            // Use RW instead of Write in case that not the whole register is
-            // overwritten. This is important for liveness as we cannot kill a
-            // register that will be used.
-            if ((flags & RATiedReg::kRW) == RATiedReg::kWrite) {
+            // Use RW instead of Write in case that not the whole register is overwritten. This is important for
+            // liveness as we cannot kill a register that will be used.
+            if ((flags & RATiedFlags::kRW) == RATiedFlags::kWrite) {
               if (workReg->regByteMask() & ~(opRwInfo.writeByteMask() | opRwInfo.extendByteMask())) {
                 // Not write-only operation.
-                flags = (flags & ~RATiedReg::kOut) | (RATiedReg::kRead | RATiedReg::kUse);
+                flags = (flags & ~RATiedFlags::kOut) | (RATiedFlags::kRead | RATiedFlags::kUse);
               }
             }
 
-            uint32_t group = workReg->group();
-            uint32_t allocable = _pass->_availableRegs[group];
+            RegGroup group = workReg->group();
+
+            RegMask useRegs = _pass->_availableRegs[group];
+            RegMask outRegs = useRegs;
 
             uint32_t useId = BaseReg::kIdBad;
             uint32_t outId = BaseReg::kIdBad;
@@ -185,18 +176,51 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
             uint32_t useRewriteMask = 0;
             uint32_t outRewriteMask = 0;
 
-            if (flags & RATiedReg::kUse) {
+            if (opRwInfo.consecutiveLeadCount()) {
+              // There must be a single consecutive register lead, otherwise the RW data is invalid.
+              if (consecutiveOffset != 0xFFFFFFFFu)
+                return DebugUtils::errored(kErrorInvalidState);
+
+              // A consecutive lead register cannot be used as a consecutive +1/+2/+3 register, the registers must be distinct.
+              if (RATiedReg::consecutiveDataFromFlags(flags) != 0)
+                return DebugUtils::errored(kErrorNotConsecutiveRegs);
+
+              flags |= RATiedFlags::kLeadConsecutive | RATiedReg::consecutiveDataToFlags(opRwInfo.consecutiveLeadCount() - 1);
+              consecutiveOffset = 0;
+
+              RegMask filter = raConsecutiveLeadCountToRegMaskFilter[opRwInfo.consecutiveLeadCount()];
+              if (Support::test(flags, RATiedFlags::kUse)) {
+                flags |= RATiedFlags::kUseConsecutive;
+                useRegs &= filter;
+              }
+              else {
+                flags |= RATiedFlags::kOutConsecutive;
+                outRegs &= filter;
+              }
+            }
+
+            if (Support::test(flags, RATiedFlags::kUse)) {
               useRewriteMask = Support::bitMask(inst->getRewriteIndex(&reg._baseId));
-              if (opRwInfo.opFlags() & OpRWInfo::kRegPhysId) {
+              if (opRwInfo.hasOpFlag(OpRWFlags::kRegPhysId)) {
                 useId = opRwInfo.physId();
-                flags |= RATiedReg::kUseFixed;
+                flags |= RATiedFlags::kUseFixed;
+              }
+              else if (opRwInfo.hasOpFlag(OpRWFlags::kConsecutive)) {
+                if (consecutiveOffset == 0xFFFFFFFFu)
+                  return DebugUtils::errored(kErrorInvalidState);
+                flags |= RATiedFlags::kUseConsecutive | RATiedReg::consecutiveDataToFlags(++consecutiveOffset);
               }
             }
             else {
               outRewriteMask = Support::bitMask(inst->getRewriteIndex(&reg._baseId));
-              if (opRwInfo.opFlags() & OpRWInfo::kRegPhysId) {
+              if (opRwInfo.hasOpFlag(OpRWFlags::kRegPhysId)) {
                 outId = opRwInfo.physId();
-                flags |= RATiedReg::kOutFixed;
+                flags |= RATiedFlags::kOutFixed;
+              }
+              else if (opRwInfo.hasOpFlag(OpRWFlags::kConsecutive)) {
+                if (consecutiveOffset == 0xFFFFFFFFu)
+                  return DebugUtils::errored(kErrorInvalidState);
+                flags |= RATiedFlags::kOutConsecutive | RATiedReg::consecutiveDataToFlags(++consecutiveOffset);
               }
             }
 
@@ -205,20 +229,25 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
               // Only the first 0..15 registers can be used if the register uses
               // element accessor that accesses half-words (h[0..7] elements).
               if (instInfo.hasFlag(InstDB::kInstFlagVH0_15) && reg.as<Vec>().elementType() == Vec::kElementTypeH) {
-                allocable &= 0xF;
+                if (Support::test(flags, RATiedFlags::kUse))
+                  useId &= 0x0000FFFFu;
+                else
+                  outId &= 0x0000FFFFu;
               }
             }
 
-            ASMJIT_PROPAGATE(ib.add(workReg, flags, allocable, useId, useRewriteMask, outId, outRewriteMask, opRwInfo.rmSize()));
+            ASMJIT_PROPAGATE(ib.add(workReg, flags, useRegs, useId, useRewriteMask, outRegs, outId, outRewriteMask, opRwInfo.rmSize(), consecutiveParent));
             if (singleRegOps == i)
               singleRegOps++;
+
+            if (Support::test(flags, RATiedFlags::kLeadConsecutive | RATiedFlags::kUseConsecutive | RATiedFlags::kOutConsecutive))
+              consecutiveParent = workReg->workId();
           }
         }
         else if (op.isMem()) {
           // Memory Operand
           // --------------
           const Mem& mem = op.as<Mem>();
-          ib.addForbiddenFlags(RATiedReg::kUseRM | RATiedReg::kOutRM);
 
           if (mem.isRegHome()) {
             RAWorkReg* workReg;
@@ -231,22 +260,23 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
               RAWorkReg* workReg;
               ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(vIndex, &workReg));
 
-              uint32_t flags = raMemBaseRwFlags(opRwInfo.opFlags());
-              uint32_t group = workReg->group();
-              uint32_t allocable = _pass->_availableRegs[group];
+              RATiedFlags flags = raMemBaseRwFlags(opRwInfo.opFlags());
+              RegGroup group = workReg->group();
+              RegMask allocable = _pass->_availableRegs[group];
 
-              uint32_t useId = BaseReg::kIdBad;
-              uint32_t outId = BaseReg::kIdBad;
+              // Base registers have never fixed id on ARM.
+              const uint32_t useId = BaseReg::kIdBad;
+              const uint32_t outId = BaseReg::kIdBad;
 
               uint32_t useRewriteMask = 0;
               uint32_t outRewriteMask = 0;
 
-              if (flags & RATiedReg::kUse)
+              if (Support::test(flags, RATiedFlags::kUse))
                 useRewriteMask = Support::bitMask(inst->getRewriteIndex(&mem._baseId));
               else
                 outRewriteMask = Support::bitMask(inst->getRewriteIndex(&mem._baseId));
 
-              ASMJIT_PROPAGATE(ib.add(workReg, flags, allocable, useId, useRewriteMask, outId, outRewriteMask));
+              ASMJIT_PROPAGATE(ib.add(workReg, flags, allocable, useId, useRewriteMask, allocable, outId, outRewriteMask));
             }
           }
 
@@ -256,39 +286,37 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
               RAWorkReg* workReg;
               ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(vIndex, &workReg));
 
-              uint32_t flags = raMemIndexRwFlags(opRwInfo.opFlags());
-              uint32_t group = workReg->group();
-              uint32_t allocable = _pass->_availableRegs[group];
+              RATiedFlags flags = raMemIndexRwFlags(opRwInfo.opFlags());
+              RegGroup group = workReg->group();
+              RegMask allocable = _pass->_availableRegs[group];
 
-              // Index registers have never fixed id on X86/x64.
+              // Index registers have never fixed id on ARM.
               const uint32_t useId = BaseReg::kIdBad;
               const uint32_t outId = BaseReg::kIdBad;
 
               uint32_t useRewriteMask = 0;
               uint32_t outRewriteMask = 0;
 
-              if (flags & RATiedReg::kUse)
+              if (Support::test(flags, RATiedFlags::kUse))
                 useRewriteMask = Support::bitMask(inst->getRewriteIndex(&mem._data[Operand::kDataMemIndexId]));
               else
                 outRewriteMask = Support::bitMask(inst->getRewriteIndex(&mem._data[Operand::kDataMemIndexId]));
 
-              ASMJIT_PROPAGATE(ib.add(workReg, RATiedReg::kUse | RATiedReg::kRead, allocable, useId, useRewriteMask, outId, outRewriteMask));
+              ASMJIT_PROPAGATE(ib.add(workReg, RATiedFlags::kUse | RATiedFlags::kRead, allocable, useId, useRewriteMask, allocable, outId, outRewriteMask));
             }
           }
         }
       }
     }
 
-    // controlType = instInfo.controlType();
-    controlType = getControlType(instId, inst->instOptions());
+    controlType = getControlFlowType(instId, inst->options());
   }
 
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - OnInvoke]
-// ============================================================================
+// a64::RACFGBuilder - OnInvoke
+// ============================
 
 Error RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
   const FuncDetail& fd = invokeNode->detail();
@@ -314,8 +342,8 @@ Error RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
         ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(Operand::virtIdToIndex(reg.id()), &workReg));
 
         if (arg.isReg()) {
-          uint32_t regGroup = workReg->group();
-          uint32_t argGroup = Reg::groupOf(arg.regType());
+          RegGroup regGroup = workReg->group();
+          RegGroup argGroup = Reg::groupOf(arg.regType());
 
           if (regGroup != argGroup) {
             // TODO: [ARM] Conversion is not supported.
@@ -354,8 +382,8 @@ Error RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
         ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(Operand::virtIdToIndex(reg.id()), &workReg));
 
         if (ret.isReg()) {
-          uint32_t regGroup = workReg->group();
-          uint32_t retGroup = Reg::groupOf(ret.regType());
+          RegGroup regGroup = workReg->group();
+          RegGroup retGroup = Reg::groupOf(ret.regType());
 
           if (regGroup != retGroup) {
             // TODO: [ARM] Conversion is not supported.
@@ -367,8 +395,8 @@ Error RACFGBuilder::onBeforeInvoke(InvokeNode* invokeNode) noexcept {
   }
 
   // This block has function call(s).
-  _curBlock->addFlags(RABlock::kFlagHasFuncCalls);
-  _pass->func()->frame().addAttributes(FuncFrame::kAttrHasFuncCalls);
+  _curBlock->addFlags(RABlockFlags::kHasFuncCalls);
+  _pass->func()->frame().addAttributes(FuncAttributes::kHasFuncCalls);
   _pass->func()->frame().updateCallStackSize(fd.argStackSize());
 
   return kErrorOk;
@@ -396,14 +424,14 @@ Error RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept
         ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(Operand::virtIdToIndex(reg.id()), &workReg));
 
         if (arg.isIndirect()) {
-          uint32_t regGroup = workReg->group();
-          if (regGroup != BaseReg::kGroupGp)
+          RegGroup regGroup = workReg->group();
+          if (regGroup != RegGroup::kGp)
             return DebugUtils::errored(kErrorInvalidState);
           ASMJIT_PROPAGATE(ib.addCallArg(workReg, arg.regId()));
         }
         else if (arg.isReg()) {
-          uint32_t regGroup = workReg->group();
-          uint32_t argGroup = Reg::groupOf(arg.regType());
+          RegGroup regGroup = workReg->group();
+          RegGroup argGroup = Reg::groupOf(arg.regType());
 
           if (regGroup == argGroup) {
             ASMJIT_PROPAGATE(ib.addCallArg(workReg, arg.regId()));
@@ -425,8 +453,8 @@ Error RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept
       ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(Operand::virtIdToIndex(reg.id()), &workReg));
 
       if (ret.isReg()) {
-        uint32_t regGroup = workReg->group();
-        uint32_t retGroup = Reg::groupOf(ret.regType());
+        RegGroup regGroup = workReg->group();
+        RegGroup retGroup = Reg::groupOf(ret.regType());
 
         if (regGroup == retGroup) {
           ASMJIT_PROPAGATE(ib.addCallRet(workReg, ret.regId()));
@@ -439,47 +467,45 @@ Error RACFGBuilder::onInvoke(InvokeNode* invokeNode, RAInstBuilder& ib) noexcept
   }
 
   // Setup clobbered registers.
-  ib._clobbered[0] = Support::lsbMask<uint32_t>(_pass->_physRegCount[0]) & ~fd.preservedRegs(0);
-  ib._clobbered[1] = Support::lsbMask<uint32_t>(_pass->_physRegCount[1]) & ~fd.preservedRegs(1);
-  ib._clobbered[2] = Support::lsbMask<uint32_t>(_pass->_physRegCount[2]) & ~fd.preservedRegs(2);
-  ib._clobbered[3] = Support::lsbMask<uint32_t>(_pass->_physRegCount[3]) & ~fd.preservedRegs(3);
+  ib._clobbered[0] = Support::lsbMask<RegMask>(_pass->_physRegCount[RegGroup(0)]) & ~fd.preservedRegs(RegGroup(0));
+  ib._clobbered[1] = Support::lsbMask<RegMask>(_pass->_physRegCount[RegGroup(1)]) & ~fd.preservedRegs(RegGroup(1));
+  ib._clobbered[2] = Support::lsbMask<RegMask>(_pass->_physRegCount[RegGroup(2)]) & ~fd.preservedRegs(RegGroup(2));
+  ib._clobbered[3] = Support::lsbMask<RegMask>(_pass->_physRegCount[RegGroup(3)]) & ~fd.preservedRegs(RegGroup(3));
 
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - MoveImmToRegArg]
-// ============================================================================
+// a64::RACFGBuilder - MoveImmToRegArg
+// ===================================
 
 Error RACFGBuilder::moveImmToRegArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_, BaseReg* out) noexcept {
   DebugUtils::unused(invokeNode);
   ASMJIT_ASSERT(arg.isReg());
 
   Imm imm(imm_);
-  uint32_t rTypeId = Type::kIdVoid;
+  TypeId typeId = TypeId::kVoid;
 
   switch (arg.typeId()) {
-    case Type::kIdI8 : rTypeId = Type::kIdU64; imm.signExtend8Bits(); break;
-    case Type::kIdU8 : rTypeId = Type::kIdU64; imm.zeroExtend8Bits(); break;
-    case Type::kIdI16: rTypeId = Type::kIdU64; imm.signExtend16Bits(); break;
-    case Type::kIdU16: rTypeId = Type::kIdU64; imm.zeroExtend16Bits(); break;
-    case Type::kIdI32: rTypeId = Type::kIdU64; imm.signExtend32Bits(); break;
-    case Type::kIdU32: rTypeId = Type::kIdU64; imm.zeroExtend32Bits(); break;
-    case Type::kIdI64: rTypeId = Type::kIdU64; break;
-    case Type::kIdU64: rTypeId = Type::kIdU64; break;
+    case TypeId::kInt8  : typeId = TypeId::kUInt64; imm.signExtend8Bits(); break;
+    case TypeId::kUInt8 : typeId = TypeId::kUInt64; imm.zeroExtend8Bits(); break;
+    case TypeId::kInt16 : typeId = TypeId::kUInt64; imm.signExtend16Bits(); break;
+    case TypeId::kUInt16: typeId = TypeId::kUInt64; imm.zeroExtend16Bits(); break;
+    case TypeId::kInt32 : typeId = TypeId::kUInt64; imm.signExtend32Bits(); break;
+    case TypeId::kUInt32: typeId = TypeId::kUInt64; imm.zeroExtend32Bits(); break;
+    case TypeId::kInt64 : typeId = TypeId::kUInt64; break;
+    case TypeId::kUInt64: typeId = TypeId::kUInt64; break;
 
     default:
       return DebugUtils::errored(kErrorInvalidAssignment);
   }
 
-  ASMJIT_PROPAGATE(cc()->_newReg(out, rTypeId, nullptr));
+  ASMJIT_PROPAGATE(cc()->_newReg(out, typeId, nullptr));
   cc()->virtRegById(out->id())->setWeight(BaseRAPass::kCallArgWeight);
   return cc()->mov(out->as<Gp>(), imm);
 }
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - MoveImmToStackArg]
-// ============================================================================
+// a64::RACFGBuilder - MoveImmToStackArg
+// =====================================
 
 Error RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const Imm& imm_) noexcept {
   BaseReg reg;
@@ -490,11 +516,11 @@ Error RACFGBuilder::moveImmToStackArg(InvokeNode* invokeNode, const FuncValue& a
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - MoveRegToStackArg]
-// ============================================================================
+// a64::RACFGBuilder - MoveRegToStackArg
+// =====================================
 
 Error RACFGBuilder::moveRegToStackArg(InvokeNode* invokeNode, const FuncValue& arg, const BaseReg& reg) noexcept {
+  DebugUtils::unused(invokeNode);
   Mem stackPtr = ptr(_pass->_sp.as<Gp>(), arg.stackOffset());
 
   if (reg.isGp())
@@ -506,9 +532,8 @@ Error RACFGBuilder::moveRegToStackArg(InvokeNode* invokeNode, const FuncValue& a
   return DebugUtils::errored(kErrorInvalidState);
 }
 
-// ============================================================================
-// [asmjit::a64::RACFGBuilder - OnReg]
-// ============================================================================
+// a64::RACFGBuilder - OnReg
+// =========================
 
 Error RACFGBuilder::onBeforeRet(FuncRetNode* funcRet) noexcept {
   DebugUtils::unused(funcRet);
@@ -537,9 +562,9 @@ Error RACFGBuilder::onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept {
         RAWorkReg* workReg;
         ASMJIT_PROPAGATE(_pass->virtIndexAsWorkReg(vIndex, &workReg));
 
-        uint32_t group = workReg->group();
-        uint32_t allocable = _pass->_availableRegs[group];
-        ASMJIT_PROPAGATE(ib.add(workReg, RATiedReg::kUse | RATiedReg::kRead, allocable, ret.regId(), 0, BaseReg::kIdBad, 0));
+        RegGroup group = workReg->group();
+        RegMask allocable = _pass->_availableRegs[group];
+        ASMJIT_PROPAGATE(ib.add(workReg, RATiedFlags::kUse | RATiedFlags::kRead, allocable, ret.regId(), 0, 0, BaseReg::kIdBad, 0));
       }
     }
     else {
@@ -550,35 +575,33 @@ Error RACFGBuilder::onRet(FuncRetNode* funcRet, RAInstBuilder& ib) noexcept {
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - Construction / Destruction]
-// ============================================================================
+// a64::ARMRAPass - Construction & Destruction
+// ===========================================
 
 ARMRAPass::ARMRAPass() noexcept
   : BaseRAPass() { _iEmitHelper = &_emitHelper; }
 ARMRAPass::~ARMRAPass() noexcept {}
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - OnInit / OnDone]
-// ============================================================================
+// a64::ARMRAPass - OnInit / OnDone
+// ================================
 
 void ARMRAPass::onInit() noexcept {
-  uint32_t arch = cc()->arch();
+  Arch arch = cc()->arch();
 
   _emitHelper._emitter = _cb;
 
   _archTraits = &ArchTraits::byArch(arch);
-  _physRegCount.set(Reg::kGroupGp    , 32);
-  _physRegCount.set(Reg::kGroupVec   , 32);
-  _physRegCount.set(Reg::kGroupOther0, 0);
-  _physRegCount.set(Reg::kGroupOther1, 0);
+  _physRegCount.set(RegGroup::kGp, 32);
+  _physRegCount.set(RegGroup::kVec, 32);
+  _physRegCount.set(RegGroup::kExtraVirt2, 0);
+  _physRegCount.set(RegGroup::kExtraVirt3, 0);
   _buildPhysIndex();
 
   _availableRegCount = _physRegCount;
-  _availableRegs[Reg::kGroupGp    ] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupGp));
-  _availableRegs[Reg::kGroupVec   ] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupVec));
-  _availableRegs[Reg::kGroupOther0] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupOther0));
-  _availableRegs[Reg::kGroupOther1] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupOther1));
+  _availableRegs[RegGroup::kGp] = Support::lsbMask<uint32_t>(_physRegCount.get(RegGroup::kGp));
+  _availableRegs[RegGroup::kVec] = Support::lsbMask<uint32_t>(_physRegCount.get(RegGroup::kVec));
+  _availableRegs[RegGroup::kExtraVirt3] = Support::lsbMask<uint32_t>(_physRegCount.get(RegGroup::kExtraVirt2));
+  _availableRegs[RegGroup::kExtraVirt3] = Support::lsbMask<uint32_t>(_physRegCount.get(RegGroup::kExtraVirt3));
 
   _scratchRegIndexes[0] = uint8_t(27);
   _scratchRegIndexes[1] = uint8_t(28);
@@ -588,10 +611,10 @@ void ARMRAPass::onInit() noexcept {
   bool hasFP = _func->frame().hasPreservedFP();
 
   if (hasFP)
-    makeUnavailable(Reg::kGroupGp, Gp::kIdFp);
+    makeUnavailable(RegGroup::kGp, Gp::kIdFp);
 
-  makeUnavailable(Reg::kGroupGp, Gp::kIdSp);
-  makeUnavailable(Reg::kGroupGp, Gp::kIdOs); // OS-specific use, usually TLS.
+  makeUnavailable(RegGroup::kGp, Gp::kIdSp);
+  makeUnavailable(RegGroup::kGp, Gp::kIdOs); // OS-specific use, usually TLS.
 
   _sp = sp;
   _fp = x29;
@@ -599,17 +622,15 @@ void ARMRAPass::onInit() noexcept {
 
 void ARMRAPass::onDone() noexcept {}
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - BuildCFG]
-// ============================================================================
+// a64::ARMRAPass - BuildCFG
+// =========================
 
 Error ARMRAPass::buildCFG() noexcept {
   return RACFGBuilder(this).run();
 }
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - Rewrite]
-// ============================================================================
+// a64::ARMRAPass - Rewrite
+// ========================
 
 ASMJIT_FAVOR_SPEED Error ARMRAPass::_rewrite(BaseNode* first, BaseNode* stop) noexcept {
   uint32_t virtCount = cc()->_vRegArray.size();
@@ -652,12 +673,12 @@ ASMJIT_FAVOR_SPEED Error ARMRAPass::_rewrite(BaseNode* first, BaseNode* stop) no
         // prevent having a dead pointer after the RA pass is complete.
         node->resetPassData();
 
-        if (ASMJIT_UNLIKELY(node->type() != BaseNode::kNodeInst)) {
+        if (ASMJIT_UNLIKELY(node->type() != NodeType::kInst)) {
           // FuncRet terminates the flow, it must either be removed if the exit
           // label is next to it (optimization) or patched to an architecture
           // dependent jump instruction that jumps to the function's exit before
           // the epilog.
-          if (node->type() == BaseNode::kNodeFuncRet) {
+          if (node->type() == NodeType::kFuncRet) {
             RABlock* block = raInst->block();
             if (!isNextTo(node, _func->exitNode())) {
               cc()->_setCursor(node->prev());
@@ -702,30 +723,28 @@ ASMJIT_FAVOR_SPEED Error ARMRAPass::_rewrite(BaseNode* first, BaseNode* stop) no
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - Prolog / Epilog]
-// ============================================================================
+// a64::ARMRAPass - Prolog & Epilog
+// ================================
 
 Error ARMRAPass::updateStackFrame() noexcept {
   if (_func->frame().hasFuncCalls())
-    _func->frame().addDirtyRegs(Reg::kGroupGp, Support::bitMask(Gp::kIdLr));
+    _func->frame().addDirtyRegs(RegGroup::kGp, Support::bitMask(Gp::kIdLr));
 
   return BaseRAPass::updateStackFrame();
 }
 
-// ============================================================================
-// [asmjit::a64::ARMRAPass - OnEmit]
-// ============================================================================
+// a64::ARMRAPass - OnEmit
+// =======================
 
 Error ARMRAPass::emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseReg dst = BaseReg::fromSignatureAndId(wReg->info().signature(), dstPhysId);
-  BaseReg src = BaseReg::fromSignatureAndId(wReg->info().signature(), srcPhysId);
+  BaseReg dst(wReg->signature(), dstPhysId);
+  BaseReg src(wReg->signature(), srcPhysId);
 
   const char* comment = nullptr;
 
 #ifndef ASMJIT_NO_LOGGING
-  if (_loggerFlags & FormatOptions::kFlagAnnotations) {
+  if (hasDiagnosticOption(DiagnosticOptions::kRAAnnotate)) {
     _tmpString.assignFormat("<MOVE> %s", workRegById(workId)->name());
     comment = _tmpString.data();
   }
@@ -741,13 +760,13 @@ Error ARMRAPass::emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, 
 
 Error ARMRAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseReg dstReg = BaseReg::fromSignatureAndId(wReg->info().signature(), dstPhysId);
-  BaseMem srcMem = BaseMem(workRegAsMem(wReg));
+  BaseReg dstReg(wReg->signature(), dstPhysId);
+  BaseMem srcMem(workRegAsMem(wReg));
 
   const char* comment = nullptr;
 
 #ifndef ASMJIT_NO_LOGGING
-  if (_loggerFlags & FormatOptions::kFlagAnnotations) {
+  if (hasDiagnosticOption(DiagnosticOptions::kRAAnnotate)) {
     _tmpString.assignFormat("<LOAD> %s", workRegById(workId)->name());
     comment = _tmpString.data();
   }
@@ -758,13 +777,13 @@ Error ARMRAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
 
 Error ARMRAPass::emitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
   RAWorkReg* wReg = workRegById(workId);
-  BaseMem dstMem = BaseMem(workRegAsMem(wReg));
-  BaseReg srcReg = BaseReg::fromSignatureAndId(wReg->info().signature(), srcPhysId);
+  BaseMem dstMem(workRegAsMem(wReg));
+  BaseReg srcReg(wReg->signature(), srcPhysId);
 
   const char* comment = nullptr;
 
 #ifndef ASMJIT_NO_LOGGING
-  if (_loggerFlags & FormatOptions::kFlagAnnotations) {
+  if (hasDiagnosticOption(DiagnosticOptions::kRAAnnotate)) {
     _tmpString.assignFormat("<SAVE> %s", workRegById(workId)->name());
     comment = _tmpString.data();
   }

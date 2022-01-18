@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_A64EMITTER_H_INCLUDED
 #define ASMJIT_ARM_A64EMITTER_H_INCLUDED
@@ -32,47 +14,42 @@
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 #define ASMJIT_INST_0x(NAME, ID) \
-  ASMJIT_INLINE Error NAME() { return _emitter()->_emitI(Inst::kId##ID); }
+  inline Error NAME() { return _emitter()->_emitI(Inst::kId##ID); }
 
 #define ASMJIT_INST_1x(NAME, ID, T0) \
-  ASMJIT_INLINE Error NAME(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID, o0); }
+  inline Error NAME(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID, o0); }
 
 #define ASMJIT_INST_2x(NAME, ID, T0, T1) \
-  ASMJIT_INLINE Error NAME(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID, o0, o1); }
+  inline Error NAME(const T0& o0, const T1& o1) { return _emitter()->_emitI(Inst::kId##ID, o0, o1); }
 
 #define ASMJIT_INST_3x(NAME, ID, T0, T1, T2) \
-  ASMJIT_INLINE Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2); }
 
 #define ASMJIT_INST_4x(NAME, ID, T0, T1, T2, T3) \
-  ASMJIT_INLINE Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3); }
 
 #define ASMJIT_INST_5x(NAME, ID, T0, T1, T2, T3, T4) \
-  ASMJIT_INLINE Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4); }
 
 #define ASMJIT_INST_6x(NAME, ID, T0, T1, T2, T3, T4, T5) \
-  ASMJIT_INLINE Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4, const T5& o5) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4, o5); }
+  inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4, const T5& o5) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4, o5); }
 
 //! \addtogroup asmjit_a64
 //! \{
 
-// ============================================================================
-// [asmjit::a64::EmitterExplicitT]
-// ============================================================================
-
 //! ARM emitter.
 //!
-//! NOTE: This class cannot be instantiated, you can only cast to it and use it
-//! as emitter that emits to either \ref Assembler, \ref Builder, or \ref Compiler
-//! (use withcaution with \ref Compiler as it expects virtual registers to be used).
+//! NOTE: This class cannot be instantiated, you can only cast to it and use it as emitter that emits to either
+//! \ref Assembler, \ref Builder, or \ref Compiler (use withcaution with \ref Compiler as it expects virtual
+//! registers to be used).
 template<typename This>
 struct EmitterExplicitT {
   //! \cond
 
-  // These two are unfortunately reported by the sanitizer. We know what we do,
-  // however, the sanitizer doesn't. I have tried to use reinterpret_cast instead,
-  // but that would generate bad code when compiled by MSC.
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE This* _emitter() noexcept { return static_cast<This*>(this); }
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE const This* _emitter() const noexcept { return static_cast<const This*>(this); }
+  // These two are unfortunately reported by the sanitizer. We know what we do, however, the sanitizer doesn't.
+  // I have tried to use reinterpret_cast instead, but that would generate bad code when compiled by MSC.
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline This* _emitter() noexcept { return static_cast<This*>(this); }
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline const This* _emitter() const noexcept { return static_cast<const This*>(this); }
 
   //! \endcond
 
@@ -81,7 +58,7 @@ struct EmitterExplicitT {
   // --------------------------------------------------------------------------
 
 protected:
-  ASMJIT_INLINE This& _addInstOptions(uint32_t options) noexcept {
+  inline This& _addInstOptions(InstOptions options) noexcept {
     static_cast<This*>(this)->addInstOptions(options);
     return *static_cast<This*>(this);
   }
@@ -90,47 +67,47 @@ public:
   //! \name Condition Flags
   //! \{
 
-  ASMJIT_INLINE This& cond(uint32_t condCode) noexcept {
-    return _addInstOptions((condCode << Inst::kOptionCondCodeShift) | Inst::kOptionCondFlagMask);
+  inline This& cond(CondCode condCode) noexcept {
+    return _addInstOptions(InstOptions(uint32_t(condCode) << uint32_t(InstOptions::kARM_CondCodeShift)) | InstOptions::kARM_CondFlagMask);
   }
 
-  ASMJIT_INLINE This& cond_eq() noexcept { return cond(Cond::kEQ); }
-  ASMJIT_INLINE This& cond_ne() noexcept { return cond(Cond::kNE); }
-  ASMJIT_INLINE This& cond_cs() noexcept { return cond(Cond::kCS); }
-  ASMJIT_INLINE This& cond_hs() noexcept { return cond(Cond::kHS); }
-  ASMJIT_INLINE This& cond_cc() noexcept { return cond(Cond::kCC); }
-  ASMJIT_INLINE This& cond_lo() noexcept { return cond(Cond::kLO); }
-  ASMJIT_INLINE This& cond_mi() noexcept { return cond(Cond::kMI); }
-  ASMJIT_INLINE This& cond_pl() noexcept { return cond(Cond::kPL); }
-  ASMJIT_INLINE This& cond_vs() noexcept { return cond(Cond::kVS); }
-  ASMJIT_INLINE This& cond_vc() noexcept { return cond(Cond::kVC); }
-  ASMJIT_INLINE This& cond_hi() noexcept { return cond(Cond::kHI); }
-  ASMJIT_INLINE This& cond_ls() noexcept { return cond(Cond::kLS); }
-  ASMJIT_INLINE This& cond_ge() noexcept { return cond(Cond::kGE); }
-  ASMJIT_INLINE This& cond_lt() noexcept { return cond(Cond::kLT); }
-  ASMJIT_INLINE This& cond_gt() noexcept { return cond(Cond::kGT); }
-  ASMJIT_INLINE This& cond_le() noexcept { return cond(Cond::kLE); }
-  ASMJIT_INLINE This& cond_al() noexcept { return cond(Cond::kAL); }
-  ASMJIT_INLINE This& cond_na() noexcept { return cond(Cond::kNA); }
+  inline This& cond_eq() noexcept { return cond(CondCode::kEQ); }
+  inline This& cond_ne() noexcept { return cond(CondCode::kNE); }
+  inline This& cond_cs() noexcept { return cond(CondCode::kCS); }
+  inline This& cond_hs() noexcept { return cond(CondCode::kHS); }
+  inline This& cond_cc() noexcept { return cond(CondCode::kCC); }
+  inline This& cond_lo() noexcept { return cond(CondCode::kLO); }
+  inline This& cond_mi() noexcept { return cond(CondCode::kMI); }
+  inline This& cond_pl() noexcept { return cond(CondCode::kPL); }
+  inline This& cond_vs() noexcept { return cond(CondCode::kVS); }
+  inline This& cond_vc() noexcept { return cond(CondCode::kVC); }
+  inline This& cond_hi() noexcept { return cond(CondCode::kHI); }
+  inline This& cond_ls() noexcept { return cond(CondCode::kLS); }
+  inline This& cond_ge() noexcept { return cond(CondCode::kGE); }
+  inline This& cond_lt() noexcept { return cond(CondCode::kLT); }
+  inline This& cond_gt() noexcept { return cond(CondCode::kGT); }
+  inline This& cond_le() noexcept { return cond(CondCode::kLE); }
+  inline This& cond_al() noexcept { return cond(CondCode::kAL); }
+  inline This& cond_na() noexcept { return cond(CondCode::kNA); }
 
-  ASMJIT_INLINE This& cond_sign() noexcept { return cond(Cond::kSign); }
-  ASMJIT_INLINE This& cond_not_sign() noexcept { return cond(Cond::kNotSign); }
-  ASMJIT_INLINE This& cond_overflow() noexcept { return cond(Cond::kOverflow); }
-  ASMJIT_INLINE This& cond_not_overflow() noexcept { return cond(Cond::kNotOverflow); }
-  ASMJIT_INLINE This& cond_equal() noexcept { return cond(Cond::kEqual); }
-  ASMJIT_INLINE This& cond_not_equal() noexcept { return cond(Cond::kNotEqual); }
-  ASMJIT_INLINE This& cond_zero() noexcept { return cond(Cond::kZero); }
-  ASMJIT_INLINE This& cond_not_zero() noexcept { return cond(Cond::kNotZero); }
-  ASMJIT_INLINE This& cond_positive() noexcept { return cond(Cond::kPositive); }
-  ASMJIT_INLINE This& cond_negative() noexcept { return cond(Cond::kNegative); }
-  ASMJIT_INLINE This& cond_signed_le() noexcept { return cond(Cond::kSignedLT); }
-  ASMJIT_INLINE This& cond_signed_lt() noexcept { return cond(Cond::kSignedLE); }
-  ASMJIT_INLINE This& cond_signed_gt() noexcept { return cond(Cond::kSignedGT); }
-  ASMJIT_INLINE This& cond_signed_ge() noexcept { return cond(Cond::kSignedGE); }
-  ASMJIT_INLINE This& cond_unsigned_le() noexcept { return cond(Cond::kUnsignedLT); }
-  ASMJIT_INLINE This& cond_unsigned_lt() noexcept { return cond(Cond::kUnsignedLE); }
-  ASMJIT_INLINE This& cond_unsigned_gt() noexcept { return cond(Cond::kUnsignedGT); }
-  ASMJIT_INLINE This& cond_unsigned_ge() noexcept { return cond(Cond::kUnsignedGE); }
+  inline This& cond_sign() noexcept { return cond(CondCode::kSign); }
+  inline This& cond_not_sign() noexcept { return cond(CondCode::kNotSign); }
+  inline This& cond_overflow() noexcept { return cond(CondCode::kOverflow); }
+  inline This& cond_not_overflow() noexcept { return cond(CondCode::kNotOverflow); }
+  inline This& cond_equal() noexcept { return cond(CondCode::kEqual); }
+  inline This& cond_not_equal() noexcept { return cond(CondCode::kNotEqual); }
+  inline This& cond_zero() noexcept { return cond(CondCode::kZero); }
+  inline This& cond_not_zero() noexcept { return cond(CondCode::kNotZero); }
+  inline This& cond_positive() noexcept { return cond(CondCode::kPositive); }
+  inline This& cond_negative() noexcept { return cond(CondCode::kNegative); }
+  inline This& cond_signed_le() noexcept { return cond(CondCode::kSignedLT); }
+  inline This& cond_signed_lt() noexcept { return cond(CondCode::kSignedLE); }
+  inline This& cond_signed_gt() noexcept { return cond(CondCode::kSignedGT); }
+  inline This& cond_signed_ge() noexcept { return cond(CondCode::kSignedGE); }
+  inline This& cond_unsigned_le() noexcept { return cond(CondCode::kUnsignedLT); }
+  inline This& cond_unsigned_lt() noexcept { return cond(CondCode::kUnsignedLE); }
+  inline This& cond_unsigned_gt() noexcept { return cond(CondCode::kUnsignedGT); }
+  inline This& cond_unsigned_ge() noexcept { return cond(CondCode::kUnsignedGE); }
 
 
   //! \}
@@ -173,8 +150,10 @@ public:
   ASMJIT_INST_4x(bfm, Bfm, Gp, Gp, Imm, Imm)
   ASMJIT_INST_4x(bfxil, Bfxil, Gp, Gp, Imm, Imm)
 
+  ASMJIT_INST_3x(bic, Bic, Gp, Gp, Imm);
   ASMJIT_INST_3x(bic, Bic, Gp, Gp, Gp);
   ASMJIT_INST_4x(bic, Bic, Gp, Gp, Gp, Imm);
+  ASMJIT_INST_3x(bics, Bics, Gp, Gp, Imm);
   ASMJIT_INST_3x(bics, Bics, Gp, Gp, Gp);
   ASMJIT_INST_4x(bics, Bics, Gp, Gp, Gp, Imm);
 
@@ -1249,16 +1228,11 @@ public:
   //! \}
 };
 
-// ============================================================================
-// [asmjit::a64::Emitter]
-// ============================================================================
-
 //! Emitter (ARM).
 //!
-//! \note This class cannot be instantiated, you can only cast to it and use
-//! it as emitter that emits to either `arm::Assembler`, `arm::Builder`, or
-//! `arm::Compiler` (use with caution with `arm::Compiler` as it requires virtual
-//! registers).
+//! \note This class cannot be instantiated, you can only cast to it and use it as emitter that emits to either
+//! `a64::Assembler`, `a64::Builder`, or `a64::Compiler` (use with caution with `a64::Compiler` as it requires
+//! virtual registers).
 class Emitter : public BaseEmitter, public EmitterExplicitT<Emitter> {
   ASMJIT_NONCONSTRUCTIBLE(Emitter)
 };

@@ -142,7 +142,7 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &LHS,
 
     mov_imm(TMP3, succ_value);
     mov_imm(TMP4, fail_value);
-    a.csel(dst.reg, TMP3, TMP4, arm::Cond::kEQ);
+    a.csel(dst.reg, TMP3, TMP4, arm::CondCode::kEQ);
     flush_var(dst);
 }
 
@@ -212,7 +212,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgVal &Fail,
     a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, 0, arm::Cond::kEQ);
+    a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
 
     if (Fail.getValue()) {
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
@@ -330,7 +330,7 @@ void BeamGlobalAssembler::emit_bif_byte_size_helper(Label fail) {
     a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.cmp(TMP2, imm(0));
-    a.cinc(TMP1, TMP1, arm::Cond::kNE);
+    a.cinc(TMP1, TMP1, arm::CondCode::kNE);
 
     mov_imm(ARG1, _TAG_IMMED1_SMALL);
     a.bfi(ARG1, TMP1, imm(_TAG_IMMED1_SIZE), imm(SMALL_BITS));
@@ -623,7 +623,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgVal &Fail,
     a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, 0, arm::Cond::kEQ);
+    a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
 
     if (Fail.getValue()) {
         a.cond_ne().b(resolve_beam_label(Fail, disp1MB));

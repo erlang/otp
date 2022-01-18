@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/assembler.h"
@@ -32,9 +14,8 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [Globals]
-// ============================================================================
+// Globals
+// =======
 
 static const char CodeHolder_addrTabName[] = ".addrtab";
 
@@ -43,31 +24,30 @@ static inline uint32_t x86EncodeMod(uint32_t m, uint32_t o, uint32_t rm) noexcep
   return (m << 6) | (o << 3) | rm;
 }
 
-// ============================================================================
-// [asmjit::LabelLinkIterator]
-// ============================================================================
+// LabelLinkIterator
+// =================
 
 class LabelLinkIterator {
 public:
-  ASMJIT_INLINE LabelLinkIterator(LabelEntry* le) noexcept { reset(le); }
+  inline LabelLinkIterator(LabelEntry* le) noexcept { reset(le); }
 
-  ASMJIT_INLINE explicit operator bool() const noexcept { return isValid(); }
-  ASMJIT_INLINE bool isValid() const noexcept { return _link != nullptr; }
+  inline explicit operator bool() const noexcept { return isValid(); }
+  inline bool isValid() const noexcept { return _link != nullptr; }
 
-  ASMJIT_INLINE LabelLink* link() const noexcept { return _link; }
-  ASMJIT_INLINE LabelLink* operator->() const noexcept { return _link; }
+  inline LabelLink* link() const noexcept { return _link; }
+  inline LabelLink* operator->() const noexcept { return _link; }
 
-  ASMJIT_INLINE void reset(LabelEntry* le) noexcept {
+  inline void reset(LabelEntry* le) noexcept {
     _pPrev = &le->_links;
     _link = *_pPrev;
   }
 
-  ASMJIT_INLINE void next() noexcept {
+  inline void next() noexcept {
     _pPrev = &_link->next;
     _link = *_pPrev;
   }
 
-  ASMJIT_INLINE void resolveAndNext(CodeHolder* code) noexcept {
+  inline void resolveAndNext(CodeHolder* code) noexcept {
     LabelLink* linkToDelete = _link;
 
     _link = _link->next;
@@ -81,11 +61,10 @@ public:
   LabelLink* _link;
 };
 
-// ============================================================================
-// [asmjit::CodeHolder - Utilities]
-// ============================================================================
+// CodeHolder - Utilities
+// ======================
 
-static void CodeHolder_resetInternal(CodeHolder* self, uint32_t resetPolicy) noexcept {
+static void CodeHolder_resetInternal(CodeHolder* self, ResetPolicy resetPolicy) noexcept {
   uint32_t i;
   const ZoneVector<BaseEmitter*>& emitters = self->emitters();
 
@@ -134,27 +113,25 @@ static void CodeHolder_onSettingsUpdated(CodeHolder* self) noexcept {
   }
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Construction / Destruction]
-// ============================================================================
+// CodeHolder - Construction & Destruction
+// =======================================
 
-CodeHolder::CodeHolder() noexcept
+CodeHolder::CodeHolder(const Support::Temporary* temporary) noexcept
   : _environment(),
     _baseAddress(Globals::kNoBaseAddress),
     _logger(nullptr),
     _errorHandler(nullptr),
-    _zone(16384 - Zone::kBlockOverhead),
+    _zone(16384 - Zone::kBlockOverhead, 1, temporary),
     _allocator(&_zone),
     _unresolvedLinkCount(0),
     _addressTableSection(nullptr) {}
 
 CodeHolder::~CodeHolder() noexcept {
-  CodeHolder_resetInternal(this, Globals::kResetHard);
+  CodeHolder_resetInternal(this, ResetPolicy::kHard);
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Init / Reset]
-// ============================================================================
+// CodeHolder - Init & Reset
+// =========================
 
 inline void CodeHolder_setSectionDefaultName(
   Section* section,
@@ -179,7 +156,7 @@ Error CodeHolder::init(const Environment& environment, uint64_t baseAddress) noe
   if (err == kErrorOk) {
     Section* section = _allocator.allocZeroedT<Section>();
     if (ASMJIT_LIKELY(section)) {
-      section->_flags = Section::kFlagExec | Section::kFlagConst;
+      section->_flags = SectionFlags::kExecutable | SectionFlags::kReadOnly;
       CodeHolder_setSectionDefaultName(section, '.', 't', 'e', 'x', 't');
       _sections.appendUnsafe(section);
       _sectionsByOrder.appendUnsafe(section);
@@ -200,13 +177,12 @@ Error CodeHolder::init(const Environment& environment, uint64_t baseAddress) noe
   }
 }
 
-void CodeHolder::reset(uint32_t resetPolicy) noexcept {
+void CodeHolder::reset(ResetPolicy resetPolicy) noexcept {
   CodeHolder_resetInternal(this, resetPolicy);
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Attach / Detach]
-// ============================================================================
+// CodeHolder - Attach / Detach
+// ============================
 
 Error CodeHolder::attach(BaseEmitter* emitter) noexcept {
   // Catch a possible misuse of the API.
@@ -214,8 +190,8 @@ Error CodeHolder::attach(BaseEmitter* emitter) noexcept {
     return DebugUtils::errored(kErrorInvalidArgument);
 
   // Invalid emitter, this should not be possible.
-  uint32_t type = emitter->emitterType();
-  if (ASMJIT_UNLIKELY(type == BaseEmitter::kTypeNone || type >= BaseEmitter::kTypeCount))
+  EmitterType type = emitter->emitterType();
+  if (ASMJIT_UNLIKELY(type == EmitterType::kNone || uint32_t(type) > uint32_t(EmitterType::kMaxValue)))
     return DebugUtils::errored(kErrorInvalidState);
 
   // This is suspicious, but don't fail if `emitter` is already attached
@@ -261,9 +237,8 @@ Error CodeHolder::detach(BaseEmitter* emitter) noexcept {
   return err;
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Logging]
-// ============================================================================
+// CodeHolder - Logging
+// ====================
 
 void CodeHolder::setLogger(Logger* logger) noexcept {
 #ifndef ASMJIT_NO_LOGGING
@@ -274,18 +249,16 @@ void CodeHolder::setLogger(Logger* logger) noexcept {
 #endif
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Error Handling]
-// ============================================================================
+// CodeHolder - Error Handling
+// ===========================
 
 void CodeHolder::setErrorHandler(ErrorHandler* errorHandler) noexcept {
   _errorHandler = errorHandler;
   CodeHolder_onSettingsUpdated(this);
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Code Buffer]
-// ============================================================================
+// CodeHolder - Code Buffer
+// ========================
 
 static Error CodeHolder_reserveInternal(CodeHolder* self, CodeBuffer* cb, size_t n) noexcept {
   uint8_t* oldData = cb->_data;
@@ -368,11 +341,10 @@ Error CodeHolder::reserveBuffer(CodeBuffer* cb, size_t n) noexcept {
   return CodeHolder_reserveInternal(this, cb, n);
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Sections]
-// ============================================================================
+// CodeHolder - Sections
+// =====================
 
-Error CodeHolder::newSection(Section** sectionOut, const char* name, size_t nameSize, uint32_t flags, uint32_t alignment, int32_t order) noexcept {
+Error CodeHolder::newSection(Section** sectionOut, const char* name, size_t nameSize, SectionFlags flags, uint32_t alignment, int32_t order) noexcept {
   *sectionOut = nullptr;
 
   if (nameSize == SIZE_MAX)
@@ -435,7 +407,12 @@ Section* CodeHolder::ensureAddressTableSection() noexcept {
   if (_addressTableSection)
     return _addressTableSection;
 
-  newSection(&_addressTableSection, CodeHolder_addrTabName, sizeof(CodeHolder_addrTabName) - 1, 0, _environment.registerSize(), std::numeric_limits<int32_t>::max());
+  newSection(&_addressTableSection,
+             CodeHolder_addrTabName,
+             sizeof(CodeHolder_addrTabName) - 1,
+             SectionFlags::kNone,
+             _environment.registerSize(),
+             std::numeric_limits<int32_t>::max());
   return _addressTableSection;
 }
 
@@ -458,9 +435,8 @@ Error CodeHolder::addAddressToAddressTable(uint64_t address) noexcept {
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Labels / Symbols]
-// ============================================================================
+// CodeHolder - Labels & Symbols
+// =============================
 
 //! Only used to lookup a label from `_namedLabels`.
 class LabelByName {
@@ -547,32 +523,66 @@ Error CodeHolder::newLabelEntry(LabelEntry** entryOut) noexcept {
   return kErrorOk;
 }
 
-Error CodeHolder::newNamedLabelEntry(LabelEntry** entryOut, const char* name, size_t nameSize, uint32_t type, uint32_t parentId) noexcept {
+Error CodeHolder::newNamedLabelEntry(LabelEntry** entryOut, const char* name, size_t nameSize, LabelType type, uint32_t parentId) noexcept {
   *entryOut = nullptr;
   uint32_t hashCode = CodeHolder_hashNameAndGetSize(name, nameSize);
 
-  if (ASMJIT_UNLIKELY(nameSize == 0))
-    return DebugUtils::errored(kErrorInvalidLabelName);
+  if (ASMJIT_UNLIKELY(nameSize == 0)) {
+    if (type == LabelType::kAnonymous)
+      return newLabelEntry(entryOut);
+    else
+      return DebugUtils::errored(kErrorInvalidLabelName);
+  }
 
   if (ASMJIT_UNLIKELY(nameSize > Globals::kMaxLabelNameSize))
     return DebugUtils::errored(kErrorLabelNameTooLong);
 
   switch (type) {
-    case Label::kTypeLocal:
+    case LabelType::kAnonymous: {
+      // Anonymous labels cannot have a parent (or more specifically, parent is useless here).
+      if (ASMJIT_UNLIKELY(parentId != Globals::kInvalidId))
+        return DebugUtils::errored(kErrorInvalidParentLabel);
+
+      uint32_t labelId = _labelEntries.size();
+      if (ASMJIT_UNLIKELY(labelId == Globals::kInvalidId))
+        return DebugUtils::errored(kErrorTooManyLabels);
+
+      ASMJIT_PROPAGATE(_labelEntries.willGrow(&_allocator));
+      LabelEntry* le = _allocator.allocZeroedT<LabelEntry>();
+
+      if (ASMJIT_UNLIKELY(!le))
+        return DebugUtils::errored(kErrorOutOfMemory);
+
+      // NOTE: This LabelEntry has a name, but we leave its hashCode as zero as it's anonymous.
+      le->_setId(labelId);
+      le->_parentId = Globals::kInvalidId;
+      le->_offset = 0;
+      ASMJIT_PROPAGATE(le->_name.setData(&_zone, name, nameSize));
+
+      _labelEntries.appendUnsafe(le);
+
+      *entryOut = le;
+      return kErrorOk;
+    }
+
+    case LabelType::kLocal: {
       if (ASMJIT_UNLIKELY(parentId >= _labelEntries.size()))
         return DebugUtils::errored(kErrorInvalidParentLabel);
 
       hashCode ^= parentId;
       break;
+    }
 
-    case Label::kTypeGlobal:
-    case Label::kTypeExternal:
+    case LabelType::kGlobal:
+    case LabelType::kExternal: {
       if (ASMJIT_UNLIKELY(parentId != Globals::kInvalidId))
-        return DebugUtils::errored(kErrorNonLocalLabelCannotHaveParent);
+        return DebugUtils::errored(kErrorInvalidParentLabel);
       break;
+    }
 
-    default:
+    default: {
       return DebugUtils::errored(kErrorInvalidArgument);
+    }
   }
 
   // Don't allow to insert duplicates. Local labels allow duplicates that have
@@ -596,7 +606,7 @@ Error CodeHolder::newNamedLabelEntry(LabelEntry** entryOut, const char* name, si
 
   le->_hashCode = hashCode;
   le->_setId(labelId);
-  le->_type = uint8_t(type);
+  le->_type = type;
   le->_parentId = parentId;
   le->_offset = 0;
   ASMJIT_PROPAGATE(le->_name.setData(&_zone, name, nameSize));
@@ -733,11 +743,10 @@ ASMJIT_API Error CodeHolder::bindLabel(const Label& label, uint32_t toSectionId,
   return err;
 }
 
-// ============================================================================
-// [asmjit::BaseEmitter - Relocations]
-// ============================================================================
+// CodeHolder - Relocations
+// ========================
 
-Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType) noexcept {
+Error CodeHolder::newRelocEntry(RelocEntry** dst, RelocType relocType) noexcept {
   ASMJIT_PROPAGATE(_relocations.willGrow(&_allocator));
 
   uint32_t relocId = _relocations.size();
@@ -749,7 +758,7 @@ Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType) noexcept {
     return DebugUtils::errored(kErrorOutOfMemory);
 
   re->_id = relocId;
-  re->_relocType = uint8_t(relocType);
+  re->_relocType = relocType;
   re->_sourceSectionId = Globals::kInvalidId;
   re->_targetSectionId = Globals::kInvalidId;
   _relocations.appendUnsafe(re);
@@ -758,26 +767,25 @@ Error CodeHolder::newRelocEntry(RelocEntry** dst, uint32_t relocType) noexcept {
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::BaseEmitter - Expression Evaluation]
-// ============================================================================
+// CodeHolder - Expression Evaluation
+// ==================================
 
 static Error CodeHolder_evaluateExpression(CodeHolder* self, Expression* exp, uint64_t* out) noexcept {
   uint64_t value[2];
   for (size_t i = 0; i < 2; i++) {
     uint64_t v;
     switch (exp->valueType[i]) {
-      case Expression::kValueNone: {
+      case ExpressionValueType::kNone: {
         v = 0;
         break;
       }
 
-      case Expression::kValueConstant: {
+      case ExpressionValueType::kConstant: {
         v = exp->value[i].constant;
         break;
       }
 
-      case Expression::kValueLabel: {
+      case ExpressionValueType::kLabel: {
         LabelEntry* le = exp->value[i].label;
         if (!le->isBound())
           return DebugUtils::errored(kErrorExpressionLabelNotBound);
@@ -785,7 +793,7 @@ static Error CodeHolder_evaluateExpression(CodeHolder* self, Expression* exp, ui
         break;
       }
 
-      case Expression::kValueExpression: {
+      case ExpressionValueType::kExpression: {
         Expression* nested = exp->value[i].expression;
         ASMJIT_PROPAGATE(CodeHolder_evaluateExpression(self, nested, &v));
         break;
@@ -803,27 +811,27 @@ static Error CodeHolder_evaluateExpression(CodeHolder* self, Expression* exp, ui
   uint64_t& b = value[1];
 
   switch (exp->opType) {
-    case Expression::kOpAdd:
+    case ExpressionOpType::kAdd:
       result = a + b;
       break;
 
-    case Expression::kOpSub:
+    case ExpressionOpType::kSub:
       result = a - b;
       break;
 
-    case Expression::kOpMul:
+    case ExpressionOpType::kMul:
       result = a * b;
       break;
 
-    case Expression::kOpSll:
+    case ExpressionOpType::kSll:
       result = (b > 63) ? uint64_t(0) : uint64_t(a << b);
       break;
 
-    case Expression::kOpSrl:
+    case ExpressionOpType::kSrl:
       result = (b > 63) ? uint64_t(0) : uint64_t(a >> b);
       break;
 
-    case Expression::kOpSra:
+    case ExpressionOpType::kSra:
       result = Support::sar(a, Support::min<uint64_t>(b, 63));
       break;
 
@@ -835,9 +843,8 @@ static Error CodeHolder_evaluateExpression(CodeHolder* self, Expression* exp, ui
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::BaseEmitter - Utilities]
-// ============================================================================
+// CodeHolder - Utilities
+// ======================
 
 Error CodeHolder::flatten() noexcept {
   uint64_t offset = 0;
@@ -917,7 +924,7 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
   // Relocate all recorded locations.
   for (const RelocEntry* re : _relocations) {
     // Possibly deleted or optimized-out entry.
-    if (re->relocType() == RelocEntry::kTypeNone)
+    if (re->relocType() == RelocType::kNone)
       continue;
 
     Section* sourceSection = sectionById(re->sourceSectionId());
@@ -937,20 +944,19 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
       return DebugUtils::errored(kErrorInvalidRelocEntry);
 
     uint8_t* buffer = sourceSection->data();
-    size_t valueOffset = size_t(re->sourceOffset()) + re->format().valueOffset();
 
     switch (re->relocType()) {
-      case RelocEntry::kTypeExpression: {
+      case RelocType::kExpression: {
         Expression* expression = (Expression*)(uintptr_t(value));
         ASMJIT_PROPAGATE(CodeHolder_evaluateExpression(this, expression, &value));
         break;
       }
 
-      case RelocEntry::kTypeAbsToAbs: {
+      case RelocType::kAbsToAbs: {
         break;
       }
 
-      case RelocEntry::kTypeRelToAbs: {
+      case RelocType::kRelToAbs: {
         // Value is currently a relative offset from the start of its section.
         // We have to convert it to an absolute offset (including base address).
         if (ASMJIT_UNLIKELY(!targetSection))
@@ -961,14 +967,20 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
         break;
       }
 
-      case RelocEntry::kTypeAbsToRel: {
+      case RelocType::kAbsToRel: {
         value -= baseAddress + sectionOffset + sourceOffset + regionSize;
-        if (addressSize > 4 && !Support::isInt32(int64_t(value)))
+
+        // Sign extend as we are not interested in the high 32-bit word in a 32-bit address space.
+        if (addressSize <= 4)
+          value = uint64_t(int64_t(int32_t(value & 0xFFFFFFFFu)));
+        else if (!Support::isInt32(int64_t(value)))
           return DebugUtils::errored(kErrorRelocOffsetOutOfRange);
+
         break;
       }
 
-      case RelocEntry::kTypeX64AddressEntry: {
+      case RelocType::kX64AddressEntry: {
+        size_t valueOffset = size_t(re->sourceOffset()) + re->format().valueOffset();
         if (re->format().valueSize() != 4 || valueOffset < 2)
           return DebugUtils::errored(kErrorInvalidRelocEntry);
 
@@ -1023,30 +1035,15 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
         return DebugUtils::errored(kErrorInvalidRelocEntry);
     }
 
-    switch (re->format().valueSize()) {
-      case 1:
-        Support::writeU8(buffer + valueOffset, uint32_t(value & 0xFFu));
-        break;
-
-      case 2:
-        Support::writeU16uLE(buffer + valueOffset, uint32_t(value & 0xFFFFu));
-        break;
-
-      case 4:
-        Support::writeU32uLE(buffer + valueOffset, uint32_t(value & 0xFFFFFFFFu));
-        break;
-
-      case 8:
-        Support::writeU64uLE(buffer + valueOffset, value);
-        break;
-
-      default:
-        return DebugUtils::errored(kErrorInvalidRelocEntry);
+    if (!CodeWriterUtils::writeOffset(buffer + re->sourceOffset(), int64_t(value), re->format())) {
+      return DebugUtils::errored(kErrorInvalidRelocEntry);
     }
   }
 
   // Fixup the virtual size of the address table if it's the last section.
   if (_sectionsByOrder.last() == addressTableSection) {
+    ASMJIT_ASSERT(addressTableSection != nullptr);
+
     size_t addressTableSize = addressTableEntryCount * addressSize;
     addressTableSection->_buffer._size = addressTableSize;
     addressTableSection->_virtualSize = addressTableSize;
@@ -1055,7 +1052,7 @@ Error CodeHolder::relocateToBase(uint64_t baseAddress) noexcept {
   return kErrorOk;
 }
 
-Error CodeHolder::copySectionData(void* dst, size_t dstSize, uint32_t sectionId, uint32_t copyOptions) noexcept {
+Error CodeHolder::copySectionData(void* dst, size_t dstSize, uint32_t sectionId, CopySectionFlags copyFlags) noexcept {
   if (ASMJIT_UNLIKELY(!isSectionValid(sectionId)))
     return DebugUtils::errored(kErrorInvalidSection);
 
@@ -1067,7 +1064,7 @@ Error CodeHolder::copySectionData(void* dst, size_t dstSize, uint32_t sectionId,
 
   memcpy(dst, section->data(), bufferSize);
 
-  if (bufferSize < dstSize && (copyOptions & kCopyPadSectionBuffer)) {
+  if (bufferSize < dstSize && Support::test(copyFlags, CopySectionFlags::kPadSectionBuffer)) {
     size_t paddingSize = dstSize - bufferSize;
     memset(static_cast<uint8_t*>(dst) + bufferSize, 0, paddingSize);
   }
@@ -1075,7 +1072,7 @@ Error CodeHolder::copySectionData(void* dst, size_t dstSize, uint32_t sectionId,
   return kErrorOk;
 }
 
-Error CodeHolder::copyFlattenedData(void* dst, size_t dstSize, uint32_t copyOptions) noexcept {
+Error CodeHolder::copyFlattenedData(void* dst, size_t dstSize, CopySectionFlags copyFlags) noexcept {
   size_t end = 0;
   for (Section* section : _sectionsByOrder) {
     if (section->offset() > dstSize)
@@ -1091,7 +1088,7 @@ Error CodeHolder::copyFlattenedData(void* dst, size_t dstSize, uint32_t copyOpti
     size_t paddingSize = 0;
     memcpy(dstTarget, section->data(), bufferSize);
 
-    if ((copyOptions & kCopyPadSectionBuffer) && bufferSize < section->virtualSize()) {
+    if (Support::test(copyFlags, CopySectionFlags::kPadSectionBuffer) && bufferSize < section->virtualSize()) {
       paddingSize = Support::min<size_t>(dstSize - offset, size_t(section->virtualSize())) - bufferSize;
       memset(dstTarget + bufferSize, 0, paddingSize);
     }
@@ -1099,16 +1096,15 @@ Error CodeHolder::copyFlattenedData(void* dst, size_t dstSize, uint32_t copyOpti
     end = Support::max(end, offset + bufferSize + paddingSize);
   }
 
-  if (end < dstSize && (copyOptions & kCopyPadTargetBuffer)) {
+  if (end < dstSize && Support::test(copyFlags, CopySectionFlags::kPadTargetBuffer)) {
     memset(static_cast<uint8_t*>(dst) + end, 0, dstSize - end);
   }
 
   return kErrorOk;
 }
 
-// ============================================================================
-// [asmjit::CodeHolder - Unit]
-// ============================================================================
+// CodeHolder - Tests
+// ==================
 
 #if defined(ASMJIT_TEST)
 UNIT(code_holder) {
@@ -1116,34 +1112,33 @@ UNIT(code_holder) {
 
   INFO("Verifying CodeHolder::init()");
   Environment env;
-  env.init(Environment::kArchX86);
+  env.init(Arch::kX86);
 
   code.init(env);
-  EXPECT(code.arch() == Environment::kArchX86);
+  EXPECT(code.arch() == Arch::kX86);
 
   INFO("Verifying named labels");
   LabelEntry* le;
-  EXPECT(code.newNamedLabelEntry(&le, "NamedLabel", SIZE_MAX, Label::kTypeGlobal) == kErrorOk);
+  EXPECT(code.newNamedLabelEntry(&le, "NamedLabel", SIZE_MAX, LabelType::kGlobal) == kErrorOk);
   EXPECT(strcmp(le->name(), "NamedLabel") == 0);
   EXPECT(code.labelIdByName("NamedLabel") == le->id());
 
   INFO("Verifying section ordering");
   Section* section1;
-  EXPECT(code.newSection(&section1, "high-priority", SIZE_MAX, 0, 1, -1) == kErrorOk);
+  EXPECT(code.newSection(&section1, "high-priority", SIZE_MAX, SectionFlags::kNone, 1, -1) == kErrorOk);
   EXPECT(code.sections()[1] == section1);
   EXPECT(code.sectionsByOrder()[0] == section1);
 
   Section* section0;
-  EXPECT(code.newSection(&section0, "higher-priority", SIZE_MAX, 0, 1, -2) == kErrorOk);
+  EXPECT(code.newSection(&section0, "higher-priority", SIZE_MAX, SectionFlags::kNone, 1, -2) == kErrorOk);
   EXPECT(code.sections()[2] == section0);
   EXPECT(code.sectionsByOrder()[0] == section0);
   EXPECT(code.sectionsByOrder()[1] == section1);
 
   Section* section3;
-  EXPECT(code.newSection(&section3, "low-priority", SIZE_MAX, 0, 1, 2) == kErrorOk);
+  EXPECT(code.newSection(&section3, "low-priority", SIZE_MAX, SectionFlags::kNone, 1, 2) == kErrorOk);
   EXPECT(code.sections()[3] == section3);
   EXPECT(code.sectionsByOrder()[3] == section3);
-
 }
 #endif
 

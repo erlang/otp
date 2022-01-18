@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/archtraits.h"
@@ -35,12 +17,11 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::InstAPI - Text]
-// ============================================================================
+// InstAPI - InstId <-> String
+// ===========================
 
 #ifndef ASMJIT_NO_TEXT
-Error InstAPI::instIdToString(uint32_t arch, uint32_t instId, String& output) noexcept {
+Error InstAPI::instIdToString(Arch arch, InstId instId, String& output) noexcept {
 #if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::InstInternal::instIdToString(arch, instId, output);
@@ -54,7 +35,7 @@ Error InstAPI::instIdToString(uint32_t arch, uint32_t instId, String& output) no
   return DebugUtils::errored(kErrorInvalidArch);
 }
 
-uint32_t InstAPI::stringToInstId(uint32_t arch, const char* s, size_t len) noexcept {
+InstId InstAPI::stringToInstId(Arch arch, const char* s, size_t len) noexcept {
 #if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::InstInternal::stringToInstId(arch, s, len);
@@ -69,12 +50,11 @@ uint32_t InstAPI::stringToInstId(uint32_t arch, const char* s, size_t len) noexc
 }
 #endif // !ASMJIT_NO_TEXT
 
-// ============================================================================
-// [asmjit::InstAPI - Validate]
-// ============================================================================
+// InstAPI - Validate
+// ==================
 
 #ifndef ASMJIT_NO_VALIDATION
-Error InstAPI::validate(uint32_t arch, const BaseInst& inst, const Operand_* operands, size_t opCount, uint32_t validationFlags) noexcept {
+Error InstAPI::validate(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) noexcept {
 #if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::InstInternal::validate(arch, inst, operands, opCount, validationFlags);
@@ -89,12 +69,11 @@ Error InstAPI::validate(uint32_t arch, const BaseInst& inst, const Operand_* ope
 }
 #endif // !ASMJIT_NO_VALIDATION
 
-// ============================================================================
-// [asmjit::InstAPI - QueryRWInfo]
-// ============================================================================
+// InstAPI - QueryRWInfo
+// =====================
 
 #ifndef ASMJIT_NO_INTROSPECTION
-Error InstAPI::queryRWInfo(uint32_t arch, const BaseInst& inst, const Operand_* operands, size_t opCount, InstRWInfo* out) noexcept {
+Error InstAPI::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, InstRWInfo* out) noexcept {
   if (ASMJIT_UNLIKELY(opCount > Globals::kMaxOpCount))
     return DebugUtils::errored(kErrorInvalidArgument);
 
@@ -112,12 +91,11 @@ Error InstAPI::queryRWInfo(uint32_t arch, const BaseInst& inst, const Operand_* 
 }
 #endif // !ASMJIT_NO_INTROSPECTION
 
-// ============================================================================
-// [asmjit::InstAPI - QueryFeatures]
-// ============================================================================
+// InstAPI - QueryFeatures
+// =======================
 
 #ifndef ASMJIT_NO_INTROSPECTION
-Error InstAPI::queryFeatures(uint32_t arch, const BaseInst& inst, const Operand_* operands, size_t opCount, BaseFeatures* out) noexcept {
+Error InstAPI::queryFeatures(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, CpuFeatures* out) noexcept {
 #if !defined(ASMJIT_NO_X86)
   if (Environment::isFamilyX86(arch))
     return x86::InstInternal::queryFeatures(arch, inst, operands, opCount, out);

@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #if !defined(ASMJIT_NO_X86)
@@ -35,11 +17,10 @@
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
-// ============================================================================
-// [asmjit::x86::Internal - Helpers]
-// ============================================================================
+// x86::EmitHelper - Utilities
+// ===========================
 
-static ASMJIT_INLINE uint32_t getXmmMovInst(const FuncFrame& frame) {
+static inline uint32_t getXmmMovInst(const FuncFrame& frame) {
   bool avx = frame.isAvxEnabled();
   bool aligned = frame.hasAlignedVecSR();
 
@@ -58,21 +39,24 @@ static inline uint32_t kmovInstFromSize(uint32_t size) noexcept {
   }
 }
 
-// ============================================================================
-// [asmjit::X86Internal - Emit Helpers]
-// ============================================================================
+static inline uint32_t makeCastOp(TypeId dst, TypeId src) noexcept {
+  return (uint32_t(dst) << 8) | uint32_t(src);
+}
+
+// x86::EmitHelper - Emit Reg Move
+// ===============================
 
 ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
   const Operand_& dst_,
-  const Operand_& src_, uint32_t typeId, const char* comment) {
+  const Operand_& src_, TypeId typeId, const char* comment) {
 
   // Invalid or abstract TypeIds are not allowed.
-  ASMJIT_ASSERT(Type::isValid(typeId) && !Type::isAbstract(typeId));
+  ASMJIT_ASSERT(TypeUtils::isValid(typeId) && !TypeUtils::isAbstract(typeId));
 
   Operand dst(dst_);
   Operand src(src_);
 
-  uint32_t instId = Inst::kIdNone;
+  InstId instId = Inst::kIdNone;
   uint32_t memFlags = 0;
   uint32_t overrideMemSize = 0;
 
@@ -81,72 +65,72 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
     kSrcMem = 0x2
   };
 
-  // Detect memory operands and patch them to have the same size as the register.
-  // BaseCompiler always sets memory size of allocs and spills, so it shouldn't
-  // be really necessary, however, after this function was separated from Compiler
-  // it's better to make sure that the size is always specified, as we can use
-  // 'movzx' and 'movsx' that rely on it.
+  // Detect memory operands and patch them to have the same size as the register. BaseCompiler always sets memory size
+  // of allocs and spills, so it shouldn't be really necessary, however, after this function was separated from Compiler
+  // it's better to make sure that the size is always specified, as we can use 'movzx' and 'movsx' that rely on it.
   if (dst.isMem()) { memFlags |= kDstMem; dst.as<Mem>().setSize(src.size()); }
   if (src.isMem()) { memFlags |= kSrcMem; src.as<Mem>().setSize(dst.size()); }
 
   switch (typeId) {
-    case Type::kIdI8:
-    case Type::kIdU8:
-    case Type::kIdI16:
-    case Type::kIdU16:
+    case TypeId::kInt8:
+    case TypeId::kUInt8:
+    case TypeId::kInt16:
+    case TypeId::kUInt16:
       // Special case - 'movzx' load.
       if (memFlags & kSrcMem) {
         instId = Inst::kIdMovzx;
-        dst.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+        dst.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
+        break;
       }
-      else if (!memFlags) {
+
+      if (!memFlags) {
         // Change both destination and source registers to GPD (safer, no dependencies).
-        dst.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
-        src.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+        dst.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
+        src.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
       }
       ASMJIT_FALLTHROUGH;
 
-    case Type::kIdI32:
-    case Type::kIdU32:
-    case Type::kIdI64:
-    case Type::kIdU64:
+    case TypeId::kInt32:
+    case TypeId::kUInt32:
+    case TypeId::kInt64:
+    case TypeId::kUInt64:
       instId = Inst::kIdMov;
       break;
 
-    case Type::kIdMmx32:
+    case TypeId::kMmx32:
       instId = Inst::kIdMovd;
       if (memFlags) break;
       ASMJIT_FALLTHROUGH;
 
-    case Type::kIdMmx64 : instId = Inst::kIdMovq ; break;
-    case Type::kIdMask8 : instId = Inst::kIdKmovb; break;
-    case Type::kIdMask16: instId = Inst::kIdKmovw; break;
-    case Type::kIdMask32: instId = Inst::kIdKmovd; break;
-    case Type::kIdMask64: instId = Inst::kIdKmovq; break;
+    case TypeId::kMmx64 : instId = Inst::kIdMovq ; break;
+    case TypeId::kMask8 : instId = Inst::kIdKmovb; break;
+    case TypeId::kMask16: instId = Inst::kIdKmovw; break;
+    case TypeId::kMask32: instId = Inst::kIdKmovd; break;
+    case TypeId::kMask64: instId = Inst::kIdKmovq; break;
 
     default: {
-      uint32_t elementTypeId = Type::baseOf(typeId);
-      if (Type::isVec32(typeId) && memFlags) {
+      TypeId scalarTypeId = TypeUtils::scalarOf(typeId);
+      if (TypeUtils::isVec32(typeId) && memFlags) {
         overrideMemSize = 4;
-        if (elementTypeId == Type::kIdF32)
+        if (scalarTypeId == TypeId::kFloat32)
           instId = _avxEnabled ? Inst::kIdVmovss : Inst::kIdMovss;
         else
           instId = _avxEnabled ? Inst::kIdVmovd : Inst::kIdMovd;
         break;
       }
 
-      if (Type::isVec64(typeId) && memFlags) {
+      if (TypeUtils::isVec64(typeId) && memFlags) {
         overrideMemSize = 8;
-        if (elementTypeId == Type::kIdF64)
+        if (scalarTypeId == TypeId::kFloat64)
           instId = _avxEnabled ? Inst::kIdVmovsd : Inst::kIdMovsd;
         else
           instId = _avxEnabled ? Inst::kIdVmovq : Inst::kIdMovq;
         break;
       }
 
-      if (elementTypeId == Type::kIdF32)
+      if (scalarTypeId == TypeId::kFloat32)
         instId = _avxEnabled ? Inst::kIdVmovaps : Inst::kIdMovaps;
-      else if (elementTypeId == Type::kIdF64)
+      else if (scalarTypeId == TypeId::kFloat64)
         instId = _avxEnabled ? Inst::kIdVmovapd : Inst::kIdMovapd;
       else if (!_avx512Enabled)
         instId = _avxEnabled ? Inst::kIdVmovdqa : Inst::kIdMovdqa;
@@ -168,75 +152,77 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitRegMove(
   return _emitter->emit(instId, dst, src);
 }
 
-ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
-  const BaseReg& dst_, uint32_t dstTypeId,
-  const Operand_& src_, uint32_t srcTypeId, const char* comment) {
+// x86::EmitHelper - Emit Arg Move
+// ===============================
 
-  // Deduce optional `dstTypeId`, which may be `Type::kIdVoid` in some cases.
-  if (!dstTypeId) {
+ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
+  const BaseReg& dst_, TypeId dstTypeId,
+  const Operand_& src_, TypeId srcTypeId, const char* comment) {
+
+  // Deduce optional `dstTypeId`, which may be `TypeId::kVoid` in some cases.
+  if (dstTypeId == TypeId::kVoid) {
     const ArchTraits& archTraits = ArchTraits::byArch(_emitter->arch());
     dstTypeId = archTraits.regTypeToTypeId(dst_.type());
   }
 
   // Invalid or abstract TypeIds are not allowed.
-  ASMJIT_ASSERT(Type::isValid(dstTypeId) && !Type::isAbstract(dstTypeId));
-  ASMJIT_ASSERT(Type::isValid(srcTypeId) && !Type::isAbstract(srcTypeId));
+  ASMJIT_ASSERT(TypeUtils::isValid(dstTypeId) && !TypeUtils::isAbstract(dstTypeId));
+  ASMJIT_ASSERT(TypeUtils::isValid(srcTypeId) && !TypeUtils::isAbstract(srcTypeId));
 
   Reg dst(dst_.as<Reg>());
   Operand src(src_);
 
-  uint32_t dstSize = Type::sizeOf(dstTypeId);
-  uint32_t srcSize = Type::sizeOf(srcTypeId);
+  uint32_t dstSize = TypeUtils::sizeOf(dstTypeId);
+  uint32_t srcSize = TypeUtils::sizeOf(srcTypeId);
 
-  uint32_t instId = Inst::kIdNone;
+  InstId instId = Inst::kIdNone;
 
   // Not a real loop, just 'break' is nicer than 'goto'.
   for (;;) {
-    if (Type::isInt(dstTypeId)) {
-      if (Type::isInt(srcTypeId)) {
+    if (TypeUtils::isInt(dstTypeId)) {
+      if (TypeUtils::isInt(srcTypeId)) {
         instId = Inst::kIdMovsx;
-        uint32_t typeOp = (dstTypeId << 8) | srcTypeId;
+        uint32_t castOp = makeCastOp(dstTypeId, srcTypeId);
 
         // Sign extend by using 'movsx'.
-        if (typeOp == ((Type::kIdI16 << 8) | Type::kIdI8 ) ||
-            typeOp == ((Type::kIdI32 << 8) | Type::kIdI8 ) ||
-            typeOp == ((Type::kIdI32 << 8) | Type::kIdI16) ||
-            typeOp == ((Type::kIdI64 << 8) | Type::kIdI8 ) ||
-            typeOp == ((Type::kIdI64 << 8) | Type::kIdI16))
+        if (castOp == makeCastOp(TypeId::kInt16, TypeId::kInt8 ) ||
+            castOp == makeCastOp(TypeId::kInt32, TypeId::kInt8 ) ||
+            castOp == makeCastOp(TypeId::kInt32, TypeId::kInt16) ||
+            castOp == makeCastOp(TypeId::kInt64, TypeId::kInt8 ) ||
+            castOp == makeCastOp(TypeId::kInt64, TypeId::kInt16))
           break;
 
         // Sign extend by using 'movsxd'.
         instId = Inst::kIdMovsxd;
-        if (typeOp == ((Type::kIdI64 << 8) | Type::kIdI32))
+        if (castOp == makeCastOp(TypeId::kInt64, TypeId::kInt32))
           break;
       }
 
-      if (Type::isInt(srcTypeId) || src_.isMem()) {
+      if (TypeUtils::isInt(srcTypeId) || src_.isMem()) {
         // Zero extend by using 'movzx' or 'mov'.
         if (dstSize <= 4 && srcSize < 4) {
           instId = Inst::kIdMovzx;
-          dst.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+          dst.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
         }
         else {
-          // We should have caught all possibilities where `srcSize` is less
-          // than 4, so we don't have to worry about 'movzx' anymore. Minimum
-          // size is enough to determine if we want 32-bit or 64-bit move.
+          // We should have caught all possibilities where `srcSize` is less than 4, so we don't have to worry
+          // about 'movzx' anymore. Minimum size is enough to determine if we want 32-bit or 64-bit move.
           instId = Inst::kIdMov;
           srcSize = Support::min(srcSize, dstSize);
 
-          dst.setSignature(srcSize == 4 ? Reg::signatureOfT<Reg::kTypeGpd>()
-                                        : Reg::signatureOfT<Reg::kTypeGpq>());
+          dst.setSignature(srcSize == 4 ? Reg::signatureOfT<RegType::kX86_Gpd>()
+                                        : Reg::signatureOfT<RegType::kX86_Gpq>());
           if (src.isReg())
             src.setSignature(dst.signature());
         }
         break;
       }
 
-      // NOTE: The previous branch caught all memory sources, from here it's
-      // always register to register conversion, so catch the remaining cases.
+      // NOTE: The previous branch caught all memory sources, from here it's always register to register conversion,
+      // so catch the remaining cases.
       srcSize = Support::min(srcSize, dstSize);
 
-      if (Type::isMmx(srcTypeId)) {
+      if (TypeUtils::isMmx(srcTypeId)) {
         // 64-bit move.
         instId = Inst::kIdMovq;
         if (srcSize == 8)
@@ -244,18 +230,18 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
 
         // 32-bit move.
         instId = Inst::kIdMovd;
-        dst.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+        dst.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
         break;
       }
 
-      if (Type::isMask(srcTypeId)) {
+      if (TypeUtils::isMask(srcTypeId)) {
         instId = kmovInstFromSize(srcSize);
-        dst.setSignature(srcSize <= 4 ? Reg::signatureOfT<Reg::kTypeGpd>()
-                                      : Reg::signatureOfT<Reg::kTypeGpq>());
+        dst.setSignature(srcSize <= 4 ? Reg::signatureOfT<RegType::kX86_Gpd>()
+                                      : Reg::signatureOfT<RegType::kX86_Gpq>());
         break;
       }
 
-      if (Type::isVec(srcTypeId)) {
+      if (TypeUtils::isVec(srcTypeId)) {
         // 64-bit move.
         instId = _avxEnabled ? Inst::kIdVmovq : Inst::kIdMovq;
         if (srcSize == 8)
@@ -263,16 +249,16 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
 
         // 32-bit move.
         instId = _avxEnabled ? Inst::kIdVmovd : Inst::kIdMovd;
-        dst.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+        dst.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
         break;
       }
     }
 
-    if (Type::isMmx(dstTypeId)) {
+    if (TypeUtils::isMmx(dstTypeId)) {
       instId = Inst::kIdMovq;
       srcSize = Support::min(srcSize, dstSize);
 
-      if (Type::isInt(srcTypeId) || src.isMem()) {
+      if (TypeUtils::isInt(srcTypeId) || src.isMem()) {
         // 64-bit move.
         if (srcSize == 8)
           break;
@@ -280,33 +266,33 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
         // 32-bit move.
         instId = Inst::kIdMovd;
         if (src.isReg())
-          src.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+          src.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
         break;
       }
 
-      if (Type::isMmx(srcTypeId))
+      if (TypeUtils::isMmx(srcTypeId))
         break;
 
       // This will hurt if AVX is enabled.
       instId = Inst::kIdMovdq2q;
-      if (Type::isVec(srcTypeId))
+      if (TypeUtils::isVec(srcTypeId))
         break;
     }
 
-    if (Type::isMask(dstTypeId)) {
+    if (TypeUtils::isMask(dstTypeId)) {
       srcSize = Support::min(srcSize, dstSize);
 
-      if (Type::isInt(srcTypeId) || Type::isMask(srcTypeId) || src.isMem()) {
+      if (TypeUtils::isInt(srcTypeId) || TypeUtils::isMask(srcTypeId) || src.isMem()) {
         instId = kmovInstFromSize(srcSize);
         if (Reg::isGp(src) && srcSize <= 4)
-          src.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+          src.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
         break;
       }
     }
 
-    if (Type::isVec(dstTypeId)) {
+    if (TypeUtils::isVec(dstTypeId)) {
       // By default set destination to XMM, will be set to YMM|ZMM if needed.
-      dst.setSignature(Reg::signatureOfT<Reg::kTypeXmm>());
+      dst.setSignature(Reg::signatureOfT<RegType::kX86_Xmm>());
 
       // This will hurt if AVX is enabled.
       if (Reg::isMm(src)) {
@@ -316,10 +302,10 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
       }
 
       // Argument conversion.
-      uint32_t dstElement = Type::baseOf(dstTypeId);
-      uint32_t srcElement = Type::baseOf(srcTypeId);
+      TypeId dstScalarId = TypeUtils::scalarOf(dstTypeId);
+      TypeId srcScalarId = TypeUtils::scalarOf(srcTypeId);
 
-      if (dstElement == Type::kIdF32 && srcElement == Type::kIdF64) {
+      if (dstScalarId == TypeId::kFloat32 && srcScalarId == TypeId::kFloat64) {
         srcSize = Support::min(dstSize * 2, srcSize);
         dstSize = srcSize / 2;
 
@@ -329,13 +315,13 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
           instId = _avxEnabled ? Inst::kIdVcvtps2pd : Inst::kIdCvtps2pd;
 
         if (dstSize == 32)
-          dst.setSignature(Reg::signatureOfT<Reg::kTypeYmm>());
+          dst.setSignature(Reg::signatureOfT<RegType::kX86_Ymm>());
         if (src.isReg())
           src.setSignature(Reg::signatureOfVecBySize(srcSize));
         break;
       }
 
-      if (dstElement == Type::kIdF64 && srcElement == Type::kIdF32) {
+      if (dstScalarId == TypeId::kFloat64 && srcScalarId == TypeId::kFloat32) {
         srcSize = Support::min(dstSize, srcSize * 2) / 2;
         dstSize = srcSize * 2;
 
@@ -346,7 +332,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
 
         dst.setSignature(Reg::signatureOfVecBySize(dstSize));
         if (src.isReg() && srcSize >= 32)
-          src.setSignature(Reg::signatureOfT<Reg::kTypeYmm>());
+          src.setSignature(Reg::signatureOfT<RegType::kX86_Ymm>());
         break;
       }
 
@@ -356,7 +342,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
         if (srcSize <= 4) {
           instId = _avxEnabled ? Inst::kIdVmovd : Inst::kIdMovd;
           if (src.isReg())
-            src.setSignature(Reg::signatureOfT<Reg::kTypeGpd>());
+            src.setSignature(Reg::signatureOfT<RegType::kX86_Gpd>());
           break;
         }
 
@@ -373,7 +359,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitArgMove(
         if (src.isMem() && srcSize < _emitter->environment().stackAlignment())
           instId = _avxEnabled ? Inst::kIdVmovups : Inst::kIdMovups;
 
-        uint32_t signature = Reg::signatureOfVecBySize(srcSize);
+        OperandSignature signature = Reg::signatureOfVecBySize(srcSize);
         dst.setSignature(signature);
         if (src.isReg())
           src.setSignature(signature);
@@ -403,33 +389,34 @@ Error EmitHelper::emitRegSwap(
     return DebugUtils::errored(kErrorInvalidState);
 }
 
-// ============================================================================
-// [asmjit::X86Internal - Emit Prolog & Epilog]
-// ============================================================================
+// x86::EmitHelper - Emit Prolog & Epilog
+// ======================================
 
-static ASMJIT_INLINE void X86Internal_setupSaveRestoreInfo(uint32_t group, const FuncFrame& frame, Reg& xReg, uint32_t& xInst, uint32_t& xSize) noexcept {
+static inline void X86Internal_setupSaveRestoreInfo(RegGroup group, const FuncFrame& frame, Reg& xReg, uint32_t& xInst, uint32_t& xSize) noexcept {
   switch (group) {
-    case Reg::kGroupVec:
+    case RegGroup::kVec:
       xReg = xmm(0);
       xInst = getXmmMovInst(frame);
       xSize = xReg.size();
       break;
-    case Reg::kGroupMm:
+    case RegGroup::kX86_K:
+      xReg = k(0);
+      xInst = Inst::kIdKmovq;
+      xSize = xReg.size();
+      break;
+    case RegGroup::kX86_MM:
       xReg = mm(0);
       xInst = Inst::kIdMovq;
       xSize = xReg.size();
       break;
-    case Reg::kGroupKReg:
-      xReg = k(0);
-      xInst = Inst::kIdKmovq;
-      xSize = xReg.size();
+    default:
       break;
   }
 }
 
 ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
   Emitter* emitter = _emitter->as<Emitter>();
-  uint32_t gpSaved = frame.savedRegs(Reg::kGroupGp);
+  uint32_t gpSaved = frame.savedRegs(RegGroup::kGp);
 
   Gp zsp = emitter->zsp();   // ESP|RSP register.
   Gp zbp = emitter->zbp();   // EBP|RBP register.
@@ -446,7 +433,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
 
   // Emit: 'push gp' sequence.
   {
-    Support::BitWordIterator<uint32_t> it(gpSaved);
+    Support::BitWordIterator<RegMask> it(gpSaved);
     while (it.hasNext()) {
       gpReg.setId(it.next());
       ASMJIT_PROPAGATE(emitter->push(gpReg));
@@ -490,8 +477,8 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
     uint32_t xInst;
     uint32_t xSize;
 
-    for (uint32_t group = 1; group < BaseReg::kGroupVirt; group++) {
-      Support::BitWordIterator<uint32_t> it(frame.savedRegs(group));
+    for (RegGroup group : Support::EnumValues<RegGroup, RegGroup(1), RegGroup::kMaxVirt>{}) {
+      Support::BitWordIterator<RegMask> it(frame.savedRegs(group));
       if (it.hasNext()) {
         X86Internal_setupSaveRestoreInfo(group, frame, xReg, xInst, xSize);
         do {
@@ -513,7 +500,7 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
   uint32_t regId;
 
   uint32_t registerSize = emitter->registerSize();
-  uint32_t gpSaved = frame.savedRegs(Reg::kGroupGp);
+  uint32_t gpSaved = frame.savedRegs(RegGroup::kGp);
 
   Gp zsp = emitter->zsp();   // ESP|RSP register.
   Gp zbp = emitter->zbp();   // EBP|RBP register.
@@ -531,8 +518,8 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
     uint32_t xInst;
     uint32_t xSize;
 
-    for (uint32_t group = 1; group < BaseReg::kGroupVirt; group++) {
-      Support::BitWordIterator<uint32_t> it(frame.savedRegs(group));
+    for (RegGroup group : Support::EnumValues<RegGroup, RegGroup(1), RegGroup::kMaxVirt>{}) {
+      Support::BitWordIterator<RegMask> it(frame.savedRegs(group));
       if (it.hasNext()) {
         X86Internal_setupSaveRestoreInfo(group, frame, xReg, xInst, xSize);
         do {

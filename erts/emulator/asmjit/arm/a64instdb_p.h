@@ -1,29 +1,12 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_ARM_A64INSTDB_H_P_INCLUDED
 #define ASMJIT_ARM_A64INSTDB_H_P_INCLUDED
 
+#include "../core/codeholder.h"
 #include "../arm/a64instdb.h"
 #include "../arm/a64operand.h"
 
@@ -35,9 +18,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 namespace InstDB {
 
-// ============================================================================
-// [asmjit::a64::InstDB - Constants Used by Instructions]
-// ============================================================================
+// a64::InstDB - Constants Used by Instructions
+// ============================================
 
 // GP register types supported by base instructions.
 static constexpr uint32_t kW = 0x1;
@@ -48,9 +30,8 @@ static constexpr uint32_t kWX = 0x3;
 static constexpr uint32_t kZR = Gp::kIdZr;
 static constexpr uint32_t kSP = Gp::kIdSp;
 
-// ============================================================================
-// [asmjit::a64::InstDB - RWInfo]
-// ============================================================================
+// a64::InstDB - RWInfo
+// ====================
 
 enum RWInfoType : uint32_t {
   kRWI_R,
@@ -74,9 +55,8 @@ enum RWInfoType : uint32_t {
   kRWI_SpecialStart = kRWI_LDn
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - ElementType]
-// ============================================================================
+// a64::InstDB - ElementType
+// =========================
 
 enum ElementType : uint8_t {
   kET_None = Vec::kElementTypeNone,
@@ -87,9 +67,9 @@ enum ElementType : uint8_t {
   kET_2H   = Vec::kElementTypeH2,
   kET_4B   = Vec::kElementTypeB4
 };
-// ============================================================================
-// [asmjit::a64::InstDB - GpType]
-// ============================================================================
+
+// a64::InstDB - GpType
+// ====================
 
 enum GpType : uint8_t {
   kGp_W,
@@ -97,9 +77,8 @@ enum GpType : uint8_t {
   kGp_X_SP
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - OPSig]
-// ============================================================================
+// a64::InstDB - OPSig
+// ===================
 
 enum kOpSignature : uint32_t {
   kOp_GpW = GpW::kSignature,
@@ -121,9 +100,8 @@ enum kOpSignature : uint32_t {
   kOp_V2D = VecV::kSignature | Vec::kSignatureElementD
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - HFConv]
-// ============================================================================
+// a64::InstDB - HFConv
+// ====================
 
 enum kHFConv : uint32_t {
   //! FP16 version of the instruction is not available.
@@ -140,9 +118,8 @@ enum kHFConv : uint32_t {
   kHF_Count
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - VOType]
-// ============================================================================
+// a64::InstDB - VOType
+// ====================
 
 //! Vector operand type combinations used by FP&SIMD instructions.
 enum VOType : uint32_t {
@@ -176,9 +153,8 @@ enum VOType : uint32_t {
   kVO_Count
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - EncodingId]
-// ============================================================================
+// a64::InstDB - EncodingId
+// ========================
 
 // ${EncodingId:Begin}
 // ------------------- Automatically generated, do not edit -------------------
@@ -279,9 +255,8 @@ enum EncodingId : uint32_t {
 // ----------------------------------------------------------------------------
 // ${EncodingId:End}
 
-// ============================================================================
-// [asmjit::a64::InstDB::EncodingData]
-// ============================================================================
+// a64::InstDB::EncodingData
+// =========================
 
 namespace EncodingData {
 
@@ -373,7 +348,7 @@ struct BaseAddSub {
 
 struct BaseAdr {
   M_OPCODE(opcode, 22)
-  uint32_t offsetType : 10;
+  OffsetType offsetType : 8;
 };
 
 struct BaseBfm {
@@ -868,9 +843,8 @@ extern const SimdTblTbx simdTblTbx[2];
 
 } // {EncodingData}
 
-// ============================================================================
-// [asmjit::a64::InstDB - InstNameIndex]
-// ============================================================================
+// a64::InstDB - InstNameIndex
+// ===========================
 
 // ${NameLimits:Begin}
 // ------------------- Automatically generated, do not edit -------------------
@@ -883,9 +857,8 @@ struct InstNameIndex {
   uint16_t end;
 };
 
-// ============================================================================
-// [asmjit::a64::InstDB - Tables]
-// ============================================================================
+// a64::InstDB - Tables
+// ====================
 
 #ifndef ASMJIT_NO_TEXT
 extern const char _nameData[];
