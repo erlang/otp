@@ -47,7 +47,7 @@
 -define(is_hex_digit(C), $0 =< C, C =< $9; $a =< C, C =< $f; $A =< C, C =< $F). 
 
 %%----------------------------------------------------------------------
-%% Definition of XML charcters
+%% Definition of XML characters
 %%
 %% [2] Char #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
 %%----------------------------------------------------------------------
@@ -82,7 +82,7 @@
 	  current_tag = [],         % Current tag 
 	  end_tags = [],            % Stack of tags used for end tag matching 
 	  match_end_tags = true,    % Flag which defines if the parser should match on end tags
-	  ref_table,                % Table containing entitity definitions
+	  ref_table,                % Table containing entity definitions
 	  standalone = no,          % yes if the document is standalone and don't need an external DTD.
 	  file_type = normal,       % Can be normal, dtd and entity
 	  current_location,         % Location of the currently parsed XML entity

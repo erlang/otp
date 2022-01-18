@@ -1727,7 +1727,7 @@ parse_reference(?STRING_UNBOUND_REST(C, Rest), State, HaveToExist) ->
     end;
 parse_reference(Bytes, State, HaveToExist) ->
     unicode_incomplete_check([Bytes, State, HaveToExist, fun parse_reference/3], 
-			     underfined).
+			     undefined).
 
 
 parse_reference_1(?STRING_EMPTY, State, HaveToExist, Name) ->
@@ -1799,7 +1799,7 @@ parse_pe_reference(?STRING_UNBOUND_REST(C, Rest), State) ->
     end;
 parse_pe_reference(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_pe_reference/2], 
-			     underfined).
+			     undefined).
 
 
 parse_pe_reference_1(?STRING_EMPTY, State, Name) ->
@@ -2028,7 +2028,7 @@ normalize_whitespace([], Acc) ->
 %%             State = #xmerl_sax_parser_state{}
 %% Result    : {Rest, State}
 %% Description: This function starts an parsing of the DTD
-%%              that sends apropriate events. 
+%%              that sends appropriate events. 
 %%              [28] doctypedecl ::= '<!DOCTYPE' S Name (S ExternalID)? S? 
 %%                          ('[' (markupdecl | PEReference | S)* ']' S?)? '>'
 %%----------------------------------------------------------------------
@@ -2057,7 +2057,7 @@ parse_doctype(Bytes, State) ->
 %%             Name = string()
 %%             Definition = true |false
 %% Result    : {Rest, State}
-%% Description: Gets the DTD name as a parameter and contine parse the DOCTYPE
+%% Description: Gets the DTD name as a parameter and continue parse the DOCTYPE
 %%              directive
 %%----------------------------------------------------------------------
 parse_doctype_1(?STRING_EMPTY, State, Name, Definition) ->
@@ -3829,7 +3829,7 @@ parse_notation_decl_1(Bytes, State) ->
 %%             PubId = string()
 %%             SysId = string()
 %% Description: Parse a NOTATION identity. The public id case is a special 
-%%              variant of extenal id where just the public part is allowed.
+%%              variant of external id where just the public part is allowed.
 %%              This is allowed if the third parameter in parse_external_id/3 
 %%              is true.
 %%              [83] PublicID ::= 'PUBLIC' S PubidLiteral 

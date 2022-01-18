@@ -3637,7 +3637,7 @@ scan_entity_value("%" ++ T, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 		     ExpRef ->
 			{string_to_char_set(S1#xmerl_scanner.encoding, ExpRef) ,S1}
 		end,
-	    %% single or duoble qoutes are not treated as delimeters
+	    %% single or duoble quotes are not treated as delimiters
 	    %% in passages "included in literal"
 	    S3 = S2#xmerl_scanner{col=S2#xmerl_scanner.col+1},
 	    {Acc2,_,S4} = scan_entity_value(ExpandedRef,S3,no_delim,Acc,
@@ -3678,32 +3678,32 @@ scan_entity_value("&" ++ T, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 	    scan_entity_value(T2,S2,Delim,[";",atom_to_list(Name),"&"|Acc],PEName,Namespace,PENesting)
     end;
 %% The following clauses is for PE Nesting VC constraint
-%% Start delimeter for ConditionalSection
+%% Start delimiter for ConditionalSection
 scan_entity_value("<!["++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["<!["|Acc],PEName,NS,
 		      pe_push("<![",PENesting,S));
-%% Start delimeter for ConditionalSection (2)
+%% Start delimiter for ConditionalSection (2)
 scan_entity_value("["++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["["|Acc],PEName,NS,
 		      pe_push("[",PENesting,S));
-%% Start delimeter for comment
+%% Start delimiter for comment
 scan_entity_value("<!--"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(4),
     scan_entity_value(T,S,Delim,["<!--"|Acc],PEName,NS,
 		      pe_push("<!--",PENesting,S));
-%% Start delimeter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
+%% Start delimiter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
 scan_entity_value("<!"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["<!"|Acc],PEName,NS,
 		      pe_push("<!",PENesting,S));
-%% Start delimeter for PI
+%% Start delimiter for PI
 scan_entity_value("<?"++T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["<?"|Acc],PEName,NS,
 		      pe_push("<?",PENesting,S));
-%% Start delimeter for elements that matches the proper stop delimeter
+%% Start delimiter for elements that matches the proper stop delimiter
 %% for a markupdecl
 scan_entity_value("</"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(2),
@@ -3713,32 +3713,32 @@ scan_entity_value("<"++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["<"|Acc],PEName,NS,
 		      pe_push("<",PENesting,S));
-%% Delimeter for contentspecs
+%% Delimiter for contentspecs
 scan_entity_value("("++T,S0,Delim,Acc,PEName,parameter=NS,PENesting)->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,["("|Acc],PEName,NS,
 		      pe_push("(",PENesting,S));
-%% Stop delimeter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
+%% Stop delimiter for ElementDecl, AttListDecl,EntityDecl,NotationDecl
 scan_entity_value(">"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(1),
     scan_entity_value(T,S,Delim,[">"|Acc],PEName,NS,
 		      pe_pop(">",PENesting,S));
-%% Stop delimeter for PI
+%% Stop delimiter for PI
 scan_entity_value("?>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["?>"|Acc],PEName,NS,
 		      pe_pop("?>",PENesting,S));
-%% Stop delimeter for comment
+%% Stop delimiter for comment
 scan_entity_value("-->"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["-->"|Acc],PEName,NS,
 		      pe_pop("-->",PENesting,S));
-%% Stop delimeter for ConditionalSection
+%% Stop delimiter for ConditionalSection
 scan_entity_value("]]>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(3),
     scan_entity_value(T,S,Delim,["]]>"|Acc],PEName,NS,
 		      pe_pop("]]>",PENesting,S));
-%% Stop delimeter added to match a content start delimeter included
+%% Stop delimiter added to match a content start delimiter included
 scan_entity_value("/>"++ T,S0,Delim,Acc,PEName, parameter=NS,PENesting) ->
     ?bump_col(2),
     scan_entity_value(T,S,Delim,["/>"|Acc],PEName,NS,

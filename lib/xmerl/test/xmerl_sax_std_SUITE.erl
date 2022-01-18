@@ -3183,7 +3183,7 @@ end_per_testcase(_Func,_Config) ->
 %% Sections: 3.1 [40]
 %% Output: valid/sa/out/011.xml
 %% Description:
-%%   Test demonstrates mutliple Attibutes within the Start-tag.
+%%   Test demonstrates multiple Attributes within the Start-tag.
 'valid-sa-011'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"xmltest","valid/sa/011.xml"]),
@@ -3343,7 +3343,7 @@ end_per_testcase(_Func,_Config) ->
 %% Output: valid/sa/out/020.xml
 %% Description:
 %%   Test demonstractes that CDATA sections are valid element content and that
-%%   everyting between the CDStart and CDEnd is recognized as character data not
+%%   everything between the CDStart and CDEnd is recognized as character data not
 %%   markup.
 'valid-sa-020'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -3486,7 +3486,7 @@ end_per_testcase(_Func,_Config) ->
 %% Sections: 2.8 [24]
 %% Output: valid/sa/out/028.xml
 %% Description:
-%%   Test demonstrates a valid prolog that uses double quotes as delimeters
+%%   Test demonstrates a valid prolog that uses double quotes as delimiters
 %%   around the VersionNum.
 'valid-sa-028'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -3504,7 +3504,7 @@ end_per_testcase(_Func,_Config) ->
 %% Sections: 2.8 [24]
 %% Output: valid/sa/out/029.xml
 %% Description:
-%%   Test demonstrates a valid prolog that uses single quotes as delimters
+%%   Test demonstrates a valid prolog that uses single quotes as delimiter
 %%   around the VersionNum.
 'valid-sa-029'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -4675,7 +4675,7 @@ end_per_testcase(_Func,_Config) ->
 %% Sections: 2.3 2.10
 %% Output: valid/sa/out/092.xml
 %% Description:
-%%   Test demostrates that extra whitespace is normalized into a single space
+%%   Test demonstrates that extra whitespace is normalized into a single space
 %%   character.
 'valid-sa-092'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -5450,7 +5450,7 @@ end_per_testcase(_Func,_Config) ->
 %% Entities: both
 %% Output: valid/not-sa/out/015.xml
 %% Description:
-%%   Test demonstrates the use of the conditonal section IGNORE the will ignore
+%%   Test demonstrates the use of the conditional section IGNORE the will ignore
 %%   its content from being part of the DTD. The keyword is a parameter-entity
 %%   reference.
 'valid-not-sa-015'(Config) -> 
@@ -5697,7 +5697,7 @@ end_per_testcase(_Func,_Config) ->
 %% Entities: both
 %% Output: valid/not-sa/out/029.xml
 %% Description:
-%%   Test demonstrates the use of the conditonal section IGNORE the will ignore
+%%   Test demonstrates the use of the conditional section IGNORE the will ignore
 %%   its content from being used.
 'valid-not-sa-029'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -5716,7 +5716,7 @@ end_per_testcase(_Func,_Config) ->
 %% Entities: both
 %% Output: valid/not-sa/out/030.xml
 %% Description:
-%%   Test demonstrates the use of the conditonal section IGNORE the will ignore
+%%   Test demonstrates the use of the conditional section IGNORE the will ignore
 %%   its content from being used.
 'valid-not-sa-030'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -7446,7 +7446,7 @@ optional21(Config) ->
 %% Description:
 %%   Tests the Element Valid VC (clause 2) for one instance of "children"
 %%   content model, providing no children where one or more are required (an
-%%   eigth construction of that model).
+%%   eighth construction of that model).
 optional22(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"sun","invalid/optional22.xml"]),
@@ -8910,7 +8910,7 @@ uri01(Config) ->
 %% Entities: parameter
 %% Description:
 %%   Valid doctypedecl with EXternalID as Enternal Entity. The external entity
-%%   contains a parameter entity reference and condtional sections.
+%%   contains a parameter entity reference and conditional sections.
 'o-p31pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p31pass2.xml"]),
@@ -9812,7 +9812,7 @@ uri01(Config) ->
 %% Type: invalid
 %% Sections: 2.9 [32]
 %% Description:
-%%   Double quotes can be used as delimeters for the value of a Standalone
+%%   Double quotes can be used as delimiters for the value of a Standalone
 %%   Document Declaration.
 'o-p32pass1'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -9827,7 +9827,7 @@ uri01(Config) ->
 %% Type: invalid
 %% Sections: 2.9 [32]
 %% Description:
-%%   Single quotes can be used as delimeters for the value of a Standalone
+%%   Single quotes can be used as delimiters for the value of a Standalone
 %%   Document Declaration.
 'o-p32pass2'(Config) -> 
     file:set_cwd(datadir(Config)),
@@ -12578,7 +12578,7 @@ uri01(Config) ->
 %% Type: not-wf
 %% Sections: 3.3 [53]
 %% Description:
-%%   name is requried
+%%   name is required
 'o-p53fail5'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p53fail5.xml"]),
@@ -12662,7 +12662,7 @@ uri01(Config) ->
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
 %% Description:
-%%   no ENTITYS type - types must be upper case
+%%   no ENTITIES type - types must be upper case
 'o-p56fail4'(Config) -> 
     file:set_cwd(datadir(Config)),
     Path = filename:join([datadir(Config),"oasis","p56fail4.xml"]),
@@ -27736,7 +27736,7 @@ uri01(Config) ->
 %% Sections: 3.3.1
 %% Output: valid/P58/out/ibm58v01.xml
 %% Description:
-%%   Tests NotationType for P58. It shows different patterns fro the NOTATION
+%%   Tests NotationType for P58. It shows different patterns from the NOTATION
 %%   attribute "attr".
 'ibm-valid-P58-ibm58v01'(Config) -> 
     file:set_cwd(datadir(Config)),

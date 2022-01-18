@@ -423,7 +423,7 @@ char_to_utf8(Ch) when is_integer(Ch), Ch >= 0 ->
 
 %% expand_utf8([Byte]) -> {[UnicodeChar],NumberOfBadBytes}
 %%  Expand UTF8 byte sequences to ISO 10646/Unicode
-%%  charactes. Any illegal bytes are removed and the number of
+%%  characters. Any illegal bytes are removed and the number of
 %%  bad bytes are returned.
 %%
 %%  Reference:

@@ -25,7 +25,7 @@
 %% XML Schema study <a href="http://www.w3.org/TR/xmlschema-0/">part 0.</a>
 %% An XML structure is validated by xmerl_xsd:validate/[2,3].
 %% @type global_state(). <p>The global state of the validator. It is 
-%% representated by the <code>#xsd_state{}</code> record.
+%% represented by the <code>#xsd_state{}</code> record.
 %% </p>
 %% @type option_list(). <p>Options allow to customize the behaviour of the 
 %% validation.
@@ -400,7 +400,7 @@ new_state(Opts) ->
 %% information as defined elements and types.
 validate_schema(E=#xmlElement{},
 		    S) ->
-    %% namespace is always a xmlNamespace record, attributs a list of
+    %% namespace is always a xmlNamespace record, attributes a list of
     %% #xmlAttributes and content a list of #xmlElements|#xmlText|...
 
     %% Have to save namespace nodes. Use of namespace in paths for
@@ -563,7 +563,7 @@ element_content({element,S},El,Env) ->
     case qualify_NCName(El,S) of
 	no_name ->
 	    Ref = particle_ref(El),
-	    {Occ,S2} = occurance(El,{1,1},S),
+	    {Occ,S2} = occurrence(El,{1,1},S),
 	    %% 3.3.3 bullet 2.2
 	    S3 = element_forbidden_properties(El,S2),
 	    S4 = element_forbidden_content(El#xmlElement.content,S3),
@@ -578,7 +578,7 @@ element_content({element,S},El,Env) ->
 	    Type2 = remove_annotation(Type),
 	    Unique = [X||X={unique,_} <- Type2],
 	    Key = [X||X={K,_} <- Type2,K == key orelse K==keyref],
-	    {Occur,S4} = occurance(El,{1,1},S3),
+	    {Occur,S4} = occurrence(El,{1,1},S3),
 	    {SE,S5} = element_properties(El#xmlElement.attributes,
 					 #schema_element{},El,S4),
 	    CM = remove_attributes([X||X={Y,_}<-Type2,
@@ -586,14 +586,14 @@ element_content({element,S},El,Env) ->
 				       keyref=/=Y,annotation=/=Y]),
 	    %% take care of key/keyref later
 	    SE2 = SE#schema_element{name=Name,type=CM,uniqueness=Unique,
-				    key=Key, occurance=Occur,
+				    key=Key, occurrence=Occur,
 				    scope=S5#xsd_state.scope},
 	    S6 = insert_substitutionGroup(SE2,S5),
 	    S7 = save_object({element,SE2},S6),
 	    {{element,{Name,Occur}},S7}
     end;
 element_content({complexType,S},CT,Env) ->
-    %% complex type definition without a name is returnd and added to
+    %% complex type definition without a name is returned and added to
     %% the content model at this level. A complex type may also contain
     %% attributes or attribute group references in the end of its content.
     %%?debug("complexType content: ~p~nenv: ~p~n",[CT,Env]),
@@ -677,7 +677,7 @@ element_content({group,S},G,Env) ->
 	    %% "Schema Representation Constraint: Individual Component
 	    %% Redefinition"
 	    Ref = particle_ref(G),
-	    {Occur,S2} = occurance(G,{1,1},S),
+	    {Occur,S2} = occurrence(G,{1,1},S),
 	    GRef =
 		{group,
 	      {get_QName(Ref,G#xmlElement.namespace,reset_scope(S2)),%%QQQ
@@ -694,16 +694,16 @@ element_content({group,S},G,Env) ->
     end;
 element_content({all,S},All,Env) ->
     %% each element occurs 0 or 1 times in any order
-    %% {all,[{element_name,occurance}]}
+    %% {all,[{element_name,occurrence}]}
 %%    CM = content_model(Seq#xmlElement.content,S,[all|Env]),
-    {Occur,S1} = occurance(All,{1,1},S),
+    {Occur,S1} = occurrence(All,{1,1},S),
     {CM,S2} = type(All#xmlElement.content,S1,[all|Env]),
     S3 = check_cm(all,allowed_content(all,Env),CM,S2),
     {{all,{[X||X = {element,_} <- CM],Occur}},S3};
 element_content({sequence,S},Seq,Env) ->
-    %% {sequence,[{element_name,occurance}]}
+    %% {sequence,[{element_name,occurrence}]}
 %%    CM = content_model(Seq#xmlElement.content,S,[sequence|Env]),
-    {Occur,S1} = occurance(Seq,{1,1},S),
+    {Occur,S1} = occurrence(Seq,{1,1},S),
     {CM,S2} = type(Seq#xmlElement.content,S1,[sequence|Env]),
     S3 = check_cm(sequence,allowed_content(sequence,Env),CM,S2),
     {{sequence,{remove_annotation(CM),Occur}},S3};
@@ -712,12 +712,12 @@ element_content({choice,S},Choice,Env) ->
     %%                   (element | group | choice | sequence | any)*)
     %% returns: {choice,[element_name]}
 %%    CM = content_model(Choice#xmlElement.content,S,[choice|Env]),
-    {Occur,S1} = occurance(Choice,{1,1},S),
+    {Occur,S1} = occurrence(Choice,{1,1},S),
     {CM,S2} = type(Choice#xmlElement.content,S1,[choice|Env]),
     S3 = check_cm(choice,allowed_content(choice,Env),CM,S2),
     {{choice,{remove_annotation(CM),Occur}},S3};
 element_content({any,S},Any,_Env) ->
-    {Occur,S1} = occurance(Any,{1,1},S),
+    {Occur,S1} = occurrence(Any,{1,1},S),
     NameSpace = wildcard_namespace(Any,S1),
     PC = processor_contents(Any),
     ?debug("element_content, any: Any content:~p~n",[Any#xmlElement.content]),
@@ -1426,7 +1426,7 @@ check_cm(Kind,S4SCM,ContentModel,S) ->
 	    exit({error,{[],?MODULE,{internal_error,Err}}})
     end.
 
-check_cm2(Kind,#chain{content=S4SCM,occurance=Occ},
+check_cm2(Kind,#chain{content=S4SCM,occurrence=Occ},
 	 ContentModel,S) ->
     case occurance_loop(Occ,fun check_chain/1,
 			[S4SCM,ContentModel,Kind,S],0) of
@@ -1445,7 +1445,7 @@ check_cm2(Kind,#chain{content=S4SCM,occurance=Occ},
 	    Err = {[],?MODULE,{illegal_content,Reason,Kind}},
 	    {ContentModel,acc_errs(S,Err)}
     end;
-check_cm2(Kind,#alternative{content=S4SCM,occurance=Occ},
+check_cm2(Kind,#alternative{content=S4SCM,occurrence=Occ},
 	 ContentModel,S) ->
     case occurance_loop(Occ,fun check_alternative/1,
 			[S4SCM,ContentModel,Kind,S],0) of
@@ -1621,9 +1621,9 @@ optional({_,{_,{0,_}}}) ->
     true; %% sequence, all or choice
 optional({any,{_,{0,_},_}}) ->
     true;
-optional(#chain{occurance={0,_}}) ->
+optional(#chain{occurrence={0,_}}) ->
     true;
-optional(#alternative{occurance={0,_}}) ->
+optional(#alternative{occurrence={0,_}}) ->
     true;
 optional(#chain{content=Content}) ->
     catch is_optional_content(Content);
@@ -1671,10 +1671,10 @@ allowed_content(element,_Parents) ->
 	       #chain{content=
 			 [#alternative{content=
 				  [{simpleType,{1,1}},{complexType,{1,1}}],
-				  occurance={0,1}},
+				  occurrence={0,1}},
 			  #alternative{content=
 				  [{unique,{1,1}},{key,{1,1}},{keyref,{1,1}}],
-				  occurance={0,unbounded}}]
+				  occurrence={0,unbounded}}]
 			}]
 	     };
 allowed_content(attribute,_Parents) ->
@@ -1689,12 +1689,12 @@ allowed_content(complexType,Parents) ->
 		    [#alternative{content=
 				  [{group,{1,1}},{all,{1,1}},
 				   {choice,{1,1}},{sequence,{1,1}}],
-				  occurance={0,1}},
+				  occurrence={0,1}},
 		     #chain{content=
 			    [#alternative{content=
 					  [{attribute,{1,1}},
 					   {attributeGroup,{1,1}}],
-					  occurance={0,unbounded}},
+					  occurrence={0,unbounded}},
 			     {anyAttribute,{0,1}}]
 			   }
 		    ]
@@ -1714,7 +1714,7 @@ allowed_content(attributeGroup,Parents) ->
 				 [#alternative{content=
 					  [{attribute,{1,1}},
 					   {attributeGroup,{1,1}}],
-					  occurance={0,unbounded}},
+					  occurrence={0,unbounded}},
 				  {anyAttribute,{0,1}}]}]}
     end;
 allowed_content(group,_Parents) ->
@@ -1722,7 +1722,7 @@ allowed_content(group,_Parents) ->
 	      [{annotation,{0,1}},
 	       #alternative{content=
 		       [{all,{1,1}},{choice,{1,1}},{sequence,{1,1}}],
-		       occurance={0,1}}]};
+		       occurrence={0,1}}]};
 allowed_content(all,_Parents) ->
     #chain{content=[{annotation,{0,1}},{element,{0,unbounded}}]};
 allowed_content(SorC,_Parents) when SorC==sequence;SorC==choice ->
@@ -1732,7 +1732,7 @@ allowed_content(SorC,_Parents) when SorC==sequence;SorC==choice ->
 		       [{element,{1,1}},{group,{1,1}},
 			{choice,{1,1}},{sequence,{1,1}},
 			{any,{1,1}}],
-		       occurance={0,unbounded}}]};
+		       occurrence={0,unbounded}}]};
 %% allowed_content(E,_Parents)
 %%   when E==any;E==selector;E==field;E==notation;E==include;E==import;
 %%        E==anyAttribute ->
@@ -1744,7 +1744,7 @@ allowed_content(SorC,_Parents) when SorC==sequence;SorC==choice ->
 %% 			 [{selector,{1,1}},{selector,{1,unbounded}}]}]};
 %% allowed_content(annotation,_Parents) ->
 %%     #alternative{content=[{appinfo,{1,1}},{documentation,{1,1}}],
-%% 	    occurance={0,unbounded}};
+%% 	    occurrence={0,unbounded}};
 %% allowed_content(E,_Parents) when E==appinfo;E==documentation ->
 %%     {any,{0,unbounded}};
 allowed_content(simpleType,_Parents) ->
@@ -1771,7 +1771,7 @@ allowed_content(LU,_Parent) when LU==list;LU==union ->
 %% 	      [#alternative{content=
 %% 		       [{include,{1,1}},{import,{1,1}},
 %% 			{redefine,{1,1}},{annotation,{1,1}}],
-%% 		       occurance={0,1}},
+%% 		       occurrence={0,1}},
 %% 	       #chain{content=
 %% 			 [#alternative{content=
 %% 				  [#alternative{content=
@@ -1781,14 +1781,14 @@ allowed_content(LU,_Parent) when LU==list;LU==union ->
 %% 				   {attribute,{1,1}},
 %% 				   {notation,{1,1}}]},
 %% 			  {annotation,{0,unbounded}}],
-%% 			 occurance={0,unbounded}}]};
+%% 			 occurrence={0,unbounded}}]};
 allowed_content(redefine,_Parents) ->
     #alternative{content=
 	    [{annotation,{1,1}},
 	     #alternative{content=
 		     [{simpleType,{1,1}},{complexType,{1,1}},
 		      {group,{1,1}},{attributeGroup,{1,1}}]}],
-	    occurance={0,unbounded}};
+	    occurrence={0,unbounded}};
 allowed_content(E,_Parents) when E==simpleContent;
 				 E==complexContent ->
     #chain{content=
@@ -1842,7 +1842,7 @@ allowed_content2(restriction,simpleType) ->
 				   {length,{1,1}},{minLength,{1,1}},
 				   {maxLength,{1,1}},{enumeration,{1,1}},
 				   {whiteSpace,{1,1}},{pattern,{1,1}}],
-				  occurance={0,unbounded}}]}]};
+				  occurrence={0,unbounded}}]}]};
 allowed_content2(restriction,simpleContent) ->
     #chain{content=
 	      [{annotation,{0,1}},
@@ -1855,12 +1855,12 @@ allowed_content2(restriction,simpleContent) ->
 				  {length,{1,1}},{minLength,{1,1}},
 				  {maxLength,{1,1}},{enumeration,{1,1}},
 				  {whiteSpace,{1,1}},{pattern,{1,1}}],
-				 occurance={0,unbounded}}],
-			 occurance={0,1}},
+				 occurrence={0,unbounded}}],
+			 occurrence={0,1}},
 	       #chain{content=
 			 [#alternative{content=
 				 [{attribute,{1,1}},{attributeGroup,{1,1}}],
-				  occurance={0,unbounded}},
+				  occurrence={0,unbounded}},
 			  {anyAttribute,{0,1}}]}]};
 allowed_content2(restriction,complexContent) ->
     #chain{content=
@@ -1868,11 +1868,11 @@ allowed_content2(restriction,complexContent) ->
 	       #alternative{content=
 		       [{group,{1,1}},{all,{1,1}},{choice,{1,1}},
 			{sequence,{1,1}}],
-		       occurance={0,1}},
+		       occurrence={0,1}},
 	       #chain{content=
 			 [#alternative{content=
 				  [{attribute,{1,1}},{attributeGroup,{1,1}}],
-				  occurance={0,unbounded}},
+				  occurrence={0,unbounded}},
 			  {anyAttribute,{0,1}}]}]};
 allowed_content2(extension,simpleContent) ->
     #chain{content=
@@ -1880,7 +1880,7 @@ allowed_content2(extension,simpleContent) ->
 	       #chain{content=
 			 [#alternative{content=
 				  [{attribute,{1,1}},{attributeGroup,{1,1}}],
-				  occurance={0,unbounded}},
+				  occurrence={0,unbounded}},
 			  {anyAttribute,{0,1}}]}]};
 allowed_content2(extension,complexContent) ->
     #chain{content=
@@ -1889,19 +1889,19 @@ allowed_content2(extension,complexContent) ->
 			 [#alternative{content=
 				  [{group,{1,1}},{all,{1,1}},{choice,{1,1}},
 				   {sequence,{1,1}}],
-				  occurance={0,1}},
+				  occurrence={0,1}},
 			  #chain{content=
 				    [#alternative{content=
 					     [{attribute,{1,1}},
 					      {attributeGroup,{1,1}}],
-					     occurance={0,1}},
+					     occurrence={0,1}},
 				     {anyAttribute,{0,1}}]}]}]}.
 						  
 
 set_occurance(Ch = #chain{},Occ) ->
-    Ch#chain{occurance=Occ};
+    Ch#chain{occurrence=Occ};
 set_occurance(Alt = #alternative{},Occ) ->
-    Alt#alternative{occurance=Occ};
+    Alt#alternative{occurrence=Occ};
 set_occurance({Name,_},Occ) when is_atom(Name) ->
     {Name,Occ}.
 %% set_occurance(CM,_) ->
@@ -1992,7 +1992,7 @@ save_namespace_definition(NameSpace,
 				       checked_namespace_nodes=CNS}) ->
     %% 1) Have to find a matching namespace in the global list for
     %% this schema, and get the associated prefix. 2) Then check
-    %% whether a schema with this prefix - namespace combinaton
+    %% whether a schema with this prefix - namespace combination
     %% already is checked, if so do nothing. 3a) If this namespace is
     %% checked but with another prefix only add the prefix - namespace
     %% pair to the checked namespace list. 3b) Otherwise add the
@@ -2275,7 +2275,7 @@ set_num_el(S=#xsd_state{},#xsd_state{num_el=I}) ->
     S#xsd_state{num_el=I}.
 
 
-occurance(El=#xmlElement{attributes=Atts},{Min,Max},S) ->
+occurrence(El=#xmlElement{attributes=Atts},{Min,Max},S) ->
     AttVal=fun(#xmlAttribute{value=V},Sin) -> 
 		   case catch mk_int_or_atom(V) of
 		       {'EXIT',_} ->
@@ -2470,7 +2470,7 @@ check_element_type(XML=[#xmlElement{}|_],[{all,{CM,Occ}}|_CMRest],
 %% 3 often. CMEL may be ((simpleType | complexType)?, (unique | key | keyref)*))
 check_element_type(XML=[XMLEl=#xmlElement{}|_],[CMEl|CMRest],Env,
 		   Block,S,Checked) ->
-    %% Three possible releations between XMLEl - CMEl:
+    %% Three possible relations between XMLEl - CMEl:
     %% (1) XMLEl matches CMEl.
     %% (2) XMLEl don't matches CMEl and CMEl is optional.
     %% (3) XMLEl don't matches CMEl, CMEl mandatory, - error.
@@ -2563,12 +2563,12 @@ check_element_type(XML=[XMLEl=#xmlElement{name=Name}|RestXML],
 		   CMEl=#schema_element{name=CMName,type=Type},
 		   Env,Block,S,Checked) ->
     ElName = mk_EII_QName(Name,XMLEl,S#xsd_state{scope=element(2,CMName)}),
-    {Min,Max} = CMEl#schema_element.occurance,
+    {Min,Max} = CMEl#schema_element.occurrence,
     case cmp_name(ElName,CMName,S) of %% substitutionGroup
 	true when S#xsd_state.num_el =< Max ->
 	    S1 = id_constraints(CMEl,XMLEl,S),
 	    %% If CMEl element has a substitutionGroup we have to
-	    %% switch to the rigth element and type here.
+	    %% switch to the right element and type here.
 	    {CMEl2,Type2,S2} =
 		if 
 		    ElName =:= CMName ->
@@ -2705,7 +2705,7 @@ check_element_type(XML=[E=#xmlElement{name=Name}|Rest],
     end;
 check_element_type([],CM,_Env,_Block,S,Checked) ->
     %% #schema_complex_type, any, #schema_group, anyType and lists are
-    %% catched above.
+    %% caught above.
     case CM of
 	#schema_simple_type{} ->
 	    {NewVal,S2} = check_type(CM,[],unapplied,S),
@@ -2777,7 +2777,7 @@ check_sequence(Seq=[_InstEl=#xmlElement{}|_],[El|Els],Occ={_Min,_Max},Env,S,Chec
 %%	    Err;
 	{Ret,UnValRest,S3} ->
 	    %% must also take care of more elements of same name
-	    %% decrease occurance in El for the optional measurements
+	    %% decrease occurrence in El for the optional measurements
 	    %% when Seq is empty.
 	    check_sequence(UnValRest,[decrease_occurance(El)|Els],Occ,Env,
 			   count_num_el(set_num_el(S3,S2)),
@@ -2835,7 +2835,7 @@ check_choice(XML,[],{0,_},_,S,Checked) ->
     %% Choice is optional
     {Checked,XML,set_num_el(S,0)};
 check_choice(XML,[],_,_,S,Checked) ->
-    %% Choice has already matched something, the rest is for somthing
+    %% Choice has already matched something, the rest is for something
     %% else to match.
     case S#xsd_state.num_el > 0 of
 	true ->
@@ -3965,7 +3965,7 @@ resolve(E,S) ->
     load_object(E,S).
 
 %% explicit_type checks whether the instance element is of an explicit
-%% type pointed out by xsi:type. A type refernced by xsi:type must be
+%% type pointed out by xsi:type. A type referenced by xsi:type must be
 %% the same as, or derived from the instance element's type. Concluded
 %% from 3.4.6 section "Schema Component Constraint: Type Derivation OK
 %% (Complex)".
@@ -5080,7 +5080,7 @@ load_redefine_object({Kind,Name},S) ->
 
 load_object({element,{QN,Occ={Min,_}}},S) when is_integer(Min) ->
     case load_object({element,QN},S) of
-	{SE=#schema_element{},S1} -> {SE#schema_element{occurance=Occ},S1};
+	{SE=#schema_element{},S1} -> {SE#schema_element{occurrence=Occ},S1};
 	Other -> Other
     end;
 load_object({group,{QN,_Occ={Min,_}}},S) when is_integer(Min) ->
@@ -5439,11 +5439,11 @@ format_error({unvalidated_rest,UR}) ->
 format_error({no_schemas_provided}) ->
     "Schema: Validator found no schema. A schema must be provided for validation.";
 format_error({internal_error,Reason}) ->
-    io_lib:format("An error occured that was unforeseen, due to ~p.",[Reason]);
+    io_lib:format("An error occurred that was unforeseen, due to ~p.",[Reason]);
 format_error({internal_error,Reason,Info}) ->
-    io_lib:format("An error occured that was unforeseen, due to ~p: ~p.",[Reason,Info]);
+    io_lib:format("An error occurred that was unforeseen, due to ~p: ~p.",[Reason,Info]);
 format_error({internal_error,Function,Info1,Info2}) ->
-    io_lib:format("An internal error occured in function ~p with args: ~p,~p.",[Function,Info1,Info2]);
+    io_lib:format("An internal error occurred in function ~p with args: ~p,~p.",[Function,Info1,Info2]);
 format_error({illegal_content,Reason,Kind}) ->
     io_lib:format("Schema: The schema violates the content model allowed for schemas.~nReason: ~p,~nkind of schema element: ~p.",[Reason,Kind]);
 format_error({no_match,Kind}) ->
@@ -5473,7 +5473,7 @@ format_error({no_element_expected_in_group,XML}) ->
 format_error({element_bad_match,E,Any,_Env}) ->
     io_lib:format("XML: XML element ~p didn't match into the namespace of schema type any ~p.",[E,Any]);
 format_error({match_failure,_XML,_CM,_S}) ->
-    "XML: A combination of XML element(s) and schema definitions that is not known has occured. The implementation doesn't support this structure.";
+    "XML: A combination of XML element(s) and schema definitions that is not known has occurred. The implementation doesn't support this structure.";
 format_error({cannot_contain_text,_XMLTxt,CMEl}) ->
     io_lib:format("XML: The schema structure: ~p doesn't allow text",[CMEl]);
 format_error({missing_mandatory_elements,MandatoryEls}) ->
@@ -5489,7 +5489,7 @@ format_error({element_not_in_all,ElName,E,_CM}) ->
 format_error({missing_mandatory_elements_in_all,MandatoryEls}) ->
     io_lib:format("XML: The schema elements ~p were missed in the XML file.",[MandatoryEls]);
 format_error({failed_validating,E,Any}) ->
-    io_lib:format("XML: The element ~p at location ~p failed validation. It should hav been matched by an any schema element ~p",[E#xmlElement.name,error_path(E,undefined),Any]);
+    io_lib:format("XML: The element ~p at location ~p failed validation. It should have been matched by an any schema element ~p",[E#xmlElement.name,error_path(E,undefined),Any]);
 format_error({schemaLocation_list_failure,Paths}) ->
     io_lib:format("XML: schemaLocation values consists of one or more pairs of URI references, separated by white space. The first is a namespace name the second a reference to a schema: ~p.",[Paths]);
 format_error({element_content_not_nil,XMLEl}) ->
@@ -5502,7 +5502,7 @@ format_error({default_and_fixed_attributes_mutual_exclusive,
 	      Name,Default,Fix}) ->
     io_lib:format("Schema: It is an error in the schema to assign values for both default and fix for an attribute. Attribute: ~p, default: ~p, fix: ~p.",[Name,Default,Fix]);
 format_error({schema_error,unexpected_object,_SA,_Err}) ->
-    "Schema: An unforeseen error case occured, maybee due to an unimplemented feature.";
+    "Schema: An unforeseen error case occurred, maybe due to an unimplemented feature.";
 format_error({attribute_not_defined_in_schema,Name}) ->
     io_lib:format("XML: The attribute ~p is not defined in the provided schema.",[Name]);
 format_error({disallowed_namespace,Namespace,NS,Name}) ->
@@ -5530,9 +5530,9 @@ format_error({key_value_not_unique,KS}) ->
 format_error({keyref_missed_matching_key,Refer}) ->
     io_lib:format("Schema: This keyref had no matching key ~p.",[Refer]);
 format_error({keyref_unexpected_object,_Other}) ->
-    "Schema: An unforeseen error case occured, unknown failure cause.";
+    "Schema: An unforeseen error case occurred, unknown failure cause.";
 format_error({cardinality_of_fields_not_equal,KR,K}) ->
-    io_lib:format("Schema: keyref and the corresponding key must have same cardinality of their fields. Missmatch in this case keyref: ~p, key: ~p.",[KR,K]);
+    io_lib:format("Schema: keyref and the corresponding key must have same cardinality of their fields. Mismatch in this case keyref: ~p, key: ~p.",[KR,K]);
 format_error({could_not_load_keyref,Name}) ->
     io_lib:format("Schema: The schema didn't define a keyref with the name ~p.",[Name]);
 format_error({reference_undeclared,Kind,Ref}) ->
@@ -5542,7 +5542,7 @@ format_error({cyclic_substitutionGroup,SGs}) ->
 format_error({substitutionGroup_error,Head,SG}) ->
     io_lib:format("Schema: Either of substitutionGroup members ~p or ~p is not defined in the provided schema.",[Head,SG]);
 format_error({cyclic_definition,CA}) ->
-    io_lib:format("Schema: A forbidden cicular definition was detected ~p.",[CA]);
+    io_lib:format("Schema: A forbidden circular definition was detected ~p.",[CA]);
 format_error({type_of_element_not_derived,MemT,HeadT}) ->
     io_lib:format("Schema: Type in substitutionGroup members should be simpleType or complexType. In this case ~p and ~p were found.",[MemT, HeadT]);
 format_error({derivation_blocked,BlockTag,Derivation}) ->

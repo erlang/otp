@@ -510,7 +510,7 @@ gsub_comp([], _P, _RE, _Bef, _Rep) -> no.
 
 %% split(String, RegExp) -> {ok,[SubString]} | {error,E}.
 %%  Split a string into substrings where the RegExp describes the
-%%  field seperator. The RegExp " " is specially treated.
+%%  field separator. The RegExp " " is specially treated.
 
 split(String, " ") ->				%This is really special
     {ok,{regexp,RE}} = parse("[ \t]+"),
@@ -1289,7 +1289,7 @@ accept([], _NFA) -> no.
 %% minimise_dfa(DFA, StartState, FirstState) -> {DFA,StartState}.
 %%  Minimise the DFA by removing equivalent states. We consider a
 %%  state if both the transitions and the their accept state is the
-%%  same.  First repeatedly run throught the DFA state list removing
+%%  same.  First repeatedly run through the DFA state list removing
 %%  equivalent states and updating remaining transitions with
 %%  remaining equivalent state numbers. When no more reductions are
 %%  possible then pack the remaining state numbers to get consecutive
