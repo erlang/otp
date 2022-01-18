@@ -1,10 +1,10 @@
-# CompositionExclusions-13.0.0.txt
-# Date: 2019-10-15, 18:27:00 GMT [KW, LI]
-# © 2019 Unicode®, Inc.
-# For terms of use, see http://www.unicode.org/terms_of_use.html
+# CompositionExclusions-14.0.0.txt
+# Date: 2021-03-30, 23:59:00 GMT [KW, LI]
+# © 2021 Unicode®, Inc.
+# For terms of use, see https://www.unicode.org/terms_of_use.html
 #
 # Unicode Character Database
-# For documentation, see http://www.unicode.org/reports/tr44/
+# For documentation, see https://www.unicode.org/reports/tr44/
 #
 # This file lists the characters for the Composition Exclusion Table
 # defined in UAX #15, Unicode Normalization Forms.
@@ -13,7 +13,7 @@
 # Unicode Character Database.
 #
 # For more information, see
-# http://www.unicode.org/unicode/reports/tr15/#Primary_Exclusion_List_Table
+# https://www.unicode.org/reports/tr15/#Primary_Exclusion_List_Table
 #
 # For a full derivation of composition exclusions, see the derived property
 # Full_Composition_Exclusion in DerivedNormalizationProps.txt
