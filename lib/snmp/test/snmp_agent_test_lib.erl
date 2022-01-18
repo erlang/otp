@@ -569,10 +569,10 @@ tc_run(Mod, Func, Args, Opts) ->
                     ?SKIP(Reason);
 
                 throw:{error, Reason} ->
-                    tc_run_skip_sheck(Mod, Func, Args, Reason, throw);
+                    tc_run_skip_check(Mod, Func, Args, Reason, throw);
 
 		exit:Reason ->
-                    tc_run_skip_sheck(Mod, Func, Args, Reason, exit)
+                    tc_run_skip_check(Mod, Func, Args, Reason, exit)
 	    end;
 
 	{error, Reason} ->
@@ -588,11 +588,18 @@ tc_run(Mod, Func, Args, Opts) ->
 	    ?line ?FAIL({mgr_start_failure, Err})
     end.
 
+%% We have some crap machines that generate this every now and then
+%% (thay miss the window with 1 or 2 ms). If also detected by the
+%% test manager, we get this and can skip.
+tc_run_skip_check(_Mod, _Func, _Args,
+                  {securityError, usmStatsNotInTimeWindows} = Reason,
+                  _Cat) ->
+    ?SKIP([{reason, Reason}]);
 %% We have hosts (mostly *very* slooow VMs) that
 %% can timeout anything. Since we are basically
 %% testing communication, we therefor must check
 %% for system events at every failure. Grrr!
-tc_run_skip_sheck(Mod, Func, Args, Reason, Cat) ->
+tc_run_skip_check(Mod, Func, Args, Reason, Cat) ->
     SysEvs = snmp_test_global_sys_monitor:events(),
     (catch snmp_test_mgr:stop()),
     if
