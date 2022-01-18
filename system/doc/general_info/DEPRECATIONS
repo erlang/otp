@@ -23,6 +23,9 @@
 slave:_/_ since=25 remove=27
 ct_slave:_/_ since=25 remove=27
 
+crypto:crypto_dyn_iv_init/3 since=25 remove=27
+crypto:crypto_dyn_iv_update/3 since=25 remove=27
+
 #
 # Added in OTP 24.
 #

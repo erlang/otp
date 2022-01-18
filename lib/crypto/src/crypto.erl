@@ -46,6 +46,12 @@
 -export([pbkdf2_hmac/5]).
 
 %%%----------------------------------------------------------------
+%% Deprecated functions
+-deprecated([crypto_dyn_iv_init/3,
+             crypto_dyn_iv_update/3
+           ]).
+
+%%%----------------------------------------------------------------
 %% Removed functions.
 %%
 %% Old interface. Now implemented with the New interface.

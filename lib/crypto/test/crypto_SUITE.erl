@@ -170,6 +170,11 @@
          rsa_oaep_label/0
         ]).
 
+
+-compile({nowarn_deprecated_function, [{crypto, crypto_dyn_iv_init, 3},
+                                       {crypto, crypto_dyn_iv_update, 3}
+                                      ]}).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
