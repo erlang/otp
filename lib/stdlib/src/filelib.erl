@@ -21,7 +21,7 @@
 
 %% File utilities.
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1]).
--export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).
+-export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1, ensure_path/1]).
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
 -export([find_file/2, find_file/3, find_source/1, find_source/2, find_source/3]).
@@ -218,6 +218,7 @@ do_file_size(File, Mod) ->
 	    0
     end.
 
+
 %%----------------------------------------------------------------------
 %% +type ensure_dir(X) -> ok | {error, Reason}.
 %% +type X = filename() | dirname()
@@ -230,27 +231,37 @@ ensure_dir("/") ->
     ok;
 ensure_dir(F) ->
     Dir = filename:dirname(F),
-    case do_is_dir(Dir, file) of
-	true ->
-	    ok;
-	false when Dir =:= F ->
-	    %% Protect against infinite loop
-	    {error,einval};
-	false ->
-	    _ = ensure_dir(Dir),
-	    case file:make_dir(Dir) of
-		{error,eexist}=EExist ->
-		    case do_is_dir(Dir, file) of
-			true ->
-			    ok;
-			false ->
-			    EExist
-		    end;
-		Err ->
-		    Err
-	    end
-    end.
+    ensure_path(Dir).
 
+-spec ensure_path(Path) -> 'ok' | {'error', Reason} when
+      Path :: dirname_all(),
+      Reason :: file:posix().
+ensure_path("/") ->
+    ok;
+
+ensure_path(Path) -> 
+    case do_is_dir(Path, file) of
+        true -> 
+            ok;
+        false -> 
+            case filename:dirname(Path) of 
+                Parent when Parent =:= Path -> 
+                    {error,einval};
+                Parent -> 
+                     _ = ensure_path(Parent),
+                    case file:make_dir(Path) of
+                        {error,eexist}=EExist ->
+                            case do_is_dir(Path, file) of
+                                true -> 
+                                    ok;
+                                false -> 
+                                    EExist 
+                            end;
+                        Other ->
+                            Other
+                    end
+            end
+    end.
 
 %%%
 %%% Pattern matching using a compiled wildcard.

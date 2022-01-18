@@ -25,6 +25,10 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
+         ensure_path_single_dir/1, ensure_path_nested_dirs/1,
+         ensure_path_binary_args/1, ensure_path_symlink/1,
+         ensure_path_relative_path/1, ensure_path_relative_path_dot_dot/1,
+         ensure_path_invalid_path/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
          find_source/1, find_source_subdir/1, find_source_otp/1,
          safe_relative_path/1, safe_relative_path_links/1]).
@@ -49,6 +53,10 @@ suite() ->
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
+     ensure_path_single_dir, ensure_path_nested_dirs, ensure_path_binary_args,
+     ensure_path_symlink, ensure_path_relative_path,
+     ensure_path_relative_path_dot_dot,
+     ensure_path_invalid_path,
      wildcard_symlink, is_file_symlink, file_props_symlink,
      find_source, find_source_subdir, find_source_otp,
      safe_relative_path, safe_relative_path_links].
@@ -447,6 +455,74 @@ ensure_dir_symlink(Config) when is_list(Config) ->
     ok = file:write_file(Name, <<"some string\n">>),
     %% With a symlink to the directory.
     Symlink = filename:join(PrivDir, "ensure_dir_symlink_link"),
+    case file:make_symlink(Dir, Symlink) of
+        {error,enotsup} ->
+            {skip,"Symlinks not supported on this platform"};
+        {error,eperm} ->
+            {win32,_} = os:type(),
+            {skip,"Windows user not privileged to create symlinks"};
+        ok ->
+            SymlinkedName = filename:join(Symlink, "same_name_as_file_and_dir"),
+            ok = filelib:ensure_dir(SymlinkedName)
+    end.
+
+ensure_path_single_dir(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, "ensure_path_single_dir"),
+    ok = filelib:ensure_path(Dir),
+    true = filelib:is_dir(Dir).
+
+ensure_path_nested_dirs(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "ensure_path_nested_dirs"),
+    Path = filename:join(BaseDir, "foo/bar/baz"),
+    ok = filelib:ensure_path(Path),
+    true = filelib:is_dir(Path).
+
+ensure_path_binary_args(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "ensure_path_binary_args"),
+    Path = filename:join(BaseDir, "foo/bar/baz"),
+    ok = filelib:ensure_path(list_to_binary(Path)),
+    true = filelib:is_dir(Path).
+
+ensure_path_invalid_path(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "ensure_path_invalid_path"),
+    ok = filelib:ensure_path(BaseDir),
+    FileName =  filename:join(BaseDir, "foo"),
+    ok = file:write_file(FileName, <<"eh?\n">>),
+    Path = filename:join(FileName, "foo/bar/baz"),
+    {error,enotdir} = filelib:ensure_path(Path),
+    false = filelib:is_dir(Path).
+
+ensure_path_relative_path(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "ensure_path_relative_path"),
+    ok = filelib:ensure_path(BaseDir),
+    ok = file:set_cwd(BaseDir),
+    Path = filename:join(BaseDir, "foo/bar/baz"),
+    ok = filelib:ensure_path("foo/bar/baz"),
+    true = filelib:is_dir(Path).
+
+ensure_path_relative_path_dot_dot(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, "ensure_path_relative_path"),
+    SubDir = filename:join(BaseDir, "dot_dot"),
+    ok = filelib:ensure_path(SubDir),
+    ok = file:set_cwd(SubDir),
+    Path = filename:join(BaseDir, "foo/bar/baz"),
+    ok = filelib:ensure_path("../foo/bar/baz"),
+    true = filelib:is_dir(Path).
+
+ensure_path_symlink(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, "ensure_path_symlink"),
+    Name = filename:join(Dir, "same_name_as_file_and_dir"),
+    ok = filelib:ensure_path(Dir),
+    ok = file:write_file(Name, <<"some string\n">>),
+    %% With a symlink to the directory.
+    Symlink = filename:join(PrivDir, "ensure_path_symlink_link"),
     case file:make_symlink(Dir, Symlink) of
         {error,enotsup} ->
             {skip,"Symlinks not supported on this platform"};
