@@ -262,7 +262,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 "/home/otptest/.cache/my_application/log"</pre>
                 On Darwin:<pre>
 4> <input>filename:basedir(user_log, "my_application", #{os=>darwin}).</input>
-"/home/otptest/Library/Caches/my_application"</pre>
+"/home/otptest/Library/Logs/my_application"</pre>
                 On Windows:<pre>
 12> <input>filename:basedir(user_log, "My App").</input>
 "c:/Users/otptest/AppData/Local/My App/Logs"
