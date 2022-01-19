@@ -243,7 +243,7 @@ make_xml(Top, Type, OutFile, InfoText0) ->
     ok.
 
 make_xml_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
-    [{{M,F,A}, Text} | make_xml_info(Attributes, Tag)];
+    [{{M,F,A}, info_string(Text)} | make_xml_info(Attributes, Tag)];
 make_xml_info([_ | Attributes], Tag) ->
     make_xml_info(Attributes, Tag);
 make_xml_info([], _Tag) ->
