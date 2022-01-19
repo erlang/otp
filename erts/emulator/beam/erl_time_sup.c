@@ -216,6 +216,15 @@ update_last_mtime(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
     if (!esdp)
 	esdp = erts_get_scheduler_data();
     if (esdp) {
+#if 1
+        if (mtime < esdp->last_monotonic_time)
+            erts_exit(ERTS_ABORT_EXIT,
+                      "Monotonic time stepped backwards!\n"
+                      "Previous time: %b64d\n"
+                      "Current time:  %b64d\n",
+                      esdp->last_monotonic_time,
+                      mtime);
+#endif
 	ASSERT(mtime >= esdp->last_monotonic_time);
 	esdp->last_monotonic_time = mtime;
 	esdp->check_time_reds = 0;
