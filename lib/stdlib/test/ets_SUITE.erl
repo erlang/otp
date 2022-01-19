@@ -266,10 +266,15 @@ end_per_group(benchmark, Config) ->
     T = proplists:get_value(ets_benchmark_result_summary_tab, Config),
     EtsProcess = proplists:get_value(ets_benchmark_result_summary_tab_process, Config),
     Report = 
-        fun(NOfBenchmarksCtr, TotThroughoutCtr, Name) ->
+        fun(NOfBenchmarksCtr, TotThroughputCtr, Name) ->
                 Average =
-                    ets:lookup_element(T, TotThroughoutCtr, 2) / 
-                    ets:lookup_element(T, NOfBenchmarksCtr, 2),
+                    case {ets:lookup_element(T, TotThroughputCtr, 2),
+                          ets:lookup_element(T, NOfBenchmarksCtr, 2)} of
+                        {0.0, 0.0} ->
+                            0;
+                        {TotThrp, NBench} ->
+                            TotThrp / NBench
+                    end,
                 io:format("~p ~p~n", [Name, Average]),
                 ct_event:notify(
                   #event{name = benchmark_data, 
