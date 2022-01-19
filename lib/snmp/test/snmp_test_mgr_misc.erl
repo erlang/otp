@@ -321,14 +321,15 @@ handle_v3_message(Mgr, UdpId, Ip, UdpPort, AgentIp,
 
         catch
             throw:{error, Reason, B}:_ ->
-                udp_send(UdpId, AgentIp, UdpPort, B),
-                ?EPRINT("Decoding (v3) error - Auto-sending Report:"
-                        "~n   Reason: ~p"
-                        "~n   Port:   ~p"
-                        "~n   Ip:     ~p",
-                        [Reason, UdpPort, Ip]),
-                %% Can we be sure that this error is not expected?
                 {_, Pid} = Mgr,
+                ?EPRINT("Decoding (v3) error - Auto-sending Report:"
+                        "~n   Reason:    ~p"
+                        "~n   Port:      ~p"
+                        "~n   Ip:        ~p"
+                        "~n   (mgr) Pid: ~p",
+                        [Pid, Reason, UdpPort, Ip]),
+                udp_send(UdpId, AgentIp, UdpPort, B),
+                %% Can we be sure that this error is not expected?
                 Pid ! {error, Reason},
                 [];
 
