@@ -143,13 +143,11 @@ end_per_group(_GroupName, Config) ->
 %%
 
 %% Test server callbacks
-init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
-                                     (Case =:= otp_8167) orelse
-                                     (Case =:= otp_8183) ->
+init_per_testcase(Case, Config) when (Case =/= config) ->
     i("init_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
-    
+
     megaco_test_global_sys_monitor:reset_events(),
 
     i("try starting megaco_config"),
@@ -163,6 +161,12 @@ init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
             {skip, ?F("Failed starting config: ~p", [Reason])}
     end;
 init_per_testcase(Case, Config) ->
+    i("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_global_sys_monitor:reset_events(),
+
     C = lists:keydelete(tc_timeout, 1, Config),
     do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]).
 
@@ -173,9 +177,7 @@ do_init_per_testcase(Case, Config) ->
 min(M) -> timer:minutes(M).
 
 
-end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
-                                    (Case =:= otp_8167) orelse
-                                    (Case =:= otp_8183) ->
+end_per_testcase(Case, Config) when (Case =/= config) ->
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
@@ -187,6 +189,13 @@ end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config);
 end_per_testcase(Case, Config) ->
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
 
@@ -559,8 +568,6 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
 
     i("starting"),
 
-    {ok, _ConfigPid} = megaco_config:start_link(),
-
     %% Basic user data
     UserMid = {deviceName, "mg"},
     UserConfig = [
@@ -612,8 +619,6 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     {ok, _, _} = megaco_config:disconnect(CH),
     i("stop user"),
     ok = megaco_config:stop_user(UserMid),
-    i("stop megaco_config"),
-    ok = megaco_config:stop(),
 
     i("done"),
     ok.
@@ -811,9 +816,6 @@ transaction_id_counter_mgc(doc) ->
 transaction_id_counter_mgc(Config) when is_list(Config) ->
     Name = transaction_id_counter_mgc,
     Pre = fun() ->
-                  i("starting config server"),
-                  {ok, _ConfigPid} = megaco_config:start_link(),
-
                   %% Basic user data
                   UserMid = {deviceName, "mgc"},
                   UserConfig = [
@@ -921,8 +923,8 @@ transaction_id_counter_mgc(Config) when is_list(Config) ->
                    delete_connections(CDs), 
                    i("stop user"),
                    ok = megaco_config:stop_user(UserMid),
-                   i("stop megaco_config"),
-                   ok = megaco_config:stop()
+                   i("done"),
+                   ok
            end,
     try_tc(Name, Pre, Case, Post).
 
