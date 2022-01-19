@@ -970,12 +970,21 @@ analyze_and_print_host_info() ->
             analyze_and_print_win_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
-                      "~n   OS Type:               ~p"
-                      "~n   Version:               ~p"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [OsFam, OsName, Version, str_num_schedulers()]),
+                      "~n   OS Type:                 ~p"
+                      "~n   Version:                 ~p"
+                      "~n   Num Online Schedulers:   ~s"
+                      "~n   TS Extra Platform Label: ~s"
+                      "~n", [OsFam, OsName, Version, str_num_schedulers(),
+                             ts_extra_flatform_label()]),
             {num_schedulers_to_factor(), []}
     end.
+
+ts_extra_flatform_label() ->
+    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
+        false -> "-";
+        Val   -> Val
+    end.
+
 
 linux_which_distro(Version) ->
     case file:read_file_info("/etc/issue") of
@@ -984,9 +993,10 @@ linux_which_distro(Version) ->
                      S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
                 [DistroStr|_] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, DistroStr]),
+                              [Version, DistroStr, ts_extra_flatform_label()]),
                     case DistroStr of
                         "Wind River Linux" ++ _ ->
                             wind_river;
@@ -999,9 +1009,10 @@ linux_which_distro(Version) ->
                     end;
                 X ->
                     io:format("Linux: ~s"
-                              "~n   ~p"
+                              "~n   Distro:                  ~p"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, X]),
+                              [Version, X, ts_extra_flatform_label()]),
                     other
             end;
         _ ->
@@ -1017,16 +1028,17 @@ analyze_and_print_linux_host_info(Version) ->
                 linux_which_distro(Version);
             _ ->
                 io:format("Linux: ~s"
-                          "~n", [Version]),
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n", [Version, ts_extra_flatform_label()]),
                 other
         end,
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
-                          "~n   Model:                 ~s"
-                          "~n   BogoMIPS:              ~w"
-                          "~n   Num Online Schedulers: ~s"
+                          "~n   Model:                   ~s"
+                          "~n   BogoMIPS:                ~w"
+                          "~n   Num Online Schedulers:   ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
                     (BogoMIPS > 20000) ->
@@ -1044,8 +1056,8 @@ analyze_and_print_linux_host_info(Version) ->
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
-                          "~n   Model:                 ~s"
-                          "~n   Num Online Schedulers: ~s"
+                          "~n   Model:                   ~s"
+                          "~n   Num Online Schedulers:   ~s"
                           "~n", [CPU, str_num_schedulers()]),
                 NumChed = erlang:system_info(schedulers),
                 if
