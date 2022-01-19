@@ -1808,17 +1808,9 @@ handle_guard_call(Guard, Map, Env, Eval, State) ->
 	 cerl:atom_val(cerl:call_name(Guard)),
 	 cerl:call_arity(Guard)},
   case MFA of
-    {erlang, F, 1} when F =:= is_atom; F =:= is_boolean;
-			F =:= is_binary; F =:= is_bitstring;
-			F =:= is_float; F =:= is_function;
-			F =:= is_integer; F =:= is_list; F =:= is_map;
-			F =:= is_number; F =:= is_pid; F =:= is_port;
-			F =:= is_reference; F =:= is_tuple ->
-      handle_guard_type_test(Guard, F, Map, Env, Eval, State);
     {erlang, is_function, 2} ->
       handle_guard_is_function(Guard, Map, Env, Eval, State);
-    MFA when (MFA =:= {erlang, internal_is_record, 3}) or
-	     (MFA =:= {erlang, is_record, 3}) ->
+    {erlang, F, 3} when F =:= internal_is_record; F =:= is_record ->
       handle_guard_is_record(Guard, Map, Env, Eval, State);
     {erlang, '=:=', 2} ->
       handle_guard_eqeq(Guard, Map, Env, Eval, State);
@@ -1833,8 +1825,14 @@ handle_guard_call(Guard, Map, Env, Eval, State) ->
     {erlang, Comp, 2} when Comp =:= '<'; Comp =:= '=<';
                            Comp =:= '>'; Comp =:= '>=' ->
       handle_guard_comp(Guard, Comp, Map, Env, Eval, State);
-    _ ->
-      handle_guard_gen_fun(MFA, Guard, Map, Env, Eval, State)
+    {erlang, F, A} ->
+      TypeTestType = type_test_type(F, A),
+      case t_is_any(TypeTestType) of
+        true ->
+          handle_guard_gen_fun(MFA, Guard, Map, Env, Eval, State);
+        false ->
+          handle_guard_type_test(Guard, TypeTestType, Map, Env, Eval, State)
+      end
   end.
 
 handle_guard_gen_fun({M, F, A}, Guard, Map, Env, Eval, State) ->
@@ -1868,10 +1866,10 @@ handle_guard_gen_fun({M, F, A}, Guard, Map, Env, Eval, State) ->
       end
   end.
 
-handle_guard_type_test(Guard, F, Map, Env, Eval, State) ->
+handle_guard_type_test(Guard, TypeTestType, Map, Env, Eval, State) ->
   [Arg] = cerl:call_args(Guard),
   {Map1, ArgType} = bind_guard(Arg, Map, Env, dont_know, State),
-  case bind_type_test(Eval, F, ArgType, State) of
+  case bind_type_test(Eval, TypeTestType, ArgType, State) of
     error ->
       ?debug("Type test: ~w failed\n", [F]),
       signal_guard_fail(Eval, Guard, [ArgType], State);
@@ -1881,23 +1879,7 @@ handle_guard_type_test(Guard, F, Map, Env, Eval, State) ->
       {enter_type(Arg, NewArgType, Map1), Ret}
   end.
 
-bind_type_test(Eval, TypeTest, ArgType, State) ->
-  Type = case TypeTest of
-	   is_atom -> t_atom();
-	   is_boolean -> t_boolean();
-	   is_binary -> t_binary();
-	   is_bitstring -> t_bitstr();
-	   is_float -> t_float();
-	   is_function -> t_fun();
-	   is_integer -> t_integer();
-	   is_list -> t_maybe_improper_list();
-	   is_map -> t_map();
-	   is_number -> t_number();
-	   is_pid -> t_pid();
-	   is_port -> t_port();
-	   is_reference -> t_reference();
-	   is_tuple -> t_tuple()
-	 end,
+bind_type_test(Eval, Type, ArgType, State) ->
   case Eval of
     pos ->
       Inf = t_inf(Type, ArgType, State#state.opaques),
@@ -1914,6 +1896,27 @@ bind_type_test(Eval, TypeTest, ArgType, State) ->
     dont_know ->
       {ok, ArgType, t_boolean()}
   end.
+
+type_test_type(TypeTest, 1) ->
+  case TypeTest of
+    is_atom -> t_atom();
+    is_boolean -> t_boolean();
+    is_binary -> t_binary();
+    is_bitstring -> t_bitstr();
+    is_float -> t_float();
+    is_function -> t_fun();
+    is_integer -> t_integer();
+    is_list -> t_maybe_improper_list();
+    is_map -> t_map();
+    is_number -> t_number();
+    is_pid -> t_pid();
+    is_port -> t_port();
+    is_reference -> t_reference();
+    is_tuple -> t_tuple();
+    _ -> t_any()                         % Not a known type test.
+  end;
+type_test_type(_, _) ->
+  t_any().
 
 handle_guard_comp(Guard, Comp, Map, Env, Eval, State) ->
   Args = cerl:call_args(Guard),
