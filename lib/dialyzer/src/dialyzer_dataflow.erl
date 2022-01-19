@@ -1728,9 +1728,7 @@ bind_guard(Guard, Map, Env, Eval, State) ->
 	    {{Map2, t_none()}, HE}
 	end,
       BodyEnv = maps:put(get_label(Var), Arg, Env),
-      Wanted = case Eval of pos -> t_atom(true); neg -> t_atom(false);
-		 dont_know -> t_any() end,
-      case t_is_none(t_inf(HandlerType, Wanted)) of
+      case t_is_none(guard_eval_inf(Eval, HandlerType)) of
 	%% Handler won't save us; pretend it does not exist
 	true -> bind_guard(cerl:try_body(Guard), Map, BodyEnv, Eval, State);
 	false ->
@@ -1786,13 +1784,7 @@ bind_guard(Guard, Map, Env, Eval, State) ->
 	error ->
 	  ?debug("Did not find it\n", []),
 	  Type = lookup_type(Guard, Map),
-	  Constr =
-	    case Eval of
-	      pos -> t_atom(true);
-	      neg -> t_atom(false);
-	      dont_know -> Type
-	    end,
-	  Inf = t_inf(Constr, Type),
+	  Inf = guard_eval_inf(Eval, Type),
 	  {enter_type(Guard, Inf, Map), Inf};
 	{ok, Tree} ->
 	  ?debug("Found it\n", []),
@@ -1850,12 +1842,7 @@ handle_guard_gen_fun({M, F, A}, Guard, Map, Env, Eval, State) ->
     false ->
       BifArgs = bif_args(M, F, A),
       Map2 = enter_type_lists(Args, t_inf_lists(BifArgs, As, Opaques), Map1),
-      Ret =
-	case Eval of
-	  pos -> t_inf(t_atom(true), BifRet);
-	  neg -> t_inf(t_atom(false), BifRet);
-	  dont_know -> BifRet
-	end,
+      Ret = guard_eval_inf(Eval, BifRet),
       case t_is_none(Ret) of
 	true ->
 	  case Eval =:= pos of
@@ -2121,11 +2108,7 @@ bind_eq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State) ->
       OpArgs = erl_types:t_find_unknown_opaque(Type1, Type2, Opaques),
       case OpArgs =:= [] of
         true ->
-          case Eval of
-            pos -> {Map2, t_atom(true)};
-            neg -> {Map2, t_atom(false)};
-            dont_know -> {Map2, t_boolean()}
-          end;
+          {Map2, guard_eval_inf(Eval, t_boolean())};
         false ->
           signal_guard_fail(Eval, Guard, [Type1, Type2], State)
       end
@@ -2428,6 +2411,14 @@ bind_guard_map_pairs([Pair|Pairs], Map, Env, State, PairAcc) ->
 		       [{{K,V},cerl:concrete(Op)}|PairAcc]).
 
 -type eval() :: 'pos' | 'neg' | 'dont_know'.
+
+guard_eval_inf(Eval, Type) ->
+  Constr = case Eval of
+             pos -> t_atom(true);
+             neg -> t_atom(false);
+             dont_know -> Type
+           end,
+  t_inf(Constr, Type).
 
 -spec signal_guard_fail(eval(), cerl:c_call(), [type()],
 			state()) -> no_return().
