@@ -1178,7 +1178,7 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
      {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
-     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_matchable{}},
+     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_context{}},
      {?BEAM_TYPE_CONS,          #t_cons{}},
      {?BEAM_TYPE_FLOAT,         #t_float{}},
      {?BEAM_TYPE_FUN,           #t_fun{}},
