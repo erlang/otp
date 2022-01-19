@@ -2476,16 +2476,10 @@ signal_guard_failure(Eval, Guard, ArgTypes, Tag, State) ->
     end,
   throw({Tag, {LocTree, Msg}}).
 
-is_infix_op({erlang, '=:=', 2}) -> true;
-is_infix_op({erlang, '==', 2}) -> true;
-is_infix_op({erlang, '=/=', 2}) -> true;
-is_infix_op({erlang, '=/', 2}) -> true;
-is_infix_op({erlang, '<', 2}) -> true;
-is_infix_op({erlang, '=<', 2}) -> true;
-is_infix_op({erlang, '>', 2}) -> true;
-is_infix_op({erlang, '>=', 2}) -> true;
-is_infix_op({M, F, A}) when is_atom(M), is_atom(F),
-			    is_integer(A), 0 =< A, A =< 255 -> false.
+is_infix_op({erlang, F, 2}) ->
+  erl_internal:comp_op(F, 2);
+is_infix_op({_, _, _}) ->
+  false.
 
 bif_args(M, F, A) ->
   case erl_bif_types:arg_types(M, F, A) of
