@@ -238,9 +238,7 @@ make_xml(Top, Type, OutFile, InfoText0) ->
     Collected = make_xml_collect(Depr, RelKey, InfoTextMap, []),
 
     All = make_xml_gen(lists:reverse(Collected), Type, OutDir),
-    file:write_file(OutFile, All),
-
-    ok.
+    ok = file:write_file(OutFile, All).
 
 make_xml_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
     [{{M,F,A}, info_string(Text)} | make_xml_info(Attributes, Tag)];
