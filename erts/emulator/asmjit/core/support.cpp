@@ -1,34 +1,15 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/support.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::Support - Unit]
-// ============================================================================
+// Support - Tests
+// ===============
 
 #if defined(ASMJIT_TEST)
 template<typename T>
@@ -85,10 +66,14 @@ static void testBitUtils() noexcept {
   for (i = 0; i < 63; i++) EXPECT(Support::blsi(uint64_t(3) << i) == uint64_t(1) << i);
 
   INFO("Support::ctz()");
+  for (i = 0; i < 32; i++) EXPECT(Support::Internal::clzFallback(uint32_t(1) << i) == 31 - i);
+  for (i = 0; i < 64; i++) EXPECT(Support::Internal::clzFallback(uint64_t(1) << i) == 63 - i);
+  for (i = 0; i < 32; i++) EXPECT(Support::Internal::ctzFallback(uint32_t(1) << i) == i);
+  for (i = 0; i < 64; i++) EXPECT(Support::Internal::ctzFallback(uint64_t(1) << i) == i);
+  for (i = 0; i < 32; i++) EXPECT(Support::clz(uint32_t(1) << i) == 31 - i);
+  for (i = 0; i < 64; i++) EXPECT(Support::clz(uint64_t(1) << i) == 63 - i);
   for (i = 0; i < 32; i++) EXPECT(Support::ctz(uint32_t(1) << i) == i);
   for (i = 0; i < 64; i++) EXPECT(Support::ctz(uint64_t(1) << i) == i);
-  for (i = 0; i < 32; i++) EXPECT(Support::constCtz(uint32_t(1) << i) == i);
-  for (i = 0; i < 64; i++) EXPECT(Support::constCtz(uint64_t(1) << i) == i);
 
   INFO("Support::bitMask()");
   EXPECT(Support::bitMask(0, 1, 7) == 0x83u);
@@ -134,8 +119,10 @@ static void testBitUtils() noexcept {
 
 static void testIntUtils() noexcept {
   INFO("Support::byteswap()");
+  EXPECT(Support::byteswap16(int32_t(0x0102)) == int32_t(0x0201));
   EXPECT(Support::byteswap32(int32_t(0x01020304)) == int32_t(0x04030201));
   EXPECT(Support::byteswap32(uint32_t(0x01020304)) == uint32_t(0x04030201));
+  EXPECT(Support::byteswap64(uint64_t(0x0102030405060708)) == uint64_t(0x0807060504030201));
 
   INFO("Support::bytepack()");
   union BytePackData {

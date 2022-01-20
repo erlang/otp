@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_JITRUNTIME_H_INCLUDED
 #define ASMJIT_CORE_JITRUNTIME_H_INCLUDED
@@ -38,10 +20,6 @@ class CodeHolder;
 //! \addtogroup asmjit_virtual_memory
 //! \{
 
-// ============================================================================
-// [asmjit::JitRuntime]
-// ============================================================================
-
 //! JIT execution runtime is a special `Target` that is designed to store and
 //! execute the generated code.
 class ASMJIT_VIRTAPI JitRuntime : public Target {
@@ -55,11 +33,11 @@ public:
   //! \{
 
   //! Creates a `JitRuntime` instance.
-  explicit ASMJIT_API JitRuntime(const JitAllocator::CreateParams* params = nullptr) noexcept;
+  ASMJIT_API explicit JitRuntime(const JitAllocator::CreateParams* params = nullptr) noexcept;
   //! Destroys the `JitRuntime` instance.
   ASMJIT_API virtual ~JitRuntime() noexcept;
 
-  inline void reset(uint32_t resetPolicy = Globals::kResetSoft) noexcept {
+  inline void reset(ResetPolicy resetPolicy = ResetPolicy::kSoft) noexcept {
     _allocator.reset(resetPolicy);
   }
 
@@ -79,12 +57,10 @@ public:
   // NOTE: To allow passing function pointers to `add()` and `release()` the
   // virtual methods are prefixed with `_` and called from templates instead.
 
-  //! Allocates memory needed for a code stored in the `CodeHolder` and relocates
-  //! the code to the pointer allocated.
+  //! Allocates memory needed for a code stored in the `CodeHolder` and relocates the code to the pointer allocated.
   //!
-  //! The beginning of the memory allocated for the function is returned in `dst`.
-  //! If failed `Error` code is returned and `dst` is explicitly set to `nullptr`
-  //! (this means that you don't have to set it to null before calling `add()`).
+  //! The beginning of the memory allocated for the function is returned in `dst`. If failed `Error` code is returned
+  //! and `dst` is explicitly set to `nullptr`  (this means that you don't have to set it to null before calling `add()`).
   template<typename Func>
   inline Error add(Func* dst, CodeHolder* code) noexcept {
     return _add(Support::ptr_cast_impl<void**, Func*>(dst), code);
@@ -101,19 +77,6 @@ public:
 
   //! Type-unsafe version of `release()`.
   ASMJIT_API virtual Error _release(void* p) noexcept;
-
-  //! Flushes an instruction cache.
-  //!
-  //! This member function is called after the code has been copied to the
-  //! destination buffer. It is only useful for JIT code generation as it
-  //! causes a flush of the processor's cache.
-  //!
-  //! Flushing is basically a NOP under X86, but is needed by architectures
-  //! that do not have a transparent instruction cache like ARM.
-  //!
-  //! This function can also be overridden to improve compatibility with tools
-  //! such as Valgrind, however, it's not an official part of AsmJit.
-  ASMJIT_API virtual void flush(const void* p, size_t size) noexcept;
 
   //! \}
 };

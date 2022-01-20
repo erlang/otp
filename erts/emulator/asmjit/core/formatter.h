@@ -1,126 +1,98 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_FORMATTER_H_INCLUDED
 #define ASMJIT_CORE_FORMATTER_H_INCLUDED
 
+#include "../core/globals.h"
 #include "../core/inst.h"
 #include "../core/string.h"
-
-#ifndef ASMJIT_NO_LOGGING
+#include "../core/support.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
 //! \addtogroup asmjit_logging
 //! \{
 
-// ============================================================================
-// [Forward Declarations]
-// ============================================================================
-
+class BaseBuilder;
 class BaseEmitter;
+class BaseNode;
 struct Operand_;
 
-#ifndef ASMJIT_NO_BUILDER
-class BaseBuilder;
-class BaseNode;
-#endif
+//! Format flags used by \ref Logger and \ref FormatOptions.
+enum class FormatFlags : uint32_t {
+  //! No formatting flags.
+  kNone = 0u,
 
-#ifndef ASMJIT_NO_COMPILER
-class BaseCompiler;
-#endif
+  //! Show also binary form of each logged instruction (Assembler).
+  kMachineCode = 0x00000001u,
+  //! Show a text explanation of some immediate values.
+  kExplainImms = 0x00000002u,
+  //! Use hexadecimal notation of immediate values.
+  kHexImms = 0x00000004u,
+  //! Use hexadecimal notation of addresses and offsets in addresses.
+  kHexOffsets = 0x00000008u,
+  //! Show casts between virtual register types (Compiler output).
+  kRegCasts = 0x00000010u,
+  //! Show positions associated with nodes (Compiler output).
+  kPositions = 0x00000020u
+};
+ASMJIT_DEFINE_ENUM_FLAGS(FormatFlags)
 
-// ============================================================================
-// [asmjit::FormatOptions]
-// ============================================================================
+//! Format indentation group, used by \ref FormatOptions.
+enum class FormatIndentationGroup : uint32_t {
+  //! Indentation used for instructions and directives.
+  kCode = 0u,
+  //! Indentation used for labels and function nodes.
+  kLabel = 1u,
+  //! Indentation used for comments (not inline comments).
+  kComment = 2u,
+
+  //! \cond INTERNAL
+  //! Reserved for future use.
+  kReserved = 3u,
+  //! \endcond
+
+  //! Maximum value of `FormatIndentationGroup`.
+  kMaxValue = kReserved
+};
+
+//! Format padding group, used by \ref FormatOptions.
+enum class FormatPaddingGroup : uint32_t {
+  //! Describes padding of a regular line, which can represent instruction, data, or assembler directives.
+  kRegularLine = 0,
+  //! Describes padding of machine code dump that is visible next to the instruction, if enabled.
+  kMachineCode = 1,
+
+  //! Maximum value of `FormatPaddingGroup`.
+  kMaxValue = kMachineCode
+};
 
 //! Formatting options used by \ref Logger and \ref Formatter.
 class FormatOptions {
 public:
-  //! Format flags, see \ref Flags.
-  uint32_t _flags;
-  //! Indentation by type, see \ref IndentationType.
-  uint8_t _indentation[4];
-
-  //! Flags can enable a logging feature.
-  enum Flags : uint32_t {
-    //! No flags.
-    kNoFlags = 0u,
-
-    //! Show also binary form of each logged instruction (Assembler).
-    kFlagMachineCode = 0x00000001u,
-    //! Show a text explanation of some immediate values.
-    kFlagExplainImms = 0x00000002u,
-    //! Use hexadecimal notation of immediate values.
-    kFlagHexImms = 0x00000004u,
-    //! Use hexadecimal notation of address offsets.
-    kFlagHexOffsets = 0x00000008u,
-    //! Show casts between virtual register types (Compiler).
-    kFlagRegCasts = 0x00000010u,
-    //! Show positions associated with nodes (Compiler).
-    kFlagPositions = 0x00000020u,
-    //! Annotate nodes that are lowered by passes.
-    kFlagAnnotations = 0x00000040u,
-
-    // TODO: These must go, keep this only for formatting.
-    //! Show an additional output from passes.
-    kFlagDebugPasses = 0x00000080u,
-    //! Show an additional output from RA.
-    kFlagDebugRA = 0x00000100u
-  };
-
-  //! Describes indentation type of code, label, or comment in logger output.
-  enum IndentationType : uint32_t {
-    //! Indentation used for instructions and directives.
-    kIndentationCode = 0u,
-    //! Indentation used for labels and function nodes.
-    kIndentationLabel = 1u,
-    //! Indentation used for comments (not inline comments).
-    kIndentationComment = 2u,
-    //! \cond INTERNAL
-    //! Reserved for future use.
-    kIndentationReserved = 3u
-    //! \endcond
-  };
-
-  //! \name Construction & Destruction
+  //! \name Members
   //! \{
 
-  //! Creates a default-initialized FormatOptions.
-  constexpr FormatOptions() noexcept
-    : _flags(0),
-      _indentation { 0, 0, 0, 0 } {}
+  //! Format flags.
+  FormatFlags _flags = FormatFlags::kNone;
+  //! Indentations for each indentation group.
+  Support::Array<uint8_t, uint32_t(FormatIndentationGroup::kMaxValue) + 1> _indentation {};
+  //! Paddings for each padding group.
+  Support::Array<uint16_t, uint32_t(FormatPaddingGroup::kMaxValue) + 1> _padding {};
 
-  constexpr FormatOptions(const FormatOptions& other) noexcept = default;
-  inline FormatOptions& operator=(const FormatOptions& other) noexcept = default;
+  //! \}
+
+  //! \name Reset
+  //! \{
 
   //! Resets FormatOptions to its default initialized state.
   inline void reset() noexcept {
-    _flags = 0;
-    _indentation[0] = 0;
-    _indentation[1] = 0;
-    _indentation[2] = 0;
-    _indentation[3] = 0;
+    _flags = FormatFlags::kNone;
+    _indentation.fill(uint8_t(0));
+    _padding.fill(uint16_t(0));
   }
 
   //! \}
@@ -129,90 +101,109 @@ public:
   //! \{
 
   //! Returns format flags.
-  constexpr uint32_t flags() const noexcept { return _flags; }
+  inline FormatFlags flags() const noexcept { return _flags; }
   //! Tests whether the given `flag` is set in format flags.
-  constexpr bool hasFlag(uint32_t flag) const noexcept { return (_flags & flag) != 0; }
-  //! Resets all format flags to `flags`.
-  inline void setFlags(uint32_t flags) noexcept { _flags = flags; }
-  //! Adds `flags` to format flags.
-  inline void addFlags(uint32_t flags) noexcept { _flags |= flags; }
-  //! Removes `flags` from format flags.
-  inline void clearFlags(uint32_t flags) noexcept { _flags &= ~flags; }
+  inline bool hasFlag(FormatFlags flag) const noexcept { return Support::test(_flags, flag); }
 
-  //! Returns indentation for the given `type`, see \ref IndentationType.
-  constexpr uint8_t indentation(uint32_t type) const noexcept { return _indentation[type]; }
-  //! Sets indentation for the given `type`, see \ref IndentationType.
-  inline void setIndentation(uint32_t type, uint32_t n) noexcept { _indentation[type] = uint8_t(n); }
-  //! Resets indentation for the given `type` to zero.
-  inline void resetIndentation(uint32_t type) noexcept { _indentation[type] = uint8_t(0); }
+  //! Resets all format flags to `flags`.
+  inline void setFlags(FormatFlags flags) noexcept { _flags = flags; }
+  //! Adds `flags` to format flags.
+  inline void addFlags(FormatFlags flags) noexcept { _flags |= flags; }
+  //! Removes `flags` from format flags.
+  inline void clearFlags(FormatFlags flags) noexcept { _flags &= ~flags; }
+
+  //! Returns indentation for the given indentation `group`.
+  inline uint8_t indentation(FormatIndentationGroup group) const noexcept { return _indentation[group]; }
+  //! Sets indentation for the given indentation `group`.
+  inline void setIndentation(FormatIndentationGroup group, uint32_t n) noexcept { _indentation[group] = uint8_t(n); }
+  //! Resets indentation for the given indentation `group` to zero.
+  inline void resetIndentation(FormatIndentationGroup group) noexcept { _indentation[group] = uint8_t(0); }
+
+  //! Returns pading for the given padding `group`.
+  inline size_t padding(FormatPaddingGroup group) const noexcept { return _padding[group]; }
+  //! Sets pading for the given padding `group`.
+  inline void setPadding(FormatPaddingGroup group, size_t n) noexcept { _padding[group] = uint16_t(n); }
+  //! Resets pading for the given padding `group` to zero, which means that a default padding will be used
+  //! based on the target architecture properties.
+  inline void resetPadding(FormatPaddingGroup group) noexcept { _padding[group] = uint16_t(0); }
 
   //! \}
 };
 
-// ============================================================================
-// [asmjit::Formatter]
-// ============================================================================
-
 //! Provides formatting functionality to format operands, instructions, and nodes.
 namespace Formatter {
+
+#ifndef ASMJIT_NO_LOGGING
 
 //! Appends a formatted `typeId` to the output string `sb`.
 ASMJIT_API Error formatTypeId(
   String& sb,
-  uint32_t typeId) noexcept;
+  TypeId typeId) noexcept;
 
 //! Appends a formatted `featureId` to the output string `sb`.
 //!
-//! See \ref BaseFeatures.
+//! See \ref CpuFeatures.
 ASMJIT_API Error formatFeature(
   String& sb,
-  uint32_t arch,
+  Arch arch,
   uint32_t featureId) noexcept;
 
 //! Appends a formatted register to the output string `sb`.
 //!
-//! \note Emitter is optional, but it's required to format virtual registers,
-//! which won't be formatted properly if the `emitter` is not provided.
+//! \note Emitter is optional, but it's required to format virtual registers, which won't be formatted properly
+//! if the `emitter` is not provided.
 ASMJIT_API Error formatRegister(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
-  uint32_t regType,
+  Arch arch,
+  RegType regType,
   uint32_t regId) noexcept;
 
 //! Appends a formatted label to the output string `sb`.
 //!
-//! \note Emitter is optional, but it's required to format named labels
-//! properly, otherwise the formatted as it is an anonymous label.
+//! \note Emitter is optional, but it's required to format named labels properly, otherwise the formatted as
+//! it is an anonymous label.
 ASMJIT_API Error formatLabel(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
   uint32_t labelId) noexcept;
 
 //! Appends a formatted operand to the output string `sb`.
 //!
-//! \note Emitter is optional, but it's required to format named labels and
-//! virtual registers. See \ref formatRegister() and \ref formatLabel() for
-//! more details.
+//! \note Emitter is optional, but it's required to format named labels and virtual registers. See
+//! \ref formatRegister() and \ref formatLabel() for more details.
 ASMJIT_API Error formatOperand(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const Operand_& op) noexcept;
+
+//! Appends a formatted data-type to the output string `sb`.
+ASMJIT_API Error formatDataType(
+  String& sb,
+  FormatFlags formatFlags,
+  Arch arch,
+  TypeId typeId) noexcept;
+
+//! Appends a formatted data to the output string `sb`.
+ASMJIT_API Error formatData(
+  String& sb,
+  FormatFlags formatFlags,
+  Arch arch,
+  TypeId typeId, const void* data, size_t itemCount, size_t repeatCount = 1) noexcept;
 
 //! Appends a formatted instruction to the output string `sb`.
 //!
-//! \note Emitter is optional, but it's required to format named labels and
-//! virtual registers. See \ref formatRegister() and \ref formatLabel() for
-//! more details.
+//! \note Emitter is optional, but it's required to format named labels and virtual registers. See
+//! \ref formatRegister() and \ref formatLabel() for more details.
 ASMJIT_API Error formatInstruction(
   String& sb,
-  uint32_t formatFlags,
+  FormatFlags formatFlags,
   const BaseEmitter* emitter,
-  uint32_t arch,
+  Arch arch,
   const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept;
 
 #ifndef ASMJIT_NO_BUILDER
@@ -221,7 +212,7 @@ ASMJIT_API Error formatInstruction(
 //! The `node` must belong to the provided `builder`.
 ASMJIT_API Error formatNode(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder,
   const BaseNode* node) noexcept;
 
@@ -230,19 +221,21 @@ ASMJIT_API Error formatNode(
 //! All nodes that are part of the given `builder` will be appended.
 ASMJIT_API Error formatNodeList(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder) noexcept;
 
 //! Appends formatted nodes to the output string `sb`.
 //!
-//! This function works the same as \ref formatNode(), but appends more nodes
-//! to the output string, separating each node with a newline '\n' character.
+//! This function works the same as \ref formatNode(), but appends more nodes to the output string,
+//! separating each node with a newline '\n' character.
 ASMJIT_API Error formatNodeList(
   String& sb,
-  uint32_t formatFlags,
+  const FormatOptions& formatOptions,
   const BaseBuilder* builder,
   const BaseNode* begin,
   const BaseNode* end) noexcept;
+#endif
+
 #endif
 
 } // {Formatter}
@@ -250,7 +243,5 @@ ASMJIT_API Error formatNodeList(
 //! \}
 
 ASMJIT_END_NAMESPACE
-
-#endif
 
 #endif // ASMJIT_CORE_FORMATTER_H_INCLUDED

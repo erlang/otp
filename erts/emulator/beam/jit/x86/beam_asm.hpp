@@ -166,13 +166,13 @@ public:
 
     BeamAssembler() : code() {
         /* Setup with default code info */
-        Error err = code.init(hostEnvironment());
+        Error err = code.init(Environment::host());
         ERTS_ASSERT(!err && "Failed to init codeHolder");
 
         err = code.newSection(&rodata,
                               ".rodata",
                               SIZE_MAX,
-                              Section::kFlagConst,
+                              SectionFlags::kReadOnly,
                               8);
         ERTS_ASSERT(!err && "Failed to create .rodata section");
 
@@ -180,9 +180,9 @@ public:
 
         ERTS_ASSERT(!err && "Failed to attach codeHolder");
 #ifdef DEBUG
-        a.addValidationOptions(BaseEmitter::kValidationOptionAssembler);
+        a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
 #endif
-        a.addEncodingOptions(BaseEmitter::kEncodingOptionOptimizeForSize);
+        a.addEncodingOptions(EncodingOptions::kOptimizeForSize);
         code.setErrorHandler(this);
     }
 
@@ -238,7 +238,7 @@ protected:
         code.relocateToBase((uint64_t)*executable_ptr);
         code.copyFlattenedData(*writable_ptr,
                                code.codeSize(),
-                               CodeHolder::kCopyPadSectionBuffer);
+                               CopySectionFlags::kPadSectionBuffer);
 #ifdef DEBUG
         if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
             if (FILE *f = l->file())
@@ -332,7 +332,7 @@ protected:
     void align_erlang_cp() {
         /* Align so that the current address forms a valid CP. */
         ERTS_CT_ASSERT(_CPMASK == 3);
-        a.align(kAlignCode, 4);
+        a.align(AlignMode::kCode, 4);
         ASSERT(is_CP(a.offset()));
     }
 
@@ -851,7 +851,7 @@ public:
 
     void setLogger(FILE *log) {
         logger.setFile(log);
-        logger.setIndentation(FormatOptions::kIndentationCode, 4);
+        logger.setIndentation(FormatIndentationGroup::kCode, 4);
         code.setLogger(&logger);
     }
 

@@ -1,30 +1,12 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ENVIRONMENT_H_INCLUDED
 #define ASMJIT_CORE_ENVIRONMENT_H_INCLUDED
 
-#include "../core/globals.h"
+#include "../core/archtraits.h"
 
 #if defined(__APPLE__)
   #include <TargetConditionals.h>
@@ -35,301 +17,222 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_core
 //! \{
 
-// ============================================================================
-// [asmjit::Environment]
-// ============================================================================
+//! Vendor.
+//!
+//! \note AsmJit doesn't use vendor information at the moment. It's provided for future use, if required.
+enum class Vendor : uint8_t {
+  //! Unknown or uninitialized platform vendor.
+  kUnknown = 0,
+
+  //! Maximum value of `PlatformVendor`.
+  kMaxValue = kUnknown,
+
+  //! Platform vendor detected at compile-time.
+  kHost =
+#if defined(_DOXYGEN)
+    DETECTED_AT_COMPILE_TIME
+#else
+    kUnknown
+#endif
+};
+
+//! Platform - runtime environment or operating system.
+enum class Platform : uint8_t {
+  //! Unknown or uninitialized platform.
+  kUnknown = 0,
+
+  //! Windows OS.
+  kWindows,
+
+  //! Other platform that is not Windows, most likely POSIX based.
+  kOther,
+
+  //! Linux OS.
+  kLinux,
+  //! GNU/Hurd OS.
+  kHurd,
+
+  //! FreeBSD OS.
+  kFreeBSD,
+  //! OpenBSD OS.
+  kOpenBSD,
+  //! NetBSD OS.
+  kNetBSD,
+  //! DragonFly BSD OS.
+  kDragonFlyBSD,
+
+  //! Haiku OS.
+  kHaiku,
+
+  //! Apple OSX.
+  kOSX,
+  //! Apple iOS.
+  kIOS,
+  //! Apple TVOS.
+  kTVOS,
+  //! Apple WatchOS.
+  kWatchOS,
+
+  //! Emscripten platform.
+  kEmscripten,
+
+  //! Maximum value of `Platform`.
+  kMaxValue = kEmscripten,
+
+  //! Platform detected at compile-time (platform of the host).
+  kHost =
+#if defined(_DOXYGEN)
+    DETECTED_AT_COMPILE_TIME
+#elif defined(__EMSCRIPTEN__)
+    kEmscripten
+#elif defined(_WIN32)
+    kWindows
+#elif defined(__linux__)
+    kLinux
+#elif defined(__gnu_hurd__)
+    kHurd
+#elif defined(__FreeBSD__)
+    kFreeBSD
+#elif defined(__OpenBSD__)
+    kOpenBSD
+#elif defined(__NetBSD__)
+    kNetBSD
+#elif defined(__DragonFly__)
+    kDragonFlyBSD
+#elif defined(__HAIKU__)
+    kHaiku
+#elif defined(__APPLE__) && TARGET_OS_OSX
+    kOSX
+#elif defined(__APPLE__) && TARGET_OS_TV
+    kTVOS
+#elif defined(__APPLE__) && TARGET_OS_WATCH
+    kWatchOS
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
+    kIOS
+#else
+    kOther
+#endif
+};
+
+//! Platform ABI (application binary interface).
+enum class PlatformABI : uint8_t {
+  //! Unknown or uninitialied environment.
+  kUnknown = 0,
+  //! Microsoft ABI.
+  kMSVC,
+  //! GNU ABI.
+  kGNU,
+  //! Android Environment / ABI.
+  kAndroid,
+  //! Cygwin ABI.
+  kCygwin,
+
+  //! Maximum value of `PlatformABI`.
+  kMaxValue,
+
+  //! Host ABI detected at compile-time.
+  kHost =
+#if defined(_DOXYGEN)
+    DETECTED_AT_COMPILE_TIME
+#elif defined(_MSC_VER)
+    kMSVC
+#elif defined(__CYGWIN__)
+    kCygwin
+#elif defined(__MINGW32__) || defined(__GLIBC__)
+    kGNU
+#elif defined(__ANDROID__)
+    kAndroid
+#else
+    kUnknown
+#endif
+};
+
+//! Object format.
+//!
+//! \note AsmJit doesn't really use anything except \ref ObjectFormat::kUnknown and \ref ObjectFormat::kJIT at
+//! the moment. Object file formats are provided for future extensibility and a possibility to generate object
+//! files at some point.
+enum class ObjectFormat : uint8_t {
+  //! Unknown or uninitialized object format.
+  kUnknown = 0,
+
+  //! JIT code generation object, most likely \ref JitRuntime or a custom
+  //! \ref Target implementation.
+  kJIT,
+
+  //! Executable and linkable format (ELF).
+  kELF,
+  //! Common object file format.
+  kCOFF,
+  //! Extended COFF object format.
+  kXCOFF,
+  //! Mach object file format.
+  kMachO,
+
+  //! Maximum value of `ObjectFormat`.
+  kMaxValue
+};
 
 //! Represents an environment, which is usually related to a \ref Target.
 //!
-//! Environment has usually an 'arch-subarch-vendor-os-abi' format, which is
-//! sometimes called "Triple" (historically it used to be 3 only parts) or
-//! "Tuple", which is a convention used by Debian Linux.
+//! Environment has usually an 'arch-subarch-vendor-os-abi' format, which is sometimes called "Triple" (historically
+//! it used to be 3 only parts) or "Tuple", which is a convention used by Debian Linux.
 //!
-//! AsmJit doesn't support all possible combinations or architectures and ABIs,
-//! however, it models the environment similarly to other compilers for future
-//! extensibility.
+//! AsmJit doesn't support all possible combinations or architectures and ABIs, however, it models the environment
+//! similarly to other compilers for future extensibility.
 class Environment {
 public:
-  //! Architecture type, see \ref Arch.
-  uint8_t _arch;
-  //! Sub-architecture type, see \ref SubArch.
-  uint8_t _subArch;
-  //! Vendor type, see \ref Vendor.
-  uint8_t _vendor;
-  //! Platform type, see \ref Platform.
-  uint8_t _platform;
-  //! ABI type, see \ref Abi.
-  uint8_t _abi;
-  //! Object format, see \ref Format.
-  uint8_t _format;
-  //! Reserved for future use, must be zero.
-  uint16_t _reserved;
-
-  //! Architecture.
-  enum Arch : uint32_t {
-    //! Unknown or uninitialized architecture.
-    kArchUnknown = 0,
-
-    //! Mask used by 32-bit architectures (odd are 32-bit, even are 64-bit).
-    kArch32BitMask = 0x01,
-    //! Mask used by big-endian architectures.
-    kArchBigEndianMask = 0x80u,
-
-    //! 32-bit X86 architecture.
-    kArchX86 = 1,
-    //! 64-bit X86 architecture also known as X86_64 and AMD64.
-    kArchX64 = 2,
-
-    //! 32-bit RISC-V architecture.
-    kArchRISCV32 = 3,
-    //! 64-bit RISC-V architecture.
-    kArchRISCV64 = 4,
-
-    //! 32-bit ARM architecture (little endian).
-    kArchARM = 5,
-    //! 32-bit ARM architecture (big endian).
-    kArchARM_BE = kArchARM | kArchBigEndianMask,
-    //! 64-bit ARM architecture in (little endian).
-    kArchAArch64 = 6,
-    //! 64-bit ARM architecture in (big endian).
-    kArchAArch64_BE = kArchAArch64 | kArchBigEndianMask,
-    //! 32-bit ARM in Thumb mode (little endian).
-    kArchThumb = 7,
-    //! 32-bit ARM in Thumb mode (big endian).
-    kArchThumb_BE = kArchThumb | kArchBigEndianMask,
-
-    // 8 is not used, even numbers are 64-bit architectures.
-
-    //! 32-bit MIPS architecture in (little endian).
-    kArchMIPS32_LE = 9,
-    //! 32-bit MIPS architecture in (big endian).
-    kArchMIPS32_BE = kArchMIPS32_LE | kArchBigEndianMask,
-    //! 64-bit MIPS architecture in (little endian).
-    kArchMIPS64_LE = 10,
-    //! 64-bit MIPS architecture in (big endian).
-    kArchMIPS64_BE = kArchMIPS64_LE | kArchBigEndianMask,
-
-    //! Count of architectures.
-    kArchCount = 11
-  };
-
-  //! Sub-architecture.
-  enum SubArch : uint32_t {
-    //! Unknown or uninitialized architecture sub-type.
-    kSubArchUnknown = 0,
-
-    //! Count of sub-architectures.
-    kSubArchCount
-  };
-
-  //! Vendor.
-  //!
-  //! \note AsmJit doesn't use vendor information at the moment. It's provided
-  //! for future use, if required.
-  enum Vendor : uint32_t {
-    //! Unknown or uninitialized vendor.
-    kVendorUnknown = 0,
-
-    //! Count of vendor identifiers.
-    kVendorCount
-  };
-
-  //! Platform / OS.
-  enum Platform : uint32_t {
-    //! Unknown or uninitialized platform.
-    kPlatformUnknown = 0,
-
-    //! Windows OS.
-    kPlatformWindows,
-
-    //! Other platform, most likely POSIX based.
-    kPlatformOther,
-
-    //! Linux OS.
-    kPlatformLinux,
-    //! GNU/Hurd OS.
-    kPlatformHurd,
-
-    //! FreeBSD OS.
-    kPlatformFreeBSD,
-    //! OpenBSD OS.
-    kPlatformOpenBSD,
-    //! NetBSD OS.
-    kPlatformNetBSD,
-    //! DragonFly BSD OS.
-    kPlatformDragonFlyBSD,
-
-    //! Haiku OS.
-    kPlatformHaiku,
-
-    //! Apple OSX.
-    kPlatformOSX,
-    //! Apple iOS.
-    kPlatformIOS,
-    //! Apple TVOS.
-    kPlatformTVOS,
-    //! Apple WatchOS.
-    kPlatformWatchOS,
-
-    //! Emscripten platform.
-    kPlatformEmscripten,
-
-    //! Count of platform identifiers.
-    kPlatformCount
-  };
-
-  //! ABI.
-  enum Abi : uint32_t {
-    //! Unknown or uninitialied environment.
-    kAbiUnknown = 0,
-    //! Microsoft ABI.
-    kAbiMSVC,
-    //! GNU ABI.
-    kAbiGNU,
-    //! Android Environment / ABI.
-    kAbiAndroid,
-    //! Cygwin ABI.
-    kAbiCygwin,
-
-    //! Count of known ABI types.
-    kAbiCount
-  };
-
-  //! Object format.
-  //!
-  //! \note AsmJit doesn't really use anything except \ref kFormatUnknown and
-  //! \ref kFormatJIT at the moment. Object file formats are provided for
-  //! future extensibility and a possibility to generate object files at some
-  //! point.
-  enum Format : uint32_t {
-    //! Unknown or uninitialized object format.
-    kFormatUnknown = 0,
-
-    //! JIT code generation object, most likely \ref JitRuntime or a custom
-    //! \ref Target implementation.
-    kFormatJIT,
-
-    //! Executable and linkable format (ELF).
-    kFormatELF,
-    //! Common object file format.
-    kFormatCOFF,
-    //! Extended COFF object format.
-    kFormatXCOFF,
-    //! Mach object file format.
-    kFormatMachO,
-
-    //! Count of object format types.
-    kFormatCount
-  };
-
-  //! \name Environment Detection
+  //! \name Members
   //! \{
 
-#ifdef _DOXYGEN
-  //! Architecture detected at compile-time (architecture of the host).
-  static constexpr Arch kArchHost = DETECTED_AT_COMPILE_TIME;
-  //! Sub-architecture detected at compile-time (sub-architecture of the host).
-  static constexpr SubArch kSubArchHost = DETECTED_AT_COMPILE_TIME;
-  //! Vendor detected at compile-time (vendor of the host).
-  static constexpr Vendor kVendorHost = DETECTED_AT_COMPILE_TIME;
-  //! Platform detected at compile-time (platform of the host).
-  static constexpr Platform kPlatformHost = DETECTED_AT_COMPILE_TIME;
-  //! ABI detected at compile-time (ABI of the host).
-  static constexpr Abi kAbiHost = DETECTED_AT_COMPILE_TIME;
-#else
-  static constexpr Arch kArchHost =
-    ASMJIT_ARCH_X86 == 32 ? kArchX86 :
-    ASMJIT_ARCH_X86 == 64 ? kArchX64 :
-
-    ASMJIT_ARCH_ARM == 32 && ASMJIT_ARCH_LE ? kArchARM :
-    ASMJIT_ARCH_ARM == 32 && ASMJIT_ARCH_BE ? kArchARM_BE :
-    ASMJIT_ARCH_ARM == 64 && ASMJIT_ARCH_LE ? kArchAArch64 :
-    ASMJIT_ARCH_ARM == 64 && ASMJIT_ARCH_BE ? kArchAArch64_BE :
-
-    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_LE ? kArchMIPS32_LE :
-    ASMJIT_ARCH_MIPS == 32 && ASMJIT_ARCH_BE ? kArchMIPS32_BE :
-    ASMJIT_ARCH_MIPS == 64 && ASMJIT_ARCH_LE ? kArchMIPS64_LE :
-    ASMJIT_ARCH_MIPS == 64 && ASMJIT_ARCH_BE ? kArchMIPS64_BE :
-
-    kArchUnknown;
-
-  static constexpr SubArch kSubArchHost =
-    kSubArchUnknown;
-
-  static constexpr Vendor kVendorHost =
-    kVendorUnknown;
-
-  static constexpr Platform kPlatformHost =
-#if defined(__EMSCRIPTEN__)
-    kPlatformEmscripten
-#elif defined(_WIN32)
-    kPlatformWindows
-#elif defined(__linux__)
-    kPlatformLinux
-#elif defined(__gnu_hurd__)
-    kPlatformHurd
-#elif defined(__FreeBSD__)
-    kPlatformFreeBSD
-#elif defined(__OpenBSD__)
-    kPlatformOpenBSD
-#elif defined(__NetBSD__)
-    kPlatformNetBSD
-#elif defined(__DragonFly__)
-    kPlatformDragonFlyBSD
-#elif defined(__HAIKU__)
-    kPlatformHaiku
-#elif defined(__APPLE__) && TARGET_OS_OSX
-    kPlatformOSX
-#elif defined(__APPLE__) && TARGET_OS_TV
-    kPlatformTVOS
-#elif defined(__APPLE__) && TARGET_OS_WATCH
-    kPlatformWatchOS
-#elif defined(__APPLE__) && TARGET_OS_IPHONE
-    kPlatformIOS
-#else
-    kPlatformOther
-#endif
-    ;
-
-  static constexpr Abi kAbiHost =
-#if defined(_MSC_VER)
-    kAbiMSVC
-#elif defined(__CYGWIN__)
-    kAbiCygwin
-#elif defined(__MINGW32__) || defined(__GLIBC__)
-    kAbiGNU
-#elif defined(__ANDROID__)
-    kAbiAndroid
-#else
-    kAbiUnknown
-#endif
-    ;
-
-#endif
+  //! Architecture.
+  Arch _arch;
+  //! Sub-architecture type.
+  SubArch _subArch;
+  //! Vendor type.
+  Vendor _vendor;
+  //! Platform.
+  Platform _platform;
+  //! Platform ABI.
+  PlatformABI _platformABI;
+  //! Object format.
+  ObjectFormat _objectFormat;
+  //! Reserved for future use, must be zero.
+  uint8_t _reserved[2];
 
   //! \}
 
-  //! \name Construction / Destruction
+  //! \name Construction & Destruction
   //! \{
 
   inline Environment() noexcept :
-    _arch(uint8_t(kArchUnknown)),
-    _subArch(uint8_t(kSubArchUnknown)),
-    _vendor(uint8_t(kVendorUnknown)),
-    _platform(uint8_t(kPlatformUnknown)),
-    _abi(uint8_t(kAbiUnknown)),
-    _format(uint8_t(kFormatUnknown)),
-    _reserved(0) {}
+    _arch(Arch::kUnknown),
+    _subArch(SubArch::kUnknown),
+    _vendor(Vendor::kUnknown),
+    _platform(Platform::kUnknown),
+    _platformABI(PlatformABI::kUnknown),
+    _objectFormat(ObjectFormat::kUnknown),
+    _reserved { 0, 0 } {}
+
+  inline explicit Environment(
+    Arch arch,
+    SubArch subArch = SubArch::kUnknown,
+    Vendor vendor = Vendor::kUnknown,
+    Platform platform = Platform::kUnknown,
+    PlatformABI abi = PlatformABI::kUnknown,
+    ObjectFormat objectFormat = ObjectFormat::kUnknown) noexcept {
+
+    init(arch, subArch, vendor, platform, abi, objectFormat);
+  }
 
   inline Environment(const Environment& other) noexcept = default;
 
-  inline explicit Environment(uint32_t arch,
-                              uint32_t subArch = kSubArchUnknown,
-                              uint32_t vendor = kVendorUnknown,
-                              uint32_t platform = kPlatformUnknown,
-                              uint32_t abi = kAbiUnknown,
-                              uint32_t format = kFormatUnknown) noexcept {
-    init(arch, subArch, vendor, platform, abi, format);
+  //! Returns the host environment constructed from preprocessor macros defined by the compiler.
+  //!
+  //! The returned environment should precisely match the target host architecture, sub-architecture, platform,
+  //! and ABI.
+  static inline Environment host() noexcept {
+    return Environment(Arch::kHost, SubArch::kHost, Vendor::kHost, Platform::kHost, PlatformABI::kHost, ObjectFormat::kUnknown);
   }
 
   //! \}
@@ -355,10 +258,10 @@ public:
     return _packed() == 0;
   }
 
-  //! Tests whether the environment is intialized, which means it must have
+  //! Tests whether the environment is initialized, which means it must have
   //! a valid architecture.
   inline bool isInitialized() const noexcept {
-    return _arch != kArchUnknown;
+    return _arch != Arch::kUnknown;
   }
 
   inline uint64_t _packed() const noexcept {
@@ -369,56 +272,60 @@ public:
 
   //! Resets all members of the environment to zero / unknown.
   inline void reset() noexcept {
-    _arch = uint8_t(kArchUnknown);
-    _subArch = uint8_t(kSubArchUnknown);
-    _vendor = uint8_t(kVendorUnknown);
-    _platform = uint8_t(kPlatformUnknown);
-    _abi = uint8_t(kAbiUnknown);
-    _format = uint8_t(kFormatUnknown);
-    _reserved = 0;
+    _arch = Arch::kUnknown;
+    _subArch = SubArch::kUnknown;
+    _vendor = Vendor::kUnknown;
+    _platform = Platform::kUnknown;
+    _platformABI = PlatformABI::kUnknown;
+    _objectFormat = ObjectFormat::kUnknown;
+    _reserved[0] = 0;
+    _reserved[1] = 0;
   }
 
   inline bool equals(const Environment& other) const noexcept {
     return _packed() == other._packed();
   }
 
-  //! Returns the architecture, see \ref Arch.
-  inline uint32_t arch() const noexcept { return _arch; }
-  //! Returns the sub-architecture, see \ref SubArch.
-  inline uint32_t subArch() const noexcept { return _subArch; }
-  //! Returns vendor, see \ref Vendor.
-  inline uint32_t vendor() const noexcept { return _vendor; }
-  //! Returns target's platform or operating system, see \ref Platform.
-  inline uint32_t platform() const noexcept { return _platform; }
-  //! Returns target's ABI, see \ref Abi.
-  inline uint32_t abi() const noexcept { return _abi; }
-  //! Returns target's object format, see \ref Format.
-  inline uint32_t format() const noexcept { return _format; }
+  //! Returns the architecture.
+  inline Arch arch() const noexcept { return _arch; }
+  //! Returns the sub-architecture.
+  inline SubArch subArch() const noexcept { return _subArch; }
+  //! Returns vendor.
+  inline Vendor vendor() const noexcept { return _vendor; }
+  //! Returns target's platform or operating system.
+  inline Platform platform() const noexcept { return _platform; }
+  //! Returns target's ABI.
+  inline PlatformABI platformABI() const noexcept { return _platformABI; }
+  //! Returns target's object format.
+  inline ObjectFormat objectFormat() const noexcept { return _objectFormat; }
 
-  inline void init(uint32_t arch,
-                   uint32_t subArch = kSubArchUnknown,
-                   uint32_t vendor = kVendorUnknown,
-                   uint32_t platform = kPlatformUnknown,
-                   uint32_t abi = kAbiUnknown,
-                   uint32_t format = kFormatUnknown) noexcept {
-    _arch = uint8_t(arch);
-    _subArch = uint8_t(subArch);
-    _vendor = uint8_t(vendor);
-    _platform = uint8_t(platform);
-    _abi = uint8_t(abi);
-    _format = uint8_t(format);
-    _reserved = 0;
+  inline void init(
+    Arch arch,
+    SubArch subArch = SubArch::kUnknown,
+    Vendor vendor = Vendor::kUnknown,
+    Platform platform = Platform::kUnknown,
+    PlatformABI platformABI = PlatformABI::kUnknown,
+    ObjectFormat objectFormat = ObjectFormat::kUnknown) noexcept {
+
+    _arch = arch;
+    _subArch = subArch;
+    _vendor = vendor;
+    _platform = platform;
+    _platformABI = platformABI;
+    _objectFormat = objectFormat;
+    _reserved[0] = 0;
+    _reserved[1] = 0;
   }
 
-  inline bool isArchX86() const noexcept { return _arch == kArchX86; }
-  inline bool isArchX64() const noexcept { return _arch == kArchX64; }
-  inline bool isArchRISCV32() const noexcept { return _arch == kArchRISCV32; }
-  inline bool isArchRISCV64() const noexcept { return _arch == kArchRISCV64; }
-  inline bool isArchARM() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchARM; }
-  inline bool isArchThumb() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchThumb; }
-  inline bool isArchAArch64() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchAArch64; }
-  inline bool isArchMIPS32() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchMIPS32_LE; }
-  inline bool isArchMIPS64() const noexcept { return (_arch & ~kArchBigEndianMask) == kArchMIPS64_LE; }
+  inline bool isArchX86() const noexcept { return _arch == Arch::kX86; }
+  inline bool isArchX64() const noexcept { return _arch == Arch::kX64; }
+  inline bool isArchARM() const noexcept { return isArchARM(_arch); }
+  inline bool isArchThumb() const noexcept { return isArchThumb(_arch); }
+  inline bool isArchAArch64() const noexcept { return isArchAArch64(_arch); }
+  inline bool isArchMIPS32() const noexcept { return isArchMIPS32(_arch); }
+  inline bool isArchMIPS64() const noexcept { return isArchMIPS64(_arch); }
+  inline bool isArchRISCV32() const noexcept { return _arch == Arch::kRISCV32; }
+  inline bool isArchRISCV64() const noexcept { return _arch == Arch::kRISCV64; }
 
   //! Tests whether the architecture is 32-bit.
   inline bool is32Bit() const noexcept { return is32Bit(_arch); }
@@ -432,45 +339,45 @@ public:
 
   //! Tests whether this architecture is of X86 family.
   inline bool isFamilyX86() const noexcept { return isFamilyX86(_arch); }
-  //! Tests whether this architecture family is RISC-V (both 32-bit and 64-bit).
-  inline bool isFamilyRISCV() const noexcept { return isFamilyRISCV(_arch); }
   //! Tests whether this architecture family is ARM, Thumb, or AArch64.
   inline bool isFamilyARM() const noexcept { return isFamilyARM(_arch); }
   //! Tests whether this architecture family is MISP or MIPS64.
   inline bool isFamilyMIPS() const noexcept { return isFamilyMIPS(_arch); }
+  //! Tests whether this architecture family is RISC-V (both 32-bit and 64-bit).
+  inline bool isFamilyRISCV() const noexcept { return isFamilyRISCV(_arch); }
 
   //! Tests whether the environment platform is Windows.
-  inline bool isPlatformWindows() const noexcept { return _platform == kPlatformWindows; }
+  inline bool isPlatformWindows() const noexcept { return _platform == Platform::kWindows; }
 
   //! Tests whether the environment platform is Linux.
-  inline bool isPlatformLinux() const noexcept { return _platform == kPlatformLinux; }
+  inline bool isPlatformLinux() const noexcept { return _platform == Platform::kLinux; }
 
   //! Tests whether the environment platform is Hurd.
-  inline bool isPlatformHurd() const noexcept { return _platform == kPlatformHurd; }
+  inline bool isPlatformHurd() const noexcept { return _platform == Platform::kHurd; }
 
   //! Tests whether the environment platform is Haiku.
-  inline bool isPlatformHaiku() const noexcept { return _platform == kPlatformHaiku; }
+  inline bool isPlatformHaiku() const noexcept { return _platform == Platform::kHaiku; }
 
   //! Tests whether the environment platform is any BSD.
   inline bool isPlatformBSD() const noexcept {
-    return _platform == kPlatformFreeBSD ||
-           _platform == kPlatformOpenBSD ||
-           _platform == kPlatformNetBSD ||
-           _platform == kPlatformDragonFlyBSD;
+    return _platform == Platform::kFreeBSD ||
+           _platform == Platform::kOpenBSD ||
+           _platform == Platform::kNetBSD ||
+           _platform == Platform::kDragonFlyBSD;
   }
 
   //! Tests whether the environment platform is any Apple platform (OSX, iOS, TVOS, WatchOS).
   inline bool isPlatformApple() const noexcept {
-    return _platform == kPlatformOSX ||
-           _platform == kPlatformIOS ||
-           _platform == kPlatformTVOS ||
-           _platform == kPlatformWatchOS;
+    return _platform == Platform::kOSX ||
+           _platform == Platform::kIOS ||
+           _platform == Platform::kTVOS ||
+           _platform == Platform::kWatchOS;
   }
 
   //! Tests whether the ABI is MSVC.
-  inline bool isAbiMSVC() const noexcept { return _abi == kAbiMSVC; }
+  inline bool isMSVC() const noexcept { return _platformABI == PlatformABI::kMSVC; }
   //! Tests whether the ABI is GNU.
-  inline bool isAbiGNU() const noexcept { return _abi == kAbiGNU; }
+  inline bool isGNU() const noexcept { return _platformABI == PlatformABI::kGNU; }
 
   //! Returns a calculated stack alignment for this environment.
   ASMJIT_API uint32_t stackAlignment() const noexcept;
@@ -479,133 +386,108 @@ public:
   uint32_t registerSize() const noexcept { return registerSizeFromArch(_arch); }
 
   //! Sets the architecture to `arch`.
-  inline void setArch(uint32_t arch) noexcept { _arch = uint8_t(arch); }
+  inline void setArch(Arch arch) noexcept { _arch = arch; }
   //! Sets the sub-architecture to `subArch`.
-  inline void setSubArch(uint32_t subArch) noexcept { _subArch = uint8_t(subArch); }
+  inline void setSubArch(SubArch subArch) noexcept { _subArch = subArch; }
   //! Sets the vendor to `vendor`.
-  inline void setVendor(uint32_t vendor) noexcept { _vendor = uint8_t(vendor); }
+  inline void setVendor(Vendor vendor) noexcept { _vendor = vendor; }
   //! Sets the platform to `platform`.
-  inline void setPlatform(uint32_t platform) noexcept { _platform = uint8_t(platform); }
-  //! Sets the ABI to `abi`.
-  inline void setAbi(uint32_t abi) noexcept { _abi = uint8_t(abi); }
-  //! Sets the object format to `format`.
-  inline void setFormat(uint32_t format) noexcept { _format = uint8_t(format); }
+  inline void setPlatform(Platform platform) noexcept { _platform = platform; }
+  //! Sets the ABI to `platformABI`.
+  inline void setPlatformABI(PlatformABI platformABI) noexcept { _platformABI = platformABI; }
+  //! Sets the object format to `objectFormat`.
+  inline void setObjectFormat(ObjectFormat objectFormat) noexcept { _objectFormat = objectFormat; }
 
   //! \}
 
   //! \name Static Utilities
   //! \{
 
-  static inline bool isValidArch(uint32_t arch) noexcept {
-    return (arch & ~kArchBigEndianMask) != 0 &&
-           (arch & ~kArchBigEndianMask) < kArchCount;
+  static inline bool isDefinedArch(Arch arch) noexcept {
+    return uint32_t(arch) <= uint32_t(Arch::kMaxValue);
+  }
+
+  static inline bool isValidArch(Arch arch) noexcept {
+    return arch != Arch::kUnknown && uint32_t(arch) <= uint32_t(Arch::kMaxValue);
   }
 
   //! Tests whether the given architecture `arch` is 32-bit.
-  static inline bool is32Bit(uint32_t arch) noexcept {
-    return (arch & kArch32BitMask) == kArch32BitMask;
+  static inline bool is32Bit(Arch arch) noexcept {
+    return (uint32_t(arch) & uint32_t(Arch::k32BitMask)) == uint32_t(Arch::k32BitMask);
   }
 
   //! Tests whether the given architecture `arch` is 64-bit.
-  static inline bool is64Bit(uint32_t arch) noexcept {
-    return (arch & kArch32BitMask) == 0;
+  static inline bool is64Bit(Arch arch) noexcept {
+    return (uint32_t(arch) & uint32_t(Arch::k32BitMask)) == 0;
   }
 
   //! Tests whether the given architecture `arch` is little endian.
-  static inline bool isLittleEndian(uint32_t arch) noexcept {
-    return (arch & kArchBigEndianMask) == 0;
+  static inline bool isLittleEndian(Arch arch) noexcept {
+    return uint32_t(arch) < uint32_t(Arch::kBigEndian);
   }
 
   //! Tests whether the given architecture `arch` is big endian.
-  static inline bool isBigEndian(uint32_t arch) noexcept {
-    return (arch & kArchBigEndianMask) == kArchBigEndianMask;
+  static inline bool isBigEndian(Arch arch) noexcept {
+    return uint32_t(arch) >= uint32_t(Arch::kBigEndian);
   }
 
-  //! Tests whether the given architecture is AArch64.
-  static inline bool isArchAArch64(uint32_t arch) noexcept {
-    arch &= ~kArchBigEndianMask;
-    return arch == kArchAArch64;
+  //! Tests whether the given architecture is ARM or ARM_BE.
+  static inline bool isArchARM(Arch arch) noexcept {
+    return arch == Arch::kARM || arch == Arch::kARM_BE;
+  }
+
+  //! Tests whether the given architecture is Thumb or Thumb_BE.
+  static inline bool isArchThumb(Arch arch) noexcept {
+    return arch == Arch::kThumb || arch == Arch::kThumb_BE;
+  }
+
+  //! Tests whether the given architecture is AArch64 or AArch64_BE.
+  static inline bool isArchAArch64(Arch arch) noexcept {
+    return arch == Arch::kAArch64 || arch == Arch::kAArch64_BE;
+  }
+
+  //! Tests whether the given architecture is MIPS32_LE or MIPS32_BE.
+  static inline bool isArchMIPS32(Arch arch) noexcept {
+    return arch == Arch::kMIPS32_LE || arch == Arch::kMIPS32_BE;
+  }
+
+  //! Tests whether the given architecture is MIPS64_LE or MIPS64_BE.
+  static inline bool isArchMIPS64(Arch arch) noexcept {
+    return arch == Arch::kMIPS64_LE || arch == Arch::kMIPS64_BE;
   }
 
   //! Tests whether the given architecture family is X86 or X64.
-  static inline bool isFamilyX86(uint32_t arch) noexcept {
-    return arch == kArchX86 ||
-           arch == kArchX64;
-  }
-
-  //! Tests whether the given architecture family is RISC-V (both 32-bit and 64-bit).
-  static inline bool isFamilyRISCV(uint32_t arch) noexcept {
-    return arch == kArchRISCV32 ||
-           arch == kArchRISCV64;
+  static inline bool isFamilyX86(Arch arch) noexcept {
+    return arch == Arch::kX86 || arch == Arch::kX64;
   }
 
   //! Tests whether the given architecture family is ARM, Thumb, or AArch64.
-  static inline bool isFamilyARM(uint32_t arch) noexcept {
-    arch &= ~kArchBigEndianMask;
-    return arch == kArchARM ||
-           arch == kArchAArch64 ||
-           arch == kArchThumb;
+  static inline bool isFamilyARM(Arch arch) noexcept {
+    return isArchARM(arch) || isArchAArch64(arch) || isArchThumb(arch);
   }
 
   //! Tests whether the given architecture family is MISP or MIPS64.
-  static inline bool isFamilyMIPS(uint32_t arch) noexcept {
-    arch &= ~kArchBigEndianMask;
-    return arch == kArchMIPS32_LE ||
-           arch == kArchMIPS64_LE;
+  static inline bool isFamilyMIPS(Arch arch) noexcept {
+    return isArchMIPS32(arch) || isArchMIPS64(arch);
+  }
+
+  //! Tests whether the given architecture family is RISC-V (both 32-bit and 64-bit).
+  static inline bool isFamilyRISCV(Arch arch) noexcept {
+    return arch == Arch::kRISCV32 || arch == Arch::kRISCV64;
   }
 
   //! Returns a native general purpose register size from the given architecture.
-  static uint32_t registerSizeFromArch(uint32_t arch) noexcept {
+  static inline uint32_t registerSizeFromArch(Arch arch) noexcept {
     return is32Bit(arch) ? 4u : 8u;
   }
 
   //! \}
 };
 
-//! Returns the host environment constructed from preprocessor macros defined
-//! by the compiler.
-//!
-//! The returned environment should precisely match the target host architecture,
-//! sub-architecture, platform, and ABI.
-static ASMJIT_INLINE Environment hostEnvironment() noexcept {
-  return Environment(Environment::kArchHost,
-                     Environment::kSubArchHost,
-                     Environment::kVendorHost,
-                     Environment::kPlatformHost,
-                     Environment::kAbiHost,
-                     Environment::kFormatUnknown);
-}
-
 static_assert(sizeof(Environment) == 8,
               "Environment must occupy exactly 8 bytes.");
 
 //! \}
-
-#ifndef ASMJIT_NO_DEPRECATED
-class ASMJIT_DEPRECATED_STRUCT("Use Environment instead") ArchInfo : public Environment {
-public:
-  inline ArchInfo() noexcept : Environment() {}
-
-  inline ArchInfo(const Environment& other) noexcept : Environment(other) {}
-  inline explicit ArchInfo(uint32_t arch, uint32_t subArch = kSubArchUnknown) noexcept
-    : Environment(arch, subArch) {}
-
-  enum Id : uint32_t {
-    kIdNone = Environment::kArchUnknown,
-    kIdX86 = Environment::kArchX86,
-    kIdX64 = Environment::kArchX64,
-    kIdA32 = Environment::kArchARM,
-    kIdA64 = Environment::kArchAArch64,
-    kIdHost = Environment::kArchHost
-  };
-
-  enum SubType : uint32_t {
-    kSubIdNone = Environment::kSubArchUnknown
-  };
-
-  static inline ArchInfo host() noexcept { return ArchInfo(hostEnvironment()); }
-};
-#endif // !ASMJIT_NO_DEPRECATED
 
 ASMJIT_END_NAMESPACE
 

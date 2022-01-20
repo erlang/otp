@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ZONESTACK_H_INCLUDED
 #define ASMJIT_CORE_ZONESTACK_H_INCLUDED
@@ -31,24 +13,43 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_zone
 //! \{
 
-// ============================================================================
-// [asmjit::ZoneStackBase]
-// ============================================================================
-
 //! Base class used by \ref ZoneStack.
 class ZoneStackBase {
 public:
   ASMJIT_NONCOPYABLE(ZoneStackBase)
 
-  static constexpr uint32_t kBlockSize = ZoneAllocator::kHiMaxSize;
+  //! \name Constants
+  //! \{
+
+  enum : size_t {
+    kBlockIndexPrev = 0,
+    kBlockIndexNext = 1,
+
+    kBlockIndexFirst = 0,
+    kBlockIndexLast = 1,
+
+    kBlockSize = ZoneAllocator::kHiMaxSize
+  };
+
+  //! \}
+
+  //! \name Types
+  //! \{
 
   struct Block {
-    inline bool empty() const noexcept { return _start == _end; }
-    inline Block* prev() const noexcept { return _link[Globals::kLinkLeft]; }
-    inline Block* next() const noexcept { return _link[Globals::kLinkRight]; }
+    //! Next and previous blocks.
+    Block* _link[2];
+    //! Pointer to the start of the array.
+    void* _start;
+    //! Pointer to the end of the array.
+    void* _end;
 
-    inline void setPrev(Block* block) noexcept { _link[Globals::kLinkLeft] = block; }
-    inline void setNext(Block* block) noexcept { _link[Globals::kLinkRight] = block; }
+    inline bool empty() const noexcept { return _start == _end; }
+    inline Block* prev() const noexcept { return _link[kBlockIndexPrev]; }
+    inline Block* next() const noexcept { return _link[kBlockIndexNext]; }
+
+    inline void setPrev(Block* block) noexcept { _link[kBlockIndexPrev] = block; }
+    inline void setNext(Block* block) noexcept { _link[kBlockIndexNext] = block; }
 
     template<typename T>
     inline T* start() const noexcept { return static_cast<T*>(_start); }
@@ -74,18 +75,21 @@ public:
 
       return (uintptr_t)_end <= ((uintptr_t)this + kEndBlockIndex - sizeof(T));
     }
-
-    Block* _link[Globals::kLinkCount];   //!< Next and previous blocks.
-    void* _start;                        //!< Pointer to the start of the array.
-    void* _end;                          //!< Pointer to the end of the array.
   };
+
+  //! \}
+
+  //! \name Members
+  //! \{
 
   //! Allocator used to allocate data.
   ZoneAllocator* _allocator;
   //! First and last blocks.
-  Block* _block[Globals::kLinkCount];
+  Block* _block[2];
 
-  //! \name Construction / Destruction
+  //! \}
+
+  //! \name Construction & Destruction
   //! \{
 
   inline ZoneStackBase() noexcept {
@@ -125,15 +129,14 @@ public:
   //! \endcond
 };
 
-// ============================================================================
-// [asmjit::ZoneStack<T>]
-// ============================================================================
-
 //! Zone allocated stack container.
 template<typename T>
 class ZoneStack : public ZoneStackBase {
 public:
-  ASMJIT_NONCOPYABLE(ZoneStack<T>)
+  ASMJIT_NONCOPYABLE(ZoneStack)
+
+  //! \name Constants
+  //! \{
 
   enum : uint32_t {
     kNumBlockItems   = uint32_t((kBlockSize - sizeof(Block)) / sizeof(T)),
@@ -142,7 +145,9 @@ public:
     kEndBlockIndex   = uint32_t(kStartBlockIndex + (kNumBlockItems    ) * sizeof(T))
   };
 
-  //! \name Construction / Destruction
+  //! \}
+
+  //! \name Construction & Destruction
   //! \{
 
   inline ZoneStack() noexcept {}
@@ -155,13 +160,13 @@ public:
   //! \name Utilities
   //! \{
 
-  ASMJIT_INLINE Error prepend(T item) noexcept {
+  inline Error prepend(T item) noexcept {
     ASMJIT_ASSERT(isInitialized());
-    Block* block = _block[Globals::kLinkFirst];
+    Block* block = _block[kBlockIndexFirst];
 
     if (!block->canPrepend<T>()) {
-      ASMJIT_PROPAGATE(_prepareBlock(Globals::kLinkFirst, kEndBlockIndex));
-      block = _block[Globals::kLinkFirst];
+      ASMJIT_PROPAGATE(_prepareBlock(kBlockIndexFirst, kEndBlockIndex));
+      block = _block[kBlockIndexFirst];
     }
 
     T* ptr = block->start<T>() - 1;
@@ -171,13 +176,13 @@ public:
     return kErrorOk;
   }
 
-  ASMJIT_INLINE Error append(T item) noexcept {
+  inline Error append(T item) noexcept {
     ASMJIT_ASSERT(isInitialized());
-    Block* block = _block[Globals::kLinkLast];
+    Block* block = _block[kBlockIndexLast];
 
     if (!block->canAppend<T>()) {
-      ASMJIT_PROPAGATE(_prepareBlock(Globals::kLinkLast, kStartBlockIndex));
-      block = _block[Globals::kLinkLast];
+      ASMJIT_PROPAGATE(_prepareBlock(kBlockIndexLast, kStartBlockIndex));
+      block = _block[kBlockIndexLast];
     }
 
     T* ptr = block->end<T>();
@@ -188,11 +193,11 @@ public:
     return kErrorOk;
   }
 
-  ASMJIT_INLINE T popFirst() noexcept {
+  inline T popFirst() noexcept {
     ASMJIT_ASSERT(isInitialized());
     ASMJIT_ASSERT(!empty());
 
-    Block* block = _block[Globals::kLinkFirst];
+    Block* block = _block[kBlockIndexFirst];
     ASMJIT_ASSERT(!block->empty());
 
     T* ptr = block->start<T>();
@@ -200,16 +205,16 @@ public:
 
     block->setStart(ptr);
     if (block->empty())
-      _cleanupBlock(Globals::kLinkFirst, kMidBlockIndex);
+      _cleanupBlock(kBlockIndexFirst, kMidBlockIndex);
 
     return item;
   }
 
-  ASMJIT_INLINE T pop() noexcept {
+  inline T pop() noexcept {
     ASMJIT_ASSERT(isInitialized());
     ASMJIT_ASSERT(!empty());
 
-    Block* block = _block[Globals::kLinkLast];
+    Block* block = _block[kBlockIndexLast];
     ASMJIT_ASSERT(!block->empty());
 
     T* ptr = block->end<T>();
@@ -219,7 +224,7 @@ public:
 
     block->setEnd(ptr);
     if (block->empty())
-      _cleanupBlock(Globals::kLinkLast, kMidBlockIndex);
+      _cleanupBlock(kBlockIndexLast, kMidBlockIndex);
 
     return item;
   }

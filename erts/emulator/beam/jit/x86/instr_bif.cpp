@@ -949,7 +949,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
     /* The start of this function has to mimic the layout of ErtsNativeFunc. */
     a.jmp(dispatch); /* call_op */
 
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     /* ErtsNativeFunc.dfunc */
     val = Func.getValue();
     a.embed(&val, sizeof(val));
