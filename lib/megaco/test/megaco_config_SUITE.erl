@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
          otp_8183/1
         ]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include("megaco_test_lib.hrl").
@@ -553,6 +554,20 @@ command(No, Desc, Cmd, VerifyVal)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+calc_max_trans_id(Config, Max) ->
+    Factor = ?config(megaco_factor, Config),
+    if
+        (Factor =:= 1) ->
+            Max;
+        (Factor =< 10) ->
+            calc_max_trans_id2(Factor, Max);
+        true ->
+            calc_max_trans_id2(10, Max)
+    end.
+
+calc_max_trans_id2(Factor, Max) ->
+    Max - ((Factor-1) * 100).
+
 transaction_id_counter_mg(suite) ->
     [];
 transaction_id_counter_mg(doc) ->
@@ -566,7 +581,9 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     
     process_flag(trap_exit, true),
 
-    i("starting"),
+    MaxTransID = calc_max_trans_id(Config, 1000),
+
+    i("starting with Max Transaction ID: ~w", [MaxTransID]),
 
     %% Basic user data
     UserMid = {deviceName, "mg"},
@@ -595,7 +612,7 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     %% Set counter limits
     i("set counter max limit"),
     CH = CD#conn_data.conn_handle, 
-    megaco_config:update_conn_info(CH, max_trans_id, 1000),
+    megaco_config:update_conn_info(CH, max_trans_id, MaxTransID),
 
     %% Create the counter worker procs
     i("create counter working procs"),
@@ -814,7 +831,11 @@ transaction_id_counter_mgc(doc) ->
      "transaction counter handling of the application "
      "in with several connections (MGC). "];
 transaction_id_counter_mgc(Config) when is_list(Config) ->
-    Name = transaction_id_counter_mgc,
+    Name       = transaction_id_counter_mgc,
+    MaxTransID = calc_max_trans_id(Config, 1000),
+
+    i("starting with Max Transaction ID: ~w", [MaxTransID]),
+
     Pre = fun() ->
                   %% Basic user data
                   UserMid = {deviceName, "mgc"},
@@ -895,10 +916,11 @@ transaction_id_counter_mgc(Config) when is_list(Config) ->
 
                   %% Set counter limits
                   i("set counter max limit(s)"),
-                  set_counter_max_limits(CDs, 1000),
+                  set_counter_max_limits(CDs, MaxTransID),
 
                   {UserMid, CDs}
           end,
+
     Case = fun({_, CDs}) ->
                    %% Create the counter worker procs
                    i("create counter working procs"),
