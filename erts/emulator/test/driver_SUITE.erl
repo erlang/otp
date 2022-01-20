@@ -123,7 +123,7 @@
 -define(heap_binary_size, 64).
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [{ct_hooks,[cth_log_redirect,ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
@@ -171,9 +171,24 @@ groups() ->
        ioq_exit_timeout_async]}].
 
 init_per_suite(Config) ->
+    logger:add_handler_filter(default,
+      checkio_filter,
+      {fun F(#{ msg := {string,Str}} = Log, _State) ->
+               case re:run(Str,"(fds in pollset)|(Bad value on output port)") of
+                   {match,_} ->
+                       stop;
+                   _ ->
+                       Log
+               end;
+           F(#{ msg := {Fmt,Args}} = Log, State) when not is_atom(Fmt) ->
+               F(Log#{ msg := {string,io_lib:format(Fmt,Args)}}, State);
+           F(Log, _State) ->
+               Log
+       end, undefined}),
     Config.
 
 end_per_suite(_Config) ->
+    logger:remove_handler_filter(default, checkio_filter),
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(poll_thread, Config) ->
@@ -211,7 +226,6 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
                        end,
                        erts_debug:get_internal_state(check_io_debug)
                end),
-    erlang:display({init_per_testcase, Case}),
     0 = element(1, CIOD),
     [{testcase, Case}|Config].
 
@@ -219,7 +233,6 @@ end_per_testcase(Case, Config) ->
     %% Logs some info about the system
     ct_os_cmd("epmd -names"),
     ct_os_cmd("ps aux"),
-    erlang:display({end_per_testcase, Case}),
     try rpc(Config, fun() ->
                             get_stable_check_io_info(),
                             erts_debug:get_internal_state(check_io_debug)
@@ -1016,12 +1029,11 @@ chkio_test({erts_poll_info, Before},
             chk_chkio_port(Port),
             Fun(),
             During = get_check_io_total(erlang:system_info(check_io)),
-            erlang:display(During),
 
             [0 = element(1, erts_debug:get_internal_state(check_io_debug)) ||
                 %% The pollset is not stable when running the fallback testcase
                 Test /= ?CHKIO_USE_FALLBACK_POLLSET],
-            io:format("During test: ~p~n", [During]),
+            ct:log("During test: ~p~n", [During]),
             chk_chkio_port(Port),
             case erlang:port_control(Port, ?CHKIO_STOP, "") of
                 Res when is_list(Res) ->
@@ -2085,12 +2097,12 @@ async_blast(Config) when is_list(Config) ->
                   end, Ps),
     End = os:timestamp(),
     MemAfter = driver_alloc_size(),
-    io:format("MemBefore=~p, MemMid=~p, MemAfter=~p~n",
+    ct:log("MemBefore=~p, MemMid=~p, MemAfter=~p~n",
               [MemBefore, MemMid, MemAfter]),
     AsyncBlastTime = timer:now_diff(End,Start)/1000000,
-    io:format("AsyncBlastTime=~p~n", [AsyncBlastTime]),
+    ct:log("AsyncBlastTime=~p~n", [AsyncBlastTime]),
     MemBefore = MemAfter,
-    erlang:display({async_blast_time, AsyncBlastTime}),
+    ct:log({async_blast_time, AsyncBlastTime}),
     ok.
 
 thr_msg_blast_receiver(_Port, N, N) ->
@@ -2141,13 +2153,12 @@ thr_msg_blast(Config) when is_list(Config) ->
             ok
     end,
     MemAfter = driver_alloc_size(),
-    io:format("MemBefore=~p, MemAfter=~p~n",
+    ct:log("MemBefore=~p, MemAfter=~p~n",
               [MemBefore, MemAfter]),
     ThrMsgBlastTime = timer:now_diff(End,Start)/1000000,
-    io:format("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
+    ct:log("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
     MemBefore = MemAfter,
     Res = {thr_msg_blast_time, ThrMsgBlastTime},
-    erlang:display(Res),
     Res.
 
 -define(IN_RANGE(LoW_, VaLuE_, HiGh_),
@@ -2408,8 +2419,7 @@ count_pp_sched_stop(Ps) ->
     PNs = lists:map(fun (P) -> {P, 0} end, Ps),
     receive {trace_delivered, all, Td} -> ok end,
     Res = count_proc_sched(Ps, PNs),
-    io:format("Scheduling counts: ~p~n", [Res]),
-    erlang:display({scheduling_counts, Res}),
+    ct:log("Scheduling counts: ~p~n", [Res]),
     Res.
 
 do_inc_pn(_P, []) ->
@@ -2713,7 +2723,7 @@ rpc(Config, Fun) ->
         undefined ->
             Fun();
         {_Peer, Node} ->
-            io:format("Running RPC ~p on ~p/~p~n", [Fun, _Peer, Node]),
+            ct:log("Running RPC ~p on ~p/~p~n", [Fun, _Peer, Node]),
             Self = self(),
             Ref = make_ref(),
             Pid = spawn(Node,

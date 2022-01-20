@@ -330,7 +330,19 @@ trap_exit_badarg(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     start_spawner(),
     process_flag(trap_exit, true),
-    test_server:do_times(10, fun trap_exit_badarg/0),
+    try
+        %% suppress  =ERROR REPORT=== emulator messages
+        ok = logger:add_primary_filter(suppress_log_spam, {
+            fun(#{meta := #{error_logger := #{emulator := true, tag := error}}}, _Report) ->
+                stop;
+            (_Meta, _Report) ->
+                ignore
+            end, ok}),
+        test_server:do_times(10, fun trap_exit_badarg/0),
+        ct:sleep(500) %% flush logging
+    after
+        ok = logger:remove_primary_filter(suppress_log_spam)
+    end,
     stop_spawner(),
     ok.
 
@@ -2848,24 +2860,19 @@ spawn_request_monitor_demonitor(Config) when is_list(Config) ->
     spawn_request(Node, BlockFun, [{priority,max}, link]),
     receive after 100 -> ok end,
 
-    erlang:display(spawning),
     erlang:yield(),
     R = spawn_request(Node, timer, sleep, [10000], [monitor]),
     %% Should not be possible to demonitor
     %% before operation has succeeded...
-    erlang:display(premature_demonitor),
     {monitors, []} = process_info(self(), monitors),
     false = erlang:demonitor(R, [info]), %% Should be ignored by VM...
-    erlang:display(wait_success),
     receive
         {spawn_reply, R, ok, P} ->
-            erlang:display(demonitor),
             {monitors, [{process,P}]} = process_info(self(), monitors),
             true = erlang:demonitor(R, [info]),
             {monitors, []} = process_info(self(), monitors),
             exit(P, kill)
     end,
-    erlang:display(done),
     stop_node(Peer, Node),
     ok.
 
@@ -2964,12 +2971,9 @@ spawn_request_link_parent_exit_test(Node) ->
     N = gather_parent_exits(kaboom, false),
     Comment = case node() == Node of
                   true ->
-                      C = "Got " ++ integer_to_list(N) ++ " node local kabooms!",
-                      erlang:display(C),
-                      C;
+                      "Got " ++ integer_to_list(N) ++ " node local kabooms!";
                   false ->
                       C = "Got " ++ integer_to_list(N) ++ " node remote kabooms!",
-                      erlang:display(C),
                       true = N /= 0,
                       C
               end,
@@ -3080,7 +3084,6 @@ spawn_request_abandon_bif(Config) when is_list(Config) ->
     C = "Got " ++ integer_to_list(NoA1) ++ " and "
         ++ integer_to_list(NoA2) ++ " abandoneds of 2*"
         ++ integer_to_list(TotOps) ++ " ops!",
-    erlang:display(C),
     true = NoA1 /= 0,
     true = NoA1 /= TotOps,
     true = NoA2 /= 0,
