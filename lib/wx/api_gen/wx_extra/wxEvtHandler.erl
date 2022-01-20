@@ -13,8 +13,7 @@
 %% (in another process) to handle the event. The callback should be of
 %% arity 2.  fun(EventRecord::wx(), EventObject::wxObject()).
 %%
-%% Beware that the callback will be executed in a new process each
-%% time unless it is specified as `{nospawn,Fun}'.
+%% Beware that the callback will be executed in a new process each time.
 %%
 %% <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html">
 %% The orginal documentation</a>.
@@ -56,13 +55,10 @@ connect(This, EventType) ->
 %%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject())
 %%                          to process the event. Default not specfied i.e. a message will
 %%                          be delivered to the process calling this function.
-%%    {callback, {nospawn, function()}} Similar to `{callback, function()}'
-%%                          without spawning a new process each time.
 %%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> 'ok' when
       Option :: {'id', integer()} | {'lastId', integer()} | {'skip', boolean()} |
-		'callback' | {'callback', function()} |
-		{'callback', {'nospawn', function()}} | {'userData', term()}.
+		'callback' | {'callback', function()} | {'userData', term()}.
 connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
     EvH = parse_opts(Options, #evh{et=EventType}),
     ?CLASS(ThisT,wxEvtHandler),
