@@ -59,6 +59,8 @@
          search_non_existant/1,
          search_referral/1,
          search_two_hits/1,
+         search_extensible_match_with_dn/1,
+         search_extensible_match_without_dn/1,
          ssl_connection/1,
          start_tls_on_ssl_should_fail/1,
          start_tls_twice_should_fail/1,
@@ -129,6 +131,8 @@ groups() ->
 		      search_filter_or,
 		      search_filter_and_not,
 		      search_two_hits,
+		      search_extensible_match_with_dn,
+		      search_extensible_match_without_dn,
 		      search_referral,
                       search_filter_or_sizelimit_ok,
                       search_filter_or_sizelimit_exceeded,
@@ -720,6 +724,87 @@ search_two_hits(Config) ->
 
     %% Restore the database:
     [ok=eldap:delete(H,DN) || DN <- ExpectedDNs].
+
+%%%----------------------------------------------------------------
+search_extensible_match_with_dn(Config) ->
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
+
+    %% Create intermediate tree
+    OU1 = "o=Designers," ++ BasePath,
+    ok = eldap:add(H, OU1, [{"objectclass", ["top", "organization"]}, {"o", ["Designers"]}]),
+    OU2 = "o=Graphics," ++ BasePath,
+    ok = eldap:add(H, OU2, [{"objectclass", ["top", "organization"]}, {"o", ["Graphics"]}]),
+
+    %% Add objects, they belongs to different trees
+    DN1 = "cn=Bob Noorda,o=Designers," ++ BasePath,
+    DN2 = "cn=Bob Noorda,o=Graphics," ++ BasePath,
+    ok = eldap:add(H, DN1,
+            [{"objectclass", ["person"]},
+            {"cn", ["Bob Noorda"]},
+            {"sn", ["Noorda"]},
+            {"description", ["Amsterdam"]}]),
+    ok = eldap:add(H, DN2,
+            [{"objectclass", ["person"]},
+            {"cn", ["Bob Noorda"]},
+            {"sn", ["Noorda"]},
+            {"description", ["Milan"]}]),
+    
+    %% Search using extensible filter only in Designers tree
+    Filter = eldap:'and'([
+        eldap:extensibleMatch("Designers", [{type, "o"}, {dnAttributes, true}]),
+        eldap:equalityMatch("sn", "Noorda")
+    ]),
+    {ok, #eldap_search_result{entries=Es}} = 
+    eldap:search(H, #eldap_search{base = BasePath,
+        filter = Filter,
+        scope=eldap:wholeSubtree()}),
+
+    %% Check
+    [DN1] = [D || #eldap_entry{object_name=D} <- Es],
+
+    %% Restore the database
+    [ok=eldap:delete(H,DN) || DN <- [DN1, DN2, OU1, OU2]].
+
+%%%----------------------------------------------------------------
+search_extensible_match_without_dn(Config) ->
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
+
+    %% Create intermediate tree
+    OU1 = "o=Teachers," ++ BasePath,
+    ok = eldap:add(H, OU1, [{"objectclass", ["top", "organization"]}, {"o", ["Teachers"]}]),
+    OU2 = "o=Designers," ++ BasePath,
+    ok = eldap:add(H, OU2, [{"objectclass", ["top", "organization"]}, {"o", ["Designers"]}]),
+
+    %% Add objects, they belongs to different trees
+    DN1 = "cn=Max Huber,o=Teachers," ++ BasePath,
+    DN2 = "cn=Max Huber,o=Designers," ++ BasePath,
+    ok = eldap:add(H, DN1,
+            [{"objectclass", ["person"]},
+            {"cn", ["Max Huber"]},
+            {"sn", ["Huber"]},
+            {"description", ["Baar"]}]),
+    ok = eldap:add(H, DN2,
+            [{"objectclass", ["person"]},
+            {"cn", ["Max Huber"]},
+            {"sn", ["Huber"]},
+            {"description", ["Milan"]}]),
+    
+    %% Search using extensible filter without dn attribute
+    Filter = eldap:extensibleMatch("Huber", [{type, "sn"}]),
+    {ok, #eldap_search_result{entries=Es}} =
+	eldap:search(H, #eldap_search{base = BasePath,
+        filter = Filter,
+        scope = eldap:wholeSubtree()
+    }),
+
+    %% And check that they are the expected ones:
+    ExpectedDNs = lists:sort([DN1, DN2]),
+    ExpectedDNs = lists:sort([D || #eldap_entry{object_name=D} <- Es]),
+
+    %% Restore the database:
+    [ok=eldap:delete(H,DN) || DN <- [DN1, DN2, OU1, OU2]].
 
 %%%----------------------------------------------------------------
 search_referral(Config) ->
