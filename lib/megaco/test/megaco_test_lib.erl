@@ -2106,7 +2106,7 @@ executor(Fun, Timeout)
     {Pid, MRef} = erlang:spawn_monitor(Fun),
     receive
         {'DOWN', MRef, process, Pid, Info} ->
-            p("executor process terminated with"
+            p("executor process terminated (normal) with"
               "~n      ~p", [Info]),
             Info;
         {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCSTack}} ->
@@ -2117,7 +2117,7 @@ executor(Fun, Timeout)
             %% the process is hanging...
             receive
                 {'DOWN', MRef, process, Pid, Info} ->
-                    p("executor process terminated with"
+                    p("executor process terminated (forced) with"
                       "~n      ~p", [Info]),
                     ok
             after 1000 -> % Give it a second...
@@ -2125,7 +2125,7 @@ executor(Fun, Timeout)
             end,
             {error, R}
     after Timeout ->
-            p("received timeout - kill executor process"),
+            p("executor process termination timeout - kill executor process"),
             exit(kill, Pid),
             {error, executor_timeout}
     end.
