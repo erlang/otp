@@ -34,6 +34,7 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(eh, ct_test_support_eh).
 
@@ -234,28 +235,36 @@ test_suite_events(Test) ->
      {?eh,tc_start,{surefire_SUITE,tc_fail}},
      {?eh,tc_done,{surefire_SUITE,tc_fail,
 		   {failed,{error,{test_case_failed,"this test should fail"}}}}},
-     {?eh,test_stats,{1,1,{0,0}}}] ++
+     {?eh,test_stats,{1,1,{0,0}}},
+     {?eh,tc_start,{surefire_SUITE,tc_badmatch}},
+     {?eh,tc_done,{surefire_SUITE,tc_badmatch,
+                   {failed,{error,{{badmatch,nok},'_'}}}}},
+     {?eh,test_stats,{1,2,{0,0}}}] ++
         tc_skip_events(Test,undefined) ++
-        [{?eh,test_stats,{1,1,{1,0}}},
+        [{?eh,test_stats,{1,2,{1,0}}},
          {?eh,tc_start,{surefire_SUITE,tc_autoskip_require}},
          {?eh,tc_done,{surefire_SUITE,tc_autoskip_require,
                        {auto_skipped,{require_failed,'_'}}}},
-         {?eh,test_stats,{1,1,{1,1}}},
+         {?eh,test_stats,{1,2,{1,1}}},
          [{?eh,tc_start,{surefire_SUITE,{init_per_group,g,[]}}},
           {?eh,tc_done,{surefire_SUITE,{init_per_group,g,[]},ok}},
           {?eh,tc_start,{surefire_SUITE,tc_ok}},
           {?eh,tc_done,{surefire_SUITE,tc_ok,ok}},
-          {?eh,test_stats,{2,1,{1,1}}},
+          {?eh,test_stats,{2,2,{1,1}}},
           {?eh,tc_start,{surefire_SUITE,tc_fail}},
           {?eh,tc_done,{surefire_SUITE,tc_fail,
                         {failed,{error,{test_case_failed,"this test should fail"}}}}},
-          {?eh,test_stats,{2,2,{1,1}}}] ++
+          {?eh,test_stats,{2,3,{1,1}}},
+          {?eh,tc_start,{surefire_SUITE,tc_badmatch}},
+          {?eh,tc_done,{surefire_SUITE,tc_badmatch,
+                        {failed,{error,{{badmatch,nok},'_'}}}}},
+          {?eh,test_stats,{2,4,{1,1}}}] ++
              tc_skip_events(Test,g) ++
-             [{?eh,test_stats,{2,2,{2,1}}},
+             [{?eh,test_stats,{2,4,{2,1}}},
               {?eh,tc_start,{surefire_SUITE,tc_autoskip_require}},
               {?eh,tc_done,{surefire_SUITE,tc_autoskip_require,
                             {auto_skipped,{require_failed,'_'}}}},
-              {?eh,test_stats,{2,2,{2,2}}},
+              {?eh,test_stats,{2,4,{2,2}}},
               {?eh,tc_start,{surefire_SUITE,{end_per_group,g,[]}}},
               {?eh,tc_done,{surefire_SUITE,{end_per_group,g,[]},ok}}],
          [{?eh,tc_start,{surefire_SUITE,{init_per_group,g_fail,[]}}},
@@ -265,7 +274,7 @@ test_suite_events(Test) ->
                              {failed,
                               {surefire_SUITE,init_per_group,
                                {'EXIT',all_cases_should_be_skipped}}}}},
-          {?eh,test_stats,{2,2,{2,3}}},
+          {?eh,test_stats,{2,4,{2,3}}},
           {?eh,tc_auto_skip,{surefire_SUITE,{end_per_group,g_fail},
                              {failed,
                               {surefire_SUITE,init_per_group,
@@ -295,7 +304,7 @@ test_events(skip_suite_in_spec) ->
      test_suite_events(skip_all_surefire_SUITE) ++
      [{?eh,stop_logging,[]}];
 test_events(Test) ->
-    [{?eh,start_logging,'_'}, {?eh,start_info,{1,1,9}}] ++
+    [{?eh,start_logging,'_'}, {?eh,start_info,{1,1,11}}] ++
     test_suite_events(Test) ++
     [{?eh,stop_logging,[]}].
 
@@ -363,6 +372,7 @@ testsuite(_Case,[]) ->
 
 testcase(url=Case,[#xmlElement{name=testcase,attributes=A,content=C}|TC]) ->
     R = failed_or_skipped(C),
+    assert_lines(Case,A),
     case R of
 	[s] ->
 	    case lists:keyfind(url,#xmlAttribute.name,A) of
@@ -379,6 +389,7 @@ testcase(url=Case,[#xmlElement{name=testcase,attributes=A,content=C}|TC]) ->
     [R|testcase(Case,TC)];
 testcase(Case,[#xmlElement{name=testcase,attributes=A,content=C}|TC]) ->
     false = lists:keyfind(url,#xmlAttribute.name,A),
+    assert_lines(Case,A),
     R = failed_or_skipped(C),
     [R|testcase(Case,TC)];
 testcase(_Case,[]) ->
@@ -392,6 +403,37 @@ failed_or_skipped([#xmlElement{name=skipped}|E]) ->
     [s|failed_or_skipped(E)];
 failed_or_skipped([]) ->
     [].
+
+assert_lines(Case, A) when Case =/= fail_pre_init_per_suite,
+                           Case =/= skip_case_in_spec,
+                           Case =/= skip_suite_in_spec ->
+    Name = lists:keyfind(name,#xmlAttribute.name,A),
+    File = lists:keyfind(file,#xmlAttribute.name,A),
+    Line = lists:keyfind(line,#xmlAttribute.name,A),
+    ?assertMatch("surefire_SUITE.erl",filename:basename(File#xmlAttribute.value)),
+    case Name#xmlAttribute.value of
+        "init_per_suite" ->
+            ?assertMatch("51", Line#xmlAttribute.value);
+        "end_per_suite" ->
+            ?assertMatch("54", Line#xmlAttribute.value);
+        "tc_ok" ->
+            ?assertMatch("80", Line#xmlAttribute.value);
+        "tc_fail" ->
+            ?assertMatch("85", Line#xmlAttribute.value);
+        "tc_badmatch" ->
+            ?assertMatch("89", Line#xmlAttribute.value);
+        "tc_skip" ->
+            ?assertMatch("91", Line#xmlAttribute.value);
+        "tc_autoskip_require" ->
+            ?assertMatch("96", Line#xmlAttribute.value);
+        "init_per_group" ->
+            ?assertMatch("57", Line#xmlAttribute.value);
+        "end_per_group" ->
+            ?assertMatch("62", Line#xmlAttribute.value)
+    end;
+assert_lines(_, _) ->
+    ok.
+
 
 %% Using the expected events to produce the expected result of the XML scanning.
 %% The result is a list of test suites:
