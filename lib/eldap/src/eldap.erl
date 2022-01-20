@@ -418,9 +418,9 @@ mra([{matchingRule,Val}|T], Ack) when is_list(Val) ->
 mra([{type,Val}|T], Ack) when is_list(Val) ->
     mra(T, Ack#'MatchingRuleAssertion'{type=Val});
 mra([{dnAttributes,true}|T], Ack) ->
-    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes="TRUE"});
+    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes=true});
 mra([{dnAttributes,false}|T], Ack) ->
-    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes="FALSE"});
+    mra(T, Ack#'MatchingRuleAssertion'{dnAttributes=false});
 mra([H|_], _) ->
     throw({error,{extensibleMatch_arg,H}});
 mra([], Ack) -> 
