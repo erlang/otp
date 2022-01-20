@@ -1,10 +1,11 @@
 # BeamAsm, the Erlang JIT
 
 BeamAsm provides load-time conversion of Erlang BEAM instructions into
-native code on x86-64. This allows the loader to eliminate any instruction
-dispatching overhead and also specialize each instruction on their argument types.
+native code on x86-64 and aarch64. This allows the loader to eliminate any
+instruction dispatching overhead and also specialize each instruction on their
+argument types.
 
-BeamAsm does hardly any cross instruction optimizations and the x and y
+BeamAsm does hardly any cross instruction optimizations and the `x` and `y`
 register arrays work the same as when interpreting BEAM instructions.
 This allows the Erlang run-time system to be largely unchanged except for
 places that need to work with loaded BEAM instructions like code loading,
@@ -14,7 +15,8 @@ BeamAsm uses [asmjit](https://github.com/asmjit/asmjit) to generate native code
 in run-time. Only small parts of the
 [Assembler API](https://asmjit.com/doc/group__asmjit__assembler.html) of
 [asmjit](https://github.com/asmjit/asmjit) is used. At the moment
-[asmjit](https://github.com/asmjit/asmjit) only supports x86 32/64 bit assembler.
+[asmjit](https://github.com/asmjit/asmjit) only supports x86 32/64 bit and
+aarch64 assembler.
 
 ## Loading Code
 
@@ -25,8 +27,8 @@ used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
 
-Then each instruction is encoded using the C++ functions in the jit/instr_*.cpp files.
-Example:
+Then each instruction is encoded using the C++ functions in the
+`jit/$ARCH/instr_*.cpp` files. For example:
 
     void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail, const ArgVal &Src) {
       a.test(getArgRef(Src), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
@@ -44,7 +46,8 @@ common patterns.
 
 The original register allocation done by the Erlang compiler is used to manage the
 liveness of values and the physical registers are statically allocated to keep
-the necessary process state. At the moment this is the static register allocation:
+the necessary process state. At the moment this is the static register
+allocation on x86-64:
 
     rbx: ErtsSchedulerRegisters struct (contains x/float registers and some metadata)
     rbp: Current frame pointer when `perf` support is enabled, otherwise this
@@ -274,29 +277,31 @@ think about it.
 The BeamAsm implementation resides in the `$ERL_TOP/erts/emulator/beam/jit` folder.
 The files are:
 
-* `load.h`
-    * BeamAsm specific header for loading code
 * `asm_load.c`
     * BeamAsm specific functions for loading code
-* `generators.tab`, `predicates.tab`, `ops.tab`
-    * BeamAsm specific transformations for instructions. See [beam_makeops](beam_makeops) for
-      more details.
 * `beam_asm.h`
     * Header file describing the C -> C++ api
-* `beam_asm.hpp`
+* `beam_jit_metadata.cpp`
+    * `gdb` and Linux `perf` support for BeamAsm
+* `load.h`
+    * BeamAsm specific header for loading code
+* `$ARCH/beam_asm.hpp`
     * Header file describing the structs and classes used by BeamAsm.
-* `beam_asm.cpp`
-    * Implementation of the main process loop
+* `$ARCH/beam_asm.cpp`
     * The BeamAsm initialization code
     * The C -> C++ interface functions.
-* `beam_asm_module.cpp`
+* `$ARCH/generators.tab`, `$ARCH/predicates.tab`, `$ARCH/ops.tab`
+    * BeamAsm specific transformations for instructions. See
+      [beam_makeops](beam_makeops) for more details.
+* `$ARCH/beam_asm_module.cpp`
     * The code for the BeamAsm module code generator logic
-* `beam_asm_global.cpp`
-    * Global code fragments that are used by multiple instructions, e.g. error handling code.
-* `instr_*.cpp`
+* `$ARCH/beam_asm_global.cpp`
+    * Global code fragments that are used by multiple instructions, e.g. error
+      handling code.
+* `$ARCH/instr_*.cpp`
     * Implementation of individual instructions grouped into files by area
-* `beam_asm_perf.cpp`
-    * The linux perf support for BeamAsm
+* `$ARCH/process_main.cpp`
+    * Implementation of the main process loop
 
 ## Linux perf support
 
@@ -448,9 +453,10 @@ we have found useful:
 You will see a banner containing `[jit]` shell when you start. You can also use
 `erlang:system_info(emu_flavor)` to check the flavor and it should be `jit`.
 
-There are three major reasons why when building Erlang/OTP you would not get the JIT.
+There are two major reasons why when building Erlang/OTP you would not get the
+JIT.
 
-* You are not building x86 64-bit
+* You are not building a 64-bit emulator for x86 or ARM
 * You do not have a C++ compiler that supports C++-17
 
 If you run `./configure --enable-jit` configure will abort when it discovers that
@@ -475,29 +481,24 @@ when that happens. One such could be very short-lived small scripts. If you come
 any scenarios when this happens, please open a bug report at
 [the Erlang/OTP bug tracker](https://github.com/erlang/otp/issues).
 
-### Would it be possible to add support for BeamAsm on ARM?
+### Would it be possible to add support for BeamAsm on other CPU architectures?
 
 Any new architecture needs support in the assembler as well. Since we use
 [asmjit](https://github.com/asmjit/asmjit) for this, that means we need support
 in [asmjit](https://github.com/asmjit/asmjit). BeamAsm uses relatively few
-instructions (mostly, `mov`, `jmp`, `cmp`, `sub`, `add`), so it would not need to have
-full support of all ARM instructions.
+instructions (mostly, `mov`, `jmp`, `cmp`, `sub`, `add`), so it would not need
+to have full support of all instructions.
 
 Another approach would be to not use [asmjit](https://github.com/asmjit/asmjit)
-for ARM, but instead, use something different to assemble code during load-time.
+for the new architecture, but instead use something different to assemble code
+during load-time.
 
 ### Would it be possible to add support for BeamAsm on another OS?
 
-Adding a new OS that runs x86-64 should not need any large changes if
-the OS supports mapping of memory as executable. If the ABI used by the
+Adding a new OS that runs x86-64 or aarch64 should not need any large changes
+if the OS supports mapping of memory as executable. If the ABI used by the
 OS is not supported changes related to calling C-functions also have to
 be made.
 
-As a reference, it took us about 2-3 weeks to implement support for Windows.
-
-### Would it be possible to add support in perf to better crawl the Erlang stack?
-
-Yes, though not easily.
-
-Using `perf --call-graph lbr` works for Erlang, but it does not give a
-perfect record as the buffer has a limited size.
+As a reference, it took us about 2-3 weeks to implement support for Windows,
+and about three months to finish the aarch64 port.
