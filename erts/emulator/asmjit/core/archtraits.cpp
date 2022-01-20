@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/archtraits.h"
@@ -35,26 +17,52 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::ArchTraits]
-// ============================================================================
-
 static const constexpr ArchTraits noArchTraits = {
-  0xFF,           // SP.
-  0xFF,           // FP.
-  0xFF,           // LR.
-  0xFF,           // PC.
-  { 0, 0, 0 },    // Reserved.
-  0,              // HW stack alignment.
-  0,              // Min stack offset.
-  0,              // Max stack offset.
-  { 0, 0, 0, 0},  // ISA features [Gp, Vec, Other0, Other1].
-  { { 0 } },      // RegTypeToSignature.
-  { 0 },          // RegTypeToTypeId.
-  { 0 }           // TypeIdToRegType.
+  // SP/FP/LR/PC.
+  0xFF, 0xFF, 0xFF, 0xFF,
+
+  // Reserved,
+  { 0, 0, 0 },
+
+  // HW stack alignment.
+  0,
+
+  // Min/Max stack offset.
+  0, 0,
+
+  // ISA features [Gp, Vec, Other0, Other1].
+  {{
+    InstHints::kNoHints,
+    InstHints::kNoHints,
+    InstHints::kNoHints,
+    InstHints::kNoHints
+  }},
+
+  // RegTypeToSignature.
+  #define V(index) OperandSignature{0}
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
+  #undef V
+
+  // RegTypeToTypeId.
+  #define V(index) TypeId::kVoid
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
+  #undef V
+
+  // TypeIdToRegType.
+  #define V(index) RegType::kNone
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
+  #undef V
+
+  // Word names of 8-bit, 16-bit, 32-bit, and 64-bit quantities.
+  {
+    ArchTypeNameId::kByte,
+    ArchTypeNameId::kHalf,
+    ArchTypeNameId::kWord,
+    ArchTypeNameId::kQuad
+  }
 };
 
-ASMJIT_VARAPI const ArchTraits _archTraits[Environment::kArchCount] = {
+ASMJIT_VARAPI const ArchTraits _archTraits[uint32_t(Arch::kMaxValue) + 1] = {
   // No architecture.
   noArchTraits,
 
@@ -92,63 +100,60 @@ ASMJIT_VARAPI const ArchTraits _archTraits[Environment::kArchCount] = {
   noArchTraits
 };
 
-// ============================================================================
-// [asmjit::ArchUtils]
-// ============================================================================
-
-ASMJIT_FAVOR_SIZE Error ArchUtils::typeIdToRegInfo(uint32_t arch, uint32_t typeId, uint32_t* typeIdOut, RegInfo* regInfoOut) noexcept {
+ASMJIT_FAVOR_SIZE Error ArchUtils::typeIdToRegSignature(Arch arch, TypeId typeId, TypeId* typeIdOut, OperandSignature* regSignatureOut) noexcept {
   const ArchTraits& archTraits = ArchTraits::byArch(arch);
 
+  // TODO: Remove this, should never be used like this.
   // Passed RegType instead of TypeId?
-  if (typeId <= BaseReg::kTypeMax)
-    typeId = archTraits.regTypeToTypeId(typeId);
+  if (uint32_t(typeId) <= uint32_t(RegType::kMaxValue))
+    typeId = archTraits.regTypeToTypeId(RegType(uint32_t(typeId)));
 
-  if (ASMJIT_UNLIKELY(!Type::isValid(typeId)))
+  if (ASMJIT_UNLIKELY(!TypeUtils::isValid(typeId)))
     return DebugUtils::errored(kErrorInvalidTypeId);
 
   // First normalize architecture dependent types.
-  if (Type::isAbstract(typeId)) {
+  if (TypeUtils::isAbstract(typeId)) {
     bool is32Bit = Environment::is32Bit(arch);
-    if (typeId == Type::kIdIntPtr)
-      typeId = is32Bit ? Type::kIdI32 : Type::kIdI64;
+    if (typeId == TypeId::kIntPtr)
+      typeId = is32Bit ? TypeId::kInt32 : TypeId::kInt64;
     else
-      typeId = is32Bit ? Type::kIdU32 : Type::kIdU64;
+      typeId = is32Bit ? TypeId::kUInt32 : TypeId::kUInt64;
   }
 
   // Type size helps to construct all groups of registers.
   // TypeId is invalid if the size is zero.
-  uint32_t size = Type::sizeOf(typeId);
+  uint32_t size = TypeUtils::sizeOf(typeId);
   if (ASMJIT_UNLIKELY(!size))
     return DebugUtils::errored(kErrorInvalidTypeId);
 
-  if (ASMJIT_UNLIKELY(typeId == Type::kIdF80))
+  if (ASMJIT_UNLIKELY(typeId == TypeId::kFloat80))
     return DebugUtils::errored(kErrorInvalidUseOfF80);
 
-  uint32_t regType = 0;
-  if (typeId >= Type::_kIdBaseStart && typeId < Type::_kIdVec32Start) {
-    regType = archTraits._typeIdToRegType[typeId - Type::_kIdBaseStart];
-    if (!regType) {
-      if (typeId == Type::kIdI64 || typeId == Type::kIdU64)
+  RegType regType = RegType::kNone;
+  if (TypeUtils::isBetween(typeId, TypeId::_kBaseStart, TypeId::_kVec32Start)) {
+    regType = archTraits._typeIdToRegType[uint32_t(typeId) - uint32_t(TypeId::_kBaseStart)];
+    if (regType == RegType::kNone) {
+      if (typeId == TypeId::kInt64 || typeId == TypeId::kUInt64)
         return DebugUtils::errored(kErrorInvalidUseOfGpq);
       else
         return DebugUtils::errored(kErrorInvalidTypeId);
     }
   }
   else {
-    if (size <= 8 && archTraits._regInfo[BaseReg::kTypeVec64].isValid())
-      regType = BaseReg::kTypeVec64;
-    else if (size <= 16 && archTraits._regInfo[BaseReg::kTypeVec128].isValid())
-      regType = BaseReg::kTypeVec128;
-    else if (size == 32 && archTraits._regInfo[BaseReg::kTypeVec256].isValid())
-      regType = BaseReg::kTypeVec256;
-    else if (archTraits._regInfo[BaseReg::kTypeVec512].isValid())
-      regType = BaseReg::kTypeVec512;
+    if (size <= 8 && archTraits._regSignature[RegType::kVec64].isValid())
+      regType = RegType::kVec64;
+    else if (size <= 16 && archTraits._regSignature[RegType::kVec128].isValid())
+      regType = RegType::kVec128;
+    else if (size == 32 && archTraits._regSignature[RegType::kVec256].isValid())
+      regType = RegType::kVec256;
+    else if (archTraits._regSignature[RegType::kVec512].isValid())
+      regType = RegType::kVec512;
     else
       return DebugUtils::errored(kErrorInvalidTypeId);
   }
 
   *typeIdOut = typeId;
-  regInfoOut->reset(archTraits.regTypeToSignature(regType));
+  *regSignatureOut = archTraits.regTypeToSignature(regType);
   return kErrorOk;
 }
 

@@ -56,7 +56,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
 
     /* Emit all of the code and bind all of the labels */
     for (auto val : emitPtrs) {
-        a.align(kAlignCode, 8);
+        a.align(AlignMode::kCode, 8);
         a.bind(labels[val.first]);
         /* This funky syntax calls the function pointer within this instance
          * of BeamGlobalAssembler */

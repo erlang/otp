@@ -1,31 +1,12 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 #define ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 
 #include "../core/codeholder.h"
-#include "../core/datatypes.h"
 #include "../core/emitter.h"
 #include "../core/operand.h"
 
@@ -33,10 +14,6 @@ ASMJIT_BEGIN_NAMESPACE
 
 //! \addtogroup asmjit_assembler
 //! \{
-
-// ============================================================================
-// [asmjit::BaseAssembler]
-// ============================================================================
 
 //! Base assembler.
 //!
@@ -112,7 +89,7 @@ public:
   //! \{
 
   ASMJIT_API Label newLabel() override;
-  ASMJIT_API Label newNamedLabel(const char* name, size_t nameSize = SIZE_MAX, uint32_t type = Label::kTypeGlobal, uint32_t parentId = Globals::kInvalidId) override;
+  ASMJIT_API Label newNamedLabel(const char* name, size_t nameSize = SIZE_MAX, LabelType type = LabelType::kGlobal, uint32_t parentId = Globals::kInvalidId) override;
   ASMJIT_API Error bind(const Label& label) override;
 
   //! \}
@@ -121,7 +98,7 @@ public:
   //! \{
 
   ASMJIT_API Error embed(const void* data, size_t dataSize) override;
-  ASMJIT_API Error embedDataArray(uint32_t typeId, const void* data, size_t itemCcount, size_t repeatCount = 1) override;
+  ASMJIT_API Error embedDataArray(TypeId typeId, const void* data, size_t itemCount, size_t repeatCount = 1) override;
   ASMJIT_API Error embedConstPool(const Label& label, const ConstPool& pool) override;
 
   ASMJIT_API Error embedLabel(const Label& label, size_t dataSize = 0) override;

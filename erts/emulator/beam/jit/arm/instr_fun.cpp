@@ -379,7 +379,7 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     a.bind(next);
 
     if (!never_fails) {
-        a.csel(TMP1, TMP1, TMP3, imm(arm::Cond::kEQ));
+        a.csel(TMP1, TMP1, TMP3, imm(arm::CondCode::kEQ));
     }
 
     return TMP1;

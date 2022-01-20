@@ -37,7 +37,7 @@ void BeamGlobalAssembler::emit_check_float_error() {
     a.cond_hi().b(error);
     a.ret(a64::x30);
 
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(double_max);
     a.embedUInt64(0x7FEFFFFFFFFFFFFFul);
 

@@ -1,210 +1,237 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_CORE_TYPE_H_INCLUDED
 #define ASMJIT_CORE_TYPE_H_INCLUDED
 
 #include "../core/globals.h"
+#include "../core/support.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
 //! \addtogroup asmjit_core
 //! \{
 
-// ============================================================================
-// [asmjit::Type]
-// ============================================================================
-
-//! Provides a minimalist type-system that is used by Asmjit library.
-namespace Type {
-
-//! TypeId.
+//! Type identifier provides a minimalist type system used across AsmJit library.
 //!
-//! This is an additional information that can be used to describe a value-type
-//! of physical or virtual register. it's used mostly by BaseCompiler to describe
-//! register representation (the group of data stored in the register and the
-//! width used) and it's also used by APIs that allow to describe and work with
-//! function signatures.
-enum Id : uint32_t {
-  kIdVoid         = 0,  //!< Void type.
+//! This is an additional information that can be used to describe a value-type of physical or virtual register. It's
+//! used mostly by BaseCompiler to describe register representation (the group of data stored in the register and the
+//! width used) and it's also used by APIs that allow to describe and work with function signatures.
+enum class TypeId : uint8_t {
+  //! Void type.
+  kVoid = 0,
 
-  _kIdBaseStart   = 32,
-  _kIdBaseEnd     = 44,
+  _kBaseStart = 32,
+  _kBaseEnd = 44,
 
-  _kIdIntStart    = 32,
-  _kIdIntEnd      = 41,
+  _kIntStart = 32,
+  _kIntEnd = 41,
 
-  kIdIntPtr       = 32, //!< Abstract signed integer type that has a native size.
-  kIdUIntPtr      = 33, //!< Abstract unsigned integer type that has a native size.
+  //! Abstract signed integer type that has a native size.
+  kIntPtr = 32,
+  //! Abstract unsigned integer type that has a native size.
+  kUIntPtr = 33,
 
-  kIdI8           = 34, //!< 8-bit signed integer type.
-  kIdU8           = 35, //!< 8-bit unsigned integer type.
-  kIdI16          = 36, //!< 16-bit signed integer type.
-  kIdU16          = 37, //!< 16-bit unsigned integer type.
-  kIdI32          = 38, //!< 32-bit signed integer type.
-  kIdU32          = 39, //!< 32-bit unsigned integer type.
-  kIdI64          = 40, //!< 64-bit signed integer type.
-  kIdU64          = 41, //!< 64-bit unsigned integer type.
+  //! 8-bit signed integer type.
+  kInt8 = 34,
+  //! 8-bit unsigned integer type.
+  kUInt8 = 35,
+  //! 16-bit signed integer type.
+  kInt16 = 36,
+  //! 16-bit unsigned integer type.
+  kUInt16 = 37,
+  //! 32-bit signed integer type.
+  kInt32 = 38,
+  //! 32-bit unsigned integer type.
+  kUInt32 = 39,
+  //! 64-bit signed integer type.
+  kInt64 = 40,
+  //! 64-bit unsigned integer type.
+  kUInt64 = 41,
 
-  _kIdFloatStart  = 42,
-  _kIdFloatEnd    = 44,
+  _kFloatStart  = 42,
+  _kFloatEnd = 44,
 
-  kIdF32          = 42, //!< 32-bit floating point type.
-  kIdF64          = 43, //!< 64-bit floating point type.
-  kIdF80          = 44, //!< 80-bit floating point type.
+  //! 32-bit floating point type.
+  kFloat32 = 42,
+  //! 64-bit floating point type.
+  kFloat64 = 43,
+  //! 80-bit floating point type.
+  kFloat80 = 44,
 
-  _kIdMaskStart   = 45,
-  _kIdMaskEnd     = 48,
+  _kMaskStart = 45,
+  _kMaskEnd = 48,
 
-  kIdMask8        = 45, //!< 8-bit opmask register (K).
-  kIdMask16       = 46, //!< 16-bit opmask register (K).
-  kIdMask32       = 47, //!< 32-bit opmask register (K).
-  kIdMask64       = 48, //!< 64-bit opmask register (K).
+  //! 8-bit opmask register (K).
+  kMask8 = 45,
+  //! 16-bit opmask register (K).
+  kMask16 = 46,
+  //! 32-bit opmask register (K).
+  kMask32 = 47,
+  //! 64-bit opmask register (K).
+  kMask64 = 48,
 
-  _kIdMmxStart    = 49,
-  _kIdMmxEnd      = 50,
+  _kMmxStart = 49,
+  _kMmxEnd = 50,
 
-  kIdMmx32        = 49, //!< 64-bit MMX register only used for 32 bits.
-  kIdMmx64        = 50, //!< 64-bit MMX register.
+  //! 64-bit MMX register only used for 32 bits.
+  kMmx32 = 49,
+  //! 64-bit MMX register.
+  kMmx64 = 50,
 
-  _kIdVec32Start  = 51,
-  _kIdVec32End    = 60,
+  _kVec32Start  = 51,
+  _kVec32End = 60,
 
-  kIdI8x4         = 51,
-  kIdU8x4         = 52,
-  kIdI16x2        = 53,
-  kIdU16x2        = 54,
-  kIdI32x1        = 55,
-  kIdU32x1        = 56,
-  kIdF32x1        = 59,
+  kInt8x4 = 51,
+  kUInt8x4 = 52,
+  kInt16x2 = 53,
+  kUInt16x2 = 54,
+  kInt32x1 = 55,
+  kUInt32x1 = 56,
+  kFloat32x1 = 59,
 
-  _kIdVec64Start  = 61,
-  _kIdVec64End    = 70,
+  _kVec64Start  = 61,
+  _kVec64End = 70,
 
-  kIdI8x8         = 61,
-  kIdU8x8         = 62,
-  kIdI16x4        = 63,
-  kIdU16x4        = 64,
-  kIdI32x2        = 65,
-  kIdU32x2        = 66,
-  kIdI64x1        = 67,
-  kIdU64x1        = 68,
-  kIdF32x2        = 69,
-  kIdF64x1        = 70,
+  kInt8x8 = 61,
+  kUInt8x8 = 62,
+  kInt16x4 = 63,
+  kUInt16x4 = 64,
+  kInt32x2 = 65,
+  kUInt32x2 = 66,
+  kInt64x1 = 67,
+  kUInt64x1 = 68,
+  kFloat32x2 = 69,
+  kFloat64x1 = 70,
 
-  _kIdVec128Start = 71,
-  _kIdVec128End   = 80,
+  _kVec128Start = 71,
+  _kVec128End = 80,
 
-  kIdI8x16        = 71,
-  kIdU8x16        = 72,
-  kIdI16x8        = 73,
-  kIdU16x8        = 74,
-  kIdI32x4        = 75,
-  kIdU32x4        = 76,
-  kIdI64x2        = 77,
-  kIdU64x2        = 78,
-  kIdF32x4        = 79,
-  kIdF64x2        = 80,
+  kInt8x16 = 71,
+  kUInt8x16 = 72,
+  kInt16x8 = 73,
+  kUInt16x8 = 74,
+  kInt32x4 = 75,
+  kUInt32x4 = 76,
+  kInt64x2 = 77,
+  kUInt64x2 = 78,
+  kFloat32x4 = 79,
+  kFloat64x2 = 80,
 
-  _kIdVec256Start = 81,
-  _kIdVec256End   = 90,
+  _kVec256Start = 81,
+  _kVec256End = 90,
 
-  kIdI8x32        = 81,
-  kIdU8x32        = 82,
-  kIdI16x16       = 83,
-  kIdU16x16       = 84,
-  kIdI32x8        = 85,
-  kIdU32x8        = 86,
-  kIdI64x4        = 87,
-  kIdU64x4        = 88,
-  kIdF32x8        = 89,
-  kIdF64x4        = 90,
+  kInt8x32 = 81,
+  kUInt8x32 = 82,
+  kInt16x16 = 83,
+  kUInt16x16 = 84,
+  kInt32x8 = 85,
+  kUInt32x8 = 86,
+  kInt64x4 = 87,
+  kUInt64x4 = 88,
+  kFloat32x8 = 89,
+  kFloat64x4 = 90,
 
-  _kIdVec512Start = 91,
-  _kIdVec512End   = 100,
+  _kVec512Start = 91,
+  _kVec512End = 100,
 
-  kIdI8x64        = 91,
-  kIdU8x64        = 92,
-  kIdI16x32       = 93,
-  kIdU16x32       = 94,
-  kIdI32x16       = 95,
-  kIdU32x16       = 96,
-  kIdI64x8        = 97,
-  kIdU64x8        = 98,
-  kIdF32x16       = 99,
-  kIdF64x8        = 100,
+  kInt8x64 = 91,
+  kUInt8x64 = 92,
+  kInt16x32 = 93,
+  kUInt16x32 = 94,
+  kInt32x16 = 95,
+  kUInt32x16 = 96,
+  kInt64x8 = 97,
+  kUInt64x8 = 98,
+  kFloat32x16 = 99,
+  kFloat64x8 = 100,
 
-  kIdCount        = 101,
-  kIdMax          = 255
+  kLastAssigned = kFloat64x8,
+
+  kMaxValue = 255
 };
+ASMJIT_DEFINE_ENUM_COMPARE(TypeId)
+
+//! Type identifier utilities.
+namespace TypeUtils {
 
 struct TypeData {
-  uint8_t baseOf[kIdMax + 1];
-  uint8_t sizeOf[kIdMax + 1];
+  TypeId scalarOf[uint32_t(TypeId::kMaxValue) + 1];
+  uint8_t sizeOf[uint32_t(TypeId::kMaxValue) + 1];
 };
 ASMJIT_VARAPI const TypeData _typeData;
 
-static constexpr bool isVoid(uint32_t typeId) noexcept { return typeId == 0; }
-static constexpr bool isValid(uint32_t typeId) noexcept { return typeId >= _kIdIntStart && typeId <= _kIdVec512End; }
-static constexpr bool isBase(uint32_t typeId) noexcept { return typeId >= _kIdBaseStart && typeId <= _kIdBaseEnd; }
-static constexpr bool isAbstract(uint32_t typeId) noexcept { return typeId >= kIdIntPtr && typeId <= kIdUIntPtr; }
+//! Returns the scalar type of `typeId`.
+static inline TypeId scalarOf(TypeId typeId) noexcept { return _typeData.scalarOf[uint32_t(typeId)]; }
 
-static constexpr bool isInt(uint32_t typeId) noexcept { return typeId >= _kIdIntStart && typeId <= _kIdIntEnd; }
-static constexpr bool isInt8(uint32_t typeId) noexcept { return typeId == kIdI8; }
-static constexpr bool isUInt8(uint32_t typeId) noexcept { return typeId == kIdU8; }
-static constexpr bool isInt16(uint32_t typeId) noexcept { return typeId == kIdI16; }
-static constexpr bool isUInt16(uint32_t typeId) noexcept { return typeId == kIdU16; }
-static constexpr bool isInt32(uint32_t typeId) noexcept { return typeId == kIdI32; }
-static constexpr bool isUInt32(uint32_t typeId) noexcept { return typeId == kIdU32; }
-static constexpr bool isInt64(uint32_t typeId) noexcept { return typeId == kIdI64; }
-static constexpr bool isUInt64(uint32_t typeId) noexcept { return typeId == kIdU64; }
+//! Returns the size [in bytes] of `typeId`.
+static inline uint32_t sizeOf(TypeId typeId) noexcept { return _typeData.sizeOf[uint32_t(typeId)]; }
 
-static constexpr bool isGp8(uint32_t typeId) noexcept { return typeId >= kIdI8 && typeId <= kIdU8; }
-static constexpr bool isGp16(uint32_t typeId) noexcept { return typeId >= kIdI16 && typeId <= kIdU16; }
-static constexpr bool isGp32(uint32_t typeId) noexcept { return typeId >= kIdI32 && typeId <= kIdU32; }
-static constexpr bool isGp64(uint32_t typeId) noexcept { return typeId >= kIdI64 && typeId <= kIdU64; }
+//! Tests whether a given type `typeId` is between `a` and `b`.
+static inline constexpr bool isBetween(TypeId typeId, TypeId a, TypeId b) noexcept {
+  return Support::isBetween(uint32_t(typeId), uint32_t(a), uint32_t(b));
+}
 
-static constexpr bool isFloat(uint32_t typeId) noexcept { return typeId >= _kIdFloatStart && typeId <= _kIdFloatEnd; }
-static constexpr bool isFloat32(uint32_t typeId) noexcept { return typeId == kIdF32; }
-static constexpr bool isFloat64(uint32_t typeId) noexcept { return typeId == kIdF64; }
-static constexpr bool isFloat80(uint32_t typeId) noexcept { return typeId == kIdF80; }
+//! Tests whether a given type `typeId` is \ref TypeId::kVoid.
+static inline constexpr bool isVoid(TypeId typeId) noexcept { return typeId == TypeId::kVoid; }
+//! Tests whether a given type `typeId` is a valid non-void type.
+static inline constexpr bool isValid(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kVec512End); }
+//! Tests whether a given type `typeId` is scalar (has no vector part).
+static inline constexpr bool isScalar(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kBaseStart, TypeId::_kBaseEnd); }
+//! Tests whether a given type `typeId` is abstract, which means that its size depends on register size.
+static inline constexpr bool isAbstract(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kIntPtr, TypeId::kUIntPtr); }
 
-static constexpr bool isMask(uint32_t typeId) noexcept { return typeId >= _kIdMaskStart && typeId <= _kIdMaskEnd; }
-static constexpr bool isMask8(uint32_t typeId) noexcept { return typeId == kIdMask8; }
-static constexpr bool isMask16(uint32_t typeId) noexcept { return typeId == kIdMask16; }
-static constexpr bool isMask32(uint32_t typeId) noexcept { return typeId == kIdMask32; }
-static constexpr bool isMask64(uint32_t typeId) noexcept { return typeId == kIdMask64; }
+//! Tests whether a given type is a scalar integer (signed or unsigned) of any size.
+static inline constexpr bool isInt(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kIntStart, TypeId::_kIntEnd); }
+//! Tests whether a given type is a scalar 8-bit integer (signed).
+static inline constexpr bool isInt8(TypeId typeId) noexcept { return typeId == TypeId::kInt8; }
+//! Tests whether a given type is a scalar 8-bit integer (unsigned).
+static inline constexpr bool isUInt8(TypeId typeId) noexcept { return typeId == TypeId::kUInt8; }
+//! Tests whether a given type is a scalar 16-bit integer (signed).
+static inline constexpr bool isInt16(TypeId typeId) noexcept { return typeId == TypeId::kInt16; }
+//! Tests whether a given type is a scalar 16-bit integer (unsigned).
+static inline constexpr bool isUInt16(TypeId typeId) noexcept { return typeId == TypeId::kUInt16; }
+//! Tests whether a given type is a scalar 32-bit integer (signed).
+static inline constexpr bool isInt32(TypeId typeId) noexcept { return typeId == TypeId::kInt32; }
+//! Tests whether a given type is a scalar 32-bit integer (unsigned).
+static inline constexpr bool isUInt32(TypeId typeId) noexcept { return typeId == TypeId::kUInt32; }
+//! Tests whether a given type is a scalar 64-bit integer (signed).
+static inline constexpr bool isInt64(TypeId typeId) noexcept { return typeId == TypeId::kInt64; }
+//! Tests whether a given type is a scalar 64-bit integer (unsigned).
+static inline constexpr bool isUInt64(TypeId typeId) noexcept { return typeId == TypeId::kUInt64; }
 
-static constexpr bool isMmx(uint32_t typeId) noexcept { return typeId >= _kIdMmxStart && typeId <= _kIdMmxEnd; }
-static constexpr bool isMmx32(uint32_t typeId) noexcept { return typeId == kIdMmx32; }
-static constexpr bool isMmx64(uint32_t typeId) noexcept { return typeId == kIdMmx64; }
+static inline constexpr bool isGp8(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt8, TypeId::kUInt8); }
+static inline constexpr bool isGp16(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt16, TypeId::kUInt16); }
+static inline constexpr bool isGp32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt32, TypeId::kUInt32); }
+static inline constexpr bool isGp64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt64, TypeId::kUInt64); }
 
-static constexpr bool isVec(uint32_t typeId) noexcept { return typeId >= _kIdVec32Start && typeId <= _kIdVec512End; }
-static constexpr bool isVec32(uint32_t typeId) noexcept { return typeId >= _kIdVec32Start && typeId <= _kIdVec32End; }
-static constexpr bool isVec64(uint32_t typeId) noexcept { return typeId >= _kIdVec64Start && typeId <= _kIdVec64End; }
-static constexpr bool isVec128(uint32_t typeId) noexcept { return typeId >= _kIdVec128Start && typeId <= _kIdVec128End; }
-static constexpr bool isVec256(uint32_t typeId) noexcept { return typeId >= _kIdVec256Start && typeId <= _kIdVec256End; }
-static constexpr bool isVec512(uint32_t typeId) noexcept { return typeId >= _kIdVec512Start && typeId <= _kIdVec512End; }
+//! Tests whether a given type is a scalar floating point of any size.
+static inline constexpr bool isFloat(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kFloatStart, TypeId::_kFloatEnd); }
+//! Tests whether a given type is a scalar 32-bit float.
+static inline constexpr bool isFloat32(TypeId typeId) noexcept { return typeId == TypeId::kFloat32; }
+//! Tests whether a given type is a scalar 64-bit float.
+static inline constexpr bool isFloat64(TypeId typeId) noexcept { return typeId == TypeId::kFloat64; }
+//! Tests whether a given type is a scalar 80-bit float.
+static inline constexpr bool isFloat80(TypeId typeId) noexcept { return typeId == TypeId::kFloat80; }
+
+static inline constexpr bool isMask(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMaskStart, TypeId::_kMaskEnd); }
+static inline constexpr bool isMask8(TypeId typeId) noexcept { return typeId == TypeId::kMask8; }
+static inline constexpr bool isMask16(TypeId typeId) noexcept { return typeId == TypeId::kMask16; }
+static inline constexpr bool isMask32(TypeId typeId) noexcept { return typeId == TypeId::kMask32; }
+static inline constexpr bool isMask64(TypeId typeId) noexcept { return typeId == TypeId::kMask64; }
+
+static inline constexpr bool isMmx(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMmxStart, TypeId::_kMmxEnd); }
+static inline constexpr bool isMmx32(TypeId typeId) noexcept { return typeId == TypeId::kMmx32; }
+static inline constexpr bool isMmx64(TypeId typeId) noexcept { return typeId == TypeId::kMmx64; }
+
+static inline constexpr bool isVec(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec512End); }
+static inline constexpr bool isVec32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec32End); }
+static inline constexpr bool isVec64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec64Start, TypeId::_kVec64End); }
+static inline constexpr bool isVec128(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec128Start, TypeId::_kVec128End); }
+static inline constexpr bool isVec256(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec256Start, TypeId::_kVec256End); }
+static inline constexpr bool isVec512(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec512Start, TypeId::_kVec512End); }
 
 //! \cond
 enum TypeCategory : uint32_t {
@@ -215,157 +242,174 @@ enum TypeCategory : uint32_t {
   kTypeCategoryFunction = 4
 };
 
-template<typename T, uint32_t Category>
-struct IdOfT_ByCategory {}; // Fails if not specialized.
+template<typename T, TypeCategory kCategory>
+struct TypeIdOfT_ByCategory {}; // Fails if not specialized.
 
 template<typename T>
-struct IdOfT_ByCategory<T, kTypeCategoryIntegral> {
+struct TypeIdOfT_ByCategory<T, kTypeCategoryIntegral> {
   enum : uint32_t {
-    kTypeId = (sizeof(T) == 1 &&  std::is_signed<T>::value) ? kIdI8 :
-              (sizeof(T) == 1 && !std::is_signed<T>::value) ? kIdU8 :
-              (sizeof(T) == 2 &&  std::is_signed<T>::value) ? kIdI16 :
-              (sizeof(T) == 2 && !std::is_signed<T>::value) ? kIdU16 :
-              (sizeof(T) == 4 &&  std::is_signed<T>::value) ? kIdI32 :
-              (sizeof(T) == 4 && !std::is_signed<T>::value) ? kIdU32 :
-              (sizeof(T) == 8 &&  std::is_signed<T>::value) ? kIdI64 :
-              (sizeof(T) == 8 && !std::is_signed<T>::value) ? kIdU64 : kIdVoid
+    kTypeId = uint32_t(
+      (sizeof(T) == 1 &&  std::is_signed<T>::value) ? TypeId::kInt8 :
+      (sizeof(T) == 1 && !std::is_signed<T>::value) ? TypeId::kUInt8 :
+      (sizeof(T) == 2 &&  std::is_signed<T>::value) ? TypeId::kInt16 :
+      (sizeof(T) == 2 && !std::is_signed<T>::value) ? TypeId::kUInt16 :
+      (sizeof(T) == 4 &&  std::is_signed<T>::value) ? TypeId::kInt32 :
+      (sizeof(T) == 4 && !std::is_signed<T>::value) ? TypeId::kUInt32 :
+      (sizeof(T) == 8 &&  std::is_signed<T>::value) ? TypeId::kInt64 :
+      (sizeof(T) == 8 && !std::is_signed<T>::value) ? TypeId::kUInt64 : TypeId::kVoid)
   };
 };
 
 template<typename T>
-struct IdOfT_ByCategory<T, kTypeCategoryFloatingPoint> {
+struct TypeIdOfT_ByCategory<T, kTypeCategoryFloatingPoint> {
   enum : uint32_t {
-    kTypeId = (sizeof(T) == 4 ) ? kIdF32 :
-              (sizeof(T) == 8 ) ? kIdF64 :
-              (sizeof(T) >= 10) ? kIdF80 : kIdVoid
+    kTypeId = uint32_t(
+      (sizeof(T) == 4 ) ? TypeId::kFloat32 :
+      (sizeof(T) == 8 ) ? TypeId::kFloat64 :
+      (sizeof(T) >= 10) ? TypeId::kFloat80 : TypeId::kVoid)
   };
 };
 
 template<typename T>
-struct IdOfT_ByCategory<T, kTypeCategoryEnum>
-  : public IdOfT_ByCategory<typename std::underlying_type<T>::type, kTypeCategoryIntegral> {};
+struct TypeIdOfT_ByCategory<T, kTypeCategoryEnum>
+  : public TypeIdOfT_ByCategory<typename std::underlying_type<T>::type, kTypeCategoryIntegral> {};
 
 template<typename T>
-struct IdOfT_ByCategory<T, kTypeCategoryFunction> {
-  enum: uint32_t { kTypeId = kIdUIntPtr };
+struct TypeIdOfT_ByCategory<T, kTypeCategoryFunction> {
+  enum : uint32_t {
+    kTypeId = uint32_t(TypeId::kUIntPtr)
+  };
 };
 //! \endcond
 
-//! IdOfT<> template allows to get a TypeId from a C++ type `T`.
-template<typename T>
-struct IdOfT
+//! TypeIdOfT<> template allows to get a TypeId from a C++ type `T`.
 #ifdef _DOXYGEN
+template<typename T>
+struct TypeIdOfT {
   //! TypeId of C++ type `T`.
-  static constexpr uint32_t kTypeId = _TypeIdDeducedAtCompileTime_;
+  static constexpr TypeId kTypeId = _TypeIdDeducedAtCompileTime_;
+};
 #else
-  : public IdOfT_ByCategory<T,
+template<typename T>
+struct TypeIdOfT
+  : public TypeIdOfT_ByCategory<T,
     std::is_enum<T>::value           ? kTypeCategoryEnum          :
     std::is_integral<T>::value       ? kTypeCategoryIntegral      :
     std::is_floating_point<T>::value ? kTypeCategoryFloatingPoint :
-    std::is_function<T>::value       ? kTypeCategoryFunction      : kTypeCategoryUnknown>
+    std::is_function<T>::value       ? kTypeCategoryFunction      : kTypeCategoryUnknown> {};
 #endif
-{};
 
 //! \cond
 template<typename T>
-struct IdOfT<T*> { enum : uint32_t { kTypeId = kIdUIntPtr }; };
+struct TypeIdOfT<T*> {
+  enum : uint32_t {
+    kTypeId = uint32_t(TypeId::kUIntPtr)
+  };
+};
 
 template<typename T>
-struct IdOfT<T&> { enum : uint32_t { kTypeId = kIdUIntPtr }; };
+struct TypeIdOfT<T&> {
+  enum : uint32_t {
+    kTypeId = uint32_t(TypeId::kUIntPtr)
+  };
+};
 //! \endcond
 
-static inline uint32_t baseOf(uint32_t typeId) noexcept {
-  ASMJIT_ASSERT(typeId <= kIdMax);
-  return _typeData.baseOf[typeId];
-}
+//! Returns a corresponding \ref TypeId of `T` type.
+template<typename T>
+static inline constexpr TypeId typeIdOfT() noexcept { return TypeId(TypeIdOfT<T>::kTypeId); }
 
-static inline uint32_t sizeOf(uint32_t typeId) noexcept {
-  ASMJIT_ASSERT(typeId <= kIdMax);
-  return _typeData.sizeOf[typeId];
-}
-
-//! Returns offset needed to convert a `kIntPtr` and `kUIntPtr` TypeId
-//! into a type that matches `registerSize` (general-purpose register size).
-//! If you find such TypeId it's then only about adding the offset to it.
+//! Returns offset needed to convert a `kIntPtr` and `kUIntPtr` TypeId into a type that matches `registerSize`
+//! (general-purpose register size). If you find such TypeId it's then only about adding the offset to it.
 //!
 //! For example:
 //!
 //! ```
-//! uint32_t registerSize = '4' or '8';
-//! uint32_t deabstractDelta = Type::deabstractDeltaOfSize(registerSize);
+//! uint32_t registerSize = /* 4 or 8 */;
+//! uint32_t deabstractDelta = TypeUtils::deabstractDeltaOfSize(registerSize);
 //!
-//! uint32_t typeId = 'some type-id';
+//! TypeId typeId = 'some type-id';
 //!
 //! // Normalize some typeId into a non-abstract typeId.
-//! if (Type::isAbstract(typeId)) typeId += deabstractDelta;
+//! if (TypeUtils::isAbstract(typeId)) typeId += deabstractDelta;
 //!
-//! // The same, but by using Type::deabstract() function.
-//! typeId = Type::deabstract(typeId, deabstractDelta);
+//! // The same, but by using TypeUtils::deabstract() function.
+//! typeId = TypeUtils::deabstract(typeId, deabstractDelta);
 //! ```
-static constexpr uint32_t deabstractDeltaOfSize(uint32_t registerSize) noexcept {
-  return registerSize >= 8 ? kIdI64 - kIdIntPtr : kIdI32 - kIdIntPtr;
+static inline constexpr uint32_t deabstractDeltaOfSize(uint32_t registerSize) noexcept {
+  return registerSize >= 8 ? uint32_t(TypeId::kInt64) - uint32_t(TypeId::kIntPtr)
+                           : uint32_t(TypeId::kInt32) - uint32_t(TypeId::kIntPtr);
 }
 
-static constexpr uint32_t deabstract(uint32_t typeId, uint32_t deabstractDelta) noexcept {
-  return isAbstract(typeId) ? typeId + deabstractDelta : typeId;
+//! Deabstracts a given `typeId` into a native type by using `deabstractDelta`, which was previously
+//! calculated by calling \ref deabstractDeltaOfSize() with a target native register size.
+static inline constexpr TypeId deabstract(TypeId typeId, uint32_t deabstractDelta) noexcept {
+  return isAbstract(typeId) ? TypeId(uint32_t(typeId) + deabstractDelta) : typeId;
 }
+
+static inline constexpr TypeId scalarToVector(TypeId scalarTypeId, TypeId vecStartId) noexcept {
+  return TypeId(uint32_t(vecStartId) + uint32_t(scalarTypeId) - uint32_t(TypeId::kInt8));
+}
+
+} // {TypeUtils}
+
+//! Provides type identifiers that can be used in templates instead of native types.
+namespace Type {
 
 //! bool as C++ type-name.
 struct Bool {};
 //! int8_t as C++ type-name.
-struct I8 {};
+struct Int8 {};
 //! uint8_t as C++ type-name.
-struct U8 {};
+struct UInt8 {};
 //! int16_t as C++ type-name.
-struct I16 {};
+struct Int16 {};
 //! uint16_t as C++ type-name.
-struct U16 {};
+struct UInt16 {};
 //! int32_t as C++ type-name.
-struct I32 {};
+struct Int32 {};
 //! uint32_t as C++ type-name.
-struct U32 {};
+struct UInt32 {};
 //! int64_t as C++ type-name.
-struct I64 {};
+struct Int64 {};
 //! uint64_t as C++ type-name.
-struct U64 {};
+struct UInt64 {};
 //! intptr_t as C++ type-name.
-struct IPtr {};
+struct IntPtr {};
 //! uintptr_t as C++ type-name.
-struct UPtr {};
+struct UIntPtr {};
 //! float as C++ type-name.
-struct F32 {};
+struct Float32 {};
 //! double as C++ type-name.
-struct F64 {};
+struct Float64 {};
 
 } // {Type}
 
-// ============================================================================
-// [ASMJIT_DEFINE_TYPE_ID]
-// ============================================================================
-
 //! \cond
-#define ASMJIT_DEFINE_TYPE_ID(T, TYPE_ID)  \
-namespace Type {                           \
-  template<>                               \
-  struct IdOfT<T> {                        \
-    enum : uint32_t { kTypeId = TYPE_ID }; \
-  };                                       \
+#define ASMJIT_DEFINE_TYPE_ID(T, TYPE_ID) \
+namespace TypeUtils {                     \
+  template<>                              \
+  struct TypeIdOfT<T> {                   \
+    enum : uint32_t {                     \
+      kTypeId = uint32_t(TYPE_ID)         \
+    };                                    \
+  };                                      \
 }
 
-ASMJIT_DEFINE_TYPE_ID(void, kIdVoid);
-ASMJIT_DEFINE_TYPE_ID(Bool, kIdU8);
-ASMJIT_DEFINE_TYPE_ID(I8  , kIdI8);
-ASMJIT_DEFINE_TYPE_ID(U8  , kIdU8);
-ASMJIT_DEFINE_TYPE_ID(I16 , kIdI16);
-ASMJIT_DEFINE_TYPE_ID(U16 , kIdU16);
-ASMJIT_DEFINE_TYPE_ID(I32 , kIdI32);
-ASMJIT_DEFINE_TYPE_ID(U32 , kIdU32);
-ASMJIT_DEFINE_TYPE_ID(I64 , kIdI64);
-ASMJIT_DEFINE_TYPE_ID(U64 , kIdU64);
-ASMJIT_DEFINE_TYPE_ID(IPtr, kIdIntPtr);
-ASMJIT_DEFINE_TYPE_ID(UPtr, kIdUIntPtr);
-ASMJIT_DEFINE_TYPE_ID(F32 , kIdF32);
-ASMJIT_DEFINE_TYPE_ID(F64 , kIdF64);
+ASMJIT_DEFINE_TYPE_ID(void         , TypeId::kVoid);
+ASMJIT_DEFINE_TYPE_ID(Type::Bool   , TypeId::kUInt8);
+ASMJIT_DEFINE_TYPE_ID(Type::Int8   , TypeId::kInt8);
+ASMJIT_DEFINE_TYPE_ID(Type::UInt8  , TypeId::kUInt8);
+ASMJIT_DEFINE_TYPE_ID(Type::Int16  , TypeId::kInt16);
+ASMJIT_DEFINE_TYPE_ID(Type::UInt16 , TypeId::kUInt16);
+ASMJIT_DEFINE_TYPE_ID(Type::Int32  , TypeId::kInt32);
+ASMJIT_DEFINE_TYPE_ID(Type::UInt32 , TypeId::kUInt32);
+ASMJIT_DEFINE_TYPE_ID(Type::Int64  , TypeId::kInt64);
+ASMJIT_DEFINE_TYPE_ID(Type::UInt64 , TypeId::kUInt64);
+ASMJIT_DEFINE_TYPE_ID(Type::IntPtr , TypeId::kIntPtr);
+ASMJIT_DEFINE_TYPE_ID(Type::UIntPtr, TypeId::kUIntPtr);
+ASMJIT_DEFINE_TYPE_ID(Type::Float32, TypeId::kFloat32);
+ASMJIT_DEFINE_TYPE_ID(Type::Float64, TypeId::kFloat64);
 //! \endcond
 
 //! \}

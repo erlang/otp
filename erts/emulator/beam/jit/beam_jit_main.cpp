@@ -164,7 +164,7 @@ static JitAllocator *pick_allocator() {
     JitAllocator::CreateParams dual_params;
 
     dual_params.reset();
-    dual_params.options = JitAllocator::kOptionUseDualMapping,
+    dual_params.options = JitAllocatorOptions::kUseDualMapping,
     dual_params.blockSize = 4 << 20;
 
     if (auto *alloc = create_allocator(&dual_params)) {

@@ -1172,7 +1172,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &LHS,
                                      const ArgVal &RHS,
                                      const ArgVal &Fail,
                                      const ArgVal &Dst) {
-    bool inline_shift = hasCpuFeature(x86::Features::kLZCNT);
+    bool inline_shift = hasCpuFeature(CpuFeatures::X86::kLZCNT);
     Label generic = a.newLabel(), next = a.newLabel();
 
     mov_arg(ARG2, LHS);

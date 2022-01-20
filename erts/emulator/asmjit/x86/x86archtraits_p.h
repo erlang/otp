@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #ifndef ASMJIT_X86_X86ARCHTRAITS_P_H_INCLUDED
 #define ASMJIT_X86_X86ARCHTRAITS_P_H_INCLUDED
@@ -34,112 +16,128 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! \addtogroup asmjit_x86
 //! \{
 
-// ============================================================================
-// [asmjit::x86::x86ArchTraits
-// ============================================================================
-
+//! X86 architecture traits (internal).
 static const constexpr ArchTraits x86ArchTraits = {
-  Gp::kIdSp,      // SP.
-  Gp::kIdBp,      // FP.
-  0xFF,           // LR.
-  0xFF,           // PC.
-  { 0, 0, 0 },    // Reserved.
-  1,              // HW stack alignment.
-  0x7FFFFFFFu,    // Min stack offset.
-  0x7FFFFFFFu,    // Max stack offset.
+  // SP/FP/LR/PC.
+  Gp::kIdSp, Gp::kIdBp, 0xFF, 0xFF,
+
+  // Reserved.
+  { 0, 0, 0 },
+
+  // HW stack alignment.
+  1,
+
+  // Min/Max stack offset
+  0x7FFFFFFFu, 0x7FFFFFFFu,
 
   // ISA features [Gp, Vec, Other0, Other1].
-  {
-    ArchTraits::kIsaFeatureSwap | ArchTraits::kIsaFeaturePushPop,
-    0,
-    0,
-    0
-  },
+  {{
+    InstHints::kRegSwap | InstHints::kPushPop,
+    InstHints::kNoHints,
+    InstHints::kNoHints,
+    InstHints::kNoHints
+  }},
 
-  // RegInfo.
-  #define V(index) { x86::RegTraits<index>::kSignature }
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) },
+  // Register signatures.
+  #define V(index) OperandSignature{x86::RegTraits<RegType(index)>::kSignature}
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 
   // RegTypeToTypeId.
-  #define V(index) x86::RegTraits<index>::kTypeId
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) },
+  #define V(index) TypeId(x86::RegTraits<RegType(index)>::kTypeId)
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 
   // TypeIdToRegType.
-  #define V(index) (index + Type::_kIdBaseStart == Type::kIdI8      ? Reg::kTypeGpbLo : \
-                    index + Type::_kIdBaseStart == Type::kIdU8      ? Reg::kTypeGpbLo : \
-                    index + Type::_kIdBaseStart == Type::kIdI16     ? Reg::kTypeGpw   : \
-                    index + Type::_kIdBaseStart == Type::kIdU16     ? Reg::kTypeGpw   : \
-                    index + Type::_kIdBaseStart == Type::kIdI32     ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdU32     ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdIntPtr  ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdUIntPtr ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdF32     ? Reg::kTypeXmm   : \
-                    index + Type::_kIdBaseStart == Type::kIdF64     ? Reg::kTypeXmm   : \
-                    index + Type::_kIdBaseStart == Type::kIdMask8   ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask16  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask32  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask64  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMmx32   ? Reg::kTypeMm    : \
-                    index + Type::_kIdBaseStart == Type::kIdMmx64   ? Reg::kTypeMm    : Reg::kTypeNone)
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) }
+  #define V(index) (index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt8)    ? RegType::kX86_GpbLo : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt8)   ? RegType::kX86_GpbLo : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt16)   ? RegType::kX86_Gpw   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt16)  ? RegType::kX86_Gpw   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt32)   ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt32)  ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kIntPtr)  ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUIntPtr) ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kFloat32) ? RegType::kX86_Xmm   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kFloat64) ? RegType::kX86_Xmm   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask8)   ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask16)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask32)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask64)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMmx32)   ? RegType::kX86_Mm    : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMmx64)   ? RegType::kX86_Mm    : RegType::kNone)
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
+
+  // Word names of 8-bit, 16-bit, 32-bit, and 64-bit quantities.
+  {
+    ArchTypeNameId::kDB,
+    ArchTypeNameId::kDW,
+    ArchTypeNameId::kDD,
+    ArchTypeNameId::kDQ
+  }
 };
 
-// ============================================================================
-// [asmjit::x86::x64ArchTraits
-// ============================================================================
-
+//! X64 architecture traits (internal).
 static const constexpr ArchTraits x64ArchTraits = {
-  Gp::kIdSp,      // SP.
-  Gp::kIdBp,      // FP.
-  0xFF,           // LR.
-  0xFF,           // PC.
-  { 0, 0, 0 },    // Reserved.
-  1,              // HW stack alignment.
-  0x7FFFFFFFu,    // Min stack offset.
-  0x7FFFFFFFu,    // Max stack offset.
+  // SP/FP/LR/PC.
+  Gp::kIdSp, Gp::kIdBp, 0xFF, 0xFF,
+
+  // Reserved.
+  { 0, 0, 0 },
+
+  // HW stack alignment.
+  1,
+
+  // Min/Max stack offset
+  0x7FFFFFFFu, 0x7FFFFFFFu,
 
   // ISA features [Gp, Vec, Other0, Other1].
-  {
-    ArchTraits::kIsaFeatureSwap | ArchTraits::kIsaFeaturePushPop,
-    0,
-    0,
-    0
-  },
+  {{
+    InstHints::kRegSwap | InstHints::kPushPop,
+    InstHints::kNoHints,
+    InstHints::kNoHints,
+    InstHints::kNoHints
+  }},
 
-  // RegInfo.
-  #define V(index) { x86::RegTraits<index>::kSignature }
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) },
+  // Register signatures.
+  #define V(index) OperandSignature{x86::RegTraits<RegType(index)>::kSignature}
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 
   // RegTypeToTypeId.
-  #define V(index) x86::RegTraits<index>::kTypeId
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) },
+  #define V(index) TypeId(x86::RegTraits<RegType(index)>::kTypeId)
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
 
   // TypeIdToRegType.
-  #define V(index) (index + Type::_kIdBaseStart == Type::kIdI8      ? Reg::kTypeGpbLo : \
-                    index + Type::_kIdBaseStart == Type::kIdU8      ? Reg::kTypeGpbLo : \
-                    index + Type::_kIdBaseStart == Type::kIdI16     ? Reg::kTypeGpw   : \
-                    index + Type::_kIdBaseStart == Type::kIdU16     ? Reg::kTypeGpw   : \
-                    index + Type::_kIdBaseStart == Type::kIdI32     ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdU32     ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdI64     ? Reg::kTypeGpq   : \
-                    index + Type::_kIdBaseStart == Type::kIdU64     ? Reg::kTypeGpq   : \
-                    index + Type::_kIdBaseStart == Type::kIdIntPtr  ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdUIntPtr ? Reg::kTypeGpd   : \
-                    index + Type::_kIdBaseStart == Type::kIdF32     ? Reg::kTypeXmm   : \
-                    index + Type::_kIdBaseStart == Type::kIdF64     ? Reg::kTypeXmm   : \
-                    index + Type::_kIdBaseStart == Type::kIdMask8   ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask16  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask32  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMask64  ? Reg::kTypeKReg  : \
-                    index + Type::_kIdBaseStart == Type::kIdMmx32   ? Reg::kTypeMm    : \
-                    index + Type::_kIdBaseStart == Type::kIdMmx64   ? Reg::kTypeMm    : Reg::kTypeNone)
-  { ASMJIT_LOOKUP_TABLE_32(V, 0) }
+  #define V(index) (index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt8)    ? RegType::kX86_GpbLo : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt8)   ? RegType::kX86_GpbLo : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt16)   ? RegType::kX86_Gpw   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt16)  ? RegType::kX86_Gpw   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt32)   ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt32)  ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kInt64)   ? RegType::kX86_Gpq   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUInt64)  ? RegType::kX86_Gpq   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kIntPtr)  ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kUIntPtr) ? RegType::kX86_Gpd   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kFloat32) ? RegType::kX86_Xmm   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kFloat64) ? RegType::kX86_Xmm   : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask8)   ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask16)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask32)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMask64)  ? RegType::kX86_KReg  : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMmx32)   ? RegType::kX86_Mm    : \
+                    index + uint32_t(TypeId::_kBaseStart) == uint32_t(TypeId::kMmx64)   ? RegType::kX86_Mm    : RegType::kNone)
+  {{ ASMJIT_LOOKUP_TABLE_32(V, 0) }},
   #undef V
+
+  // Word names of 8-bit, 16-bit, 32-bit, and 64-bit quantities.
+  {
+    ArchTypeNameId::kDB,
+    ArchTypeNameId::kDW,
+    ArchTypeNameId::kDD,
+    ArchTypeNameId::kDQ
+  }
 };
 
 //! \}

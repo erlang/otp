@@ -82,7 +82,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
     _veneers.reserve(num_labels + 1);
 
     codeHeader = a.newLabel();
-    a.align(kAlignCode, 8);
+    a.align(AlignMode::kCode, 8);
     a.bind(codeHeader);
 
     embed_zeros(sizeof(BeamCodeHeader) +
@@ -110,14 +110,14 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
         a.ldr(reg, arm::Mem(pointer));
         a.b(next);
 
-        a.align(kAlignCode, 8);
+        a.align(AlignMode::kCode, 8);
         a.bind(pointer);
         a.embedLabel(data, 8);
 
         a.section(rodata);
     }
 
-    a.align(kAlignData, 8);
+    a.align(AlignMode::kData, 8);
     a.bind(data);
 
     for (const ArgVal &arg : args) {
@@ -126,7 +126,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
             char as_char[1];
         } data;
 
-        a.align(kAlignData, 8);
+        a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
         case ArgVal::Literal: {
             auto &patches = literals[arg.getValue()].patches;
@@ -346,7 +346,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
         a.nop();
     }
 
-    a.align(kAlignCode, sizeof(UWord));
+    a.align(AlignMode::kCode, sizeof(UWord));
     a.embed(&info.u.gen_bp, sizeof(info.u.gen_bp));
     a.embed(&info.mfa, sizeof(info.mfa));
 }
@@ -361,7 +361,7 @@ void BeamModuleAssembler::emit_label(const ArgVal &Label) {
 void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
                                              const ArgVal &Alignment) {
     ASSERT(Alignment.isWord());
-    a.align(kAlignCode, Alignment.getValue());
+    a.align(AlignMode::kCode, Alignment.getValue());
     emit_label(Label);
 }
 
@@ -758,7 +758,7 @@ void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
         a.ldr(SUPER_TMP, arm::Mem(pointer));
         a.br(SUPER_TMP);
 
-        a.align(kAlignCode, 8);
+        a.align(AlignMode::kCode, 8);
         a.bind(pointer);
         a.embedLabel(veneer.target);
     }
@@ -770,7 +770,7 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
     auto rawValue = value.getValue();
 
     ASSERT(!code.isLabelBound(anchor));
-    a.align(kAlignData, 8);
+    a.align(AlignMode::kData, 8);
     a.bind(anchor);
 
     if (value.isImmed() || value.isWord()) {

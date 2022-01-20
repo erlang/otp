@@ -44,19 +44,23 @@ static std::string getAtom(Eterm atom) {
 
 BeamAssembler::BeamAssembler() : code() {
     /* Setup with default code info */
-    Error err = code.init(hostEnvironment());
+    Error err = code.init(Environment::host());
     ERTS_ASSERT(!err && "Failed to init codeHolder");
 
-    err = code.newSection(&rodata, ".rodata", SIZE_MAX, Section::kFlagConst, 8);
+    err = code.newSection(&rodata,
+                          ".rodata",
+                          SIZE_MAX,
+                          SectionFlags::kReadOnly,
+                          8);
     ERTS_ASSERT(!err && "Failed to create .rodata section");
 
     err = code.attach(&a);
 
     ERTS_ASSERT(!err && "Failed to attach codeHolder");
 #ifdef DEBUG
-    a.addValidationOptions(BaseEmitter::kValidationOptionAssembler);
+    a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
 #endif
-    a.addEncodingOptions(BaseEmitter::kEncodingOptionOptimizeForSize);
+    a.addEncodingOptions(EncodingOptions::kOptimizeForSize);
     code.setErrorHandler(this);
 }
 
@@ -119,7 +123,7 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
     code.relocateToBase((uint64_t)*executable_ptr);
     code.copyFlattenedData(*writable_ptr,
                            code.codeSize(),
-                           CodeHolder::kCopyPadSectionBuffer);
+                           CopySectionFlags::kPadSectionBuffer);
 
     beamasm_flush_icache(*executable_ptr, code.codeSize());
 
@@ -197,7 +201,7 @@ void BeamAssembler::setLogger(std::string log) {
 
 void BeamAssembler::setLogger(FILE *log) {
     logger.setFile(log);
-    logger.setIndentation(FormatOptions::kIndentationCode, 4);
+    logger.setIndentation(FormatIndentationGroup::kCode, 4);
     code.setLogger(&logger);
 }
 
@@ -250,7 +254,7 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
     code.relocateToBase((uint64_t)buff);
     code.copyFlattenedData(buff,
                            code.codeSize(),
-                           CodeHolder::kCopyPadSectionBuffer);
+                           CopySectionFlags::kPadSectionBuffer);
 }
 
 BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,

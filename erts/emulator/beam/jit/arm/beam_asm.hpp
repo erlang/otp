@@ -529,7 +529,10 @@ protected:
             mov_imm(SUPER_TMP, &the_active_code_index);
             a.ldr(SUPER_TMP.w(), arm::Mem(SUPER_TMP));
             a.cmp(active_code_ix, imm(ERTS_SAVE_CALLS_CODE_IX));
-            a.csel(active_code_ix, active_code_ix, SUPER_TMP, arm::Cond::kEQ);
+            a.csel(active_code_ix,
+                   active_code_ix,
+                   SUPER_TMP,
+                   arm::CondCode::kEQ);
         }
 
         /* Restore register-backed X registers from the X register array when

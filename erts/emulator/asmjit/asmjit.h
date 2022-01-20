@@ -1,9 +1,9 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
+// SPDX-License-Identifier: Zlib
+// Official GitHub Repository: https://github.com/asmjit/asmjit
 //
-// Copyright (c) 2008-2020 The AsmJit Authors
+// Copyright (c) 2008-2021 The AsmJit Authors
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages

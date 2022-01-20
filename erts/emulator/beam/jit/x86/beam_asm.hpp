@@ -255,7 +255,7 @@ protected:
     void align_erlang_cp() {
         /* Align so that the current address forms a valid CP. */
         ERTS_CT_ASSERT(_CPMASK == 3);
-        a.align(kAlignCode, 4);
+        a.align(AlignMode::kCode, 4);
         ASSERT(is_CP(a.offset()));
     }
 

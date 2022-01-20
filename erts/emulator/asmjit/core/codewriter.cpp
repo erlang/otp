@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/codeholder.h"
@@ -32,37 +14,57 @@ bool CodeWriterUtils::encodeOffset32(uint32_t* dst, int64_t offset64, const Offs
   uint32_t bitShift = format.immBitShift();
   uint32_t discardLsb = format.immDiscardLsb();
 
+  // Invalid offset (should not happen).
   if (!bitCount || bitCount > format.valueSize() * 8u)
     return false;
 
-  if (discardLsb) {
-    ASMJIT_ASSERT(discardLsb <= 32);
-    if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+  uint32_t value;
+
+  // First handle all unsigned offset types.
+  if (format.type() == OffsetType::kUnsignedOffset) {
+    if (discardLsb) {
+      ASMJIT_ASSERT(discardLsb <= 32);
+      if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+        return false;
+      offset64 = int64_t(uint64_t(offset64) >> discardLsb);
+    }
+
+    value = uint32_t(offset64 & Support::lsbMask<uint32_t>(bitCount));
+    if (value != offset64)
       return false;
-    offset64 >>= discardLsb;
+  }
+  else {
+    // The rest of OffsetType options are all signed.
+    if (discardLsb) {
+      ASMJIT_ASSERT(discardLsb <= 32);
+      if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+        return false;
+      offset64 >>= discardLsb;
+    }
+
+    if (!Support::isInt32(offset64))
+      return false;
+
+    value = uint32_t(int32_t(offset64));
+    if (!Support::isEncodableOffset32(int32_t(value), bitCount))
+      return false;
   }
 
-  if (!Support::isInt32(offset64))
-    return false;
-
-  int32_t offset32 = int32_t(offset64);
-  if (!Support::isEncodableOffset32(offset32, bitCount))
-    return false;
-
   switch (format.type()) {
-    case OffsetFormat::kTypeCommon: {
-      *dst = (uint32_t(offset32) & Support::lsbMask<uint32_t>(bitCount)) << bitShift;
+    case OffsetType::kSignedOffset:
+    case OffsetType::kUnsignedOffset: {
+      *dst = (value & Support::lsbMask<uint32_t>(bitCount)) << bitShift;
       return true;
     }
 
-    case OffsetFormat::kTypeAArch64_ADR:
-    case OffsetFormat::kTypeAArch64_ADRP: {
+    case OffsetType::kAArch64_ADR:
+    case OffsetType::kAArch64_ADRP: {
       // Sanity checks.
       if (format.valueSize() != 4 || bitCount != 21 || bitShift != 5)
         return false;
 
-      uint32_t immLo = uint32_t(offset32) & 0x3u;
-      uint32_t immHi = uint32_t(offset32 >> 2) & Support::lsbMask<uint32_t>(19);
+      uint32_t immLo = value & 0x3u;
+      uint32_t immHi = (value >> 2) & Support::lsbMask<uint32_t>(19);
 
       *dst = (immLo << 29) | (immHi << 5);
       return true;
@@ -80,19 +82,40 @@ bool CodeWriterUtils::encodeOffset64(uint64_t* dst, int64_t offset64, const Offs
   if (!bitCount || bitCount > format.valueSize() * 8u)
     return false;
 
-  if (discardLsb) {
-    ASMJIT_ASSERT(discardLsb <= 32);
-    if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+  uint64_t value;
+
+  // First handle all unsigned offset types.
+  if (format.type() == OffsetType::kUnsignedOffset) {
+    if (discardLsb) {
+      ASMJIT_ASSERT(discardLsb <= 32);
+      if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+        return false;
+      offset64 = int64_t(uint64_t(offset64) >> discardLsb);
+    }
+
+    value = uint64_t(offset64) & Support::lsbMask<uint64_t>(bitCount);
+    if (value != uint64_t(offset64))
       return false;
-    offset64 >>= discardLsb;
+  }
+  else {
+    // The rest of OffsetType options are all signed.
+    if (discardLsb) {
+      ASMJIT_ASSERT(discardLsb <= 32);
+      if ((offset64 & Support::lsbMask<uint32_t>(discardLsb)) != 0)
+        return false;
+      offset64 >>= discardLsb;
+    }
+
+    if (!Support::isEncodableOffset64(offset64, bitCount))
+      return false;
+
+    value = uint64_t(offset64);
   }
 
-  if (!Support::isEncodableOffset64(offset64, bitCount))
-    return false;
-
   switch (format.type()) {
-    case OffsetFormat::kTypeCommon: {
-      *dst = (uint64_t(offset64) & Support::lsbMask<uint64_t>(bitCount)) << format.immBitShift();
+    case OffsetType::kSignedOffset:
+    case OffsetType::kUnsignedOffset: {
+      *dst = (value & Support::lsbMask<uint64_t>(bitCount)) << format.immBitShift();
       return true;
     }
 
@@ -112,7 +135,7 @@ bool CodeWriterUtils::writeOffset(void* dst, int64_t offset64, const OffsetForma
       if (!encodeOffset32(&mask, offset64, format))
         return false;
 
-      Support::writeU8(dst, Support::readU8(dst) | mask);
+      Support::writeU8(dst, uint8_t(Support::readU8(dst) | mask));
       return true;
     }
 
@@ -121,14 +144,15 @@ bool CodeWriterUtils::writeOffset(void* dst, int64_t offset64, const OffsetForma
       if (!encodeOffset32(&mask, offset64, format))
         return false;
 
-      Support::writeU16uLE(dst, Support::readU16uLE(dst) | mask);
+      Support::writeU16uLE(dst, uint16_t(Support::readU16uLE(dst) | mask));
       return true;
     }
 
     case 4: {
       uint32_t mask;
-      if (!encodeOffset32(&mask, offset64, format))
+      if (!encodeOffset32(&mask, offset64, format)) {
         return false;
+      }
 
       Support::writeU32uLE(dst, Support::readU32uLE(dst) | mask);
       return true;

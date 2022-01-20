@@ -1,25 +1,7 @@
-// AsmJit - Machine code generation for C++
+// This file is part of AsmJit project <https://asmjit.com>
 //
-//  * Official AsmJit Home Page: https://asmjit.com
-//  * Official Github Repository: https://github.com/asmjit/asmjit
-//
-// Copyright (c) 2008-2020 The AsmJit Authors
-//
-// This software is provided 'as-is', without any express or implied
-// warranty. In no event will the authors be held liable for any damages
-// arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,
-// including commercial applications, and to alter it and redistribute it
-// freely, subject to the following restrictions:
-//
-// 1. The origin of this software must not be misrepresented; you must not
-//    claim that you wrote the original software. If you use this software
-//    in a product, an acknowledgment in the product documentation would be
-//    appreciated but is not required.
-// 2. Altered source versions must be plainly marked as such, and must not be
-//    misrepresented as being the original software.
-// 3. This notice may not be removed or altered from any source distribution.
+// See asmjit.h or LICENSE.md for license and copyright information
+// SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
 #include "../core/misc_p.h"
@@ -27,58 +9,58 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ============================================================================
-// [asmjit::Type]
-// ============================================================================
+namespace TypeUtils {
 
-namespace Type {
-
-template<uint32_t TYPE_ID>
-struct BaseOfTypeId {
-  static constexpr uint32_t kTypeId =
-    isBase  (TYPE_ID) ? TYPE_ID :
-    isMask8 (TYPE_ID) ? kIdU8   :
-    isMask16(TYPE_ID) ? kIdU16  :
-    isMask32(TYPE_ID) ? kIdU32  :
-    isMask64(TYPE_ID) ? kIdU64  :
-    isMmx32 (TYPE_ID) ? kIdI32  :
-    isMmx64 (TYPE_ID) ? kIdI64  :
-    isVec32 (TYPE_ID) ? TYPE_ID + kIdI8 - _kIdVec32Start  :
-    isVec64 (TYPE_ID) ? TYPE_ID + kIdI8 - _kIdVec64Start  :
-    isVec128(TYPE_ID) ? TYPE_ID + kIdI8 - _kIdVec128Start :
-    isVec256(TYPE_ID) ? TYPE_ID + kIdI8 - _kIdVec256Start :
-    isVec512(TYPE_ID) ? TYPE_ID + kIdI8 - _kIdVec512Start : 0;
+template<uint32_t Index>
+struct ScalarOfTypeId {
+  enum : uint32_t {
+    kTypeId = uint32_t(
+      isScalar(TypeId(Index)) ? TypeId(Index) :
+      isMask8 (TypeId(Index)) ? TypeId::kUInt8 :
+      isMask16(TypeId(Index)) ? TypeId::kUInt16 :
+      isMask32(TypeId(Index)) ? TypeId::kUInt32 :
+      isMask64(TypeId(Index)) ? TypeId::kUInt64 :
+      isMmx32 (TypeId(Index)) ? TypeId::kUInt32 :
+      isMmx64 (TypeId(Index)) ? TypeId::kUInt64 :
+      isVec32 (TypeId(Index)) ? TypeId((Index - uint32_t(TypeId::_kVec32Start ) + uint32_t(TypeId::kInt8)) & 0xFF) :
+      isVec64 (TypeId(Index)) ? TypeId((Index - uint32_t(TypeId::_kVec64Start ) + uint32_t(TypeId::kInt8)) & 0xFF) :
+      isVec128(TypeId(Index)) ? TypeId((Index - uint32_t(TypeId::_kVec128Start) + uint32_t(TypeId::kInt8)) & 0xFF) :
+      isVec256(TypeId(Index)) ? TypeId((Index - uint32_t(TypeId::_kVec256Start) + uint32_t(TypeId::kInt8)) & 0xFF) :
+      isVec512(TypeId(Index)) ? TypeId((Index - uint32_t(TypeId::_kVec512Start) + uint32_t(TypeId::kInt8)) & 0xFF) : TypeId::kVoid)
+  };
 };
 
-template<uint32_t TYPE_ID>
+template<uint32_t Index>
 struct SizeOfTypeId {
-  static constexpr uint32_t kTypeSize =
-    isInt8   (TYPE_ID) ?  1 :
-    isUInt8  (TYPE_ID) ?  1 :
-    isInt16  (TYPE_ID) ?  2 :
-    isUInt16 (TYPE_ID) ?  2 :
-    isInt32  (TYPE_ID) ?  4 :
-    isUInt32 (TYPE_ID) ?  4 :
-    isInt64  (TYPE_ID) ?  8 :
-    isUInt64 (TYPE_ID) ?  8 :
-    isFloat32(TYPE_ID) ?  4 :
-    isFloat64(TYPE_ID) ?  8 :
-    isFloat80(TYPE_ID) ? 10 :
-    isMask8  (TYPE_ID) ?  1 :
-    isMask16 (TYPE_ID) ?  2 :
-    isMask32 (TYPE_ID) ?  4 :
-    isMask64 (TYPE_ID) ?  8 :
-    isMmx32  (TYPE_ID) ?  4 :
-    isMmx64  (TYPE_ID) ?  8 :
-    isVec32  (TYPE_ID) ?  4 :
-    isVec64  (TYPE_ID) ?  8 :
-    isVec128 (TYPE_ID) ? 16 :
-    isVec256 (TYPE_ID) ? 32 :
-    isVec512 (TYPE_ID) ? 64 : 0;
+  enum : uint32_t {
+    kTypeSize =
+      isInt8   (TypeId(Index)) ?  1 :
+      isUInt8  (TypeId(Index)) ?  1 :
+      isInt16  (TypeId(Index)) ?  2 :
+      isUInt16 (TypeId(Index)) ?  2 :
+      isInt32  (TypeId(Index)) ?  4 :
+      isUInt32 (TypeId(Index)) ?  4 :
+      isInt64  (TypeId(Index)) ?  8 :
+      isUInt64 (TypeId(Index)) ?  8 :
+      isFloat32(TypeId(Index)) ?  4 :
+      isFloat64(TypeId(Index)) ?  8 :
+      isFloat80(TypeId(Index)) ? 10 :
+      isMask8  (TypeId(Index)) ?  1 :
+      isMask16 (TypeId(Index)) ?  2 :
+      isMask32 (TypeId(Index)) ?  4 :
+      isMask64 (TypeId(Index)) ?  8 :
+      isMmx32  (TypeId(Index)) ?  4 :
+      isMmx64  (TypeId(Index)) ?  8 :
+      isVec32  (TypeId(Index)) ?  4 :
+      isVec64  (TypeId(Index)) ?  8 :
+      isVec128 (TypeId(Index)) ? 16 :
+      isVec256 (TypeId(Index)) ? 32 :
+      isVec512 (TypeId(Index)) ? 64 : 0
+  };
 };
 
 const TypeData _typeData = {
-  #define VALUE(x) BaseOfTypeId<x>::kTypeId
+  #define VALUE(x) TypeId(ScalarOfTypeId<x>::kTypeId)
   { ASMJIT_LOOKUP_TABLE_256(VALUE, 0) },
   #undef VALUE
 
@@ -87,6 +69,6 @@ const TypeData _typeData = {
   #undef VALUE
 };
 
-} // {Type}
+} // {TypeUtils}
 
 ASMJIT_END_NAMESPACE

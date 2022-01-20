@@ -50,7 +50,7 @@ void BeamGlobalAssembler::emit_check_float_error() {
         a.jmp(labels[raise_exception]);
     }
 
-    a.align(kAlignCode, 16);
+    a.align(AlignMode::kCode, 16);
     a.bind(floatSignMask);
     a.embedUInt64(0x7FFFFFFFFFFFFFFFul);
     a.bind(floatMax);
