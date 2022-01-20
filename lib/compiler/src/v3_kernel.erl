@@ -405,36 +405,51 @@ letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
 %%  erlang:error/2.
 
 translate_match_fail(Arg, Sub, Anno, St0) ->
-    Cargs = case {cerl:data_type(Arg),cerl:data_es(Arg)} of
-                {tuple,[#c_literal{val=function_clause}|As]} ->
-                    translate_fc_args(As, Sub, St0);
-                {_,_} ->
-                    [Arg]
-            end,
-    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
+    {Cargs,ExtraAnno,St1} =
+        case {cerl:data_type(Arg),cerl:data_es(Arg)} of
+            {tuple,[#c_literal{val=function_clause}|As]} ->
+                translate_fc_args(As, Sub, Anno, St0);
+            {_,_} ->
+                {[Arg],[],St0}
+        end,
+    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St1),
     Ar = length(Cargs),
-    Call = #k_call{anno=Anno,
+    Call = #k_call{anno=ExtraAnno++Anno,
                    op=#k_remote{mod=#k_literal{val=erlang},
                                 name=#k_literal{val=error},
                                 arity=Ar},args=Kargs},
     {Call,Ap,St}.
 
-translate_fc_args(As, Sub, #kern{fargs=Fargs}) ->
+translate_fc_args(As, Sub, Anno, #kern{fargs=Fargs}=St0) ->
     case same_args(As, Fargs, Sub) of
         true ->
             %% The arguments for the `function_clause` exception are
             %% the arguments for the current function in the correct
             %% order.
-            [#c_literal{val=function_clause},cerl:make_list(As)];
+            {[#c_literal{val=function_clause},cerl:make_list(As)],
+             [],
+             St0};
         false ->
             %% The arguments in the `function_clause` exception don't
-            %% match the arguments for the current function because
-            %% of inlining. Keeping the `function_clause`
-            %% exception reason would be confusing. Rewrite it to
-            %% a `case_clause` exception with the arguments in a
-            %% tuple.
-	    [cerl:c_tuple([#c_literal{val=case_clause},
-                           cerl:c_tuple(As)])]
+            %% match the arguments for the current function because of
+            %% inlining.
+            Args = [cerl:c_tuple([#c_literal{val=function_clause}|As])],
+            case keyfind(function, 1, Anno) of
+                false ->
+                    %% This is probably a fun that has been inlined
+                    %% by sys_core_fold.
+                    {Name,St1} = new_fun_name("inlined", St0),
+                    {Args,
+                     [{inlined,{Name,length(As)}}],
+                     St1};
+                {_,{Name0,Arity}} ->
+                    %% This is function that has been inlined.
+                    Name1 = ["-inlined-",Name0,"/",Arity,"-"],
+                    Name = list_to_atom(lists:concat(Name1)),
+                    {Args,
+                     [{inlined,{Name,Arity}}],
+                     St0}
+            end
     end.
 
 same_args([#c_var{name=Cv}|Vs], [#k_var{name=Kv}|As], Sub) ->

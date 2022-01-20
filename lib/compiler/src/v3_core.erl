@@ -264,7 +264,7 @@ body(Cs0, Name, Arity, St0) ->
     Args = reverse(Args0),                      %Nicer order
     {Cs1,St2} = clauses(Cs0, St1),
     {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-    Fc = function_clause(Ps, Anno),
+    Fc = function_clause(Ps, FunAnno),
     {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
 %% clause(Clause, State) -> {Cclause,State}.

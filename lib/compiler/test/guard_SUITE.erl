@@ -3070,5 +3070,4 @@ check(F, Result) ->
 	    ct:fail(check_failed)
     end.
 
-fc({'EXIT',{function_clause,_}}) -> ok;
-fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= guard_inline_SUITE -> ok.
+fc({'EXIT',{function_clause,_}}) -> ok.

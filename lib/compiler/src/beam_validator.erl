@@ -245,7 +245,8 @@ build_function_table([{function,Name,Arity,Entry,Code0}|Fs], Acc) ->
         [{label,Entry} | Is] ->
             Info = #{ name => Name,
                       arity => Arity,
-                      parameter_info => find_parameter_info(Is, #{}) },
+                      parameter_info => find_parameter_info(Is, #{}),
+                      always_fails => always_fails(Is) },
             build_function_table(Fs, Acc#{ Entry => Info });
         _ ->
             %% Something is seriously wrong. Ignore it for now.
@@ -261,6 +262,9 @@ find_parameter_info([{'%', _} | Is], Acc) ->
     find_parameter_info(Is, Acc);
 find_parameter_info(_, Acc) ->
     Acc.
+
+always_fails([{jump,_}|_]) -> true;
+always_fails(_) -> false.
 
 validate_1(Is, MFA0, Entry, Level, Ft) ->
     {Offset, MFA, Header, Body} = extract_header(Is, MFA0, Entry, 1, []),
@@ -3078,6 +3082,13 @@ will_call_succeed(bs_init_writable, _Vst) ->
     yes;
 will_call_succeed(raw_raise, _Vst) ->
     no;
+will_call_succeed({f,Lbl}, #vst{ft=Ft}) ->
+    case Ft of
+        #{Lbl := #{always_fails := true}} ->
+            no;
+        #{} ->
+            maybe
+    end;
 will_call_succeed(_Call, _Vst) ->
     maybe.
 
