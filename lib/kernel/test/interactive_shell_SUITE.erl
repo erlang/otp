@@ -24,7 +24,7 @@
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
-	 job_control_remote/1,stop_during_init/1,
+	 job_control_remote/1,stop_during_init/1,wrap/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
@@ -46,7 +46,7 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init,
+     ctrl_keys, stop_during_init, wrap,
      {group, shell_history},
      {group, remsh}].
 
@@ -294,6 +294,38 @@ stop_during_init(Config) when is_list(Config) ->
                                    <<"*** ERROR: Shell process terminated! ***">>),
             ok
     end.
+
+%% This testcase tests that the correct wrapping characters are added
+%% When a terminal has the xn flag set, it means that wrapping may not
+%% work as expected and historically the ttysl driver has always inserted
+%% a " \b" (i.e. space + backspace) when an output string ends on that line
+%% in order for the cursor to be at col 0 on the next line instead of col max
+%% on the current line.
+%%
+%% This caused problems when a string was `columns` long and then ended in "\r\n"
+%% as it would first wrap due to " \b" and then output "\r\n" that cause a double
+%% newline to happen.
+%%
+%% This testcase tests that we get a " \b" when we should and we get a "\r\n" when
+%% we should.
+wrap(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell, Config) of
+        new ->
+            As = lists:duplicate(20,"a"),
+            rtnode([{putline, "io:columns()."},
+                    {expect, "{ok,20}\r\n"},
+                    {putline, ["io:format(\"~s\",[lists:duplicate(20,\"a\")])."]},
+                    {expect, As ++ " \b"},
+                    {putline, ["io:format(\"~s~n~s\",[lists:duplicate(20,\"a\"),lists:duplicate(20,\"a\")])."]},
+                    {expect, As ++ "\r\n" ++ As ++ " \b"}
+                   ],
+                   [],
+                   "stty rows 40; stty columns 20; ",
+                   [""]);
+        _ ->
+            ok
+    end,
+    ok.
 
 %% This testcase tests that shell_history works as it should.
 %% We use Ctrl + P = Cp=[$\^p] in order to navigate up
