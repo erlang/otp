@@ -35,6 +35,10 @@ obsolete(code, is_module_native, 1) ->
     {deprecated, "HiPE has been removed", "OTP 26"};
 obsolete(code, rehash, 0) ->
     {deprecated, "the code path cache feature has been removed", "OTP 26"};
+obsolete(crypto, crypto_dyn_iv_init, 3) ->
+    {deprecated, "see the documentation for details", "OTP 27"};
+obsolete(crypto, crypto_dyn_iv_update, 3) ->
+    {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(disk_log, accessible_logs, 0) ->
@@ -180,9 +184,9 @@ obsolete(erlang, hash, 2) ->
 obsolete(httpd_conf, check_enum, 2) ->
     {removed, "use lists:member/2 instead"};
 obsolete(httpd_conf, clean, 1) ->
-    {removed, "use sting:strip/1 instead or possibly the re module"};
+    {removed, "use string:strip/1 instead or possibly the re module"};
 obsolete(httpd_conf, custom_clean, 3) ->
-    {removed, "use sting:strip/1 instead or possibly the re module"};
+    {removed, "use string:strip/1 instead or possibly the re module"};
 obsolete(httpd_conf, is_directory, 1) ->
     {removed, "use filelib:is_dir/1 instead"};
 obsolete(httpd_conf, is_file, 1) ->
@@ -221,14 +225,14 @@ obsolete(filename, find_src, _) ->
     {removed, "use filelib:find_source/1,3 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
+obsolete(ct_slave, _, _) ->
+    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
     {deprecated, "use the 'peer' module instead", "OTP 27"};
-obsolete(ct_slave, _, _) ->
-    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->
