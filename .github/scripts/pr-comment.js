@@ -103,7 +103,7 @@ See the [TESTING](/${context.repo.owner}/${context.repo.repo}/blob/master/HOWTO/
         await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: context.payload.workflow_run.pull_requests[0].number,
+            issue_number: pr_number,
             body: body
         });
     }
