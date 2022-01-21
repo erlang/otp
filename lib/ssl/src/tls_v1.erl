@@ -807,7 +807,7 @@ des_exclusive(_) ->
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
 rsa_suites({3, 3}) ->
-    rsa_exclusive(3) ++ rsa_exclusive(1) -- [?TLS_RSA_WITH_3DES_EDE_CBC_SHA];
+    rsa_exclusive(3) ++ rsa_exclusive(1);
 rsa_suites({3, 2}) ->
     rsa_exclusive(1);
 rsa_suites({3, 1}) ->
