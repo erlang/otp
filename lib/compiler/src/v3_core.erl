@@ -2486,11 +2486,47 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
+uexprs([#iset{}|_]=Les0, Ks0, St0) ->
+    uexprs_iset(Les0, [], Ks0, St0);
 uexprs([Le0|Les0], Ks0, St0) ->
     {Le1,St1} = uexpr(Le0, Ks0, St0),
     {Les1,Ks,St2} = uexprs(Les0, known_union(Ks0, (get_anno(Le1))#a.ns), St1),
     {[Le1|Les1],Ks,St2};
 uexprs([], Ks, St) -> {[],Ks,St}.
+
+%% Since the set of known variables can grow quite large, try minimize
+%% the number of union operations on it.
+uexprs_iset([#iset{anno=A0,var=V,arg=Arg0}=Le0|Les0], New0, Ks0, St0) ->
+    case uexpr_need_known(Arg0) of
+        true ->
+            Ks1 = known_union(Ks0, New0),
+            {Le1,St1} = uexpr(Le0, Ks1, St0),
+            New = (get_anno(Le1))#a.ns,
+            {Les1,Ks,St2} = uexprs_iset(Les0, New, Ks1, St1),
+            {[Le1|Les1],Ks,St2};
+        false ->
+            %% We don't need the set of known variables when processing
+            %% Arg0, so we can postpone the call to known_union/2. This
+            %% will save time for functions with a huge number of variables.
+            {Arg,St1} = uexpr(Arg0, none, St0),
+            #a{us=Us,ns=Ns} = get_anno(Arg),
+            A = A0#a{us=del_element(V#c_var.name, Us),
+                     ns=add_element(V#c_var.name, Ns)},
+            Le1 = Le0#iset{anno=A,arg=Arg},
+            New = union(New0, A#a.ns),
+            {Les1,Ks,St2} = uexprs_iset(Les0, New, Ks0, St1),
+            {[Le1|Les1],Ks,St2}
+    end;
+uexprs_iset(Les, New, Ks0, St) ->
+    Ks = known_union(Ks0, New),
+    uexprs(Les, Ks, St).
+
+uexpr_need_known(#icall{}) -> false;
+uexpr_need_known(#iapply{}) -> false;
+uexpr_need_known(#ibinary{}) -> false;
+uexpr_need_known(#iprimop{}) -> false;
+uexpr_need_known(#c_literal{}) -> false;
+uexpr_need_known(Core) -> not is_simple(Core).
 
 %% upat_is_new_var(Pattern, [KnownVar]) -> true|false.
 %%  Test whether the pattern is a single, previously unknown
