@@ -687,17 +687,17 @@ find_unknown(ContractOrSigList, ArgTypes, Opaques, NoneArgNs) ->
 
 is_opaque_type_test_problem(Fun, Args, ArgTypes, State) ->
   case Fun of
-    {erlang, FN, 1} when FN =:= is_atom;      FN =:= is_boolean;
-			 FN =:= is_binary;    FN =:= is_bitstring;
-			 FN =:= is_float;     FN =:= is_function;
-			 FN =:= is_integer;   FN =:= is_list;
-			 FN =:= is_number;    FN =:= is_pid; FN =:= is_port;
-			 FN =:= is_reference; FN =:= is_tuple;
-			 FN =:= is_map ->
-      type_test_opaque_arg(Args, ArgTypes, State#state.opaques);
     {erlang, FN, 2} when FN =:= is_function ->
       type_test_opaque_arg(Args, ArgTypes, State#state.opaques);
-    _ -> no
+    {erlang, FN, 1} ->
+      case t_is_any(type_test_type(FN, 1)) of
+        true ->
+          no;
+        false ->
+          type_test_opaque_arg(Args, ArgTypes, State#state.opaques)
+      end;
+    _ ->
+      no
   end.
 
 type_test_opaque_arg([], [], _Opaques) ->
