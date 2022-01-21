@@ -11,9 +11,9 @@ main([Repo, HeadSha]) ->
                    string:equal(HeadSha, Sha)
            end, AllOpenPrs) of
         {value, #{ <<"number">> := Number } } ->
-            io:format("::set-output result=~p~n", [Number]);
+            io:format("::set-output name=result::~p~n", [Number]);
         false ->
-            io:format("::set-output result=~ts~n", [""])
+            io:format("::set-output name=result::~ts~n", [""])
     end.
 
 ghapi(CMD) ->
