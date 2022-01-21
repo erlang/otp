@@ -234,7 +234,7 @@ invalidate_ca_cache() ->
 
 %%-----------------------------------------------------------------
 %% NOTE: The do_get MUST be executed in the Master agents's 
-%%       context. Therefor, force master-agent to do a GET to 
+%%       context. Therefore, force master-agent to do a GET to 
 %%       retrieve the value for snmpEnableAuthenTraps.  
 %%       A user may have another impl. than default for this 
 %%       variable.

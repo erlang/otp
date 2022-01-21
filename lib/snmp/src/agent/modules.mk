@@ -41,9 +41,9 @@ MIB_MODULES = \
 	snmp_view_based_acm_mib
 
 # snmpa is "plain" interface module but also defines some agent specific types
-# and therefor must be compiled before the modules that use them, including
+# and therefore must be compiled before the modules that use them, including
 # the behaviour modules...
-# Some of the MIB modules also define types used elsewhere and therefor
+# Some of the MIB modules also define types used elsewhere and therefore
 # has to be built before the other mods.
 # snmpa_mib_data_ttln
 MODULES = \

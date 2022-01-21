@@ -200,7 +200,7 @@ do_init(Prio, Opts) ->
 
 %% 
 %% (1) As long as there are no _waiting_ or active write locks, 
-%%     read-locks will allways be granted
+%%     read-locks will always be granted
 %% (2) When there are no active readers, write-locks will be
 %%     granted. 
 %% (3) When there are active readers (clients with read-locks),
@@ -490,7 +490,7 @@ handle_cast({unlock, Pid},
 				  writer       = Writer, 
 				  waiting      = StillWaiting}};
 
-	%% If we have no active lockers, this may be a bug and therefor
+	%% If we have no active lockers, this may be a bug and therefore
 	%% see if we can activate some of the waiting
 	_ when (State#state.active_count == 0) ->
 	    ?vdebug("unlock -> could not find locker", []),
@@ -661,7 +661,7 @@ handle_maybe_active_or_waiting_down(Pid,
 	[#locker{state = active, type = read}] when (Cnt == 1) ->
 	    %% 1) This means that the writer must be waiting
 	    %% 2) The last reader terminated, 
-	    %%    time to activate the wating writer
+	    %%    time to activate the waiting writer
 	    %%    If this was the last one, then we must
 	    %%    activate the waiting writer.
 	    ets:delete(?LOCKER_TAB, Pid),

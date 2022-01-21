@@ -1322,7 +1322,7 @@ define_cols([{#mc_object_type{name        = NameOfCol,
 		     entrytype   = table_column, 
 		     access      = NewAccess,
 		     description = Description,
-		     units       = Units,   %% Propably not usefull
+		     units       = Units,   %% Probably not useful
 		     assocList   = [{table_name,TableName} | Defval]}),
     define_cols(Rest,SubIndex+1,Fields,NameOfEntry,TableName,
 		[ColumnME|ColMEs]);

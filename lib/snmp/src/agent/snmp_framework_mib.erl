@@ -474,7 +474,7 @@ delete_context(Key) ->
    
 %%-----------------------------------------------------------------
 %% Instrumentation functions
-%% Retreive functions are also used internally by the agent, so
+%% Retrieve functions are also used internally by the agent, so
 %% don't change the interface without changing those functions.
 %% Note that if these functions implementations are changed,
 %% an error can make the agent crash, as no error detection is

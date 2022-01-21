@@ -156,7 +156,7 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -577,7 +577,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
                         {skip, {Reason, Mod, Line}};
                     C:E:_ when ((C =:= throw) orelse
                                 (C =:= exit)) ->
-                        {skip, {catched, C, E}}
+                        {skip, {caught, C, E}}
                 end
 	end,
     ?IPRINT("init_per_testcase end when"
@@ -4252,7 +4252,7 @@ do_inform1(Config) ->
     Commands = 
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation [no receiver] from agent", Cmd2},
+	 {2, "Send notification [no receiver] from agent", Cmd2},
 	 {3, "Await first inform to manager - do not reply", Cmd3},
 	 {4, "Await second inform to manager - reply", Cmd4},
 	 {5, "Sleep some time (5 sec)", Cmd5},
@@ -4428,7 +4428,7 @@ do_inform2(Config) ->
     Commands = 
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation [no receiver] from agent", Cmd2},
+	 {2, "Send notification [no receiver] from agent", Cmd2},
 	 {3, "Await inform-sent acknowledge from agent", Cmd3},
 	 {4, "Await first inform to manager - do not reply", Cmd4},
 	 {5, "Await second inform to manager - reply", Cmd5},
@@ -4567,7 +4567,7 @@ do_inform3(Config) ->
     Commands = 
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation from agent", Cmd2},
+	 {2, "Send notification from agent", Cmd2},
 	 {3, "await inform-sent acknowledge from agent", Cmd3},
 	 {4, "Await first inform to manager - do not reply", Cmd4},
 	 {5, "Await first inform to manager - do not reply", Cmd4},
@@ -4693,7 +4693,7 @@ do_inform4(Config) ->
     Commands = 
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
-	 {2, "Send notifcation [no receiver] from agent", Cmd2},
+	 {2, "Send notification [no receiver] from agent", Cmd2},
 	 {3, "Await inform to manager", Cmd3},
 %% 	 {4, "Await error info (because of erroneous config)", Cmd4},
 	 {5, "Sleep some time (1 sec)", Cmd5},
@@ -4807,7 +4807,7 @@ do_inform_swarm(NumI, Config) ->
     Commands = 
 	[
 	 {1, "Manager and agent info at start of test",             Cmd1},
-	 {2, ?F("Send ~p notifcation(s) from agent", [NumInforms]), Cmd2},
+	 {2, ?F("Send ~p notification(s) from agent", [NumInforms]), Cmd2},
 	 {3, "Await send-ack(s)/inform(s)/response(s)",             Cmd3},
 	 {4, "Sleep some time (1 sec)",                             Cmd4},
 	 {5, "Manager and agent info after test completion",        Cmd1}
@@ -4823,7 +4823,7 @@ inform_swarm_collector(N) ->
 
 %% Note that we need to deal with re-transmissions!
 %% That is, the agent did not receive the ack in time,
-%% and therefor did a re-transmit. This means that we
+%% and therefore did a re-transmit. This means that we
 %% expect to receive more inform's then we actually
 %% sent. So for success we assume:
 %%

@@ -56,7 +56,7 @@
 %% Open or create a database table. In the mnesia/dets case, 
 %% where the table is stored on disc, it could be of interest
 %% to clear the table. This is controlled by the Action parameter.
-%% An empty node list ([]), is traslated into a list containing
+%% An empty node list ([]), is translated into a list containing
 %% only the own node.
 %% ---------------------------------------------------------------
 open({mnesia,Nodes,clear}, Name, RecName, Attr, Type) when is_list(Nodes) ->

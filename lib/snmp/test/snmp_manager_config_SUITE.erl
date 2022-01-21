@@ -308,7 +308,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
 
-    %% The cleanup is removed due to some really discusting NFS behaviour...
+    %% The cleanup is removed due to some really disgusting NFS behaviour...
     %% Also, it can always be useful to retain "all the stuff" after
     %% the test case in case of debugging...
     Config.
@@ -1998,12 +1998,12 @@ simple_system_op(Conf) when is_list(Conf) ->
     ?IPRINT("start config"),
     ?line {ok, _Pid}         = config_start(Opts),
     
-    ?IPRINT("retreive various configs"),
+    ?IPRINT("retrieve various configs"),
     ?line {ok, _Time}        = snmpm_config:system_start_time(),
     ?line {ok, _EngineId}    = snmpm_config:get_engine_id(),
     ?line {ok, _MMS}         = snmpm_config:get_engine_max_message_size(),
 
-    ?IPRINT("attempt to retreive nonexisting"),
+    ?IPRINT("attempt to retrieve nonexisting"),
     ?line {error, not_found} = snmpm_config:system_info(kalle),
     
     ?line ok = config_stop(),
@@ -2216,7 +2216,7 @@ do_register_agent_using_file(Conf) ->
     ?line {error, Reason02} = 
 	update_agent_info(UserId1, AgentAddr2, AgentPort2,
                           max_message_size, NewMMS22),
-    ?IPRINT("expected failre. Reason02: ~p", [Reason02]), 
+    ?IPRINT("expected failure. Reason02: ~p", [Reason02]), 
 
     %% --
     ?IPRINT("done"),
@@ -2245,7 +2245,7 @@ register_agent_using_function(Conf) when is_list(Conf) ->
 
 register_agent_failed_using_function1(suite) -> [];
 register_agent_failed_using_function1(doc) ->
-    "Register agents failng using the API (function) with incorrect "
+    "Register agents failing using the API (function) with incorrect "
 	"config (1).";
 register_agent_failed_using_function1(Conf) when is_list(Conf) -> 
     put(tname, "REG-AG-FAIL-USING-FUNC-1"),
@@ -2595,7 +2595,7 @@ update_usm_user_info(Conf) when is_list(Conf) ->
 
 create_and_increment(suite) -> [];
 create_and_increment(doc) ->
-    "Craete and increment counters.";
+    "Create and increment counters.";
 create_and_increment(Conf) when is_list(Conf) -> 
     put(tname, "CRE-AND-INC"),
     ?IPRINT("start"),

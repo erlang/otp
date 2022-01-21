@@ -33,7 +33,7 @@ behaviour_info(_) ->
 
 
 %% accept_recv({domain(), address()}) -> boolean()
-%% Called at the receiption of a message 
+%% Called at the reception of a message 
 %% (before *any* processing has been done).
 %% 
 %% accept_send({domain(), address()}) -> boolean()

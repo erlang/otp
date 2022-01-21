@@ -453,7 +453,7 @@ variables -> objectname : ['$1'].
 variables -> variables ',' objectname : ['$3' | '$1'].
 
 implies -> '::=' : '$1'.
-implies -> ':' ':' '=' : w("Sloppy asignment on line ~p", [line_of('$1')]), '$1'.
+implies -> ':' ':' '=' : w("Sloppy assignment on line ~p", [line_of('$1')]), '$1'.
 descriptionfield -> string : lreverse(descriptionfield, val('$1')).
 descriptionfield -> '$empty' : undefined.
 description -> 'DESCRIPTION' string : lreverse(description, val('$2')).
@@ -1071,7 +1071,7 @@ bits_to_bytes([], 1, _Byte) ->   % empty bitstring
     [];
 bits_to_bytes([], 256, _Byte) -> % correct; multiple of 8
     [];
-% If we are to support arbitrary length of bitstrings.  This migth
+% If we are to support arbitrary length of bitstrings.  This might
 % be needed in the new SMI.
 %bits_to_bytes([], N, Byte) ->
 %    [Byte];

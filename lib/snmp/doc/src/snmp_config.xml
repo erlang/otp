@@ -209,7 +209,7 @@
 	<note>
 	  <p>Even with multi-threaded set to <c>extended</c>
 	  there is still a risk for 'reorder' when sending inform-requsts,
-	  which require a response (and may therefor require resending). </p>
+	  which require a response (and may therefore require resending). </p>
 	  <p>Also, there is of  course no way to guarantee order once the
 	  package is on the network. </p>
 	</note>

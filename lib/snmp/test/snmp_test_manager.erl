@@ -155,7 +155,7 @@ parse_opts(Opts) ->
     MgrDir  = get_opt(dir, get_opt(config,  MgrOpts, [])),
     
     
-    %% Retreive the agent configuration
+    %% Retrieve the agent configuration
     AgentConf   = get_opt(agent_config, Opts),
     AgentTarget = get_opt(agent_target, Opts),
     {MgrDir, MgrConf, MgrOpts, AgentTarget, AgentConf}.

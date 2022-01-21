@@ -504,7 +504,7 @@ config_agent_transports(ID) ->
     config_agent_transports(ID, []).
 
 config_agent_transports(ID, []) ->
-    i(ID ++ ". Configure atleast one transport: "),
+    i(ID ++ ". Configure at least one transport: "),
     T = config_agent_transport(ID),
     config_agent_transports(ID, [T]);
 config_agent_transports(ID, Acc) ->
@@ -1103,7 +1103,7 @@ verify_max_message_size(MMS) ->
 	I when is_integer(I) andalso (I >= 484) ->
 	    {ok, I};
 	I when is_integer(I) ->
-	    {error, "invalid max message size (must be atleast 484): " ++ MMS};
+	    {error, "invalid max message size (must be at least 484): " ++ MMS};
 	_ ->
 	    {error, "invalid max message size: " ++ MMS}
     end.
@@ -1167,7 +1167,7 @@ verify_db_init_error(R) ->
 
 verify_notif_type("trap")   -> {ok, trap};
 verify_notif_type("inform") -> {ok, inform};
-verify_notif_type(NT)       -> {error, "invalid notifcation type: " ++ NT}.
+verify_notif_type(NT)       -> {error, "invalid notification type: " ++ NT}.
 
 
 verify_sec_type("none")     -> {ok, none};
@@ -2648,7 +2648,7 @@ write_sys_config_file_agent_config_opt(Fid, {verbosity, Verb}) ->
     ok = io:format(Fid, "{verbosity, ~w}", [Verb]).
 
 
-%% This is only present if there is atleast one option
+%% This is only present if there is at least one option
 write_sys_config_file_agent_atl_opts(Fid, [Opt]) ->
     write_sys_config_file_agent_atl_opt(Fid, Opt),
     ok = io:format(Fid, "]", []),
@@ -2670,7 +2670,7 @@ write_sys_config_file_agent_atl_opt(Fid, {seqno, SeqNo}) ->
     ok = io:format(Fid, "{seqno, ~w}", [SeqNo]).
 
 
-%% These options are allways there
+%% These options are always there
 write_sys_config_file_agent_disco_opts(Fid, [Opt]) ->
     write_sys_config_file_agent_disco_opt(Fid, Opt),
     ok = io:format(Fid, "]", []),
@@ -2776,7 +2776,7 @@ write_sys_config_file_manager_config_opt(Fid, {verbosity, Verb}) ->
     ok = io:format(Fid, "{verbosity, ~w}", [Verb]).
 
 
-%% This is only present if there is atleast one option
+%% This is only present if there is at least one option
 write_sys_config_file_manager_atl_opts(Fid, [Opt]) ->
     write_sys_config_file_manager_atl_opt(Fid, Opt),
     ok = io:format(Fid, "]", []),
@@ -2807,7 +2807,7 @@ header() ->
 		  [?MODULE, ?version, Y, Mo, D, H, Mi, S]).
 
 
-%% *If* these functions are successfull, they successfully return
+%% *If* these functions are successful, they successfully return
 %% (value is ignored), but they fail preferably with
 %% throw({error, Reason}).  Other exceptions are also handled.
 
@@ -2862,7 +2862,7 @@ write_config_file(Dir, FileName, Order, Check, Write, Entries)
 	    end
     catch
 	throw:E:S ->
-	    d("File write of ~s throwed: "
+	    d("File write of ~s thrown: "
               "~n   ~p"
               "~n   ~p"
               "~n", [FileName, E, S]),
@@ -2881,7 +2881,7 @@ write_config_file(Dir, FileName, Write, Entries, Fd) ->
 	    close_config_file(Dir, FileName, Fd)
     catch
 	throw:E:S ->
-	    d("File write of ~s throwed: "
+	    d("File write of ~s thrown: "
               "~n   ~p"
               "~n   ~p"
               "~n", [FileName, E, S]),
@@ -2954,7 +2954,7 @@ append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
 	    close_config_file(Dir, FileName, Fd)
     catch
 	throw:E:S ->
-	    d("File append of ~s throwed: "
+	    d("File append of ~s thrown: "
               "~n   ~p"
               "~n   ~p"
               "~n", [FileName, E, S]),
@@ -2997,7 +2997,7 @@ read_config_file(Dir, FileName, Order, Check)
 		{ok, verify_lines(SortedLines, Check, undefined, [])}
 	    catch
 		throw:E:S ->
-		    d("File read of ~s throwed: "
+		    d("File read of ~s thrown: "
                       "~n   ~p"
                       "~n   ~p"
                       "~n", [FileName, E, S]),

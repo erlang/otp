@@ -181,7 +181,7 @@ init_per_testcase(fd_leak_check = _Case, Config) when is_list(Config) ->
             %% Something strange happens when we use pfiles from within erlang,
             %% so skip the test for now
 
-            %% For some reason even though 'which' exists (atleast in
+            %% For some reason even though 'which' exists (at least in
             %% a tcsh shell), it hangs when called via os:cmd/1.
             %% And type produces results that is not so easy to
             %% "analyze". So, we 'try it' and know that it starts 

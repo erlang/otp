@@ -273,7 +273,7 @@ tokenise([10| T]) -> tokenise(T);
 tokenise([13| T]) -> tokenise(T);
 tokenise([32| T]) -> tokenise(T);
 
-%% Handle singe characters like { } [ ] + = ...
+%% Handle single characters like { } [ ] + = ...
 tokenise([Ch | T]) ->
     Atm = list_to_atom([Ch]),
     {{Atm, get(line)}, T};

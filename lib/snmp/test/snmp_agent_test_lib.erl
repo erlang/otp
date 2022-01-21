@@ -590,7 +590,7 @@ tc_run(Mod, Func, Args, Opts) ->
 
 %% We have hosts (mostly *very* slooow VMs) that
 %% can timeout anything. Since we are basically
-%% testing communication, we therefor must check
+%% testing communication, we therefore must check
 %% for system events at every failure. Grrr!
 tc_run_skip_sheck(Mod, Func, Args, Reason, Cat) ->
     SysEvs = snmp_test_global_sys_monitor:events(),
@@ -601,7 +601,7 @@ tc_run_skip_sheck(Mod, Func, Args, Reason, Cat) ->
                     "~n   ~p~n", [Cat, Reason]),
             ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
         true ->
-            ?WPRINT("apply (~w) catched "
+            ?WPRINT("apply (~w) caught "
                     "when we got system events: "
                     "~n   Reason:     ~p"
                     "~n   Sys Events: ~p"
@@ -1279,7 +1279,7 @@ do_expect(Err, Idx, ExpVBs, To)
   when is_atom(Err) andalso 
        (is_integer(Idx) orelse is_list(Idx) orelse (Idx == any)) ->
     Check = fun(_, R) -> R end,
-    io_format_expect("'get-response' withing ~w ms with"
+    io_format_expect("'get-response' within ~w ms with"
                      "~n      Error:    ~p"
                      "~n      Index:    ~p"
                      "~n      Varbinds: ~p", [To, Err, Idx, ExpVBs]),

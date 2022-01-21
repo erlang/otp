@@ -131,7 +131,7 @@ ftab2(set, [2], _Cols) ->
 ftab2(set, _, _Cols) ->
     {noError, 0};
 
-%% Unfortunatly we can't force the undo - we don't know which var
+%% Unfortunately we can't force the undo - we don't know which var
 %% is tried first.
 %ftab2(undo, [3], Cols) ->
 %    % bad column - In: col 2 & 3

@@ -324,7 +324,7 @@ restart(net_if = What) ->
 %% The manager entity responsible for a specific agent. 
 %% Module is the callback module (snmpm_user behaviour) which 
 %% will be called whenever something happens (detected 
-%% agent, incomming reply or incomming trap/notification).
+%% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
 register_user(Id, Module, Data) ->
@@ -494,7 +494,7 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 
 %% -- Requests --
 
-%% --- synchroneous get-request ---
+%% --- synchronous get-request ---
 %% 
 
 sync_get2(UserId, TargetName, Oids) ->
@@ -519,7 +519,7 @@ async_get2(UserId, TargetName, Oids, SendOpts)
     snmpm_server:async_get(UserId, TargetName, Oids, SendOpts).
 
 
-%% --- synchroneous get_next-request ---
+%% --- synchronous get_next-request ---
 %% 
 
 sync_get_next2(UserId, TargetName, Oids) ->
@@ -541,7 +541,7 @@ async_get_next2(UserId, TargetName, Oids, SendOpts)
     snmpm_server:async_get_next(UserId, TargetName, Oids, SendOpts).
 
 
-%% --- synchroneous set-request ---
+%% --- synchronous set-request ---
 %% 
 
 sync_set2(UserId, TargetName, VarsAndVals) ->
@@ -563,7 +563,7 @@ async_set2(UserId, TargetName, VarsAndVals, SendOpts)
     snmpm_server:async_set(UserId, TargetName, VarsAndVals, SendOpts).
 
 
-%% --- synchroneous get-bulk ---
+%% --- synchronous get-bulk ---
 %% 
 
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
@@ -836,7 +836,7 @@ sys_up_time() ->
 %%% printable string of the error reason received from either:
 %%% 
 %%%    * If any of the sync/async get/get-next/set/get-bulk
-%%%      returnes {error, Reason} 
+%%%      returns {error, Reason} 
 %%%    * The Reason parameter in the handle_error user callback 
 %%%      function
 %%% 

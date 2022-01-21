@@ -1337,14 +1337,14 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 		_ ->
 		    %% reply to outstanding request, for which there is no
 		    %% longer any owner (the user has unregistered).
-		    %% Therefor send it to the default user
+		    %% Therefore send it to the default user
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
 					 DefData, State),
 			    maybe_delete(Disco, ReqId);
 			_ ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling error [~w]: "
 				      "~n~w", [ReqId, Reason])
 		    end
@@ -1392,7 +1392,7 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_ ->
-		    error_msg("failed retreiving the default "
+		    error_msg("failed retrieving the default "
 			      "user info handling error [~w]: "
 			      "~n~w",[ReqId, Reason])
 	    end
@@ -1424,7 +1424,7 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 			    handle_error(DefUserId, DefMod, Reason, 
 					 ReqId, DefData, State);
 			_Error2 ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling snmp error "
 				      "<~p,~p>: ~n~w~n~w",
 				      [Domain, Addr, ReqId, Reason])
@@ -1436,7 +1436,7 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_Error4 ->
-		    error_msg("failed retreiving the default user "
+		    error_msg("failed retrieving the default user "
 			      "info handling snmp error "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, ReqId, Reason])
@@ -1509,7 +1509,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 		_Error ->
 		    %% reply to outstanding request, for which there is no
 		    %% longer any owner (the user has unregistered).
-		    %% Therefor send it to the default user
+		    %% Therefore send it to the default user
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_pdu(
@@ -1518,7 +1518,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      ReqId, SnmpResponse, DefData, State),
 			    maybe_delete(Disco, ReqId);
 			Error ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling pdu from "
 				      "~p <~p,~p>: ~n~w~n~w",
 				      [Target, Domain, Addr, Error, Pdu])
@@ -1596,7 +1596,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling (old) "
 					      "pdu from "
 					      "<~p,~p>: ~n~w~n~w",
@@ -1623,7 +1623,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      pdu, ignore,
 			      SnmpInfo, DefData, State);
 			Error ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling (old) pdu when no user "
 				      "found from "
 				      "<~p,~p>: ~n~w~n~w",
@@ -1893,7 +1893,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		
 		Error1 ->
 		    %% User no longer exists, unregister agent
-		    ?vlog("[trap] failed retreiving user info for "
+		    ?vlog("[trap] failed retrieving user info for "
 			  "user ~p: "
 			  "~n      ~p", [UserId, Error1]),
 		    case snmpm_config:unregister_agent(UserId, Target) of
@@ -1908,7 +1908,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 				      SnmpTrapInfo, DefData, State);
 				Error2 ->
 				    error_msg(
-				      "failed retreiving the default "
+				      "failed retrieving the default "
 				      "user info handling report from "
 				      "~p <~p,~p>: ~n~w~n~w",
 				      [Target, Domain, Addr,
@@ -1930,7 +1930,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 	
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[trap] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[trap] failed retrieving user id for agent <~p,~p>: "
 		  "~n      Error:  ~p"
 		  "~n   when"
 		  "~n      Users:  ~p"
@@ -1947,7 +1947,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		      SnmpTrapInfo, DefData, State);
 		Error5 ->
 		    error_msg(
-		      "failed retreiving "
+		      "failed retrieving "
 		      "the default user info, handling trap from <~p,~p>:"
                       "~n      Error:     ~p"
                       "~n      Trap Info: ~p",
@@ -2078,7 +2078,7 @@ handle_snmp_inform(
 		    case snmpm_config:unregister_agent(UserId, Target) of
 			ok ->
 			    %% Try use the default user
-			    ?vlog("[inform] failed retreiving user "
+			    ?vlog("[inform] failed retrieving user "
 				  "info for user ~p:"
 				  "~n   ~p", [UserId, Error1]),
 			    case snmpm_config:user_info() of
@@ -2089,7 +2089,7 @@ handle_snmp_inform(
 				      inform, Ref, 
 				      SnmpInform, DefData, State);
 				Error2 ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling inform from "
 					      "~p <~p,~p>: ~n~w~n~w",
 					      [Target, Domain, Addr,
@@ -2110,7 +2110,7 @@ handle_snmp_inform(
 
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[inform] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[inform] failed retrieving user id for agent <~p,~p>: "
 		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
@@ -2120,7 +2120,7 @@ handle_snmp_inform(
 		      inform, Ref, 
 		      SnmpInform, DefData, State);
 		Error5 ->
-		    error_msg("failed retreiving "
+		    error_msg("failed retrieving "
 			      "the default user info handling inform from "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, Error5, Pdu])
@@ -2280,7 +2280,7 @@ handle_snmp_report(
 				  SnmpReport, Data, State);
  		Error1 ->
 		    %% User no longer exists, unregister agent
-		    ?vlog("[report] failed retreiving user info "
+		    ?vlog("[report] failed retrieving user info "
 			  "for user ~p:"
 			  " ~n   ~p", [UserId, Error1]),
 		    case snmpm_config:unregister_agent(UserId, Target) of
@@ -2294,7 +2294,7 @@ handle_snmp_report(
 						 SnmpReport, DefData, State);
 				
 				Error2 ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling report from "
 					      "~p <~p,~p>: ~n~w~n~w",
 					      [Target, Domain, Addr,
@@ -2315,7 +2315,7 @@ handle_snmp_report(
 		
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[report] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[report] failed retrieving user id for agent <~p,~p>: "
 		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
@@ -2324,7 +2324,7 @@ handle_snmp_report(
 				 report, ignore, 
 				 SnmpReport, DefData, State);
 		Error5 ->
-		    error_msg("failed retreiving "
+		    error_msg("failed retrieving "
 			      "the default user info handling report from "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, Error5, Pdu])
@@ -2339,7 +2339,7 @@ handle_snmp_report(CrapReport, Domain, Addr, _State) ->
 
 %% This could be from a failed get-request, so we might have a user
 %% waiting for a reply here. If there is, we handle this as an failed
-%% get-response (except for tha data which is different). Otherwise,
+%% get-response (except for the data which is different). Otherwise,
 %% we handle it as an error (reported via the handle_error callback
 %% function).
 handle_snmp_report(
@@ -2412,7 +2412,7 @@ handle_snmp_report(
 					 Data, State);
 			Error ->
 			    %% Oh crap, use the default user
-			    ?vlog("[report] failed retreiving user info for "
+			    ?vlog("[report] failed retrieving user info for "
 				  "user ~p:"
 				  " ~n   ~p", [UserId, Error]),
 			    case snmpm_config:user_info() of
@@ -2420,7 +2420,7 @@ handle_snmp_report(
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retreiving the "
+				    error_msg("failed retrieving the "
 					      "default user "
 					      "info handling report from "
 					      "<~p,~p>: ~n~w~n~w~n~w",
@@ -2430,7 +2430,7 @@ handle_snmp_report(
 		    end;
 		Error ->
 		    %% Unknown agent, pass it on to the default user
-		    ?vlog("[report] failed retreiving user id for "
+		    ?vlog("[report] failed retrieving user id for "
 			  "agent <~p,~p>: "
 			  "~n   ~p", [Domain, Addr, Error]),
 		    case snmpm_config:user_info() of
@@ -2438,7 +2438,7 @@ handle_snmp_report(
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
 					 DefData, State);
 			Error ->
-			    error_msg("failed retreiving "
+			    error_msg("failed retrieving "
 				      "the default user info handling "
 				      "report from "
 				      "<~p,~p>: ~n~w~n~w~n~w",

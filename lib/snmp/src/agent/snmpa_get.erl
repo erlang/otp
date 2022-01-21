@@ -143,7 +143,7 @@ do_get_local([], Res, _IsNotification) ->
 %%-----------------------------------------------------------------
 %% Func: do_get_subagents/2
 %% Purpose: Loop the list of varbinds for different subagents.
-%%          For each of them, call sub_agent_get to retreive
+%%          For each of them, call sub_agent_get to retrieve
 %%          the values for them.
 %% Returns: {noError, 0, ListOfNewVarbinds} |
 %%          {ErrorStatus, ErrorIndex, []}
@@ -928,7 +928,7 @@ validate_tab_next_res(TooMany, [], Mfa, _Res, _, _, I) ->
 %%-----------------------------------------------------------------
 %% Func: get_next_sa/4
 %% Purpose: Loop the list of varbinds for the subagent.
-%%          Call subagent_get_next to retreive
+%%          Call subagent_get_next to retrieve
 %%          the next varbinds.
 %% Returns: {ok, ListOfNewVbs, ListOfEndOfMibViewsVbs} |
 %%          {ErrorStatus, ErrorIndex}

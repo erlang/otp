@@ -530,7 +530,7 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -727,7 +727,7 @@ end_per_suite(Config0) when is_list(Config0) ->
 
     case snmp_test_mgr_counter_server:stop() of
     	{ok, Counters} ->
-    	    ?IPRINT("end_per_suite -> sucessfully stopped counter server"
+    	    ?IPRINT("end_per_suite -> successfully stopped counter server"
                     "~n      Counters: ~p", [Counters]);
     
     	{error, Reason} ->
@@ -879,7 +879,7 @@ init_per_group2(GroupName, Config) ->
 
 init_per_group_ipv6(GroupName, Config, Init) ->
     %% <OS-CONDITIONAL-SKIP>
-    %% This is a higly questionable test.
+    %% This is a highly questionable test.
     %% But until we have time to figure out what IPv6 issues
     %% are actually causing the failures...
     OSSkipable = [{unix, 
@@ -2616,7 +2616,7 @@ change_target_addr_config(Config) when is_list(Config) ->
     ?IPRINT("change_target_addr_config -> set trace verbosity for local_db"),
     ?line snmpa:verbosity(local_db,trace),
 
-    %% First send some traps that will arive att the original manager
+    %% First send some traps that will arrive att the original manager
     ?IPRINT("change_target_addr_config -> send trap"),
     try_test(ma_trap1, [MA]),
 
@@ -2696,7 +2696,7 @@ dummy_manager_await_trap2_ack() ->
 	{received_trap, _Trap} ->
 	    ?IPRINT("dummy_manager_await_trap2 -> received trap: ~p", [_Trap]),
 	    %% Note: 
-	    %% Without this sleep the v2_inform_i testcase failes! There
+	    %% Without this sleep the v2_inform_i testcase fails! There
 	    %% is no relation between these two test cases as far as I
 	    %% able to figure out...
 	    ?SLEEP(60000),
@@ -4326,7 +4326,7 @@ mt_trap_test(MA, MT) ->
 
     %% multi-threaded = true
     %% This will *lock* the 'main thread' of a multi-threaded agent,
-    %% the worker state will be 'busy'. Therefor when a new request
+    %% the worker state will be 'busy'. Therefore when a new request
     %% arrives a new *temporary* worker will be spawned.
     ?IPRINT("mt_trap_test(03) -> issue mtTrap (standard trap)", []),
     snmpa:send_trap(MA, mtTrap, "standard trap"),
@@ -5289,25 +5289,25 @@ command_handler([{_No, _Desc, Cmd}|Rest]) ->
             end
     catch
         C:E:S ->
-            ?IPRINT("command_handler -> command ~w catched", [_No]),
+            ?IPRINT("command_handler -> command ~w caught", [_No]),
             SysEvs = snmp_test_global_sys_monitor:events(),
             if
                 (SysEvs =:= []) ->
-                    ?EPRINT("command_handler -> ~w catched: "
+                    ?EPRINT("command_handler -> ~w caught: "
                             "~n   Class: ~p"
                             "~n   Error: ~p"
                             "~n   Stack: ~p", [_No, C, E, S]),
                     ?line ?FAIL({catched_command_result, {C, E, S}});
                 true ->
                     ?WPRINT("command_handler -> "
-                            "catched when we got system events: "
-                            "~n   Catched: "
+                            "caught when we got system events: "
+                            "~n   Caught: "
                             "~n      Class:   ~p"
                             "~n      Error:   ~p"
                             "~n      Stack:   ~p"
                             "~n   Sys Events: ~p"
                             "~n", [C, E, S, SysEvs]),
-                    ?SKIP([{catched, {C, E, S}}, {system_events, SysEvs}])
+                    ?SKIP([{caught, {C, E, S}}, {system_events, SysEvs}])
             end
     end.
     
@@ -5427,7 +5427,7 @@ undo_test() ->
     ?line ?expect3(?v1_2(genErr, undoFailed), 1, any), 
     s([{[fStatus3, 4], 4}, {[fname3,0], "ok"}]),
     ?line ?expect3(?v1_2(genErr, commitFailed), 1, any), 
-% unfortunatly we don't know if we'll get undoFailed or commitFailed.
+% unfortunately we don't know if we'll get undoFailed or commitFailed.
 % it depends on which order the agent traverses the varbind list.
 %    s([{[fStatus3, 4], 4}, {[fname3,0], "ufail"}]),
 %    ?line expect(5, ?v1_2(genErr, undoFailed), 1, any),
@@ -5621,7 +5621,7 @@ snmpv2_mib_2(Config) when is_list(Config) ->
     ?DBG("snmpv2_mib_2 -> check counters",[]),
     try_test(std_mib_c, [Bad]),
 
-    ?DBG("snmpv2_mib_2 -> get som counters",[]),
+    ?DBG("snmpv2_mib_2 -> get some counters",[]),
     try_test(snmpv2_mib_a),
     
     ?DBG("snmpv2_mib_2 -> enable auth traps, and await some",[]),
@@ -5779,7 +5779,7 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 %% the same as the number of seconds we sleep (5 in this case).
 %% But because, on some (slow or/and high loaded) hosts, the actual
 %% time we sleep could be a lot larger (due to, for instance, scheduling).
-%% Therefor we must take that into account when we check if the 
+%% Therefore we must take that into account when we check if the 
 %% Engine Time diff (between the two checks) is acceptably.
 snmp_framework_mib_test() ->
 
@@ -6019,7 +6019,7 @@ snmp_view_based_acm_mib() ->
     ?DBG("assign rights for 'no-rights'",[]),
     ?line try_test(use_no_rights, [], Opts),
 
-    %% Create a mapping for another sec model, and make sure it dosn't
+    %% Create a mapping for another sec model, and make sure it doesn't
     %% give us access
     GRow2Status = [vacmSecurityToGroupStatus,[InvSecMod, 9,"no-rights"]],
     GRow2 = [{[vacmGroupName, [InvSecMod, 9, "no-rights"]], "initial"},
@@ -6045,7 +6045,7 @@ snmp_view_based_acm_mib() ->
 	     {[vacmAccessWriteViewName, ARow1Idx], WVName},
 	     {ARow1Status, ?createAndGo}],
     
-    %% This access row would give acces, if InvSecMod was valid.
+    %% This access row would give access, if InvSecMod was valid.
     ARow2Idx = [15 | "no-rights-group"] ++ [0, InvSecMod, 1],
     ARow2Status = [vacmAccessStatus, ARow2Idx],
     ARow2 = [{[vacmAccessContextMatch, ARow2Idx], 1},
@@ -6488,7 +6488,7 @@ loop_mib_3(Config) when is_list(Config) ->
 loop_mib_1_test() ->
     ?IPRINT("loop_mib_1_test -> entry"),
     N = loop_it_1([1,1], 0),
-    ?IPRINT("found ~w varibles", [N]),
+    ?IPRINT("found ~w variables", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
@@ -6593,7 +6593,7 @@ loop_it_1(Oid, N) ->
 loop_mib_2_test() ->
     ?IPRINT("loop_mib_2_test -> entry"),
     N = loop_it_2([1,1], 0),
-    ?IPRINT("found ~w varibles", [N]),
+    ?IPRINT("found ~w variables", [N]),
     ?line N = if N < 100 -> 100;
 		 true -> N
 	      end.
@@ -7157,7 +7157,7 @@ otp_2979_test() ->
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-3187
-%% Slogan: get-next on vacmAccessTable for colums > 5 returns
+%% Slogan: get-next on vacmAccessTable for columns > 5 returns
 %%         endOfTable - should return value.
 %%-----------------------------------------------------------------
 otp_3187(suite) -> [];

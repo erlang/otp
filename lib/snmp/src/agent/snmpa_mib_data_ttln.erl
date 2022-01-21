@@ -753,7 +753,7 @@ find_node(_D, Node, _RestOfOid, _RevOid) ->
 %%          {subagent, SubAgentPid, SAOid} |
 %%          {variable, MibEntry, VarOid} |
 %%          {table, TableOid, TableRestOid, MibEntry}
-%% If a variable is returnes, it is in the MibView.
+%% If a variable is returns, it is in the MibView.
 %% If a table or subagent is returned, it *may* be in the MibView.
 %%-----------------------------------------------------------------
 next(#mib_data{tree = T} = D, Oid, MibView) ->
@@ -778,7 +778,7 @@ next_node(_D, undefined_node, _Oid, _RevOidSoFar, _MibView) ->
 next_node(_D, {tree, Tree, {table_entry, _Id}}, [Int | _Oid], 
 	  _RevOidSoFar, _MibView)
   when Int+1 > size(Tree) ->
-    ?vtrace("next_node(tree,table_entry) -> entry when not found whith"
+    ?vtrace("next_node(tree,table_entry) -> entry when not found within"
 	"~n   Int:        ~p"
 	"~n   size(Tree): ~p", [Int, size(Tree)]),
     false;

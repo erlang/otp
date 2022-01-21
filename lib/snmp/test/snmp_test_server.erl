@@ -322,7 +322,7 @@ display_failed(Failed) ->
         
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Verify that the actual result of a test case matches the exected one
+%% Verify that the actual result of a test case matches the expected one
 %% Returns the actual result
 %% Stores the result in the process dictionary if mismatch
 

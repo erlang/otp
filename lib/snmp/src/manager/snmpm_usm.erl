@@ -60,7 +60,7 @@ init() ->
 %% Func: process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
 %%       {ok, {SecEngineID, SecName, ScopedPDUBytes, SecData}} |
 %%       {error, Reason} | {error, Reason, ErrorInfo}
-%%       Return value may be throwed.
+%%       Return value may be thrown.
 %% Types: Reason -> term()
 %% Purpose: 
 %%-----------------------------------------------------------------
@@ -331,7 +331,7 @@ try_decrypt(usmAesCfb128Protocol,
 %%                            SecData, SecLevel) ->
 %%       {ok, {SecEngineID, SecName, ScopedPDUBytes, SecData}} |
 %%       {error, Reason} | {error, Reason, ErrorInfo}
-%%       Return value may be throwed.
+%%       Return value may be thrown.
 %% Types: Reason -> term()
 %% Purpose: 
 %%-----------------------------------------------------------------

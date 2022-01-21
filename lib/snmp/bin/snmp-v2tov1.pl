@@ -64,7 +64,7 @@ line: while (<>) {
 	next line;
     }
 
-    # Translate TEXTUAL-CONVENTION into an ordinary type assignement.
+    # Translate TEXTUAL-CONVENTION into an ordinary type assignment.
     # Place comments around body.
     if (/TEXTUAL-CONVENTION/ && ($str == 0)) {
 	$textual = 1;

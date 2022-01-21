@@ -170,7 +170,7 @@
           <c>To</c> is a list of destination addresses and
           their corresponding security parameters.  This value is
           received in the same message from the agent and then transformed
-	  trough <seeerl marker="#process_taddrs"><c>process_taddrs</c></seeerl>
+	  through <seeerl marker="#process_taddrs"><c>process_taddrs</c></seeerl>
 	  before passed to this function.</p>
 
         <note>

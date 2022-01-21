@@ -63,8 +63,8 @@
   The (supervising) process simply sends a
   <seeguide marker="#im_ping">ping</seeguide> message and expects a
   <seeguide marker="#om_pong">pong</seeguide> message response
-  (withing a specific time).
-  The interval between each <c>ping/pong</c> exhange is user configurable.
+  (within a specific time).
+  The interval between each <c>ping/pong</c> exchange is user configurable.
   As is the time that is allowed for the
   <seeguide marker="#om_pong">pong</seeguide>
   message to arrive.

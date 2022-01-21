@@ -264,7 +264,7 @@ set_module_trace(Module, Opts) ->
 	    {value, {return_trace, false}} ->
 		[];
 	    _ ->
-		%% Default is allways  to include return values
+		%% Default is always  to include return values
 		[{return_trace}]
 	end,
     TraceRes = 
@@ -671,7 +671,7 @@ short_time({{Y,M,D},{H,Mi,S}}) ->
     [y1(Y), y2(Y), M, D, H, Mi, S, 0].
 
 %% This function will only be called if there has been some 
-%% validation error, and as it is strict, it allways returns 
+%% validation error, and as it is strict, it always returns 
 %% false. 
 strict_validation(_What, _Data) ->
     false.

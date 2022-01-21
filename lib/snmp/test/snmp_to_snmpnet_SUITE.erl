@@ -411,7 +411,7 @@ erlang_agent_netsnmp_get(Config) when is_list(Config) ->
                             "~n   ~s", [Rest]),
                      throw({skip, Rest});
                  Any ->
-                     ct:pal("Received unexpected reponse: "
+                     ct:pal("Received unexpected response: "
                             "~n   ~p", [Any]),
                      exit({unexpected, Any})
              end || Transport <- Transports],
