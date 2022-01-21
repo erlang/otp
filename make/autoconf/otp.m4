@@ -2992,10 +2992,25 @@ dnl
 AC_DEFUN(ERL_DED,
 	[
 
+LM_CHECK_THR_LIB
+
+if test "$THR_DEFS" = ""; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$THR_DEFS"
+fi
+
+AC_SUBST(DED_THR_DEFS)
+
+ERL_DED_FLAGS
+
+])
+
+AC_DEFUN(ERL_DED_FLAGS,
+         [
+
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
-
-LM_CHECK_THR_LIB
 
 DED_CC=$CC
 DED_GCC=$GCC
@@ -3011,7 +3026,6 @@ case $host_os in
      *)
         ;;
 esac
-
 
 DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
 case "$host_cpu" in
@@ -3032,12 +3046,6 @@ LM_TRY_ENABLE_CFLAG([-Werror=undef], [DED_WERRORFLAGS])
 DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
 DED_INCLUDE=$DED_SYS_INCLUDE
 
-if test "$THR_DEFS" = ""; then
-    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
-else
-    DED_THR_DEFS="$THR_DEFS"
-fi
-# DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
 AS_IF(
   [test "x$GCC" = xyes],
@@ -3114,9 +3122,18 @@ case $host_os in
 		DED_LDFLAGS="-Bshareable"
 	;;
 	darwin*)
-		# Mach-O linker: a shared lib and a loadable
-		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
+                  # EI sets this variable when building its .so file as beam.smp
+                  # has not been built yet and any ei lib will not
+                  # link to beam.smp anyways
+		  DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+                else
+                  # Cannot use flat namespaces for drivers/nifs as that may cause
+                  # symbols to collide during loading
+		  DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+                fi
 		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
 		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
 		# been built yet...
@@ -3226,7 +3243,6 @@ AC_SUBST(DED_LD)
 AC_SUBST(DED_LDFLAGS)
 AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
 AC_SUBST(DED_LIBS)
-AC_SUBST(DED_THR_DEFS)
 AC_SUBST(DED_OSTYPE)
 
 ])

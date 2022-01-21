@@ -106,7 +106,10 @@ endif
 
 WARNFLAGS += -DEI_NO_DEPR_WARN
 
-CFLAGS = @LIB_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
+CFLAGS = @DED_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
+DED_LD = @DED_LD@
+DED_LDFLAGS = @DED_LDFLAGS@
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH = @DED_LD_FLAG_RUNTIME_LIBRARY_PATH@
 PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Iglobal
 
 INSTALL = @INSTALL@
@@ -127,6 +130,7 @@ MT_OBJDIR  = $(ERL_TOP)/lib/erl_interface/obj.mt$(TYPEMARKER)/$(TARGET)
 MD_OBJDIR  = $(ERL_TOP)/lib/erl_interface/obj.md$(TYPEMARKER)/$(TARGET)
 MDD_OBJDIR = $(ERL_TOP)/lib/erl_interface/obj.mdd$(TYPEMARKER)/$(TARGET)
 OBJDIR     = $(ERL_TOP)/lib/erl_interface/obj$(TYPEMARKER)/$(TARGET)
+LIBDIR     = $(ERL_TOP)/lib/erl_interface/lib/$(TARGET)
 BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 
 # FIXME maybe use this opt and remove (int) cast to is*() functions
@@ -149,13 +153,13 @@ ifeq ($(USING_VC),yes)
 LIBEXT=.lib
 LIBPRE=
 MTFLAG=-MT
-
 else
 LIBEXT=.a
 LIBPRE=lib
 MTFLAG=
-
 endif
+
+DYNLIBEXT=.@DED_EXT@
 
 ###########################################################################
 #  Specify targets names
@@ -166,11 +170,16 @@ ERL_CALL   = $(BINDIR)/erl_call$(EXE)
 ifdef THR_DEFS
 ST_EILIB   = $(OBJDIR)/$(LIBPRE)ei_st$(LIBEXT)
 MT_EILIB   = $(OBJDIR)/$(LIBPRE)ei$(LIBEXT)
+ST_EISHLIB = $(LIBDIR)/$(LIBPRE)ei_st$(DYNLIBEXT)
+MT_EISHLIB = $(LIBDIR)/$(LIBPRE)ei$(DYNLIBEXT)
 else
 ST_EILIB   = $(OBJDIR)/$(LIBPRE)ei$(LIBEXT)
+ST_EISHLIB = $(LIBDIR)/$(LIBPRE)ei$(DYNLIBEXT)
 endif
 MD_EILIB   = $(OBJDIR)/$(LIBPRE)ei_md$(LIBEXT)
 MDD_EILIB  = $(OBJDIR)/$(LIBPRE)ei_mdd$(LIBEXT)
+MD_EISHLIB   = $(LIBDIR)/$(LIBPRE)ei_md$(DYNLIBEXT)
+MDD_EISHLIB  = $(LIBDIR)/$(LIBPRE)ei_mdd$(DYNLIBEXT)
 
 ###########################################################################
 #  Specify targets to build
@@ -183,16 +192,16 @@ ifeq ($(USING_VC),yes)
 
 # Windows targets
 
-TARGETS = \
-	$(OBJ_TARGETS) \
-	$(EXE_TARGETS) \
-	$(APP_TARGET)  \
-	$(APPUP_TARGET)
-
 OBJ_TARGETS = \
 	$(MT_EILIB) \
 	$(MD_EILIB) \
 	$(MDD_EILIB)
+
+SH_TARGETS = \
+	$(MT_EISHLIB) \
+	$(MD_EISHLIB) \
+	$(MDD_EISHLIB)
+
 
 FAKE_TARGETS = \
 	$(OBJDIR)/erl_fake_prog_mt$(EXE) \
@@ -210,35 +219,17 @@ FAKE_TARGETS = \
 
 else
 
-ifeq ($USING_MINGW,yes)
-TARGETS = \
-	$(OBJ_TARGETS) \
-	$(EXE_TARGETS) \
-	$(APP_TARGET)  \
-	$(APPUP_TARGET)
-
-OBJ_TARGETS = \
-	$(MD_EILIB)
-
-FAKE_TARGETS = \
-	$(OBJDIR)/erl_fake_prog_md$(EXE) \
-	$(OBJDIR)/ei_fake_prog_md$(EXE) \
-	$(OBJDIR)/erl_fake_prog_cxx_md$(EXE) \
-	$(OBJDIR)/ei_fake_prog_cxx_md$(EXE) 
-else
 # Unix targets
 
 ifdef THR_DEFS
 
-TARGETS = \
-	$(OBJ_TARGETS) \
-	$(EXE_TARGETS) \
-	$(APP_TARGET)  \
-	$(APPUP_TARGET)
-
 OBJ_TARGETS = \
 	$(ST_EILIB) \
 	$(MT_EILIB)
+
+SH_TARGETS = \
+	$(ST_EISHLIB) \
+	$(MT_EISHLIB)
 
 FAKE_TARGETS = \
 	$(ST_OBJDIR)/erl_fake_prog_st$(EXE) \
@@ -252,14 +243,11 @@ FAKE_TARGETS = \
 
 else
 
-TARGETS = \
-	$(OBJ_TARGETS) \
-	$(EXE_TARGETS) \
-	$(APP_TARGET)  \
-	$(APPUP_TARGET)
-
 OBJ_TARGETS = \
 	$(ST_EILIB)
+
+SH_TARGETS = \
+	$(ST_EISHLIB)
 
 FAKE_TARGETS = \
 	$(ST_OBJDIR)/erl_fake_prog_st$(EXE) \
@@ -271,7 +259,13 @@ endif
 
 endif
 
-endif
+TARGETS = \
+	$(OBJ_TARGETS) \
+	$(SH_TARGETS) \
+	$(EXE_TARGETS) \
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
+
 ###########################################################################
 #  List all source files
 ###########################################################################
@@ -415,10 +409,10 @@ docs:
 tests:
 
 clean:
-	rm -f $(ST_EIOBJECTS)  $(ST_EILIB)
-	rm -f $(MT_EIOBJECTS)  $(MT_EILIB)
-	rm -f $(MD_EIOBJECTS)  $(MD_EILIB)
-	rm -f $(MDD_EIOBJECTS) $(MDD_EILIB)
+	rm -f $(ST_EIOBJECTS)  $(ST_EILIB) $(ST_EISHLIB)
+	rm -f $(MT_EIOBJECTS)  $(MT_EILIB) $(MT_EISHLIB)
+	rm -f $(MD_EIOBJECTS)  $(MD_EILIB) $(MD_EISHLIB)
+	rm -f $(MDD_EIOBJECTS) $(MDD_EILIB) $(MDD_EISHLIB)
 	rm -f $(ERL_CALL)
 	rm -f $(FAKE_TARGETS)
 	rm -f $(APP_TARGET)
@@ -451,7 +445,7 @@ $(MDD_OBJDIR)/%.o: %.c
 #  Create directories
 ###########################################################################
 
-_create_dirs := $(shell mkdir -p $(EBINDIR) $(BINDIR) $(OBJDIR) $(ST_OBJDIR) $(MT_OBJDIR) $(MD_OBJDIR) $(MDD_OBJDIR))
+_create_dirs := $(shell mkdir -p $(EBINDIR) $(BINDIR) $(OBJDIR) $(ST_OBJDIR) $(MT_OBJDIR) $(MD_OBJDIR) $(MDD_OBJDIR) $(LIBDIR))
 
 ###########################################################################
 #  Special rules
@@ -482,6 +476,8 @@ $(MDD_EILIB) : $(MDD_EIOBJECTS)
 	$(V_AR) -out:$@ $(MDD_EIOBJECTS)
 	$(V_RANLIB) $@
 
+WIN_SOCKET=-lsocket
+
 else
 
 # Unix archive creation
@@ -493,7 +489,6 @@ ifdef RANLIB
 	$(V_RANLIB) $@
 endif
 
-
 $(MT_EILIB) : $(MT_EIOBJECTS)
 	$(V_at)rm -f $@
 	$(V_AR) $(AR_FLAGS) $@ $(MT_EIOBJECTS)
@@ -502,6 +497,23 @@ ifdef RANLIB
 endif
 
 endif
+
+$(ST_EISHLIB): $(ST_EIOBJECTS)
+	$(ld_verbose) $(DED_LD) $(DED_LDFLAGS) -o $@ \
+		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(ST_EIOBJECTS) \
+	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
+$(MT_EISHLIB): $(MT_EIOBJECTS)
+	$(ld_verbose) $(DED_LD) $(DED_LDFLAGS) -o $@ \
+		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MT_EIOBJECTS) \
+	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
+$(MD_EISHLIB): $(MD_EIOBJECTS)
+	$(ld_verbose) $(DED_LD) -MD $(DED_LDFLAGS) -o $@ \
+		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MD_EIOBJECTS) \
+	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
+$(MDD_EISHLIB): $(MDD_EIOBJECTS)
+	$(ld_verbose) $(DED_LD) -MDd $(DED_LDFLAGS) -o $@ \
+		$(DED_LD_FLAG_RUNTIME_LIBRARY_PATH) $(MDD_EIOBJECTS) \
+	        $(THR_LIBS) $(LIBS) $(WIN_SOCKET)
 
 ###########################################################################
 #  erl_call   FIXME how to avoid explicit -lsocket on winows??? 
@@ -688,6 +700,10 @@ release: opt
 	$(INSTALL_DATA) $(HEADERS)     "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELEASE_PATH)/usr/lib"
+ifeq (@DYNAMIC_LIB@, yes)
+	$(INSTALL_PROGRAM) $(SH_TARGETS) "$(RELSYSDIR)/lib"
+	$(INSTALL_PROGRAM) $(SH_TARGETS) "$(RELEASE_PATH)/usr/lib"
+endif
 	$(INSTALL_PROGRAM) $(EXE_TARGETS) "$(RELSYSDIR)/bin"
 	$(INSTALL_DATA) $(EXTRA)        "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) connect/*.[ch]  "$(RELSYSDIR)/src/connect"

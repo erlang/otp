@@ -662,7 +662,6 @@ SSL_INCLUDE
 EGREP
 GREP
 DED_OSTYPE
-DED_THR_DEFS
 DED_LIBS
 DED_WERRORFLAGS
 DED_WARN_FLAGS
@@ -674,6 +673,7 @@ DED_SYS_INCLUDE
 DED_EXT
 DED_GCC
 DED_CC
+DED_THR_DEFS
 MIXED_MINGW
 MIXED_VC
 OBJEXT
@@ -3014,6 +3014,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
   # Make sure we can run config.sub.
 $SHELL "${ac_aux_dir}config.sub" sun4 >/dev/null 2>&1 ||
   as_fn_error $? "cannot run $SHELL ${ac_aux_dir}config.sub" "$LINENO" 5
@@ -4407,9 +4409,6 @@ printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
 fi
 
 
-USER_LD=$LD
-USER_LDFLAGS="$LDFLAGS"
-
 
 
 NEED_NPTL_PTHREAD_H=no
@@ -4917,6 +4916,19 @@ fi
 
 
 
+if test "$THR_DEFS" = ""; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$THR_DEFS"
+fi
+
+
+
+
+
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+
 DED_CC=$CC
 DED_GCC=$GCC
 
@@ -4931,7 +4943,6 @@ case $host_os in
      *)
         ;;
 esac
-
 
 DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
 case "$host_cpu" in
@@ -5100,12 +5111,6 @@ fi
 DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
 DED_INCLUDE=$DED_SYS_INCLUDE
 
-if test "$THR_DEFS" = ""; then
-    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
-else
-    DED_THR_DEFS="$THR_DEFS"
-fi
-# DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
 if test "x$GCC" = xyes
 then :
@@ -5257,9 +5262,18 @@ case $host_os in
 		DED_LDFLAGS="-Bshareable"
 	;;
 	darwin*)
-		# Mach-O linker: a shared lib and a loadable
-		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
+                  # EI sets this variable when building its .so file as beam.smp
+                  # has not been built yet and any ei lib will not
+                  # link to beam.smp anyways
+		  DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+                else
+                  # Cannot use flat namespaces for drivers/nifs as that may cause
+                  # symbols to collide during loading
+		  DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+                fi
 		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
 		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
 		# been built yet...
@@ -5500,6 +5514,7 @@ else
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: not found" >&5
 printf "%s\n" "not found" >&6; }
 fi
+
 
 
 

@@ -1925,6 +1925,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
   # Make sure we can run config.sub.
 $SHELL "${ac_aux_dir}config.sub" sun4 >/dev/null 2>&1 ||
   as_fn_error $? "cannot run $SHELL ${ac_aux_dir}config.sub" "$LINENO" 5

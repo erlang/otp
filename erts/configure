@@ -1564,11 +1564,11 @@ Optional Features:
                           into the main binary. It is also possible to give a
                           list of nifs that should be linked statically. The
                           list should be a comma separated and contain the
-                          absolute path to a .a archive for each nif lib
-                          that is to be statically linked. Note that you have
-                          to link any external dependencies, that the nifs have,
-                          to the main binary. So for the crypto nifs
-                          you want to pass LIBS=-lcrypto to configure.
+                          absolute path to a .a archive for each nif that is
+                          to be statically linked. Note that you have to link
+                          any external dependencies, that the nifs have, to
+                          the main binary. So for the crypto nifs you want to
+                          pass LIBS=-lcrypto to configure.
   --enable-static-drivers comma separated list of linked-in drivers to link
                           statically with the main binary. The list should
                           contain the absolute path to a .a archive for each
@@ -1682,7 +1682,7 @@ Some influential environment variables:
   CXX         C++ compiler
   CXXFLAGS    C++ compiler flags
   LD          linker (is often overridden by configure)
-  LDFLAGS     linker flags (can be risky to set since LD may be overriden by
+  LDFLAGS     linker flags (can be risky to set since LD may be overridden by
               configure)
   LIBS        libraries
   DED_LD      linker for Dynamic Erlang Drivers (set all DED_LD* variables or
@@ -3485,6 +3485,8 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
 
 
 

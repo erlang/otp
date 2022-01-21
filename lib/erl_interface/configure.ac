@@ -85,6 +85,14 @@ AC_ARG_ENABLE(mask-real-errno,
   esac ],
 [ mask_real_errno=yes ])
 
+AC_ARG_ENABLE(ei-dynamic-lib,
+[  --enable-ei-dynamic-lib  build ei as a dynamic library],
+[ case "$enableval" in
+    yes) DYNAMIC_LIB=yes ;;
+    *)   DYNAMIC_LIB=no ;;
+  esac ],
+[ DYNAMIC_LIB=no ])
+AC_SUBST(DYNAMIC_LIB)
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs
@@ -351,6 +359,9 @@ else
 	LIB_CFLAGS="$CFLAGS"
   fi
 fi
+
+ERL_DED_FLAT_BUNDLE=true
+ERL_DED_FLAGS
 
 dnl ----------------------------------------------------------------------
 dnl Enable -fsanitize= flags.
