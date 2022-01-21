@@ -29,7 +29,7 @@
     <rev>A</rev>
   </header>
   <module since="">lists</module>
-  <modulesummary>List processing functions.</modulesummary>
+  <modulesummary>List me.</modulesummary>
   <description>
     <p>This module contains functions for list processing.</p>
 
