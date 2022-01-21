@@ -798,24 +798,26 @@ exclusive_des_suites(1)->
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
 rsa_suites({3, 3}) ->
-    rsa_suites_exclusive(3) -- [?TLS_RSA_WITH_3DES_EDE_CBC_SHA];
+    rsa_exclusive(3) ++ rsa_exclusive(1);
 rsa_suites({3, 2}) ->
-    rsa_suites_exclusive(1);
+    rsa_exclusive(1);
 rsa_suites({3, 1}) ->
-    rsa_suites_exclusive(1).
+    rsa_exclusive(1).
 
-rsa_suites_exclusive(3) ->
+rsa_exclusive(3) ->
     [
      ?TLS_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
     ];
-rsa_suites_exclusive(1) ->
+rsa_exclusive(1) ->
     [?TLS_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
-    ].
+    ];
+rsa_exclusive(_) ->
+    [].
 
 signature_algs({3, 4}, HashSigns) ->
     signature_algs({3, 3}, HashSigns);
