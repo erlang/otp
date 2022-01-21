@@ -46,7 +46,9 @@ jobs:
             (cd jsx && rebar3 compile)
             rm -rf "${GITHUB_WORKSPACE}/erlang.github.io/.git"
             mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+            touch "${GITHUB_WORKSPACE}/erlang.github.io/.nojekyll"
             .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+
       - name: Deploy to github pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4.2.2
         with:
