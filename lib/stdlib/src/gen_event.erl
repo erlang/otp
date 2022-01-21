@@ -897,10 +897,10 @@ format_log_single(#{label:={gen_event,terminate},
     Args1 =
         case Depth of
             unlimited ->
-                [Handler,SName,Reason1,LastIn,State];
+                [Handler,SName,LastIn,State,Reason1];
             _ ->
-                [Handler,Depth,SName,Depth,Reason1,Depth,
-                 LastIn,Depth,State,Depth]
+                [Handler,Depth,SName,Depth,LastIn,Depth,
+                 State,Depth,Reason1,Depth]
         end,
     {Format1, Args1};
 format_log_single(#{label:={gen_event,no_handle_info},
