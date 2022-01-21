@@ -85,7 +85,7 @@ ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) \
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(HRL_FILES)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(HRL_FILES)
 
 $(EBIN)/pubkey_ssh.$(EMULATOR): pubkey_moduli.hrl
 

@@ -127,7 +127,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1: $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1.src
 	$(gen_verbose)$(PERL) -p -e 's?%PERL%?$(PERL)? ' < $< > $@

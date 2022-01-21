@@ -61,7 +61,7 @@ ERL_COMPILE_FLAGS += -DCRYPTO_VSN=\"$(VSN)\" -Werror -I../include
 # Targets
 # ----------------------------------------------------
 
-debug opt valgrind asan: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)

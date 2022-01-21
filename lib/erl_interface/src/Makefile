@@ -26,12 +26,10 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
-debug opt shared gcov:
+debug opt shared gcov lcnt valgrind asan:
 ifndef TERTIARY_BOOTSTRAP
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 endif
 
 clean depend docs release release_docs tests release_tests check xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
-
-lcnt:

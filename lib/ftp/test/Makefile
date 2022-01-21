@@ -98,7 +98,6 @@ FTP_FLAGS += -pa ../ftp/ebin
 FTP_ROOT = ../ftp
 
 MODULES =                 		\
-	erl_make_certs                  \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE                \
 	ftp_test_lib
@@ -162,7 +161,7 @@ ERL_COMPILE_FLAGS += \
 # 1) FTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

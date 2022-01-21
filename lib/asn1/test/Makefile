@@ -147,7 +147,7 @@ EBIN = .
 $(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERL_FILES) >$(EMAKEFILE)
 
-tests debug opt: $(EMAKEFILE)
+tests $(TYPES): $(EMAKEFILE)
 
 clean:
 	rm -f core

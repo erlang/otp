@@ -176,7 +176,7 @@ $(SNMP_BIN_TARGET_DIR)/%.hrl: $(SNMP_BIN_TARGET_DIR)/%.bin
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET)
+tests $(TYPES): $(BUILDTARGET)
 
 .PHONY: emakebuild
 

@@ -19,11 +19,11 @@
 #
 
 include ./vsn.mk
+include ./config.mk
 
 ifdef TERTIARY_BOOTSTRAP
  SUBDIRS = src
 else # Normal build
- include ./config.mk
  SUBDIRS = src
  ifeq ($(CAN_BUILD_DRIVER), true)
  SUBDIRS += c_src
@@ -39,5 +39,7 @@ CLEANDIRS = $(SUBDIRS) api_gen
 SUB_DIRECTORIES=$(SUBDIRS)
 
 include $(ERL_TOP)/make/otp_subdir.mk
+
+TEST_NEEDS_RELEASE=true
 
 include $(ERL_TOP)/make/app_targets.mk

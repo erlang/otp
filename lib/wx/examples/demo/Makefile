@@ -62,7 +62,7 @@ TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
 # Targets
-opt debug:	$(TESTTARGETS)
+$(TYPES):	$(TESTTARGETS)
 clean:
 	rm -f $(TESTTARGETS)
 	rm -f *~ core erl_crash.dump

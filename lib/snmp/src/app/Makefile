@@ -109,8 +109,8 @@ ERL_COMPILE_FLAGS += -I../misc \
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@$(MAKE) TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 

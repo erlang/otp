@@ -44,7 +44,7 @@ include files.mk
 # Targets
 # ----------------------------------------------------
 
-debug opt:
+$(TYPES):
 
 clean:
 

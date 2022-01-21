@@ -99,7 +99,8 @@ _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
 opt: $(NIF_SHARED_OBJ_FILE)
 
-debug: opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 static_lib: $(NIF_LIB_FILE)
 

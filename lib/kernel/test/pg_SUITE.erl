@@ -753,7 +753,18 @@ stop_node(Node, Socket) when Node =/= node() ->
     true.
 
 forever() ->
-    fun() -> receive after infinity -> ok end end.
+    Parent = self(),
+    fun() ->
+            %% forever() is used both locally and on a remote node,
+            %% if used locally, we want to terminate when the
+            %% parent terminates in order to not leak process to
+            %% later test cases
+            Ref = monitor(process,Parent),
+            receive
+                {'DOWN',Ref,_,_,_} when node() =:= node(Parent) ->
+                    ok
+            end
+    end.
 
 
 -spec control(Scope :: atom()) -> {Port :: integer(), pid()}.

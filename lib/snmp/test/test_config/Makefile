@@ -117,7 +117,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGETS) 
+tests $(TYPES): $(TARGETS) 
 
 clean:
 	rm -f $(CONFIG_FILES)

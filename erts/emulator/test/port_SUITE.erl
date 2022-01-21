@@ -1299,9 +1299,7 @@ otp_3906(Config)  when is_list(Config) ->
 
 otp_3906(Config, OSName) ->
     DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
-    {ok, Variables} = file:consult(
-                        filename:join([DataDir,"..","..",
-                                       "test_server","variables"])),
+    {ok, Variables, _} = file:path_consult(code:get_path(),"variables"),
     case lists:keysearch('CC', 1, Variables) of
         {value,{'CC', CC}} ->
             PrivDir = proplists:get_value(priv_dir, Config),

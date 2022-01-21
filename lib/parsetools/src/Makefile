@@ -66,7 +66,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/stdlib/include \
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

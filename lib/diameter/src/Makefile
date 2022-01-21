@@ -146,8 +146,8 @@ patch:
 	git diff --exit-code HEAD
 	$(MAKE) opt PRE_VSN="-$(shell git rev-list --max-count=1 HEAD | cut -c 1-8)"
 
-debug:
-	@$(MAKE) TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 # The dictionary parser.
 gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl

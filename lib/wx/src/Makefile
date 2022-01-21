@@ -75,7 +75,7 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 ifdef TERTIARY_BOOTSTRAP
  opt: $(EBIN)/wx_object.beam
 else
- debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+ $(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 endif
 
 clean:  

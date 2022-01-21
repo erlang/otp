@@ -1,17 +1,70 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-FROM ubuntu
+ARG BASE=gitpod/workspace-full
+FROM $BASE
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libsctp-dev lksctp-tools libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev"
+
+ARG EXTRA_LIBS="erlang erlang-doc"
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-RUN apt-get update && \
-        apt-get -y upgrade && \
-        apt-get install -y build-essential m4 autoconf fop xsltproc clang clang-format \
-        default-jdk libxml2-utils $INSTALL_LIBS
+RUN apt-get update && apt-get -y upgrade && \
+    apt-get install -y build-essential m4 autoconf fop xsltproc \
+    default-jdk libxml2-utils flex \
+    unixodbc odbc-postgresql postgresql \
+    tzdata ssh openssh-server groff-base sudo gdb apache2 bind9 nsd expect vsftpd python \
+    linux-tools-common linux-tools-generic linux-tools-`uname -r` \
+    ${INSTALL_LIBS} && \
+    for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
+    sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
+    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
 
-RUN update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
+## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
+
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+ARG USER=gitpod
+ARG GROUP=gitpod
+ARG gid=10
+ARG uid=421
+
+RUN echo "Europe/Stockholm" > /etc/timezone && \
+    ln -snf /usr/share/zoneinfo/$(cat /etc/timezone) /etc/localtime && \
+    if [ ! -d /home/${USER} ]; then useradd -rm -d /home/${USER} -s /bin/sh -g ${gid} -G ${gid},sudo -u ${uid} ${USER}; fi && \
+    echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER} && \
+    echo "/buildroot/** r," >> /etc/apparmor.d/local/usr.sbin.named && \
+    echo "/tests/** r," >> /etc/apparmor.d/local/usr.sbin.named
+
+## Setup progres so that the odbc test can run
+USER postgres
+
+RUN service postgresql start && \
+    psql -c "CREATE USER odbctest WITH SUPERUSER PASSWORD 'odbctest';" && \
+    createdb -O odbctest odbctest && \
+    service postgresql stop
+
+COPY --chown=root:${GROUP} dockerfiles/odbc.ini /etc/
+COPY --chown=root:${GROUP} dockerfiles/odbcinst.ini /etc/
+
+USER ${USER}
+
+## Need to set USER and create a keygen file for ssh tests to pass
+ENV USER=${USER}
+RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
+    cp $HOME/.ssh/id_rsa.pub $HOME/.ssh/authorized_keys
+
+## Java and log4j are used by fop to build documentation
+COPY --chown=${USER}:${GROUP} dockerfiles/log4j.properties /home/${USER}/
+ENV OTP_STRICT_INSTALL=yes \
+    JAVA_ARGS="-Dlog4j.configuration=file://home/${USER}/log4j.properties"
+
+RUN sudo mkdir /buildroot /tests /otp && sudo chown ${USER}:${GROUP} /buildroot /tests /otp
+
+COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
+
+## TODO: Build Erlang versions N, N-1 and N-2 for compatability testing.
+
+ENTRYPOINT ["/buildroot/init.sh"]

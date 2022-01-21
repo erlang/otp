@@ -40,8 +40,8 @@ all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
 
-.PHONY: debug opt lcnt clean
-debug opt lcnt clean:
+.PHONY: debug opt lcnt clean test
+$(TYPES) clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
@@ -49,9 +49,15 @@ debug opt lcnt clean:
 	done
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
+
+.PHONY: test
+test:
+	TEST_NEEDS_RELEASE=true TYPE=$(TYPE) \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+
 .PHONY: $(FLAVORS)
 $(FLAVORS):
-	$(V_at)for type in $(TYPES); do \
+	$(V_at)for type in $(DEFAULT_TYPES); do \
 		( $(MAKE) FLAVOR=$@ $$type ) || exit $$?; \
 	done
 
@@ -144,7 +150,7 @@ makefiles:
 .PHONY: release
 release:
 ifeq ($(TYPE),)
-	for t in $(TYPES); do \
+	for t in $(DEFAULT_TYPES); do \
 	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
 else
@@ -167,5 +173,3 @@ release_docs:
 .PHONY: xmllint
 xmllint:
 	$(MAKE) -C doc/src $@
-
-include $(ERL_TOP)/make/app_targets.mk

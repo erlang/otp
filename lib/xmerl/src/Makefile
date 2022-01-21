@@ -131,7 +131,7 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 
 docs:
 #docs:	$(DOC_TARGET_FILES)

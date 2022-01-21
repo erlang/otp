@@ -67,8 +67,8 @@ ERL_COMPILE_FLAGS += -I../include -I../ebin -Werror
 # ----------------------------------------------------
 opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
-debug:
-	@${MAKE} TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:
 	rm -f $(TARGET_FILES) $(GEN_FILES) $(APP_TARGET) $(APPUP_TARGET)

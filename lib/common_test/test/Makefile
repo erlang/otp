@@ -112,7 +112,7 @@ EBIN = .
 #	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
 #	> $(EMAKEFILE)
 
-tests debug opt:
+tests $(TYPES):
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:

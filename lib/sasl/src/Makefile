@@ -69,7 +69,7 @@ ERL_COMPILE_FLAGS += -I../../stdlib/include -Werror
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

@@ -163,7 +163,7 @@ ERL_COMPILE_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-debug opt: 
+$(TYPES): 
 
 clean:
 

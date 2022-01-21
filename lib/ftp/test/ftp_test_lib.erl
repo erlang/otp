@@ -28,14 +28,15 @@
 make_cert_files(Dir) ->
     #{server_config := ServerConf,
       client_config := _} =
-        public_key:pkix_test_data(#{server_chain =>
-                                        #{root => [{key, hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, hardcode_rsa_key(2)}]],
-                                          peer => [{key, hardcode_rsa_key(3)}]},
-                                    client_chain =>
-                                        #{root => [{key, hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, hardcode_rsa_key(3)}]],
-                                          peer => [{key, hardcode_rsa_key(2)}]}}),
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => [{key, hardcode_rsa_key(1)},{digest,appropriate_sha()}],
+                  intermediates => [[{key, hardcode_rsa_key(2)},{digest,appropriate_sha()}]],
+                  peer => [{key, hardcode_rsa_key(3)},{digest,appropriate_sha()}]},
+            client_chain =>
+                #{root => [{key, hardcode_rsa_key(1)},{digest,appropriate_sha()}],
+                  intermediates => [[{key, hardcode_rsa_key(3)},{digest,appropriate_sha()}]],
+                  peer => [{key, hardcode_rsa_key(2)},{digest,appropriate_sha()}]}}),
 
     CaCertFile = filename:join(Dir, "server-cacerts.pem"),
     CertFile = filename:join(Dir, "server-cert.pem"),
@@ -47,6 +48,20 @@ make_cert_files(Dir) ->
     der_to_pem(CertFile, [cert_entry(Cert)]),
     der_to_pem(KeyFile, [key_entry(Key)]),
     der_to_pem(CaCertFile, ca_entries(CAs)).
+
+appropriate_sha() ->
+    Hashes = proplists:get_value(hashs, crypto:supports()),
+    case os:cmd("openssl version") of
+        "OpenSSL 0.9.8" ++  _ ->
+            sha;
+        _ ->
+            case lists:member(sha256, Hashes) of
+                true ->
+                    sha256;
+                false ->
+                    sha
+            end
+    end.
 
 cert_entry(Cert) ->
     {'Certificate', Cert, not_encrypted}.

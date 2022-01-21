@@ -633,7 +633,7 @@ name_addr_and_cached(Config) when is_list(Config) ->
         %% should get identical results from the cache
         name_addr(Domain, fun toupper/1)
     after
-        [inet_db:res_option(Option, Value)
+        [ok = inet_db:res_option(Option, Value)
          || {Option, Value} <- SavedOptions]
     end,
     ?P("done"),

@@ -105,7 +105,7 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: emakebuild $(TARGET_FILES)
+tests $(TYPES): emakebuild $(TARGET_FILES)
 
 .PHONY: emakebuild
 

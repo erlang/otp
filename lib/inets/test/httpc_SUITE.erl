@@ -2093,7 +2093,7 @@ receive_replys([ID|IDs]) ->
 	{http, {ID, {{_, 200, _}, [_|_], _}}} ->
 	    receive_replys(IDs);
 	{http, {Other, {{_, 200, _}, [_|_], _}}} ->
-	    ct:pal({recived_canceld_id, Other})
+	    ct:pal("~p",[{recived_canceld_id, Other}])
     end.
 
 

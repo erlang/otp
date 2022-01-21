@@ -220,6 +220,8 @@ JAVADOC-GENERATED
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml
 /erts/emulator/make_test_dir/
+/erts/epmd/make_test_dir/
+/erts/make_test_dir/
 
 # common_test
 

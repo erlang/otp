@@ -862,7 +862,7 @@ recv_chunk_delay(Config0) when is_list(Config0) ->
 delay_recv_chunk(Pid) ->
      delay_recv_chunk(Pid, <<>>).
 delay_recv_chunk(Pid, Acc) ->
-    ct:pal("Received size ~p", [byte_size(Acc)]),
+    ct:log("Received size ~p", [byte_size(Acc)]),
     case ftp:recv_chunk(Pid) of
          ok ->
              {ok, Acc};

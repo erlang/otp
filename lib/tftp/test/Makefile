@@ -161,7 +161,7 @@ ERL_COMPILE_FLAGS += \
 # 1) TFTP_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

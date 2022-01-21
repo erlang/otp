@@ -129,7 +129,7 @@ info:
 	@echo "XML_CHAPTER_FILES:     $(XML_CHAPTER_FILES)"
 	@echo "BOOK_FILES:            $(BOOK_FILES)"
 
-debug opt lcnt:
+$(TYPES):
 
 clean clean_docs: clean_xml clean_pdf clean_html clean_man clean_chunks
 	rm -rf $(EXTRA_FILES)

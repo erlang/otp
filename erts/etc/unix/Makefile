@@ -24,7 +24,7 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../../vsn.mk
 
-opt debug lcnt: etc
+$(TYPES): etc
 
 .PHONY: etc
 etc: etp-commands

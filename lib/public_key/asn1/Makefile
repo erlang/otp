@@ -73,7 +73,7 @@ ASN_FLAGS = -bber +der +noobj +asn1config
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(HRL_FILES)
+$(TYPES): $(TARGET_FILES) $(HRL_FILES)
 
 clean:
 	-rm -f $(ASN_ERLS) $(GEN_ERLS) $(ASN_HRLS) $(HRL_FILES) $(ASN_DBS) \

@@ -5,17 +5,24 @@ Before you start testing you need to have the Erlang release which you
 are going to test in your path. See [$ERL_TOP/HOWTO/INSTALL.md][] for
 instructions on how to build an Erlang release.
 
+*NOTE*: This instructions may vary for different versions of Erlang/OTP,
+so make sure to read the instructions for the version that you are testing.
+
 Short version
 -------------
-Move to the top directory of the Erlang release you want to test, i.e.
-cd /ldisk/work/otp
+Move to the top directory of the Erlang release you want to test, for example:
+cd $HOME/git/otp
 
-    export ERL_TOP=`pwd`
-	./otp_build setup -a
-	export PATH=`pwd`/bin:$PATH
-	./otp_build tests
-	cd release/tests/test_server
-	erl -s ts install -s ts run all_tests -s init stop
+```bash
+export ERL_TOP=`pwd`            # Define where the build root is
+./configure && make             # Build all of Erlang/OTP
+make test                       # Test all of Erlang/OTP
+```
+
+The tests will take a long time to finish and will print a lot of logs to the
+console even if tests pass. A full run takes close about 6 hours on a relatively
+modern machine. See [Running tests while developing][] for details on how to run
+only a subset of the tests.
 
 Where are the tests
 -------------------
@@ -46,14 +53,57 @@ the erl_interface tests use this feature and it should remain that way.
 [configuring the tests][]. These `Makefile`s are later run by the test suite
 to compile whatever platform specific code the tests need to run.
 
+Running tests while developing
+------------------------------
+
+The `make test` command works when the current directory contains a directory
+called test and in the root directory of the source code tree.
+
+Below are some examples that illustrate how `make test` can be
+used:
+
+```bash
+# ERL_TOP needs to be set correctly
+cd /path/to/otp
+export ERL_TOP=`pwd`
+
+# Build Erlang/OTP
+#
+# Note that make test will only compile test code except when
+# make test is executed from $ERL_TOP.
+./otp_build setup -a
+
+# Run all test suites for an application
+(cd $ERL_TOP/lib/asn1 && make test)
+make asn1_test
+
+# Run a test suite (The ARGS variable is passed to ct_run)
+(cd $ERL_TOP/lib/stdlib && make test ARGS="-suite ets_SUITE")
+make stdlib_test ARGS="-suite ets_SUITE"
+
+# Run a test case
+(cd $ERL_TOP/erts/emulator && make test ARGS="-suite binary_SUITE -case deep_bitstr_lists")
+make emulator_test ARGS="-suite binary_SUITE -case deep_bitstr_lists"
+
+# Run all tests
+#
+# When executed from $ERL_TOP, "make test" will first release and
+# configure all tests and then attempt to run all tests with `ts:run`.
+# This will take several hours.
+(cd $ERL_TOP && make test)
+```
+
+For more examples see [DEVELOPMENT.md](DEVELOPMENT.md)
+
 Releasing tests
 ---------------
 
-If you cannot use [ct_run][] in the source tree you have to release the tests
-into a common test directory. The easiest way to do this is to use `otp_build`
-like this:
+When not testing in the source tree, you first need to release all tests.
+The easiest way to do this is to use `otp_build` like this:
 
-    export ERL_TOP=`pwd`; ./otp_build tests
+```bash
+export ERL_TOP=`pwd`; ./otp_build tests
+```
 
 This will release all tests in Erlang/OTP to `$ERL_TOP/release/tests/`. If you
 want to change the directory where the tests are released to use the `TESTROOT`
@@ -99,24 +149,31 @@ All variables created by `ts:install()` are found in
 
 To run all test suites go to `$TESTROOT/test_server` fire up an Erlang shell and type:
 
-    ts:run().
+```erlang
+ts:run().
+```
 
 Note that running all tests will require several hours, so you may want to run
 the test cases for a single application
 
-    ts:run(Application, [batch]).
+```erlang
+ts:run(Application, [batch]).
+```
 
 or even part of the test suite for an application, for example
 
-    ts:run(emulator, bs, [batch]).
+```erlang
+ts:run(emulator, bs_construct_SUITE, [batch]).
+```
 
-to run all test suite modules starting with `bs` (i.e. all modules that test
-the bit syntax).
+to run the tests in the `bs_construct_SUITE` module (testing construction of
+binaries using the binary syntax).
 
-To run a specific test case in a module, the full name of the module and test
-case must be specified:
+It is also possible to run a single test case by the specifying the module name and a function name:
 
-    ts:run(emulator, bs_bincomp_SUITE, byte_aligned, [batch]).
+```erlang
+ts:run(emulator, bs_bincomp_SUITE, byte_aligned, [batch]).
+```
 
 Run `ts:help().` for more information.
 
@@ -124,66 +181,20 @@ As of R14B02 it is also possibly to start all tests but the erl_interface tests
 by invoking Common Test directly from the released applications test directory,
 i.e.
 
-    cd $TESTROOT/test_server
-    $ERL_TOP/bin/ct_run -suite ../compiler_test/andor_SUITE -case t_orelse
+```bash
+cd $TESTROOT/test_server
+$ERL_TOP/bin/ct_run -suite ../compiler_test/andor_SUITE -case t_orelse
+```
 
 Running [ct_run][] from the command line still requires you to do the
 `ts:install()` step above.
 
-### Convenience for running tests without the release and configuration steps
-
-It can be convenient to run tests with a single command. This way, one
-do not need to worry about missing to run `make release_tests` after
-changing a test suite. The `make test` command can be used for this
-purpose. The `make test` command works when the current directory
-contains a directory called test and in the root directory of the
-source code tree.
-
-*(Warning)* Some test cases do not run correctly or cannot be run at
-all through the `make test` command (typically test cases that require
-test specific C code to be compiled) because `make test` runs tests
-directly by invoking the `ct_run` command instead of using the `ts`
-wrapper. One has to follow the procedure described above to run test
-cases that do not work with `make test`.
-
-Below are some examples that illustrate how `make test` can be
-used:
-
-    # ERL_TOP needs to be set correctly
-    cd /path/to/otp
-    export ERL_TOP=`pwd`
-
-    # Build Erlang/OTP
-    #
-    # Note that make test will only compile test code except when
-    # make test is executed from $ERL_TOP.
-    ./otp_build setup -a
-
-    # Run a test case (The ARGS variable is passed to ct_run)
-    (cd $ERL_TOP/erts/emulator && make ARGS="-suite binary_SUITE -case deep_bitstr_lists" test)
-
-    # Run a test suite
-    (cd $ERL_TOP/lib/stdlib && make ARGS="-suite ets_SUITE" test)
-
-    # Run all test suites for an application
-    (cd $ERL_TOP/lib/asn1 && make test)
-
-    # Run all tests
-    #
-    # When executed from $ERL_TOP, "make test" will first release and
-    # configure all tests and then attempt to run all tests with `ts:run`.
-    # This will take several hours.
-    (cd $ERL_TOP && make test)
-
-
 Examining the results
 ---------------------
 
-Open the file `release/tests/test_server/index.html` in a web browser. Or open
-`release/tests/test_server/last_test.html` when a test suite is running to
-examine the results so far for the currently executing test suite (in R14B02 and
-later you want to open the `release/tests/test_server/all_runs.html` file to
-get to the currently running test)
+Open the file `$ERL_TOP/release/tests/test_server/index.html` in a web browser. Or open
+`$ERL_TOP/release/tests/test_server/last_test.html` when a test suite is running to
+examine the results so far for the currently executing test suite.
 
 
 Run tests with Address Sanitizer
@@ -195,15 +206,19 @@ See [$ERL_TOP/HOWTO/INSTALL.md][].
 Set environment variable `ASAN_LOG_DIR` to the directory
 where the error logs will be generated.
 
-    export ASAN_LOG_DIR=$TESTROOT/test_server/asan_logs
-    mkdir $ASAN_LOG_DIR
+```bash
+export ASAN_LOG_DIR=$TESTROOT/test_server/asan_logs
+mkdir $ASAN_LOG_DIR
+```
 
 Set environment variable `TS_RUN_EMU` to `asan`.
 
-    export TS_RUN_EMU=asan
+```bash
+export TS_RUN_EMU=asan
+```
 
-Then run the tests you want with `ts:run` as described above. Either
-inspect the log files directly or use the script at
+Then run the tests you want with `ts:run` as [described above](#running-the-tests).
+Either inspect the log files directly or use the script at
 `$ERL_TOP/erts/emulator/asan/asan_logs_to_html` to read all log files
 in `$ASAN_LOG_DIR` and distill them into one html page
 `asan_summary.html`. Repeated reports from the same memory leak will
@@ -220,15 +235,19 @@ and build the emulator with `valgrind` build target. See
 Set environment variable `VALGRIND_LOG_DIR` to the directory
 where the valgrind error logs will be generated.
 
-    export VALGRIND_LOG_DIR=$TESTROOT/test_server/vg_logs
-    mkdir $VALGRIND_LOG_DIR
+```bash
+export VALGRIND_LOG_DIR=$TESTROOT/test_server/vg_logs
+mkdir $VALGRIND_LOG_DIR
+```
 
 Set environment variable `TS_RUN_EMU` to `valgrind`.
 
-    export TS_RUN_EMU=valgrind
+```bash
+export TS_RUN_EMU=valgrind
+```
 
-Then run the tests you want with `ts:run` as described above and
-inspect the log file(s) in `$VALGRIND_LOG_DIR`.
+Then run the tests you want with `ts:run` as [described above](#running-the-tests)
+and inspect the log file(s) in `$VALGRIND_LOG_DIR`.
 
 
    [ct_run]: http://www.erlang.org/doc/man/ct_run.html
@@ -239,5 +258,6 @@ inspect the log file(s) in `$VALGRIND_LOG_DIR`.
    [data_dir]: http://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data_priv_dir
    [configuring the tests]: #configuring-the-test-environment
    [valgrind]: https://valgrind.org
+   [Running tests while developing]: #running-tests-while-developing
 
    [?TOC]: true

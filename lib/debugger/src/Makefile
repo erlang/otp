@@ -92,7 +92,7 @@ ERL_COMPILE_FLAGS += -Werror
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)
+$(TYPES): $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)

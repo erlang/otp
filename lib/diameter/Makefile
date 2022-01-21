@@ -28,5 +28,6 @@ SPECIAL_TARGETS =
 include $(ERL_TOP)/make/otp_subdir.mk
 
 DIA_PLT_APPS=ssl runtime_tools syntax_tools
+TEST_NEEDS_RELEASE=true
 
 include $(ERL_TOP)/make/app_targets.mk

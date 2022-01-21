@@ -67,7 +67,7 @@ TARGET_FILES= \
 # Targets
 # ----------------------------------------------------
 
-debug opt: build
+$(TYPES): build
 
 clean:
 	rm -f $(TARGET_FILES)

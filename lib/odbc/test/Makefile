@@ -76,7 +76,7 @@ ERL_COMPILE_FLAGS += $(INCLUDES) \
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET)
+tests $(TYPES): $(BUILDTARGET)
 
 targets: $(TARGET_FILES)
 

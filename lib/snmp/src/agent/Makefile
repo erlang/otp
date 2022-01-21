@@ -110,8 +110,8 @@ ERL_COMPILE_FLAGS += -I../../include \
 # Targets
 # ----------------------------------------------------
 
-debug:
-	@$(MAKE) TYPE=debug opt
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 opt:
 	@$(MAKE) behaviour_targets

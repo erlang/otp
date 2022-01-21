@@ -11302,7 +11302,8 @@ api_opt_simple_otp_options() ->
 
          %% *** We are done ***
          #{desc => "finish",
-           cmd  => fun(_) ->
+           cmd  => fun(#{ dummy := Dummy }) ->
+                           Dummy ! die,
                            {ok, normal}
                    end}
         ],

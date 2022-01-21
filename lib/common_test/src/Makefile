@@ -133,7 +133,7 @@ APPUP_FILE= common_test.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-tests debug opt: $(TARGET_FILES)
+tests $(TYPES): $(TARGET_FILES)
 
 docs:
 

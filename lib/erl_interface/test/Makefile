@@ -58,7 +58,7 @@ RELSYSDIR = $(RELEASE_PATH)/erl_interface_test
 # Targets
 # ----------------------------------------------------
 
-tests debug opt:
+tests $(TYPES):
 
 clean:
 
