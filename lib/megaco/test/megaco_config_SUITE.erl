@@ -46,8 +46,11 @@
 
 -record(command, {id, desc, cmd, verify}).
 
--define(TEST_VERBOSITY, debug).
--define(NUM_CNT_PROCS,  100).
+-define(TEST_VERBOSITY,     debug).
+-define(CNT_PROCS_NUM,      100).
+-define(CNT_PROCS_CHUNK,    10).
+-define(MAX_TRANS_ID,       1000).
+-define(MAX_TRANS_ID_CHUNK, 100).
 
 
 %%======================================================================
@@ -554,19 +557,26 @@ command(No, Desc, Cmd, VerifyVal)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-calc_max_trans_id(Config, Max) ->
+calc_max_trans_id(Config) ->
+    calc_number(Config, ?MAX_TRANS_ID_CHUNK, ?MAX_TRANS_ID).
+
+calc_num_cnt_procs(Config) ->
+    calc_number(Config, ?CNT_PROCS_CHUNK, ?CNT_PROCS_NUM).
+
+calc_number(Config, Chunk, Max) ->
     Factor = ?config(megaco_factor, Config),
     if
         (Factor =:= 1) ->
             Max;
-        (Factor =< 10) ->
-            calc_max_trans_id2(Factor, Max);
+        (Factor < 10) ->
+            calc_number2(Factor, Chunk, Max);
         true ->
-            calc_max_trans_id2(10, Max)
+            calc_number2(10, Chunk, Max)
     end.
 
-calc_max_trans_id2(Factor, Max) ->
-    Max - ((Factor-1) * 100).
+calc_number2(Factor, Chunk, Max) ->
+    Max - ((Factor-1) * Chunk).
+
 
 transaction_id_counter_mg(suite) ->
     [];
@@ -577,13 +587,16 @@ transaction_id_counter_mg(doc) ->
 transaction_id_counter_mg(Config) when is_list(Config) ->
     put(verbosity, ?TEST_VERBOSITY),
     put(sname,     "TEST"),
-    put(tc,        transaction_id_counter_mg),
+    put(tc,        ?FUNCTION_NAME),
     
     process_flag(trap_exit, true),
 
-    MaxTransID = calc_max_trans_id(Config, 1000),
+    MaxTransID  = calc_max_trans_id(Config),
+    NumCntProcs = calc_num_cnt_procs(Config),
 
-    i("starting with Max Transaction ID: ~w", [MaxTransID]),
+    i("starting with"
+      "~n      Max Transaction ID:      ~w"
+      "~n      Number Of Counter Procs: ~w", [MaxTransID, NumCntProcs]),
 
     %% Basic user data
     UserMid = {deviceName, "mg"},
@@ -615,8 +628,8 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     megaco_config:update_conn_info(CH, max_trans_id, MaxTransID),
 
     %% Create the counter worker procs
-    i("create counter working procs"),
-    Pids = create_counter_working_procs(CH, ?NUM_CNT_PROCS, []),
+    i("create ~w counter working procs", [NumCntProcs]),
+    Pids = create_counter_working_procs(CH, NumCntProcs, []),
 
     %% Start the counter worker procs
     i("release the counter working procs"),
@@ -831,10 +844,17 @@ transaction_id_counter_mgc(doc) ->
      "transaction counter handling of the application "
      "in with several connections (MGC). "];
 transaction_id_counter_mgc(Config) when is_list(Config) ->
-    Name       = transaction_id_counter_mgc,
-    MaxTransID = calc_max_trans_id(Config, 1000),
+    put(verbosity, ?TEST_VERBOSITY),
+    put(sname,     "TEST"),
+    put(tc,        ?FUNCTION_NAME),
+    
+    Name        = ?FUNCTION_NAME,
+    MaxTransID  = calc_max_trans_id(Config),
+    NumCntProcs = calc_num_cnt_procs(Config),                   
 
-    i("starting with Max Transaction ID: ~w", [MaxTransID]),
+    i("starting with"
+      "~n      Max Transaction ID:      ~w"
+      "~n      Number Of Counter Procs: ~w", [MaxTransID, NumCntProcs]),
 
     Pre = fun() ->
                   %% Basic user data
@@ -923,8 +943,8 @@ transaction_id_counter_mgc(Config) when is_list(Config) ->
 
     Case = fun({_, CDs}) ->
                    %% Create the counter worker procs
-                   i("create counter working procs"),
-                   Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
+                   i("create ~w counter working procs", [NumCntProcs]),
+                   Pids = create_counter_working_procs(CDs, NumCntProcs),
 
                    %% Start the counter worker procs
                    i("release the counter working procs"),
