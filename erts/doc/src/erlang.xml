@@ -1783,7 +1783,9 @@ end</code>
         <p>Prints a text representation of <c><anno>Term</anno></c> on the
           standard output.</p>
         <warning>
-          <p>This BIF is intended for debugging only.</p>
+          <p>This BIF is intended for debugging only. The printed representation
+            may contain internal details that do not match the high-level
+            representation of the term in Erlang.</p>
         </warning>
       </desc>
     </func>
