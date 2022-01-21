@@ -710,7 +710,12 @@ init_per_suite(Config) ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
                     snmp_test_global_sys_monitor:start(),
-                    [{snmp_factor, Factor} | Config]
+                    case lists:keysearch(label, 1, HostInfo) of
+                        {value, Label} ->
+                            [{snmp_factor, Factor}, Label | Config];
+                        false ->
+                            [{snmp_factor, Factor} | Config]
+                    end
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -772,7 +777,7 @@ maybe_skip(_HostInfo) ->
         end,
     DarwinVersionVerify =
         fun(V) when (V > {9, 8, 0}) ->
-                %% This version is OK: No Skip
+                %% These version(s) are OK: No Skip
                 false;
            (_V) ->
                 %% This version is *not* ok: Skip
@@ -985,8 +990,17 @@ ts_extra_flatform_label() ->
         Val   -> Val
     end.
 
+simplify_label(Label) ->
+    case string:to_lower(Label) of
+        "docker" ++ _ ->
+            docker;
+        _ ->
+            host
+    end.
+
 
 linux_which_distro(Version) ->
+    Label = ts_extra_flatform_label(),
     case file:read_file_info("/etc/issue") of
         {ok, _} ->
             case [string:trim(S) ||
@@ -996,41 +1010,49 @@ linux_which_distro(Version) ->
                               "~n   Distro:                  ~s"
                               "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, DistroStr, ts_extra_flatform_label()]),
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            wind_river;
-                        "MontaVista" ++ _ ->
-                            montavista;
-                        "Yellow Dog" ++ _ ->
-                            yellow_dog;
-                        _ ->
-                            other
-                    end;
+                              [Version, DistroStr, Label]),
+                    {case DistroStr of
+                         "Wind River Linux" ++ _ ->
+                             wind_river;
+                         "MontaVista" ++ _ ->
+                             montavista;
+                         "Yellow Dog" ++ _ ->
+                             yellow_dog;
+                         _ ->
+                             other
+                     end,
+                     simplify_label(Label)};
                 X ->
                     io:format("Linux: ~s"
                               "~n   Distro:                  ~p"
                               "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, X, ts_extra_flatform_label()]),
-                    other
+                              [Version, X, Label]),
+                    {other, simplify_label(Label)}
             end;
         _ ->
             io:format("Linux: ~s"
-                      "~n", [Version]),
-            other
+                      "~n   TS Extra Platform Label: ~s"
+                      "~n", [Version, Label]),
+            {other, simplify_label(Label)}
     end.
-    
+
+label2factor(docker) ->
+    4;
+label2factor(host) ->
+    0.
+
 analyze_and_print_linux_host_info(Version) ->
-    Distro =
+    {Distro, Label} =
         case file:read_file_info("/etc/issue") of
             {ok, _} ->
                 linux_which_distro(Version);
             _ ->
+                L = ts_extra_flatform_label(),
                 io:format("Linux: ~s"
                           "~n   TS Extra Platform Label: ~s"
-                          "~n", [Version, ts_extra_flatform_label()]),
-                other
+                          "~n", [Version, L]),
+                {other, simplify_label(L)}
         end,
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
@@ -1069,19 +1091,24 @@ analyze_and_print_linux_host_info(Version) ->
             _ ->
                 5
         end,
+    AddLabelFactor = label2factor(Label),
     %% Check if we need to adjust the factor because of the memory
-    try linux_which_meminfo() of
-        AddFactor ->
-            io:format("TS Scale Factor: ~w (~w + ~w)~n",
-                      [timetrap_scale_factor(), Factor, AddFactor]),
-            {Factor + AddFactor, []}
-    catch
-        _:_:_ ->
-            io:format("TS Scale Factor: ~w (~w)~n",
-                      [timetrap_scale_factor(), Factor]),
-            {Factor, []}
-    end.
-
+    AddMemFactor = try linux_which_meminfo()
+                   catch _:_:_ -> 0
+                   end,
+    TSScaleFactor = case timetrap_scale_factor() of
+                        N when is_integer(N) andalso (N > 0) ->
+                            N - 1;
+                        _ ->
+                            0
+                    end,
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      TS Scale Factor: ~w"
+             "~n", [Factor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
+    {Factor + AddLabelFactor + AddMemFactor + TSScaleFactor, [{label, Label}]}.
 
 
 linux_cpuinfo_lookup(Key) when is_list(Key) ->

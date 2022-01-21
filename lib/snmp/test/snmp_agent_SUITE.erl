@@ -1092,59 +1092,65 @@ init_per_testcase1(v3_inform_i = _Case, Config) when is_list(Config) ->
 	 "~n   Config: ~p", [_Case, Config]),
     wd_start(10, Config);
 init_per_testcase1(v3_des_priv = _Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase1 -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [_Case, Config]),
-    %% <CONDITIONAL-SKIP>
-    %% This is intended to catch Yellow Dog Linux release 6.2 (2.6.29)
-    LinuxVersionVerify = 
-	fun() ->
-		case string:to_lower(os:cmd("uname -m")) of
-		    "ppc" ++ _ ->
-			case file:read_file_info("/etc/issue") of
-			    {ok, _} ->
-				case string:to_lower(
-                                       os:cmd("grep -i yellow /etc/issue")) of
-				    "yellow dog " ++ _ ->
-					case os:version() of
-					    {2, 6, 29} ->
-                                                ?IPRINT("(PPC Linux) "
-                                                        "kernel version check: "
-                                                        "{2, 6, 29} => SKIP"),
-						true;
-					    V ->
-                                                ?IPRINT("(PPC Linux) "
-                                                        "kernel version check: "
-                                                        "~p != {2, 6, 29} => "
-                                                        "*NO* SKIP", [V]),
-						false
-					end;
-				    _ -> % Maybe plain Debian or Ubuntu
-                                        ?IPRINT("(PPC Linux) => *NO* SKIP"),
-					false
-				end;
-			    _ ->
-                                ?IPRINT("(PPC Linux) Unknown distro => "
-                                        "*NO* SKIP"),
-				false
-			end;
-		    _ ->
-                        ?IPRINT("(Linux) Not PPC => *NO* SKIP"),
-			false
-		end
-	end,
-    Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
-    %% </CONDITIONAL-SKIP>
-    case ?OS_BASED_SKIP(Skippable) of
-        true ->
-            {skip, "Host *may* not *properly* handle this test case"};
-        false ->
-            wd_start(6, Config)
+    ?IPRINT("init_per_testcase1 -> entry with"
+            "~n   Case:   ~p"
+            "~n   Config: ~p", [_Case, Config]),
+    case ?config(label, Config) of
+        docker ->
+            ?IPRINT("Running in docker => SKIP"),
+            {skip, "Behaves badly when run in a docker"};
+        _ ->
+            %% <OS-CONDITIONAL-SKIP>
+            %% This is intended to catch Yellow Dog Linux release 6.2 (2.6.29)
+            LinuxVersionVerify = 
+                fun() ->
+                        case string:to_lower(os:cmd("uname -m")) of
+                            "ppc" ++ _ ->
+                                case file:read_file_info("/etc/issue") of
+                                    {ok, _} ->
+                                        case string:to_lower(
+                                               os:cmd("grep -i yellow /etc/issue")) of
+                                            "yellow dog " ++ _ ->
+                                                case os:version() of
+                                                    {2, 6, 29} ->
+                                                        ?IPRINT("(PPC Linux) "
+                                                                "kernel version check: "
+                                                                "{2, 6, 29} => SKIP"),
+                                                        true;
+                                                    V ->
+                                                        ?IPRINT("(PPC Linux) "
+                                                                "kernel version check: "
+                                                                "~p != {2, 6, 29} => "
+                                                                "*NO* SKIP", [V]),
+                                                        false
+                                                end;
+                                            _ -> % Maybe plain Debian or Ubuntu
+                                                ?IPRINT("(PPC Linux) => *NO* SKIP"),
+                                                false
+                                        end;
+                                    _ ->
+                                        ?IPRINT("(PPC Linux) Unknown distro => "
+                                                "*NO* SKIP"),
+                                        false
+                                end;
+                            _ ->
+                                ?IPRINT("(Linux) Not PPC => *NO* SKIP"),
+                                false
+                        end
+                end,
+            OSSkippable = [{unix, [{linux, LinuxVersionVerify}]}],
+            %% </OS-CONDITIONAL-SKIP>
+            case ?OS_BASED_SKIP(OSSkippable) of
+                true ->
+                    {skip, "Host *may* not *properly* handle this test case"};
+                false ->
+                    wd_start(6, Config)
+            end
     end;
 init_per_testcase1(_Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [_Case, Config]),
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Case:   ~p"
+            "~n   Config: ~p", [_Case, Config]),
     wd_start(6, Config).
 
 init_per_testcase2(Case, Config) ->
