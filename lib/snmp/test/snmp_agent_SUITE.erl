@@ -1330,21 +1330,64 @@ stop_agent(Config) ->
 
 
 create_tables(SaNode) ->
-    ?line {atomic, ok} = mnesia:create_table([{name, friendsTable2},
-					      {ram_copies, [SaNode]},
-					      {snmp, [{key, integer}]},
-					      {attributes, [a1,a2,a3]}]),
-    ?line {atomic, ok} = mnesia:create_table([{name, kompissTable2},
-					      {ram_copies, [SaNode]},
-					      {snmp, [{key, integer}]},
-					      {attributes, [a1,a2,a3]}]),
-    ?line {atomic, ok} = mnesia:create_table([{name, snmp_variables},
-					      {attributes, [a1,a2]}]).
+    %% ?line {atomic, ok} = mnesia:create_table([{name, friendsTable2},
+    %%     				      {ram_copies, [SaNode]},
+    %%     				      {snmp, [{key, integer}]},
+    %%     				      {attributes, [a1,a2,a3]}]),
+    mnesia_create_table_or_skip([{name, friendsTable2},
+                                 {ram_copies, [SaNode]},
+                                 {snmp, [{key, integer}]},
+                                 {attributes, [a1,a2,a3]}]),
+    %% ?line {atomic, ok} = mnesia:create_table([{name, kompissTable2},
+    %%     				      {ram_copies, [SaNode]},
+    %%     				      {snmp, [{key, integer}]},
+    %%     				      {attributes, [a1,a2,a3]}]),
+    mnesia_create_table_or_skip([{name, kompissTable2},
+                                 {ram_copies, [SaNode]},
+                                 {snmp, [{key, integer}]},
+                                 {attributes, [a1,a2,a3]}]),
+    %% ?line {atomic, ok} = mnesia:create_table([{name, snmp_variables},
+    %%     				      {attributes, [a1,a2]}]),
+    mnesia_create_table_or_skip([{name, snmp_variables},
+                                 {attributes, [a1,a2]}]),
+    ok.
+
+mnesia_create_table_or_skip(Args) ->
+    case mnesia:create_table(Args) of
+        {atomic, ok} ->
+            ok;
+        {aborted, {already_exists, Table}}  ->
+            ?SKIP({table_already_exist, Table});
+        {aborted, Error}  ->
+            ?FAIL({failed_create_table, Error})
+    end.
+
 
 delete_tables() ->
-    mnesia:delete_table(friendsTable2),
-    mnesia:delete_table(kompissTable2),
-    mnesia:delete_table(snmp_variables).
+    %% mnesia:delete_table(friendsTable2),
+    mnesia_delete_table(friendsTable2),
+    %% mnesia:delete_table(kompissTable2),
+    mnesia_delete_table(kompissTable2),
+    %% mnesia:delete_table(snmp_variables).
+    mnesia_delete_table(snmp_variables).
+
+mnesia_delete_table(Tab) ->
+    try mnesia:delete_table(Tab) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            ?EPRINT("Table delete aborted:"
+                    "~n      Table:  ~w: "
+                    "~n      Reason: ~p", [Tab, Reason]),
+            {error, Reason}
+    catch
+        C:E:S ->
+            ?EPRINT("Failed delete table ~w: "
+                    "~n      Class: ~p"
+                    "~n      Error: ~p"
+                    "~n      Stack: ~p", [Tab, C, E, S]),
+            {error, {C, E, S}}
+    end.
 
 %% Tables are created in runtime!
 delete_mib_storage_mnesia_tables() ->
@@ -1590,44 +1633,61 @@ init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     [{vsn, v1}, {agent_opts, Opts} | Config].
 
 finish_mib_storage_ets(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_ets -> entry"),
+    ?IPRINT("finish_mib_storage_ets -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_ets -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_ets -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_ets -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_mib_storage_dets(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_dets -> entry"),
+    ?IPRINT("finish_mib_storage_dets -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_dets -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_dets -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_dets -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_mib_storage_mnesia(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_mnesia -> entry"),
+    ?IPRINT("finish_mib_storage_mnesia -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_mnesia -> "
+            "try delete (mib storage) mnesia tables"),
     delete_mib_storage_mnesia_tables(),
+    ?IPRINT("finish_mib_storage_mnesia -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_mnesia -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_mnesia -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_varm_mib_storage_dets(Config) when is_list(Config) ->
-    ?IPRINT("finish_varm_mib_storage_dets -> entry"),
+    ?IPRINT("finish_varm_mib_storage_dets -> try delete mnesia tables"),
     delete_tables(),
     %% C1 = stop_agent(Config), % In case something went wrong...
+    ?IPRINT("finish_varm_mib_storage_dets -> try delete files"),
     delete_files(Config),
+    ?IPRINT("finish_varm_mib_storage_dets -> done"),
     C2 = lists:keydelete(vsn, 1, Config),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_varm_mib_storage_mnesia(Config) when is_list(Config) ->
-    ?IPRINT("finish_varm_mib_storage_mnesia -> entry"),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> "
+            "try delete (mib storage) mnesia tables"),
     delete_mib_storage_mnesia_tables(),
     %% C1 = stop_agent(Config), % In case something went wrong...
+    ?IPRINT("finish_varm_mib_storage_mnesia -> try delete files"),
     delete_files(Config),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> done"),
     C2 = lists:keydelete(vsn, 1, Config),
     lists:keydelete(agent_opts, 1, C2).
 
@@ -1641,9 +1701,13 @@ finish_size_check_msm(Config) when is_list(Config) ->
     finish_size_check_ms(Config).
 
 finish_size_check_ms(Config) when is_list(Config) ->
+    ?IPRINT("finish_size_check_ms -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_size_check_ms -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_size_check_ms -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_size_check_ms -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2194,9 +2258,13 @@ init_v1(Config) when is_list(Config) ->
     [{vsn, v1} | start_v1_agent(Config)].
 
 finish_v1(Config) when is_list(Config) ->
+    ?IPRINT("finish_v1 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v1 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v1 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v1 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2267,9 +2335,13 @@ init_v2(Config) when is_list(Config) ->
     [{vsn, v2} | start_v2_agent(Config)].
 
 finish_v2(Config) when is_list(Config) ->
+    ?IPRINT("finish_v2 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v2 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v2 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v2 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2288,9 +2360,13 @@ init_v1_v2(Config) when is_list(Config) ->
     [{vsn, bilingual} | start_bilingual_agent(Config)].
 
 finish_v1_v2(Config) when is_list(Config) ->
+    ?IPRINT("finish_v1_v2 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v1_v2 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v1_v2 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v1_v2 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2389,9 +2465,13 @@ init_v3(Config) when is_list(Config) ->
     [{vsn, v3} | start_v3_agent(Config, Opts)].
 
 finish_v3(Config) when is_list(Config) ->
+    ?IPRINT("finish_v3 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v3 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v3 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v3 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2412,9 +2492,13 @@ init_mt(Config, MT) when is_list(Config) ->
     [{vsn, v2} | start_multi_threaded_agent(Config, MT)].
 
 finish_mt(Config) when is_list(Config) ->
+    ?IPRINT("finish_mt -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mt -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mt -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mt -> done"),
     lists:keydelete(vsn, 1, C1).
 
 %% This one *must* be run first in each case.

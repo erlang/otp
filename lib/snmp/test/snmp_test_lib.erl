@@ -469,6 +469,26 @@ display_app_version(MI) ->
 %% Conditional skip of testcases
 %%
 
+%% maybe_skip([]) ->
+%%     ok;
+%% maybe_skip([{Desc, F}|Funs]) when is_function(F, 0) ->
+%%     iprint("Check skip condition: ~s", [Desc]),
+%%     try F() of
+%%         {skip, _} = SKIP ->
+%%             iprint("Skip condition fulfilled: SKIP", [Desc]),
+%%             SKIP;
+%%         _ ->
+%%             maybe_skip(Funs)
+%%     catch
+%%         C:E:S ->
+%%             iprint("Skip condition failed - ignoring"
+%%                    "~n      Class: ~p"
+%%                    "~n      Error: ~p"
+%%                    "~n      Stack: ~p", [C, E, S]),
+%%             maybe_skip(Funs)
+%%     end.
+
+
 non_pc_tc_maybe_skip(Config, Condition, File, Line)
   when is_list(Config) andalso is_function(Condition) ->
     %% Check if we shall skip the skip
