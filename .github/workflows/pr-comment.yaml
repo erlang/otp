@@ -19,24 +19,14 @@ jobs:
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
-      - uses: actions/github-script@v5
+      - uses: actions/checkout@v2
+      - name: Fetch PR number
         id: pr-number
-        with:
-            result-encoding: string
-            script: |
-                console.log(`PRs: ${JSON.stringify(context.payload.workflow_run.pull_requests,null,2)}`);
-                for (const workflow_pr of context.payload.workflow_run.pull_requests) {
-                  console.log("GET " + workflow_pr.url);
-                  let pr = await github.request("GET " + workflow_pr.url);
-
-                  console.log(`PR: ${JSON.stringify(pr,null,2)}`);
-
-                  if (pr.data.base.repo.name == context.repo.repo &&
-                    pr.data.base.repo.owner.login == context.repo.owner) {
-                    return `${workflow_pr.number}`;
-                  }
-                }
-                return '';
+        run: |
+           git clone https://github.com/talentdeficit/jsx
+           (cd jsx && rebar3 compile)
+           .github/scripts/get-pr-number.es erlang/otp \
+             "${{ github.event.workflow_run.head_sha }}"
 
   starting-tests:
     runs-on: ubuntu-latest
