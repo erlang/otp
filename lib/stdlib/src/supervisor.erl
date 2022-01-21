@@ -349,6 +349,10 @@ init_children(State, StartSpec) ->
         {ok, Children} ->
             case start_children(Children, SupName) of
                 {ok, NChildren} ->
+                    %% Force a garbage collection since initialization may generate
+                    %% garbage, especially if logging, but the supervisor may not work
+                    %% frequently enough to trigger a GC any time soon.
+                    _ = erlang:garbage_collect(),
                     {ok, State#state{children = NChildren}};
                 {error, NChildren, Reason} ->
                     _ = terminate_children(NChildren, SupName),
@@ -361,7 +365,9 @@ init_children(State, StartSpec) ->
 init_dynamic(State, [StartSpec]) ->
     case check_startspec([StartSpec], State#state.auto_shutdown) of
         {ok, Children} ->
-	    {ok, dyn_init(State#state{children = Children})};
+            InitState = dyn_init(State#state{children = Children}),
+            _ = erlang:garbage_collect(),
+            {ok, InitState};
         Error ->
             {stop, {start_spec, Error}}
     end;
