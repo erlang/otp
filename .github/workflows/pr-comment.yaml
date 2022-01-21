@@ -24,7 +24,9 @@ jobs:
         with:
             result-encoding: string
             script: |
+                console.log(`PRs: ${JSON.stringify(context.payload.workflow_run.pull_requests,null,2)}`);
                 for (const workflow_pr of context.payload.workflow_run.pull_requests) {
+                  console.log("GET " + workflow_pr.url);
                   let pr = await github.request("GET " + workflow_pr.url);
 
                   console.log(`PR: ${JSON.stringify(pr,null,2)}`);
