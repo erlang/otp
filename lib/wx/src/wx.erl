@@ -149,14 +149,14 @@ set_env(#wx_env{sv=Pid} = Env) ->
 %% all MacOSX specific events corresponding to MacNewFile() and friends
 %% from wxWidgets wxApp https://docs.wxwidgets.org/trunk/classwx_app.html
 %%
-%% * `{file_new, ""}` 
-%% * `{file_open, Filename}`
-%% * `{file_print, Filename}`
-%% * `{url_open, Url}`
+%% * `{new_file, ""}`
+%% * `{open_file, Filename}`
+%% * `{print_file, Filename}`
+%% * `{open_url, Url}`
 %% * `{reopen_app, ""}`
 %%
 %% The call always returns ok but will have sent any already received
-%% events to the calling process. 
+%% events to the calling process.
 -spec subscribe_events() -> 'ok'.
 subscribe_events() ->
     gen_server:call(wxe_master, subscribe_msgs, infinity).
