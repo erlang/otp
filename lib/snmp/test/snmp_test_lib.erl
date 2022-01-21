@@ -2377,7 +2377,7 @@ nodes_on(Host) when is_list(Host) ->
 
 start_node(Name, Args) ->
     Opts = [{cleanup, false}, {args, Args}],
-    test_server:start_node(Name, slave, Opts).
+    test_server:start_node(Name, peer, Opts).
 
 
 stop_node(Node) ->
