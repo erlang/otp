@@ -391,7 +391,7 @@ parse({with, X, As}=T) when is_list(As) ->
     case As of
 	[A | As1] ->
 	    check_arity(A, 1, T),
-	    {data, [{eunit_lib:fun_parent(A), fun () -> A(X) end},
+	    {data, [{erlang:fun_info_mfa(A), fun () -> A(X) end},
 		    {with, X, As1}]};
 	[] ->
 	    {data, []}
@@ -439,7 +439,7 @@ parse_simple(F) ->
 
 parse_function(F) when is_function(F) ->
     check_arity(F, 0, F),
-    #test{f = F, location = eunit_lib:fun_parent(F)};
+    #test{f = F, location = erlang:fun_info_mfa(F)};
 parse_function({test, M, F}) when is_atom(M), is_atom(F) ->
     #test{f = eunit_test:mf_wrapper(M, F), location = {M, F, 0}};
 parse_function({M, F}) when is_atom(M), is_atom(F) ->
