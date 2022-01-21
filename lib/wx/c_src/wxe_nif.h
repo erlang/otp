@@ -38,7 +38,7 @@ extern ERL_NIF_TERM WXE_ATOM__wx_invoke_cb_;
 extern ERL_NIF_TERM WXE_ATOM_define;
 extern ERL_NIF_TERM WXE_ATOM_global;
 
-/* Used for comparsions */
+/* Used for comparisons */
 extern ERL_NIF_TERM WXE_ATOM_wxWindow;
 extern ERL_NIF_TERM WXE_ATOM_wxSizer;
 

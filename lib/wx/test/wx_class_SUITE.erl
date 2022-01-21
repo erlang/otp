@@ -87,7 +87,7 @@ calendarCtrl(Config) ->
 	true ->
 	    ?log("DateAttr is null~n",[]);
 	false ->
-	    ?log("DateAttr is useable~n",[]),
+	    ?log("DateAttr is usable~n",[]),
 	    DateAttr = ?mt(wxCalendarDateAttr, wxCalendarDateAttr:new()),
 	    wxCalendarDateAttr:setBackgroundColour(DateAttr, {0,243,0}),
 	    wxCalendarCtrl:setAttr(Cal, Day, DateAttr),

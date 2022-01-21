@@ -632,7 +632,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 	    delete refd;
 	    ptr2ref.erase(it);
 	  } // overridden allocs deletes meta-data in clearPtr
-	} else { // Not alloced in erl just delete references
+	} else { // Not allocated in erl just delete references
 	  if(refd->ref >= global_me->next) { // if it is not part of global ptrs
 	    delete refd;
 	    ptr2ref.erase(it);

@@ -107,7 +107,7 @@ void wxeFifo::DelQueue(unsigned int i)
 
 void wxeFifo::DeleteCmd(wxeCommand *orig)
 {
-  orig->op = -2;  // Assert: will crash if op is negativ
+  orig->op = -2;  // Assert: will crash if op is negative
   enif_clear_env(orig->env);
   free.push_back(orig);
 }
@@ -136,6 +136,6 @@ void wxeFifo::Append(wxeCommand *orig)
   curr->env = orig->env;
   orig->env = temp;
   curr->me_ref = orig->me_ref;
-  orig->op = -1; // Assert: will crash if op is negativ
+  orig->op = -1; // Assert: will crash if op is negative
   m_q.push_back(curr);
 }

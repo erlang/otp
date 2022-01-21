@@ -23,7 +23,7 @@
 %% That's because this program uses some pretty dodgy techniques to
 %% get at the data it requires.
 
-%% I use epp_dodger to parse the file and the new imporved erl_scan
+%% I use epp_dodger to parse the file and the new improved erl_scan
 %% find the exact values of the tokens
 
 %% epp_dodger returns an objects of type erl_syntax which are pretty

@@ -207,7 +207,7 @@ write([{#f{c=wxShowEvent,f=getShow},_}|Rest], P, K) ->
 write([{#f{c=wxSingleChoiceDialog,f=singleChoiceDialog, a=[]},_}|Rest], P, K) ->
     write(Rest, P, K+1);
 write([{#f{c=wxSizer,f=recalcSizes},_}|Rest], P, K) ->
-    io:format("Removed wxSizer:recalcSizer() was an wxWidgets internal function now deprected~n", []),
+    io:format("Removed wxSizer:recalcSizer() was an wxWidgets internal function now deprecated~n", []),
     write(Rest, P, K+1);
 write([{#f{c=wxSizerItem,f=setWindow},_}|Rest], P, K) ->
     io:format("Removed depr wxSizerItem:setWindow() use assignWindow~n", []),

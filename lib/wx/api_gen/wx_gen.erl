@@ -648,7 +648,7 @@ parse_param(#xmlElement{name=declname,content=[C]},_Opts,T) ->
 parse_param(#xmlElement{name=defval,content=[#xmlText{value=Def}]},_Opts,T) -> 
     T#param{def=string:strip(Def)};
 parse_param(#xmlElement{name=defval,content=Other},_Opts,T) -> 
-    %% For defaults = (modifer wxType *) NULL 
+    %% For defaults = (modifier wxType *) NULL 
     Def0 = foldr(fun(#xmlText{value=V}, Acc) -> V ++ Acc;
 		    (#xmlElement{content=[#xmlText{value=V}]},Acc) -> 
 			 V ++ Acc
@@ -1522,7 +1522,7 @@ enum_file(File) ->
 parse_enums(Files) ->
     DontSearch = ["wxchar","filefn", "platform", "strconv", "filename", 
 		  "buffer", "string", "debug", "platinfo"],
-    %% Arg need to patch some specials, atleast for wx-2.6
+    %% Arg need to patch some specials, at least for wx-2.6
     ExtraSearch = ["layout", "utils", "added__func"],
     io:format("~nParse Enums~n~n", []),
     parse_enums(Files ++ ExtraSearch,gb_sets:from_list(DontSearch)).

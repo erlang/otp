@@ -46,7 +46,7 @@ wxeEvtListener::wxeEvtListener(ErlNifPid caller, int req, ERL_NIF_TERM req_type,
 }
 
 wxeEvtListener::~wxeEvtListener() {
-  // enif_fprintf(stderr, "CBD Deleteing %p %T\r\n", this, class_name); fflush(stderr);
+  // enif_fprintf(stderr, "CBD Deleting %p %T\r\n", this, class_name); fflush(stderr);
   if(user_data) {
     delete user_data;
   }
