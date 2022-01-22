@@ -973,11 +973,12 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
 
             CloseHandle(handle);
 
-            if(posix_errno != 0) {
-                return posix_errno;
+            if(posix_errno == 0) {
+                posix_errno = efile_read_info(&resolved_path, 0, result);
+                enif_release_binary(&resolved_path);
             }
 
-            return efile_read_info(&resolved_path, 0, result);
+            return posix_errno;
         }
 
         GetFileInformationByHandle(handle, &native_file_info);
@@ -1008,17 +1009,20 @@ posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result) 
 
     if(GetFileInformationByHandle(w->handle, &native_file_info)) {
         build_file_info_times(&native_file_info, result);
+        build_file_info(&native_file_info, &path, 0, result);
+
+        posix_errno = 0;
     } else if(is_path_root(&path)) {
         /* GetFileInformationByHandle is not supported on path roots, so
          * fall back to efile_read_info. */
-        return efile_read_info(&path, 0, result);
+        posix_errno = efile_read_info(&path, 0, result);
     } else {
-        return windows_to_posix_errno(GetLastError());
+        posix_errno = windows_to_posix_errno(GetLastError());
     }
 
-    build_file_info(&native_file_info, &path, 0, result);
+    enif_release_binary(&path);
 
-    return 0;
+    return posix_errno;
 }
 
 posix_errno_t efile_set_permissions(const efile_path_t *path, Uint32 permissions) {
