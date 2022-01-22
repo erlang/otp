@@ -67,7 +67,7 @@
 -export([send_alert/2,
          send_alert_in_connection/2,
          send_sync_alert/2,
-         close/5,
+         close/4,
          protocol_name/0]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
@@ -480,16 +480,16 @@ send_sync_alert(
     end.
 
 %% User closes or recursive call!
-close({close, Timeout}, Socket, Transport = gen_tcp, _,_) ->
+close({close, Timeout}, Socket, Transport = gen_tcp, _) ->
     tls_socket:setopts(Transport, Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
     _ = Transport:recv(Socket, 0, Timeout),
     ok;
 %% Peer closed socket
-close({shutdown, transport_closed}, Socket, Transport = gen_tcp, ConnectionStates, Check) ->
-    close({close, 0}, Socket, Transport, ConnectionStates, Check);
+close({shutdown, transport_closed}, Socket, Transport = gen_tcp, ConnectionStates) ->
+    close({close, 0}, Socket, Transport, ConnectionStates);
 %% We generate fatal alert
-close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates, Check) ->
+close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates) ->
     %% Standard trick to try to make sure all
     %% data sent to the tcp port is really delivered to the
     %% peer application before tcp port is closed so that the peer will
@@ -498,9 +498,9 @@ close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates, Chec
     %% e.g. we do not want to hang if something goes wrong
     %% with the network but we want to maximise the odds that
     %% peer application gets all data sent on the tcp connection.
-    close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates, Check);
+    close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
 %% Other
-close(_, Socket, Transport, _,_) -> 
+close(_, Socket, Transport, _) ->
     tls_socket:close(Transport, Socket).
 protocol_name() ->
     "TLS".
@@ -581,7 +581,10 @@ next_record(_, #state{handshake_env =
 next_record(_, #state{protocol_buffers =
                           #protocol_buffers{tls_cipher_texts = [_|_] = CipherTexts},
                       connection_states = ConnectionStates,
-                      ssl_options = #{padding_check := Check}} = State) ->
+                      ssl_options = SslOpts} = State) ->
+    %% Do not match this option as it is relevant for TLS-1.0 only
+    %% and will not be present otherwise that is we regard it to always be true
+    Check = maps:get(padding_check, SslOpts, true),
     next_record(State, CipherTexts, ConnectionStates, Check);
 next_record(connection, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                                protocol_specific = #{active_n_toggle := true}

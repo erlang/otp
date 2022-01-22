@@ -216,6 +216,11 @@
           versions                   => {[], [protocol]}
          }).
 
+-define('TLS-1_3_ONLY_OPTIONS', [anti_replay, cookie, early_data, key_update_at, middlebox_comp_mode, session_tickets, supported_groups, use_ticket]).
+-define('FROM_TLS-1_2_ONLY_OPTIONS', [signature_algs, signature_algs_cert]).
+-define('PRE_TLS-1_3_ONLY_OPTIONS', [client_renegotiation, secure_renegotiate]).
+-define('TLS-1_0_ONLY_OPTIONS', [padding_check, beast_mitigation]).
+
 -record(socket_options,
 	{
 	  mode   = list, 
