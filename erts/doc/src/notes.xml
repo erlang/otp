@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a memory leak in <c>file:read_file_info/2</c>
+	    and <c>file:read_file/1</c> on Windows.</p>
+          <p>
+	    Own Id: OTP-17827 Aux Id: GH-5527 </p>
+        </item>
+        <item>
+          <p>
+	    Fix GC emulator crash when <c>spawn_request</c> was used
+	    when message tracing was enabled.</p>
+          <p>
+	    Own Id: OTP-17871 Aux Id: PR-5612 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

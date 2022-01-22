@@ -27,6 +27,54 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve SNI (server name indication) handling so that
+	    protocol version can be selected with regards to SNI.
+	    Also, make sure that ssl:connection_information/1 returns
+	    the correct SNI value.</p>
+          <p>
+	    Own Id: OTP-17794 Aux Id: GH-5341, GH-4450 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed cipher suite listing functions so that the listing
+	    of all cipher suites will be complete. Another fix for
+	    cipher suite handling in OTP-24.1 accidentally excludes a
+	    few cipher suites from the listing of all cipher suites.</p>
+          <p>
+	    Own Id: OTP-17829 Aux Id: ERIERL-708 </p>
+        </item>
+        <item>
+          <p>
+	    Reenable legacy cipher suite
+	    TLS_RSA_WITH_3DES_EDE_CBC_SHA for explicit configuration
+	    in TLS-1.2, not supported by default.</p>
+          <p>
+	    Own Id: OTP-17879 Aux Id: GH-5624 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Avoid unnecessary logs by better adjusting the tls_sender
+	    process to the new supervisor structure in OTP-24.2</p>
+          <p>
+	    Own Id: OTP-17831</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
