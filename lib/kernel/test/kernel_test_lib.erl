@@ -38,6 +38,7 @@
          print/1, print/2]).
 -export([good_hosts/1,
          lookup/3]).
+-export([os_cmd/1, os_cmd/2]).
 
 -export([
          %% Generic 'has support' test function(s)
@@ -1748,6 +1749,17 @@ proxy_call(F, Timeout, Default)
             Default
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+os_cmd(Cmd) ->
+    os_cmd(Cmd, infinity).
+
+os_cmd(Cmd, infinity) ->
+    {ok, os:cmd(Cmd)};
+os_cmd(Cmd, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
+    proxy_call(fun() -> {ok, os:cmd(Cmd)} end, Timeout, {error, timeout}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

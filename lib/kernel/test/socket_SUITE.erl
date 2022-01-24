@@ -18968,11 +18968,16 @@ which_multicast_address2(Domain, WhichMAddr) ->
     IfName = which_local_host_ifname(Domain),
     %% On some platforms the netstat barfs out some crap on stderr
     %% before the actual info...
-    case os:cmd("netstat -g 2>/dev/null | grep " ++ IfName) of
-        [] ->
+    %% ...without the 'n' (that is; just '-g') this command can take a
+    %% *long* time. *With* the 'n' its much better. But just to be on
+    %% the safe side, we add a timeout of 10 seconds.
+    case ?LIB:os_cmd("netstat -gn 2>/dev/null | grep " ++ IfName, ?SECS(10)) of
+        {error, timeout} ->
+            skip({netstat, timeout});
+        {ok, []} ->
             %% Can't figure out if we support multicast or not...
             not_supported(no_netstat);
-        NetstatGroupsStr ->
+        {ok, NetstatGroupsStr} ->
             try
                 begin
                     NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
