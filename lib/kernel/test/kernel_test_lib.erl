@@ -31,8 +31,7 @@
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
--export([start_slave_node/2, start_slave_node/3,
-         start_node/3, start_node/4,
+-export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
          print/1, print/2]).
@@ -1698,23 +1697,16 @@ tc_which_name() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_slave_node(Name, Args) ->
-    start_slave_node(Name, Args, []).
+start_node(Name, Args) ->
+    start_node(Name, Args, []).
 
-start_slave_node(Name, Args, Opts) ->
-    start_node(Name, slave, Args, Opts).
-
-
-start_node(Name, Type, Args) ->
-    start_node(Name, Type, Args, []).
-
-start_node(Name, Type, Args, Opts) ->
+start_node(Name, Args, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     A = Args ++
         " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
-    case test_server:start_node(Name, Type, [{args, A}|Opts]) of
+    case test_server:start_node(Name, peer, [{args, A}|Opts]) of
         {ok, _Node} = OK ->
             global:sync(),
 	    OK;

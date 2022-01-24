@@ -53,10 +53,10 @@
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
--define(START_SLAVE_NODE(__N__, __A__),
-        ?LIB:start_slave_node(__N__, __A__)).
--define(START_SLAVE_NODE(__N__, __A__, __O__),
-        ?LIB:start_slave_node(__N__, __A__, __O__)).
+-define(START_NODE(__N__, __A__),
+        ?LIB:start_node(__N__, __A__)).
+-define(START_NODE(__N__, __A__, __O__),
+        ?LIB:start_node(__N__, __A__, __O__)).
 
 -define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
                          
