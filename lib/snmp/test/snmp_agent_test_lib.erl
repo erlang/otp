@@ -1118,6 +1118,9 @@ expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) ->
 expect2(Mod, Line, F) ->
     io_format_expect("for ~w:~w", [Mod, Line]),
     case F() of
+	{error, {securityError, usmStatsNotInTimeWindows}} ->
+	    io_format_expect("(USM) Stats not-in-windows => ", []),
+	    skip({securityError, usmStatsNotInTimeWindows});
 	{error, Reason} ->
 	    io_format_expect("failed at ~w:~w => "
                              "~n      ~p", [Mod, Line, Reason]),
