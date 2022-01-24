@@ -18,13 +18,8 @@
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.OtpErlangAtom;
-import com.ericsson.otp.erlang.OtpErlangLong;
-import com.ericsson.otp.erlang.OtpErlangObject;
-import com.ericsson.otp.erlang.OtpErlangPid;
-import com.ericsson.otp.erlang.OtpErlangTuple;
-import com.ericsson.otp.erlang.OtpMbox;
-import com.ericsson.otp.erlang.OtpNode;
+import java.util.Arrays;
+import com.ericsson.otp.erlang.*;
 
 class MboxSendReceive {
 
@@ -104,6 +99,43 @@ class MboxSendReceive {
 		dbg("java_echo_server received " + obj);
 		if (obj == null) System.exit(4);
 		if (!obj.equals(msgArray[1])) System.exit(5);
+
+                // Test4: Test all term types
+                byte[] bytes = {1,2,3};
+                int[] ints = {11,22,33};
+                OtpErlangObject[] elements = {
+                    new OtpErlangAtom("atom"),
+                    new OtpErlangString("string"),
+                    new OtpErlangLong(17),
+                };
+                OtpErlangObject[] terms = {
+                    new OtpErlangBitstr(bytes, 5),
+                    new OtpErlangDouble(3.141592),
+                    new OtpErlangExternalFun("lists", "length", 1),
+                    //new OtpErlangFun(...),
+                    new OtpErlangList(elements),
+                    new OtpErlangLong(-1742),
+                    new OtpErlangMap(Arrays.copyOfRange(elements,0,elements.length-1),
+                                     Arrays.copyOfRange(elements,1,elements.length)),
+                    new OtpErlangPid(node.node(), 1372, 1742, 98765),
+                    new OtpErlangPort(node.node(), 1372, 87654),
+                    new OtpErlangRef(node.node(), ints, 76543),
+                    new OtpErlangString("This is an OtpErlangString"),
+                    new OtpErlangTuple(elements),
+                };
+                for (int i=0; i < terms.length; i++) {
+                    msgArray[1] = terms[i];
+                    msg = new OtpErlangTuple(msgArray);
+
+                    dbg("java_echo_server2 sending " + msg);
+                    mbox2.send(erlangPid,msg);
+
+                    obj = mbox2.receive(recTime);
+                    dbg("java_echo_server received " + obj);
+                    if (obj == null) System.exit(4);
+                    if (!obj.equals(msgArray[1])) System.exit(5);
+                }
+
 
 		break;
 
