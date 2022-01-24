@@ -38,6 +38,7 @@
          print/1, print/2,
 
          %% Generic 'has support' test function(s)
+         has_support_ipv4/0,
          has_support_ipv6/0,
 
          which_local_host_info/1,
@@ -121,6 +122,14 @@ print(F, A) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+has_support_ipv4() ->
+    case which_local_addr(inet) of
+        {ok, _Addr} ->
+            ok;
+        {error, R1} ->
+            skip(f("Local Address eval failed: ~p", [R1]))
+    end.
 
 has_support_ipv6() ->
     case socket:is_supported(ipv6) of
