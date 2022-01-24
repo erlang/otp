@@ -115,7 +115,7 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'new_try_tag' | 'old_make_fun' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
                    'wait_timeout'.
@@ -213,10 +213,12 @@ no_side_effect(#b_set{op=Op}) ->
         is_nonempty_list -> true;
         is_tagged_tuple -> true;
         make_fun -> true;
+        match_fail -> true;
         phi -> true;
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
+        raw_raise -> true;
         {succeeded,guard} -> true;
         _ -> false
     end.

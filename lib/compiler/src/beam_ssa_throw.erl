@@ -170,16 +170,13 @@ si_is([#b_set{op=call,
               dst=Dst,
               args=[#b_remote{mod=#b_literal{val=erlang},
                               name=#b_literal{val=throw},
-                              arity=1}, _Term]}],
-      Id, _Lbl, #b_ret{arg=Dst}, Lst, Gst) ->
+                              arity=1}, _Term]},
+       #b_set{op={succeeded,body},args=[Dst]}],
+      Id, _Lbl, #b_br{fail=?EXCEPTION_BLOCK}, Lst, Gst) ->
     %% Tail throw, handled by caller. We'll need to visit this function again.
     #gst{throws=Throws0} = Gst,
     Throws = sets:add_element(Id, Throws0),
     {Lst, Gst#gst{throws=Throws}};
-si_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | _]}],
-      Id, _Lbl, #b_ret{arg=Dst}, Lst, Gst) ->
-    %% Tail call, inherit our caller's handler.
-    {Lst, inherit_tlh(Id, Callee, Gst)};
 si_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | _]},
        #b_set{op={succeeded,body},args=[Dst]}],
       Id, _Lbl, #b_br{fail=?EXCEPTION_BLOCK}, Lst, Gst) ->
@@ -333,11 +330,12 @@ opt_is([#b_set{op=call,
                dst=Dst,
                args=[#b_remote{mod=#b_literal{val=erlang},
                                name=#b_literal{val=throw},
-                               arity=1}, _Term]}=I0],
-       #b_ret{arg=Dst}, Hs) ->
+                               arity=1}, _Term]}=I0,
+        #b_set{op={succeeded,body},args=[Dst]}=Succ],
+       #b_br{}, Hs) ->
     ThrownType = beam_ssa:get_anno(thrown_type, I0, any),
     I = opt_throw(Hs, ThrownType, I0),
-    [I];
+    [I, Succ];
 opt_is([I | Is], Last, Hs) ->
     [I | opt_is(Is, Last, Hs)];
 opt_is([], _Last, _Hs) ->

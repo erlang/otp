@@ -996,13 +996,7 @@ add_unopt_binary_info(#b_set{op=Follow,dst=Dst}, Nested, Where, UseMap, Acc0)
     foldl(fun(Use, Acc) ->
                   add_unopt_binary_info(Use, Nested, Where, UseMap, Acc)
           end, Acc0, Uses);
-add_unopt_binary_info(#b_set{op=call,
-                             args=[#b_remote{mod=#b_literal{val=erlang},
-                                             name=#b_literal{val=error}} |
-                                   _Ignored]},
-                      _Nested, _Where, _UseMap, Acc) ->
-    %% There's no nice way to tell compiler-generated exceptions apart from
-    %% user ones so we ignore them all. I doubt anyone cares.
+add_unopt_binary_info(#b_set{op=match_fail}, _Nested, _Where, _UseMap, Acc) ->
     Acc;
 add_unopt_binary_info(#b_switch{anno=Anno}=I, Nested, Where, _UseMap, Acc) ->
     [make_promotion_warning(I, Nested, Anno, Where) | Acc];

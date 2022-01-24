@@ -586,7 +586,8 @@ cg_bad_generator([Arg|_], Annos, CallLast, FailBlk, Count) ->
 cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
     {L,Count1} = new_block(Count0),
     {TupleDst,Count2} = new_var('@ssa_tuple', Count1),
-    {Ret,Count3} = new_var('@ssa_ret', Count2),
+    {SuccDst,Count3} = new_var('@ssa_bool', Count2),
+    {Ret,Count4} = new_var('@ssa_ret', Count3),
     MFA = #b_remote{mod=#b_literal{val=erlang},
                     name=#b_literal{val=error},
                     arity=1},
@@ -594,21 +595,18 @@ cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
                     args=[#b_literal{val=bad_generator},Arg],
                     dst=TupleDst},
     CallI = #b_set{anno=Anno,op=call,args=[MFA,TupleDst],dst=Ret},
-    Is = [TupleI,CallI],
+    SuccI = #b_set{op={succeeded,body},args=[Ret],dst=SuccDst},
+    Is = [TupleI,CallI,SuccI],
 
-    %% When the generator is called within try/catch, the `bad_generator` call
-    %% must refer to the same landing pad or else we'll break optimizations
-    %% that assume exceptions are always reflected in the control flow.
-    Last = case CallLast of
-               #b_br{fail=CatchLbl} when CatchLbl =/= ?EXCEPTION_BLOCK ->
-                   #b_br{bool=#b_literal{val=true},
-                         succ=CatchLbl,fail=CatchLbl};
-               _ ->
-                   #b_ret{arg=Ret}
-           end,
+    %% The `bad_generator` call must refer to the same fail label (either a
+    %% landing pad or ?EXCEPTION_BLOCK) as the caller, or else we'll break
+    %% optimizations that assume exceptions are always reflected in the control
+    %% flow.
+    #b_br{fail=FailLbl} = CallLast,             %Assertion.
+    Last = #b_br{bool=SuccDst,succ=FailLbl,fail=FailLbl},
 
     Blk = #b_blk{is=Is,last=Last},
-    {L,[{L,Blk}|FailBlk],Count3}.
+    {L,[{L,Blk}|FailBlk],Count4}.
 
 cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
     {Bool,Count} = new_var('@ssa_bool', Count0),

@@ -672,7 +672,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% Ordinary function call in a function body.
             Args = ssa_args([Func|As], St0),
             {Ret,St1} = new_ssa_var(R, St0),
-            Call = #b_set{anno=call_anno(Le),op=call,dst=Ret,args=Args},
+            Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=Args},
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
@@ -683,50 +683,52 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
     end.
 
 enter_cg(Func, As0, Le, St0) ->
-    As = ssa_args([Func|As0], St0),
-    {Ret,St} = new_ssa_var('@ssa_ret', St0),
-    Call = #b_set{anno=call_anno(Le),op=call,dst=Ret,args=As},
-    {[Call,#b_ret{arg=Ret}],St}.
+    {no_catch,_} = FailCtx = fail_context(St0), %Assertion.
 
-call_anno(Le) ->
-    Anno = line_anno(Le),
-    case keyfind(inlined, 1, Le) of
-        false -> Anno;
-        {inlined,NameArity} -> Anno#{inlined => NameArity}
-    end.
+    As = ssa_args([Func|As0], St0),
+    {Ret,St2} = new_ssa_var('@ssa_ret', St0),
+    Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
+
+    {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
+    {[Call | TestIs] ++ [#b_ret{arg=Ret}],St}.
 
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
 
 bif_cg(#k_bif{anno=A,op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
-    internal_cg(line_anno(A), Name, As, Rs, St);
+    internal_cg(internal_anno(A), Name, As, Rs, St);
 bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
 
+internal_anno(Le) ->
+    Anno = line_anno(Le),
+    case keyfind(inlined, 1, Le) of
+        false -> Anno;
+        {inlined, NameArity} -> Anno#{ inlined => NameArity }
+    end.
+
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
+internal_cg(Anno, Op, As, Rs, St0)
+  when Op =:= match_fail; Op =:= raise; Op =:= raw_raise ->
+    {Dst, St1} = case Rs of
+                        [#k_var{name=Dst0} | Rest] ->
+                            {Var, StV} = new_ssa_var(Dst0, St0),
+                            {Var, set_unused_ssa_vars(Rest, StV)};
+                        [] ->
+                            new_ssa_var('@exception', St0)
+                    end,
 
-internal_cg(_Anno, Op0, As, [#k_var{name=Dst0}], St0)
-  when Op0 =:= raise; Op0 =:= raw_raise ->
-    Args = ssa_args(As, St0),
-    Op = fix_op(Op0, St0),
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
-    case fail_context(St) of
-        {no_catch,_Fail} ->
-            %% No current catch in this function. Follow the raw_raise/resume
-            %% instruction by a return (instead of branching to
-            %% ?EXCEPTION_MARKER) to ensure that the trim optimization can be
-            %% applied. (Allowing control to pass through to the next
-            %% instruction would mean that the type for the try/catch construct
-            %% would be `any`.)
-            Is = [Set,#b_ret{arg=Dst},#cg_unreachable{}],
-            {Is,St};
-        {in_catch,Fail} ->
-            Is = [Set,make_uncond_branch(Fail),#cg_unreachable{}],
-            {Is,St}
-    end;
+    {Kind, _Fail} = Context = fail_context(St1),
+    true = (Kind =/= guard) orelse (Op =:= match_fail), %Assertion.
+
+    Args = ssa_args(As, St1),
+
+    Set = #b_set{anno=Anno,op=fix_op(Op, St1),dst=Dst,args=Args},
+
+    {TestIs, St} = make_succeeded(Dst, Context, St1),
+    {[Set | TestIs], St};
 internal_cg(Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
                                           #k_var{name=Dst0}], St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),

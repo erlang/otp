@@ -401,56 +401,50 @@ letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
     end.
 
 %% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
-%%  Translate a match_fail primop to a call erlang:error/1 or
-%%  erlang:error/2.
+%%  Translate match_fail primops, paying extra attention to `function_clause`
+%%  errors that may have been inlined from other functions.
 
 translate_match_fail(Arg, Sub, Anno, St0) ->
     {Cargs,ExtraAnno,St1} =
         case {cerl:data_type(Arg),cerl:data_es(Arg)} of
-            {tuple,[#c_literal{val=function_clause}|As]} ->
+            {tuple,[#c_literal{val=function_clause} | _]=As} ->
                 translate_fc_args(As, Sub, Anno, St0);
-            {_,_} ->
-                {[Arg],[],St0}
+            {tuple,[#c_literal{} | _]=As} ->
+                {As,[],St0};
+            {{atomic,Reason}, []} ->
+                {[#c_literal{val=Reason}],[],St0}
         end,
     {Kargs,Ap,St} = atomic_list(Cargs, Sub, St1),
     Ar = length(Cargs),
-    Call = #k_call{anno=ExtraAnno++Anno,
-                   op=#k_remote{mod=#k_literal{val=erlang},
-                                name=#k_literal{val=error},
-                                arity=Ar},args=Kargs},
-    {Call,Ap,St}.
+    Primop = #k_bif{anno=ExtraAnno ++ Anno,
+                    op=#k_internal{name=match_fail,arity=Ar},
+                    args=Kargs},
+    {Primop,Ap,St}.
 
 translate_fc_args(As, Sub, Anno, #kern{fargs=Fargs}=St0) ->
-    case same_args(As, Fargs, Sub) of
-        true ->
-            %% The arguments for the `function_clause` exception are
-            %% the arguments for the current function in the correct
-            %% order.
-            {[#c_literal{val=function_clause},cerl:make_list(As)],
-             [],
-             St0};
-        false ->
-            %% The arguments in the `function_clause` exception don't
-            %% match the arguments for the current function because of
-            %% inlining.
-            Args = [cerl:c_tuple([#c_literal{val=function_clause}|As])],
-            case keyfind(function, 1, Anno) of
-                false ->
-                    %% This is probably a fun that has been inlined
-                    %% by sys_core_fold.
-                    {Name,St1} = new_fun_name("inlined", St0),
-                    {Args,
-                     [{inlined,{Name,length(As)}}],
-                     St1};
-                {_,{Name0,Arity}} ->
-                    %% This is function that has been inlined.
-                    Name1 = ["-inlined-",Name0,"/",Arity,"-"],
-                    Name = list_to_atom(lists:concat(Name1)),
-                    {Args,
-                     [{inlined,{Name,Arity}}],
-                     St0}
-            end
-    end.
+    {ExtraAnno, St} =
+        case same_args(As, Fargs, Sub) of
+            true ->
+                %% The arguments for the `function_clause` exception are
+                %% the arguments for the current function in the correct
+                %% order.
+                {[], St0};
+            false ->
+                %% The arguments in the `function_clause` exception don't
+                %% match the arguments for the current function because of
+                %% inlining.
+                case keyfind(function, 1, Anno) of
+                     false ->
+                         {Name, St1} = new_fun_name("inlined", St0),
+                         {[{inlined,{Name,length(As) - 1}}], St1};
+                     {_,{Name0,Arity}} ->
+                         %% This is function that has been inlined.
+                         Name1 = ["-inlined-",Name0,"/",Arity,"-"],
+                         Name = list_to_atom(lists:concat(Name1)),
+                         {[{inlined,{Name,Arity}}], St0}
+                end
+        end,
+    {As, ExtraAnno, St}.
 
 same_args([#c_var{name=Cv}|Vs], [#k_var{name=Kv}|As], Sub) ->
     get_vsub(Cv, Sub) =:= Kv andalso same_args(Vs, As, Sub);
@@ -2065,13 +2059,16 @@ break_rets(return) -> [].
 
 %% bif_returns(Op, [Ret], State) -> {[Ret],State}.
 
-bif_returns(#k_remote{mod=M,name=N,arity=Ar}, Rs, St0) ->
-    %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{M,N,Ar,Rs}]),
-    {Ns,St1} = new_vars(bif_vals(M, N, Ar) - length(Rs), St0),
-    {Rs ++ Ns,St1};
+bif_returns(#k_internal{name=match_fail}, Rs, St) ->
+    %% This is only used for effect, and may have any number of returns.
+    {Rs,St};
 bif_returns(#k_internal{name=N,arity=Ar}, Rs, St0) ->
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{N,Ar,Rs}]),
     {Ns,St1} = new_vars(bif_vals(N, Ar) - length(Rs), St0),
+    {Rs ++ Ns,St1};
+bif_returns(#k_remote{mod=M,name=N,arity=Ar}, Rs, St0) ->
+    %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{M,N,Ar,Rs}]),
+    {Ns,St1} = new_vars(bif_vals(M, N, Ar) - length(Rs), St0),
     {Rs ++ Ns,St1}.
 
 %% ensure_return_vars([Ret], State) -> {[Ret],State}.

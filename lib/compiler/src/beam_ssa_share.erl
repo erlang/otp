@@ -59,11 +59,10 @@ block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
             %% The terminator was reduced from a two-way branch to a
             %% one-way branch.
             case reverse(Is0) of
-                [#b_set{op={succeeded,Kind},args=[Dst]},#b_set{dst=Dst}|Is] ->
-                    %% A succeeded instruction must not be followed by a
-                    %% one-way branch. We must remove both the succeeded
+                [#b_set{op={succeeded,guard},args=[Dst]},#b_set{dst=Dst}|Is] ->
+                    %% A {succeeded,guard} instruction must not be followed by
+                    %% a one-way branch. We must remove both the succeeded
                     %% instruction and the instruction preceding it.
-                    guard = Kind,               %Assertion.
                     Blk#b_blk{is=reverse(Is),last=beam_ssa:normalize(Last)};
                 _ ->
                     Blk#b_blk{last=beam_ssa:normalize(Last)}
