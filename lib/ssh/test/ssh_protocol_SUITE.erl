@@ -75,7 +75,8 @@
          packet_length_too_short/1,
          preferred_algorithms/1,
          service_name_length_too_large/1,
-         service_name_length_too_short/1
+         service_name_length_too_short/1,
+         client_close_after_hello/1
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
@@ -112,7 +113,8 @@ all() ->
      {group,packet_size_error},
      {group,field_size_error},
      {group,ext_info},
-     {group,preferred_algorithms}
+     {group,preferred_algorithms},
+     {group,client_close_early}
     ].
 
 groups() ->
@@ -154,7 +156,9 @@ groups() ->
                                  modify_prepend,
                                  modify_rm,
                                  modify_combo
-                                ]}
+                                ]},
+     {client_close_early, [], [client_close_after_hello
+                               ]}
     ].
 
 
@@ -896,6 +900,82 @@ modify_combo(Config) ->
                                            ]}
                       ]).
 
+
+%%%----------------------------------------------------------------
+%%%
+client_close_after_hello() -> [{timetrap,{seconds,80}}].
+
+client_close_after_hello(Config0) ->
+    MaxSessions = 20,
+    SleepSec = 15,
+    Config = start_std_daemon(Config0, [{parallel_login,true},
+                                        {max_sessions,MaxSessions},
+                                        {negotiation_timeout,SleepSec*1000}
+                                       ]),
+
+    {Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
+
+    Cs =
+        [ssh_trpt_test_lib:exec(
+           [{connect,
+             server_host(Config),server_port(Config),
+             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                     {cipher,?DEFAULT_CIPHERS}
+                                    ]},
+              {silently_accept_hosts, true},
+              {recv_ext_info, false},
+              {user_dir, user_dir(Config)},
+              {user_interaction, false}
+              | proplists:get_value(extra_options,Config,[])
+             ]},
+            {send, hello}
+           ]) || _ <- lists:seq(1,MaxSessions+100)],
+
+    ct:pal("=== Tried to start ~p sessions.", [length(Cs)]),
+
+    ssh_info:print(fun ct:pal/2),
+    {Parents, Conns, Handshakers} = find_handshake_parent(server_port(Config)),
+    ct:pal("Found (Port=~p):~n"
+           "  Connections  (length ~p): ~p~n"
+           "  Handshakers  (length ~p): ~p~n"
+           "  with parents (length ~p): ~p",
+           [server_port(Config),
+            length(Conns), Conns,
+            length(Handshakers), Handshakers,
+            length(Parents), Parents]),
+    if
+        length(Handshakers)>0 ->
+            lists:foreach(fun(P) -> exit(P,some_reason) end, Parents),
+            ct:pal("After sending exits; now going to sleep", []),
+            timer:sleep((SleepSec+15)*1000),
+            ct:pal("After sleeping", []),
+            ssh_info:print(fun ct:pal/2),
+            {Parents2, Conns2, Handshakers2} = find_handshake_parent(server_port(Config)),
+            ct:pal("Found (Port=~p):~n"
+                   "  Connections  (length ~p): ~p~n"
+                   "  Handshakers  (length ~p): ~p~n"
+                   "  with parents (length ~p): ~p",
+                   [server_port(Config),
+                    length(Conns2), Conns2,
+                    length(Handshakers2), Handshakers2,
+                    length(Parents2), Parents2]),
+            if
+                Handshakers2==[] andalso Conns2==Conns0 ->
+                    ok;
+                Handshakers2=/=[] ->
+                    ct:pal("Handshakers still alive: ~p", [Handshakers2]),
+                    {fail, handshakers_alive};
+                true ->
+                    ct:pal("Connections before: ~p~n"
+                           "Connections after: ~p", [Conns0,Conns2]),
+                    {fail, connections_bad}
+            end;
+
+        true ->
+            {fail, no_handshakers}
+    end.
+
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -1072,3 +1152,39 @@ disconnect(Code) ->
 	   tcp_closed,
 	   {tcp_error,econnaborted}
 	  ]}.
+
+%%%----------------------------------------------------------------
+find_handshake_parent(Port) ->
+    Acc = {_Parents=[], _Connections=[], _Handshakers=[]},
+    find_handshake_parent(supervisor:which_children(sshd_sup), Port, Acc).
+
+
+find_handshake_parent([{{server,ssh_system_sup,_,Port,default},
+                        Pid,supervisor, [ssh_system_sup]}|_],
+                      Port, Acc) ->
+    find_handshake_parent(supervisor:which_children(Pid), Port, Acc);
+
+find_handshake_parent([{{ssh_acceptor_sup,_,Port,default},
+                        PidS,supervisor,[ssh_acceptor_sup]}|T],
+                       Port, {AccP,AccC,AccH}) ->
+    ParentHandshakers =
+        [{PidW,PidH} || {{ssh_acceptor_sup,_,Port1,default}, PidW, worker, [ssh_acceptor]} <- supervisor:which_children(PidS),
+                        Port1 == Port,
+                        PidH <- element(2, process_info(PidW,links)),
+                        is_pid(PidH),
+                        process_info(PidH,current_function) == {current_function,{ssh_connection_handler,handshake,3}}],
+    {Parents,Handshakers} = lists:unzip(ParentHandshakers),
+    find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
+
+find_handshake_parent([{_Ref,PidS,supervisor,[ssh_subsystem_sup]}|T], Port, {AccP,AccC,AccH}) ->
+    Connections =
+        [P || {{server,ssh_connection_sup,_,Port1}, Pid, supervisor, [ssh_connection_sup]} <- supervisor:which_children(PidS),
+              Port == Port1,
+              {undefined,P,worker,[ssh_connection_handler]} <- supervisor:which_children(Pid)],
+     find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});
+
+find_handshake_parent([_|T], Port, Acc) ->
+    find_handshake_parent(T, Port, Acc);
+
+find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
+    {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.
