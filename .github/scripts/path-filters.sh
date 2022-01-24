@@ -1,10 +1,23 @@
 #!/bin/bash
 
 cat <<EOF
-emulator:
-  - ['erts/**','!erts/epmd/**','!erts/test/**']
+emulator: &emulator
+  - 'make/**'
+EOF
+
+for file in erts/*; do
+    if [ "$file" != "erts/epmd" ]; then
+        if [ -d "$file" ]; then
+            echo "  - '$file/**'"
+        else
+            echo "  - '$file'"
+        fi
+    fi
+done
+
+cat <<EOF
 debug:
-  - ['erts/**','!erts/epmd/**','!erts/test/**']
+  - *emulator
 epmd:
   - 'erts/epmd/**'
 EOF
