@@ -23,6 +23,7 @@
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
+#include "openssl_version.h"
 
 #include <openssl/crypto.h>
 #include <openssl/des.h>
@@ -49,8 +50,11 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/err.h>
-#include "openssl_version.h"
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+# define HAS_3_0_API
+# include <openssl/provider.h>
+#endif
 
 /* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
  * with 1.0.1.
@@ -129,6 +133,13 @@
 # define DISABLE_EVP_HMAC 1
 #endif
 
+#ifdef HAS_3_0_API
+/* Do not use the deprecated interface */
+# undef  DISABLE_EVP_HMAC
+# define DISABLE_EVP_HMAC 0
+#endif
+
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
 #endif
@@ -178,13 +189,11 @@
 # define HAVE_BLAKE2
 #endif
 
-#if !defined(OPENSSL_NO_BF) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef OPENSSL_NO_BF
 # define HAVE_BF
 #endif
 
-#if !defined(OPENSSL_NO_DES) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef OPENSSL_NO_DES
 # define HAVE_DES
 #endif
 
@@ -204,8 +213,7 @@
 # define HAVE_DSA
 #endif
 
-#if !defined(OPENSSL_NO_MD4) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef OPENSSL_NO_MD4
 # define HAVE_MD4
 #endif
 
@@ -213,20 +221,18 @@
 # define HAVE_MD5
 #endif
 
-#if !defined(OPENSSL_NO_RC2) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef OPENSSL_NO_RC2
 # define HAVE_RC2
 #endif
 
-#if !defined(OPENSSL_NO_RC4) \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+#ifndef OPENSSL_NO_RC4
 # define HAVE_RC4
 #endif
 
 #if !defined(OPENSSL_NO_RMD160) && \
     !defined(OPENSSL_NO_RIPEMD160) && \
-    !defined(OPENSSL_NO_RIPEMD) && \
-    OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+    !defined(OPENSSL_NO_RIPEMD)
+/* Note RMD160 vs RIPEMD160 */
 # define HAVE_RIPEMD160
 #endif
 
@@ -248,11 +254,6 @@
 # if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
 #   define HAVE_EDDSA
 # endif
-#endif
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c') \
-    && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
-# define HAVE_AES_IGE
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
@@ -321,7 +322,9 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
-#if !defined(OPENSSL_NO_ENGINE)
+#if !defined(OPENSSL_NO_ENGINE) && \
+    !defined(HAS_3_0_API)
+/* Disable FIPS for 3.0 temporaryly until the support is added (might core dump) */
 # define HAS_ENGINE_SUPPORT
 #endif
 #endif
@@ -400,6 +403,10 @@
 /* Current value is: erlang:system_info(context_reductions) * 10 */
 #define MAX_BYTES_TO_NIF 20000
 
+#ifdef HAS_3_0_API
+# define MAX_NUM_PROVIDERS 10
+#endif
+
 #define CONSUME_REDS(NifEnv, Ibin)			\
 do {                                                    \
     size_t _cost = (Ibin).size;                         \
@@ -438,18 +445,36 @@ do {                                                    \
 # undef FIPS_SUPPORT
 #endif
 
-
-/* This is not the final FIPS adaptation for 3.0, just making it compilable */
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,0,0)
+/* Disable FIPS for 3.0 temporaryly until the support is added */
+#if defined(FIPS_SUPPORT) &&                                            \
+    defined(HAS_3_0_API)
 # undef FIPS_SUPPORT
 #endif
 
+#if defined(FIPS_SUPPORT) && \
+    defined(HAS_3_0_API)
+# define FIPS_mode() EVP_default_properties_is_fips_enabled(NULL)
+# define FIPS_mode_set(enable) EVP_default_properties_enable_fips(NULL, enable)
+#endif
+
+
 #if defined(FIPS_SUPPORT)
-# define FIPS_MODE() (FIPS_mode() ? 1 : 0)
+#  define FIPS_MODE() (FIPS_mode() ? 1 : 0)
 #else
 # define FIPS_MODE() 0
 #endif
 
+#ifdef HAS_3_0_API
+/* Set CRYPTO_DEVELOP_ERRORS to make error messages more verbose,
+   that is, include the error msg from cryptolib.
+   Example:
+      {error,{"api_ng.c",750},"Can't copy ctx_res"}
+   becomes
+      {error,{"api_ng.c",750},"Can't copy ctx_res: error:030000BE:digital envelope routines::not able to copy ctx"}
+   which enables the developer to locate more in detail where in the cryptolib code a test failed.
+*/
 
+//# define CRYPTO_DEVELOP_ERRORS
+#endif
 
 #endif /* E_OPENSSL_CONFIG_H__ */

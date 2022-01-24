@@ -80,6 +80,8 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
     }
     if ((digp = get_digest_type(type)) == NULL)
         return PKEY_BADARG;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        return PKEY_NOTSUP;
     if (digp->md.p == NULL)
         return PKEY_NOTSUP;
 
@@ -258,13 +260,6 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     EVP_PKEY *result = NULL;
-    RSA *rsa = NULL;
-#ifdef HAVE_DSA
-    DSA *dsa = NULL;
-#endif
-#if defined(HAVE_EC)
-    EC_KEY *ec = NULL;
-#endif
     char *id = NULL;
     char *password = NULL;
 
@@ -284,38 +279,17 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 #endif
 
     } else if (algorithm == atom_rsa) {
-        if ((rsa = RSA_new()) == NULL)
-            goto err;
-        if (!get_rsa_private_key(env, key, rsa))
-            goto err;
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_RSA(result, rsa) != 1)
+        if (!get_rsa_private_key(env, key, &result))
             goto err;
-        /* On success, result owns rsa */
-        rsa = NULL;
 
     } else if (algorithm == atom_ecdsa) {
 #if defined(HAVE_EC)
-	const ERL_NIF_TERM *tpl_terms;
-	int tpl_arity;
-        if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
-            goto err;
-        if (tpl_arity != 2)
-            goto err;
-        if (!enif_is_tuple(env, tpl_terms[0]))
-            goto err;
-        if (!enif_is_binary(env, tpl_terms[1]))
-            goto err;
-        if (!get_ec_key(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_EC_KEY(result, ec) != 1)
+        if (!get_ec_private_key(env, key, &result))
             goto err;
-        /* On success, result owns ec */
-        ec = NULL;
 #else
 	return PKEY_NOTSUP;
 #endif
@@ -332,16 +306,10 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 
     } else if (algorithm == atom_dss) {
 #ifdef HAVE_DSA
-        if ((dsa = DSA_new()) == NULL)
-            goto err;
-        if (!get_dss_private_key(env, key, dsa))
-            goto err;
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_DSA(result, dsa) != 1)
+        if (!get_dss_private_key(env, key, &result))
             goto err;
-        /* On success, result owns dsa */
-        dsa = NULL;
 #else
         return PKEY_NOTSUP;
 #endif
@@ -355,16 +323,6 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         enif_free(password);
     if (id)
         enif_free(id);
-    if (rsa)
-        RSA_free(rsa);
-#ifdef HAVE_DSA
-    if (dsa)
-        DSA_free(dsa);
-#endif
-#ifdef HAVE_EC
-    if (ec)
-        EC_KEY_free(ec);
-#endif
 
     if (result == NULL) {
         return PKEY_BADARG;
@@ -385,13 +343,6 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 			       EVP_PKEY **pkey)
 {
     EVP_PKEY *result = NULL;
-    RSA *rsa = NULL;
-#ifdef HAVE_DSA
-    DSA *dsa = NULL;
-#endif
-#if defined(HAVE_EC)
-    EC_KEY *ec = NULL;
-#endif
     char *id = NULL;
     char *password = NULL;
 
@@ -410,43 +361,17 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
         return PKEY_BADARG;
 #endif
     } else  if (algorithm == atom_rsa) {
-        if ((rsa = RSA_new()) == NULL)
-            goto err;
-
-        if (!get_rsa_public_key(env, key, rsa))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_RSA(result, rsa) != 1)
+        if (!get_rsa_public_key(env, key, &result))
             goto err;
-        /* On success, result owns rsa */
-        rsa = NULL;
 
     } else if (algorithm == atom_ecdsa) {
 #if defined(HAVE_EC)
-	const ERL_NIF_TERM *tpl_terms;
-	int tpl_arity;
-
-        if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
-            goto err;
-        if (tpl_arity != 2)
-            goto err;
-        if (!enif_is_tuple(env, tpl_terms[0]))
-            goto err;
-        if (!enif_is_binary(env, tpl_terms[1]))
-            goto err;
-        if (!get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-
-        if (EVP_PKEY_assign_EC_KEY(result, ec) != 1)
+        if (!get_ec_public_key(env, key, &result))
             goto err;
-        /* On success, result owns ec */
-        ec = NULL;
-
 #else
 	return PKEY_NOTSUP;
 #endif
@@ -461,18 +386,10 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 #endif
     } else if (algorithm == atom_dss) {
 #ifdef HAVE_DSA
-        if ((dsa = DSA_new()) == NULL)
-            goto err;
-
-        if (!get_dss_public_key(env, key, dsa))
-            goto err;
-
         if ((result = EVP_PKEY_new()) == NULL)
             goto err;
-        if (EVP_PKEY_assign_DSA(result, dsa) != 1)
+        if (!get_dss_public_key(env, key, &result))
             goto err;
-        /* On success, result owns dsa */
-        dsa = NULL;
 #else
         return PKEY_NOTSUP;
 #endif
@@ -492,16 +409,6 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
         enif_free(password);
     if (id)
         enif_free(id);
-    if (rsa)
-        RSA_free(rsa);
-#ifdef HAVE_DSA
-    if (dsa)
-        DSA_free(dsa);
-#endif
-#ifdef HAVE_EC
-    if (ec)
-        EC_KEY_free(ec);
-#endif
 
     if (result == NULL) {
         return PKEY_BADARG;
@@ -592,23 +499,23 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
 # ifdef HAVE_RSA_PKCS1_PSS_PADDING
 	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
             if (sig_opt.rsa_mgf1_md != NULL) {
-# ifdef HAVE_RSA_MGF1_MD
+#  ifdef HAVE_RSA_MGF1_MD
                 if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) != 1)
                     goto err;
-# else
+#  else
                 goto notsup;
-# endif
+#  endif
             }
             if (sig_opt.rsa_pss_saltlen > -2) {
                 if (EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) != 1)
                     goto err;
             }
         }
-#endif
+# endif
     }
 
     if (argv[0] == atom_eddsa) {
-#ifdef HAVE_EDDSA
+# ifdef HAVE_EDDSA
         if (!FIPS_MODE()) {
             if ((mdctx = EVP_MD_CTX_new()) == NULL)
                 goto err;
@@ -625,7 +532,7 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
                 goto bad_key;
         }
         else
-#endif
+# endif
             goto notsup;
     } else {
         if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
@@ -1150,7 +1057,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                 goto bad_arg;
         }
 
-#ifdef HAVE_RSA_SSLV23_PADDING
+# ifdef HAVE_RSA_SSLV23_PADDING
         if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
             if (is_encrypt) {
                 tmplen = size_of_RSA(pkey);
@@ -1168,13 +1075,13 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_NO_PADDING) != 1)
                 goto err;
         } else
-#endif
+# endif
         {
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_opt.rsa_padding) != 1)
                 goto err;
         }
 
-#ifdef HAVE_RSA_OAEP_MD
+# ifdef HAVE_RSA_OAEP_MD
         if (crypt_opt.rsa_padding == RSA_PKCS1_OAEP_PADDING) {
             if (crypt_opt.rsa_oaep_md != NULL) {
                 if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, crypt_opt.rsa_oaep_md) != 1)
@@ -1202,7 +1109,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                 label_copy = NULL;
             }
         }
-#endif
+# endif
     }
 
     if (is_private) {
@@ -1222,7 +1129,6 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             result = EVP_PKEY_verify_recover(ctx, NULL, &outlen, in_bin.data, in_bin.size);
         }
     }
-    /* fprintf(stderr,"i = %d %s:%d\r\n", i, __FILE__, __LINE__); */
 
     if (result != 1)
         goto err;
@@ -1390,54 +1296,20 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 { /* (Algorithm, PrivKey | KeyMap) */
     ERL_NIF_TERM ret;
     EVP_PKEY *pkey = NULL;
-    RSA *rsa = NULL;
-#ifdef HAVE_DSA
-    DSA *dsa = NULL;
-#endif
-    ERL_NIF_TERM result[8];
 
     ASSERT(argc == 2);
 
-    if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK)
+    if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK) // handles engine
         goto bad_arg;
 
     if (argv[0] == atom_rsa) {
-        const BIGNUM *n = NULL, *e = NULL, *d = NULL;
-
-        if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+        if (!rsa_privkey_to_pubkey(env, pkey, &ret))
             goto err;
-
-        RSA_get0_key(rsa, &n, &e, &d);
-
-        // Exponent E
-        if ((result[0] = bin_from_bn(env, e)) == atom_error)
-            goto err;
-        // Modulus N = p*q
-        if ((result[1] = bin_from_bn(env, n)) == atom_error)
-            goto err;
-
-        ret = enif_make_list_from_array(env, result, 2);
 
 #ifdef HAVE_DSA
     } else if (argv[0] == atom_dss) {
-        const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
-
-        if ((dsa = EVP_PKEY_get1_DSA(pkey)) == NULL)
+        if (!dss_privkey_to_pubkey(env, pkey, &ret))
             goto err;
-
-        DSA_get0_pqg(dsa, &p, &q, &g);
-        DSA_get0_key(dsa, &pub_key, NULL);
-
-        if ((result[0] = bin_from_bn(env, p)) == atom_error)
-            goto err;
-        if ((result[1] = bin_from_bn(env, q)) == atom_error)
-            goto err;
-        if ((result[2] = bin_from_bn(env, g)) == atom_error)
-            goto err;
-        if ((result[3] = bin_from_bn(env, pub_key)) == atom_error)
-            goto err;
-
-        ret = enif_make_list_from_array(env, result, 4);
 #endif
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
@@ -1486,12 +1358,6 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ret = enif_make_badarg(env);
 
  done:
-    if (rsa)
-        RSA_free(rsa);
-#ifdef HAVE_DSA
-    if (dsa)
-        DSA_free(dsa);
-#endif
     if (pkey)
         EVP_PKEY_free(pkey);
 

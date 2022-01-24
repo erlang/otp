@@ -21,17 +21,24 @@
 #include "rsa.h"
 #include "bn.h"
 
-static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa);
-static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt);
+//#define(CHK_RSA_3_0)
 
-int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
+static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+#if !defined(HAS_3_0_API) || defined(CHK_RSA_3_0)
+static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa);
+#endif
+#if !defined(HAS_3_0_API)
+static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt);
+#endif
+
+int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
     BIGNUM *e = NULL, *n = NULL, *d = NULL;
     BIGNUM *p = NULL, *q = NULL;
     BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+    RSA *rsa = NULL;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -46,6 +53,9 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     if (!get_bn_from_bin(env, head, &d))
         goto bad_arg;
 
+    if ((rsa = RSA_new()) == NULL)
+        goto err;
+
     if (!RSA_set0_key(rsa, n, e, d))
         goto err;
     /* rsa now owns n, e, and d */
@@ -53,8 +63,11 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     e = NULL;
     d = NULL;
 
-    if (enif_is_empty_list(env, tail))
+    if (enif_is_empty_list(env, tail)) {
+        if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+            goto err;
         return 1;
+    }
 
     if (!enif_get_list_cell(env, tail, &head, &tail))
         goto bad_arg;
@@ -81,6 +94,7 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 
     if (!RSA_set0_factors(rsa, p, q))
         goto err;
+
     /* rsa now owns p and q */
     p = NULL;
     q = NULL;
@@ -92,10 +106,15 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     dmq1 = NULL;
     iqmp = NULL;
 
+    if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+        goto err;
+
     return 1;
 
  bad_arg:
  err:
+    if (rsa)
+        RSA_free(rsa);
     if (e)
         BN_free(e);
     if (n)
@@ -116,11 +135,12 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     return 0;
 }
 
-int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
+int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[E,N] */
     ERL_NIF_TERM head, tail;
     BIGNUM *e = NULL, *n = NULL;
+    RSA *rsa = NULL;
 
     if (!enif_get_list_cell(env, key, &head, &tail))
         goto bad_arg;
@@ -133,16 +153,24 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     if (!enif_is_empty_list(env, tail))
         goto bad_arg;
 
+    if ((rsa = RSA_new()) == NULL)
+        goto err;
     if (!RSA_set0_key(rsa, n, e, NULL))
         goto err;
+
     /* rsa now owns n and e */
     n = NULL;
     e = NULL;
+
+    if (EVP_PKEY_assign_RSA(*pkey, rsa) != 1)
+        goto err;
 
     return 1;
 
  bad_arg:
  err:
+    if (rsa)
+        RSA_free(rsa);
     if (e)
         BN_free(e);
     if (n)
@@ -151,6 +179,7 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
     return 0;
 }
 
+#if !defined(HAS_3_0_API) || defined(CHK_RSA_3_0)
 /* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
 {
@@ -191,6 +220,10 @@ static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
  err:
     return enif_make_badarg(env);
 }
+#endif
+
+#if !defined(HAS_3_0_API)
+/* Legacy API deprecated from 3.0 is used */
 
 static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
 {
@@ -213,8 +246,6 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #ifndef HAVE_OPAQUE_BN_GENCB
     BN_GENCB intr_cb_buf;
 #endif
-
-    ASSERT(argc == 2);
 
     if (!enif_get_int(env, argv[0], &modulus_bits))
         goto bad_arg;
@@ -271,6 +302,133 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
         RSA_free(rsa);
     return ret;
 }
+
+#else
+/* New 3.0 API is used */
+
+static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (ModulusSize, PublicExponent/binary, PublicExponent) */
+    ERL_NIF_TERM ret;
+    unsigned int msize;
+    ErlNifBinary pub_exp;
+    OSSL_PARAM params[3];
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+
+    if (!enif_get_uint(env, argv[0], &msize)) {
+        ret = EXCP_BADARG_N(env, 0, "Can't get unsigned int");
+        goto ret;
+    }
+    if (msize < 256) {
+        ret = EXCP_BADARG_N(env, 0, "Can't be < 256");
+        goto ret;
+    }
+
+    if (!enif_inspect_binary(env, argv[1], &pub_exp)) {
+        ret = EXCP_BADARG_N(env, 1, "Can't get binary public exponent");
+        goto ret;
+    }
+
+    /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */
+    pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+
+    if (!EVP_PKEY_keygen_init(pctx)) {
+        ret = EXCP_ERROR(env, "Can't init RSA generation");
+        goto ret;
+    }
+
+    params[0] = OSSL_PARAM_construct_uint("bits", &msize);
+    params[1] = OSSL_PARAM_construct_BN("e", pub_exp.data, pub_exp.size);
+    params[2] = OSSL_PARAM_construct_end();
+
+    if (!EVP_PKEY_CTX_set_params(pctx, params))  {
+        ret = EXCP_ERROR(env, "Can't set params");
+        goto ret;
+    }
+
+    if (!EVP_PKEY_generate(pctx, &pkey)) {
+        ret = EXCP_ERROR(env, "Can't generate RSA key-pair");
+        goto ret;
+    }
+
+    /* get priv and pub */
+    {
+        BIGNUM *e = NULL, *n = NULL, *d = NULL;
+        BIGNUM *p = NULL, *q = NULL;
+        BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+        ERL_NIF_TERM result[8];
+
+        /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */
+        if (
+            !EVP_PKEY_get_bn_param(pkey, "e", &e)                       // Exponent E
+            || !EVP_PKEY_get_bn_param(pkey, "n", &n)                    // Modulus N = p*q
+            || !EVP_PKEY_get_bn_param(pkey, "d", &d)                    // Exponent D
+            || !EVP_PKEY_get_bn_param(pkey, "rsa-factor1", &p)          // Factor p
+            || !EVP_PKEY_get_bn_param(pkey, "rsa-factor2", &q)          // Factor q
+            || !EVP_PKEY_get_bn_param(pkey, "rsa-exponent1", &dmp1)     // D mod (p-1)
+            || !EVP_PKEY_get_bn_param(pkey, "rsa-exponent2", &dmq1)     // D mod (q-1)
+            || !EVP_PKEY_get_bn_param(pkey, "rsa-coefficient1", &iqmp)  // (1/q) mod p
+            || ((result[0] = bin_from_bn(env, e)) == atom_error)
+            || ((result[1] = bin_from_bn(env, n)) == atom_error)
+            || ((result[2] = bin_from_bn(env, d)) == atom_error)
+            || ((result[3] = bin_from_bn(env, p)) == atom_error)
+            || ((result[4] = bin_from_bn(env, q)) == atom_error)
+            || ((result[5] = bin_from_bn(env, dmp1)) == atom_error)
+            || ((result[6] = bin_from_bn(env, dmq1)) == atom_error)
+            || ((result[7] = bin_from_bn(env, iqmp)) == atom_error)
+            ) {
+            ret = EXCP_ERROR(env, "Can't get RSA keys");
+            goto ret;
+        }
+
+        ret =  enif_make_list_from_array(env, result, 8);
+
+#ifdef CHK_RSA_3_0
+        {RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+            if (!rsa)
+                ret = enif_make_tuple2(env, ret, atom_error);
+            else
+                ret = enif_make_tuple2(env, ret, put_rsa_private_key(env,rsa));
+        }
+#endif
+    }
+
+ ret:
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    return ret;
+}
+
+#endif /* #else-part of #if !defined(HAS_3_0_API) */
+
+
+int rsa_privkey_to_pubkey(ErlNifEnv* env,  EVP_PKEY *pkey, ERL_NIF_TERM *ret)
+{
+    const BIGNUM *n = NULL, *e = NULL, *d = NULL;
+    ERL_NIF_TERM result[2];
+    RSA *rsa = NULL;
+    
+    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+        goto err;
+
+    RSA_get0_key(rsa, &n, &e, &d);
+
+    // Exponent E
+    if ((result[0] = bin_from_bn(env, e)) == atom_error)
+        goto err;
+    // Modulus N = p*q
+    if ((result[1] = bin_from_bn(env, n)) == atom_error)
+        goto err;
+
+    *ret = enif_make_list_from_array(env, result, 2);
+    RSA_free(rsa);
+    return 1;
+
+ err:
+    if (rsa)
+        RSA_free(rsa);
+    return 0;
+}
+
 
 ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

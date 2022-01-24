@@ -143,6 +143,6 @@ extern ERL_NIF_TERM atom_key_id;
 extern ERL_NIF_TERM atom_password;
 #endif
 
-int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM load_info);
+int init_atoms(ErlNifEnv *env);
 
 #endif /* E_ATOMS_H__ */

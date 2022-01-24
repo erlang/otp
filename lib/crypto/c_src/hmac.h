@@ -21,9 +21,9 @@
 #ifndef E_HMAC_H__
 #define E_HMAC_H__ 1
 
-#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
-
 #include "common.h"
+
+#if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
 
 int init_hmac_ctx(ErlNifEnv *env);
 

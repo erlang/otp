@@ -132,6 +132,11 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
 };
 
+#ifdef HAS_3_0_API
+OSSL_PROVIDER *prov[MAX_NUM_PROVIDERS];
+int prov_cnt;
+#endif
+
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 
@@ -154,6 +159,7 @@ static int verify_lib_version(void)
     }
     return 1;
 }
+
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
@@ -208,6 +214,16 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         return __LINE__;
     }
 
+#ifdef HAS_3_0_API
+    prov_cnt = 0;
+# ifdef FIPS_SUPPORT
+    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "fips"))) return __LINE__;
+#endif
+    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) return __LINE__;
+    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) return __LINE__;
+    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "legacy"))) return __LINE__;
+#endif
+
     if (library_initialized) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
@@ -215,9 +231,13 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return 0;
     }
 
-    if (!init_atoms(env, tpl_array[2], load_info)) {
+    if (!init_atoms(env)) {
         return __LINE__;
     }
+
+    /* Check if enter FIPS mode at module load (happening now) */
+    if (enable_fips_mode(env, tpl_array[2]) != atom_true)
+        return __LINE__;
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name))
@@ -309,5 +329,11 @@ static void unload(ErlNifEnv* env, void* priv_data)
 {
     if (--library_refc == 0)
         cleanup_algorithms_types(env);
+
+#ifdef HAS_3_0_API
+    while (prov_cnt>0)
+        OSSL_PROVIDER_unload(prov[--prov_cnt]);
+#endif
+
 }
 
