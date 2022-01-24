@@ -49,6 +49,7 @@
          display_alloc_info/0,
          display_system_info/1, display_system_info/2, display_system_info/3,
 
+         executor/1, executor/2,
          try_tc/6,
 
          prepare_test_case/5,
@@ -2096,6 +2097,42 @@ reset_kill_timer(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+executor(Fun) ->
+    executor(Fun, infinity).
+
+executor(Fun, Timeout)
+  when is_function(Fun, 0) andalso
+       ((Timeout =:= infinity) orelse (is_integer(Timeout) andalso (Timeout > 0))) ->
+    {Pid, MRef} = erlang:spawn_monitor(Fun),
+    receive
+        {'DOWN', MRef, process, Pid, Info} ->
+            p("executor process terminated (normal) with"
+              "~n      ~p", [Info]),
+            Info;
+        {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCSTack}} ->
+            p("received timetrap timeout (~w ms) from ~p => Kill executor process"
+              "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
+            exit(Pid, kill),
+            %% We do this in case we get some info about 'where'
+            %% the process is hanging...
+            receive
+                {'DOWN', MRef, process, Pid, Info} ->
+                    p("executor process terminated (forced) with"
+                      "~n      ~p", [Info]),
+                    ok
+            after 1000 -> % Give it a second...
+                    ok
+            end,
+            {error, R}
+    after Timeout ->
+            p("executor process termination timeout - kill executor process"),
+            exit(kill, Pid),
+            {error, executor_timeout}
+    end.
+            
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 try_tc(TCName, Name, Verbosity, Pre, Case, Post)
   when is_function(Pre, 0)  andalso 
        is_function(Case, 1) andalso
@@ -2111,23 +2148,23 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
             try Case(State) of
                 Res ->
                     p("try_tc -> test case done: try post"),
-                    (catch Post(State)),
+                    _ = executor(fun() -> Post(State) end),
                     p("try_tc -> done"),
                     Res
             catch
                 throw:{skip, _} = SKIP:_ ->
                     p("try_tc -> test case (throw) skip: try post"),
-                    (catch Post(State)),
+                    _ = executor(fun() -> Post(State) end),
                     p("try_tc -> test case (throw) skip: done"),
                     SKIP;
                 exit:{skip, _} = SKIP:_ ->
                     p("try_tc -> test case (exit) skip: try post"),
-                    (catch Post(State)),
+                    _ = executor(fun() -> Post(State) end),
                     p("try_tc -> test case (exit) skip: done"),
                     SKIP;
                 C:E:S ->
                     p("try_tc -> test case failed: try post"),
-                    (catch Post(State)),
+                    _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
                             p("try_tc -> test case failed: done"),

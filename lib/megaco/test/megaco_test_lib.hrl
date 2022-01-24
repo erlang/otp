@@ -85,6 +85,9 @@
 -define(MULTI_RECEIVE(Expected),
 	?VERIFY(lists:sort(Expected), lists:sort(?LIB:flush()))).
 
+-define(EXEC(F),     ?LIB:executor(F)).
+-define(EXEC(F, TO), ?LIB:executor(F, TO)).
+
 -define(TRY_TC(TCN, N, V, PRE, CASE, POST),
         ?LIB:try_tc(TCN, N, V, PRE, CASE, POST)).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,14 +39,18 @@
          otp_8183/1
         ]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include("megaco_test_lib.hrl").
 
 -record(command, {id, desc, cmd, verify}).
 
--define(TEST_VERBOSITY, debug).
--define(NUM_CNT_PROCS,  100).
+-define(TEST_VERBOSITY,     debug).
+-define(CNT_PROCS_NUM,      100).
+-define(CNT_PROCS_CHUNK,    10).
+-define(MAX_TRANS_ID,       1000).
+-define(MAX_TRANS_ID_CHUNK, 100).
 
 
 %%======================================================================
@@ -143,13 +147,11 @@ end_per_group(_GroupName, Config) ->
 %%
 
 %% Test server callbacks
-init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
-                                     (Case =:= otp_8167) orelse
-                                     (Case =:= otp_8183) ->
+init_per_testcase(Case, Config) when (Case =/= config) ->
     i("init_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
-    
+
     megaco_test_global_sys_monitor:reset_events(),
 
     i("try starting megaco_config"),
@@ -163,6 +165,12 @@ init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
             {skip, ?F("Failed starting config: ~p", [Reason])}
     end;
 init_per_testcase(Case, Config) ->
+    i("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_global_sys_monitor:reset_events(),
+
     C = lists:keydelete(tc_timeout, 1, Config),
     do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]).
 
@@ -173,9 +181,7 @@ do_init_per_testcase(Case, Config) ->
 min(M) -> timer:minutes(M).
 
 
-end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
-                                    (Case =:= otp_8167) orelse
-                                    (Case =:= otp_8183) ->
+end_per_testcase(Case, Config) when (Case =/= config) ->
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
@@ -187,6 +193,13 @@ end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config);
 end_per_testcase(Case, Config) ->
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
 
@@ -544,6 +557,27 @@ command(No, Desc, Cmd, VerifyVal)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+calc_max_trans_id(Config) ->
+    calc_number(Config, ?MAX_TRANS_ID_CHUNK, ?MAX_TRANS_ID).
+
+calc_num_cnt_procs(Config) ->
+    calc_number(Config, ?CNT_PROCS_CHUNK, ?CNT_PROCS_NUM).
+
+calc_number(Config, Chunk, Max) ->
+    Factor = ?config(megaco_factor, Config),
+    if
+        (Factor =:= 1) ->
+            Max;
+        (Factor < 10) ->
+            calc_number2(Factor, Chunk, Max);
+        true ->
+            calc_number2(10, Chunk, Max)
+    end.
+
+calc_number2(Factor, Chunk, Max) ->
+    Max - ((Factor-1) * Chunk).
+
+
 transaction_id_counter_mg(suite) ->
     [];
 transaction_id_counter_mg(doc) ->
@@ -553,13 +587,16 @@ transaction_id_counter_mg(doc) ->
 transaction_id_counter_mg(Config) when is_list(Config) ->
     put(verbosity, ?TEST_VERBOSITY),
     put(sname,     "TEST"),
-    put(tc,        transaction_id_counter_mg),
+    put(tc,        ?FUNCTION_NAME),
     
     process_flag(trap_exit, true),
 
-    i("starting"),
+    MaxTransID  = calc_max_trans_id(Config),
+    NumCntProcs = calc_num_cnt_procs(Config),
 
-    {ok, _ConfigPid} = megaco_config:start_link(),
+    i("starting with"
+      "~n      Max Transaction ID:      ~w"
+      "~n      Number Of Counter Procs: ~w", [MaxTransID, NumCntProcs]),
 
     %% Basic user data
     UserMid = {deviceName, "mg"},
@@ -588,11 +625,11 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     %% Set counter limits
     i("set counter max limit"),
     CH = CD#conn_data.conn_handle, 
-    megaco_config:update_conn_info(CH, max_trans_id, 1000),
+    megaco_config:update_conn_info(CH, max_trans_id, MaxTransID),
 
     %% Create the counter worker procs
-    i("create counter working procs"),
-    Pids = create_counter_working_procs(CH, ?NUM_CNT_PROCS, []),
+    i("create ~w counter working procs", [NumCntProcs]),
+    Pids = create_counter_working_procs(CH, NumCntProcs, []),
 
     %% Start the counter worker procs
     i("release the counter working procs"),
@@ -612,8 +649,6 @@ transaction_id_counter_mg(Config) when is_list(Config) ->
     {ok, _, _} = megaco_config:disconnect(CH),
     i("stop user"),
     ok = megaco_config:stop_user(UserMid),
-    i("stop megaco_config"),
-    ok = megaco_config:stop(),
 
     i("done"),
     ok.
@@ -809,11 +844,19 @@ transaction_id_counter_mgc(doc) ->
      "transaction counter handling of the application "
      "in with several connections (MGC). "];
 transaction_id_counter_mgc(Config) when is_list(Config) ->
-    Name = transaction_id_counter_mgc,
-    Pre = fun() ->
-                  i("starting config server"),
-                  {ok, _ConfigPid} = megaco_config:start_link(),
+    put(verbosity, ?TEST_VERBOSITY),
+    put(sname,     "TEST"),
+    put(tc,        ?FUNCTION_NAME),
+    
+    Name        = ?FUNCTION_NAME,
+    MaxTransID  = calc_max_trans_id(Config),
+    NumCntProcs = calc_num_cnt_procs(Config),                   
 
+    i("starting with"
+      "~n      Max Transaction ID:      ~w"
+      "~n      Number Of Counter Procs: ~w", [MaxTransID, NumCntProcs]),
+
+    Pre = fun() ->
                   %% Basic user data
                   UserMid = {deviceName, "mgc"},
                   UserConfig = [
@@ -893,14 +936,15 @@ transaction_id_counter_mgc(Config) when is_list(Config) ->
 
                   %% Set counter limits
                   i("set counter max limit(s)"),
-                  set_counter_max_limits(CDs, 1000),
+                  set_counter_max_limits(CDs, MaxTransID),
 
                   {UserMid, CDs}
           end,
+
     Case = fun({_, CDs}) ->
                    %% Create the counter worker procs
-                   i("create counter working procs"),
-                   Pids = create_counter_working_procs(CDs, ?NUM_CNT_PROCS),
+                   i("create ~w counter working procs", [NumCntProcs]),
+                   Pids = create_counter_working_procs(CDs, NumCntProcs),
 
                    %% Start the counter worker procs
                    i("release the counter working procs"),
@@ -921,8 +965,8 @@ transaction_id_counter_mgc(Config) when is_list(Config) ->
                    delete_connections(CDs), 
                    i("stop user"),
                    ok = megaco_config:stop_user(UserMid),
-                   i("stop megaco_config"),
-                   ok = megaco_config:stop()
+                   i("done"),
+                   ok
            end,
     try_tc(Name, Pre, Case, Post).
 
