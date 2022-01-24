@@ -593,7 +593,16 @@ has_support_ipv6() ->
             %% so for windows we need to use the old style...
             old_has_support_ipv6();
         _ ->
-            socket:is_supported(ipv6) andalso has_valid_ipv6_address()
+            %% Socket can *also* be configured out, so we need to catch...
+            try socket:is_supported(ipv6) of
+                true ->
+                    has_valid_ipv6_address();
+                false ->
+                    false
+            catch
+                _:_:_ ->
+                    old_has_support_ipv6()
+            end
     end.
 
 has_valid_ipv6_address() ->
