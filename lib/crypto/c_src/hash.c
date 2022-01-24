@@ -77,6 +77,8 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         return enif_make_badarg(env);
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        return atom_notsup;
 
     if ((md = digp->md.p) == NULL)
         return atom_notsup;
@@ -106,6 +108,8 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        goto notsup;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         goto bad_arg;
 
@@ -128,6 +132,9 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  bad_arg:
     return enif_make_badarg(env);
 
+ notsup:
+    return atom_notsup;
+
  err:
     return atom_notsup;
 }
@@ -144,6 +151,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        goto notsup;
     if (digp->md.p == NULL)
         goto err;
 
@@ -160,6 +169,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  bad_arg:
     return enif_make_badarg(env);
 
+ notsup:
  err:
     ret = atom_notsup;
 
@@ -262,6 +272,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        goto notsup;
     if (digp->md.p == NULL)
         goto err;
 
@@ -330,6 +342,9 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  bad_arg:
     return enif_make_badarg(env);
 
+ notsup:
+    return atom_notsup;
+
  err:
     return atom_notsup;
 }
@@ -354,6 +369,8 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         goto bad_arg;
     if ((digp = get_digest_type(tuple[0])) == NULL)
         goto bad_arg;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        goto notsup;
     if (!enif_inspect_binary(env, tuple[1], &ctx))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -432,6 +449,9 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
  bad_arg:
     return enif_make_badarg(env);
 
+ notsup:
+    return atom_notsup;
+
  err:
     return atom_notsup;
 }
@@ -458,6 +478,8 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto bad_arg;
     if ((digp = get_digest_type(tuple[0])) == NULL)
         goto bad_arg;
+    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+        goto notsup;
     if (!enif_inspect_binary(env, tuple[1], &ctx))
         goto bad_arg;
 
@@ -537,6 +559,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  bad_arg:
     return enif_make_badarg(env);
 
+ notsup:
  err:
     ret = atom_notsup;
 

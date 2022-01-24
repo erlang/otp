@@ -41,7 +41,7 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     ASSERT(argc == 3);
 
-    if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
+    if (!get_ec_key_sz(env, argv[1], argv[2], atom_undefined, &key, NULL)) // my priv key
         goto bad_arg;
     if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
         goto bad_arg;

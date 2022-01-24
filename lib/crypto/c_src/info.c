@@ -113,6 +113,14 @@ ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                       enif_make_atom(env, "cryptolib_version_linked"),
                       enif_make_string(env, SSLeay_version(SSLEAY_VERSION), ERL_NIF_LATIN1),
                       &ret);
+
+#ifdef HAS_3_0_API
+    enif_make_map_put(env, ret,
+                      enif_make_atom(env, "fips_provider_available"),
+                      OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false,
+                      &ret);
+#endif
+
     return ret;
 }
 

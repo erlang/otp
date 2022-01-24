@@ -24,14 +24,13 @@
 #include "common.h"
 
 struct digest_type_t {
-    union {
-	const char*  str;        /* before init, NULL for end-of-table */
-	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    }type;
+    const char*  str;        /* before init, NULL for end-of-table */
+    const char* str_v3;      /* the algorithm name as in OpenSSL 3.x */
+    ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
     unsigned flags;
-    union {
-	const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
-	const EVP_MD* p;               /* after init, NULL if notsup */
+    struct {
+        const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
+        const EVP_MD* p;              /* after init, NULL if notsup */
     }md;
 };
 
@@ -48,5 +47,9 @@ struct digest_type_t {
 
 void init_digest_types(ErlNifEnv* env);
 struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
+
+#ifdef HAS_3_0_API
+ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env);
+#endif
 
 #endif /* E_DIGEST_H__ */

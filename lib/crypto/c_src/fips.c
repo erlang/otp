@@ -19,6 +19,8 @@
  */
 
 #include "fips.h"
+#include "digest.h"
+
 
 ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -31,22 +33,31 @@ ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM enable_fips_mode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Boolean) */
-    if (argv[0] == atom_true) {
-#ifdef FIPS_SUPPORT
-        if (FIPS_mode_set(1)) {
-            return atom_true;
-        }
-#endif
-        PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
-        return atom_false;
-    } else if (argv[0] == atom_false) {
-#ifdef FIPS_SUPPORT
-        if (!FIPS_mode_set(0)) {
-            return atom_false;
-        }
-#endif
-        return atom_true;
-    } else {
-        return enif_make_badarg(env);
-    }
+    return enable_fips_mode(env, argv[0]);
 }
+
+
+ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
+#ifdef FIPS_SUPPORT
+{
+    if (fips_mode_to_set == atom_true) {
+        if (FIPS_mode_set(1)) return atom_true;
+                         else return atom_false;
+
+    } else if (fips_mode_to_set == atom_false) {
+        if (!FIPS_mode_set(0)) return atom_false;
+                          else return atom_true;
+
+    } else
+        return enif_make_badarg(env);
+}
+#else
+
+{
+    if (fips_mode_to_set == atom_true) return atom_false;
+    else if (fips_mode_to_set == atom_false) return atom_true;
+    else return enif_make_badarg(env);
+}
+#endif    
+
+

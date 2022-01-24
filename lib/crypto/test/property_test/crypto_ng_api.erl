@@ -105,11 +105,15 @@ decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain, Padding) ->
             element(1, split_binary(TextDecryptPadded, size(TextDecryptPadded) - PadSize))
     catch
         error:{error,{"api_ng.c",Line},Msg} when ExcessBytesLastBlock>0,
-                                                 Padding == none,
-                                                 Msg == "Padding 'none' but unfilled last block" ->
-            io:format("~p:~p Correct exception: ~p",
-                      [?MODULE,?LINE, {error,{"api_ng.c",Line},Msg}]),
-            correct_exception
+                                                 Padding == none ->
+            case Msg of
+                "Padding 'none' but unfilled last block"++_ ->
+                    io:format("~p:~p Correct exception: ~p",
+                              [?MODULE,?LINE, {error,{"api_ng.c",Line},Msg}]),
+                    correct_exception;
+                _ ->
+                    error({error,{"api_ng.c",Line},Msg})
+            end
     end.
     
 

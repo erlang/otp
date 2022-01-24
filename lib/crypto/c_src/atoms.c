@@ -144,23 +144,9 @@ ERL_NIF_TERM atom_key_id;
 ERL_NIF_TERM atom_password;
 #endif
 
-int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM load_info) {
+int init_atoms(ErlNifEnv *env) {
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
-    /* Enter FIPS mode */
-    if (fips_mode == atom_true) {
-#ifdef FIPS_SUPPORT
-        if (!FIPS_mode_set(1)) {
-#else
-        {
-#endif
-            PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
-            return 0;
-        }
-    } else if (fips_mode != atom_false) {
-        PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-        return 0;
-    }
 
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
