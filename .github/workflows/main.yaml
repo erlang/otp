@@ -411,6 +411,7 @@ jobs:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
     needs: [pack, changed-apps]
+    if: needs.changed-apps.outputs.changes != '[]'
     strategy:
       matrix:
         # type: ${{ fromJson(needs.changed-apps.outputs.all) }}
@@ -472,8 +473,9 @@ jobs:
         uses: actions/download-artifact@v2
       - name: Merge test results
         run: |
+          shopt -s nullglob
           mkdir -p make_test_dir
-          for file in $(ls *_test_results/*.tar.gz); do
+          for file in *_test_results/*.tar.gz; do
             tar xzf $file
           done
           docker load < otp_docker/otp_docker.tar
