@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2021</year>
+      <year>1999</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,7 +80,6 @@
       <item>The creation time for the dump</item>
       <item>A slogan indicating the reason for the dump</item>
       <item>The system version of the node from which the dump originates</item>
-      <item>The compile time of the emulator running the originating node</item>
       <item>The number of atoms in the atom table</item>
       <item>The runtime system thread that caused the crash dump</item>
     </list>

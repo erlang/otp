@@ -1,9 +1,9 @@
 # -*- gdb-script -*-
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2005-2021. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2005-2022. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,13 +15,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
 ############################################################################
 # Help commands
-# 
+#
 
 define etp-help
   help etp-help
@@ -3395,7 +3395,6 @@ define etp-system-info
   printf "--------------- System Information ---------------\n"
   printf "OTP release: %s\n", etp_otp_release
   printf "ERTS version: %s\n", etp_erts_version
-  printf "Compile date: %s\n", etp_compile_date
   printf "Arch: %s\n", etp_arch
   printf "Endianness: "
   if (etp_endianness > 0)
