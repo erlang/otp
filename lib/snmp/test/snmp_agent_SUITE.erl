@@ -5967,7 +5967,7 @@ snmp_framework_mib_test() ->
             ?WPRINT("Failed snmpEngineTime 1 sanity check: "
                     "~n      Time to acquire ~w >= 1000", [T2-T1]),
             ?SKIP({acquire, snmpEngineTime, 1, T1, T2});
-        ((T4 - T3) => 1000) ->
+        ((T4 - T3) >= 1000) ->
             ?WPRINT("Failed snmpEngineTime 2 sanity check: "
                     "~n      Time to acquire ~w >= 1000", [T4-T3]),
             ?SKIP({acquire, snmpEngineTime, 2, T3, T4});

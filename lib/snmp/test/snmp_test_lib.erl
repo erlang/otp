@@ -1047,6 +1047,8 @@ linux_which_distro(Version) ->
                              montavista;
                          "Yellow Dog" ++ _ ->
                              yellow_dog;
+                         "Debian" ++ _ ->
+                             debian;
                          _ ->
                              other
                      end,
@@ -1210,19 +1212,19 @@ bogomips_to_int(BM) ->
             end
     end.
 
-linux_cpuinfo_model() ->
-    case linux_cpuinfo_lookup("model") of
-        [M|_] ->
-            M;
-        _X ->
-            "-"
-    end.
-
 linux_cpuinfo_platform() ->
     case linux_cpuinfo_lookup("platform") of
         [P] ->
             P;
         _ ->
+            "-"
+    end.
+
+linux_cpuinfo_model() ->
+    case linux_cpuinfo_lookup("model") of
+        [M|_] ->
+            M;
+        _X ->
             "-"
     end.
 
@@ -1307,6 +1309,29 @@ linux_which_cpuinfo(wind_river) ->
                 BMips ->
                     {ok, {CPU, BMips}}
             end;
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+%% Check for x86 (Intel, AMD, Raspberry (ARM))
+linux_which_cpuinfo(debian) ->
+    CPU =
+        case linux_cpuinfo_model() of
+            "-" ->
+                %% ARM (at least some distros...)
+                case linux_cpuinfo_processor() of
+                    "-" ->
+                        %% Ok, we give up
+                        throw(noinfo);
+                    Proc ->
+                        Proc
+                end;
+            ModelName ->
+                ModelName
+        end,
+    case linux_cpuinfo_bogomips() of
+        "-" ->
+            {ok, CPU};
         BMips ->
             {ok, {CPU, BMips}}
     end;
