@@ -962,7 +962,7 @@ handle_http_body(_, #state{status = {ssl_tunnel, _},
 
 handle_http_body(_, #state{status = {ssl_tunnel, Request},
 			   status_line = StatusLine} = State) ->
-    ClientErrMsg = httpc_response:error(Request,{could_no_establish_ssh_tunnel, StatusLine}),
+    ClientErrMsg = httpc_response:error(Request,{could_not_establish_ssl_tunnel, StatusLine}),
     NewState     = answer_request(Request, ClientErrMsg, State),
     {stop, normal, NewState};
 
