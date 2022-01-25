@@ -2080,7 +2080,9 @@ init_per_suite(Config) ->
             end
     catch
         error : notsup ->
-            {skip, "esock not supported"}
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
     end.
 
 end_per_suite(_) ->
