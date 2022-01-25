@@ -102,7 +102,8 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
     FailOnError = start_node_get_option_value(fail_on_error, OptList, true),
     Prog0 = start_node_get_option_value(erl, OptList, default),
-    Prog = quote_progname(pick_erl_program(Prog0)),
+    {ClearAFlags, Prog1} = pick_erl_program(Prog0),
+    Prog = quote_progname(Prog1),
     Args = 
 	case string:find(SuppliedArgs,"-setcookie") of
 	    nomatch ->
@@ -116,9 +117,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 			NodeStarted,
 			CrashArgs,
 			" ", Args]),
-    Opts = case start_node_get_option_value(env, OptList, []) of
-	       [] -> [];
-	       Env -> [{env, Env}]
+    Opts = case {ClearAFlags, start_node_get_option_value(env, OptList, [])} of
+	       {false, []} -> [];
+	       {false, Env} -> [{env, Env}];
+               {true, []} -> [{env, [{"ERL_AFLAGS", false}]}];
+	       {true, Env} -> [{env, [{"ERL_AFLAGS", false} | Env]}]
 	   end,
     %% peer is always started on localhost
     %%
@@ -171,11 +174,12 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
     Args = lists:concat([" ", SuppliedArgs, CrashArgs]),
 
     Prog0 = start_node_get_option_value(erl, OptList, default),
-    Prog = pick_erl_program(Prog0),
+    {ClearAFlags, Prog} = pick_erl_program(Prog0),
     Ret = 
 	case start_which_node(OptList) of
 	    {error,Reason} -> {{error,Reason},undefined,undefined};
-	    Host0 -> do_start_node_slave(Host0,SlaveName,Args,Prog,Cleanup)
+	    Host0 -> do_start_node_slave(Host0,SlaveName,Args,Prog,Cleanup,
+                                         ClearAFlags)
 	end,
     gen_server:reply(From,Ret).
 
@@ -183,24 +187,50 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
 %%  but deprecated function.
 -compile([{nowarn_deprecated_function,[{slave,start,5}]}]).
 
-do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup) ->
+do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup, ClearAFlags) ->
     Host =
 	case Host0 of
 	    local -> test_server_sup:hoststr();
 	    _ -> cast_to_list(Host0)
 	end,
     Cmd = Prog ++ " " ++ Args,
-    case slave:start(Host, SlaveName, Args, no_link, Prog) of
-	{ok,Nodename} ->
-	    case Cleanup of
-		true -> ets:insert(slave_tab,#slave_info{name=Nodename});
-		false -> ok
-	    end,
-	    {{ok,Nodename}, Host, Cmd, [], []};
-	Ret ->
-	    {Ret, Host, Cmd}
+    SavedAFlags = save_clear_aflags(ClearAFlags),
+    Res = case slave:start(Host, SlaveName, Args, no_link, Prog) of
+              {ok,Nodename} ->
+                  case Cleanup of
+                      true -> ets:insert(slave_tab,#slave_info{name=Nodename});
+                      false -> ok
+                  end,
+                  {{ok,Nodename}, Host, Cmd, [], []};
+              Ret ->
+                  {Ret, Host, Cmd}
+          end,
+    restore_aflags(SavedAFlags),
+    Res.
+
+%%
+%% This saving/clearing/restoring is not free from races, but since
+%% there are no slave:start() that has an option for setting environment
+%% this is the best we can do without improving the slave module. Since
+%% the slave module is about to be replaced by the new peer module, we
+%% do not bother...
+%%
+save_clear_aflags(false) ->
+    false;
+save_clear_aflags(true) ->
+    case os:getenv("ERL_AFLAGS") of
+        false ->
+            false;
+        ErlAFlags ->
+            os:unsetenv("ERL_AFLAGS"),
+            ErlAFlags
     end.
 
+restore_aflags(false) ->
+    ok;
+restore_aflags(ErlAFlags) ->
+    true = os:putenv("ERL_AFLAGS", ErlAFlags),
+    ok.
 
 wait_for_node_started(LSock,Timeout,Client,Cleanup,TI,CtrlPid) ->
     case gen_tcp:accept(LSock,Timeout) of
@@ -382,27 +412,25 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 %%%  {release, Rel} where Rel = String | latest | previous
 %%%  this
 %%%
+%%% First element of returned tuple answers the question
+%%% "Do we need to clear ERL_AFLAGS?":
+%%% When starting a node with a previous release, options in
+%%% ERL_AFLAGS could prevent the node from starting. For example,
+%%% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
+%%% start if the previous release happens to also have a lock
+%%% counter emulator installed (unlikely).
 pick_erl_program(default) ->
-    ct:get_progname();
+    {false, ct:get_progname()};
 pick_erl_program(L) ->
     P = random_element(L),
     case P of
 	{prog, S} ->
-	    S;
+	    {false, S};
 	{release, S} ->
-            clear_erl_aflags(),
-	    find_release(S);
+	    {true, find_release(S)};
 	this ->
-	    ct:get_progname()
+	    {false, ct:get_progname()}
     end.
-
-clear_erl_aflags() ->
-    %% When starting a node with a previous release, options in
-    %% ERL_AFLAGS could prevent the node from starting. For example,
-    %% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
-    %% start if the previous release happens to also have a lock
-    %% counter emulator installed (unlikely).
-    os:unsetenv("ERL_AFLAGS").
 
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to

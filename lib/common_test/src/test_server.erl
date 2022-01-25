@@ -2809,10 +2809,9 @@ start_peer(Opts, Module, TestCase, Release, OutDir) ->
         not_available ->
             not_available;
         Erl ->
-            %% remove ERL_FLAGS/ERL_AFLAGS, because they may contain
-            %% "-emu_type debug" which does not exist for old releases. Keep "ERL_ZFLAGS",
-            %% for sometimes you might really need it...
-            Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}, {"ERL_FLAGS", false}],
+            %% remove ERL_AFLAGS, because they may contain "-emu_type debug" which does not exist
+            %% for old releases. Keep ERL_FLAGS, and ERL_ZFLAGS for sometimes you might need it...
+            Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}],
             NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
             start_peer(Opts#{exec => Erl, args => NewArgs,
                 env => Env}, Module, TestCase)
@@ -2863,8 +2862,8 @@ peer_compile(Erl, ModPath, OutDir) ->
 
 %% This should really be implemented as os:cmd.
 cmd(Exec, Args) ->
-    %% remove all ERL_FLAGS/ERL_AFLAGS to drop "-emu_type debug"
-    Env = [{"ERL_AFLAGS", false}, {"ERL_FLAGS", false}],
+    %% remove all ERL_AFLAGS to drop "-emu_type debug" and similar
+    Env = [{"ERL_AFLAGS", false}],
     Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env},
         stream, binary, exit_status, stderr_to_stdout]),
     read_std(Port, lists:join(" ", [Exec|Args]), <<>>).
