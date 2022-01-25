@@ -781,10 +781,6 @@
             <seecref marker="#M_atags"><c>+M&lt;S&gt;atags</c></seecref> for a
             more complete description.</p>
         </item>
-        <tag><marker id="Mit"/><c>+Mit X</c></tag>
-        <item>
-          <p>Reserved for future use. Do <em>not</em> use this flag.</p>
-        </item>
       </taglist>
 
       <note>

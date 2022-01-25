@@ -144,7 +144,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "port_table",                           NULL                    },
     {	"magic_ref_table",			"address"		},
     {	"pid_ref_table",			"address"		},
-    {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
     {   "dyn_lock_check",                       NULL                    },
@@ -162,7 +161,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "save_ops_lock",                        NULL                    },
 #endif
 #endif
-    {	"mtrace_buf",				NULL			},
     {	"os_monotonic_time",			NULL			},
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },

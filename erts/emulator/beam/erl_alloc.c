@@ -38,7 +38,6 @@
 #include "erl_db.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
-#include "erl_mtrace.h"
 #include "erl_mseg.h"
 #include "erl_monitor_link.h"
 #include "erl_hl_timer.h"
@@ -191,10 +190,6 @@ typedef struct {
     int top_pad;
     int dirty_alloc_insts;
     AlcUInit_t alloc_util;
-    struct {
-	char *mtrace;
-	char *nodename;
-    } instr;
     struct au_init sl_alloc;
     struct au_init std_alloc;
     struct au_init ll_alloc;
@@ -659,9 +654,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     if (ncpu < 1)
 	ncpu = 1;
 
-    erts_tsd_key_create(&erts_allctr_prelock_tsd_key,
-			"erts_allctr_prelock_tsd_key");
-
     erts_sys_alloc_init();
     erts_init_utils_mem();
 
@@ -772,7 +764,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     if (!init.temp_alloc.thr_spec)
 	refuse_af_strategy(&init.temp_alloc);
 
-    erts_mtrace_pre_init();
 #if HAVE_ERTS_MSEG
     init.mseg.nos = erts_no_schedulers;
     init.mseg.ndai = init.dirty_alloc_insts;
@@ -828,8 +819,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     sys_alloc_opt(SYS_ALLOC_OPT_TRIM_THRESHOLD, init.trim_threshold);
     sys_alloc_opt(SYS_ALLOC_OPT_TOP_PAD, init.top_pad);
 
-    erts_mtrace_init(init.instr.mtrace, init.instr.nodename);
-
     start_au_allocator(ERTS_ALC_A_TEMPORARY,
 		       &init.temp_alloc,
 		       &temp_alloc_state);
@@ -870,8 +859,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     start_au_allocator(ERTS_ALC_A_TEST,
 		       &init.test_alloc,
 		       &test_alloc_state);
-
-    erts_mtrace_install_wrapper_functions();
 
     init_aireq_alloc();
 
@@ -1740,15 +1727,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			bad_param(param, param+1);
 		    }
 		    break;
-		case 'i':
-		    switch (argv[i][3]) {
-		    case 't':
-			init->instr.mtrace = get_value(argv[i]+4, argv, &i);
-			break;
-		    default:
-			bad_param(param, param+2);
-		    }
-		    break;
 		case 'l':
 		    if (has_prefix("pm", param+2)) {
 			arg = get_value(argv[i]+5, argv, &i);
@@ -1818,18 +1796,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	    case '-':
 		if (argv[i][2] == '\0') {
 		    /* End of system flags reached */
-		    if (init->instr.mtrace) {
-			while (i < *argc) {
-			    if(sys_strcmp(argv[i], "-sname") == 0
-			       || sys_strcmp(argv[i], "-name") == 0) {
-				if (i + 1 <*argc) {
-				    init->instr.nodename = argv[i+1];
-				    break;
-				}
-			    }
-			    i++;
-			}
-		    }
 		    goto args_parsed;
 		}
 		break;
@@ -2871,9 +2837,6 @@ erts_allocator_info(fmtfn_t to, void *arg)
 
     erts_print(to, arg, "=allocator:instr\n");
 
-    erts_print(to, arg, "option t: %s\n",
-	       erts_mtrace_enabled ? "true" : "false");
-
 }
 
 Eterm
@@ -2975,14 +2938,6 @@ erts_allocator_options(void *proc)
     terms[length++] = erts_mmap_info_options(&erts_dflt_mmapper, NULL, NULL,
                                              NULL, hpp, szp);
 #endif
-    {
-	Eterm o[1], v[1];
-	o[0] = ERTS_MAKE_AM("t");
-	v[0] = erts_mtrace_enabled ? am_true : am_false;
-
-	atoms[length] = ERTS_MAKE_AM("instr");
-	terms[length++] = erts_bld_2tup_list(hpp, szp, 1, o, v);
-    }
 
     atoms[length] = ERTS_MAKE_AM("lock_physical_memory");
     terms[length++] = (lock_all_physical_memory ? am_all : am_no);
@@ -3480,54 +3435,6 @@ badarg:
     ERTS_BIF_PREP_ERROR(res, c_p, EXC_BADARG);
     return res;
 }
-
-/* 
- * The allocator wrapper prelocking stuff below is about the locking order.
- * It only affects wrappers (erl_mtrace.c) that keep locks during
- * alloc/realloc/free.
- *
- * Some query functions in erl_alloc_util.c lock the allocator mutex and then
- * use erts_printf that in turn may call the sys allocator through the wrappers.
- * To avoid breaking locking order these query functions first "pre-locks" all
- * allocator wrappers.
- */
-ErtsAllocatorWrapper_t *erts_allctr_wrappers;
-int erts_allctr_wrapper_prelocked = 0;
-erts_tsd_key_t erts_allctr_prelock_tsd_key;
-
-void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper)
-{
-    ASSERT(wrapper->lock && wrapper->unlock);
-    wrapper->next = erts_allctr_wrappers;
-    erts_allctr_wrappers = wrapper;
-}
-
-void erts_allctr_wrapper_pre_lock(void)
-{
-    if (erts_allctr_wrappers) {
-	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
-	for ( ; wrapper; wrapper = wrapper->next) {
-	    wrapper->lock();
-	}
-	ASSERT(!erts_allctr_wrapper_prelocked);
-	erts_allctr_wrapper_prelocked = 1;
-	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)1);
-    }
-}
-
-void erts_allctr_wrapper_pre_unlock(void)
-{
-    if (erts_allctr_wrappers) {
-	ErtsAllocatorWrapper_t* wrapper = erts_allctr_wrappers;
-	
-	erts_allctr_wrapper_prelocked = 0;
-	erts_tsd_set(erts_allctr_prelock_tsd_key, (void*)0);
-	for ( ; wrapper; wrapper = wrapper->next) {
-	    wrapper->unlock();
-	}
-    }
-}
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * NOTE: erts_alc_test() is only supposed to be used for testing.            *

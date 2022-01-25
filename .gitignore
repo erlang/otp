@@ -99,9 +99,6 @@ lib/os_mon/priv/obj/win32/
 lib/runtime_tools/c_src/win32/
 lib/runtime_tools/priv/lib/
 lib/runtime_tools/priv/obj/
-lib/tools/bin/win32/
-lib/tools/c_src/win32/
-lib/tools/obj/win32/
 lib/wx/c_src/win32/
 lib/wx/priv/win32/
 lib/wx/win32/

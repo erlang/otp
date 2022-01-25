@@ -36,7 +36,6 @@
 #include "erl_mseg.h"
 #include "global.h"
 #include "erl_threads.h"
-#include "erl_mtrace.h"
 #include "erl_time.h"
 #include "erl_alloc.h"
 #include "big.h"
@@ -44,8 +43,6 @@
 #include "erl_util_queue.h"
 
 #if HAVE_ERTS_MSEG
-
-#define SEGTYPE ERTS_MTRACE_SEGMENT_ID
 
 #ifndef HAVE_GETPAGESIZE
 #define HAVE_GETPAGESIZE 0
@@ -570,9 +567,6 @@ static ERTS_INLINE Uint mseg_drop_one_cache_size(ErtsMsegAllctr_t *ma, Uint flag
     c = erts_circleq_tail(head);
     erts_circleq_remove(c);
 
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
-
     mseg_destroy(ma, flags, c->seg, c->size);
     mseg_cache_clear_node(c);
     erts_circleq_push_head(&(ma->cache_free), c);
@@ -592,9 +586,6 @@ static ERTS_INLINE Uint mseg_drop_cache_size(ErtsMsegAllctr_t *ma, Uint flags, c
 
 	c = erts_circleq_tail(head);
 	erts_circleq_remove(c);
-
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
 
 	mseg_destroy(ma, flags, c->seg, c->size);
 
@@ -732,9 +723,6 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, UWord *size_p,
     else {
 done:
 	*size_p = size;
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_alloc(seg, atype, ERTS_MTRACE_SEGMENT_ID, size);
-
 	ERTS_MSEG_ALLOC_STAT(ma,size);
     }
 
@@ -752,9 +740,6 @@ mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, UWord size,
 	schedule_cache_check(ma);
 	goto done;
     }
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(atype, SEGTYPE, seg);
 
     mseg_destroy(ma, flags, seg, size);
 
@@ -824,9 +809,6 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 		new_size = old_size;
 	}
     }
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_realloc(new_seg, atype, SEGTYPE, seg, new_size);
 
     INC_CC(ma, realloc);
 

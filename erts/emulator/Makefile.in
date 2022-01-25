@@ -1093,7 +1093,7 @@ endif
 
 
 RUN_OBJS += \
-	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
+	$(OBJDIR)/erl_alloc.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
 	$(OBJDIR)/erl_init.o \
@@ -1219,7 +1219,6 @@ OS_OBJS +=	$(OBJDIR)/erl_poll.o \
 		$(OBJDIR)/erl_mmap.o  \
 		$(OBJDIR)/erl_osenv.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
-		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o \
 		$(OBJDIR)/erl_os_monotonic_time_extender.o
 
