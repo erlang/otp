@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -5908,7 +5908,7 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. SNMP-FRAMEWORK-MIB
-%% snmpEngineID in number of seconds.
+%% snmpEngineTime (in number of seconds).
 %% In theory, the Engine Time diff of the engine, should be exactly
 %% the same as the number of seconds we sleep (5 in this case).
 %% But because, on some (slow or/and high loaded) hosts, the actual
@@ -5955,6 +5955,25 @@ snmp_framework_mib_test() ->
             [EngineTime, T2-T1, 
              EngineTime2, T4-T3,
              T4-T1, ASleep, Sleep, EngineTimeDiff, LowEngineTime, HighEngineTime]),
+
+    %% In our environment, get'ing the snmpEngineTime should only take
+    %% a couple of milli sec (less then 100).
+    %% So just as a sanity check, we check that it its < 1000ms.
+    %% We do have a couple of machines that are "unstable"...
+
+    ?IPRINT("check that all snmpEngineTime acquire < 1000"),
+    if
+        ((T2 - T1) >= 1000) ->
+            ?WPRINT("Failed snmpEngineTime 1 sanity check: "
+                    "~n      Time to acquire ~w >= 1000", [T2-T1]),
+            ?SKIP({acquire, snmpEngineTime, 1, T1, T2});
+        ((T4 - T3) => 1000) ->
+            ?WPRINT("Failed snmpEngineTime 2 sanity check: "
+                    "~n      Time to acquire ~w >= 1000", [T4-T3]),
+            ?SKIP({acquire, snmpEngineTime, 2, T3, T4});
+        true ->
+            ok
+    end,
 
     if
         (HighEngineTime < EngineTime2) ->
