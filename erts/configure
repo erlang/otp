@@ -843,7 +843,6 @@ with_dynamic_trace
 enable_vm_probes
 with_assumed_cache_line_size
 enable_systemd
-enable_saved_compile_time
 with_microstate_accounting
 enable_static_nifs
 enable_static_drivers
@@ -1557,8 +1556,6 @@ Optional Features:
                           possible if --with-dynamic-trace is enabled, and
                           then default)
   --enable-systemd        enable systemd support in epmd
-  --disable-saved-compile-time
-                          disable saved compile time
   --enable-static-nifs    link nifs statically. If yes then all nifs in all
                           Erlang/OTP applications will be statically linked
                           into the main binary. It is also possible to give a
@@ -5169,22 +5166,6 @@ then :
 else $as_nop
   enable_systemd=no
 fi
-
-
-# Check whether --enable-saved-compile-time was given.
-if test ${enable_saved_compile_time+y}
-then :
-  enableval=$enable_saved_compile_time;  case "$enableval" in
-    no) save_compile_time=0 ;;
-    *)  save_compile_time=1 ;;
-  esac
-else $as_nop
-  save_compile_time=1
-fi
-
-
-
-printf "%s\n" "#define ERTS_SAVED_COMPILE_TIME $save_compile_time" >>confdefs.h
 
 
 

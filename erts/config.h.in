@@ -70,9 +70,6 @@
 /* Type qualifier restrict */
 #undef ERTS_RESTRICT
 
-/* Save compile time? */
-#undef ERTS_SAVED_COMPILE_TIME
-
 /* Define if structure alignment is enough for allocators. If not defined,
    64-bit alignment will be forced. */
 #undef ERTS_STRUCTURE_ALIGNED_ALLOC
