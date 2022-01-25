@@ -1406,13 +1406,91 @@ live_opt_is([], Live, Acc) ->
 %%% never throw.
 %%%
 
-ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
-    RevLinear = reduce_try(Linear0, []),
+ssa_opt_try({#opt_st{ssa=Linear,cnt=Count0}=St, FuncDb}) ->
+    {Count, Shrunk} = shrink_try(Linear, Count0, []),
+
+    Reduced = reduce_try(Shrunk, []),
 
     EmptySet = sets:new([{version, 2}]),
-    Linear = trim_try(RevLinear, EmptySet, EmptySet, []),
+    Trimmed = trim_try(Reduced, EmptySet, EmptySet, []),
 
-    {St#opt_st{ssa=Linear}, FuncDb}.
+    {St#opt_st{ssa=Trimmed,cnt=Count}, FuncDb}.
+
+%% Moves all leading/trailing instructions that cannot fail out of try/catch
+%% expressions. For example, we can move the tuple constructions `{defg,Arg}`
+%% and `{hijk,A}` out of the `try` in the code below:
+%%
+%%     try
+%%         A = abcd({defg,Arg}),
+%%         ... snip ...
+%%         {hijk,A}
+%%     catch
+%%         ... snip ...
+%%     end.
+shrink_try([{TryLbl0, #b_blk{is=[#b_set{op=new_try_tag,dst=Dst}],
+                             last=#b_br{bool=Dst,succ=SuccLbl}}=TryBlk},
+            {SuccLbl, #b_blk{is=SuccIs0,last=SuccLast}=SuccBlk0} | Bs],
+           Count0, Acc0) ->
+    %% Hoist leading known-safe instructions before `new_try_tag` instructions.
+    {HoistIs, SuccIs} = hoist_try_is(SuccIs0, SuccLast, []),
+
+    HoistLbl = TryLbl0,
+    TryLbl = Count0,
+    Count = Count0 + 1,
+
+    HoistBlk = #b_blk{is=HoistIs,
+                      last=#b_br{bool=#b_literal{val=true},
+                                 succ=TryLbl,
+                                 fail=TryLbl}},
+    SuccBlk = SuccBlk0#b_blk{is=SuccIs},
+
+    Acc = [{TryLbl, TryBlk},
+           {HoistLbl, HoistBlk} | Acc0],
+
+    shrink_try([{SuccLbl, SuccBlk} | Bs], Count, Acc);
+shrink_try([{L, #b_blk{is=Is}=Blk0} | Bs], Count, Acc) ->
+    Blk = Blk0#b_blk{is=sink_try_is(Is)},
+    shrink_try(Bs, Count, [{L, Blk} | Acc]);
+shrink_try([], Count, Acc) ->
+    {Count, reverse(Acc)}.
+
+hoist_try_is([#b_set{dst=Dst},
+              #b_set{op={succeeded,_},args=[Dst]}]=Is,
+             #b_br{}, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{dst=Dst}]=Is, #b_br{bool=Dst}, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=new_try_tag}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=landingpad}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=kill_try_tag}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{}=I | Is], Last, HoistIs) ->
+    %% Note that we hoist instructions regardless of whether they side-effect
+    %% or not: as long as they don't throw an exception, we don't need to care
+    %% about side-effects as long as their order is unchanged.
+    hoist_try_is(Is, Last, [I | HoistIs]);
+hoist_try_is([], _Last, HoistIs) ->
+    {reverse(HoistIs), []}.
+
+%% Moves trailing known-safe instructions past `kill_try_tag` instructions.
+sink_try_is([#b_set{op=landingpad} | _]=Is) ->
+    Is;
+sink_try_is([#b_set{op=phi}=Phi | Is]) ->
+    [Phi | sink_try_is(Is)];
+sink_try_is(Is) ->
+    sink_try_is_1(Is, []).
+
+sink_try_is_1([#b_set{op=kill_try_tag}=Kill | Is], Acc) ->
+    [Kill | reverse(Acc, Is)];
+sink_try_is_1([I | Is], Acc) ->
+    case beam_ssa:no_side_effect(I) of
+        true -> sink_try_is_1(Is, [I | Acc]);
+        false -> reverse(Acc, [I | Is])
+    end;
+sink_try_is_1([], Acc) ->
+    reverse(Acc).
 
 %% Does a strength reduction of try/catch and catch.
 %%
