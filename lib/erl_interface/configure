@@ -5174,14 +5174,13 @@ case $host_os in
 esac
 
 # Checks for libraries.
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for gethostbyname in -lnsl" >&5
-printf %s "checking for gethostbyname in -lnsl... " >&6; }
-if test ${ac_cv_lib_nsl_gethostbyname+y}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing gethostbyname" >&5
+printf %s "checking for library containing gethostbyname... " >&6; }
+if test ${ac_cv_search_gethostbyname+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lnsl  $LIBS"
+  ac_func_search_save_LIBS=$LIBS
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5197,34 +5196,50 @@ return gethostbyname ();
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+for ac_lib in '' nsl
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_nsl_gethostbyname=yes
-else $as_nop
-  ac_cv_lib_nsl_gethostbyname=no
+  ac_cv_search_gethostbyname=$ac_res
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_nsl_gethostbyname" >&5
-printf "%s\n" "$ac_cv_lib_nsl_gethostbyname" >&6; }
-if test "x$ac_cv_lib_nsl_gethostbyname" = xyes
+    conftest$ac_exeext
+  if test ${ac_cv_search_gethostbyname+y}
 then :
-  printf "%s\n" "#define HAVE_LIBNSL 1" >>confdefs.h
+  break
+fi
+done
+if test ${ac_cv_search_gethostbyname+y}
+then :
 
-  LIBS="-lnsl $LIBS"
+else $as_nop
+  ac_cv_search_gethostbyname=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_gethostbyname" >&5
+printf "%s\n" "$ac_cv_search_gethostbyname" >&6; }
+ac_res=$ac_cv_search_gethostbyname
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 fi
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for getpeername in -lsocket" >&5
-printf %s "checking for getpeername in -lsocket... " >&6; }
-if test ${ac_cv_lib_socket_getpeername+y}
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing getpeername" >&5
+printf %s "checking for library containing getpeername... " >&6; }
+if test ${ac_cv_search_getpeername+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lsocket  $LIBS"
+  ac_func_search_save_LIBS=$LIBS
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5240,23 +5255,40 @@ return getpeername ();
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+for ac_lib in '' socket
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_socket_getpeername=yes
-else $as_nop
-  ac_cv_lib_socket_getpeername=no
+  ac_cv_search_getpeername=$ac_res
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_socket_getpeername" >&5
-printf "%s\n" "$ac_cv_lib_socket_getpeername" >&6; }
-if test "x$ac_cv_lib_socket_getpeername" = xyes
+    conftest$ac_exeext
+  if test ${ac_cv_search_getpeername+y}
 then :
-  printf "%s\n" "#define HAVE_LIBSOCKET 1" >>confdefs.h
+  break
+fi
+done
+if test ${ac_cv_search_getpeername+y}
+then :
 
-  LIBS="-lsocket $LIBS"
+else $as_nop
+  ac_cv_search_getpeername=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_getpeername" >&5
+printf "%s\n" "$ac_cv_search_getpeername" >&6; }
+ac_res=$ac_cv_search_getpeername
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 fi
 
