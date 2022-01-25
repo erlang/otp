@@ -218,19 +218,25 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(local, Config) ->
+    ?P("init_per_group(local) -> do we support 'local'"),
     case ?OPEN(Config, 0, [local]) of
 	{ok,S} ->
+            ?P("init_per_group(local) -> we support 'local'"),
 	    ok = gen_udp:close(S),
 	    Config;
 	{error, eafnosupport} ->
+            ?P("init_per_group(local) -> we *do not* support 'local'"),
 	    {skip, "AF_LOCAL not supported"}
     end;
-init_per_group(t_link_local = _GroupName, Config) ->
+init_per_group(sockaddr = _GroupName, Config) ->
+    ?P("init_per_group(sockaddr) -> do we support 'socket'"),
     try socket:info() of
 	_ ->
+            ?P("init_per_group(sockaddr) -> we support 'socket'"),
             Config
     catch
         error : undef ->
+            ?P("init_per_group(sockaddr) -> we *do not* support 'socket'"),
             {skip, "esock not configured"}
     end;
 init_per_group(_GroupName, Config) ->
