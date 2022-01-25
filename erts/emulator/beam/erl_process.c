@@ -4654,7 +4654,8 @@ do {									\
     run_queue_info[(QIX)].full_reds_history_change = (LAST_REDS);	\
 } while (0)
 
-#define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)				\
+#ifdef DEBUG
+#  define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)				\
 do {									\
     int sum__ = 0;							\
     int rix__;								\
@@ -4662,6 +4663,9 @@ do {									\
 	sum__ += (RQ)->full_reds_history[rix__];			\
     ASSERT(sum__ == (RQ)->full_reds_history_sum);			\
 } while (0);
+#else
+#  define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)
+#endif
 
 #define ERTS_PRE_ALLOCED_MPATHS 8
 
