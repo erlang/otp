@@ -1525,8 +1525,6 @@ Optional Features:
                           possible if --with-dynamic-trace is enabled, and
                           then default)
   --enable-systemd        enable systemd support in epmd
-  --disable-saved-compile-time
-                          disable saved compile time
   --enable-static-nifs    link nifs statically. If yes then all nifs in all
                           Erlang/OTP applications will be statically linked
                           into the main binary. It is also possible to give a
@@ -4174,6 +4172,7 @@ if test "${enable_systemd+set}" = set; then :
 else
   enable_systemd=no
 fi
+
 
 
 # Check whether --with-microstate-accounting was given.
