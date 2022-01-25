@@ -132,5 +132,18 @@
       </list>
     </section>
 
+    <section>
+      <title>The default timewarp mode will change to multi-time warp mode</title>
+      <p>
+	The default <seeguide marker="erts:time_correction#Time_Warp_Modes">
+        Time Warp Mode</seeguide> will be changed from
+        <seeguide marker="erts:time_correction#No_Time_Warp_Mode">
+        no time warp mode</seeguide> to <seeguide marker="erts:time_correction#Multi_Time_Warp_Mode">
+        multi-time warp mode</seeguide>. See <seeguide marker="erts:time_correction">
+        Time and Time Correction in Erlang</seeguide> for details on how this will
+        effect your system.
+      </p>
+    </section>
+
   </section>
 </chapter>
