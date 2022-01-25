@@ -31,9 +31,10 @@
 %% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([
 	 send_to_closed/1, active_n/1,
@@ -223,6 +224,14 @@ init_per_group(local, Config) ->
 	    Config;
 	{error, eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"}
+    end;
+init_per_group(t_link_local = _GroupName, Config) ->
+    try socket:info() of
+	_ ->
+            Config
+    catch
+        error : undef ->
+            {skip, "esock not configured"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.

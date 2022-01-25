@@ -92,7 +92,7 @@ groups() ->
      {t_recv,               [], t_recv_cases()},
      {t_shutdown,           [], t_shutdown_cases()},
      {t_misc,               [], t_misc_cases()},
-     {t_link_local,         [], t_link_local_cases()},
+     {sockaddr,             [], sockaddr_cases()},
      {t_local,              [], t_local_cases()},
      {s_misc,               [], s_misc_cases()}
     ].
@@ -146,10 +146,10 @@ t_misc_cases() ->
      t_fdconnect,
      t_implicit_inet6,
      t_accept_inet6_tclass,
-     {group, t_link_local}
+     {group, sockaddr}
     ].
 
-t_link_local_cases() ->
+sockaddr_cases() ->
     [
      t_simple_local_sockaddr_in_send_recv,
      t_simple_link_local_sockaddr_in_send_recv,
@@ -243,7 +243,7 @@ init_per_group(t_local = _GroupName, Config) ->
         _C:_E:_S ->
             {skip, "AF_LOCAL not supported"}
     end;
-init_per_group(t_link_local = _GroupName, Config) ->
+init_per_group(sockaddr = _GroupName, Config) ->
     try socket:info() of
 	_ ->
             Config
