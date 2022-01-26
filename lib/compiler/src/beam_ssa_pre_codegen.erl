@@ -1628,7 +1628,7 @@ find_yregs(#st{frames=[_|_]=Frames,args=Args,ssa=Blocks0}=St) ->
 
 find_yregs_1([{F,Defs}|Fs], Blocks0) ->
     DK = #dk{d=Defs,k=sets:new([{version, 2}])},
-    D0 = #{F=>DK},
+    D0 = #{F => DK,?EXCEPTION_BLOCK => DK#dk{d=[]}},
     Ls = beam_ssa:rpo([F], Blocks0),
     Yregs0 = sets:new([{version, 2}]),
     Yregs = find_yregs_2(Ls, Blocks0, D0, Yregs0),
@@ -1681,6 +1681,8 @@ find_defs_is([#b_set{dst=Dst}|Is], Acc) ->
     find_defs_is(Is, [Dst|Acc]);
 find_defs_is([], Acc) -> Acc.
 
+find_update_succ([?EXCEPTION_BLOCK|Ss], DK, D) ->
+    find_update_succ(Ss, DK, D);
 find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
     case D0 of
         #{S:=#dk{d=Defs1,k=Killed1}} ->
