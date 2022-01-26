@@ -40,6 +40,8 @@
 -export([os_cmd/1, os_cmd/2]).
 
 -export([
+         proxy_call/3,
+
          %% Generic 'has support' test function(s)
          has_support_ipv6/0,
 
@@ -1729,20 +1731,6 @@ timetrap_scale_factor() ->
     end.
 
 
-proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
-    receive
-        {'DOWN', M, process, P, Reply} ->
-            Reply
-    after Timeout ->
-            erlang:demonitor(M, [flush]),
-            exit(P, kill),
-            Default
-    end.
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 os_cmd(Cmd) ->
@@ -1829,6 +1817,20 @@ test_inet_backends() ->
         _ ->
             false 
     end.
+
+
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+
 
 
 %% This is an extremely simple check...
