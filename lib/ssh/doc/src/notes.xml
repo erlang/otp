@@ -264,6 +264,24 @@
 
 </section>
 
+<section><title>Ssh 4.11.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed problem with blocked server after multiple
+	    restarts. Applies to daemons with options
+	    <c>{parallel_login,true}</c> and also <c>{max_sessions,
+	    int()&gt;0}</c>.</p>
+          <p>
+	    Own Id: OTP-17835 Aux Id: ERIERL-721 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.11.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
