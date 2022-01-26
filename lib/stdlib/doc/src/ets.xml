@@ -283,7 +283,7 @@ true
 
   <datatypes>
     <datatype>
-      <name name="access"/>
+      <name name="table_access"/>
     </datatype>
     <datatype>
       <name>continuation()</name>
@@ -297,17 +297,17 @@ true
     </datatype>
     <datatype>
       <name name="match_spec"/>
-      <desc><p>A match specification, see above.</p></desc>
+      <desc><p>A match specification, see <seeerl marker="#match_spec">Match Specifications</seeerl>.</p></desc>
     </datatype>
     <datatype>
-      <name name="comp_match_spec"/>
+      <name name="compiled_match_spec"/>
       <desc><p>A compiled match specification.</p></desc>
     </datatype>
     <datatype>
       <name name="match_pattern"/>
     </datatype>
     <datatype>
-      <name name="tab"/>
+      <name name="table"/>
     </datatype>
     <datatype>
       <name name="tid"/>
@@ -315,7 +315,7 @@ true
       <seemfa marker="#new/2"><c>new/2</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
-      <name name="type"/>
+      <name name="table_type"/>
     </datatype>
   </datatypes>
 
@@ -339,7 +339,7 @@ true
       <name name="delete" arity="1" since=""/>
       <fsummary>Delete an entire ETS table.</fsummary>
       <desc>
-        <p>Deletes the entire table <c><anno>Tab</anno></c>.</p>
+        <p>Deletes the entire table <c><anno>Table</anno></c>.</p>
       </desc>
     </func>
 
@@ -349,7 +349,7 @@ true
         table.</fsummary>
       <desc>
         <p>Deletes all objects with key <c><anno>Key</anno></c> from table
-          <c><anno>Tab</anno></c>.</p>
+          <c><anno>Table</anno></c>.</p>
       </desc>
     </func>
 
@@ -357,7 +357,7 @@ true
       <name name="delete_all_objects" arity="1" since=""/>
       <fsummary>Delete all objects in an ETS table.</fsummary>
       <desc>
-        <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
+        <p>Delete all objects in the ETS table <c><anno>Table</anno></c>.
           The operation is guaranteed to be
           <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
       </desc>
@@ -382,7 +382,7 @@ true
         <p>Reads a file produced by <seemfa marker="#tab2file/2">
           <c>tab2file/2</c></seemfa> or 
           <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa> and
-          creates the corresponding table <c><anno>Tab</anno></c>.</p>
+          creates the corresponding table <c><anno>Table</anno></c>.</p>
         <p>Equivalent to <c>file2tab(<anno>Filename</anno>, [])</c>.</p>
       </desc>
     </func>
@@ -394,7 +394,7 @@ true
         <p>Reads a file produced by <seemfa marker="#tab2file/2">
           <c>tab2file/2</c></seemfa> or <seemfa marker="#tab2file/3">
           <c>tab2file/3</c></seemfa> and creates the
-          corresponding table <c><anno>Tab</anno></c>.</p>
+          corresponding table <c><anno>Table</anno></c>.</p>
         <p>The only supported option is <c>{verify,boolean()}</c>.
           If verification is turned on (by specifying <c>{verify,true}</c>),
           the function uses whatever information is present in the file to
@@ -424,7 +424,7 @@ true
       <fsummary>Return the first key in an ETS table.</fsummary>
       <desc>
         <p>Returns the first key <c><anno>Key</anno></c> in table
-          <c><anno>Tab</anno></c>. For an <c>ordered_set</c> table, the first
+          <c><anno>Table</anno></c>. For an <c>ordered_set</c> table, the first
           key in Erlang term order is returned. For other
           table types, the first key according to the internal
           order of the table is returned. If the table is empty,
@@ -554,8 +554,8 @@ Error: fun containing local Erlang function calls
       <fsummary>Change owner of a table.</fsummary>
       <desc>
         <p>Make process <c><anno>Pid</anno></c> the new owner of table
-          <c><anno>Tab</anno></c>. If successful, message
-          <c>{'ETS-TRANSFER',<anno>Tab</anno>,FromPid,<anno>GiftData</anno>}</c>
+          <c><anno>Table</anno></c>. If successful, message
+          <c>{'ETS-TRANSFER',<anno>Table</anno>,FromPid,<anno>GiftData</anno>}</c>
           is sent to the new owner.</p>
         <p>The process <c><anno>Pid</anno></c> must be alive, local, and not
           already the owner of the table.
@@ -580,7 +580,7 @@ Error: fun containing local Erlang function calls
       <name name="i" arity="1" since=""/>
       <fsummary>Browse an ETS table on a terminal.</fsummary>
       <desc>
-        <p>Browses table <c><anno>Tab</anno></c> on a terminal.</p>
+        <p>Browses table <c><anno>Table</anno></c> on a terminal.</p>
       </desc>
     </func>
 
@@ -588,10 +588,10 @@ Error: fun containing local Erlang function calls
       <name name="info" arity="1" since=""/>
       <fsummary>Return information about an <c>table</c>.</fsummary>
       <desc>
-        <p>Returns information about table <c><anno>Tab</anno></c> as a list of
-          tuples. If <c><anno>Tab</anno></c> has the correct type
+        <p>Returns information about table <c><anno>Table</anno></c> as a list of
+          tuples. If <c><anno>Table</anno></c> has the correct type
           for a table identifier, but does not refer to an existing ETS
-          table, <c>undefined</c> is returned. If <c><anno>Tab</anno></c> is
+          table, <c>undefined</c> is returned. If <c><anno>Table</anno></c> is
           not of the correct type, a <c>badarg</c> exception is raised.</p>
         <taglist>
           <tag><c>{compressed, boolean()}</c></tag>
@@ -637,7 +637,7 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The pid of the owner of the table.</p>
           </item>
-          <tag><c>{protection,</c> <seetype marker="#access">
+          <tag><c>{protection,</c> <seetype marker="#table_access">
               <c>access()</c></seetype><c>}</c></tag>
           <item>
             <p>The table access rights.</p>
@@ -646,7 +646,7 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The number of objects inserted in the table.</p>
           </item>
-          <tag><c>{type,</c> <seetype marker="#type">
+          <tag><c>{type,</c> <seetype marker="#table_type">
               <c>type()</c></seetype><c>}</c></tag>
           <item>
             <p>The table type.</p>
@@ -677,9 +677,9 @@ Error: fun containing local Erlang function calls
         an ETS table.</fsummary>
       <desc>
         <p>Returns the information associated with <c>Item</c> for table
-          <c><anno>Tab</anno></c>, or returns <c>undefined</c> if <c>Tab</c>
+          <c><anno>Table</anno></c>, or returns <c>undefined</c> if <c>Table</c>
           does not refer an existing ETS table. If
-          <c><anno>Tab</anno></c> is
+          <c><anno>Table</anno></c> is
           not of the correct type, or if <c><anno>Item</anno></c> is not
           one of the allowed values, a <c>badarg</c> exception is raised.</p>
           <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
@@ -769,7 +769,7 @@ Error: fun containing local Erlang function calls
       <name name="init_table" arity="2" since=""/>
       <fsummary>Replace all objects of an ETS table.</fsummary>
       <desc>
-        <p>Replaces the existing objects of table <c><anno>Tab</anno></c> with
+        <p>Replaces the existing objects of table <c><anno>Table</anno></c> with
           objects created by calling the input function
           <c><anno>InitFun</anno></c>,
           see below. This function is provided for compatibility with
@@ -801,7 +801,7 @@ Error: fun containing local Erlang function calls
       <desc>
         <p>Inserts the object or all of the objects in list
           <c><anno>ObjectOrObjects</anno></c> into table
-          <c><anno>Tab</anno></c>.</p>
+          <c><anno>Table</anno></c>.</p>
         <list type="bulleted">
           <item>
             <p>If the table type is <c>set</c> and the key of the inserted
@@ -880,7 +880,7 @@ Error: fun containing local Erlang function calls
         <c>ordered_set</c>.</fsummary>
       <desc>
         <p>Returns the last key <c><anno>Key</anno></c> according to Erlang
-          term order in table <c>Tab</c> of type <c>ordered_set</c>. For
+          term order in table <c>Table</c> of type <c>ordered_set</c>. For
           other table types, the function is synonymous to
           <seemfa marker="#first/1"><c>first/1</c></seemfa>.
           If the table is empty, <c>'$end_of_table'</c> is returned.</p>
@@ -895,7 +895,7 @@ Error: fun containing local Erlang function calls
       </fsummary>
       <desc>
         <p>Returns a list of all objects with key <c><anno>Key</anno></c> in
-          table <c><anno>Tab</anno></c>.</p>
+          table <c><anno>Table</anno></c>.</p>
         <list type="bulleted">
           <item>
             <p>For tables of type <c>set</c>, <c>bag</c>, or
@@ -934,7 +934,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Return the <c>Pos</c>:th element of all objects with a
         specified key in an ETS table.</fsummary>
       <desc>
-        <p>For a table <c><anno>Tab</anno></c> of type <c>set</c> or
+        <p>For a table <c><anno>Table</anno></c> of type <c>set</c> or
           <c>ordered_set</c>, the function returns the
           <c><anno>Pos</anno></c>:th
           element of the object with key <c><anno>Key</anno></c>.</p>
@@ -971,7 +971,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
-        <p>Matches the objects in table <c><anno>Tab</anno></c> against
+        <p>Matches the objects in table <c><anno>Table</anno></c> against
           pattern <c><anno>Pattern</anno></c>.</p>
         <p>A pattern is a term that can contain:</p>
         <list type="bulleted">
@@ -1026,7 +1026,7 @@ Error: fun containing local Erlang function calls
         ETS table.</fsummary>
       <desc>
         <p>Deletes all objects that match pattern <c><anno>Pattern</anno></c>
-          from table <c><anno>Tab</anno></c>. For a description of patterns,
+          from table <c><anno>Table</anno></c>. For a description of patterns,
           see <seemfa marker="#match/2"><c>match/2</c></seemfa>.</p>
       </desc>
     </func>
@@ -1051,7 +1051,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
-        <p>Matches the objects in table <c><anno>Tab</anno></c> against
+        <p>Matches the objects in table <c><anno>Table</anno></c> against
           pattern <c><anno>Pattern</anno></c>. For a description of patterns,
           see <seemfa marker="#match/2"><c>match/2</c></seemfa>.
           The function returns a list of all objects that
@@ -1392,7 +1392,7 @@ ets:select(Table, MatchSpec),</code>
       <fsummary>Return the next key in an ETS table.</fsummary>
       <desc>
         <p>Returns the next key <c><anno>Key2</anno></c>, following key
-          <c><anno>Key1</anno></c> in table <c><anno>Tab</anno></c>. For table
+          <c><anno>Key1</anno></c> in table <c><anno>Table</anno></c>. For table
           type <c>ordered_set</c>, the next key in Erlang term order is
           returned. For other table types, the next key
           according to the internal order of the table is returned. If no
@@ -1417,7 +1417,7 @@ ets:select(Table, MatchSpec),</code>
       <desc>
         <p>Returns the previous key <c><anno>Key2</anno></c>, preceding key
           <c><anno>Key1</anno></c> according to Erlang term order in table
-          <c><anno>Tab</anno></c> of type <c>ordered_set</c>. For other
+          <c><anno>Table</anno></c> of type <c>ordered_set</c>. For other
           table types, the function is synonymous to
           <seemfa marker="#next/2"><c>next/2</c></seemfa>.
           If no previous key exists, <c>'$end_of_table'</c> is returned.</p>
@@ -1430,7 +1430,7 @@ ets:select(Table, MatchSpec),</code>
       <name name="rename" arity="2" since=""/>
       <fsummary>Rename a named ETS table.</fsummary>
       <desc>
-        <p>Renames the named table <c><anno>Tab</anno></c> to the new name
+        <p>Renames the named table <c><anno>Table</anno></c> to the new name
           <c><anno>Name</anno></c>. Afterwards, the old name cannot be used to
           access the table. Renaming an unnamed table has no effect.</p>
       </desc>
@@ -1502,9 +1502,9 @@ ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
 	<seemfa marker="#select/3"><c>select/3</c></seemfa> &amp;
 	<seemfa marker="#select/1"><c>select/1</c></seemfa>.</p>
         <p>A process fixes a table by calling
-          <c>safe_fixtable(<anno>Tab</anno>, true)</c>. The table remains
+          <c>safe_fixtable(<anno>Table</anno>, true)</c>. The table remains
           fixed until the process releases it by calling
-          <c>safe_fixtable(<anno>Tab</anno>, false)</c>, or until the process
+          <c>safe_fixtable(<anno>Table</anno>, false)</c>, or until the process
           terminates.</p>
         <p>If many processes fix a table, the table remains fixed
           until all processes have released it (or terminated).
@@ -1520,21 +1520,21 @@ ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
 	  <c>next/2</c> is called.</p>
         <p><em>Example:</em></p>
         <code type="none">
-clean_all_with_value(Tab,X) ->
-    safe_fixtable(Tab,true),
-    clean_all_with_value(Tab,X,ets:first(Tab)),
-    safe_fixtable(Tab,false).
+clean_all_with_value(Table,X) ->
+    safe_fixtable(Table,true),
+    clean_all_with_value(Table,X,ets:first(Table)),
+    safe_fixtable(Table,false).
 
-clean_all_with_value(Tab,X,'$end_of_table') ->
+clean_all_with_value(Table,X,'$end_of_table') ->
     true;
-clean_all_with_value(Tab,X,Key) ->
-    case ets:lookup(Tab,Key) of
+clean_all_with_value(Table,X,Key) ->
+    case ets:lookup(Table,Key) of
         [{Key,X}] ->
-            ets:delete(Tab,Key);
+            ets:delete(Table,Key);
         _ ->
             true
     end,
-    clean_all_with_value(Tab,X,ets:next(Tab,Key)).</code>
+    clean_all_with_value(Table,X,ets:next(Table,Key)).</code>
         <p>Notice that deleted objects are not freed from a
           fixed table until it has been released. If a process fixes a
           table but never releases it, the memory used by the deleted
@@ -1542,7 +1542,7 @@ clean_all_with_value(Tab,X,Key) ->
           the table also degrades significantly.</p>
         <p>To retrieve information about which processes have fixed which
           tables, use <seeerl marker="#info_2_safe_fixed_monotonic_time">
-          <c>info(Tab, safe_fixed_monotonic_time)</c></seeerl>. A system with
+          <c>info(Table, safe_fixed_monotonic_time)</c></seeerl>. A system with
           many processes fixing tables can need a monitor that sends alarms
           when tables have been fixed for too long.</p>
         <p>Notice that <c>safe_fixtable/2</c> is not necessary for table type
@@ -1570,7 +1570,7 @@ clean_all_with_value(Tab,X,Key) ->
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
-        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+        <p>Matches the objects in table <c><anno>Table</anno></c> using a
           <seeerl marker="#match_spec">match specification</seeerl>.
           This is a more general call than
           <seemfa marker="#match/2"><c>match/2</c></seemfa> and
@@ -1599,23 +1599,23 @@ Result = "Term construct"</code>
           match variables in a list), so that the following
           <c>match/2</c> expression:</p>
         <code type="none">
-ets:match(Tab,{'$1','$2','$3'})</code>
+ets:match(Table,{'$1','$2','$3'})</code>
         <p>is exactly equivalent to:</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</code>
+ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])</code>
         <p>And that the following <c>match_object/2</c> call:</p>
         <code type="none">
-ets:match_object(Tab,{'$1','$2','$1'})</code>
+ets:match_object(Table,{'$1','$2','$1'})</code>
         <p>is exactly equivalent to</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</code>
+ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])</code>
         <p>Composite terms can be constructed in the <c>Result</c> part
           either by simply writing a list, so that the following code:</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</code>
+ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])</code>
         <p>gives the same output as:</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])</code>
+ets:select(Table,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])</code>
         <p>That is, all the bound variables in the match head as a list. If
           tuples are to be constructed, one has to write a tuple of
           arity 1 where the single element in the tuple is the tuple
@@ -1623,10 +1623,10 @@ ets:select(Tab,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])</code>
           for a <c>Guard</c>).</p>
         <p>Therefore the following call:</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</code>
+ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])</code>
         <p>gives the same output as:</p>
         <code type="none">
-ets:select(Tab,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])</code>
+ets:select(Table,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])</code>
         <p>This syntax is equivalent to the syntax used in the trace
           patterns (see the
           <seeerl marker="runtime_tools:dbg">
@@ -1688,7 +1688,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification and return the number of objects for which the match
         specification returned <c>true</c>.</fsummary>
       <desc>
-        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+        <p>Matches the objects in table <c><anno>Table</anno></c> using a
           <seeerl marker="#match_spec">match specification</seeerl>. If the
           match specification returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
@@ -1707,7 +1707,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification and delete objects where the match specification
         returns <c>true</c>.</fsummary>
       <desc>
-        <p>Matches the objects in table <c><anno>Tab</anno></c> using a
+        <p>Matches the objects in table <c><anno>Table</anno></c> using a
           <seeerl marker="#match_spec">match specification</seeerl>. If the
           match specification returns <c>true</c> for an object, that object is
           removed from the table. For any other result from the match
@@ -1729,7 +1729,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <name name="select_replace" arity="2" since="OTP 20.0"/>
       <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
-        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
+        <p>Matches the objects in the table <c><anno>Table</anno></c> using a
           <seeerl marker="#match_spec">match specification</seeerl>. For each
           matched object, the existing object is replaced with
           the match specification result.</p>
@@ -1847,7 +1847,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           <c>first</c>/<c>next</c> or <c>last</c>/<c>prev</c> are to be used
           instead.</p>
         <p>Returns all objects in slot <c><anno>I</anno></c> of table
-          <c><anno>Tab</anno></c>. A table can be traversed by repeatedly
+          <c><anno>Table</anno></c>. A table can be traversed by repeatedly
           calling the function,
           starting with the first slot <c><anno>I</anno>=0</c> and
           ending when <c>'$end_of_table'</c> is returned.
@@ -1867,10 +1867,10 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <name name="tab2file" arity="2" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
-        <p>Dumps table <c><anno>Tab</anno></c> to file
+        <p>Dumps table <c><anno>Table</anno></c> to file
           <c><anno>Filename</anno></c>.</p>
         <p>Equivalent to
-          <c>tab2file(<anno>Tab</anno>, <anno>Filename</anno>,[])</c></p>
+          <c>tab2file(<anno>Table</anno>, <anno>Filename</anno>,[])</c></p>
       </desc>
     </func>
 
@@ -1878,7 +1878,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <name name="tab2file" arity="3" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
-        <p>Dumps table <c><anno>Tab</anno></c> to file
+        <p>Dumps table <c><anno>Table</anno></c> to file
           <c><anno>Filename</anno></c>.</p>
         <p>When dumping the table, some information about the table
           is dumped to a header at the beginning of the dump. This
@@ -1925,7 +1925,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <name name="tab2list" arity="1" since=""/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
-        <p>Returns a list of all objects in table <c><anno>Tab</anno></c>.</p>
+        <p>Returns a list of all objects in table <c><anno>Table</anno></c>.</p>
       </desc>
     </func>
 
@@ -2019,7 +2019,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           tables, Dets tables,
           and lists are also recognized by QLC as sources of
           data. Calling <c>table/1,2</c> is the means to make the
-          ETS table <c>Tab</c> usable to QLC.</p>
+          ETS table <c>Table</c> usable to QLC.</p>
         <p>When there are only simple restrictions on the key position,
           QLC uses <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>
           to look up the keys. When
@@ -2067,12 +2067,12 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
         <p>An explicit match specification is here used to traverse the
           table:</p>
         <pre>
-9> <input>true = ets:insert(Tab = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),</input>
+9> <input>true = ets:insert(Table = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),</input>
 <input>MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X &lt; 5) -> {Y} end),</input>
-<input>QH1 = ets:table(Tab, [{traverse, {select, MS}}]).</input></pre>
+<input>QH1 = ets:table(Table, [{traverse, {select, MS}}]).</input></pre>
         <p>An example with an implicit match specification:</p>
         <pre>
-10> <input>QH2 = qlc:q([{Y} || {X,Y} &lt;- ets:table(Tab), (X > 1) or (X &lt; 5)]).</input></pre>
+10> <input>QH2 = qlc:q([{Y} || {X,Y} &lt;- ets:table(Table), (X > 1) or (X &lt; 5)]).</input></pre>
         <p>The latter example is equivalent to the former, which
           can be verified using function <c>qlc:info/1</c>:</p>
         <pre>
@@ -2090,7 +2090,7 @@ true</pre>
         ETS table.</fsummary>
       <desc>
         <p>Returns and removes a list of all objects with key
-          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c>.</p>
+          <c><anno>Key</anno></c> in table <c><anno>Table</anno></c>.</p>
         <p>The specified <c><anno>Key</anno></c> is used to identify the object
           by either <em>comparing equal</em> the key of an object in an
           <c>ordered_set</c> table, or <em>matching</em> in other types of
@@ -2132,7 +2132,7 @@ true</pre>
       </fsummary>
       <desc>
         <p>Fills an already created/opened Dets table with the objects
-          in the already opened ETS table named <c><anno>Tab</anno></c>.
+          in the already opened ETS table named <c><anno>Table</anno></c>.
           The Dets table is emptied before the objects are inserted.</p>
       </desc>
     </func>
@@ -2145,7 +2145,7 @@ true</pre>
       <name name="update_counter" arity="3" clause_i="3" since=""/>
       <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
-      <type variable="Tab"/>
+      <type variable="Table"/>
       <type variable="Key"/>
       <type variable="UpdateOp" name_i="1"/>
       <type variable="Pos" name_i="1"/>
@@ -2159,7 +2159,7 @@ true</pre>
           object into the table again. The operation is guaranteed to be
           <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
         <p>This function destructively update the object with key
-          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c> by adding
+          <c><anno>Key</anno></c> in table <c><anno>Table</anno></c> by adding
           <c><anno>Incr</anno></c> to the element at position
           <c><anno>Pos</anno></c>. The new counter value is
           returned. If no position is specified, the element directly
@@ -2225,7 +2225,7 @@ true</pre>
       <name name="update_element" arity="3" clause_i="2" since=""/>
       <fsummary>Update the <c>Pos</c>:th element of the object with a
         specified key in an ETS table.</fsummary>
-      <type variable="Tab"/>
+      <type variable="Table"/>
       <type variable="Key"/>
       <type variable="Value"/>
       <type variable="Pos"/>
@@ -2234,7 +2234,7 @@ true</pre>
           elements within an object, without the trouble of having to look up, 
           update, and write back the entire object.</p>
         <p>This function destructively updates the object with key
-          <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c>.
+          <c><anno>Key</anno></c> in table <c><anno>Table</anno></c>.
           The element at position <c><anno>Pos</anno></c> is given
           the value <c><anno>Value</anno></c>.</p>
         <p>A list of <c>{<anno>Pos</anno>,<anno>Value</anno>}</c> can be
