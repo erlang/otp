@@ -777,7 +777,7 @@ handle_bitstr(Tree, Map, State) ->
   {State1, Map1, SizeType0} = traverse(Size, Map, State),
   {State2, Map2, ValType0} = traverse(Val, Map1, State1),
   case cerl:bitstr_bitsize(Tree) of
-    BitSz when BitSz =:= all orelse BitSz =:= utf ->
+    BitSz when BitSz =:= all; BitSz =:= utf ->
       ValType =
 	case BitSz of
 	  all ->
@@ -798,7 +798,7 @@ handle_bitstr(Tree, Map, State) ->
 	false ->
 	  {State2, Map3, t_bitstr()}
       end;
-    BitSz when is_integer(BitSz) orelse BitSz =:= any ->
+    BitSz when is_integer(BitSz); BitSz =:= any ->
       SizeType = t_inf(SizeType0, t_non_neg_integer()),
       ValType =
 	case BitstrType of
@@ -1924,12 +1924,12 @@ handle_guard_comp(Guard, Comp, Map, Env, Eval, State) ->
 	false when Eval =:= dont_know -> {Map, t_atom(false)};
 	false when Eval =:= neg ->       {Map, t_atom(false)}
       end;
-    {{literal, Lit1}, var} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
+    {{literal, Lit1}, var} when IsInt1, IsInt2, Eval =:= pos ->
       case bind_comp_literal_var(Lit1, Arg2, Type2, Comp, Map1, Opaques) of
 	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
 	{ok, NewMap} -> {NewMap, t_atom(true)}
       end;
-    {var, {literal, Lit2}} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
+    {var, {literal, Lit2}} when IsInt1, IsInt2, Eval =:= pos ->
       case bind_comp_literal_var(Lit2, Arg1, Type1, invert_comp(Comp),
                                  Map1, Opaques) of
 	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
