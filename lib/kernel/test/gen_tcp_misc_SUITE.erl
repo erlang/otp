@@ -641,20 +641,23 @@ close_with_pending_output(Config) when is_list(Config) ->
 	    spawn_link(Node, ?MODULE, sender, [Config, Port, Packets, Host]),
 	    {ok, A} = gen_tcp:accept(L),
 	    case gen_tcp:recv(A, Total) of
-		      {ok, Bin} when byte_size(Bin) == Total ->
-			  gen_tcp:close(A),
-			  gen_tcp:close(L);
-		      {ok, Bin} ->
-			  ct:fail({small_packet,
-                                                  byte_size(Bin)});
-		      Error ->
-			  ct:fail({unexpected, Error})
-		  end,
+                {ok, Bin} when byte_size(Bin) == Total ->
+                    gen_tcp:close(A),
+                    gen_tcp:close(L);
+                {ok, Bin} ->
+                    ct:fail({small_packet, byte_size(Bin)});
+                Error ->
+                    ct:fail({unexpected, Error})
+            end,
 	    ok;
 	{error, no_remote_hosts} ->
-	    {skipped,"No remote hosts"};
+            gen_tcp:close(L),
+	    {skipped, "No remote hosts"};
 	{error, Other} ->
-	    ct:fail({failed_to_start_node, Other})
+            %% Node starting is not what this test case is about.
+            %% so, if this fails, skip
+            gen_tcp:close(L),
+	    {skipped, {failed_starting_remote_node, Other}}
     end.
 
 sender(Config, Port, Packets, Host) ->
