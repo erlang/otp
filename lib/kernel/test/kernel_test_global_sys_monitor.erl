@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,12 @@
 
 start() ->
     Parent = self(),
-    proc_lib:start(?MODULE, init, [Parent]).
+    %% The only "real" reason this would fail to start is if
+    %% global has issues.
+    %% So, to catch any problems, we add a timeout of 15 seconds.
+    %% This should be long enough. If it has not started then,
+    %% we just give up...
+    proc_lib:start(?MODULE, init, [Parent], ?SECS(15)).
 
 stop() ->
     cast(stop).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,8 +86,16 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
-                    kernel_test_global_sys_monitor:start(),
-                    [{kernel_factor, Factor} | Config]
+                    print("try start (global) system monitor"),
+                    case kernel_test_global_sys_monitor:start() of
+                        {ok, _} ->
+                            print("(global) system monitor started"),
+                            [{kernel_factor, Factor} | Config];
+                        {error, Reason} ->
+                            print("Failed start (global) system monitor:"
+                                  "~n      ~p", [Reason]),
+                            {skip, "Failed start (global) system monitor"}
+                    end
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
