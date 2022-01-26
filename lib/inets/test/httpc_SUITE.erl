@@ -136,7 +136,6 @@ real_requests()->
      invalid_method,
      no_scheme,
      invalid_uri,
-     undefined_port,
      binary_url
     ].
 
@@ -1374,12 +1373,6 @@ no_scheme(_Config) ->
 invalid_uri(Config) ->
     URL = url(group_name(Config), "/bar?x[]=a", Config),
     {error, invalid_uri} = httpc:request(URL),
-    ok.
-
-%%-------------------------------------------------------------------------
-
-undefined_port(_Config) ->
-    {error, {failed_connect, _Reason}} = httpc:request("http://:"),
     ok.
 
 
