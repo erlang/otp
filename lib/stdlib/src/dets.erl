@@ -149,7 +149,7 @@
           proc :: 'undefined' | pid(), % the pid of the Dets process
           match_program :: 'true'
                          | 'undefined'
-                         | {'match_spec', ets:comp_match_spec()}
+                         | {'match_spec', ets:compiled_match_spec()}
 	 }).
 
 -record(open_args, {

@@ -42,8 +42,8 @@
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
 		path :: [file:name_all()],
-		moddb :: ets:tab(),
-		namedb :: ets:tab(),
+		moddb :: ets:table(),
+		namedb :: ets:table(),
 		mode = interactive :: 'interactive' | 'embedded',
 		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.

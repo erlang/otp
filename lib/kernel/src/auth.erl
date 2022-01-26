@@ -45,7 +45,7 @@
 -type cookie() :: atom().
 -record(state, {
 	  our_cookie    :: cookie(),  %% Our own cookie
-	  other_cookies :: ets:tab()  %% The send-cookies of other nodes
+	  other_cookies :: ets:table()%% The send-cookies of other nodes
 	 }).
 -type state() :: #state{}.
 
