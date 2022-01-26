@@ -241,8 +241,9 @@ pattern({cons,Anno,H0,T0}, St) ->
 pattern({tuple,Anno,Ps0}, St) ->
     Ps1 = pattern_list(Ps0, St),
     {tuple,ln(Anno),Ps1};
-pattern({record_index,Anno,Name,Field}, St) ->
-    index_expr(Anno, Field, Name, record_fields(Name, Anno, St));
+pattern({record_index,Anno,Name,Field} = _DBG, St) ->
+    Expr = index_expr(Anno, Field, Name, record_fields(Name, Anno, St)),
+    pattern(Expr, St);
 pattern({record,Anno,Name,Pfs}, St0) ->
     Fs = record_fields(Name, Anno, St0),
     TMs = pattern_list(pattern_fields(Fs, Pfs), St0),
