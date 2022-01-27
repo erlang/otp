@@ -124,93 +124,79 @@ phase([], _Ps, StMap, FuncDb) ->
     {StMap, FuncDb}.
 
 changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
-    %% Find all functions in FuncDb that can be reached by changes
-    %% of argument and/or return types. Those are the functions that
-    %% may gain from running the optimization passes again.
-    %%
-    %% Note that we examine all functions in FuncDb, not only functions
-    %% optimized in the previous run, because the argument types can
-    %% have been updated for functions not included in the previous run.
+    EmptySet = sets:new([{version,2}]),
+    Changed0 = changed_types(PrevIds, FuncDb0, FuncDb, EmptySet, EmptySet),
 
-    F = fun(Id, A) ->
-                case sets:is_element(Id, A) of
-                    true ->
-                        A;
-                    false ->
-                        {#func_info{arg_types=ATs0,succ_types=ST0},
-                         #func_info{arg_types=ATs1,succ_types=ST1}} =
-                            {map_get(Id, FuncDb0),map_get(Id, FuncDb)},
-
-                        %% If the argument types have changed for this
-                        %% function, re-optimize this function and all
-                        %% functions it calls directly or indirectly.
-                        %%
-                        %% If the return type has changed, re-optimize
-                        %% this function and all functions that call
-                        %% this function directly or indirectly.
-                        Opts = case ATs0 =:= ATs1 of
-                                    true -> [];
-                                    false -> [called]
-                                end ++
-                            case ST0 =:= ST1 of
-                                true -> [];
-                                false -> [callers]
-                            end,
-                        case Opts of
-                            [] -> A;
-                            [_|_] -> add_changed([Id], Opts, FuncDb, A)
-                        end
-                end
-        end,
-    Ids = foldl(F, sets:new([{version, 2}]), maps:keys(FuncDb)),
-
-    %% From all functions that were optimized in the previous run,
-    %% find the functions that had any change in the SSA code. Those
-    %% functions might gain from being optimized again. (For example,
-    %% when beam_ssa_dead has shortcut branches, the types for some
-    %% variables could become narrower, giving beam_ssa_type new
-    %% opportunities for optimization.)
+    %% From all functions that were optimized in the previous run, find the
+    %% functions that had any change in the SSA code. Those functions might
+    %% gain from being optimized again. (For example, when beam_ssa_dead has
+    %% shortcut branches, the types for some variables could become narrower,
+    %% giving beam_ssa_type new opportunities for optimization.)
     %%
     %% Note that the functions examined could be functions with module-level
     %% optimization turned off (and thus not included in FuncDb).
-
-    foldl(fun(Id, A) ->
-                  case sets:is_element(Id, A) of
+    foldl(fun(Id, Changed) ->
+                  case sets:is_element(Id, Changed) of
                       true ->
                           %% Already scheduled for another optimization.
                           %% No need to compare the SSA code.
-                          A;
+                          Changed;
                       false ->
                           %% Compare the SSA code before and after optimization.
-                          case {map_get(Id, StMap0),map_get(Id, StMap)} of
-                              {Same,Same} -> A;
-                              {_,_} -> sets:add_element(Id, A)
+                          case {map_get(Id, StMap0), map_get(Id, StMap)} of
+                              {Same, Same} -> Changed;
+                              {_,_} -> sets:add_element(Id, Changed)
                           end
                   end
-          end, Ids, PrevIds).
+          end, Changed0, PrevIds).
 
-add_changed([Id|Ids], Opts, FuncDb, S0) when is_map_key(Id, FuncDb) ->
-    case sets:is_element(Id, S0) of
-        true ->
-            add_changed(Ids, Opts, FuncDb, S0);
-        false ->
-            S1 = sets:add_element(Id, S0),
-            #func_info{in=In,out=Out} = map_get(Id, FuncDb),
-            S2 = case member(callers, Opts) of
-                     true -> add_changed(In, Opts, FuncDb, S1);
-                     false -> S1
+%% Find all functions in FuncDb that can be reached by changes of argument
+%% and/or return types. Those are the functions that may gain from running the
+%% optimization passes again.
+%%
+%% Note that we examine all functions in FuncDb, not only functions optimized
+%% in the previous run, because the argument types may have been updated for
+%% functions not included in the previous run.
+changed_types([Id | Ids], Fdb0, Fdb, In0, Out0) ->
+    case {Fdb0, Fdb} of
+        {#{ Id := #func_info{arg_types=ATs0,succ_types=ST0} },
+         #{ Id := #func_info{arg_types=ATs,succ_types=ST} }} ->
+            In = case ST0 =:= ST of
+                     true -> In0;
+                     false -> changed_types_1([Id], #func_info.in, Fdb, In0)
                  end,
-            S = case member(called, Opts) of
-                    true -> add_changed(Out, Opts, FuncDb, S2);
-                    false -> S2
-                end,
-            add_changed(Ids, Opts, FuncDb, S)
+            Out = case ATs0 =:= ATs of
+                      true -> Out0;
+                      false -> changed_types_1([Id], #func_info.out, Fdb, Out0)
+                  end,
+            changed_types(Ids, Fdb0, Fdb, In, Out);
+        _ ->
+            %% This function is exempt from module-level optimization and will
+            %% not provide any more information.
+            changed_types(Ids, Fdb0, Fdb, In0, Out0)
     end;
-add_changed([_|Ids], Opts, FuncDb, S) ->
-    %% This function is exempt from module-level optimization and will not
-    %% provide any more information.
-    add_changed(Ids, Opts, FuncDb, S);
-add_changed([], _, _, S) -> S.
+changed_types([], _Fdb0, _Fdb, In, Out) ->
+    sets:union(In, Out).
+
+changed_types_1([Id | Ids], Direction, Fdb, Seen0) ->
+    case sets:is_element(Id, Seen0) of
+        true ->
+            changed_types_1(Ids, Direction, Fdb, Seen0);
+        false ->
+            case Fdb of
+                #{ Id := FuncInfo } ->
+                    Next = element(Direction, FuncInfo),
+
+                    Seen1 = sets:add_element(Id, Seen0),
+                    Seen2 = changed_types_1(Next, Direction, Fdb, Seen1),
+                    changed_types_1(Ids, Direction, Fdb, Seen2);
+                #{} ->
+                    changed_types_1(Ids, Direction, Fdb, Seen0)
+            end
+    end;
+changed_types_1([], _, _, Seen) ->
+    Seen.
+
 
 %%
 
@@ -408,12 +394,7 @@ fdb_update(Caller, Callee, FuncDb) ->
 
 get_call_order_po(StMap, FuncDb) ->
     Order = gco_po(FuncDb),
-    Order ++ maps:fold(fun(K, _V, Acc) ->
-                               case is_map_key(K, FuncDb) of
-                                   false -> [K | Acc];
-                                   true -> Acc
-                               end
-                       end, [], StMap).
+    Order ++ sort([K || K <- maps:keys(StMap), not is_map_key(K, FuncDb)]).
 
 gco_po(FuncDb) ->
     All = sort(maps:keys(FuncDb)),
