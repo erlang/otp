@@ -1161,34 +1161,42 @@ gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
   i_m_div Fail Live S1 S2 Dst
 
 # Fused 'rem'/'div' pair.
-gc_bif2 Fail Live u$bif:erlang:rem/2 LHS RHS Remainder | \
-    gc_bif2 A B u$bif:erlang:intdiv/2 LHS RHS Quotient | \
-    distinct(LHS, Remainder) | \
-    distinct(RHS, Remainder) => \
-      i_rem_div Fail Live LHS RHS Remainder Quotient
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder | \
+    gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient | \
+    equal(LHS1, LHS2) | \
+    equal(RHS1, RHS2) | \
+    distinct(LHS1, Remainder) | \
+    distinct(RHS1, Remainder) => \
+      i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
 
 # As above but with a `line` in between
-gc_bif2 Fail Live u$bif:erlang:rem/2 LHS RHS Remainder | \
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder | \
     line Loc | \
-    gc_bif2 A B u$bif:erlang:intdiv/2 LHS RHS Quotient | \
-    distinct(LHS, Remainder) | \
-    distinct(RHS, Remainder) => \
-      i_rem_div Fail Live LHS RHS Remainder Quotient
+    gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient | \
+    equal(LHS1, LHS2) | \
+    equal(RHS1, RHS2) | \
+    distinct(LHS1, Remainder) | \
+    distinct(RHS1, Remainder) => \
+      i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
 
 # Fused 'div'/'rem' pair
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS RHS Quotient | \
-    gc_bif2 A B u$bif:erlang:rem/2 LHS RHS Remainder | \
-    distinct(LHS, Quotient) | \
-    distinct(RHS, Quotient) => \
-      i_div_rem Fail Live LHS RHS Quotient Remainder
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient | \
+    gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder | \
+    equal(LHS1, LHS2) | \
+    equal(RHS1, RHS2) | \
+    distinct(LHS1, Quotient) | \
+    distinct(RHS1, Quotient) => \
+      i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
 
 # As above but with a `line` in between
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS RHS Quotient | \
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient | \
     line Loc | \
-    gc_bif2 A B u$bif:erlang:rem/2 LHS RHS Remainder | \
-    distinct(LHS, Quotient) | \
-    distinct(RHS, Quotient) => \
-      i_div_rem Fail Live LHS RHS Quotient Remainder
+    gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder | \
+    equal(LHS1, LHS2) | \
+    equal(RHS1, RHS2) | \
+    distinct(LHS1, Quotient) | \
+    distinct(RHS1, Quotient) => \
+      i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
 
 gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
   i_int_div Fail Live S1 S2 Dst
