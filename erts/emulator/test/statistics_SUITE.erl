@@ -382,7 +382,7 @@ run_scheduler_wall_time_test(Type) ->
                            Pid
                    end,
         StartDirtyHog = fun(Func) ->
-                                F = fun () ->
+                                F = fun() ->
                                             erts_debug:Func(alive_waitexiting,
                                                             MeMySelfAndI)
                                     end,
@@ -470,7 +470,7 @@ online_statistics(Stats) ->
     DirtyCPUSchedulersOnline = erlang:system_info(dirty_cpu_schedulers_online),
     DirtyIOSchedulersOnline = erlang:system_info(dirty_io_schedulers),
     SortedStats = lists:sort(Stats),
-    ct:pal("Stats: ~p~n", [SortedStats]),
+    ct:log("Stats: ~p~n", [SortedStats]),
     SchedulersStats =
         lists:sublist(SortedStats, 1, SchedulersOnline),
     DirtyCPUSchedulersStats =

@@ -1109,9 +1109,9 @@ erts_tar(Config) ->
             {win32, _} ->
                 {["beam.smp.pdb","erl.exe",
                   "erl.pdb","erl_log.exe","erlexec.dll","erlsrv.exe","heart.exe",
-                  "start_erl.exe","werl.exe","beam.smp.dll",
+                  "start_erl.exe","beam.smp.dll",
                   "epmd.exe","erl.ini","erl_call.exe",
-                  "erlexec.pdb","escript.exe","inet_gethost.exe","werl.pdb"],
+                  "erlexec.pdb","escript.exe","inet_gethost.exe"],
                  ["dialyzer.exe","erlc.exe","yielding_c_fun.exe","ct_run.exe","typer.exe"]}
         end,
 

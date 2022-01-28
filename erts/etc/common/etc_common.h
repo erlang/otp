@@ -35,6 +35,7 @@
 #  include <io.h>
 #  include <winbase.h>
 #  include <process.h>
+#  include <direct.h> // _getcwd
 #endif
 
 #include <errno.h>

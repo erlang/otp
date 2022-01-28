@@ -112,8 +112,7 @@
       <item>
         <p>The location of the Erlang emulator.
           The default is the <c><![CDATA[erl.exe]]></c> located in the same
-          directory as <c>erlsrv.exe</c>. Do not specify
-          <c><![CDATA[werl.exe]]></c> as this emulator, it will not work.</p>
+          directory as <c>erlsrv.exe</c>.</p>
         <p>If the system uses release handling, this is to be set to a
           program similar to <c><![CDATA[start_erl.exe]]></c>.</p>
       </item>
