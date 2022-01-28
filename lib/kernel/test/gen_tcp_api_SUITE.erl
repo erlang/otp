@@ -248,6 +248,8 @@ init_per_group(sockaddr = _GroupName, Config) ->
 	_ ->
             Config
     catch
+        error : notsup ->
+            {skip, "esock not supported"};
         error : undef ->
             {skip, "esock not configured"}
     end;

@@ -235,8 +235,11 @@ init_per_group(sockaddr = _GroupName, Config) ->
             ?P("init_per_group(sockaddr) -> we support 'socket'"),
             Config
     catch
-        error : undef ->
+        error : notsup ->
             ?P("init_per_group(sockaddr) -> we *do not* support 'socket'"),
+            {skip, "esock not supported"};
+        error : undef ->
+            ?P("init_per_group(sockaddr) -> 'socket' not configured"),
             {skip, "esock not configured"}
     end;
 init_per_group(_GroupName, Config) ->
