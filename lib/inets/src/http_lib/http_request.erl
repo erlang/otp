@@ -103,11 +103,9 @@ is_absolut_uri(_) ->
 %% Description: returns a normalized Host header value, with the port
 %% number omitted for well-known ports
 %%-------------------------------------------------------------------------
-normalize_host(https, Host, Port) when Port =:= 443 orelse
-                                       Port =:= undefined ->
+normalize_host(https, Host, 443 = _Port) ->
     Host;
-normalize_host(http, Host, Port) when Port =:= 80 orelse
-                                      Port =:= undefined ->
+normalize_host(http, Host, 80 = _Port) ->
     Host;
 normalize_host(_Scheme, Host, Port) ->
     Host ++ ":" ++ integer_to_list(Port).

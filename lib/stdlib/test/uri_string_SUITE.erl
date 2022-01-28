@@ -587,18 +587,22 @@ parse_host_ipv6(_Config) ->
     {error,invalid_uri,"G"} = uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]").
 
 parse_port(_Config) ->
-    #{path:= "/:8042"} =
-        uri_string:parse("/:8042"),
-    #{host:= "", port := 8042} =
-        uri_string:parse("//:8042"),
-    #{host := "example.com", port:= 8042} =
-        uri_string:parse("//example.com:8042"),
-    #{scheme := "foo", path := "/:8042"} =
-        uri_string:parse("foo:/:8042"),
-    #{scheme := "foo", host := "", port := 8042} =
-        uri_string:parse("foo://:8042"),
-    #{scheme := "foo", host := "example.com", port := 8042} =
-        uri_string:parse("foo://example.com:8042").
+    parse_port_with_param("8042", 8042),
+    parse_port_with_param("", undefined).
+
+parse_port_with_param(PortString, Expected) ->
+    #{path:= "/:" ++ PortString} =
+        uri_string:parse("/:" ++ PortString),
+    #{host:= "", port := Expected} =
+        uri_string:parse("//:" ++ PortString),
+    #{host := "example.com", port:= Expected} =
+        uri_string:parse("//example.com:" ++ PortString),
+    #{scheme := "foo", path := "/:" ++ PortString} =
+        uri_string:parse("foo:/:" ++ PortString),
+    #{scheme := "foo", host := "", port := Expected} =
+        uri_string:parse("foo://:" ++ PortString),
+    #{scheme := "foo", host := "example.com", port := Expected} =
+        uri_string:parse("foo://example.com:" ++ PortString).
 
 parse_path(_Config) ->
     #{path := "over/there"} = uri_string:parse("over/there"),
@@ -1016,7 +1020,19 @@ normalize(_Config) ->
     <<"tftp://localhost">> =
         uri_string:normalize(<<"tftp://localhost:69">>),
     <<"/foo/%2F/bar">> =
-        uri_string:normalize(<<"/foo/%2f/%62ar">>).
+        uri_string:normalize(<<"/foo/%2f/%62ar">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:">>),
+    <<"yeti://localhost/">> =
+        uri_string:normalize(<<"yeti://localhost:/">>),
+    <<"yeti://localhost">> =
+        uri_string:normalize(<<"yeti://localhost:">>).
 
 normalize_map(_Config) ->
     "/a/g" = uri_string:normalize(#{path => "/a/b/c/./../../g"}),
@@ -1047,7 +1063,13 @@ normalize_map(_Config) ->
         uri_string:normalize(#{scheme => <<"tftp">>,port => 69,path => <<>>,
                                host => <<"localhost">>}),
     "/foo/%2F/bar" =
-        uri_string:normalize(#{path => "/foo/%2f/%62ar"}).
+        uri_string:normalize(#{path => "/foo/%2f/%62ar"}),
+    <<"https://localhost/">> =
+        uri_string:normalize(#{scheme => <<"https">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"yeti://localhost">> =
+        uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}).
 
 normalize_return_map(_Config) ->
     #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
