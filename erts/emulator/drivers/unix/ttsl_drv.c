@@ -1166,8 +1166,9 @@ static int write_buf(Uint32 *s, int n, int next_char_is_crnl)
 	    --n;
 	    ++s;
 	} else if (*s & CONTROL_TAG) {
+            byte c = (byte)*s;
 	    outc('^');
-	    outc(lastput = ((byte) ((*s == 0177) ? '?' : *s | 0x40)));
+	    outc(lastput = ((byte) ((c == 0177 ? '?' : c | 0x40))));
 	    n -= 2;
 	    s += 2;
 	} else if (*s & ESCAPED_TAG) {
