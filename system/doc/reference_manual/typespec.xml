@@ -411,6 +411,7 @@
       types are not accessible by other modules anyway - and is
       always to be exported.
     </p>
+    <p>Read more on <seeguide marker="opaques">Opaques</seeguide></p>
   </section>
 
   <section>
