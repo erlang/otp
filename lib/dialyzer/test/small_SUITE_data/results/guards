@@ -8,6 +8,10 @@ guards.erl:129:32: The call guards:t15('c') will never return since it differs i
 guards.erl:136:16: The call guards:t16('a') will never return since it differs in the 1st argument from the success typing arguments: ('b')
 guards.erl:136:1: Function t16_a/0 has no local return
 guards.erl:136:32: The call guards:t16('c') will never return since it differs in the 1st argument from the success typing arguments: ('b')
+guards.erl:140:1: Function t17/1 has no local return
+guards.erl:140:1: Guard test #{'x':=_} =:= 'true' can never succeed
+guards.erl:145:1: Function t18/1 has no local return
+guards.erl:145:1: Guard test binary() =:= 'true' can never succeed
 guards.erl:55:1: Function t5/1 has no local return
 guards.erl:55:27: Guard test is_integer(A::atom()) can never succeed
 guards.erl:59:1: Function t6/1 has no local return

@@ -3205,8 +3205,7 @@ c_add_dummy_export(C, [], St) ->
 %%%                                     primop 'recv_wait_timeout'(Timeout)
 %%%                                 in  case TimedOut of
 %%%                                       <'true'> when 'true' ->
-%%%                                           do  primop 'timeout'()
-%%%                                               'no_message'
+%%%                                           'no_message'
 %%%                                       <'false'> when 'true' ->
 %%%                                           apply 'recv$^0'/0()
 %%%                                     end
