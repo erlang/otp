@@ -1222,10 +1222,10 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             ci++;
             break;
         case TAG_x:
-            code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
+            code[ci++] = make_loader_x_reg(tmp_op->a[arg].val & REG_MASK);
             break;
         case TAG_y:
-            code[ci++] = make_loader_y_reg(tmp_op->a[arg].val + CP_SIZE);
+            code[ci++] = make_loader_y_reg((tmp_op->a[arg].val & REG_MASK) + CP_SIZE);
             break;
         case TAG_n:
             code[ci++] = NIL;
