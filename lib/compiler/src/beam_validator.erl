@@ -1067,9 +1067,10 @@ vi(raw_raise=I, Vst0) ->
 
 vi(bs_init_writable=I, Vst) ->
     validate_body_call(I, 1, Vst);
-vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List}}, Vst0) ->
+vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+    List = [unpack_typed_arg(Arg) || Arg <- List0],
     verify_create_bin_list(List, Vst0),
     Vst = prune_x_regs(Live, Vst0),
     branch(Fail, Vst,
