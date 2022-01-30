@@ -1822,8 +1822,18 @@ update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
 
 type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
     ArgTypes = normalized_types(Args, Ts),
-    {RetType, _, _} = beam_call_types:types(erlang, Bif, ArgTypes),
-    RetType;
+    case beam_call_types:types(erlang, Bif, ArgTypes) of
+        {any, _, _} ->
+            case {Bif, Args} of
+                {element, [_,#b_literal{val=Tuple}]}
+                  when tuple_size(Tuple) > 0 ->
+                    join_tuple_elements(Tuple);
+                {_, _} ->
+                    any
+            end;
+        {RetType, _, _} ->
+            RetType
+    end;
 type(bs_create_bin, _Args, _Anno, _Ts, _Ds) ->
     #t_bitstring{};
 type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
@@ -1983,6 +1993,16 @@ type(wait_timeout, [#b_literal{val=infinity}], _Anno, _Ts, _Ds) ->
     beam_types:make_atom(false);
 type(_, _, _, _, _) ->
     any.
+
+join_tuple_elements(Tuple) ->
+    join_tuple_elements(tuple_size(Tuple), Tuple, none).
+
+join_tuple_elements(0, _Tuple, Type) ->
+    Type;
+join_tuple_elements(I, Tuple, Type0) ->
+    Type1 = beam_types:make_type_from_value(element(I, Tuple)),
+    Type = beam_types:join(Type0, Type1),
+    join_tuple_elements(I - 1, Tuple, Type).
 
 put_map_type(Map, Ss, Ts) ->
     pmt_1(Ss, Ts, normalized_type(Map, Ts)).
