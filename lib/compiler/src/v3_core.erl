@@ -2139,7 +2139,12 @@ new_vars_1(0, _, St, Vs) -> {Vs,St}.
 bad_generator(Ps, Generator, Arg) ->
     Anno = get_anno(Arg),
     Tuple = ann_c_tuple(Anno, [#c_literal{val=bad_generator},Generator]),
-    fail_clause(Ps, Anno, Tuple).
+    Call = #icall{anno=#a{anno=Anno},           %Must have an #a{}
+                  module=#c_literal{anno=Anno,val=erlang},
+                  name=#c_literal{anno=Anno,val=error},
+                  args=[Tuple]},
+    #iclause{anno=#a{anno=[compiler_generated]},
+             pats=Ps,guard=[],body=[Call]}.
 
 function_clause(Ps, LineAnno) ->
     fail_clause(Ps, LineAnno,

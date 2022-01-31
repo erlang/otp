@@ -217,25 +217,37 @@ scan_is([#b_set{op=new_try_tag,dst=Dst}], Blk, Lbl, _Blocks, FuncId, State) ->
     %% ignore that branch.
     #b_br{bool=Dst,succ=Succ} = Blk#b_blk.last, %Assertion.
     scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State);
-scan_is([#b_set{op=call,dst=Dst,args=[#b_remote{} | _]}=Call | Is],
-        Blk, Lbl, Blocks, FuncId, State0) ->
-    case {Is, Blk#b_blk.last} of
-        {[], #b_ret{arg=Dst}} ->
-            scan_is(Is, Blk, Lbl, Blocks, FuncId, State0);
-        {[#b_set{op={succeeded,body}}], #b_br{bool=Bool,succ=Succ}} ->
-            #b_var{} = Bool,                    %Assertion.
+scan_is([#b_set{op=call,dst=Dst,args=[#b_remote{} | _]}=Call,
+         #b_set{op={succeeded,body}}],
+        #b_blk{last=#b_br{succ=Succ}}, Lbl, Blocks, FuncId, State0) ->
+    case Blocks of
+        #{ Succ := #b_blk{is=[],last=#b_ret{arg=Dst}}} ->
+            %% External tail call, ignore it altogether.
+            State0;
+        #{} ->
             State = si_remote_call(Call, Lbl, Succ, Blocks, FuncId, State0),
-            scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
-        _ ->
-            State = si_remote_call(Call, Lbl, Lbl, Blocks, FuncId, State0),
-            scan_is(Is, Blk, Lbl, Blocks, FuncId, State)
+            scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State)
     end;
-scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]}],
-        #b_blk{last=#b_ret{arg=Dst}}, Lbl, _Blocks, FuncId, State) ->
-    scan_add_call(tail, Args, Callee, Lbl, FuncId, State);
-scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]} | Is],
+scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
         Blk, Lbl, Blocks, FuncId, State0) ->
-    [#b_set{op={succeeded,body},args=[Dst]}] = Is, %Assertion.
+    %% Remote call that always succeeds.
+    State = si_remote_call(Call, Lbl, Lbl, Blocks, FuncId, State0),
+    scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
+scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]},
+         #b_set{op={succeeded,body},args=[Dst]}],
+        #b_blk{last=#b_br{succ=Succ}},
+        Lbl, Blocks, FuncId, State0) ->
+    case Blocks of
+        #{ Succ := #b_blk{is=[],last=#b_ret{arg=Dst}}} ->
+            %% Local tail call, don't add any edges.
+            scan_add_call(tail, Args, Callee, Lbl, FuncId, State0);
+        #{} ->
+            State = scan_add_call(body, Args, Callee, Lbl, FuncId, State0),
+            scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State)
+    end;
+scan_is([#b_set{op=call,args=[#b_local{}=Callee | Args]} | Is],
+        Blk, Lbl, Blocks, FuncId, State0) ->
+    %% Local call that always succeeds.
     State = scan_add_call(body, Args, Callee, Lbl, FuncId, State0),
     scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
 scan_is([_I | Is], Blk, Lbl, Blocks, FuncId, State) ->

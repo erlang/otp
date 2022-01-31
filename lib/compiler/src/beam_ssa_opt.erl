@@ -124,93 +124,79 @@ phase([], _Ps, StMap, FuncDb) ->
     {StMap, FuncDb}.
 
 changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
-    %% Find all functions in FuncDb that can be reached by changes
-    %% of argument and/or return types. Those are the functions that
-    %% may gain from running the optimization passes again.
-    %%
-    %% Note that we examine all functions in FuncDb, not only functions
-    %% optimized in the previous run, because the argument types can
-    %% have been updated for functions not included in the previous run.
+    EmptySet = sets:new([{version,2}]),
+    Changed0 = changed_types(PrevIds, FuncDb0, FuncDb, EmptySet, EmptySet),
 
-    F = fun(Id, A) ->
-                case sets:is_element(Id, A) of
-                    true ->
-                        A;
-                    false ->
-                        {#func_info{arg_types=ATs0,succ_types=ST0},
-                         #func_info{arg_types=ATs1,succ_types=ST1}} =
-                            {map_get(Id, FuncDb0),map_get(Id, FuncDb)},
-
-                        %% If the argument types have changed for this
-                        %% function, re-optimize this function and all
-                        %% functions it calls directly or indirectly.
-                        %%
-                        %% If the return type has changed, re-optimize
-                        %% this function and all functions that call
-                        %% this function directly or indirectly.
-                        Opts = case ATs0 =:= ATs1 of
-                                    true -> [];
-                                    false -> [called]
-                                end ++
-                            case ST0 =:= ST1 of
-                                true -> [];
-                                false -> [callers]
-                            end,
-                        case Opts of
-                            [] -> A;
-                            [_|_] -> add_changed([Id], Opts, FuncDb, A)
-                        end
-                end
-        end,
-    Ids = foldl(F, sets:new([{version, 2}]), maps:keys(FuncDb)),
-
-    %% From all functions that were optimized in the previous run,
-    %% find the functions that had any change in the SSA code. Those
-    %% functions might gain from being optimized again. (For example,
-    %% when beam_ssa_dead has shortcut branches, the types for some
-    %% variables could become narrower, giving beam_ssa_type new
-    %% opportunities for optimization.)
+    %% From all functions that were optimized in the previous run, find the
+    %% functions that had any change in the SSA code. Those functions might
+    %% gain from being optimized again. (For example, when beam_ssa_dead has
+    %% shortcut branches, the types for some variables could become narrower,
+    %% giving beam_ssa_type new opportunities for optimization.)
     %%
     %% Note that the functions examined could be functions with module-level
     %% optimization turned off (and thus not included in FuncDb).
-
-    foldl(fun(Id, A) ->
-                  case sets:is_element(Id, A) of
+    foldl(fun(Id, Changed) ->
+                  case sets:is_element(Id, Changed) of
                       true ->
                           %% Already scheduled for another optimization.
                           %% No need to compare the SSA code.
-                          A;
+                          Changed;
                       false ->
                           %% Compare the SSA code before and after optimization.
-                          case {map_get(Id, StMap0),map_get(Id, StMap)} of
-                              {Same,Same} -> A;
-                              {_,_} -> sets:add_element(Id, A)
+                          case {map_get(Id, StMap0), map_get(Id, StMap)} of
+                              {Same, Same} -> Changed;
+                              {_,_} -> sets:add_element(Id, Changed)
                           end
                   end
-          end, Ids, PrevIds).
+          end, Changed0, PrevIds).
 
-add_changed([Id|Ids], Opts, FuncDb, S0) when is_map_key(Id, FuncDb) ->
-    case sets:is_element(Id, S0) of
-        true ->
-            add_changed(Ids, Opts, FuncDb, S0);
-        false ->
-            S1 = sets:add_element(Id, S0),
-            #func_info{in=In,out=Out} = map_get(Id, FuncDb),
-            S2 = case member(callers, Opts) of
-                     true -> add_changed(In, Opts, FuncDb, S1);
-                     false -> S1
+%% Find all functions in FuncDb that can be reached by changes of argument
+%% and/or return types. Those are the functions that may gain from running the
+%% optimization passes again.
+%%
+%% Note that we examine all functions in FuncDb, not only functions optimized
+%% in the previous run, because the argument types may have been updated for
+%% functions not included in the previous run.
+changed_types([Id | Ids], Fdb0, Fdb, In0, Out0) ->
+    case {Fdb0, Fdb} of
+        {#{ Id := #func_info{arg_types=ATs0,succ_types=ST0} },
+         #{ Id := #func_info{arg_types=ATs,succ_types=ST} }} ->
+            In = case ST0 =:= ST of
+                     true -> In0;
+                     false -> changed_types_1([Id], #func_info.in, Fdb, In0)
                  end,
-            S = case member(called, Opts) of
-                    true -> add_changed(Out, Opts, FuncDb, S2);
-                    false -> S2
-                end,
-            add_changed(Ids, Opts, FuncDb, S)
+            Out = case ATs0 =:= ATs of
+                      true -> Out0;
+                      false -> changed_types_1([Id], #func_info.out, Fdb, Out0)
+                  end,
+            changed_types(Ids, Fdb0, Fdb, In, Out);
+        _ ->
+            %% This function is exempt from module-level optimization and will
+            %% not provide any more information.
+            changed_types(Ids, Fdb0, Fdb, In0, Out0)
     end;
-add_changed([_|Ids], Opts, FuncDb, S) ->
-    %% This function is exempt from module-level optimization and will not
-    %% provide any more information.
-    add_changed(Ids, Opts, FuncDb, S);
-add_changed([], _, _, S) -> S.
+changed_types([], _Fdb0, _Fdb, In, Out) ->
+    sets:union(In, Out).
+
+changed_types_1([Id | Ids], Direction, Fdb, Seen0) ->
+    case sets:is_element(Id, Seen0) of
+        true ->
+            changed_types_1(Ids, Direction, Fdb, Seen0);
+        false ->
+            case Fdb of
+                #{ Id := FuncInfo } ->
+                    Next = element(Direction, FuncInfo),
+
+                    Seen1 = sets:add_element(Id, Seen0),
+                    Seen2 = changed_types_1(Next, Direction, Fdb, Seen1),
+                    changed_types_1(Ids, Direction, Fdb, Seen2);
+                #{} ->
+                    changed_types_1(Ids, Direction, Fdb, Seen0)
+            end
+    end;
+changed_types_1([], _, _, Seen) ->
+    Seen.
+
 
 %%
 
@@ -304,7 +290,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_redundant_br),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
-          ?PASS(ssa_opt_tail_calls),
+          ?PASS(ssa_opt_tail_literals),
           ?PASS(ssa_opt_trim_unreachable),
           ?PASS(ssa_opt_unfold_literals)],
     passes_1(Ps, Opts).
@@ -408,12 +394,7 @@ fdb_update(Caller, Callee, FuncDb) ->
 
 get_call_order_po(StMap, FuncDb) ->
     Order = gco_po(FuncDb),
-    Order ++ maps:fold(fun(K, _V, Acc) ->
-                               case is_map_key(K, FuncDb) of
-                                   false -> [K | Acc];
-                                   true -> Acc
-                               end
-                       end, [], StMap).
+    Order ++ sort([K || K <- maps:keys(StMap), not is_map_key(K, FuncDb)]).
 
 gco_po(FuncDb) ->
     All = sort(maps:keys(FuncDb)),
@@ -1425,13 +1406,91 @@ live_opt_is([], Live, Acc) ->
 %%% never throw.
 %%%
 
-ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
-    RevLinear = reduce_try(Linear0, []),
+ssa_opt_try({#opt_st{ssa=Linear,cnt=Count0}=St, FuncDb}) ->
+    {Count, Shrunk} = shrink_try(Linear, Count0, []),
+
+    Reduced = reduce_try(Shrunk, []),
 
     EmptySet = sets:new([{version, 2}]),
-    Linear = trim_try(RevLinear, EmptySet, EmptySet, []),
+    Trimmed = trim_try(Reduced, EmptySet, EmptySet, []),
 
-    {St#opt_st{ssa=Linear}, FuncDb}.
+    {St#opt_st{ssa=Trimmed,cnt=Count}, FuncDb}.
+
+%% Moves all leading/trailing instructions that cannot fail out of try/catch
+%% expressions. For example, we can move the tuple constructions `{defg,Arg}`
+%% and `{hijk,A}` out of the `try` in the code below:
+%%
+%%     try
+%%         A = abcd({defg,Arg}),
+%%         ... snip ...
+%%         {hijk,A}
+%%     catch
+%%         ... snip ...
+%%     end.
+shrink_try([{TryLbl0, #b_blk{is=[#b_set{op=new_try_tag,dst=Dst}],
+                             last=#b_br{bool=Dst,succ=SuccLbl}}=TryBlk},
+            {SuccLbl, #b_blk{is=SuccIs0,last=SuccLast}=SuccBlk0} | Bs],
+           Count0, Acc0) ->
+    %% Hoist leading known-safe instructions before `new_try_tag` instructions.
+    {HoistIs, SuccIs} = hoist_try_is(SuccIs0, SuccLast, []),
+
+    HoistLbl = TryLbl0,
+    TryLbl = Count0,
+    Count = Count0 + 1,
+
+    HoistBlk = #b_blk{is=HoistIs,
+                      last=#b_br{bool=#b_literal{val=true},
+                                 succ=TryLbl,
+                                 fail=TryLbl}},
+    SuccBlk = SuccBlk0#b_blk{is=SuccIs},
+
+    Acc = [{TryLbl, TryBlk},
+           {HoistLbl, HoistBlk} | Acc0],
+
+    shrink_try([{SuccLbl, SuccBlk} | Bs], Count, Acc);
+shrink_try([{L, #b_blk{is=Is}=Blk0} | Bs], Count, Acc) ->
+    Blk = Blk0#b_blk{is=sink_try_is(Is)},
+    shrink_try(Bs, Count, [{L, Blk} | Acc]);
+shrink_try([], Count, Acc) ->
+    {Count, reverse(Acc)}.
+
+hoist_try_is([#b_set{dst=Dst},
+              #b_set{op={succeeded,_},args=[Dst]}]=Is,
+             #b_br{}, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{dst=Dst}]=Is, #b_br{bool=Dst}, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=new_try_tag}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=landingpad}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{op=kill_try_tag}]=Is, _Last, HoistIs) ->
+    {reverse(HoistIs), Is};
+hoist_try_is([#b_set{}=I | Is], Last, HoistIs) ->
+    %% Note that we hoist instructions regardless of whether they side-effect
+    %% or not: as long as they don't throw an exception, we don't need to care
+    %% about side-effects as long as their order is unchanged.
+    hoist_try_is(Is, Last, [I | HoistIs]);
+hoist_try_is([], _Last, HoistIs) ->
+    {reverse(HoistIs), []}.
+
+%% Moves trailing known-safe instructions past `kill_try_tag` instructions.
+sink_try_is([#b_set{op=landingpad} | _]=Is) ->
+    Is;
+sink_try_is([#b_set{op=phi}=Phi | Is]) ->
+    [Phi | sink_try_is(Is)];
+sink_try_is(Is) ->
+    sink_try_is_1(Is, []).
+
+sink_try_is_1([#b_set{op=kill_try_tag}=Kill | Is], Acc) ->
+    [Kill | reverse(Acc, Is)];
+sink_try_is_1([I | Is], Acc) ->
+    case beam_ssa:no_side_effect(I) of
+        true -> sink_try_is_1(Is, [I | Acc]);
+        false -> reverse(Acc, [I | Is])
+    end;
+sink_try_is_1([], Acc) ->
+    reverse(Acc).
 
 %% Does a strength reduction of try/catch and catch.
 %%
@@ -2700,33 +2759,21 @@ collect_get_tuple_element(Is, _Src, Acc) ->
 %%% of the constant if the original variable is known to be in an x
 %%% register.
 %%%
-%%% This optimization sub pass will also undo constant folding of the
-%%% list of arguments in the call to error/2 in the last clause of a
-%%% function. For example:
-%%%
-%%%     bar(X, Y) ->
-%%%         error(function_clause, [X,42]).
-%%%
-%%% will be rewritten to:
-%%%
-%%%     bar(X, Y) ->
-%%%         error(function_clause, [X,Y]).
-%%%
 
 ssa_opt_unfold_literals({St,FuncDb}) ->
-    #opt_st{ssa=Blocks0,args=Args,anno=Anno,cnt=Count0} = St,
+    #opt_st{ssa=Blocks0,args=Args,anno=Anno} = St,
     ParamInfo = maps:get(parameter_info, Anno, #{}),
     LitMap = collect_arg_literals(Args, ParamInfo, 0, #{}),
     case map_size(LitMap) of
         0 ->
             %% None of the arguments for this function are known
             %% literals. Nothing to do.
-            {St,FuncDb};
+            {St, FuncDb};
         _ ->
             SafeMap = #{0 => true},
-            {Blocks,Count} = unfold_literals(beam_ssa:rpo(Blocks0),
-                                             LitMap, SafeMap, Count0, Blocks0),
-            {St#opt_st{ssa=Blocks,cnt=Count},FuncDb}
+            Blocks = unfold_literals(beam_ssa:rpo(Blocks0),
+                                     LitMap, SafeMap, Blocks0),
+            {St#opt_st{ssa=Blocks}, FuncDb}
     end.
 
 collect_arg_literals([V|Vs], Info, X, Acc0) ->
@@ -2744,72 +2791,51 @@ collect_arg_literals([V|Vs], Info, X, Acc0) ->
         #{} ->
             collect_arg_literals(Vs, Info, X + 1, Acc0)
     end;
-collect_arg_literals([], _Info, _X, Acc) -> Acc.
+collect_arg_literals([], _Info, _X, Acc) ->
+    Acc.
 
-unfold_literals([L|Ls], LitMap, SafeMap0, Count0, Blocks0) ->
-    {Blocks,Safe,Count} =
+unfold_literals([L|Ls], LitMap, SafeMap0, Blocks0) ->
+    {Blocks,Safe} =
         case map_get(L, SafeMap0) of
             false ->
                 %% Before reaching this block, an instruction that
-                %% clobbers x registers has been executed.  *If* we
+                %% clobbers x registers has been executed. *If* we
                 %% would use an argument variable instead of literal,
                 %% it would force the value to be saved to a y
                 %% register. This is not what we want.
-                {Blocks0,false,Count0};
+                {Blocks0,false};
             true ->
                 %% All x registers live when entering the function
                 %% are still live. Using the variable instead of
                 %% the substituted value will eliminate a `move`
                 %% instruction.
                 #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
-                {Is,Safe0,Count1} = unfold_lit_is(Is0, LitMap, Count0, []),
-                {Blocks0#{L:=Blk#b_blk{is=Is}},Safe0,Count1}
+                {Is, Safe0} = unfold_lit_is(Is0, LitMap, []),
+                {Blocks0#{ L := Blk#b_blk{is=Is} }, Safe0}
         end,
     %% Propagate safeness to successors.
     Successors = beam_ssa:successors(L, Blocks),
     SafeMap = unfold_update_succ(Successors, Safe, SafeMap0),
-    unfold_literals(Ls, LitMap, SafeMap, Count,Blocks);
-unfold_literals([], _, _, Count, Blocks) ->
-    {Blocks,Count}.
+    unfold_literals(Ls, LitMap, SafeMap,Blocks);
+unfold_literals([], _, _, Blocks) ->
+    Blocks.
 
 unfold_update_succ([S|Ss], Safe, SafeMap0) ->
     F = fun(Prev) -> Prev and Safe end,
     SafeMap = maps:update_with(S, F, Safe, SafeMap0),
     unfold_update_succ(Ss, Safe, SafeMap);
-unfold_update_succ([], _, SafeMap) -> SafeMap.
+unfold_update_succ([], _, SafeMap) ->
+    SafeMap.
 
-unfold_lit_is([#b_set{op=call,
-                      args=[#b_remote{mod=#b_literal{val=erlang},
-                                      name=#b_literal{val=error},
-                                      arity=2},
-                            #b_literal{val=function_clause},
-                            ArgumentList]}=I0|Is], LitMap, Count0, Acc0) ->
-    %% This is a call to error/2 that raises a function_clause
-    %% exception in the final clause of a function. Try to undo
-    %% constant folding in the list of arguments (the second argument
-    %% for error/2).
-    case unfold_arg_list(Acc0, ArgumentList, LitMap, Count0, 0, []) of
-        {[FinalPutList|_]=Acc,Count} ->
-            %% Acc now contains the possibly rewritten code that
-            %% creates the argument list. All that remains is to
-            %% rewrite the call to error/2 itself so that is will
-            %% refer to rewritten argument list. This is essential
-            %% when all arguments have known literal values as in this
-            %% example:
-            %%
-            %%     foo(X, Y) -> error(function_clause, [0,1]).
-            %%
-            #b_set{op=put_list,dst=ListVar} = FinalPutList,
-            #b_set{args=[ErlangError,Fc,_]} = I0,
-            I = I0#b_set{args=[ErlangError,Fc,ListVar]},
-            {reverse(Acc, [I|Is]),false,Count};
-        {[],_} ->
-            %% Handle code such as:
-            %%
-            %% bar(KnownValue, Stk) -> error(function_clause, Stk).
-            {reverse(Acc0, [I0|Is]),false,Count0}
-    end;
-unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Count, Acc) ->
+unfold_lit_is([#b_set{op=match_fail,
+                      args=[#b_literal{val=function_clause} | Args0]}=I0 | Is],
+              LitMap, Acc) ->
+    %% Undoing constant folding for this kind of failure lets us jump
+    %% directly to the `func_info` instruction.
+    Args = unfold_call_args(Args0, LitMap, 0),
+    I = I0#b_set{args=[#b_literal{val=function_clause} | Args]},
+    {reverse(Acc, [I | Is]), false};
+unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Acc) ->
     %% Using a register instead of a literal is a clear win only for
     %% `call` and `old_make_fun` instructions. Substituting into other
     %% instructions is unlikely to be an improvement.
@@ -2830,56 +2856,18 @@ unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Count, Acc) ->
             %% This instruction clobbers x register. Don't do
             %% any substitutions in rest of this block or in any
             %% of its successors.
-            {reverse(Acc, [I|Is]),false,Count};
+            {reverse(Acc, [I|Is]), false};
         false ->
-            unfold_lit_is(Is, LitMap, Count, [I|Acc])
+            unfold_lit_is(Is, LitMap, [I|Acc])
     end;
-unfold_lit_is([], _LitMap, Count, Acc) ->
-    {reverse(Acc),true,Count}.
-
-%% unfold_arg_list(Is, ArgumentList, LitMap, Count0, X, Acc) ->
-%%     {UpdatedAcc, Count}.
-%%
-%%  Unfold the arguments in the argument list (second argument for error/2).
-%%
-%%  Note that Is is the reversed list of instructions before the
-%%  call to error/2. Because of the way the list is built in reverse,
-%%  it means that the first put_list instruction found will add the first
-%%  argument (x0) to the list, the second the second argument (x1), and
-%%  so on.
-
-unfold_arg_list(Is, #b_literal{val=[Hd|Tl]}, LitMap, Count0, X, Acc) ->
-    %% Handle the case that the entire argument list (the second argument
-    %% for error/2) is a literal.
-    {PutListDst,Count} = new_var('@put_list', Count0),
-    PutList = #b_set{op=put_list,dst=PutListDst,
-                     args=[#b_literal{val=Hd},#b_literal{val=Tl}]},
-    unfold_arg_list([PutList|Is], PutListDst, LitMap, Count, X, Acc);
-unfold_arg_list([#b_set{op=put_list,dst=List,
-                         args=[Hd0,#b_literal{val=[Hd|Tl]}]}=I0|Is0],
-                 List, LitMap, Count0, X, Acc) ->
-    %% The rest of the argument list is a literal list.
-    {PutListDst,Count} = new_var('@put_list', Count0),
-    PutList = #b_set{op=put_list,dst=PutListDst,
-                     args=[#b_literal{val=Hd},#b_literal{val=Tl}]},
-    I = I0#b_set{args=[Hd0,PutListDst]},
-    unfold_arg_list([I,PutList|Is0], List, LitMap, Count, X, Acc);
-unfold_arg_list([#b_set{op=put_list,dst=List,args=[Hd0,Tl]}=I0|Is],
-                 List, LitMap, Count, X, Acc) ->
-    %% Unfold the head of the list.
-    Hd = unfold_arg(Hd0, LitMap, X),
-    I = I0#b_set{args=[Hd,Tl]},
-    unfold_arg_list(Is, Tl, LitMap, Count, X + 1, [I|Acc]);
-unfold_arg_list([I|Is], List, LitMap, Count, X, Acc) ->
-    %% Some other instruction, such as bs_get_tail.
-    unfold_arg_list(Is, List, LitMap, Count, X, [I|Acc]);
-unfold_arg_list([], _, _, Count, _, Acc) ->
-    {reverse(Acc),Count}.
+unfold_lit_is([], _LitMap, Acc) ->
+    {reverse(Acc), true}.
 
 unfold_call_args([A0|As], LitMap, X) ->
     A = unfold_arg(A0, LitMap, X),
-    [A|unfold_call_args(As, LitMap, X + 1)];
-unfold_call_args([], _, _) -> [].
+    [A | unfold_call_args(As, LitMap, X + 1)];
+unfold_call_args([], _, _) ->
+    [].
 
 unfold_arg(#b_literal{val=Val}=Lit, LitMap, X) ->
     case LitMap of
@@ -2895,10 +2883,11 @@ unfold_arg(#b_literal{val=Val}=Lit, LitMap, X) ->
             end;
         #{} -> Lit
     end;
-unfold_arg(Expr, _LitMap, _X) -> Expr.
+unfold_arg(Expr, _LitMap, _X) ->
+    Expr.
 
 %%%
-%%% Optimize tail calls created as the result of optimizations.
+%%% Restore tail calls that were damaged by optimizations.
 %%%
 %%% Consider the following example of a tail call in Erlang code:
 %%%
@@ -2907,159 +2896,81 @@ unfold_arg(Expr, _LitMap, _X) -> Expr.
 %%%
 %%% The SSA code for the call will look like this:
 %%%
-%%%      @ssa_ret = call (`foo`/0)
-%%%      ret @ssa_ret
-%%%
-%%% Sometimes optimizations create new tail calls. Consider this
-%%% slight variation of the example:
-%%%
-%%%    bar() ->
-%%%        {_,_} = foo().
-%%%
-%%%    foo() -> {a,b}.
-%%%
-%%% If beam_ssa_type can figure out that `foo/0` always returns a tuple
-%%% of size two, the test for a tuple is no longer needed and the call
-%%% to `foo/0` will become a tail call. However, the resulting SSA
-%%% code will look like this:
-%%%
-%%%      @ssa_ret = call (`foo`/0)
-%%%      @ssa_bool = succeeded:body @ssa_ret
+%%%      @ssa_result = call (`foo`/0)
+%%%      @ssa_bool = succeeded:body @ssa_result
 %%%      br @ssa_bool, ^999, ^1
 %%%
 %%%    999:
-%%%      ret @ssa_ret
+%%%      ret @ssa_result
 %%%
-%%% The beam_ssa_codegen pass will not recognize this code as a tail
-%%% call and will generate an unnecessary stack frame. It may also
-%%% generate unnecessary `kill` instructions.
-%%%
-%%% To avoid those extra instructions, this optimization will
-%%% eliminate the `succeeded:body` and `br` instructions and insert
-%%% the `ret` in the same block as the call:
-%%%
-%%%      @ssa_ret = call (`foo`/0)
-%%%      ret @ssa_ret
-%%%
-%%% Finally, consider this example:
-%%%
-%%%    bar() ->
-%%%        foo_ok(),
-%%%        ok.
-%%%
-%%%    foo_ok() -> ok.
-%%%
-%%% The SSA code for the call to `foo_ok/0` will look like:
+%%% Now imagine that an optimization has figured out that `foo/0` always
+%%% returns the atom `ok` and substituted the result everywhere, resulting in
+%%% the following SSA:
 %%%
 %%%      %% Result type: `ok`
-%%%      @ssa_ignored = call (`foo_ok`/0)
+%%%      @ssa_ignored = call (`foo`/0)
 %%%      @ssa_bool = succeeded:body @ssa_ignored
 %%%      br @ssa_bool, ^999, ^1
 %%%
 %%%    999:
 %%%      ret `ok`
 %%%
-%%% Since the call to `foo_ok/0` has an annotation indicating that the
-%%% call will always return the atom `ok`, the code can be simplified
-%%% like this:
-%%%
-%%%      @ssa_ignored = call (`foo_ok`/0)
-%%%      ret @ssa_ignored
+%%% The `beam_ssa_pre_codegen` pass will not recognize this code as a tail call
+%%% and will generate an unnecessary stack frame, and may also generate
+%%% unnecessary `kill` instructions.
 %%%
 %%% The beam_jump pass does the same optimization, but it does it too
 %%% late to avoid creating an uncessary stack frame or unnecessary
 %%% `kill` instructions.
 %%%
 
-ssa_opt_tail_calls({St,FuncDb}) ->
-    #opt_st{ssa=Blocks0} = St,
-    Blocks = opt_tail_calls(beam_ssa:rpo(Blocks0), Blocks0),
-    {St#opt_st{ssa=Blocks},FuncDb}.
+ssa_opt_tail_literals({St,FuncDb}) ->
+    #opt_st{cnt=Count0,ssa=Blocks0} = St,
+    {Count, Blocks} = opt_tail_literals(beam_ssa:rpo(Blocks0), Count0, Blocks0),
+    {St#opt_st{cnt=Count,ssa=Blocks},FuncDb}.
 
-opt_tail_calls([L|Ls], Blocks0) ->
+opt_tail_literals([L | Ls], Count, Blocks0) ->
     #b_blk{is=Is0,last=Last} = Blk0 = map_get(L, Blocks0),
 
-    %% Does this block end with a two-way branch whose success
-    %% label targets an empty block with a `ret` terminator?
-    case is_potential_tail_call(Last, Blocks0) of
-        {yes,Bool,Ret} ->
-            %% Yes, `Ret` is the value returned from that block
-            %% (either a variable or literal). Do the instructions
-            %% in this block end with a `call` instruction that
-            %% returns the same value as `Ret`, followed by a
-            %% `succeeded:body` instruction?
-            case is_tail_call_is(Is0, Bool, Ret, []) of
-                {yes,Is,Var} ->
-                    %% Yes, this is a tail call. `Is` is the instructions
-                    %% in the block with `succeeded:body` removed, and
-                    %% `Var` is the destination variable for the return
-                    %% value of the call. Rewrite this block to directly
-                    %% return `Var`.
-                    Blk = Blk0#b_blk{is=Is,last=#b_ret{arg=Var}},
-                    Blocks = Blocks0#{L:=Blk},
-                    opt_tail_calls(Ls, Blocks);
-                no ->
-                    %% No, the block does not end with a call, or the
-                    %% the call instruction has not the same value
-                    %% as `Ret`.
-                    opt_tail_calls(Ls, Blocks0)
-            end;
+    case is_tail_literal(Is0, Last, Blocks0) of
+        {yes, Var} ->
+            %% Yes, this is a call followed by a block returning the same value
+            %% as the call itself. Create a new block that returns the result
+            %% directly, as the successor block may be reachable from
+            %% elsewhere.
+            RetBlk = #b_blk{is=[],last=#b_ret{arg=Var}},
+            RetLbl = Count,
+
+            Blk = Blk0#b_blk{last=Last#b_br{succ=RetLbl}},
+
+            Blocks = Blocks0#{ L := Blk, RetLbl => RetBlk },
+            opt_tail_literals(Ls, Count + 1, Blocks);
         no ->
-            opt_tail_calls(Ls, Blocks0)
+            opt_tail_literals(Ls, Count, Blocks0)
     end;
-opt_tail_calls([], Blocks) -> Blocks.
+opt_tail_literals([], Count, Blocks) ->
+    {Count, Blocks}.
 
-is_potential_tail_call(#b_br{bool=#b_var{}=Bool,succ=Succ}, Blocks) ->
-    case Blocks of
-        #{Succ := #b_blk{is=[],last=#b_ret{arg=Arg}}} ->
-            %% This could be a tail call.
-            {yes,Bool,Arg};
-        #{} ->
-            %% The block is not empty or does not have a `ret` terminator.
-            no
-    end;
-is_potential_tail_call(_, _) ->
-    %% Not a two-way branch (a `succeeded:body` instruction must be
-    %% followed by a two-way branch).
-    no.
-
-is_tail_call_is([#b_set{op=call,dst=Dst}=Call,
+is_tail_literal([#b_set{op=call,dst=Dst}=Call,
                  #b_set{op={succeeded,body},dst=Bool}],
-                Bool, Ret, Acc) ->
-    IsTailCall =
-        case Ret of
-            #b_literal{val=Val} ->
-                %% The return value for this function is a literal.
-                %% Now test whether it is the same literal that the
-                %% `call` instruction returns.
-                Type = beam_ssa:get_anno(result_type, Call, any),
-                case beam_types:get_singleton_value(Type) of
-                    {ok,Val} ->
-                        %% Same value.
-                        true;
-                    {ok,_} ->
-                        %% Wrong value.
-                        false;
-                    error ->
-                        %% The type for the return value is not a singleton value.
-                        false
-                end;
-            #b_var{} ->
-                %% It is a tail call if the variable set by the `call` instruction
-                %% is the same variable as the argument for the `ret` terminator.
-                Ret =:= Dst
-        end,
-    case IsTailCall of
-        true ->
-            %% Return the instructions in the block with `succeeded:body` removed.
-            Is = reverse(Acc, [Call]),
-            {yes,Is,Dst};
-        false ->
+                #b_br{bool=#b_var{}=Bool,succ=Succ}, Blocks) ->
+    case Blocks of
+        #{ Succ := #b_blk{is=[],last=#b_ret{arg=#b_literal{val=Val}}} } ->
+            %% Our success block does nothing but return a literal. Now we'll
+            %% check whether it's the same literal as the one returned by the
+            %% call itself.
+            Type = beam_ssa:get_anno(result_type, Call, any),
+            case beam_types:get_singleton_value(Type) of
+                {ok, Val} -> {yes, Dst};
+                _ -> no
+            end;
+        #{} ->
             no
     end;
-is_tail_call_is([I|Is], Bool, Ret, Acc) ->
-    is_tail_call_is(Is, Bool, Ret, [I|Acc]);
-is_tail_call_is([], _Bool, _Ret, _Acc) -> no.
+is_tail_literal([_ | Is], #b_br{}=Last, Blocks) ->
+    is_tail_literal(Is, Last, Blocks);
+is_tail_literal(_Is, _Last, _Blocks) ->
+    no.
 
 %%%
 %%% Eliminate redundant branches.

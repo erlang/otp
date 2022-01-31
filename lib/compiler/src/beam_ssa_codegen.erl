@@ -1784,7 +1784,11 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
     [{loop_rec,Fail,{x,0}}|copy({x,0}, Dst)];
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, #cg_set{anno=Anno}=Set) ->
     Live = get_live(Set),
-    [line(Anno),{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}].
+    [line(Anno),{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
+cg_test(raw_raise, _Fail, Args, Dst, _I) ->
+    cg_instr(raw_raise, Args, Dst);
+cg_test(resume, _Fail, [_,_]=Args, Dst, _I) ->
+    cg_instr(resume, Args, Dst).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of

@@ -90,6 +90,12 @@ will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
 will_succeed(erlang, tl, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, raise, [Class, _Reason, nil]) ->
+    case beam_types:meet(Class, #t_atom{elements=[error,exit,throw]}) of
+        Class -> no;
+        none -> yes;
+        _ -> maybe
+    end;
 will_succeed(Mod, Func, Args) ->
     Arity = length(Args),
     case erl_bifs:is_safe(Mod, Func, Arity) of
