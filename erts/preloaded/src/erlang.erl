@@ -1796,6 +1796,7 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 %% raise/3
+%% Shadowed by erl_bif_types: erlang:raise/3
 -spec erlang:raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
@@ -3986,6 +3987,7 @@ rvrs(Xs) -> rvrs(Xs, []).
 rvrs([],Ys) -> Ys;
 rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
 
+%% Shadowed by erl_bif_types: erlang:min/2
 -spec min(Term1, Term2) -> Minimum when
       Term1 :: term(),
       Term2 :: term(),
@@ -3993,6 +3995,7 @@ rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
+%% Shadowed by erl_bif_types: erlang:max/2
 -spec max(Term1, Term2) -> Maximum when
       Term1 :: term(),
       Term2 :: term(),
