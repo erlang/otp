@@ -74,6 +74,12 @@ ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}
       <code type="erl">3 server> {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket).
 {ok,{sslsocket, [...]}}</code>
 
+
+<note><p> ssl:transport_accept/1 and ssl:handshake/2 are separate functions so that
+the handshake part can be called in a new erlang process dedicated to handling the
+connection</p>
+</note>
+
       <p><em>Step 4:</em> Start the client side: </p>
       <code type="erl">1 client> ssl:start().
 ok</code>
@@ -84,7 +90,11 @@ ok</code>
       <p><em>Step 5:</em> Do the TLS handshake:</p>
       <code type="erl">4 server> {ok, Socket} = ssl:handshake(TLSTransportSocket).
 {ok,{sslsocket, [...]}}</code>
-      
+
+<note><p> A real server should use ssl:handshake/2 that has a timeout
+to avoid DoS attacks. In the example the timeout defaults to infinty.</p>
+</note>
+
       <p><em>Step 6:</em> Send a message over TLS:</p>
       <code type="erl">5 server> ssl:send(Socket, "foo").
 ok</code>
