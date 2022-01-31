@@ -4261,7 +4261,6 @@ static DMCRet dmc_all_bindings(DMCContext *context,
 			       int *constant)
 {
     int i;
-    int heap_used = 0;
 
     DMC_PUSH(*text, matchPushC);
     DMC_PUSH(*text, NIL);
@@ -4269,7 +4268,6 @@ static DMCRet dmc_all_bindings(DMCContext *context,
 	if (heap->vars[i].is_bound) {
 	    dmc_add_pushv_variant(context, heap, text, i);
 	    DMC_PUSH(*text, matchConsB);
-	    heap_used += 2;
 	}
     }
     ++context->stack_used;

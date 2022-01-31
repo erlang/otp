@@ -1878,7 +1878,7 @@ erts_mremap(ErtsMemMapper* mm,
 #endif
 #ifdef ERTS_HAVE_OS_MREMAP
 	if (superaligned) {
-	    return remap_move(mm, flags, new_ptr, old_size, sizep);
+	    return remap_move(mm, flags, ptr, old_size, sizep);
 	} else {
 	    new_ptr = os_mremap(ptr, old_size, asize, 0);
 	    if (!new_ptr)
