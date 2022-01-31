@@ -4616,7 +4616,6 @@ typedef struct {
     int full_reds;
     int full_reds_history_sum;
     int full_reds_history_change;
-    int oowc;
     int max_len;
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
     int sched_util;
@@ -4654,7 +4653,8 @@ do {									\
     run_queue_info[(QIX)].full_reds_history_change = (LAST_REDS);	\
 } while (0)
 
-#define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)				\
+#ifdef DEBUG
+#  define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)				\
 do {									\
     int sum__ = 0;							\
     int rix__;								\
@@ -4662,6 +4662,9 @@ do {									\
 	sum__ += (RQ)->full_reds_history[rix__];			\
     ASSERT(sum__ == (RQ)->full_reds_history_sum);			\
 } while (0);
+#else
+#  define ERTS_DBG_CHK_FULL_REDS_HISTORY(RQ)
+#endif
 
 #define ERTS_PRE_ALLOCED_MPATHS 8
 
@@ -4782,7 +4785,7 @@ check_balance(ErtsRunQueue *c_rq)
     ErtsMigrationPaths *new_mpaths, *old_mpaths;
     ErtsRunQueueBalance avg = {0};
     Sint64 scheds_reds, full_scheds_reds;
-    int forced, active, current_active, oowc, half_full_scheds, full_scheds,
+    int forced, active, current_active, half_full_scheds, full_scheds,
 	mmax_len, blnc_no_rqs, qix, pix, freds_hist_ix;
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
     int sched_util_balancing;
@@ -4873,7 +4876,6 @@ check_balance(ErtsRunQueue *c_rq)
 	run_queue_info[qix].full_reds_history_change
 	    = rq->full_reds_history[freds_hist_ix];
 
-	run_queue_info[qix].oowc = rq->out_of_work_count;
 	run_queue_info[qix].max_len = rq->max_len;
 	rq->check_balance_reds = INT_MAX;
 
@@ -4889,7 +4891,6 @@ check_balance(ErtsRunQueue *c_rq)
     half_full_scheds = 0;
     full_scheds_reds = 0;
     scheds_reds = 0;
-    oowc = 0;
     mmax_len = 0;
 
     /* Calculate availability for each priority in each run queues */
@@ -4946,7 +4947,6 @@ check_balance(ErtsRunQueue *c_rq)
 	}
 	run_queue_info[qix].reds = treds;
 	scheds_reds += treds;
-	oowc += run_queue_info[qix].oowc;
 	if (mmax_len < run_queue_info[qix].max_len)
 	    mmax_len = run_queue_info[qix].max_len;
     }
