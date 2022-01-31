@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -503,23 +503,17 @@
 
 
 -define(expect1(What), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   What)).
+	?ALIB:expect(?MODULE, ?LINE, What)).
 -define(expect2(What, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   What, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, What, ExpVBs)).
 -define(expect3(Err, Idx, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Err, Idx, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, Err, Idx, ExpVBs)).
 -define(expect4(Err, Idx, ExpVBs, To), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Err, Idx, ExpVBs, To)).
+	?ALIB:expect(?MODULE, ?LINE, Err, Idx, ExpVBs, To)).
 -define(expect5(Type, Ent, Gen, Spec, ExpVBs), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Type, Ent, Gen, Spec, ExpVBs)).
+	?ALIB:expect(?MODULE, ?LINE, Type, Ent, Gen, Spec, ExpVBs)).
 -define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
-	?ALIB:expect(?MODULE, ?LINE, 
-				   Type, Ent, Gen, Spec, ExpVBs, To)).
+	?ALIB:expect(?MODULE, ?LINE, Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
 %%======================================================================
@@ -1097,10 +1091,66 @@ init_per_testcase1(v3_inform_i = _Case, Config) when is_list(Config) ->
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     wd_start(10, Config);
+init_per_testcase1(v3_des_priv = _Case, Config) when is_list(Config) ->
+    ?IPRINT("init_per_testcase1 -> entry with"
+            "~n   Case:   ~p"
+            "~n   Config: ~p", [_Case, Config]),
+    case ?config(label, Config) of
+        docker ->
+            ?IPRINT("Running in docker => SKIP"),
+            {skip, "Behaves badly when run in a docker"};
+        _ ->
+            %% <OS-CONDITIONAL-SKIP>
+            %% This is intended to catch Yellow Dog Linux release 6.2 (2.6.29)
+            LinuxVersionVerify = 
+                fun() ->
+                        case string:to_lower(os:cmd("uname -m")) of
+                            "ppc" ++ _ ->
+                                case file:read_file_info("/etc/issue") of
+                                    {ok, _} ->
+                                        case string:to_lower(
+                                               os:cmd("grep -i yellow /etc/issue")) of
+                                            "yellow dog " ++ _ ->
+                                                case os:version() of
+                                                    {2, 6, 29} ->
+                                                        ?IPRINT("(PPC Linux) "
+                                                                "kernel version check: "
+                                                                "{2, 6, 29} => SKIP"),
+                                                        true;
+                                                    V ->
+                                                        ?IPRINT("(PPC Linux) "
+                                                                "kernel version check: "
+                                                                "~p != {2, 6, 29} => "
+                                                                "*NO* SKIP", [V]),
+                                                        false
+                                                end;
+                                            _ -> % Maybe plain Debian or Ubuntu
+                                                ?IPRINT("(PPC Linux) => *NO* SKIP"),
+                                                false
+                                        end;
+                                    _ ->
+                                        ?IPRINT("(PPC Linux) Unknown distro => "
+                                                "*NO* SKIP"),
+                                        false
+                                end;
+                            _ ->
+                                ?IPRINT("(Linux) Not PPC => *NO* SKIP"),
+                                false
+                        end
+                end,
+            OSSkippable = [{unix, [{linux, LinuxVersionVerify}]}],
+            %% </OS-CONDITIONAL-SKIP>
+            case ?OS_BASED_SKIP(OSSkippable) of
+                true ->
+                    {skip, "Host *may* not *properly* handle this test case"};
+                false ->
+                    wd_start(6, Config)
+            end
+    end;
 init_per_testcase1(_Case, Config) when is_list(Config) ->
-    ?DBG("init_per_testcase -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [_Case, Config]),
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Case:   ~p"
+            "~n   Config: ~p", [_Case, Config]),
     wd_start(6, Config).
 
 init_per_testcase2(Case, Config) ->
@@ -1280,21 +1330,64 @@ stop_agent(Config) ->
 
 
 create_tables(SaNode) ->
-    ?line {atomic, ok} = mnesia:create_table([{name, friendsTable2},
-					      {ram_copies, [SaNode]},
-					      {snmp, [{key, integer}]},
-					      {attributes, [a1,a2,a3]}]),
-    ?line {atomic, ok} = mnesia:create_table([{name, kompissTable2},
-					      {ram_copies, [SaNode]},
-					      {snmp, [{key, integer}]},
-					      {attributes, [a1,a2,a3]}]),
-    ?line {atomic, ok} = mnesia:create_table([{name, snmp_variables},
-					      {attributes, [a1,a2]}]).
+    %% ?line {atomic, ok} = mnesia:create_table([{name, friendsTable2},
+    %%     				      {ram_copies, [SaNode]},
+    %%     				      {snmp, [{key, integer}]},
+    %%     				      {attributes, [a1,a2,a3]}]),
+    mnesia_create_table_or_skip([{name, friendsTable2},
+                                 {ram_copies, [SaNode]},
+                                 {snmp, [{key, integer}]},
+                                 {attributes, [a1,a2,a3]}]),
+    %% ?line {atomic, ok} = mnesia:create_table([{name, kompissTable2},
+    %%     				      {ram_copies, [SaNode]},
+    %%     				      {snmp, [{key, integer}]},
+    %%     				      {attributes, [a1,a2,a3]}]),
+    mnesia_create_table_or_skip([{name, kompissTable2},
+                                 {ram_copies, [SaNode]},
+                                 {snmp, [{key, integer}]},
+                                 {attributes, [a1,a2,a3]}]),
+    %% ?line {atomic, ok} = mnesia:create_table([{name, snmp_variables},
+    %%     				      {attributes, [a1,a2]}]),
+    mnesia_create_table_or_skip([{name, snmp_variables},
+                                 {attributes, [a1,a2]}]),
+    ok.
+
+mnesia_create_table_or_skip(Args) ->
+    case mnesia:create_table(Args) of
+        {atomic, ok} ->
+            ok;
+        {aborted, {already_exists, Table}}  ->
+            ?SKIP({table_already_exist, Table});
+        {aborted, Error}  ->
+            ?FAIL({failed_create_table, Error})
+    end.
+
 
 delete_tables() ->
-    mnesia:delete_table(friendsTable2),
-    mnesia:delete_table(kompissTable2),
-    mnesia:delete_table(snmp_variables).
+    %% mnesia:delete_table(friendsTable2),
+    mnesia_delete_table(friendsTable2),
+    %% mnesia:delete_table(kompissTable2),
+    mnesia_delete_table(kompissTable2),
+    %% mnesia:delete_table(snmp_variables).
+    mnesia_delete_table(snmp_variables).
+
+mnesia_delete_table(Tab) ->
+    try mnesia:delete_table(Tab) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            ?EPRINT("Table delete aborted:"
+                    "~n      Table:  ~w: "
+                    "~n      Reason: ~p", [Tab, Reason]),
+            {error, Reason}
+    catch
+        C:E:S ->
+            ?EPRINT("Failed delete table ~w: "
+                    "~n      Class: ~p"
+                    "~n      Error: ~p"
+                    "~n      Stack: ~p", [Tab, C, E, S]),
+            {error, {C, E, S}}
+    end.
 
 %% Tables are created in runtime!
 delete_mib_storage_mnesia_tables() ->
@@ -1540,44 +1633,61 @@ init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     [{vsn, v1}, {agent_opts, Opts} | Config].
 
 finish_mib_storage_ets(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_ets -> entry"),
+    ?IPRINT("finish_mib_storage_ets -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_ets -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_ets -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_ets -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_mib_storage_dets(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_dets -> entry"),
+    ?IPRINT("finish_mib_storage_dets -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_dets -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_dets -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_dets -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_mib_storage_mnesia(Config) when is_list(Config) ->
-    ?IPRINT("finish_mib_storage_mnesia -> entry"),
+    ?IPRINT("finish_mib_storage_mnesia -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mib_storage_mnesia -> "
+            "try delete (mib storage) mnesia tables"),
     delete_mib_storage_mnesia_tables(),
+    ?IPRINT("finish_mib_storage_mnesia -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mib_storage_mnesia -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mib_storage_mnesia -> done"),
     C2 = lists:keydelete(vsn, 1, C1),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_varm_mib_storage_dets(Config) when is_list(Config) ->
-    ?IPRINT("finish_varm_mib_storage_dets -> entry"),
+    ?IPRINT("finish_varm_mib_storage_dets -> try delete mnesia tables"),
     delete_tables(),
     %% C1 = stop_agent(Config), % In case something went wrong...
+    ?IPRINT("finish_varm_mib_storage_dets -> try delete files"),
     delete_files(Config),
+    ?IPRINT("finish_varm_mib_storage_dets -> done"),
     C2 = lists:keydelete(vsn, 1, Config),
     lists:keydelete(agent_opts, 1, C2).
 
 finish_varm_mib_storage_mnesia(Config) when is_list(Config) ->
-    ?IPRINT("finish_varm_mib_storage_mnesia -> entry"),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> "
+            "try delete (mib storage) mnesia tables"),
     delete_mib_storage_mnesia_tables(),
     %% C1 = stop_agent(Config), % In case something went wrong...
+    ?IPRINT("finish_varm_mib_storage_mnesia -> try delete files"),
     delete_files(Config),
+    ?IPRINT("finish_varm_mib_storage_mnesia -> done"),
     C2 = lists:keydelete(vsn, 1, Config),
     lists:keydelete(agent_opts, 1, C2).
 
@@ -1591,9 +1701,13 @@ finish_size_check_msm(Config) when is_list(Config) ->
     finish_size_check_ms(Config).
 
 finish_size_check_ms(Config) when is_list(Config) ->
+    ?IPRINT("finish_size_check_ms -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_size_check_ms -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_size_check_ms -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_size_check_ms -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2144,9 +2258,13 @@ init_v1(Config) when is_list(Config) ->
     [{vsn, v1} | start_v1_agent(Config)].
 
 finish_v1(Config) when is_list(Config) ->
+    ?IPRINT("finish_v1 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v1 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v1 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v1 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2217,9 +2335,13 @@ init_v2(Config) when is_list(Config) ->
     [{vsn, v2} | start_v2_agent(Config)].
 
 finish_v2(Config) when is_list(Config) ->
+    ?IPRINT("finish_v2 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v2 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v2 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v2 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2238,9 +2360,13 @@ init_v1_v2(Config) when is_list(Config) ->
     [{vsn, bilingual} | start_bilingual_agent(Config)].
 
 finish_v1_v2(Config) when is_list(Config) ->
+    ?IPRINT("finish_v1_v2 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v1_v2 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v1_v2 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v1_v2 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2339,9 +2465,13 @@ init_v3(Config) when is_list(Config) ->
     [{vsn, v3} | start_v3_agent(Config, Opts)].
 
 finish_v3(Config) when is_list(Config) ->
+    ?IPRINT("finish_v3 -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_v3 -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_v3 -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_v3 -> done"),
     lists:keydelete(vsn, 1, C1).
 
 
@@ -2362,9 +2492,13 @@ init_mt(Config, MT) when is_list(Config) ->
     [{vsn, v2} | start_multi_threaded_agent(Config, MT)].
 
 finish_mt(Config) when is_list(Config) ->
+    ?IPRINT("finish_mt -> try delete mnesia tables"),
     delete_tables(),
+    ?IPRINT("finish_mt -> try stop agent"),
     C1 = stop_agent(Config),
+    ?IPRINT("finish_mt -> try delete files"),
     delete_files(C1),
+    ?IPRINT("finish_mt -> done"),
     lists:keydelete(vsn, 1, C1).
 
 %% This one *must* be run first in each case.
@@ -3651,8 +3785,8 @@ v3_inform_sync(MA) ->
     ?SLEEP(20000), % more than 1500*10 in target_addr.conf
     ?DBG("v3_sync -> await response",[]),
     ?line ?expect2({inform, true},
-		   [{[sysUpTime, 0], any},
-		    {[snmpTrapOID, 0], ?system ++ [0,1]}]).
+                   [{[sysUpTime, 0], any},
+                    {[snmpTrapOID, 0], ?system ++ [0,1]}]).
 
 
 v2_caps(suite) -> [];
@@ -5774,7 +5908,7 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. SNMP-FRAMEWORK-MIB
-%% snmpEngineID in number of seconds.
+%% snmpEngineTime (in number of seconds).
 %% In theory, the Engine Time diff of the engine, should be exactly
 %% the same as the number of seconds we sleep (5 in this case).
 %% But because, on some (slow or/and high loaded) hosts, the actual
@@ -5821,6 +5955,25 @@ snmp_framework_mib_test() ->
             [EngineTime, T2-T1, 
              EngineTime2, T4-T3,
              T4-T1, ASleep, Sleep, EngineTimeDiff, LowEngineTime, HighEngineTime]),
+
+    %% In our environment, get'ing the snmpEngineTime should only take
+    %% a couple of milli sec (less then 100).
+    %% So just as a sanity check, we check that it its < 1000ms.
+    %% We do have a couple of machines that are "unstable"...
+
+    ?IPRINT("check that all snmpEngineTime acquire < 1000"),
+    if
+        ((T2 - T1) >= 1000) ->
+            ?WPRINT("Failed snmpEngineTime 1 sanity check: "
+                    "~n      Time to acquire ~w >= 1000", [T2-T1]),
+            ?SKIP({acquire, snmpEngineTime, 1, T1, T2});
+        ((T4 - T3) >= 1000) ->
+            ?WPRINT("Failed snmpEngineTime 2 sanity check: "
+                    "~n      Time to acquire ~w >= 1000", [T4-T3]),
+            ?SKIP({acquire, snmpEngineTime, 2, T3, T4});
+        true ->
+            ok
+    end,
 
     if
         (HighEngineTime < EngineTime2) ->

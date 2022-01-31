@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -569,10 +569,10 @@ tc_run(Mod, Func, Args, Opts) ->
                     ?SKIP(Reason);
 
                 throw:{error, Reason} ->
-                    tc_run_skip_sheck(Mod, Func, Args, Reason, throw);
+                    tc_run_skip_check(Mod, Func, Args, Reason, throw);
 
 		exit:Reason ->
-                    tc_run_skip_sheck(Mod, Func, Args, Reason, exit)
+                    tc_run_skip_check(Mod, Func, Args, Reason, exit)
 	    end;
 
 	{error, Reason} ->
@@ -588,11 +588,18 @@ tc_run(Mod, Func, Args, Opts) ->
 	    ?line ?FAIL({mgr_start_failure, Err})
     end.
 
+%% We have some crap machines that generate this every now and then
+%% (thay miss the window with 1 or 2 ms). If also detected by the
+%% test manager, we get this and can skip.
+tc_run_skip_check(_Mod, _Func, _Args,
+                  {securityError, usmStatsNotInTimeWindows} = Reason,
+                  _Cat) ->
+    ?SKIP([{reason, Reason}]);
 %% We have hosts (mostly *very* slooow VMs) that
 %% can timeout anything. Since we are basically
 %% testing communication, we therefore must check
 %% for system events at every failure. Grrr!
-tc_run_skip_sheck(Mod, Func, Args, Reason, Cat) ->
+tc_run_skip_check(Mod, Func, Args, Reason, Cat) ->
     SysEvs = snmp_test_global_sys_monitor:events(),
     (catch snmp_test_mgr:stop()),
     if
@@ -1111,6 +1118,9 @@ expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) ->
 expect2(Mod, Line, F) ->
     io_format_expect("for ~w:~w", [Mod, Line]),
     case F() of
+	{error, {securityError, usmStatsNotInTimeWindows}} ->
+	    io_format_expect("(USM) Stats not-in-windows => ", []),
+	    skip({securityError, usmStatsNotInTimeWindows});
 	{error, Reason} ->
 	    io_format_expect("failed at ~w:~w => "
                              "~n      ~p", [Mod, Line, Reason]),
@@ -1144,8 +1154,13 @@ get_timeout() ->
 receive_pdu(To) ->
     receive
 	{snmp_pdu, PDU} when is_record(PDU, pdu) ->
-	    PDU
+	    PDU;
+        {error, Reason} = ERROR ->
+	    ?EPRINT("[await response-pdu] received unexpected error: "
+                    "~n      ~p", [Reason]),
+            ERROR
     after To ->
+	    ?EPRINT("[await response-pdu] unexpected timeout"),
 	    {error, timeout}
     end.
 
