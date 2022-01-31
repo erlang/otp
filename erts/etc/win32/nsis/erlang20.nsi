@@ -56,9 +56,9 @@ Var STARTMENU_FOLDER
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
-  	InstallDir "$PROGRAMFILES64\erl-${OTP_RELEASE_VERSION}"
+  	InstallDir "$PROGRAMFILES64\Erlang OTP"
 !else
-  	InstallDir "$PROGRAMFILES\erl-${OTP_RELEASE_VERSION}"
+  	InstallDir "$PROGRAMFILES\Erlang OTP"
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
@@ -214,22 +214,28 @@ done_startmenu:
   	WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   	WriteRegStr HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
+	WriteRegStr HKLM \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"DisplayVersion" "${OTP_RELEASE_VERSION}"
+	WriteRegStr HKLM \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"Publisher" "Ericsson AB"
   	WriteRegStr HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
   	WriteRegDWORD HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
   	WriteRegDWORD HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoRepair" 1
 
 ; Check that the registry could be written, we only check one key,
 ; but it should be sufficient...
   	ReadRegStr $MYTEMP HKLM \
-	"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+	"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 	"NoRepair"
 
   	StrCmp $MYTEMP "" 0 done
@@ -238,16 +244,22 @@ done_startmenu:
 ; do the things below...
 
   	WriteRegStr HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
+	WriteRegStr HKCU \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"DisplayVersion" "${OTP_RELEASE_VERSION}"
+	WriteRegStr HKCU \
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
+		"Publisher" "Ericsson AB"
   	WriteRegStr HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"UninstallString" "$INSTDIR\Uninstall.exe"
   	WriteRegDWORD HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
   	WriteRegDWORD HKCU \
-		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})" \
+		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoRepair" 1
 
 done:
@@ -464,9 +476,9 @@ noshortcuts:
   	DeleteRegKey /ifempty HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
   	DeleteRegKey /ifempty HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
   	DeleteRegKey HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
   	DeleteRegKey HKCU \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
+		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
 
 
 ; Now remove shell/file associations we'we made...
