@@ -451,7 +451,7 @@ do_delay_on_other_node(XArgs, Function) ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok, Node} = ?START_NODE(?UNIQ_NODE_NAME,
                              "-pa " ++ Dir ++ " " ++ XArgs),
-    Res = rpc:call(Node,erlang,apply,[Function,[]]),
+    Res = rpc:call(Node, erlang, apply, [Function,[]]),
     ?STOP_NODE(Node),
     Res.
 
@@ -653,6 +653,9 @@ close_with_pending_output(Config) when is_list(Config) ->
 	{error, no_remote_hosts} ->
             gen_tcp:close(L),
 	    {skipped, "No remote hosts"};
+	{error, {no_connection,timeout}} ->
+            gen_tcp:close(L),
+	    {skipped, "node start timeout"};
 	{error, Other} ->
             %% Node starting is not what this test case is about.
             %% so, if this fails, skip
