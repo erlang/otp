@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,15 +31,17 @@
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0]).
--export([start_slave_node/2, start_slave_node/3,
-         start_node/3, start_node/4,
+-export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
          print/1, print/2]).
 -export([good_hosts/1,
          lookup/3]).
+-export([os_cmd/1, os_cmd/2]).
 
 -export([
+         proxy_call/3,
+
          %% Generic 'has support' test function(s)
          has_support_ipv6/0,
 
@@ -84,8 +86,16 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                 true ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
-                    kernel_test_global_sys_monitor:start(),
-                    [{kernel_factor, Factor} | Config]
+                    print("try start (global) system monitor"),
+                    case kernel_test_global_sys_monitor:start() of
+                        {ok, _} ->
+                            print("(global) system monitor started"),
+                            [{kernel_factor, Factor} | Config];
+                        {error, Reason} ->
+                            print("Failed start (global) system monitor:"
+                                  "~n      ~p", [Reason]),
+                            {skip, "Failed start (global) system monitor"}
+                    end
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -1697,23 +1707,16 @@ tc_which_name() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_slave_node(Name, Args) ->
-    start_slave_node(Name, Args, []).
+start_node(Name, Args) ->
+    start_node(Name, Args, []).
 
-start_slave_node(Name, Args, Opts) ->
-    start_node(Name, slave, Args, Opts).
-
-
-start_node(Name, Type, Args) ->
-    start_node(Name, Type, Args, []).
-
-start_node(Name, Type, Args, Opts) ->
+start_node(Name, Args, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     A = Args ++
         " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
-    case test_server:start_node(Name, Type, [{args, A}|Opts]) of
+    case test_server:start_node(Name, peer, [{args, A}|Opts]) of
         {ok, _Node} = OK ->
             global:sync(),
 	    OK;
@@ -1736,18 +1739,15 @@ timetrap_scale_factor() ->
     end.
 
 
-proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
-    receive
-        {'DOWN', M, process, P, Reply} ->
-            Reply
-    after Timeout ->
-            erlang:demonitor(M, [flush]),
-            exit(P, kill),
-            Default
-    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+os_cmd(Cmd) ->
+    os_cmd(Cmd, infinity).
+
+os_cmd(Cmd, infinity) ->
+    {ok, os:cmd(Cmd)};
+os_cmd(Cmd, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
+    proxy_call(fun() -> {ok, os:cmd(Cmd)} end, Timeout, {error, timeout}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1825,6 +1825,20 @@ test_inet_backends() ->
         _ ->
             false 
     end.
+
+
+proxy_call(F, Timeout, Default)
+  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+    receive
+        {'DOWN', M, process, P, Reply} ->
+            Reply
+    after Timeout ->
+            erlang:demonitor(M, [flush]),
+            exit(P, kill),
+            Default
+    end.
+
 
 
 %% This is an extremely simple check...

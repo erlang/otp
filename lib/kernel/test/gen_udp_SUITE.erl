@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,9 +31,10 @@
 %% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([
 	 send_to_closed/1, active_n/1,
@@ -217,12 +218,29 @@ init_per_group(inet_backend_socket = _GroupName, Config) ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(local, Config) ->
+    ?P("init_per_group(local) -> do we support 'local'"),
     case ?OPEN(Config, 0, [local]) of
 	{ok,S} ->
+            ?P("init_per_group(local) -> we support 'local'"),
 	    ok = gen_udp:close(S),
 	    Config;
 	{error, eafnosupport} ->
+            ?P("init_per_group(local) -> we *do not* support 'local'"),
 	    {skip, "AF_LOCAL not supported"}
+    end;
+init_per_group(sockaddr = _GroupName, Config) ->
+    ?P("init_per_group(sockaddr) -> do we support 'socket'"),
+    try socket:info() of
+	_ ->
+            ?P("init_per_group(sockaddr) -> we support 'socket'"),
+            Config
+    catch
+        error : notsup ->
+            ?P("init_per_group(sockaddr) -> we *do not* support 'socket'"),
+            {skip, "esock not supported"};
+        error : undef ->
+            ?P("init_per_group(sockaddr) -> 'socket' not configured"),
+            {skip, "esock not configured"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2080,7 +2080,9 @@ init_per_suite(Config) ->
             end
     catch
         error : notsup ->
-            {skip, "esock not supported"}
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
     end.
 
 end_per_suite(_) ->
@@ -18568,11 +18570,16 @@ which_multicast_address2(Domain, WhichMAddr) ->
     IfName = which_local_host_ifname(Domain),
     %% On some platforms the netstat barfs out some crap on stderr
     %% before the actual info...
-    case os:cmd("netstat -g 2>/dev/null | grep " ++ IfName) of
-        [] ->
+    %% ...without the 'n' (that is; just '-g') this command can take a
+    %% *long* time. *With* the 'n' its much better. But just to be on
+    %% the safe side, we add a timeout of 10 seconds.
+    case ?LIB:os_cmd("netstat -gn 2>/dev/null | grep " ++ IfName, ?SECS(10)) of
+        {error, timeout} ->
+            skip({netstat, timeout});
+        {ok, []} ->
             %% Can't figure out if we support multicast or not...
             not_supported(no_netstat);
-        NetstatGroupsStr ->
+        {ok, NetstatGroupsStr} ->
             try
                 begin
                     NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
@@ -32942,18 +32949,27 @@ sc_rc_receive_response_tcp(InitState) ->
                                                      [{rclient, Client}]) of
                                ok ->
                                    {ok, maps:remove(tester, State)};
+                               {error,
+                                {unexpected_exit, rclient, noconnection}} ->
+                                   %% Global might have disconnected => SKIP
+                                   ?SEV_IPRINT("lost connection "
+                                               "to remote client node => SKIP"),
+                                   {skip, {rclient, noconnection}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
          #{desc => "kill remote client",
-           cmd  => fun(#{rclient := Client}) ->
-                           ?SEV_ANNOUNCE_TERMINATE(Client),
+           cmd  => fun(#{rclient := RClient}) ->
+                           ?SEV_IPRINT("try kill remote client ~p", [RClient]),
+                           ?SEV_ANNOUNCE_TERMINATE(RClient),
                            ok
                    end},
          #{desc => "await remote client termination",
-           cmd  => fun(#{rclient := Client} = State) ->
-                           ?SEV_AWAIT_TERMINATION(Client),
+           cmd  => fun(#{rclient := RClient} = State) ->
+                           ?SEV_AWAIT_TERMINATION(RClient),
+                           ?SEV_IPRINT("remote client ~p terminated",
+                                       [RClient]),
                            State1 = maps:remove(rclient, State),
                            {ok, State1}
                    end},
@@ -32978,7 +32994,8 @@ sc_rc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "await client node termination",
            cmd  => fun(#{node := Node, node_stop := ok} = State) ->
-                           ?SEV_IPRINT("Success node stop - await nodedown"),
+                           ?SEV_IPRINT("Success node stop - await nodedown: "
+                                       "~n      ~p", [Node]),
                            receive
                                {nodedown, Node} ->
                                    ?SEV_IPRINT("nodedown received - cleanup"),
@@ -39828,6 +39845,17 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                                  [{tester, Tester}]) of
                                {ok, Result} ->
                                    {ok, State#{result => Result}};
+                               {error,
+                                {unexpected_exit, rclient, noconnection}} ->
+                                   %% One guess is that the message is so
+                                   %% "large" that the client node died on us.
+                                   %% Or so "large" that the connection (to
+                                   %% the node) fails/dies.
+                                   %% Either way, we assume this is not actually
+                                   %% related to what we are testing => skip
+                                   ?SEV_IPRINT("lost connection "
+                                               "to remote client node => SKIP"),
+                                   {skip, {rclient, noconnection}};
                                {error, _} = ERROR ->
                                    ERROR
                            end

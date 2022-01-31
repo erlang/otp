@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -449,8 +449,8 @@ do_default_options(Config) ->
 
 do_delay_on_other_node(XArgs, Function) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME,
-                                   "-pa " ++ Dir ++ " " ++ XArgs),
+    {ok, Node} = ?START_NODE(?UNIQ_NODE_NAME,
+                             "-pa " ++ Dir ++ " " ++ XArgs),
     Res = rpc:call(Node,erlang,apply,[Function,[]]),
     ?STOP_NODE(Node),
     Res.
@@ -641,20 +641,23 @@ close_with_pending_output(Config) when is_list(Config) ->
 	    spawn_link(Node, ?MODULE, sender, [Config, Port, Packets, Host]),
 	    {ok, A} = gen_tcp:accept(L),
 	    case gen_tcp:recv(A, Total) of
-		      {ok, Bin} when byte_size(Bin) == Total ->
-			  gen_tcp:close(A),
-			  gen_tcp:close(L);
-		      {ok, Bin} ->
-			  ct:fail({small_packet,
-                                                  byte_size(Bin)});
-		      Error ->
-			  ct:fail({unexpected, Error})
-		  end,
+                {ok, Bin} when byte_size(Bin) == Total ->
+                    gen_tcp:close(A),
+                    gen_tcp:close(L);
+                {ok, Bin} ->
+                    ct:fail({small_packet, byte_size(Bin)});
+                Error ->
+                    ct:fail({unexpected, Error})
+            end,
 	    ok;
 	{error, no_remote_hosts} ->
-	    {skipped,"No remote hosts"};
+            gen_tcp:close(L),
+	    {skipped, "No remote hosts"};
 	{error, Other} ->
-	    ct:fail({failed_to_start_slave_node, Other})
+            %% Node starting is not what this test case is about.
+            %% so, if this fails, skip
+            gen_tcp:close(L),
+	    {skipped, {failed_starting_remote_node, Other}}
     end.
 
 sender(Config, Port, Packets, Host) ->
@@ -983,8 +986,8 @@ iter_max_socks(Config) when is_list(Config) ->
         end,
     %% Run on a different node in order to limit the effect if this test fails.
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = ?START_SLAVE_NODE(test_iter_max_socks, "+Q 2048 -pa " ++ Dir),
-    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initialize]),
+    {ok, Node} = ?START_NODE(test_iter_max_socks, "+Q 2048 -pa " ++ Dir),
+    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
     L = iter_max_socks_run(Node,
                            fun() ->
                                    exit(do_iter_max_socks(Config, Tries, initialize))
@@ -1093,11 +1096,11 @@ do_accept(Config, L, Port) ->
 
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?START_SLAVE_NODE(Name, "-pa " ++ Pa).
+    ?START_NODE(Name, "-pa " ++ Pa).
 
 start_remote(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?START_SLAVE_NODE(Name, "-pa " ++ Pa, [{remote, true}]).
+    ?START_NODE(Name, "-pa " ++ Pa, [{remote, true}]).
 
 %% Tests that when 'the other side' on a passive socket closes, the
 %% connecting side can still read until the end of data.
@@ -4975,7 +4978,7 @@ do_send_timeout(Config) ->
     ?P("begin"),
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("create (slave) node"),
-    {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
 
     {TslTimeout, SndTimeout, BinData, SndBuf} = 
 	case ?IS_SOCKET_BACKEND(Config) of
@@ -5284,7 +5287,7 @@ send_timeout_active(Config) when is_list(Config) ->
 
 do_send_timeout_active(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, RNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
     do_send_timeout_active(Config, false, RNode),
     do_send_timeout_active(Config, true, RNode),
     ?STOP_NODE(RNode),
@@ -5383,7 +5386,7 @@ flush() ->
 setup_closed_ao(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
     ?P("[setup] start slave node"),
-    R = case ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir) of
+    R = case ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir) of
             {ok, Slave} ->
                 Slave;
             {error, Reason} ->
@@ -6437,7 +6440,7 @@ otp_12242(Config, Addr) when (tuple_size(Addr) =:= 4) ->
 	 {sndbuf,       Bufsize},
 	 {buffer,       Bufsize}],
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok, ListenerNode} = ?START_SLAVE_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+    {ok, ListenerNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
     Tester = self(),
     ?P("create listener"),
     {Listener, ListenerMRef} =

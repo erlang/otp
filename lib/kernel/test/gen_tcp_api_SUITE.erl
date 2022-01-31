@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -export([
 	 all/0, suite/0, groups/0,
 	 init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+	 init_per_group/2, end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2,
 
 	 t_connect_timeout/1, t_accept_timeout/1,
@@ -92,6 +92,7 @@ groups() ->
      {t_recv,               [], t_recv_cases()},
      {t_shutdown,           [], t_shutdown_cases()},
      {t_misc,               [], t_misc_cases()},
+     {sockaddr,             [], sockaddr_cases()},
      {t_local,              [], t_local_cases()},
      {s_misc,               [], s_misc_cases()}
     ].
@@ -145,6 +146,11 @@ t_misc_cases() ->
      t_fdconnect,
      t_implicit_inet6,
      t_accept_inet6_tclass,
+     {group, sockaddr}
+    ].
+
+sockaddr_cases() ->
+    [
      t_simple_local_sockaddr_in_send_recv,
      t_simple_link_local_sockaddr_in_send_recv,
      t_simple_local_sockaddr_in6_send_recv,
@@ -236,6 +242,16 @@ init_per_group(t_local = _GroupName, Config) ->
     catch
         _C:_E:_S ->
             {skip, "AF_LOCAL not supported"}
+    end;
+init_per_group(sockaddr = _GroupName, Config) ->
+    try socket:info() of
+	_ ->
+            Config
+    catch
+        error : notsup ->
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -1327,6 +1343,17 @@ has_socket_support() ->
                 false -> {skip, "Compiled without socket support"};
                 _ -> ok
             end
+    end.
+
+is_socket_supported() ->
+    try socket:info() of
+	_ ->
+            ok
+    catch
+        error : notsup ->
+            {skip, "esock not supported"};
+        error : undef ->
+            {skip, "esock not configured"}
     end.
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@
 
          %% Proxy call
          pcall/3,
+
+         %% OS commands
+         os_cmd/1, os_cmd/2,
 
          %% Time stuff
          timestamp/0,
@@ -73,18 +76,16 @@ pi(Node, Pid, Item) when is_pid(Pid) andalso is_atom(Item) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pcall(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
-    receive
-        {'DOWN', M, process, P, Reply} ->
-            Reply
-    after Timeout ->
-            erlang:demonitor(M, [flush]),
-            exit(P, kill),
-            Default
-    end.
-    
+pcall(F, Timeout, Default) ->
+    kernel_test_lib:proxy_call(F, Timeout, Default).
+
+
+os_cmd(C) ->
+    kernel_test_lib:os_cmd(C).
+
+os_cmd(C, T) ->
+    kernel_test_lib:os_cmd(C, T).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
