@@ -42,21 +42,26 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
--export_type([tab/0, tid/0, match_spec/0, comp_match_spec/0, match_pattern/0]).
+-export_type([table/0, table_access/0, table_type/0,
+              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0]).
 
 %%-----------------------------------------------------------------------------
 
--type access()     :: public | protected | private.
--type tab()        :: atom() | tid().
--type type()       :: set | ordered_set | bag | duplicate_bag.
--type continuation() :: '$end_of_table'
-                      | {tab(),integer(),integer(),comp_match_spec(),list(),integer()}
-                      | {tab(),_,_,integer(),comp_match_spec(),list(),integer(),integer()}.
+-type table_access()  :: public | protected | private.
+-type table()         :: atom() | tid().
+-type table_type()    :: set | ordered_set | bag | duplicate_bag.
+-type continuation()  :: '$end_of_table'
+                       | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
+                       | {table(),_,_,integer(),compiled_match_spec(),list(),integer(),integer()}.
 
--opaque tid()      :: reference().
+-opaque tid()         :: reference().
 
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
+
+%% Keep for backwards compatibility
+-export_type([tab/0, comp_match_spec/0]).
+-type tab()           :: table().
 
 %%-----------------------------------------------------------------------------
 
@@ -80,8 +85,8 @@
          internal_delete_all/2,
          internal_select_delete/2]).
 
--spec all() -> [Tab] when
-      Tab :: tab().
+-spec all() -> [Table] when
+      Table :: table().
 
 all() ->
     receive_all(ets:internal_request_all(),
@@ -101,57 +106,57 @@ receive_all(Ref, N, All) ->
 internal_request_all() ->
     erlang:nif_error(undef).
 
--spec delete(Tab) -> true when
-      Tab :: tab().
+-spec delete(Table) -> true when
+      Table :: table().
 
 delete(_) ->
     erlang:nif_error(undef).
 
--spec delete(Tab, Key) -> true when
-      Tab :: tab(),
+-spec delete(Table, Key) -> true when
+      Table :: table(),
       Key :: term().
 
 delete(_, _) ->
     erlang:nif_error(undef).
 
--spec delete_all_objects(Tab) -> true when
-      Tab :: tab().
+-spec delete_all_objects(Table) -> true when
+      Table :: table().
 
-delete_all_objects(Tab) ->
-    _ = ets:internal_delete_all(Tab, undefined),
+delete_all_objects(Table) ->
+    _ = ets:internal_delete_all(Table, undefined),
     true.
 
--spec internal_delete_all(Tab, undefined) -> NumDeleted when
-      Tab :: tab(),
+-spec internal_delete_all(Table, undefined) -> NumDeleted when
+      Table :: table(),
       NumDeleted :: non_neg_integer().
 
 internal_delete_all(_, _) ->
     erlang:nif_error(undef).
 
--spec delete_object(Tab, Object) -> true when
-      Tab :: tab(),
+-spec delete_object(Table, Object) -> true when
+      Table :: table(),
       Object :: tuple().
 
 delete_object(_, _) ->
     erlang:nif_error(undef).
 
--spec first(Tab) -> Key | '$end_of_table' when
-      Tab :: tab(),
+-spec first(Table) -> Key | '$end_of_table' when
+      Table :: table(),
       Key :: term().
 
 first(_) ->
     erlang:nif_error(undef).
 
--spec give_away(Tab, Pid, GiftData) -> true when
-      Tab :: tab(),
+-spec give_away(Table, Pid, GiftData) -> true when
+      Table :: table(),
       Pid :: pid(),
       GiftData :: term().
 
 give_away(_, _, _) ->
     erlang:nif_error(undef).
 
--spec info(Tab) -> InfoList | undefined when
-      Tab :: tab(),
+-spec info(Table) -> InfoList | undefined when
+      Table :: table(),
       InfoList :: [InfoTuple],
       InfoTuple :: {compressed, boolean()}
                  | {decentralized_counters, boolean()}
@@ -163,17 +168,17 @@ give_away(_, _, _) ->
                  | {named_table, boolean()}
                  | {node, node()}
                  | {owner, pid()}
-                 | {protection, access()}
+                 | {protection, table_access()}
                  | {size, non_neg_integer()}
-                 | {type, type()}
+                 | {type, table_type()}
 		 | {write_concurrency, boolean()}
 		 | {read_concurrency, boolean()}.
 
 info(_) ->
     erlang:nif_error(undef).
 
--spec info(Tab, Item) -> Value | undefined when
-      Tab :: tab(),
+-spec info(Table, Item) -> Value | undefined when
+      Table :: table(),
       Item :: binary | compressed | decentralized_counters | fixed | heir | id | keypos | memory
             | name | named_table | node | owner | protection
             | safe_fixed | safe_fixed_monotonic_time | size | stats | type
@@ -183,15 +188,15 @@ info(_) ->
 info(_, _) ->
     erlang:nif_error(undef).
 
--spec insert(Tab, ObjectOrObjects) -> true when
-      Tab :: tab(),
+-spec insert(Table, ObjectOrObjects) -> true when
+      Table :: table(),
       ObjectOrObjects :: tuple() | [tuple()].
 
 insert(_, _) ->
     erlang:nif_error(undef).
 
--spec insert_new(Tab, ObjectOrObjects) -> boolean() when
-      Tab :: tab(),
+-spec insert_new(Table, ObjectOrObjects) -> boolean() when
+      Table :: table(),
       ObjectOrObjects :: tuple() | [tuple()].
 
 insert_new(_, _) ->
@@ -203,23 +208,23 @@ insert_new(_, _) ->
 is_compiled_ms(_) ->
     erlang:nif_error(undef).
 
--spec last(Tab) -> Key | '$end_of_table' when
-      Tab :: tab(),
+-spec last(Table) -> Key | '$end_of_table' when
+      Table :: table(),
       Key :: term().
 
 last(_) ->
     erlang:nif_error(undef).
 
--spec lookup(Tab, Key) -> [Object] when
-      Tab :: tab(),
+-spec lookup(Table, Key) -> [Object] when
+      Table :: table(),
       Key :: term(),
       Object :: tuple().
 
 lookup(_, _) ->
     erlang:nif_error(undef).
 
--spec lookup_element(Tab, Key, Pos) -> Elem when
-      Tab :: tab(),
+-spec lookup_element(Table, Key, Pos) -> Elem when
+      Table :: table(),
       Key :: term(),
       Pos :: pos_integer(),
       Elem :: term() | [term()].
@@ -227,17 +232,17 @@ lookup(_, _) ->
 lookup_element(_, _, _) ->
     erlang:nif_error(undef).
 
--spec match(Tab, Pattern) -> [Match] when
-      Tab :: tab(),
+-spec match(Table, Pattern) -> [Match] when
+      Table :: table(),
       Pattern :: match_pattern(),
       Match :: [term()].
 
 match(_, _) ->
     erlang:nif_error(undef).
 
--spec match(Tab, Pattern, Limit) -> {[Match], Continuation} |
+-spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
                                        '$end_of_table'  when
-      Tab :: tab(),
+      Table :: table(),
       Pattern :: match_pattern(),
       Limit :: pos_integer(),
       Match :: [term()],
@@ -254,17 +259,17 @@ match(_, _, _) ->
 match(_) ->
     erlang:nif_error(undef).
 
--spec match_object(Tab, Pattern) -> [Object] when
-      Tab :: tab(),
+-spec match_object(Table, Pattern) -> [Object] when
+      Table :: table(),
       Pattern :: match_pattern(),
       Object :: tuple().
 
 match_object(_, _) ->
     erlang:nif_error(undef).
 
--spec match_object(Tab, Pattern, Limit) -> {[Object], Continuation} |
+-spec match_object(Table, Pattern, Limit) -> {[Object], Continuation} |
                                            '$end_of_table' when
-      Tab :: tab(),
+      Table :: table(),
       Pattern :: match_pattern(),
       Limit :: pos_integer(),
       Object :: tuple(),
@@ -283,32 +288,32 @@ match_object(_) ->
 
 -spec match_spec_compile(MatchSpec) -> CompiledMatchSpec when
       MatchSpec :: match_spec(),
-      CompiledMatchSpec :: comp_match_spec().
+      CompiledMatchSpec :: compiled_match_spec().
 
 match_spec_compile(_) ->
     erlang:nif_error(undef).
 
 -spec match_spec_run_r(List, CompiledMatchSpec, list()) -> list() when
       List :: [term()],
-      CompiledMatchSpec :: comp_match_spec().
+      CompiledMatchSpec :: compiled_match_spec().
 
 match_spec_run_r(_, _, _) ->
     erlang:nif_error(undef).
 
--spec member(Tab, Key) -> boolean() when
-      Tab :: tab(),
+-spec member(Table, Key) -> boolean() when
+      Table :: table(),
       Key :: term().
 
 member(_, _) ->
     erlang:nif_error(undef).
 
--spec new(Name, Options) -> tid() | atom() when
+-spec new(Name, Options) -> table() when
       Name :: atom(),
       Options :: [Option],
       Option :: Type | Access | named_table | {keypos,Pos}
               | {heir, Pid :: pid(), HeirData} | {heir, none} | Tweaks,
-      Type :: type(),
-      Access :: access(),
+      Type :: table_type(),
+      Access :: table_access(),
       WriteConcurrencyAlternative :: boolean() | auto,
       Tweaks :: {write_concurrency, WriteConcurrencyAlternative}
               | {read_concurrency, boolean()}
@@ -320,16 +325,16 @@ member(_, _) ->
 new(_, _) ->
     erlang:nif_error(undef).
 
--spec next(Tab, Key1) -> Key2 | '$end_of_table' when
-      Tab :: tab(),
+-spec next(Table, Key1) -> Key2 | '$end_of_table' when
+      Table :: table(),
       Key1 :: term(),
       Key2 :: term().
 
 next(_, _) ->
     erlang:nif_error(undef).
 
--spec prev(Tab, Key1) -> Key2 | '$end_of_table' when
-      Tab :: tab(),
+-spec prev(Table, Key1) -> Key2 | '$end_of_table' when
+      Table :: table(),
       Key1 :: term(),
       Key2 :: term().
 
@@ -337,31 +342,31 @@ prev(_, _) ->
     erlang:nif_error(undef).
 
 %% Shadowed by erl_bif_types: ets:rename/2
--spec rename(Tab, Name) -> Name when
-      Tab :: tab(),
+-spec rename(Table, Name) -> Name when
+      Table :: table(),
       Name :: atom().
 
 rename(_, _) ->
     erlang:nif_error(undef).
 
--spec safe_fixtable(Tab, Fix) -> true when
-      Tab :: tab(),
+-spec safe_fixtable(Table, Fix) -> true when
+      Table :: table(),
       Fix :: boolean().
 
 safe_fixtable(_, _) ->
     erlang:nif_error(undef).
 
--spec select(Tab, MatchSpec) -> [Match] when
-      Tab :: tab(),
+-spec select(Table, MatchSpec) -> [Match] when
+      Table :: table(),
       MatchSpec :: match_spec(),
       Match :: term().
 
 select(_, _) ->
     erlang:nif_error(undef).
 
--spec select(Tab, MatchSpec, Limit) -> {[Match],Continuation} |
+-spec select(Table, MatchSpec, Limit) -> {[Match],Continuation} |
                                        '$end_of_table' when
-      Tab :: tab(),
+      Table :: table(),
       MatchSpec :: match_spec(),
       Limit :: pos_integer(),
       Match :: term(),
@@ -377,51 +382,51 @@ select(_, _, _) ->
 select(_) ->
     erlang:nif_error(undef).
 
--spec select_count(Tab, MatchSpec) -> NumMatched when
-      Tab :: tab(),
+-spec select_count(Table, MatchSpec) -> NumMatched when
+      Table :: table(),
       MatchSpec :: match_spec(),
       NumMatched :: non_neg_integer().
 
 select_count(_, _) ->
     erlang:nif_error(undef).
 
--spec select_delete(Tab, MatchSpec) -> NumDeleted when
-      Tab :: tab(),
+-spec select_delete(Table, MatchSpec) -> NumDeleted when
+      Table :: table(),
       MatchSpec :: match_spec(),
       NumDeleted :: non_neg_integer().
 
-select_delete(Tab, [{'_',[],[true]}]) ->
-    ets:internal_delete_all(Tab, undefined);
-select_delete(Tab, MatchSpec) ->
-    ets:internal_select_delete(Tab, MatchSpec).
+select_delete(Table, [{'_',[],[true]}]) ->
+    ets:internal_delete_all(Table, undefined);
+select_delete(Table, MatchSpec) ->
+    ets:internal_select_delete(Table, MatchSpec).
 
--spec internal_select_delete(Tab, MatchSpec) -> NumDeleted when
-      Tab :: tab(),
+-spec internal_select_delete(Table, MatchSpec) -> NumDeleted when
+      Table :: table(),
       MatchSpec :: match_spec(),
       NumDeleted :: non_neg_integer().
 
 internal_select_delete(_, _) ->
     erlang:nif_error(undef).
 
--spec select_replace(Tab, MatchSpec) -> NumReplaced when
-      Tab :: tab(),
+-spec select_replace(Table, MatchSpec) -> NumReplaced when
+      Table :: table(),
       MatchSpec :: match_spec(),
       NumReplaced :: non_neg_integer().
 
 select_replace(_, _) ->
     erlang:nif_error(undef).
 
--spec select_reverse(Tab, MatchSpec) -> [Match] when
-      Tab :: tab(),
+-spec select_reverse(Table, MatchSpec) -> [Match] when
+      Table :: table(),
       MatchSpec :: match_spec(),
       Match :: term().
 
 select_reverse(_, _) ->
     erlang:nif_error(undef).
 
--spec select_reverse(Tab, MatchSpec, Limit) -> {[Match],Continuation} |
+-spec select_reverse(Table, MatchSpec, Limit) -> {[Match],Continuation} |
                                                '$end_of_table' when
-      Tab :: tab(),
+      Table :: table(),
       MatchSpec :: match_spec(),
       Limit :: pos_integer(),
       Match :: term(),
@@ -438,8 +443,8 @@ select_reverse(_, _, _) ->
 select_reverse(_) ->
     erlang:nif_error(undef).
 
--spec setopts(Tab, Opts) -> true when
-      Tab :: tab(),
+-spec setopts(Table, Opts) -> true when
+      Table :: table(),
       Opts :: Opt | [Opt],
       Opt :: {heir, pid(), HeirData} | {heir,none},
       HeirData :: term().
@@ -447,24 +452,24 @@ select_reverse(_) ->
 setopts(_, _) ->
     erlang:nif_error(undef).
 
--spec slot(Tab, I) -> [Object] | '$end_of_table' when
-      Tab :: tab(),
+-spec slot(Table, I) -> [Object] | '$end_of_table' when
+      Table :: table(),
       I :: non_neg_integer(),
       Object :: tuple().
 
 slot(_, _) ->
     erlang:nif_error(undef).
 
--spec take(Tab, Key) -> [Object] when
-      Tab :: tab(),
+-spec take(Table, Key) -> [Object] when
+      Table :: table(),
       Key :: term(),
       Object :: tuple().
 
 take(_, _) ->
     erlang:nif_error(undef).
 
--spec update_counter(Tab, Key, UpdateOp) -> Result when
-      Tab :: tab(),
+-spec update_counter(Table, Key, UpdateOp) -> Result when
+      Table :: table(),
       Key :: term(),
       UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
       Pos :: integer(),
@@ -472,8 +477,8 @@ take(_, _) ->
       Threshold :: integer(),
       SetValue :: integer(),
       Result :: integer();
-                       (Tab, Key, [UpdateOp]) -> [Result] when
-      Tab :: tab(),
+                       (Table, Key, [UpdateOp]) -> [Result] when
+      Table :: table(),
       Key :: term(),
       UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
       Pos :: integer(),
@@ -481,8 +486,8 @@ take(_, _) ->
       Threshold :: integer(),
       SetValue :: integer(),
       Result :: integer();
-                       (Tab, Key, Incr) -> Result when
-      Tab :: tab(),
+                       (Table, Key, Incr) -> Result when
+      Table :: table(),
       Key :: term(),
       Incr :: integer(),
       Result :: integer().
@@ -490,8 +495,8 @@ take(_, _) ->
 update_counter(_, _, _) ->
     erlang:nif_error(undef).
 
--spec update_counter(Tab, Key, UpdateOp, Default) -> Result when
-                        Tab :: tab(),
+-spec update_counter(Table, Key, UpdateOp, Default) -> Result when
+                        Table :: table(),
                         Key :: term(),
                         UpdateOp :: {Pos, Incr}
                                   | {Pos, Incr, Threshold, SetValue},
@@ -501,8 +506,8 @@ update_counter(_, _, _) ->
                         SetValue :: integer(),
                         Result :: integer(),
                         Default :: tuple();
-                    (Tab, Key, [UpdateOp], Default) -> [Result] when
-                        Tab :: tab(),
+                    (Table, Key, [UpdateOp], Default) -> [Result] when
+                        Table :: table(),
                         Key :: term(),
                         UpdateOp :: {Pos, Incr}
                                   | {Pos, Incr, Threshold, SetValue},
@@ -512,8 +517,8 @@ update_counter(_, _, _) ->
                         SetValue :: integer(),
                         Result :: integer(),
                         Default :: tuple();
-                    (Tab, Key, Incr, Default) -> Result when
-                        Tab :: tab(),
+                    (Table, Key, Incr, Default) -> Result when
+                        Table :: table(),
                         Key :: term(),
                         Incr :: integer(),
                         Result :: integer(),
@@ -522,13 +527,13 @@ update_counter(_, _, _) ->
 update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
--spec update_element(Tab, Key, ElementSpec :: {Pos, Value}) -> boolean() when
-      Tab :: tab(),
+-spec update_element(Table, Key, ElementSpec :: {Pos, Value}) -> boolean() when
+      Table :: table(),
       Key :: term(),
       Pos :: pos_integer(),
       Value :: term();
-                       (Tab, Key, ElementSpec :: [{Pos, Value}]) -> boolean() when
-      Tab :: tab(),
+                       (Table, Key, ElementSpec :: [{Pos, Value}]) -> boolean() when
+      Table :: table(),
       Key :: term(),
       Pos :: pos_integer(),
       Value :: term().
@@ -543,11 +548,12 @@ whereis(_) ->
 
 %%% End of BIFs
 
--opaque comp_match_spec() :: reference().
+-opaque compiled_match_spec() :: reference().
+-type comp_match_spec() :: compiled_match_spec().
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
       List :: [term()],
-      CompiledMatchSpec :: comp_match_spec().
+      CompiledMatchSpec :: compiled_match_spec().
 
 match_spec_run(List, CompiledMS) ->
     lists:reverse(ets:match_spec_run_r(List, CompiledMS, [])).
@@ -614,9 +620,9 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                            shell]}})
     end.
 
--spec foldl(Function, Acc0, Tab) -> Acc1 when
+-spec foldl(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
-      Tab :: tab(),
+      Table :: table(),
       Acc0 :: term(),
       Acc1 :: term(),
       AccIn :: term(),
@@ -641,9 +647,9 @@ do_foldl(F, Accu0, Key, T) ->
 		     ets:next(T, Key), T)
     end.
 
--spec foldr(Function, Acc0, Tab) -> Acc1 when
+-spec foldr(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
-      Tab :: tab(),
+      Table :: table(),
       Acc0 :: term(),
       Acc1 :: term(),
       AccIn :: term(),
@@ -668,8 +674,8 @@ do_foldr(F, Accu0, Key, T) ->
 		     ets:prev(T, Key), T)
     end.
 
--spec from_dets(Tab, DetsTab) -> 'true' when
-      Tab :: tab(),
+-spec from_dets(Table, DetsTab) -> 'true' when
+      Table :: table(),
       DetsTab :: dets:tab_name().
 
 from_dets(EtsTable, DetsTable) ->
@@ -686,8 +692,8 @@ from_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec to_dets(Tab, DetsTab) -> DetsTab when
-      Tab :: tab(),
+-spec to_dets(Table, DetsTab) -> DetsTab when
+      Table :: table(),
       DetsTab :: dets:tab_name().
 
 to_dets(EtsTable, DetsTable) ->
@@ -718,8 +724,8 @@ test_ms(Term, MS) ->
 	    Error
     end.
 
--spec init_table(Tab, InitFun) -> 'true' when
-      Tab :: tab(),
+-spec init_table(Table, InitFun) -> 'true' when
+      Table :: table(),
       InitFun :: fun((Arg) -> Res),
       Arg :: 'read' | 'close',
       Res :: 'end_of_input' | {Objects :: [term()], InitFun} | term().
@@ -747,8 +753,8 @@ init_table_sub(Table, [H|T]) ->
     ets:insert(Table, H),
     init_table_sub(Table, T).
 
--spec match_delete(Tab, Pattern) -> 'true' when
-      Tab :: tab(),
+-spec match_delete(Table, Pattern) -> 'true' when
+      Table :: table(),
       Pattern :: match_pattern().
 
 match_delete(Table, Pattern) ->
@@ -757,8 +763,8 @@ match_delete(Table, Pattern) ->
 
 %% Produce a list of tuples from a table
 
--spec tab2list(Tab) -> [Object] when
-      Tab :: tab(),
+-spec tab2list(Table) -> [Object] when
+      Table :: table(),
       Object :: tuple().
 
 tab2list(T) ->
@@ -781,23 +787,23 @@ tab2list(T) ->
 	  sync         = false :: boolean()
 	 }).
 
--spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
-      Tab :: tab(),
+-spec tab2file(Table, Filename) -> 'ok' | {'error', Reason} when
+      Table :: table(),
       Filename :: file:name(),
       Reason :: term().
 
-tab2file(Tab, File) ->
-    tab2file(Tab, File, []).
+tab2file(Table, File) ->
+    tab2file(Table, File, []).
 
--spec tab2file(Tab, Filename, Options) -> 'ok' | {'error', Reason} when
-      Tab :: tab(),
+-spec tab2file(Table, Filename, Options) -> 'ok' | {'error', Reason} when
+      Table :: table(),
       Filename :: file:name(),
       Options :: [Option],
       Option :: {'extended_info', [ExtInfo]} | {'sync', boolean()},
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
-tab2file(Tab, File, Options) ->
+tab2file(Table, File, Options) ->
     try
 	{ok, FtOptions} = parse_ft_options(Options),
 	_ = file:delete(File),
@@ -813,9 +819,9 @@ tab2file(Tab, File, Options) ->
 		throw(Reason)
 	end,
 	try
-	    Info0 = case ets:info(Tab) of
+	    Info0 = case ets:info(Table) of
 		       undefined ->
-			   %% erlang:error(badarg, [Tab, File, Options]);
+			   %% erlang:error(badarg, [Table, File, Options]);
 			   throw(badtab);
 		       I ->
 			   I
@@ -846,14 +852,14 @@ tab2file(Tab, File, Options) ->
 		     end, 
 		     true}
 	    end,
-	    ets:safe_fixtable(Tab,true),
+	    ets:safe_fixtable(Table,true),
 	    {NewState1,Num} = try
 				  NewState = LogFun(InitState,Info),
 				  dump_file(
-				      ets:select(Tab,[{'_',[],['$_']}],100),
+				      ets:select(Table,[{'_',[],['$_']}],100),
 				      LogFun, NewState, 0)
 			      after
-				  (catch ets:safe_fixtable(Tab,false))
+				  (catch ets:safe_fixtable(Table,false))
 			      end,
 	    EndInfo = 
 	    case  FtOptions#filetab_options.object_count of
@@ -968,24 +974,24 @@ parse_ft_info_options(_,Malformed) ->
 %% Opt := {verify,boolean()}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec file2tab(Filename) -> {'ok', Tab} | {'error', Reason} when
+-spec file2tab(Filename) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
-      Tab :: tab(),
+      Table :: table(),
       Reason :: term().
 
 file2tab(File) ->
     file2tab(File, []).
 
--spec file2tab(Filename, Options) -> {'ok', Tab} | {'error', Reason} when
+-spec file2tab(Filename, Options) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
-      Tab :: tab(),
+      Table :: table(),
       Options :: [Option],
       Option :: {'verify', boolean()},
       Reason :: term().
 
 file2tab(File, Opts) ->
     try
-	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
+	{ok,Verify,TableArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
         {ok, Name} =
 	    case disk_log:open([{name, Name}, 
@@ -1020,7 +1026,7 @@ file2tab(File, Opts) ->
 		true ->
 		    ok
 	    end,
-	    {ok, Tab, HeadCount} = create_tab(FullHeader, TabArg),
+	    {ok, Table, HeadCount} = create_tab(FullHeader, TableArg),
 	    StrippedOptions = 				   
 	        case Verify of
 		    true ->
@@ -1062,17 +1068,17 @@ file2tab(File, Opts) ->
 			 {false,0,[],DLContext}}
 		end,
 	    try
-		do_read_and_verify(ReadFun,InitState,Tab,
+		do_read_and_verify(ReadFun,InitState,Table,
 				   StrippedOptions,HeadCount,Verify)
 	    catch
 		throw:TReason ->
-		    ets:delete(Tab),    
+		    ets:delete(Table),    
 		    throw(TReason);
 		exit:ExReason ->
-		    ets:delete(Tab),
+		    ets:delete(Table),
 		    exit(ExReason);
 		error:ErReason:StackTrace ->
-		    ets:delete(Tab),
+		    ets:delete(Table),
 		    erlang:raise(error,ErReason,StackTrace)
 	    end
 	after
@@ -1085,8 +1091,8 @@ file2tab(File, Opts) ->
 	    {error,ExReason2}
     end.
 
-do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
-    case load_table(ReadFun,InitState,Tab) of
+do_read_and_verify(ReadFun,InitState,Table,FtOptions,HeadCount,Verify) ->
+    case load_table(ReadFun,InitState,Table) of
 	{ok,{_,FinalCount,[],_}} ->
 	    case {FtOptions#filetab_options.md5sum,
 		  FtOptions#filetab_options.object_count} of
@@ -1105,7 +1111,7 @@ do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
 		_ ->
 		    throw(badfile)
 	    end,
-	    {ok,Tab};
+	    {ok,Table};
 	{ok,{FinalMD5State,FinalCount,['$end_of_table',LastInfo],_}} ->
 	    ECount = case lists:keyfind(count,1,LastInfo) of
 			 {count,N} ->
@@ -1153,17 +1159,17 @@ do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
 			    ok
 		    end
 	    end,
-	    {ok,Tab}
+	    {ok,Table}
     end.
 
-parse_f2t_opts([],Verify,Tab) ->
-    {ok,Verify,Tab};
-parse_f2t_opts([{verify, true}|T],_OV,Tab) ->
-    parse_f2t_opts(T,true,Tab);
-parse_f2t_opts([{verify,false}|T],OV,Tab) ->
-    parse_f2t_opts(T,OV,Tab);
-parse_f2t_opts([{table,Tab}|T],OV,[]) ->
-    parse_f2t_opts(T,OV,Tab);
+parse_f2t_opts([],Verify,Table) ->
+    {ok,Verify,Table};
+parse_f2t_opts([{verify, true}|T],_OV,Table) ->
+    parse_f2t_opts(T,true,Table);
+parse_f2t_opts([{verify,false}|T],OV,Table) ->
+    parse_f2t_opts(T,OV,Table);
+parse_f2t_opts([{table,Table}|T],OV,[]) ->
+    parse_f2t_opts(T,OV,Table);
 parse_f2t_opts([Unexpected|_],_,_) ->
     throw({unknown_option,Unexpected});
 parse_f2t_opts(Malformed,_,_) ->
@@ -1332,17 +1338,17 @@ scan_for_endinfo([Term|T], Count) ->
     {NewLast,NCount,Rest} = scan_for_endinfo(T, Count+1),
     {NewLast,NCount,[Term | Rest]}.
 
-load_table(ReadFun, State, Tab) ->
+load_table(ReadFun, State, Table) ->
     {NewState,NewData} = ReadFun(State),
     case NewData of
 	[] ->
 	    {ok,NewState};
 	List ->
-	    ets:insert(Tab, List),
-	    load_table(ReadFun, NewState, Tab)
+	    ets:insert(Table, List),
+	    load_table(ReadFun, NewState, Table)
     end.
 
-create_tab(I, TabArg) ->
+create_tab(I, TableArg) ->
     {name, Name} = lists:keyfind(name, 1, I),
     {type, Type} = lists:keyfind(type, 1, I),
     {protection, P} = lists:keyfind(protection, 1, I),
@@ -1366,16 +1372,16 @@ create_tab(I, TabArg) ->
 	     {read_concurrency, _}=Rcc -> [Rcc | L4];
 	     false -> L4
 	 end,
-    case TabArg of
+    case TableArg of
         [] ->
 	    try
-		Tab = ets:new(Name, L5),
-		{ok, Tab, Sz}
+		Table = ets:new(Name, L5),
+		{ok, Table, Sz}
 	    catch _:_ ->
 		throw(cannot_create_table)
             end;
         _ ->
-            {ok, TabArg, Sz}
+            {ok, TableArg, Sz}
     end.
 
 
@@ -1447,15 +1453,15 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 	    {error,ExReason}
     end.
 
--spec table(Tab) -> QueryHandle when
-      Tab :: tab(),
+-spec table(Table) -> QueryHandle when
+      Table :: table(),
       QueryHandle :: qlc:query_handle().
 
-table(Tab) ->
-    table(Tab, []).
+table(Table) ->
+    table(Table, []).
 
--spec table(Tab, Options) -> QueryHandle when
-      Tab :: tab(),
+-spec table(Table, Options) -> QueryHandle when
+      Table :: table(),
       QueryHandle :: qlc:query_handle(),
       Options :: [Option] | Option,
       Option :: {'n_objects', NObjects}
@@ -1464,25 +1470,25 @@ table(Tab) ->
       TraverseMethod :: 'first_next' | 'last_prev'
                       | 'select' | {'select', MatchSpec :: match_spec()}.
 
-table(Tab, Opts) ->
+table(Table, Opts) ->
     case options(Opts, [traverse, n_objects]) of
         {badarg,_} ->
-            erlang:error(badarg, [Tab, Opts]);
+            erlang:error(badarg, [Table, Opts]);
         [[Traverse, NObjs], QlcOptions] ->
             TF = case Traverse of
                      first_next -> 
-                         fun() -> qlc_next(Tab, ets:first(Tab)) end;
+                         fun() -> qlc_next(Table, ets:first(Table)) end;
                      last_prev -> 
-                         fun() -> qlc_prev(Tab, ets:last(Tab)) end;
+                         fun() -> qlc_prev(Table, ets:last(Table)) end;
                      select -> 
-                         fun(MS) -> qlc_select(ets:select(Tab, MS, NObjs)) end;
+                         fun(MS) -> qlc_select(ets:select(Table, MS, NObjs)) end;
                      {select, MS} ->
-                         fun() -> qlc_select(ets:select(Tab, MS, NObjs)) end
+                         fun() -> qlc_select(ets:select(Table, MS, NObjs)) end
                  end,
-            PreFun = fun(_) -> ets:safe_fixtable(Tab, true) end,
-            PostFun = fun() -> ets:safe_fixtable(Tab, false) end,
-            InfoFun = fun(Tag) -> table_info(Tab, Tag) end,
-            KeyEquality = case ets:info(Tab, type) of
+            PreFun = fun(_) -> ets:safe_fixtable(Table, true) end,
+            PostFun = fun() -> ets:safe_fixtable(Table, false) end,
+            InfoFun = fun(Tag) -> table_info(Table, Tag) end,
+            KeyEquality = case ets:info(Table, type) of
                               ordered_set -> '==';
                               _ -> '=:='
                           end,
@@ -1492,28 +1498,28 @@ table(Tab, Opts) ->
                         undefined;
                     _ -> 
                         fun(_Pos, [K]) ->
-                                ets:lookup(Tab, K);
+                                ets:lookup(Table, K);
                            (_Pos, Ks) -> 
-                                lists:flatmap(fun(K) -> ets:lookup(Tab, K) 
+                                lists:flatmap(fun(K) -> ets:lookup(Table, K) 
                                               end, Ks) 
                         end
                 end,
             FormatFun = 
                 fun({all, _NElements, _ElementFun}) ->
-                        As = [Tab | [Opts || _ <- [[]], Opts =/= []]],
+                        As = [Table | [Opts || _ <- [[]], Opts =/= []]],
                         {?MODULE, table, As};
                    ({match_spec, MS}) ->
                         {?MODULE, table, 
-                         [Tab, [{traverse, {select, MS}} | 
+                         [Table, [{traverse, {select, MS}} | 
                                 listify(Opts)]]};
                    ({lookup, _KeyPos, [Value], _NElements, ElementFun}) ->
                         io_lib:format("~w:lookup(~w, ~w)", 
-                                      [?MODULE, Tab, ElementFun(Value)]);
+                                      [?MODULE, Table, ElementFun(Value)]);
                    ({lookup, _KeyPos, Values, _NElements, ElementFun}) ->
                         Vals = [ElementFun(V) || V <- Values],
                         io_lib:format("lists:flatmap(fun(V) -> "
                                       "~w:lookup(~w, V) end, ~w)", 
-                                      [?MODULE, Tab, Vals])
+                                      [?MODULE, Table, Vals])
                 end,
             qlc:table(TF, [{pre_fun, PreFun}, {post_fun, PostFun}, 
                            {info_fun, InfoFun}, {format_fun, FormatFun},
@@ -1521,26 +1527,26 @@ table(Tab, Opts) ->
                            {lookup_fun, LookupFun}] ++ QlcOptions)
     end.
          
-table_info(Tab, num_of_objects) ->
-    ets:info(Tab, size);
-table_info(Tab, keypos) ->
-    ets:info(Tab, keypos);
-table_info(Tab, is_unique_objects) ->
-    ets:info(Tab, type) =/= duplicate_bag;
-table_info(Tab, is_sorted_key) ->
-    ets:info(Tab, type) =:= ordered_set;
-table_info(_Tab, _) ->
+table_info(Table, num_of_objects) ->
+    ets:info(Table, size);
+table_info(Table, keypos) ->
+    ets:info(Table, keypos);
+table_info(Table, is_unique_objects) ->
+    ets:info(Table, type) =/= duplicate_bag;
+table_info(Table, is_sorted_key) ->
+    ets:info(Table, type) =:= ordered_set;
+table_info(_Table, _) ->
     undefined.
 
-qlc_next(_Tab, '$end_of_table') ->
+qlc_next(_Table, '$end_of_table') ->
     [];
-qlc_next(Tab, Key) ->
-    ets:lookup(Tab, Key) ++ fun() -> qlc_next(Tab, ets:next(Tab, Key)) end.
+qlc_next(Table, Key) ->
+    ets:lookup(Table, Key) ++ fun() -> qlc_next(Table, ets:next(Table, Key)) end.
 
-qlc_prev(_Tab, '$end_of_table') ->
+qlc_prev(_Table, '$end_of_table') ->
     [];
-qlc_prev(Tab, Key) ->
-    ets:lookup(Tab, Key) ++ fun() -> qlc_prev(Tab, ets:prev(Tab, Key)) end.
+qlc_prev(Table, Key) ->
+    ets:lookup(Table, Key) ++ fun() -> qlc_prev(Table, ets:prev(Table, Key)) end.
 
 qlc_select('$end_of_table') -> 
     [];
@@ -1605,20 +1611,20 @@ i() ->
 tabs() ->
     lists:sort(ets:all()).
 
-prinfo(Tab) ->
-    case catch prinfo2(Tab) of
+prinfo(Table) ->
+    case catch prinfo2(Table) of
 	{'EXIT', _} ->
-	    io:format("~-10s ... unreadable \n", [to_string(Tab)]);
+	    io:format("~-10s ... unreadable \n", [to_string(Table)]);
 	ok -> 
 	    ok
     end.
-prinfo2(Tab) ->
-    Name = ets:info(Tab, name),
-    Type = ets:info(Tab, type),
-    Size = ets:info(Tab, size),
-    Mem = ets:info(Tab, memory),
-    Owner = ets:info(Tab, owner),
-    hform(Tab, Name, Type, Size, Mem, is_reg(Owner)).
+prinfo2(Table) ->
+    Name = ets:info(Table, name),
+    Type = ets:info(Table, type),
+    Size = ets:info(Table, size),
+    Mem = ets:info(Table, memory),
+    Owner = ets:info(Table, owner),
+    hform(Table, Name, Type, Size, Mem, is_reg(Owner)).
 
 is_reg(Owner) ->
     case process_info(Owner, registered_name) of
@@ -1652,69 +1658,69 @@ to_string(X) ->
     lists:flatten(io_lib:format("~p", [X])).
 
 %% view a specific table
--spec i(Tab) -> 'ok' when
-      Tab :: tab().
+-spec i(Table) -> 'ok' when
+      Table :: table().
 
-i(Tab) ->
-    i(Tab, 40).
+i(Table) ->
+    i(Table, 40).
 
--spec i(tab(), pos_integer()) -> 'ok'.
+-spec i(table(), pos_integer()) -> 'ok'.
 
-i(Tab, Height) ->
-    i(Tab, Height, 80).
+i(Table, Height) ->
+    i(Table, Height, 80).
 
--spec i(tab(), pos_integer(), pos_integer()) -> 'ok'.
+-spec i(table(), pos_integer(), pos_integer()) -> 'ok'.
 
-i(Tab, Height, Width) ->
-    First = ets:first(Tab),
-    display_items(Height, Width, Tab, First, 1, 1).
+i(Table, Height, Width) ->
+    First = ets:first(Table),
+    display_items(Height, Width, Table, First, 1, 1).
 
-display_items(Height, Width, Tab, '$end_of_table', Turn, Opos) -> 
+display_items(Height, Width, Table, '$end_of_table', Turn, Opos) -> 
     P = 'EOT  (q)uit (p)Digits (k)ill /Regexp -->',
-    choice(Height, Width, P, eot, Tab, '$end_of_table', Turn, Opos);
-display_items(Height, Width, Tab, Key, Turn, Opos) when Turn < Height ->
-    do_display(Height, Width, Tab, Key, Turn, Opos);
-display_items(Height, Width, Tab, Key, Turn, Opos) when Turn >=  Height ->
+    choice(Height, Width, P, eot, Table, '$end_of_table', Turn, Opos);
+display_items(Height, Width, Table, Key, Turn, Opos) when Turn < Height ->
+    do_display(Height, Width, Table, Key, Turn, Opos);
+display_items(Height, Width, Table, Key, Turn, Opos) when Turn >=  Height ->
     P = '(c)ontinue (q)uit (p)Digits (k)ill /Regexp -->',
-    choice(Height, Width, P, normal, Tab, Key, Turn, Opos).
+    choice(Height, Width, P, normal, Table, Key, Turn, Opos).
 
-choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
+choice(Height, Width, P, Mode, Table, Key, Turn, Opos) ->
     case get_line(P, "c\n") of
 	"c\n" when Mode =:= normal ->
-	    do_display(Height, Width, Tab, Key, 1, Opos);
+	    do_display(Height, Width, Table, Key, 1, Opos);
 	"c\n" when is_tuple(Mode), element(1, Mode) =:= re ->
 	    {re, Re} = Mode,
-	    re_search(Height, Width, Tab, Key, Re, 1, Opos);
+	    re_search(Height, Width, Table, Key, Re, 1, Opos);
 	"q\n" ->
 	    ok;
 	"k\n" ->
-	    ets:delete(Tab),
+	    ets:delete(Table),
 	    ok;
 	[$p|Digs]  ->
 	    catch case catch list_to_integer(nonl(Digs)) of
 		      {'EXIT', _} ->
 			  io:put_chars("Bad digits\n");
 		      Number when Mode =:= normal ->
-			  print_number(Tab, ets:first(Tab), Number);
+			  print_number(Table, ets:first(Table), Number);
 		      Number when Mode =:= eot ->
-			  print_number(Tab, ets:first(Tab), Number);
+			  print_number(Table, ets:first(Table), Number);
 		      Number -> %% regexp
 			  {re, Re} = Mode,
-			  print_re_num(Tab, ets:first(Tab), Number, Re)
+			  print_re_num(Table, ets:first(Table), Number, Re)
 		  end,
-	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos);
+	    choice(Height, Width, P, Mode, Table, Key, Turn, Opos);
 	[$/|Regexp]   -> %% from regexp
 	    case re:compile(nonl(Regexp),[unicode]) of
 		{ok,Re} ->
-		    re_search(Height, Width, Tab, ets:first(Tab), Re, 1, 1);
+		    re_search(Height, Width, Table, ets:first(Table), Re, 1, 1);
 		{error,{ErrorString,_Pos}} ->
 		    io:format("~ts\n", [ErrorString]),
-		    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
+		    choice(Height, Width, P, Mode, Table, Key, Turn, Opos)
 	    end;
         eof ->
             ok;
 	_  ->
-	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
+	    choice(Height, Width, P, Mode, Table, Key, Turn, Opos)
     end.
 
 get_line(P, Default) ->
@@ -1732,22 +1738,22 @@ line_string(Other) -> Other.
 
 nonl(S) -> string:trim(S, trailing, "$\n").
 
-print_number(Tab, Key, Num) ->
-    Os = ets:lookup(Tab, Key),
+print_number(Table, Key, Num) ->
+    Os = ets:lookup(Table, Key),
     Len = length(Os),
     if 
 	(Num - Len) < 1 ->
 	    O = lists:nth(Num, Os),
 	    io:format("~p~n", [O]); %% use ppterm here instead
 	true ->
-	    print_number(Tab, ets:next(Tab, Key), Num - Len)
+	    print_number(Table, ets:next(Table, Key), Num - Len)
     end.
 
-do_display(Height, Width, Tab, Key, Turn, Opos) ->
-    Objs = ets:lookup(Tab, Key),
+do_display(Height, Width, Table, Key, Turn, Opos) ->
+    Objs = ets:lookup(Table, Key),
     do_display_items(Height, Width, Objs, Opos),
     Len = length(Objs),
-    display_items(Height, Width, Tab, ets:next(Tab, Key), Turn+Len, Opos+Len).
+    display_items(Height, Width, Table, ets:next(Table, Key), Turn+Len, Opos+Len).
 
 do_display_items(Height, Width, [Obj|Tail], Opos) ->
     do_display_item(Height, Width, Obj, Opos),
@@ -1765,37 +1771,37 @@ do_display_item(_Height, Width, I, Opos)  ->
 	 end,
     io:format("<~-4w> ~s~n", [Opos,L2]).
 
-re_search(Height, Width, Tab, '$end_of_table', Re, Turn, Opos) ->
+re_search(Height, Width, Table, '$end_of_table', Re, Turn, Opos) ->
     P = 'EOT  (q)uit (p)Digits (k)ill /Regexp -->',
-    choice(Height, Width, P, {re, Re}, Tab, '$end_of_table', Turn, Opos);
-re_search(Height, Width, Tab, Key, Re, Turn, Opos) when Turn < Height ->
-    re_display(Height, Width, Tab, Key, ets:lookup(Tab, Key), Re, Turn, Opos);
-re_search(Height, Width, Tab, Key, Re, Turn, Opos)  ->
+    choice(Height, Width, P, {re, Re}, Table, '$end_of_table', Turn, Opos);
+re_search(Height, Width, Table, Key, Re, Turn, Opos) when Turn < Height ->
+    re_display(Height, Width, Table, Key, ets:lookup(Table, Key), Re, Turn, Opos);
+re_search(Height, Width, Table, Key, Re, Turn, Opos)  ->
     P = '(c)ontinue (q)uit (p)Digits (k)ill /Regexp -->',
-    choice(Height, Width, P, {re, Re}, Tab, Key, Turn, Opos).
+    choice(Height, Width, P, {re, Re}, Table, Key, Turn, Opos).
 
-re_display(Height, Width, Tab, Key, [], Re, Turn, Opos) ->
-    re_search(Height, Width, Tab, ets:next(Tab, Key), Re, Turn, Opos);
-re_display(Height, Width, Tab, Key, [H|T], Re, Turn, Opos) ->
+re_display(Height, Width, Table, Key, [], Re, Turn, Opos) ->
+    re_search(Height, Width, Table, ets:next(Table, Key), Re, Turn, Opos);
+re_display(Height, Width, Table, Key, [H|T], Re, Turn, Opos) ->
     Str = to_string(H),
     case re:run(Str, Re, [{capture,none}]) of
 	match ->
 	    do_display_item(Height, Width, H, Opos),
-	    re_display(Height, Width, Tab, Key, T, Re, Turn+1, Opos+1);
+	    re_display(Height, Width, Table, Key, T, Re, Turn+1, Opos+1);
 	nomatch ->
-	    re_display(Height, Width, Tab, Key, T, Re, Turn, Opos)
+	    re_display(Height, Width, Table, Key, T, Re, Turn, Opos)
     end.
 
 print_re_num(_,'$end_of_table',_,_) -> ok;
-print_re_num(Tab, Key, Num, Re) ->
-    Os = re_match(ets:lookup(Tab, Key), Re),
+print_re_num(Table, Key, Num, Re) ->
+    Os = re_match(ets:lookup(Table, Key), Re),
     Len = length(Os),
     if 
 	(Num - Len) < 1 ->
 	    O = lists:nth(Num, Os),
 	    io:format("~p~n", [O]); %% use ppterm here instead
 	true ->
-	    print_re_num(Tab, ets:next(Tab, Key), Num - Len, Re)
+	    print_re_num(Table, ets:next(Table, Key), Num - Len, Re)
     end.
 
 re_match([], _) -> [];

@@ -797,7 +797,7 @@ spawn_system_process(_Mod, _Func, _Args) ->
 %%
 
 -spec ets_lookup_binary_info(Tab, Key) -> BinInfo when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       Key :: term(),
       BinInfo :: [{non_neg_integer(), non_neg_integer(), non_neg_integer()}].
 
@@ -811,20 +811,20 @@ ets_super_user(_Bool) ->
     erlang:nif_error(undef).
 
 -spec ets_raw_first(Tab) -> term() when
-      Tab :: ets:tab().
+      Tab :: ets:table().
 
 ets_raw_first(_Tab) ->
     erlang:nif_error(undef).
     
 -spec ets_raw_next(Tab, Key) -> term() when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       Key :: term().
 
 ets_raw_next(_Tab, _Key) ->
     erlang:nif_error(undef).
 
 -spec ets_info_binary(Tab) -> BinInfo when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       BinInfo :: [{non_neg_integer(), non_neg_integer(), non_neg_integer()}].
 
 ets_info_binary(Tab) ->

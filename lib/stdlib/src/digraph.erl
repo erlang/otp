@@ -39,9 +39,9 @@
 
 -export_type([graph/0, d_type/0, vertex/0, edge/0, label/0]).
 
--record(digraph, {vtab = notable :: ets:tab(),
-		  etab = notable :: ets:tab(),
-		  ntab = notable :: ets:tab(),
+-record(digraph, {vtab = notable :: ets:table(),
+		  etab = notable :: ets:table(),
+		  ntab = notable :: ets:table(),
 	          cyclic = true  :: boolean()}).
 
 -opaque graph() :: #digraph{}.

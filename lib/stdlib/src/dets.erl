@@ -149,7 +149,7 @@
           proc :: 'undefined' | pid(), % the pid of the Dets process
           match_program :: 'true'
                          | 'undefined'
-                         | {'match_spec', ets:comp_match_spec()}
+                         | {'match_spec', ets:compiled_match_spec()}
 	 }).
 
 -record(open_args, {
@@ -321,7 +321,7 @@ foldl(Fun, Acc, Tab) ->
 
 -spec from_ets(Name, EtsTab) -> 'ok' | {'error', Reason} when
       Name :: tab_name(),
-      EtsTab :: ets:tab(),
+      EtsTab :: ets:table(),
       Reason :: term().
 
 from_ets(DTab, ETab) ->
@@ -861,7 +861,7 @@ table_info(_Tab, _) ->
 
 -spec to_ets(Name, EtsTab) -> EtsTab | {'error', Reason} when
       Name :: tab_name(),
-      EtsTab :: ets:tab(),
+      EtsTab :: ets:table(),
       Reason :: term().
 
 to_ets(DTab, ETab) ->
