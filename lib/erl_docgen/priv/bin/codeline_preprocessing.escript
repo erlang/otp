@@ -77,7 +77,7 @@ parse(InDev, OutDev, CPath) ->
 
 
 parse_line(CPath, Line) ->
-    case re:run(Line, "<codeinclude([^>]*)>.*</codeinclude>", [{capture, [1], list}]) of
+    case re:run(Line, "<codeinclude(.*)(>.*</codeinclude>|/>)", [{capture, [1], list}]) of
         {match,[Attributes]} ->
             File =
                 case re:run(Attributes,"file=\"([^\"]+)\"",[{capture, [1], list}]) of
