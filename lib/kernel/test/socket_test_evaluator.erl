@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -611,8 +611,8 @@ pi(Pid, Item) ->
     Info.
 
 check_down(Pid, DownReason, Pids) ->
-    case lists:keymember(Pid, 1, Pids) of
-        {value, {_, Name}} ->
+    case lists:keysearch(Pid, 2, Pids) of
+        {value, {Name, _}} ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, DownReason]),
             {error, {unexpected_exit, Name, DownReason}};

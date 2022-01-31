@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@
 
 %%-compile(export_all).
 
--export([all/0, suite/0,groups/0,
-	 init_per_suite/1,end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0,
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([
          skip_old_solaris/1,
@@ -157,6 +157,20 @@ end_per_suite(Config0) ->
 
     Config1.
 
+init_per_group(sockaddr = _GroupName, Config) ->
+    ?P("init_per_group(sockaddr) -> do we support 'socket'"),
+    try socket:info() of
+	_ ->
+            ?P("init_per_group(sockaddr) -> we support 'socket'"),
+            Config
+    catch
+        error : notsup ->
+            ?P("init_per_group(sockaddr) -> we *do not* support 'socket'"),
+            {skip, "esock not supported"};
+        error : undef ->
+            ?P("init_per_group(sockaddr) -> 'socket' not configured"),
+            {skip, "esock not configured"}
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
