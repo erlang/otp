@@ -393,7 +393,7 @@ classify_heap_need(landingpad) -> gc;
 classify_heap_need(match_fail) -> gc;
 classify_heap_need(nif_start) -> neutral;
 classify_heap_need(nop) -> neutral;
-classify_heap_need(new_try_tag) -> gc;
+classify_heap_need(new_try_tag) -> neutral;
 classify_heap_need(old_make_fun) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;

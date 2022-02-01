@@ -2715,6 +2715,12 @@ reserve_terminator(L, Is, #b_br{bool=#b_var{},succ=Succ,fail=Fail},
                         #{Arg:=Reg} -> #{Arg=>Reg};
                         #{} -> #{}
                     end;
+                #b_set{op=new_try_tag} ->
+                    %% We know that no X registers will be used at the
+                    %% failure label (a block starting with the
+                    %% landingpad instruction), so we can pick up
+                    %% register hints from the success label.
+                    reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res);
                 _ ->
                     %% Register hints from the success block may not
                     %% be safe at the failure block, and vice versa.
