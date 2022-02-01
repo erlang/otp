@@ -66,7 +66,7 @@
          epmd_reconnect_do/2,
 	 setopts_do/2,
 	 keep_conn/1, time_ping/1,
-         dyn_differing_cookies/2]).
+         ddc_remote_run/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -2252,14 +2252,25 @@ dyn_differing_cookies(Config) when is_list(Config) ->
     %% and cookie configuration of mother node
     DynNodeCookieL = BaseName++"_cookieA",
     DynNodeCookie = list_to_atom(DynNodeCookieL),
-    {_NF, Port} =
+    {_NF1, Port1} =
         start_node_unconnected(
           "-setcookie "++MotherNodeL++" "++MotherNodeCookieL,
           undefined, DynNodeCookie,
           ?MODULE, run_remote_test,
-          [atom_to_list(?FUNCTION_NAME), MotherNodeL] ),
+          ["ddc_remote_run", MotherNodeL, "cmdline", MotherNodeCookieL] ),
 
-    dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port).
+    dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port1),
+
+    %% Same again, but use erlang:set_cookie/2 to set MotherNodeCookie
+    {_NF2, Port2} =
+        start_node_unconnected(
+          "",
+          undefined, DynNodeCookie,
+          ?MODULE, run_remote_test,
+          ["ddc_remote_run", MotherNodeL, "set_cookie", MotherNodeCookieL] ),
+
+    dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port2).
+
 
 dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port) ->
     receive
@@ -2269,7 +2280,7 @@ dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port) ->
             DynNodeCookie = rpc:call( DynNode, erlang, get_cookie, [] ),
             MotherNodeCookie =
                 rpc:call( DynNode, erlang, get_cookie, [MotherNode] ),
-            {?FUNCTION_NAME, DynNode} !
+            {ddc_remote_run, DynNode} !
                 {MotherNode, MotherNodeCookie, DynNode},
 
             0 = wait_for_port_exit(Port),
@@ -2284,9 +2295,17 @@ dyn_differing_cookies(MotherNode, MotherNodeCookie, DynNodeCookie, Port) ->
             error({unexpected, Other})
     end.
 
-dyn_differing_cookies(MotherNode, _Args) ->
+ddc_remote_run(MotherNode, [SetCookie, MotherNodeCookieL]) ->
     nonode@nohost = node(),
     [] = nodes(hidden),
+    MotherNodeCookie = list_to_atom(MotherNodeCookieL),
+    case SetCookie of
+        "set_cookie" ->
+            erlang:set_cookie(MotherNode, MotherNodeCookie);
+        "cmdline" ->
+            ok
+    end,
+    MotherNodeCookie = erlang:get_cookie(MotherNode),
     true = net_kernel:connect_node( MotherNode ),
     [ MotherNode ] = nodes(hidden),
     DynNode = node(),
@@ -2296,8 +2315,8 @@ dyn_differing_cookies(MotherNode, _Args) ->
     %% Here we get the mother node's default cookie
     MotherNodeCookie = rpc:call( MotherNode, erlang, get_cookie, [DynNode] ),
     DynNodeCookie = erlang:get_cookie(),
-    register( ?FUNCTION_NAME, self() ),
-    {?FUNCTION_NAME, MotherNode} !
+    register(ddc_remote_run, self() ),
+    {dyn_differing_cookies, MotherNode} !
         {MotherNode, MotherNodeCookie, DynNodeCookie, DynNode},
     receive
         { MotherNode, MotherNodeCookie, DynNode } ->
