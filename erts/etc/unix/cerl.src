@@ -359,7 +359,7 @@ if [ "x$GDB" = "x" ]; then
 	    taskset1=
 	    sched_arg=
 	fi
-        if [ $EMU_NAME = "beam.valgrind.asm" ]; then
+        if [ $EMU_NAME = "beam.valgrind.smp" ] && [ "x${VALGRIND_LOG_DIR}" != "x" ]; then
             # Always enable `perf` support as we use the same symbol map
             emu_xargs="$emu_xargs -JPperf true "
             set -m
