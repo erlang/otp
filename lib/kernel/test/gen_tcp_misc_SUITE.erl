@@ -5603,24 +5603,21 @@ do_send_timeout_resume(Config) ->
     end.
 
 do_send_timeout_resume(Config, RNode, BlockPow) ->
-    N = 8,
     BlockSize = 1 bsl BlockPow,
     1 = rand:uniform(1),
     Seed = rand:export_seed(),
     ListenOpts =
         [inet,
-         {backlog, 2},
-         {active, false},
          binary,
-         {sndbuf, BlockSize},
-         {recbuf, BlockSize},
-         {buffer, BlockSize bsl 1}],
+         {backlog, 2},
+         {active, false}],
     ConnectOpts =
         [inet,
          {send_timeout, 0},
          {active, false},
-         binary,
-         {high_watermark, BlockSize},
+         binary],
+    StreamOpts =
+        [{high_watermark, BlockSize},
          {low_watermark, BlockSize bsr 1},
          {sndbuf, BlockSize},
          {recbuf, BlockSize},
@@ -5632,53 +5629,87 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
           RNode,
           fun () ->
                   send_timeout_resume_srv(
-                    Config, Seed, Client, Tag, ListenOpts)
+                    Config, Seed, Client, Tag, ListenOpts, StreamOpts)
           end, [monitor, link]),
     ?P("Client=~p Server=~p Tag=~p~n", [Client, Server, Tag]),
-    receive {Tag, P} -> ok end,
-    ?P("connecting to ~p~n", [P]),
-    {ok, C} = ?CONNECT(Config, localhost, P, ConnectOpts),
+    receive
+        {Tag, port, Port} ->
+            ok;
+        {'DOWN', Mref, _, _, Port} ->
+            %% Use variable Port just to get export from case
+            ct:fail(Port)
+    end,
+    ?P("connecting to ~p~n", [Port]),
+    {ok, C} = ?CONNECT(Config, localhost, Port, ConnectOpts, 2000),
     try
-        Timeouts = do_send_timeout_resume_send(C, BlockSize, 0, N),
+        ok = inet:setopts(C, StreamOpts),
+        ?P("client StreamOpts: ~p~n",
+           [inet:getopts(C, optnames(StreamOpts))]),
+        receive
+            {Tag, send} ->
+                ok;
+            {'DOWN', Mref, _, _, Error2} ->
+                ct:fail(Error2)
+        end,
+        {N, Timeouts} =
+            do_send_timeout_resume_send(C, Server, Tag, 0, BlockSize),
         receive
             {'DOWN', Mref, _, _, Result} ->
-                ?P("N=~p BlockSize=~p Timeouts=~p Result=~p~n",
-                   [N, BlockSize, Timeouts, Result]),
+                ?P("N = ~p, Timeouts = ~p, Result=~p~n",
+                   [N, Timeouts, Result]),
                 case Result of
-                    {ok, Count} ->
-                        Count = N * BlockSize,
-                        true = N < Timeouts,
+                    {Tag, ok, Count}
+                      when Count =:= N * BlockSize,
+                           %% We should get 10 time-outs.
+                           %% If we do not get more than one, it seems
+                           %% we get stuck when trying to poll the
+                           %% send buffer with send_timeout = 0,
+                           %% so that did not work
+                           1 < Timeouts ->
                         ok;
                     _ ->
                         ct:fail(Result)
                 end
         end
     after
+        exit(Server, failsafe),
         gen_tcp:close(C)
     end.
 
-do_send_timeout_resume_send(S, _BlockSize, Timeouts, 0) ->
-    ok = gen_tcp:close(S),
-    Timeouts;
-do_send_timeout_resume_send(S, BlockSize, Timeouts, N) ->
-    Bin = random_data(BlockSize),
-    Timeouts_1 = do_send_timeout_resume_send(S, Bin, Timeouts),
-    do_send_timeout_resume_send(S, BlockSize, Timeouts_1, N - 1).
+optnames(Opts) ->
+    [Name || {Name, _} <- Opts].
 
-do_send_timeout_resume_send(S, Bin, Timeouts) ->
+%% Fill buffers
+do_send_timeout_resume_send(S, Server, Tag, N, BlockSize) ->
+    Bin = random_data(BlockSize),
+    case send_timeout_repeat(S, Server, Tag, N, Bin, 0) of
+        0 ->
+            do_send_timeout_resume_send(S, Server, Tag, N + 1, BlockSize);
+        Timeouts ->
+            ok = gen_tcp:close(S),
+            {N + 1, Timeouts}
+    end.
+
+send_timeout_repeat(S, Server, Tag, N, Bin, Timeouts) ->
     case gen_tcp:send(S, Bin) of
         ok ->
             Timeouts;
         {error, Reason} ->
             case Reason of
                 timeout ->
+                    Server ! {Tag, rec},
+                    ?P("timeout ~p, ~p~n", [S, N]),
                     receive after 100 -> ok end,
-                    do_send_timeout_resume_send(S, <<>>, Timeouts + 1);
+                    send_timeout_repeat(
+                      S, Server, Tag, N, <<>>, Timeouts + 1);
                 {timeout, RestData} ->
+                    Server ! {Tag, rec},
+                    ?P("timeout, RestData ~p, ~p~n", [S, N]),
                     receive after 100 -> ok end,
-                    do_send_timeout_resume_send(S, RestData, Timeouts + 1);
+                    send_timeout_repeat(
+                      S, Server, Tag, N, RestData, Timeouts + 1);
                 _ ->
-                    error({Reason, Timeouts})
+                    error({Reason, N, Timeouts})
             end
     end.
 
@@ -5697,24 +5728,27 @@ compare_data(<<Byte, Bin/binary>>, Count) ->
             error({diff, Count})
     end.
 
-send_timeout_resume_srv(Config, Seed, Client, Tag, ListenOpts) ->
+send_timeout_resume_srv(Config, Seed, Client, Tag, ListenOpts, StreamOpts) ->
     rand:seed(Seed),
     {ok, L} = ?LISTEN(Config, 0, ListenOpts),
-    Count =
-        try
-            {ok, P} = inet:port(L),
-            Client ! {Tag, P},
-            {ok, A} = gen_tcp:accept(L, 2000),
-            ?P("accept success ~p~n", [A]),
-            receive after 2000 -> ok end,
-            try send_timeout_resume_srv(A, 0)
-            after
-                gen_tcp:close(A)
-            end
-        after
-            gen_tcp:close(L)
-        end,
-    exit({ok, Count}).
+    ?P("get listen StreamOpts -> ~p",
+       [inet:getopts(L, optnames(StreamOpts))]),
+    {ok, P} = inet:port(L),
+    Client ! {Tag, port, P},
+    %%
+    {ok, A} = gen_tcp:accept(L, 2000),
+    ?P("accept success ~p~n", [A]),
+    ok = inet:setopts(A, StreamOpts),
+    ?P("get accept StreamOpts -> ~p",
+       [inet:getopts(A, optnames(StreamOpts))]),
+    Client ! {Tag, send},
+    %%
+    receive
+        {Tag, rec} ->
+            receive after 1000 -> ok end,
+            ?P("receiving ~p~n", [A]),
+            exit({Tag, ok, send_timeout_resume_srv(A, 0)})
+    end.
 
 send_timeout_resume_srv(S, Count) ->
     case gen_tcp:recv(S, 0) of
