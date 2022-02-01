@@ -84,25 +84,15 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([{name, list_to_atom(Name)},
+                        {name_type, Flag}], true);
         {ok,[[Name]|_Rest]} ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([{name, list_to_atom(Name)},
+                        {name_type, Flag}], true);
 	_ ->
 	    do_start_link(T)
     end;
 do_start_link([]) ->
     ignore.
-
-ticktime() ->
-    %% catch, in case the system was started with boot file start_old,
-    %% i.e. running without the application_controller.
-    %% Time is given in seconds. The net_kernel tick time is
-    %% Time/4 milliseconds.
-    case catch application:get_env(net_ticktime) of
-	{ok, Value} when is_integer(Value), Value > 0 ->
-	    [Value * 250]; %% i.e. 1000 / 4 = 250 ms.
-	_ ->
-	    []
-    end.

@@ -146,7 +146,9 @@
                 pg2]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         {net_tickintensity, 4},
+         {net_ticktime, 60}
         ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-10.6", "stdlib-3.5", "sasl-3.0"]}
