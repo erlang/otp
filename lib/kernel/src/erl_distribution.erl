@@ -23,7 +23,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--export([start_link/0,start_link/2,init/1,start/1,stop/0]).
+-export([start_link/0,start_link/1,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -35,8 +35,8 @@ start_link() ->
 %% Called from net_kernel:start/1 to start distribution after the
 %% system has already started.
 
-start(Args) ->
-    C = {net_sup_dynamic, {?MODULE,start_link,[Args,false]}, permanent,
+start(Opts) ->
+    C = {net_sup_dynamic, {?MODULE,start_link,[Opts#{clean_halt => false}]}, permanent,
 	 1000, supervisor, [erl_distribution]},
     supervisor:start_child(kernel_sup, C).
 
@@ -62,8 +62,8 @@ stop() ->
 
 %% Helper start function.
 
-start_link(Args, CleanHalt) ->
-    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt]).
+start_link(Opts) ->
+    supervisor:start_link({local,net_sup}, ?MODULE, [Opts]).
 
 init(NetArgs) ->
     Epmd = 
@@ -84,25 +84,17 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link(#{name => list_to_atom(Name),
+                         name_domain => Flag,
+                         clean_halt => true});
         {ok,[[Name]|_Rest]} ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link(#{name => list_to_atom(Name),
+                         name_domain => Flag,
+                         clean_halt => true});
 	_ ->
 	    do_start_link(T)
     end;
 do_start_link([]) ->
     ignore.
-
-ticktime() ->
-    %% catch, in case the system was started with boot file start_old,
-    %% i.e. running without the application_controller.
-    %% Time is given in seconds. The net_kernel tick time is
-    %% Time/4 milliseconds.
-    case catch application:get_env(net_ticktime) of
-	{ok, Value} when is_integer(Value), Value > 0 ->
-	    [Value * 250]; %% i.e. 1000 / 4 = 250 ms.
-	_ ->
-	    []
-    end.
