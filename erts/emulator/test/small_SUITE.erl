@@ -19,8 +19,10 @@
 %%
 -module(small_SUITE).
 
+-include_lib("syntax_tools/include/merl.hrl").
+
 -export([all/0, suite/0]).
--export([edge_cases/1]).
+-export([edge_cases/1, multiplication/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -29,7 +31,7 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [edge_cases].
+    [edge_cases, multiplication].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -109,6 +111,99 @@ arith_test_1(A, B, MinS, MaxS) ->
     true = B =:= 0 orelse (((A div id(B)) * id(B) + A rem id(B)) =:= A),
     true = A =:= 0 orelse (((B div id(A)) * id(A) + B rem id(A)) =:= B),
 
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+multiplication(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = mul_gen_pairs(),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_mul_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_multiplication(Fs0, Mod),
+    ok.
+
+mul_gen_pairs() ->
+    {_, MaxSmall} = determine_small_limits(0),
+    NumBitsMaxSmall = num_bits(MaxSmall),
+
+    %% Generate random pairs of smalls.
+    Pairs0 = [{rand:uniform(MaxSmall),rand:uniform(MaxSmall)} ||
+                 _ <- lists:seq(1, 75)],
+
+    %% Generate pairs of numbers whose product is small.
+    Pairs1 = [{N, MaxSmall div N} || N <- [1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
+
+    %% Add prime factors of 2^59 - 1 (MAX_SMALL for 64-bit architecture
+    %% at the time of writing).
+    Pairs2 = [{179951,3203431780337}|Pairs1],
+
+    %% Generate pairs of numbers whose product are bignums.
+    LeastBig = MaxSmall + 1,
+    Divisors = [(1 bsl Pow) + Offset ||
+                   Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1),
+                   Offset <- [0,1,17,20333]],
+    [{Div,ceil(LeastBig / Div)} || Div <- Divisors] ++ Pairs2.
+
+gen_func_names([E|Es], I) ->
+    Name = list_to_atom("f" ++ integer_to_list(I)),
+    [{Name,E}|gen_func_names(Es, I+1)];
+gen_func_names([], _) -> [].
+
+gen_mul_function({Name,{A,B}}) ->
+    APlusOne = A + 1,
+    BPlusOne = B + 1,
+    NumBitsA = num_bits(A),
+    NumBitsB = num_bits(B),
+    ?Q("'@Name@'(X0, Y0, More) when is_integer(X0), is_integer(Y0)->
+           X1 = X0 rem _@APlusOne@,
+           Y1 = Y0 rem _@BPlusOne@,
+           Res = X0 * Y0,
+           Res = X1 * Y1,
+           Res = Y1 * X1,
+           if More ->
+                Res = X1 * _@B@,
+                Res = _@A@ * Y1,
+                <<X2:_@NumBitsA@>> = <<X0:_@NumBitsA@>>,
+                <<Y2:_@NumBitsB@>> = <<Y0:_@NumBitsB@>>,
+                Res = X2 * Y2,
+                Res = X1 * Y2,
+                Res = X2 * Y1;
+               true ->
+                Res
+           end. ").
+
+num_bits(Int) ->
+    num_bits(Int, 0).
+
+num_bits(0, N) -> N;
+num_bits(Int, N) -> num_bits(Int bsr 1, N + 1).
+
+test_multiplication([{Name,{A,B}}|T], Mod) ->
+    try
+        Res0 = A * B,
+        %% io:format("~p * ~p = ~p; size = ~p\n",
+        %%           [A,B,Res0,erts_debug:flat_size(Res0)]),
+
+        Res0 = Mod:Name(A, B, true),
+        Res0 = Mod:Name(-A, -B, false),
+
+        Res1 = -(A * B),
+        Res1 = Mod:Name(-A, B, false),
+        Res1 = Mod:Name(A, -B, false)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
+            erlang:raise(C, R, Stk)
+    end,
+
+    test_multiplication(T, Mod);
+test_multiplication([], _) ->
     ok.
 
 %% Verifies that N is a small when it should be
