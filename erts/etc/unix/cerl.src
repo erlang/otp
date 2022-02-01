@@ -486,6 +486,12 @@ elif [ "x$GDB" = "xegdb" ]; then
     exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
 elif [ "x$GDB" = "xdump" ]; then
     cmdfile="/tmp/.cerlgdb.$$"
+    ## Examine the result of "file $core" in case it is not the emulator
+    ## that created the dump
+    fileCore=$(file "$core" | sed "s@.*execfn:\\s*'\([^']*\).*@\\1@g")
+    if [ -f "${fileCore}" ] && [ "$(basename ${fileCore})" != "${EMU_NAME}" ]; then
+        EMU_NAME="${fileCore}"
+    fi
     case "x$core" in
 	x/*)
 	    ;;
@@ -505,11 +511,11 @@ quit
         *)
 	    echo "set width 0
 set height 0
-set verbose off
-
-source $ROOTDIR/erts/etc/unix/etp-commands
-thread apply all bt
-" > $cmdfile
+set verbose off" > $cmdfile
+            if echo "${EMU_NAME}" | grep "beam."; then
+                echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+            fi
+            echo "thread apply all bt" >> $cmdfile
 	    exec gdb --batch --command=$cmdfile $EMU_NAME $core
 	    ;;
     esac
