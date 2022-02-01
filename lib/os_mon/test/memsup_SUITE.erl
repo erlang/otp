@@ -63,7 +63,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    All = case test_server:os_type() of
+    All = case os:type() of
               {unix, sunos} ->
                   [api, alarm1, alarm2, process, config, timeout,
                    unavailable, port];
@@ -551,7 +551,7 @@ timeout(Config) when is_list(Config) ->
 
     %% Linux should be handled the same way as solaris.
 
-    %    TimeoutMsg = case test_server:os_type() of
+    %    TimeoutMsg = case os:type() of
     %		     {unix, sunos} -> ext_collection_timeout;
     %		     {unix, linux} -> reg_collection_timeout
     %		 end,

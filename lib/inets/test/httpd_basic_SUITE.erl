@@ -85,7 +85,7 @@ DUMMY
     DummyFile = filename:join([PrivDir,"dummy.html"]),
     CgiDir =  filename:join(PrivDir, "cgi-bin"),
     ok = file:make_dir(CgiDir),
-    {CgiPrintEnv, CgiSleep} = case test_server:os_type() of
+    {CgiPrintEnv, CgiSleep} = case os:type() of
 				  {win32, _} ->
 				      {"printenv.bat", "cgi_sleep.exe"};
 				  _ ->

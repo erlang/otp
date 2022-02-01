@@ -26,7 +26,7 @@
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
 -export([proxy_call/3]).
--export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
+-export([hostname/0, hostname/1, localhost/0, localhost/1, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
          os_based_skip/1,
@@ -411,16 +411,6 @@ sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->
     {unknown_size,O}.
-
-
-os_type() ->
-    case (catch test_server:os_type()) of
-	{'EXIT', _} ->
-	    %% Pre-R10 test server does not have this function
-	    os:type();
-	OsType ->
-	    OsType
-    end.
 
 display_suite_info(SUITE) when is_atom(SUITE) ->
     (catch do_display_suite_info(SUITE)).

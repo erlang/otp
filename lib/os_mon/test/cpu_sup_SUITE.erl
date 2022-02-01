@@ -56,7 +56,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    case test_server:os_type() of
+    case os:type() of
         {unix, sunos} ->
             [load_api, util_api, util_values, port, unavailable];
         {unix, linux} ->

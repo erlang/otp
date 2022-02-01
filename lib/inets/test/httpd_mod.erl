@@ -611,7 +611,7 @@ htaccess(Type, Port, Host, Node) ->
 %%--------------------------------------------------------------------
 cgi(Type, Port, Host, Node) ->
     {Script, Script2, Script3} =
-	case test_server:os_type() of
+	case os:type() of
 	    {win32, _} ->
 		{"printenv.bat", "printenv.sh", "cgi_echo.exe"};
 	    _ ->

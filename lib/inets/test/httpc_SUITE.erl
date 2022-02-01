@@ -428,7 +428,7 @@ post() ->
      "only care about the client side of the the post. The server "
      "script will not actually use the post data."}].
 post(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -453,7 +453,7 @@ delete() ->
      "only care about the client side of the the delete. The server "
      "script will not actually use the delete data."}].
 delete(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
           {win32, _} ->
           "/cgi-bin/cgi_echo.exe";
           _ ->
@@ -477,7 +477,7 @@ patch() ->
      "only care about the client side of the the patch. The server "
      "script will not actually use the patch data."}].
 patch(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -499,7 +499,7 @@ post_stream() ->
      "We only care about the client side of the the post. "
      "The server script will not actually use the post data."}].
 post_stream(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -2053,7 +2053,7 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
 			       end
 		  end, Files),
     
-    Cgi = case test_server:os_type() of
+    Cgi = case os:type() of
 	      {win32, _} ->
 		  "cgi_echo.exe";
 	      _ ->
