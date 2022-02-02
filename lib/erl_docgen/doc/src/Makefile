@@ -47,13 +47,17 @@ XML_CHAPTER_FILES = \
 	inline_tags.xml \
 	header_tags.xml \
 	character_entities.xml \
-	block_tags.xml \
 	doc_storage.xml
+
+XML_CHAPTER_GEN_FILES = \
+	block_tags.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF6_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+
+XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 TECHNICAL_DESCR_FILES = 
 
