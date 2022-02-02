@@ -38,6 +38,8 @@
 -deprecated({integer_to_hexlist, 1, "use erlang:integer_to_list/2 with base 16 instead"}).
 -deprecated({strip, 1, "use string:trim/1 instead"}).
 -deprecated({suffix, 1, "use filename:extension/1 and string:trim/2 instead"}).
+-deprecated({decode_hex, 1, "use uri_string functions instead"}).
+-deprecated({encode_hex, 1, "use uri_string functions instead"}).
 
 -compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
 -compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
