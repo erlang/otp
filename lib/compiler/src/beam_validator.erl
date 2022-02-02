@@ -1067,9 +1067,10 @@ vi(raw_raise=I, Vst0) ->
 
 vi(bs_init_writable=I, Vst) ->
     validate_body_call(I, 1, Vst);
-vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List}}, Vst0) ->
+vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+    List = [unpack_typed_arg(Arg) || Arg <- List0],
     verify_create_bin_list(List, Vst0),
     Vst = prune_x_regs(Live, Vst0),
     branch(Fail, Vst,
@@ -3055,7 +3056,28 @@ assert_not_fragile(Lit, #vst{}) ->
 
 bif_types(Op, Ss, Vst) ->
     Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
-    beam_call_types:types(erlang, Op, Args).
+    case {Op,Ss} of
+        {element,[_,{literal,Tuple}]} when tuple_size(Tuple) > 0 ->
+            case beam_call_types:types(erlang, Op, Args) of
+                {any,ArgTypes,Safe} ->
+                    RetType = join_tuple_elements(Tuple),
+                    {RetType,ArgTypes,Safe};
+                Other ->
+                    Other
+            end;
+        {_,_} ->
+            beam_call_types:types(erlang, Op, Args)
+    end.
+
+join_tuple_elements(Tuple) ->
+    join_tuple_elements(tuple_size(Tuple), Tuple, none).
+
+join_tuple_elements(0, _Tuple, Type) ->
+    Type;
+join_tuple_elements(I, Tuple, Type0) ->
+    Type1 = beam_types:make_type_from_value(element(I, Tuple)),
+    Type = beam_types:join(Type0, Type1),
+    join_tuple_elements(I - 1, Tuple, Type).
 
 call_types({extfunc,M,F,A}, A, Vst) ->
     Args = get_call_args(A, Vst),

@@ -1105,11 +1105,12 @@ cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}=I|T],
     end;
 cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
+    Args1 = typed_args(Args0, Anno, St),
     Fail = bif_fail(Fail0),
     Line = line(Anno),
     Alloc = map_get(alloc, Anno),
     Live = get_live(I),
-    [Dst|Args1] = beam_args([Dst0|Args0], St),
+    Dst = beam_arg(Dst0, St),
     Args = bs_args(Args1),
     Unit = case Args of
                [{atom,append},_Seg,U|_] -> U;

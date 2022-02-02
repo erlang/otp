@@ -259,7 +259,7 @@ disasm_literals(<<Sz:32,Ext:Sz/binary,T/binary>>, Index) ->
 disasm_literals(<<>>, _) -> [].
 
 %%-----------------------------------------------------------------------
-%% Disassembles the literal table (constant pool) of a BEAM file.
+%% Disassembles the type table of a BEAM file.
 %%-----------------------------------------------------------------------
 
 -spec beam_disasm_types('none' | binary()) -> literals().
@@ -271,7 +271,7 @@ beam_disasm_types(<<?BEAM_TYPES_VERSION:32,Count:32,Table/binary>>) ->
     Count = gb_trees:size(Res),                 %Assertion.
     Res.
 
-disasm_types(<<Type:2/binary,Rest/binary>>, Index) ->
+disasm_types(<<Type:18/binary,Rest/binary>>, Index) ->
     [{Index,beam_types:decode_ext(Type)}|disasm_types(Rest, Index+1)];
 disasm_types(<<>>, _) ->
     [].

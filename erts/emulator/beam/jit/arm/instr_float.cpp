@@ -132,11 +132,19 @@ void BeamGlobalAssembler::emit_fconv_shared() {
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
-    Label next = a.newLabel(), not_small = a.newLabel(),
-          fallback = a.newLabel();
-
     auto dst = init_destination(Dst, a64::d0);
     auto src = load_source(Src, ARG1);
+
+    if (always_small(Src)) {
+        comment("skipped test for small operand since it is always small");
+        a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
+        a.scvtf(dst.reg, TMP1);
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel(), not_small = a.newLabel(),
+          fallback = a.newLabel();
 
     a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_MASK));

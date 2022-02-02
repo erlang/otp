@@ -607,7 +607,11 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &version));
-    LoadAssert(version == BEAM_TYPES_VERSION);
+    if (version != BEAM_TYPES_VERSION) {
+        /* Incompatible type format. */
+        init_fallback_type_table(beam);
+        return 1;
+    }
 
     types = &beam->types;
     ASSERT(types->entries == NULL);
@@ -624,8 +628,8 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     for (i = 0; i < count; i++) {
         const byte *type_data;
 
-        LoadAssert(beamreader_read_bytes(&reader, 2, &type_data));
-        LoadAssert(beam_types_decode(type_data, 2, &types->entries[i]));
+        LoadAssert(beamreader_read_bytes(&reader, 18, &type_data));
+        LoadAssert(beam_types_decode(type_data, 18, &types->entries[i]));
     }
 
     /* The first entry MUST be the "any type." */

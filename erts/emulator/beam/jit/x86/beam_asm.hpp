@@ -22,6 +22,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <algorithm>
 
 #ifndef ASMJIT_ASMJIT_H_INCLUDED
 #    include <asmjit/asmjit.hpp>
@@ -37,11 +38,16 @@ extern "C"
 #include "erl_vm.h"
 #include "global.h"
 #include "beam_catches.h"
+#include "big.h"
 
 #include "beam_asm.h"
 }
 
 #include "beam_jit_common.hpp"
+
+/* On Windows, the min and max macros may be defined. */
+#undef min
+#undef max
 
 using namespace asmjit;
 
@@ -1163,8 +1169,36 @@ protected:
         return beam->types.entries[arg.typeIndex()].type_union;
     }
 
+    auto getIntRange(const ArgVal &arg) const {
+        if (is_small(arg.getValue())) {
+            Sint value = signed_val(arg.getValue());
+            return std::make_pair(value, value);
+        } else {
+            ASSERT(arg.typeIndex() < beam->types.count);
+            const auto &entry = beam->types.entries[arg.typeIndex()];
+            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
+            return std::make_pair(entry.min, entry.max);
+        }
+    }
+
+    bool always_small(const ArgVal &arg) const {
+        if (arg.isImmed() && is_small(arg.getValue())) {
+            return true;
+        }
+        int type_union = getTypeUnion(arg);
+        if (type_union == BEAM_TYPE_INTEGER) {
+            auto [min, max] = getIntRange(arg);
+            return min <= max;
+        } else {
+            return false;
+        }
+    }
+
     bool always_immediate(const ArgVal &arg) const {
         if (arg.isImmed()) {
+            return true;
+        }
+        if (always_small(arg)) {
             return true;
         }
         int type_union = getTypeUnion(arg);
@@ -1222,6 +1256,50 @@ protected:
         return always_one_of(arg, type_id);
     }
 
+    bool is_sum_small(const ArgVal &LHS, const ArgVal &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            Sint min, max;
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            min = min1 + min2;
+            max = max1 + max2;
+            return IS_SSMALL(min) && IS_SSMALL(max);
+        }
+    }
+
+    bool is_difference_small(const ArgVal &LHS, const ArgVal &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            Sint min, max;
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            min = min1 - min2;
+            max = max1 - max2;
+            return IS_SSMALL(min) && IS_SSMALL(max);
+        }
+    }
+
+    bool is_product_small(const ArgVal &LHS, const ArgVal &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            auto mag1 = std::max(abs(min1), abs(max1));
+            auto mag2 = std::max(abs(min2), abs(max2));
+
+            /*
+             * mag1 * mag2 <= MAX_SMALL
+             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
+             */
+            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
+            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
+        }
+    }
+
     /* Helpers */
     void emit_gc_test(const ArgVal &Stack,
                       const ArgVal &Heap,
@@ -1265,7 +1343,9 @@ protected:
     void emit_div_rem(const ArgVal &Fail,
                       const ArgVal &LHS,
                       const ArgVal &RHS,
-                      const ErtsCodeMFA *error_mfa);
+                      const ErtsCodeMFA *error_mfa,
+                      bool need_div = true,
+                      bool need_rem = true);
 
     void emit_setup_guard_bif(const std::vector<ArgVal> &args,
                               const ArgVal &bif);

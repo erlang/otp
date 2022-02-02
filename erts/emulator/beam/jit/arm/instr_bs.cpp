@@ -1575,29 +1575,55 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
             mov_arg(ARG1, seg.src);
             a.mov(ARG3, ARG1);
             fragment_call(ga->get_bs_bit_size_shared());
-            if (Fail.getValue() == 0) {
-                mov_imm(ARG4,
-                        beam_jit_update_bsc_reason_info(seg.error_info,
-                                                        BSC_REASON_BADARG,
-                                                        BSC_INFO_TYPE,
-                                                        BSC_VALUE_ARG3));
+            if (exact_type(seg.src, BEAM_TYPE_BITSTRING)) {
+                comment("skipped check for success since the source "
+                        "is always a bit string");
+            } else {
+                if (Fail.getValue() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG3));
+                }
+                a.cond_mi().b(resolve_label(error, disp1MB));
             }
-            a.cond_mi().b(resolve_label(error, disp1MB));
             a.add(sizeReg, sizeReg, ARG1);
         } else if (seg.unit != 0) {
+            bool can_fail = true;
             comment("size binary/integer/float/string");
+
+            if (always_small(seg.size)) {
+                auto [min, _] = getIntRange(seg.size);
+                if (min >= 0) {
+                    can_fail = false;
+                }
+            }
+
             mov_arg(ARG3, seg.size);
-            a.and_(TMP2, ARG3, imm(_TAG_IMMED1_MASK));
-            a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-            if (Fail.getValue() == 0) {
+
+            if (can_fail && Fail.getValue() == 0) {
                 mov_imm(ARG4,
                         beam_jit_update_bsc_reason_info(seg.error_info,
                                                         BSC_REASON_DEPENDS,
                                                         BSC_INFO_SIZE,
                                                         BSC_VALUE_ARG3));
             }
-            a.cond_ne().b(resolve_label(error, disp1MB));
-            a.tbnz(ARG3, 63, resolve_label(error, disp32K));
+
+            if (always_small(seg.size)) {
+                comment("skipped test for small size since it is always small");
+            } else if (always_one_of(seg.size,
+                                     BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+                comment("simplified test for small size since it is a number");
+                emit_is_not_boxed(error, ARG3);
+            } else {
+                a.and_(TMP2, ARG3, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+                a.cond_ne().b(resolve_label(error, disp1MB));
+            }
+            if (can_fail) {
+                a.tbnz(ARG3, 63, resolve_label(error, disp32K));
+            }
             a.asr(TMP1, ARG3, imm(_TAG_IMMED1_SIZE));
             if (seg.unit == 1) {
                 a.add(sizeReg, sizeReg, TMP1);
@@ -1778,6 +1804,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
             break;
         case am_binary: {
             Uint error_info;
+            bool can_fail = true;
 
             comment("construct a binary segment");
             if (seg.effectiveSize >= 0) {
@@ -1805,6 +1832,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
+                if (seg.unit == 1) {
+                    comment("skipped test for success because unit =:= 1");
+                    can_fail = false;
+                }
             } else {
                 /* The size is a variable. We have verified that
                  * the value is a non-negative small in the
@@ -1826,10 +1857,13 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                                                              BSC_INFO_DEPENDS,
                                                              BSC_VALUE_FVALUE);
             }
-            if (Fail.getValue() == 0) {
-                mov_imm(ARG4, error_info);
+
+            if (can_fail) {
+                if (Fail.getValue() == 0) {
+                    mov_imm(ARG4, error_info);
+                }
+                a.cbz(ARG1, resolve_label(error, disp1MB));
             }
-            a.cbz(ARG1, resolve_label(error, disp1MB));
             break;
         }
         case am_float:
@@ -1881,15 +1915,20 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
             runtime_call<4>(erts_new_bs_put_integer);
             emit_leave_runtime(Live.getValue());
 
-            if (Fail.getValue() == 0) {
-                mov_arg(ARG3, seg.src);
-                mov_imm(ARG4,
-                        beam_jit_update_bsc_reason_info(seg.error_info,
-                                                        BSC_REASON_BADARG,
-                                                        BSC_INFO_TYPE,
-                                                        BSC_VALUE_ARG3));
+            if (exact_type(seg.src, BEAM_TYPE_INTEGER)) {
+                comment("skipped test for success because construction can't "
+                        "fail");
+            } else {
+                if (Fail.getValue() == 0) {
+                    mov_arg(ARG3, seg.src);
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG3));
+                }
+                a.cbz(ARG1, resolve_label(error, disp1MB));
             }
-            a.cbz(ARG1, resolve_label(error, disp1MB));
             break;
         case am_string: {
             ArgVal string_ptr = ArgVal(ArgVal::BytePtr, seg.src.getValue());

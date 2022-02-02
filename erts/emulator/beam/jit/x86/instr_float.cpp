@@ -133,6 +133,15 @@ void BeamGlobalAssembler::emit_fconv_shared() {
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
+    if (always_small(Src)) {
+        comment("simplified fconv since source is always small");
+        mov_arg(ARG2, Src);
+        a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
+        a.cvtsi2sd(x86::xmm0, ARG2);
+        a.movsd(getArgRef(Dst), x86::xmm0);
+        return;
+    }
+
     Label next = a.newLabel(), not_small = a.newLabel(),
           fallback = a.newLabel();
 

@@ -385,10 +385,25 @@ tuple(_Config) ->
     [] = [X || X <- [], #bird{b = b} == {bird,X}],
     [] = [X || X <- [], 3 == X#bird.a],
 
+    1 = do_literal_tuple_1(1),
+    1 = do_literal_tuple_1(20),
+    {'EXIT', _} = catch do_literal_tuple_1(id(0)),
+    {'EXIT', _} = catch do_literal_tuple_1(id(bad)),
+
+    2 = do_literal_tuple_2(1),
+    2 = do_literal_tuple_2(15),
+    2 = do_literal_tuple_2(20),
+
     ok.
 
 do_tuple() ->
     {0, _} = {necessary}.
+
+do_literal_tuple_1(X) ->
+    element(X, {1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1}).
+
+do_literal_tuple_2(X) ->
+    element(X, {2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2}).
 
 -record(x, {a}).
 

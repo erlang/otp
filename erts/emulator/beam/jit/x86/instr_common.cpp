@@ -937,6 +937,16 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
 
 void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
                                           const ArgVal &Src) {
+    if (always_immediate(Src)) {
+        comment("skipped test for boxed since the value is always immediate");
+        mov_arg(RET, Src);
+        a.and_(RETb, imm(_TAG_IMMED1_MASK));
+        a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+        a.jne(resolve_beam_label(Fail));
+
+        return;
+    }
+
     Label next = a.newLabel();
 
     mov_arg(ARG1, Src);
@@ -1557,12 +1567,15 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
                                      const ArgVal &LHS,
                                      const ArgVal &RHS) {
     Label generic = a.newLabel(), next = a.newLabel();
+    bool both_small = always_small(LHS) && always_small(RHS);
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
 
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    if (both_small) {
+        comment("skipped test for small operands since they are always small");
+    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
@@ -1595,8 +1608,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
 
     a.bind(generic);
     {
-        safe_fragment_call(ga->get_arith_compare_shared());
-        a.jge(resolve_beam_label(Fail));
+        if (!both_small) {
+            safe_fragment_call(ga->get_arith_compare_shared());
+            a.jge(resolve_beam_label(Fail));
+        }
     }
 
     a.bind(next);
@@ -1606,12 +1621,15 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
                                      const ArgVal &LHS,
                                      const ArgVal &RHS) {
     Label generic = a.newLabel(), next = a.newLabel();
+    bool both_small = always_small(LHS) && always_small(RHS);
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
 
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    if (both_small) {
+        comment("skipped test for small operands since they are always small");
+    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
@@ -1644,8 +1662,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
 
     a.bind(generic);
     {
-        safe_fragment_call(ga->get_arith_compare_shared());
-        a.jl(resolve_beam_label(Fail));
+        if (!both_small) {
+            safe_fragment_call(ga->get_arith_compare_shared());
+            a.jl(resolve_beam_label(Fail));
+        }
     }
 
     a.bind(next);
