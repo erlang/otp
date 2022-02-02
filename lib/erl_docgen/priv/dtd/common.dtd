@@ -24,7 +24,7 @@
 
 <!ENTITY % refs               "seemfa|seeerl|seetype|seeapp|seecom|seecref|seefile|seeguide|url" >
 
-<!ENTITY % block              "p|pre|code|list|taglist|codeinclude" >
+<!ENTITY % block              "p|pre|code|list|taglist" >
 <!ENTITY % inline             "#PCDATA|c|i|em|strong|term|br|%refs;|
                                marker|anno|image" >
 <!-- XXX --> 

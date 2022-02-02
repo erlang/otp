@@ -27,7 +27,7 @@
     <docno/>
     <date/>
     <rev/>
-    <file>block_tags.xml</file>
+    <file>block_tags.xmlsrc</file>
   </header>
 
   <p>Block tags typically define a separate block of information, such
