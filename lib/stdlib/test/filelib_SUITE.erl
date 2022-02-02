@@ -26,8 +26,8 @@
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
-         find_source/1, find_source_subdir/1, safe_relative_path/1,
-         safe_relative_path_links/1]).
+         find_source/1, find_source_subdir/1, find_source_otp/1,
+         safe_relative_path/1, safe_relative_path_links/1]).
 
 -import(lists, [foreach/2]).
 
@@ -50,8 +50,8 @@ all() ->
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
      wildcard_symlink, is_file_symlink, file_props_symlink,
-     find_source, find_source_subdir, safe_relative_path,
-     safe_relative_path_links].
+     find_source, find_source_subdir, find_source_otp,
+     safe_relative_path, safe_relative_path_links].
 
 groups() -> 
     [].
@@ -650,6 +650,30 @@ find_source_subdir(Config) when is_list(Config) ->
 
     {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
 
+    ok.
+
+%% Test that all available beam files in Erlang/OTP can be
+%% tracked to their source files.
+find_source_otp(Config) when is_list(Config) ->
+    %% We do this in a peer as testcases before this may have
+    %% edited the code path and thus more modules show up as
+    %% available than should.
+    {ok, Peer, Node} = ?CT_PEER(),
+    erpc:call(
+      Node,
+      fun() ->
+              lists:map(
+                fun F({Module, preloaded, Loaded}) ->
+                        F({Module, code:where_is_file(Module ++ ".beam"), Loaded});
+                    F({Module, Filename, _Loaded}) ->
+                        case filelib:find_source(Filename) of
+                            {ok, _} -> ok;
+                            {error,_} = E ->
+                                ct:fail({failed_to_find, Module, Filename, E})
+                        end
+                end, code:all_available())
+      end),
+    peer:stop(Peer),
     ok.
 
 safe_relative_path(Config) ->

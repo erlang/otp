@@ -646,6 +646,7 @@ default_search_rules() ->
      {".o", ".c", c_source_search_rules()},
      {"", ".c", c_source_search_rules()},
      {"", ".in", basic_source_search_rules()},
+     {".beam", ".asn1", asn1_source_search_rules()},
      %% plain old directory rules, backwards compatible
      {"", ""}] ++ erl_source_search_rules().
 
@@ -660,6 +661,9 @@ erl_source_search_rules() ->
 
 c_source_search_rules() ->
     [{"priv","c_src"}, {"priv","src"}, {"bin","c_src"}, {"bin","src"}, {"", "src"}].
+
+asn1_source_search_rules() ->
+    [{"ebin","src"},{"ebin","asn1"}].
 
 %% Looks for a file relative to a given directory
 
