@@ -37,7 +37,7 @@ FORBIDDEN_TYPES=hQ
 # needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler | never() =>
+too_old_compiler | never() => _
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
@@ -108,7 +108,7 @@ func_line n => empty_func_line
 empty_func_line
 func_line I
 
-line n =>
+line n => _
 line I
 
 allocate t t?
@@ -255,7 +255,7 @@ i_get_tuple_element Tuple Pos Tuple | current_tuple Tuple => i_get_tuple_element
 # This is a current_tuple instruction instruction not followed by get_tuple_element.
 # Invalidate the current tuple pointer.
 
-current_tuple Tuple =>
+current_tuple Tuple => _
 
 load_tuple_ptr s
 
@@ -269,7 +269,7 @@ i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
       get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
 
 # Drop the current_tuple instruction if the tuple is overwritten.
-current_tuple Tuple Tuple =>
+current_tuple Tuple Tuple => _
 current_tuple Tuple Dst => current_tuple Tuple
 
 # The first operand will only be used in the debug-compiled runtime
@@ -293,7 +293,7 @@ raise s s
 
 # Workaround the limitation that generators must always return at least one instruction.
 delete_me/0
-delete_me =>
+delete_me => _
 
 system_limit/1
 system_limit p => system_limit_body
@@ -397,7 +397,7 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl S S =>
+is_eq_exact Lbl S S => _
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
@@ -464,7 +464,7 @@ is_list f? s
 is_atom f? s
 is_float f? s
 
-is_nil Fail=f n =>
+is_nil Fail=f n => _
 is_nil Fail=f qia => jump Fail
 is_nil f? S
 
@@ -856,7 +856,7 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Same Same =>
+bs_start_match4 a==am_resume Live Same Same => _
 bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
 %else
@@ -1018,7 +1018,7 @@ i_bs_validate_unicode j? s
 
 # Will fail. No need to keep the instruction, because bs_add or
 # bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val =>
+bs_put_float Fail Sz=q Unit Flags Val => _
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			put_float(Fail, Sz, Unit, Flags, Src)
@@ -1069,8 +1069,8 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-fclearerror =>
-fcheckerror p =>
+fclearerror => _
+fcheckerror p => _
 
 %hot
 
@@ -1282,7 +1282,7 @@ gc_bif3 Fail Live Bif S1 S2 S3 Dst => i_bif3 S1 S2 S3 Fail Bif Dst
 # encountered.
 #
 unsupported_guard_bif/3
-unsupported_guard_bif A B C | never() =>
+unsupported_guard_bif A B C | never() => _
 
 #
 # R13B03

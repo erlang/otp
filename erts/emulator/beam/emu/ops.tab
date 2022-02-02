@@ -37,7 +37,7 @@ FORBIDDEN_TYPES=h
 # needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler | never() =>
+too_old_compiler | never() => _
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
@@ -82,7 +82,7 @@ int_func_start Lbl Line M F A => label Lbl | i_func_info u M F A | line Line
 # The end of a function.
 int_func_end/2
 int_func_end Func Entry | needs_nif_padding() => i_nif_padding
-int_func_end Func Entry =>
+int_func_end Func Entry => _
 
 i_nif_padding
 
@@ -117,7 +117,7 @@ move S X0=x==0 | line Loc | call_only Ar Func => \
 move S X0=x==0 | line Loc => line Loc | move S X0
 
 # The line number in int_func_start/5 can be NIL.
-line n =>
+line n => _
 line I
 
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
@@ -258,7 +258,8 @@ i_get_tuple_element3 x P x
 is_number f? xy
 %hot
 
-is_number Fail=f i =>
+is_number Fail=f i => _
+
 is_number Fail=f na => jump Fail
 is_number Fail Literal=q => move Literal x | is_number Fail x
 
@@ -288,7 +289,7 @@ i_raise
 
 # Workaround the limitation that generators must always return at least one instruction.
 delete_me/0
-delete_me =>
+delete_me => _
 
 system_limit/1
 system_limit p => system_limit_body
@@ -479,7 +480,8 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl S S =>
+is_eq_exact Lbl S S => _
+
 is_eq_exact Lbl C1=c C2=c => move C1 x | is_eq_exact Lbl x C2
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
@@ -697,7 +699,7 @@ get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg=x P2 D2=y | \
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
-is_integer Fail=f i =>
+is_integer Fail=f i => _
 is_integer Fail=f an => jump Fail
 is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
@@ -707,7 +709,7 @@ is_integer_allocate f? x t t
 
 is_integer f? xy
 
-is_list Fail=f n =>
+is_list Fail=f n => _
 is_list Fail Literal=q => move Literal x | is_list Fail x
 is_list Fail=f c => jump Fail
 is_list f? x
@@ -738,7 +740,7 @@ is_atom f? x
 %cold
 is_atom f? y
 %hot
-is_atom Fail=f a =>
+is_atom Fail=f a => _
 is_atom Fail=f niq => jump Fail
 
 is_float f? x
@@ -748,7 +750,7 @@ is_float f? y
 is_float Fail=f nai => jump Fail
 is_float Fail Literal=q => move Literal x | is_float Fail x
 
-is_nil Fail=f n =>
+is_nil Fail=f n => _
 is_nil Fail=f qia => jump Fail
 
 is_nil f? xy
@@ -788,8 +790,8 @@ is_port f? x
 is_port f? y
 %hot
 
-is_boolean Fail=f a==am_true =>
-is_boolean Fail=f a==am_false =>
+is_boolean Fail=f a==am_true => _
+is_boolean Fail=f a==am_false => _
 is_boolean Fail=f ac => jump Fail
 
 %cold
@@ -1128,7 +1130,7 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Same Same =>
+bs_start_match4 a==am_resume Live Same Same => _
 bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
 bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
@@ -1303,7 +1305,7 @@ i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 
 # Will fail. No need to keep the instruction, because bs_add or
 # bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val =>
+bs_put_float Fail Sz=q Unit Flags Val => _
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			put_float(Fail, Sz, Unit, Flags, Src)
@@ -1369,8 +1371,8 @@ i_fnegate l l
 # FPE signals were disabled in OTP 21 and we don't intend to ever
 # enable them again.
 #
-fclearerror =>
-fcheckerror p =>
+fclearerror => _
+fcheckerror p => _
 
 %hot
 
@@ -1421,9 +1423,8 @@ i_new_small_map_lit d t q *
 update_map_assoc xyc d t I *
 update_map_exact xy j? d t I *
 
-is_map Fail Lit=q | literal_is_map(Lit) =>
+is_map Fail Lit=q | literal_is_map(Lit) => _
 is_map Fail cq => jump Fail
-
 is_map f? xy
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
@@ -1597,7 +1598,7 @@ gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 # encountered.
 #
 unsupported_guard_bif/3
-unsupported_guard_bif A B C | never() =>
+unsupported_guard_bif A B C | never() => _
 
 #
 # R13B03
