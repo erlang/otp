@@ -3977,6 +3977,8 @@ openssl_dtls_maxfraglen_support() ->
             false;
         "OpenSSL 1.1" ++ _ ->
             false;
+	"OpenSSL 3.0.1" ++ _ ->
+	    false; %% OpenSSL sends internal error alert
         "OpenSSL" ++ _ ->
             true;
         _  ->
