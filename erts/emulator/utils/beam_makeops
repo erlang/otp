@@ -49,6 +49,7 @@ my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
 my $jit = 'no';
 my %defs;                        # Defines (from command line).
+my $pending_errors = 0;          # Number of pending errors.
 
 # Intentionally unused macros, predicates, and generators.
 my %intentionally_unused;
@@ -600,7 +601,6 @@ $num_file_opcodes = @gen_opname;
 # or use forbidden types.
 #
 
-my $any_errors;
 foreach my $key (keys %specific_op) {
     my($arity) = (split('/', $key))[1];
     my @specific_ops = @{$specific_op{$key}};
@@ -625,23 +625,27 @@ foreach my $key (keys %specific_op) {
 	    my $cleaned_arg = $arg;
 	    $cleaned_arg =~ s/[?]$//;
 	    if ($jit ne 'no' and $cleaned_arg eq 'r') {
-		warn "specific instruction '$name @args' uses type 'r' which is is not supported for BeamAsm\n";
-		$any_errors = 1;
+                pending_error("specific instruction '$name @args' uses type " .
+                              "'r' which is is not supported for BeamAsm");
 	    } elsif ($forbidden_type{$cleaned_arg}) {
-		warn "specific instruction '$name @args' uses forbidden type '$arg'\n";
-		$any_errors = 1;
+		pending_error("specific instruction '$name @args' uses " .
+                              "forbidden type '$arg'\n");
 	    }
 	}
     }
 }
 
-error("there were previous type errors") if $any_errors;
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
 
 #
 # Produce output for the chosen target.
 #
 
 &$target();
+
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
 
 #
 # Ensure that all C code implementations have been used.
@@ -1287,6 +1291,13 @@ sub parse_c_args {
     }
     $_ eq '' or error("garbage in argument list: $_");
     @res;
+}
+
+sub pending_error {
+    my(@message) = @_;
+    my($where) = $. ? "$ARGV($.): " : "";
+    $pending_errors++;
+    warn $where, @message, "\n";
 }
 
 sub error {
@@ -2760,14 +2771,14 @@ sub tr_gen_from {
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
-		    $ignored_var = '';
-		    $may_fail = 1;
-		    my $op = make_op($var, 'is_same_var', $var{$var});
-		    op_slot_usage($op, $var{$var});
-		    push(@code, $op);
+                    my $msg = "variable $var used more than once\n" .
+                        "   (repeated variables in matching is not supported;\n" .
+                        "   use the predicate equal(Var1, Var2) " .
+                        "to compare variables)";
+                    pending_error($where, $msg);
 		} elsif ($type eq '*') {
 		    foreach my $type (values %var_type) {
-			error("only one use of a '*' variable is " .
+			error($where, "only one use of a '*' variable is " .
 			      "allowed on the left hand side of " .
 			      "a transformation")
 			    if $type eq 'array';
