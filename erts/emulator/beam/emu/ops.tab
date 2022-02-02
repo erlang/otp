@@ -168,32 +168,40 @@ init3 y y y
 
 select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest, 2) => \
+select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest, 2) =>
   jump_tab(S, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest, 2) => \
-  jump_tab(S, Fail, Size, Rest)
+is_integer Fail=f S | select_val S2=s Fail2=f Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  use_jump_tab(Size, Rest, 2) =>
+    jump_tab(S, Fail, Size, Rest)
 
-is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
-	   mixed_types(Size, Rest) => \
-  split_values(S, TypeFail, Fail, Size, Rest)
+is_integer TypeFail=f S | select_val S2=s Fail=f Size=u Rest=* |
+  equal(S, S2) |
+  mixed_types(Size, Rest) =>
+    split_values(S, TypeFail, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
+select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) =>
   split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+is_integer Fail=f S | select_val S2=d Fail2=f Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+is_atom Fail=f S | select_val S2=d Fail2=f Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
+select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) =>
   select_literals(S, Fail, Size, Rest)
 
-select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) =>
   select_val(S, Fail, Size, Rest)
 
-is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
+is_tuple Fail=f S | select_tuple_arity S2=d Fail2=f Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) =>
   select_tuple_arity(S, Fail, Size, Rest)
 
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
@@ -361,17 +369,31 @@ swap R1=x R2=y => swap R2 R1
 swap xy x
 swap y y
 
-swap R1=x R2=x | swap R3=x R1 => swap2 R1 R2 R3
+swap R1=x R2=x | swap R3=x R1Other | equal(R1, R1Other) => swap2 R1 R2 R3
 
 swap2 x x x
 
 # move_shift
 
-move SD=x    D=x | move Src=cxy SD=x  | distinct(D, Src) => move_shift Src SD D
-move SD=y    D=x | move Src=x  SD=y   | distinct(D, Src) => move_shift Src SD D
-move SD=y    D=x | init SD            |                  => move_shift n   SD D
-move SD=x    D=y | move Src=x  SD=x   | distinct(D, Src) => move_shift Src SD D
-move SD=x==0 D=y | move Src=y SD=x==0 | distinct(D, Src) => move_shift Src SD D
+move SD=x    D=x | move Src=cxy SDOther=x |
+  equal(SD, SDOther) | distinct(D, Src) =>
+    move_shift Src SD D
+
+move SD=y    D=x | move Src=x  SDOther=y  |
+  equal(SD, SDOther) | distinct(D, Src) =>
+    move_shift Src SD D
+
+move SD=y    D=x | init SDOther           |
+  equal(SD, SDOther) =>
+     move_shift n   SD D
+
+move SD=x    D=y | move Src=x  SDOther=x  |
+  equal(SD, SDOther) | distinct(D, Src) =>
+    move_shift Src SD D
+
+move SD=x==0 D=y | move Src=y SDOther |
+  equal(SD, SDOther) | distinct(D, Src) =>
+    move_shift Src SD D
 
 move_shift cxy x x
 move_shift nx y x
@@ -480,7 +502,7 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl S S => _
+is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
 
 is_eq_exact Lbl C1=c C2=c => move C1 x | is_eq_exact Lbl x C2
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
@@ -489,7 +511,7 @@ is_eq_exact Lbl R=xy n => is_nil Lbl R
 is_eq_exact Lbl R=xy C=ia => i_is_eq_exact_immed Lbl R C
 is_eq_exact Lbl R=xy C=q => i_is_eq_exact_literal Lbl R C
 
-is_ne_exact Lbl S S => jump Lbl
+is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
 is_ne_exact Lbl C1=c C2=c => move C1 x | is_ne_exact Lbl x C2
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
@@ -561,7 +583,7 @@ put_tuple2 xy I *
 #
 put_list Const=c n Dst => move Const x | put_list x n Dst
 
-put_list Src Dst=x Dst => update_list Src Dst
+put_list Head Tail=x Dst | equal(Tail, Dst) => update_list Head Dst
 
 update_list xyc x
 
@@ -656,7 +678,9 @@ is_tagged_tuple f? rxy A a
 
 is_tuple Fail Literal=q => move Literal x | is_tuple Fail x
 is_tuple Fail=f c => jump Fail
-is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S Arity
+is_tuple Fail=f S=xy | test_arity Fail2=f S2=xy Arity |
+  equal(Fail, Fail2) | equal(S, S2) =>
+    is_tuple_of_arity Fail S Arity
 
 is_tuple_of_arity f? rxy A
 
@@ -664,7 +688,8 @@ is_tuple f? rxy
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
 test_arity Fail=f c Arity => jump Fail
-test_arity Fail Tuple=x Arity | get_tuple_element Tuple Pos Dst=x => \
+test_arity Fail Tuple=x Arity | get_tuple_element Tuple2 Pos Dst=x |
+   equal(Tuple, Tuple2) =>
    test_arity_get_tuple_element Fail Tuple Arity Pos Dst
 
 test_arity f? xy A
@@ -678,24 +703,28 @@ is_tuple NotTupleFail Src=x | \
 
 is_tagged_tuple_ff f? f? rx A a
 
-get_tuple_element Reg=x P1 D1=x | \
-   get_tuple_element Reg=x P2 D2=x | \
-   get_tuple_element Reg=x P3 D3=x | \
-   succ(P1, P2) | succ(P2, P3) | succ(D1, D2) | succ(D2, D3) | \
-   distinct(D1, Reg) | distinct(D2, Reg) => \
+get_tuple_element Reg=x P1 D1=x |
+   get_tuple_element Reg2 P2 D2=x |
+   get_tuple_element Reg3 P3 D3=x |
+   equal(Reg, Reg2) | equal(Reg, Reg3) |
+   succ(P1, P2) | succ(P2, P3) | succ(D1, D2) | succ(D2, D3) |
+   distinct(D1, Reg) | distinct(D2, Reg) =>
       i_get_tuple_element3 Reg P1 D1
 
-get_tuple_element Reg=x P1 D1=x | \
-   get_tuple_element Reg=x P2 D2=x | \
-   succ(P1, P2) | succ(D1, D2) | \
+get_tuple_element Reg=x P1 D1=x |
+   get_tuple_element Reg2 P2 D2=x |
+   equal(Reg, Reg2) |
+   succ(P1, P2) | succ(D1, D2) |
    distinct(D1, Reg) => \
       i_get_tuple_element2 Reg P1 D1
 
-get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
-   succ(P1, P2) | distinct(D1, Reg) => i_get_tuple_element2_dst Reg P1 D1 D2
+get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg2=x P2 D2=x |
+   equal(Reg, Reg2) | succ(P1, P2) | distinct(D1, Reg) =>
+      i_get_tuple_element2_dst Reg P1 D1 D2
 
-get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg=x P2 D2=y | \
-   succ(P1, P2) => i_get_tuple_element2_dst Reg P1 D1 D2
+get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg2=x P2 D2=y |
+   equal(Reg, Reg2) | succ(P1, P2) =>
+      i_get_tuple_element2_dst Reg P1 D1 D2
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
@@ -719,13 +748,16 @@ is_list f? y
 
 is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
-is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
-  is_nonempty_list_get_list Fail S D1 D2
+is_nonempty_list Fail=f S=x | get_list S2 D1=x D2=x |
+  equal(S, S2) =>
+    is_nonempty_list_get_list Fail S D1 D2
 
-is_nonempty_list Fail=f S=x | get_hd S Dst=x => \
+is_nonempty_list Fail=f S=x | get_hd S2 Dst=x |
+  equal(S, S2) =>
   is_nonempty_list_get_hd Fail S Dst
 
-is_nonempty_list Fail=f S=x | get_tl S Dst=x => \
+is_nonempty_list Fail=f S=x | get_tl S2 Dst=x |
+  equal(S, S2) =>
   is_nonempty_list_get_tl Fail S Dst
 
 is_nonempty_list_allocate f? rx t t
@@ -1130,10 +1162,11 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Same Same => _
+bs_start_match4 a==am_resume Live Ctx Dst | equal(Ctx, Dst) => _
 bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
-bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
+bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx2 Pos=x Ignored |
+  equal(Ctx, Ctx2) =>
     i_bs_start_match3_gp Bin Live Fail Ctx Pos
 i_bs_start_match3_gp xy t j d x
 
