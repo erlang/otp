@@ -1183,22 +1183,16 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgVal &NotTuple,
 /* Note: This instruction leaves the pointer to the tuple in ARG2. */
 void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
                                           const ArgVal &Src) {
+    mov_arg(ARG2, Src);
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
         /* Fast path for the `error | {ok, Value}` case. */
         comment("simplified tuple test since the source is always a tuple "
                 "when boxed");
-        a.test(getArgRef(Src, sizeof(byte)),
-               imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-
-        /* Note: ARG2 will NOT be set. This is OK since the operand
-         * for `current_tuple` has a type; that operand will not match
-         * the type-less operand for `get_tuple_element`. Thus, there
-         * will always be a `load_tuple_ptr` instruction emitted if
-         * this instruction is immediately followed by a
-         * `get_tuple_element` instruction. */
+        /* We must be careful to still leave the pointer to the tuple
+         * in ARG2. */
+        (void)emit_ptr_val(ARG2, ARG2);
+        a.test(ARG2.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
     } else {
-        mov_arg(ARG2, Src);
-
         emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
         (void)emit_ptr_val(ARG2, ARG2);
