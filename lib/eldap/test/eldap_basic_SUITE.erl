@@ -171,7 +171,7 @@ ldap_servers(_Config) ->
 
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
-    ServerHosts = ["localhost" | ldap_servers(Config)],
+    ServerHosts = ["localhost" | random_sorted(ldap_servers(Config))],
     LDAP_server =  find_first_server(false,
                                      [{H,9876} || H <- ServerHosts]),
 
@@ -1240,3 +1240,12 @@ init_ssl_certs_et_al(Config) ->
 	    false
     end.
 
+%%%----------------------------------------------------------------
+random_sorted(L) when is_list(L) ->
+    random_sorted(L, length(L), []).
+
+random_sorted([], 0, Acc) -> Acc;
+random_sorted(L, N, Acc) ->
+    R = rand:uniform(N),
+    E = lists:nth(R, L),
+    random_sorted(L -- [E], N-1, [E|Acc]).
