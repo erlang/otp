@@ -128,6 +128,7 @@ erts_transform_engine(LoaderState* st)
             ap++;
             break;
 #endif
+#if defined(TOP_is_same_var)
 	case TOP_is_same_var:
 	    ASSERT(ap < instr->arity);
 	    i = *pc++;
@@ -142,6 +143,7 @@ erts_transform_engine(LoaderState* st)
 		    goto restart;
 	    }
 	    break;
+#endif
 #if defined(TOP_is_bif)
 	case TOP_is_bif:
 	    {
