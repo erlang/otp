@@ -120,7 +120,7 @@
 	}).
 
 %% sctp_partial_delivery_event: XXX: Not clear whether it is delivered to
-%%				the Sender or to the Recepient (probably the
+%%				the Sender or to the Recipient (probably the
 %%				former). Currently, there is only 1 possible
 %%				value for "indication":
 -record(sctp_pdapi_event,

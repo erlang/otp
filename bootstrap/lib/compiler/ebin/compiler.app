@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "8.0.3"},
+  {vsn, "8.0.4"},
   {modules, [
 	     beam_a,
 	     beam_asm,
@@ -40,7 +40,6 @@
              beam_ssa_bsm,
              beam_ssa_codegen,
              beam_ssa_dead,
-             beam_ssa_funs,
              beam_ssa_lint,
              beam_ssa_opt,
              beam_ssa_pp,
@@ -81,5 +80,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-3.15","kernel-7.0","erts-11.0",
-			  "crypto-4.5"]}]}.
+  {runtime_dependencies, ["stdlib-@OTP-17742@","kernel-@OTP-17742@","erts-@OTP-17742@",
+			  "crypto-@OTP-17742@"]}]}.
