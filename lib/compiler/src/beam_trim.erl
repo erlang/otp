@@ -456,7 +456,9 @@ do_usage([{bs_set_position,Src1,Src2}|Is], Safe, Regs0, Ns, Acc) ->
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{bs_start_match4,Fail,_Live,Src,Dst}|Is], Safe, Regs0, Ns, Acc) ->
-    case is_safe_branch(Fail, Safe) of
+    case (Fail =:= {atom,no_fail} orelse
+          Fail =:= {atom,resume} orelse
+          is_safe_branch(Fail, Safe)) of
         true ->
             Regs = ordsets:union(Regs0, yregs([Src,Dst])),
             U = {Regs,Ns},
@@ -576,9 +578,7 @@ do_usage_blk([], Regs, Ns) -> {Regs,Ns}.
 is_safe_branch({f,0}, _Safe) ->
     true;
 is_safe_branch({f,L}, Safe) ->
-    sets:is_element(L, Safe);
-is_safe_branch({atom,no_fail}, _Safe) ->
-    true.
+    sets:is_element(L, Safe).
 
 yregs(Rs) ->
     ordsets:from_list(yregs_1(Rs)).
