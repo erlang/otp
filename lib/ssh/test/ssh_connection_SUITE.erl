@@ -209,7 +209,7 @@ end_per_suite(_Config) ->
 init_per_group(openssh, Config) ->
     case ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, []) of
 	{error,econnrefused} ->
-	    {skip,"No openssh deamon (econnrefused)"};
+	    {skip,"No openssh daemon (econnrefused)"};
 	{ok, Socket} ->
 	    gen_tcp:close(Socket),
 	    ssh_test_lib:openssh_sanity_check(Config)
@@ -679,7 +679,7 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 					      ct:log("~p:~p got expected data",[?MODULE,?LINE]),
 					      ok;
 					  Other ->
-					      ct:log("~p:~p unexpect: ~p", [?MODULE,?LINE,Other]),
+					      ct:log("~p:~p unexpected: ~p", [?MODULE,?LINE,Other]),
 					      {fail,"unexpected result in listener"}
 				      catch
 					  Class:Exception ->
@@ -1236,7 +1236,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
                             receive
                                 {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
                                     Parent ! {answer_received,self()},
-                                    ct:log("~p:~p: recevied result on connection ~p", [?MODULE,?LINE,ConnectionRef])
+                                    ct:log("~p:~p: received result on connection ~p", [?MODULE,?LINE,ConnectionRef])
                             after 5000 ->
                                     ct:fail("Exec Timeout")
                             end

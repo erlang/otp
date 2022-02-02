@@ -47,7 +47,7 @@
 	  prints = [],
 	  return_value,
 
-          %% Packet retrival and decryption
+          %% Packet retrieval and decryption
           decrypted_data_buffer     = <<>>,
           encrypted_data_buffer     = <<>>,
           aead_data                 = <<>>,
@@ -343,7 +343,7 @@ send(S0=#s{alg_neg={undefined,PeerMsg}}, Msg=#ssh_msg_kexinit{}) ->
 			 S1#s{alg = Cx#ssh.algorithms}
 		 catch
 		     Class:Exc ->
-			 save_prints({"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
+			 save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
 				      [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(Msg)]},
 				     S1)
 		 end;
@@ -361,8 +361,8 @@ send(S0, ssh_msg_kexdh_init) when ?role(S0) == client ->
 	try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S0#s.ssh)
 	catch
 	    Class:Exc ->
-		fail("Algoritm negotiation failed!",
-		     {"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s",
+		fail("Algorithm negotiation failed!",
+		     {"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s",
 		      [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
 		     S0)
 	end,
@@ -429,7 +429,7 @@ recv(S0 = #s{}) ->
 	    %% Must see hello before binary messages
 	    try_find_crlf(<<>>, S1);
 	true ->
-	    %% Has seen hello, therefore no more crlf-messages are alowed.
+	    %% Has seen hello, therefore no more crlf-messages are allowed.
 	    S = receive_binary_msg(S1),
 	    case PeerMsg = S#s.return_value of
 		#ssh_msg_kexinit{} ->
@@ -451,7 +451,7 @@ recv(S0 = #s{}) ->
 					alg = C#ssh.algorithms}
 			    catch
 				Class:Exc ->
-				    save_prints({"Algoritm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
+				    save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
 						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
 						S#s{alg_neg = {OwnMsg, PeerMsg}})
 			    end
@@ -650,7 +650,7 @@ ok({error,E}) -> erlang:error(E).
 
 %%%================================================================
 %%%
-%%% Formating of records
+%%% Formatting of records
 %%% 
 
 format_msg(M) -> format_msg(M, 0).

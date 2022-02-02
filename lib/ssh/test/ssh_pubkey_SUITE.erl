@@ -836,8 +836,8 @@ chk_known_hosts(Config) ->
 
 
 %%%----------------------------------------------------------------
-try_connect({skip,Reson}) ->
-    {skip,Reson};
+try_connect({skip,Reason}) ->
+    {skip,Reason};
 try_connect(Config) ->
     SystemDir = proplists:get_value(system_dir, Config),
     UserDir = proplists:get_value(user_dir, Config),

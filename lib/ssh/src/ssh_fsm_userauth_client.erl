@@ -55,13 +55,13 @@ callback_mode() ->
 
 %%% ######## {userauth, client} ####
 
-%%---- #ssh_msg_ext_info could follow after the key exchange, both the intial and the re-negotiation
+%%---- #ssh_msg_ext_info could follow after the key exchange, both the initial and the re-negotiation
 handle_event(internal, #ssh_msg_ext_info{}=Msg, {userauth,client}, D0) ->
     %% FIXME: need new state to receive this msg!
     D = ssh_connection_handler:handle_ssh_msg_ext_info(Msg, D0),
     {keep_state, D};
 
-%%---- recevied userauth success from the server
+%%---- received userauth success from the server
 handle_event(internal, #ssh_msg_userauth_success{}, {userauth,client}, D0=#data{ssh_params = Ssh}) ->
     ssh_auth:ssh_msg_userauth_result(success),
     ssh_connection_handler:handshake(ssh_connected, D0),
@@ -80,7 +80,7 @@ handle_event(internal, #ssh_msg_userauth_failure{}, {userauth,client}=StateName,
 
 handle_event(internal, #ssh_msg_userauth_failure{authentications = Methods}, StateName={userauth,client},
 	     D0 = #data{ssh_params = Ssh0}) ->
-    %% The prefered authentication method failed, try next method
+    %% The preferred authentication method failed, try next method
     Ssh1 = case Ssh0#ssh.userauth_methods of
 	       none ->
 		   %% Server tells us which authentication methods that are allowed

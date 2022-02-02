@@ -96,7 +96,7 @@
 	<seemfa marker="crypto:crypto#crypto_init/4">crypto:crypto_init/4</seemfa>
 	or similar. The <c>crypto_state()</c> is the state such a function may return.
 	</p>
-	<p>If the selected cipher needs to have the input data partioned into
+	<p>If the selected cipher needs to have the input data partitioned into
 	blocks of a certain size, the <c>init_fun()</c> should return the second
 	form of return value with the <c>chunk_size()</c> set to the block size.
 	If the <c>chunk_size()</c> is <c>undefined</c>, the size of the <c>PlainBin</c>s varies,

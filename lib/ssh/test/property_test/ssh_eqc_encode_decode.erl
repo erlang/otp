@@ -250,7 +250,7 @@ msg_code(Num) -> Name
 -include_lib("ssh/src/ssh_connect.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
 
-%%% Encoding and decodeing is asymetric so out=binary in=string. Sometimes. :(
+%%% Encoding and decoding is asymmetric so out=binary in=string. Sometimes. :(
 -define(fix_asym_Xdh_reply(S),
  fix_asym(#S{public_host_key = Key, h_sig = {Alg,Sig}} = M) ->
       M#S{public_host_key = {Key, list_to_atom(Alg)}, h_sig = Sig}

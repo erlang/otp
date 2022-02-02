@@ -313,7 +313,7 @@ listen(Parent, LSock) ->
     do_listen(Parent, LSock).
 
 do_listen(Parent, LSock) ->
-    %% So annoying there is no select-like sematic for this
+    %% So annoying there is no select-like semantics for this
     case gen_tcp:accept(LSock, ?ACCEPT_TMO) of
 	{ok, Sock} ->
 	    Parent ! {accept, Sock},

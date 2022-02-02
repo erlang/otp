@@ -64,7 +64,7 @@
     <p>To just run a shell on a remote machine, there are functions that bundles the needed 
     three steps needed into one:
     <seemfa marker="#shell/1">shell/1,2,3</seemfa>.
-    Similarily, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
+    Similarly, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
     <seemfa marker="ssh_sftp#start_channel/1">ssh_sftp:start_channel/1,2,3</seemfa>.
     </p>
     <p>To write your own client channel handler, use the behaviour 
@@ -102,7 +102,7 @@
     <seetype marker="ssh_file#user_dir_common_option"><c>user_dir</c></seetype> and
     <seetype marker="ssh_file#system_dir_daemon_option"><c>system_dir</c></seetype>.
     </p>
-    <p>A completly different storage could be interfaced by writing call-back modules
+    <p>A completely different storage could be interfaced by writing call-back modules
     using the behaviours
     <seeerl marker="ssh_client_key_api">ssh_client_key_api</seeerl> and/or
     <seeerl marker="ssh_server_key_api">ssh_server_key_api</seeerl>.
@@ -440,8 +440,8 @@
 	</p>
 	<p>In case of the <c>{direct, exec_fun()}</c> variant or no exec-option at all,
 	all reads from <c>standard_input</c> will be from the received data-events of type 0.
-	Those are sent by the client. Similarily all writes to <c>standard_output</c>
-	will be sent as data-events to the client. An OS shell client like the command 'ssh' will usally use
+	Those are sent by the client. Similarly all writes to <c>standard_output</c>
+	will be sent as data-events to the client. An OS shell client like the command 'ssh' will usually use
 	stdin and stdout for the user interface.
 	</p>
 	<p>The option cooperates with the daemon-option <seetype marker="#shell_daemon_option"><c>shell</c></seetype>
@@ -605,7 +605,7 @@
 	  <seetype marker="#pwdfun_4"><c>pwdfun_4()</c></seetype>
 	  </tag>
 	  <item>
-	    <p>Provides a function for password validation. This could used for calling an external system or handeling
+	    <p>Provides a function for password validation. This could used for calling an external system or handling
 	    passwords stored as hash values.
 	    </p>
 	    <p>This fun can also be used to make delays in authentication tries for example by calling
@@ -1051,7 +1051,7 @@
       <desc>
 	<p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
 	applied after the option <c>preferred_algorithms</c> (if existing) is applied.</p>
-	<p>The algoritm for modifications works like this:</p>
+	<p>The algorithm for modifications works like this:</p>
 	<list>
 	  <item>
 	    <p>Input is the <c>modify_algs_list()</c> and a set of algorithms <c>A</c>
@@ -1318,7 +1318,7 @@
        <p>are allowed. The excluded options are reserved by the SSH application.
        </p>
        <warning>
-	 <p>This is an extremly dangerous function. You use it on your own risk.</p>
+	 <p>This is an extremely dangerous function. You use it on your own risk.</p>
 	 <p>Some options are OS and OS version dependent.
 	 Do not use it unless you know what effect your option values will have
 	 on an TCP stream.</p>
@@ -1340,7 +1340,7 @@
      </desc>
    </func>
 
-<!-- DEAMON/1,2,3 -->
+<!-- DAEMON/1,2,3 -->
    <func>
      <name since="">daemon(Port | TcpSocket) -> Result</name>
      <name since="">daemon(Port | TcpSocket, Options) -> Result</name>
@@ -1374,7 +1374,7 @@
 	  An 'ip'-option will be discarded if present.</item>
 
 	  <item>if <c>HostAddress</c> is the atom <c>loopback</c>, the listening address
-	  is <c>loopback</c> and an loopback address will be choosen by the underlying layers.
+	  is <c>loopback</c> and an loopback address will be chosen by the underlying layers.
 	  An 'ip'-option will be discarded if present.</item>
 
 	  <item>if <c>HostAddress</c> is the atom <c>any</c> and no 'ip'-option is present, the listening address is
@@ -1433,7 +1433,7 @@
 	interactive shell on that remote host.
 	</p>
 	<p>As an alternative, an already open TCP socket could be passed to the function in <c>TcpSocket</c>.
-	The SSH initiation and negotiation will be initiated on that one and finaly a shell will be started
+	The SSH initiation and negotiation will be initiated on that one and finally a shell will be started
 	on the host at the other end of the TCP socket.
 	</p>
 	<p>For a description of the options, see <seetype marker="#client_options">Client Options</seetype>.</p>

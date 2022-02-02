@@ -299,7 +299,7 @@ do(Pid, Fun, Timeout) when is_function(Fun,0) ->
 	    
 %%%----------------
 %%% Start a new connection
-%%% Precondition:  deamon exists
+%%% Precondition:  daemon exists
 
 ssh_open_connection_pre(S) -> S#state.servers /= [].
     

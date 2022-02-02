@@ -122,7 +122,7 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
                             {error,Error};
                         error:timeout ->
                             %% The connection was started, but the takover procedure timed out,
-                            %% therefor it exists a subtree, but it is not quite ready and
+                            %% therefore it exists a subtree, but it is not quite ready and
                             %% must be removed (by the supervisor above):
                             supervisor:terminate_child(SysPid, Id),
                             {error, connection_start_timeout}
@@ -219,7 +219,7 @@ find_system_sup(Role, Address0) ->
     case addresses(Role, Address0) of
         [{SysSupPid,Address}] -> {ok,{SysSupPid,Address}};
         [] -> {error,not_found};
-        [_,_|_] -> {error,ambigous}
+        [_,_|_] -> {error,ambiguous}
     end.
 
 sup(client) -> sshc_sup;

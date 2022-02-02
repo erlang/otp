@@ -80,7 +80,7 @@ groups() ->
 ssh_image_versions() ->
     try
         %% Find all useful containers in such a way that undefined command, too low
-        %% priviliges, no containers and containers found give meaningful result:
+        %% privileges, no containers and containers found give meaningful result:
         L0 = ["REPOSITORY"++_|_] = string:tokens(os:cmd("docker images"), "\r\n"),
         [["REPOSITORY","TAG"|_]|L1] = [string:tokens(E, " ") || E<-L0],
         [list_to_atom(V) || [?DOCKER_PFX,V|_] <- L1]
@@ -151,7 +151,7 @@ init_per_group(G, Config0) ->
                                     ct:comment("~s",[NewCmnt])
                             end,
                             AuthMethods =
-                                %% This should be obtained by quering the peer, but that
+                                %% This should be obtained by querying the peer, but that
                                 %% is a bit hard. It is possible with ssh_protocol_SUITE
                                 %% techniques, but it can wait.
                                 case Vssh of
@@ -409,7 +409,7 @@ send_recv_big_with_renegotiate_otp_is_client(Config) ->
     Data = << <<X:32>> || X <- lists:seq(1, HalfSizeBytes div 4)>>,
 
     %% Send the data. Must spawn a process to avoid deadlock. The client will block
-    %% until all is sent through the send window. But the server will stop receiveing
+    %% until all is sent through the send window. But the server will stop receiving
     %% when the servers send-window towards the client is full.
     %% Since the client can't receive before the server has received all but 655k from the client
     %% ssh_connection:send/4 is blocking...
@@ -875,7 +875,7 @@ new_dir(Config) ->
 
 %%--------------------------------------------------------------------
 %%
-%% Find the intersection of algoritms for otp ssh and the docker ssh.
+%% Find the intersection of algorithms for otp ssh and the docker ssh.
 %% Returns {ok, ServerHello, Server, ClientHello, Client} where Server are the algorithms common
 %% with the docker server and analogous for Client.
 %%
@@ -1097,7 +1097,7 @@ receive_hello(S, Ack) ->
 
 
 receive_kexinit(_S, <<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>)
-  when PacketLen < 5000, % heuristic max len to stop huge attempts if packet decodeing get out of sync
+  when PacketLen < 5000, % heuristic max len to stop huge attempts if packet decoding get out of sync
        size(PayloadAndPadding) >= (PacketLen-1) % Need more bytes?
        ->
     ct:log("Has all ~p packet bytes",[PacketLen]),

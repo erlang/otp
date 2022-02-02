@@ -172,7 +172,7 @@ encode(#ssh_msg_userauth_pk_ok{
     <<?Ebyte(?SSH_MSG_USERAUTH_PK_OK), ?Estring(Alg), ?Ebinary(KeyBlob)>>;
 
 encode(#ssh_msg_userauth_passwd_changereq{prompt = Prompt,
-					  languge = Lang
+					  language = Lang
 					 })->
     <<?Ebyte(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?Estring_utf8(Prompt), ?Estring(Lang)>>;
 
@@ -438,7 +438,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST),
 decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?DEC_BIN(Prompt,__0), ?DEC_BIN(Lang,__1) >>) ->
     #ssh_msg_userauth_passwd_changereq{
        prompt = Prompt,
-       languge = Lang
+       language = Lang
       };
 
 %%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:

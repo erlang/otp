@@ -282,7 +282,7 @@
   </section>
   <section>
     <title>Unicode support</title>
-    <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
+    <p>Unicode filenames are supported if the emulator and the underlying OS support it. See section DESCRIPTION in the
       <seeerl marker="kernel:file">file</seeerl> manual page in Kernel for information about this subject.
     </p>
     <p>The shell and the cli both support unicode.

@@ -1274,8 +1274,8 @@ alg_final(rcv, SSH0) ->
 
 
 select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
-    %% algortihms only used by client
-    %% NOTE: an algorithm occuring more than once in CL will still be present
+    %% algorithms only used by client
+    %% NOTE: an algorithm occurring more than once in CL will still be present
     %%       in CLonly. This is not a problem for nice clients.
     CLonly = CL -- SL,
 

@@ -85,7 +85,7 @@
       <name name="req_status"/>
       <desc>
 	<p>The status of a request.
-	Coresponds to the <c>SSH_MSG_CHANNEL_SUCCESS</c> and <c>SSH_MSG_CHANNEL_FAILURE</c> values in
+	Corresponds to the <c>SSH_MSG_CHANNEL_SUCCESS</c> and <c>SSH_MSG_CHANNEL_FAILURE</c> values in
 	<url href="https://tools.ietf.org/html/rfc4254#section-5.4">RFC 4254, Section 5.4</url>.
 	</p>
       </desc>
