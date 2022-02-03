@@ -1780,7 +1780,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
             comment("size binary/integer/float/string");
 
             if (always_small(seg.size)) {
-                auto [min, max] = getIntRange(seg.size);
+                auto [min, _] = getIntRange(seg.size);
                 if (min >= 0) {
                     can_fail = false;
                 }
