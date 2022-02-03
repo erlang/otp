@@ -291,17 +291,13 @@ static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
 
 static void calc_shrink_limit(DbTableHash* tb);
 
-void erl_db_hash_adapt_number_of_locks(DbTable* tb) {
+void db_hash_adapt_number_of_locks(DbTable* tb) {
     db_hash_lock_array_resize_state current_state;
     DbTableHash* tbl;
     int new_number_of_locks;
-    if(!IS_HASH_WITH_AUTO_TABLE(tb->common.type)) {
-        return;
-    }
-    current_state = erts_atomic_read_nob(&tb->hash.lock_array_resize_state);
-    if (current_state == DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL) {
-        return;
-    }
+
+    ASSERT(IS_HASH_WITH_AUTO_TABLE(tb->common.type));
+
     tbl = &tb->hash;
     erts_rwmtx_rwlock(&tb->common.rwlock);
     current_state = erts_atomic_read_nob(&tb->hash.lock_array_resize_state);
@@ -414,6 +410,40 @@ static ERTS_INLINE erts_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
     }
 }
 
+static void
+wlock_after_failed_trylock(DbTableHash* tb, DbTableHashLockAndCounter* lock)
+{
+    erts_rwmtx_rwlock(&lock->lck);
+    lock->lck_stat += LCK_AUTO_CONTENDED_STAT_CONTRIB;
+    if (lock->lck_stat > LCK_AUTO_GROW_LIMIT) {
+        /*
+         * Do not do any adaptation if the table is
+         * fixed as this can lead to missed slots when
+         * traversing over the table.
+         */
+        if (!IS_FIXED(tb)) {
+            if (tb->nlocks < LCK_AUTO_MAX_LOCKS &&
+                (DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL ==
+                 erts_atomic_read_nob(&tb->lock_array_resize_state))) {
+                /*
+                 * Trigger lock array increase later when we
+                 * can take the table lock
+                 */
+                erts_atomic_set_nob(&tb->lock_array_resize_state,
+                                    DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW);
+            }
+            else {
+                /*
+                 * The lock statistics is kept if the table is
+                 * fixed as it is likely that we want to adapt
+                 * when the table is not fixed any more.
+                 */
+                lock->lck_stat = 0;
+            }
+        }
+    }
+}
+
 /* Fine grained write lock */
 static ERTS_INLINE
 DbTableHashLockAndCounter* WLOCK_HASH_GET_LCK_AND_CTR(DbTableHash* tb, HashValue hval)
@@ -425,37 +455,12 @@ DbTableHashLockAndCounter* WLOCK_HASH_GET_LCK_AND_CTR(DbTableHash* tb, HashValue
         if (tb->common.type & DB_FINE_LOCKED_AUTO) {
             DbTableHashLockAndCounter* lck_couter = GET_LOCK_AND_CTR(tb, hval);
             if (EBUSY == erts_rwmtx_tryrwlock(&lck_couter->lck)) {
-                erts_rwmtx_rwlock(&lck_couter->lck);
-                lck_couter->lck_stat += LCK_AUTO_CONTENDED_STAT_CONTRIB;
-                if (lck_couter->lck_stat > LCK_AUTO_GROW_LIMIT) {
-                    if (tb->nlocks < LCK_AUTO_MAX_LOCKS &&
-                        !IS_FIXED(tb) &&
-                        (DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL ==
-                         erts_atomic_read_nob(&tb->lock_array_resize_state))) {
-                        /*
-                          Trigger lock array increase later when we
-                          can take the table lock
-                        */
-                        erts_atomic_set_nob(&tb->lock_array_resize_state,
-                                            DB_HASH_LOCK_ARRAY_RESIZE_STATUS_GROW);
-                    } else if (!IS_FIXED(tb)) {
-                        /*
-                          Do not do any adaptation if the table is
-                          fixed as this can lead to missed slots when
-                          traversing over the table.
-
-                          The lock statistics is kept if the table is
-                          fixed as it is likely that we want to adapt
-                          when the table is not fixed any more.
-                        */
-                        lck_couter->lck_stat = 0;
-                    }
-                }
+                wlock_after_failed_trylock(tb, lck_couter);
             } else {
                 lck_couter->lck_stat += LCK_AUTO_UNCONTENDED_STAT_CONTRIB;
-                if (lck_couter->lck_stat < LCK_AUTO_SHRINK_LIMIT) {
+                if (lck_couter->lck_stat < LCK_AUTO_SHRINK_LIMIT
+                    && !IS_FIXED(tb)) {
                     if(tb->nlocks > LCK_AUTO_MIN_LOCKS &&
-                       !IS_FIXED(tb) &&
                        (DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL ==
                         erts_atomic_read_nob(&tb->lock_array_resize_state))) {
                         /*
@@ -464,7 +469,7 @@ DbTableHashLockAndCounter* WLOCK_HASH_GET_LCK_AND_CTR(DbTableHash* tb, HashValue
                         */
                         erts_atomic_set_nob(&tb->lock_array_resize_state,
                                             DB_HASH_LOCK_ARRAY_RESIZE_STATUS_SHRINK);
-                    } else if (!IS_FIXED(tb)) {
+                    } else {
                         lck_couter->lck_stat = 0;
                     }
                 }
@@ -531,6 +536,13 @@ static ERTS_INLINE void WUNLOCK_HASH_LCK_CTR(DbTableHashLockAndCounter* lck_ctr)
 static ERTS_INLINE Sint next_slot(DbTableHash* tb, Uint ix,
 				  erts_rwmtx_t** lck_ptr)
 {
+    /*
+     * To minimize locking ops, we jump to next bucket using same lock.
+     * In case of {write_concurrency,auto} this is safe as 'nlocks' does not
+     * change as long as table is fixed, which all single call select/match do.
+     * Unfixed next,prev and select/1 calls are also "safe" in the sence that
+     * we will seize correct locks as 'nlocks' will not change during the calls.
+     */
     ix += tb->nlocks;
     if (ix < NACTIVE(tb)) return ix;
     RUNLOCK_HASH(*lck_ptr);
@@ -1923,7 +1935,8 @@ static int match_traverse_continue(traverse_context_t* ctx,
     }
 
     lck = ctx->on_lock_hash(tb, slot_ix);
-    if (slot_ix >= NACTIVE(tb)) { /* Is this possible? */
+    if (slot_ix >= NACTIVE(tb)) {
+        /* Is this possible? Yes, for ets:select/1 without safe_fixtable */
         ctx->on_unlock_hash(lck);
         *ret = NIL;
         ret_value = DB_ERROR_BADPARAM;

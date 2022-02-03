@@ -821,7 +821,7 @@ DbTable* db_get_table_aux(Process *p,
     }
 
     if (tb) {
-        erl_db_hash_adapt_number_of_locks(tb);
+        DB_HASH_ADAPT_NUMBER_OF_LOCKS(tb);
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
         /*
