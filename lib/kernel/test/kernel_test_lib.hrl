@@ -30,8 +30,10 @@
 -define(SKIPT(R),                throw({skip, R})).
 -define(SKIPE(R),                exit({skip, R})).
 
--define(TC_TRY(Case, TC),        ?TC_TRY(Case, fun() -> ok end, TC)).
--define(TC_TRY(Case, Cond, TC),  ?LIB:tc_try(Case, Cond, TC)).
+-define(TC_TRY(Case, TC),                  ?LIB:tc_try(Case, TC)).
+-define(TC_TRY(Case, Cond, TC),            ?LIB:tc_try(Case, Cond, TC)).
+-define(TC_TRY(Case, Pre, TC, Post),       ?LIB:tc_try(Case, Pre,TC,Post)).
+-define(TC_TRY(Case, Cond, Pre, TC, Post), ?LIB:tc_try(Case, Cond, Pre,TC,Post)).
 
 -define(SOCKET_TYPE(C),          ?LIB:socket_type(C)).
 -define(LISTEN(C),               ?LIB:listen(C, 0, [])).
