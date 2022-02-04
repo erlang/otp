@@ -630,7 +630,7 @@ do_bad_address(Config) when is_list(Config) ->
 %%-------------------------------------------------------------
 %% OTP-6249 UDP option for number of packet reads
 %%
-%% Starts a slave node that on command sends a bunch of messages
+%% Starts a node that on command sends a bunch of messages
 %% to our UDP port. The receiving process just receives and
 %% ignores the incoming messages.
 %% A tracing process traces the receiving port for
@@ -660,7 +660,7 @@ do_read_packets(Config) when is_list(Config) ->
     ?P("open socket (with read-packets: ~p)", [N1]),
     {ok, R}   = ?OPEN(Config, 0, [{read_packets,N1}]),
     {ok, RP}  = inet:port(R),
-    ?P("create slave node"),
+    ?P("create node"),
     {ok,Node} = start_node(gen_udp_SUITE_read_packets),
     %%
     ?P("perform read-packets test"),
@@ -675,7 +675,7 @@ do_read_packets(Config) when is_list(Config) ->
     ?P("verify read-packets (to ~w)", [N2]),
     {ok, [{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
-    ?P("stop slave node"),
+    ?P("stop node"),
     stop_node(Node),
 
     ?P("dump trace 1"),
@@ -2885,7 +2885,7 @@ pi(Item) ->
 
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
+    test_server:start_node(Name, peer, [{args, "-pa " ++ Pa}]).
 
 stop_node(Node) ->
     test_server:stop_node(Node).
