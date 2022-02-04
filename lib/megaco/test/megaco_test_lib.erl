@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2234,20 +2234,24 @@ lookup_config(Key,Config) ->
 	    []
     end.
 
-mk_nodes(N) when (N > 0) ->
-    mk_nodes(N, []).
 
-mk_nodes(0, Nodes) ->
+mk_nodes(1 = _N) ->
+    [node()];
+mk_nodes(N) when is_integer(N) andalso (N > 1) ->
+    OwnNode       = node(),
+    [Name0, Host] = node_to_name_and_host(OwnNode),
+    Uniq          = erlang:unique_integer([positive]),
+    Name          =
+        list_to_atom(lists:concat([Name0, "_", integer_to_list(Uniq)])),
+    [OwnNode | mk_nodes(N-1, Name, Host, [])].
+
+mk_nodes(0, _BaseName, _Host, Nodes) ->
     Nodes;
-mk_nodes(N, []) ->
-    mk_nodes(N - 1, [node()]);
-mk_nodes(N, Nodes) when N > 0 ->
-    Head = hd(Nodes),
-    [Name, Host] = node_to_name_and_host(Head),
-    Nodes ++ [mk_node(I, Name, Host) || I <- lists:seq(1, N)].
+mk_nodes(N, BaseName, Host, Nodes) ->
+    mk_nodes(N-1, BaseName, Host, [mk_node(N, BaseName, Host)|Nodes]).
 
-mk_node(N, Name, Host) ->
-    list_to_atom(lists:concat([Name ++ integer_to_list(N) ++ "@" ++ Host])).
+mk_node(N, BaseName, Host) ->
+    list_to_atom(lists:concat([BaseName, "_", integer_to_list(N), "@", Host])).
     
 %% Returns [Name, Host]    
 node_to_name_and_host(Node) ->
@@ -2310,23 +2314,33 @@ start_node(Node, Force, Retry, File, Line) ->
         pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
             Pa = filename:dirname(code:which(?MODULE)),
-            Args = " -pa " ++ Pa ++
+            Args0 = " -pa " ++ Pa ++
                 " -s " ++ atom_to_list(megaco_test_sys_monitor) ++ " start" ++ 
                 " -s global sync",
+            Args = string:tokens(Args0, [$\ ]),
             p("try start node ~p", [Node]),
-	    case slave:start_link(Host, Name, Args) of
-		{ok, NewNode} when NewNode =:= Node ->
+            PeerOpts = #{name => Name,
+                         host => Host,
+                         args => Args},
+	    case peer:start(PeerOpts) of
+		{ok, _Peer, NewNode} when NewNode =:= Node ->
                     p("node ~p started - now set path, cwd and sync", [Node]),
-		    Path = code:get_path(),
+		    Path      = code:get_path(),
 		    {ok, Cwd} = file:get_cwd(),
-		    true = rpc:call(Node, code, set_path, [Path]),
-		    ok = rpc:call(Node, file, set_cwd, [Cwd]),
-		    true = rpc:call(Node, code, set_path, [Path]),
-		    {_, []} = rpc:multicall(global, sync, []),
+		    true      = rpc:call(Node, code, set_path, [Path]),
+		    ok        = rpc:call(Node, file, set_cwd, [Cwd]),
+		    true      = rpc:call(Node, code, set_path, [Path]),
+		    {_, []}   = rpc:multicall(global, sync, []),
 		    ok;
+		{ok, _Peer, NewNode} ->
+                    e("wrong node started: "
+                      "~n      Expected: ~p"
+                      "~n      Got:      ~p", [Node, NewNode]),
+                    stop_node(NewNode),
+                    fatal_skip({invalid_node_start, NewNode, Node}, File, Line); 
 		Other ->
                     e("failed starting node ~p: ~p", [Node, Other]),
-		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
+                    fatal_skip({cannot_start_node, Node, Other}, File, Line)
 	    end
     end.
 
@@ -2363,10 +2377,18 @@ stop_node(Node) ->
     rpc:call(Node, erlang, halt, []),
     receive
         {nodedown, Node} ->
+            p("node ~p stopped", [Node]),
             ok
     after 10000 ->
             e("failed stop node ~p", [Node]),
-            error
+            erlang:monitor_node(Node, false),
+            receive
+                {nodedown, Node} ->
+                    p("node ~p stopped after timeout (race)", [Node]),
+                    ok
+            after 0 ->
+                    error
+            end
     end.
 
 
