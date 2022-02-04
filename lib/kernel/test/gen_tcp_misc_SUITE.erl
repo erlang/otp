@@ -631,34 +631,71 @@ no_accept(Config) when is_list(Config) ->
 %% Send several packets to a socket and close it.  All packets should
 %% arrive to the other end.
 close_with_pending_output(Config) when is_list(Config) ->
-    {ok, L} = ?LISTEN(Config, 0, [binary, {active, false}]),
+    ?P("~w -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [?FUNCTION_NAME, Config, nodes()]),
+    {ok, L}         = ?LISTEN(Config, 0, [binary, {active, false}]),
     {ok, {_, Port}} = inet:sockname(L),
-    Packets = 16,
-    Total = 2048*Packets,
-    case start_remote(close_pending) of
+    Packets         = 16,
+    Total           = 2048*Packets,
+    ?P("~w -> try start 'remote' node", [?FUNCTION_NAME]),
+    case start_remote(?FUNCTION_NAME, ?WHICH_INET_BACKEND(Config)) of
 	{ok, Node} ->
+            ?P("~w -> remote node started - "
+               "try get hostname", [?FUNCTION_NAME]),
 	    {ok, Host} = inet:gethostname(),
+            ?P("~w -> got hostname ~p - spawn sender", [?FUNCTION_NAME, Host]),
 	    spawn_link(Node, ?MODULE, sender, [Config, Port, Packets, Host]),
+            ?P("~w -> sender spawned - accept connection", [?FUNCTION_NAME]),
 	    {ok, A} = gen_tcp:accept(L),
+            ?P("~w -> connection accepted - "
+               "recv ~w data", [?FUNCTION_NAME, Total]),
 	    case gen_tcp:recv(A, Total) of
                 {ok, Bin} when byte_size(Bin) == Total ->
+                    ?P("~w -> [OK] received expected ~w bytes of data - "
+                       "close sockets", [?FUNCTION_NAME, Total]),
                     gen_tcp:close(A),
-                    gen_tcp:close(L);
+                    gen_tcp:close(L),
+                    ?P("~w -> stop 'remote' node ~p", [?FUNCTION_NAME, Node]),
+                    ?STOP_NODE(Node);
                 {ok, Bin} ->
+                    ?P("~w -> [ERROR] unexpected amount of data recv - "
+                       "close sockets: "
+                       "~n      Expected: ~p"
+                       "~n      Received: ~p",
+                       [?FUNCTION_NAME, Total, byte_size(Bin)]),
+                    gen_tcp:close(A),
+                    gen_tcp:close(L),
+                    ?P("~w -> stop 'remote' node ~p", [?FUNCTION_NAME, Node]),
+                    ?STOP_NODE(Node),
                     ct:fail({small_packet, byte_size(Bin)});
                 Error ->
+                    ?P("~w -> [ERROR] recv failed - "
+                       "close sockets: "
+                       "~n      Error: ~p", [?FUNCTION_NAME, Error]),
+                    (catch gen_tcp:close(A)),
+                    (catch gen_tcp:close(L)),
+                    ?P("~w -> stop 'remote' node ~p", [?FUNCTION_NAME, Node]),
+                    ?STOP_NODE(Node),
                     ct:fail({unexpected, Error})
             end,
 	    ok;
 	{error, no_remote_hosts} ->
+            ?P("~w -> [ERROR] no remote hosts - "
+               "close listen socket", [?FUNCTION_NAME]),
             gen_tcp:close(L),
 	    {skipped, "No remote hosts"};
 	{error, {no_connection,timeout}} ->
+            ?P("~w -> [ERROR] no connection : timeout - "
+               "close listen socket", [?FUNCTION_NAME]),
             gen_tcp:close(L),
 	    {skipped, "node start timeout"};
 	{error, Other} ->
             %% Node starting is not what this test case is about.
             %% so, if this fails, skip
+            ?P("~w -> [ERROR] unexpected error - "
+               "close listen socket"
+              "~n      ~p", [?FUNCTION_NAME, Other]),
             gen_tcp:close(L),
 	    {skipped, {failed_starting_remote_node, Other}}
     end.
@@ -1101,7 +1138,8 @@ start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
     ?START_NODE(Name, "-pa " ++ Pa).
 
-start_remote(Name) ->
+start_remote(Name0, InetBackend) ->
+    Name = list_to_atom(?F("~w_~w", [Name0, InetBackend])),
     Pa = filename:dirname(code:which(?MODULE)),
     ?START_NODE(Name, "-pa " ++ Pa, [{remote, true}]).
 

@@ -30,7 +30,8 @@
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
-         test_inet_backends/0]).
+         test_inet_backends/0,
+         which_inet_backend/1]).
 -export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
@@ -1825,6 +1826,15 @@ test_inet_backends() ->
         _ ->
             false 
     end.
+
+which_inet_backend(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, Backend}]}} ->
+            Backend;
+        _ ->
+            default
+    end.
+    
 
 
 proxy_call(F, Timeout, Default)

@@ -51,6 +51,7 @@
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
+-define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
 -define(START_NODE(__N__, __A__),
