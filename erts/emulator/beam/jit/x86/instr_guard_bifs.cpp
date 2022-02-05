@@ -162,6 +162,72 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
                      signed_val(Pos.getValue()) > 0 &&
                      signed_val(Pos.getValue()) <= (Sint)MAX_ARITYVAL;
 
+    /*
+     * Try to optimize the use of a tuple as a lookup table.
+     */
+    if (exact_type(Pos, BEAM_TYPE_INTEGER) && Tuple.isLiteral()) {
+        Eterm tuple = beamfile_get_literal(beam, Tuple.getValue());
+        if (is_tuple(tuple)) {
+            Label error = a.newLabel(), next = a.newLabel();
+            Sint size = Sint(arityval(*tuple_val(tuple)));
+            auto [min, max] = getIntRange(Pos);
+            bool is_bounded = min <= max;
+            bool can_fail = is_bounded || min < 1 || size < max;
+
+            comment("skipped tuple test since source is always a literal "
+                    "tuple");
+            mov_arg(ARG2, Tuple);
+            mov_arg(ARG1, Pos);
+            x86::Gp boxed_ptr = emit_ptr_val(ARG3, ARG2);
+            a.lea(ARG4, emit_boxed_val(boxed_ptr));
+            if (always_small(Pos)) {
+                comment("skipped test for small position since it is always "
+                        "small");
+            } else {
+                comment("simplified test for small position since it is an "
+                        "integer");
+                a.test(ARG1.r8(), imm(TAG_PRIMARY_LIST));
+                a.short_().je(error);
+            }
+
+            a.mov(RET, ARG1);
+            a.sar(RET, imm(_TAG_IMMED1_SIZE));
+            if (is_bounded && min >= 1) {
+                comment("skipped check for position =:= 0 since it is always "
+                        ">= 1");
+            } else {
+                a.short_().jz(error);
+            }
+            if (is_bounded && min >= 0 && size >= max) {
+                comment("skipped check for negative position and position "
+                        "beyond tuple");
+            } else {
+                /* Note: Also checks for negative size. */
+                a.cmp(RET, imm(size));
+                a.short_().ja(error);
+            }
+
+            a.mov(RET, x86::qword_ptr(ARG4, RET, 3));
+            if (can_fail) {
+                a.short_().jmp(next);
+            }
+
+            a.bind(error);
+            if (can_fail) {
+                if (Fail.getValue() == 0) {
+                    safe_fragment_call(ga->get_handle_element_error());
+                } else {
+                    a.jmp(resolve_beam_label(Fail));
+                }
+            }
+
+            a.bind(next);
+            mov_arg(Dst, RET);
+
+            return;
+        }
+    }
+
     if (const_position) {
         /* The position is a valid small integer. Inline the code.
          *

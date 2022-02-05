@@ -21,8 +21,9 @@
 
 -include_lib("syntax_tools/include/merl.hrl").
 
--export([all/0, suite/0]).
--export([edge_cases/1, addition/1, subtraction/1, multiplication/1]).
+-export([all/0, suite/0, groups/0]).
+-export([edge_cases/1, addition/1, subtraction/1, multiplication/1,
+         element/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -31,7 +32,12 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [edge_cases, addition, subtraction, multiplication].
+    [{group, p}].
+
+groups() ->
+    [{p, [parallel],
+      [edge_cases, addition, subtraction, multiplication,
+       element]}].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -322,6 +328,163 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
     test_multiplication(T, Mod);
 test_multiplication([], _) ->
     ok.
+
+element(_Config) ->
+    %% Test element_1: Can't fail for integer arguments.
+    zero = element_1(0),
+    one = element_1(1),
+    two = element_1(2),
+    three = element_1(3),
+
+    three = element_1(3-4),
+    two = element_1(2-4),
+    one = element_1(1-4),
+    zero = element_1(0-4),
+
+    zero = element_1(0+4),
+    one = element_1(1+4),
+
+    {'EXIT',{badarith,_}} = catch element_1(id(a)),
+
+    %% Test element_2: Test that it fails for 0.
+    one = element_2(1),
+    two = element_2(2),
+    three = element_2(3),
+
+    one = element_2(1+4),
+    two = element_2(2+4),
+    three = element_2(3+4),
+
+    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
+        catch element_2(id(0)),
+    {'EXIT',{badarith,_}} = catch element_2(id(b)),
+
+    %% Test element_3: Test that if fails for integers less than 1.
+    one = element_3(1),
+    two = element_3(2),
+    three = element_3(3),
+
+    one = element_3(1+4),
+    two = element_3(2+4),
+    three = element_3(3+4),
+
+    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
+        catch element_3(id(0)),
+    {'EXIT',{badarg,_}} = catch element_3(id(-1)),
+    {'EXIT',{badarg,_}} = catch element_3(id(-999)),
+    {'EXIT',{badarith,_}} = catch element_3(id(c)),
+
+    %% Test element_4: Test that it fails for integers outside of the range 1..3.
+    one = element_4(1),
+    two = element_4(2),
+    three = element_4(3),
+
+    one = element_4(1+8),
+    two = element_4(2+8),
+    three = element_4(3+8),
+
+    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
+        catch element_4(id(0)),
+    {'EXIT',{badarg,[{erlang,element,[5,{one,two,three}],_}|_]}} =
+        catch element_4(id(5)),
+    {'EXIT',{badarg,_}} = catch element_4(id(-1)),
+    {'EXIT',{badarg,[{erlang,element,[-7,{one,two,three}],_}|_]}} =
+        catch element_4(id(-999)),
+    {'EXIT',{badarith,_}} = catch element_4(id(d)),
+
+    %% Test element_5: Test that it fails for integers outside of the
+    %% range 0..3.
+    zero = element_5(0),
+    one = element_5(1),
+    two = element_5(2),
+    three = element_5(3),
+
+    zero = element_5(0+8),
+    one = element_5(1+8),
+    two = element_5(2+8),
+    three = element_5(3+8),
+
+    {'EXIT',{badarg,[{erlang,element,[5,{zero,one,two,three}],_}|_]}} =
+        catch element_5(id(4)),
+    {'EXIT',{badarg,[{erlang,element,[0,{zero,one,two,three}],_}|_]}} =
+        catch element_5(id(-1)),
+    {'EXIT',{badarith,_}} = catch element_5(id(e)),
+
+    %% element_6: Test that it fails for values outside of 0..3.
+    zero = element_6(0),
+    one = element_6(1),
+    two = element_6(2),
+    three = element_6(3),
+
+    {'EXIT',{badarg,[{erlang,element,[5,{zero,one,two,three}],_}|_]}} =
+        catch element_6(id(4)),
+    {'EXIT',{badarg,[{erlang,element,[0,{zero,one,two,three}],_}|_]}} =
+        catch element_6(id(-1)),
+
+    %% Test element_7: Test that it fails for values outside of 1..3.
+    one = element_7(1),
+    two = element_7(2),
+    three = element_7(3),
+
+    one = element_7(1+5),
+    two = element_7(2+5),
+    three = element_7(3+5),
+
+    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
+        catch element_7(id(0)),
+    {'EXIT',{badarg,[{erlang,element,[4,{one,two,three}],_}|_]}} =
+        catch element_7(id(4)),
+    {'EXIT',{badarith,_}} = catch element_7(id(f)),
+
+    %% element_8: Test that it works in a guard.
+    ok = element_8(id(1), id(a)),
+    error = element_8(id(1), id(b)),
+    error = element_8(id(-1), whatever),
+    error = element_8(id(0), whatever),
+    error = element_8(id(5), whatever),
+
+    ok.
+
+element_1(N0) ->
+    N = N0 band 3,
+    element(N + 1, {zero,one,two,three}).
+
+element_2(N0) ->
+    N = N0 band 3,
+    element(N, {one,two,three}).
+
+element_3(N0) ->
+    N = N0 rem 4,
+    element(N, {one,two,three}).
+
+element_4(N0) ->
+    N = N0 rem 8,
+    element(N, {one,two,three}).
+
+element_5(N0) ->
+    N = N0 rem 8,
+    element(N + 1, {zero,one,two,three}).
+
+element_6(N) when is_integer(N) ->
+    element(N + 1, {zero,one,two,three}).
+
+element_7(N0) ->
+    N = N0 rem 5,
+    %% Max N is one more than the size of the tuple.
+    element(N, {one,two,three}).
+
+element_8(N0, E) ->
+    N = N0 rem 8,
+    if
+        element(N, {a,b,c,d}) =:= E ->
+            ok;
+        true ->
+            error
+    end.
+
+%%%
+%%% Helpers.
+%%%
 
 gen_func_names([E|Es], I) ->
     Name = list_to_atom("f" ++ integer_to_list(I)),

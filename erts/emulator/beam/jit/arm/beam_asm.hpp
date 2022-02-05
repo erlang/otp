@@ -844,6 +844,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(fconv_shared)                                                            \
     _(handle_and_error)                                                        \
     _(handle_call_fun_error)                                                   \
+    _(handle_element_error_shared)                                             \
     _(handle_hd_error)                                                         \
     _(handle_map_size_error)                                                   \
     _(handle_not_error)                                                        \
