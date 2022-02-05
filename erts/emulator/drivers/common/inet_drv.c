@@ -10661,7 +10661,7 @@ static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 **   output on a socket only !
 **   a reply code will be sent to connected (caller later)
 **   {inet_reply, S, Status}
-** NOTE! normal sockets use the the tcp_inet_commandv
+** NOTE! normal sockets use the tcp_inet_commandv
 ** but distribution still uses the tcp_inet_command!!
 */
 

@@ -120,7 +120,7 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	/* then the old_uniq */
 	if (ei_decode_long(s, &ix, p_uniq) < 0)
 	    return -1;
-	/* the the pid */
+	/* the pid */
 	if (ei_decode_pid(s, &ix, p_pid) < 0)
 	    return -1;
 	/* finally the free vars */

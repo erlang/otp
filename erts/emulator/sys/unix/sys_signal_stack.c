@@ -97,7 +97,7 @@
  * Assumes Mac OS X >= 10.3 (dlsym operations not available in 10.2 and
  * earlier).
  *
- * The code below assumes that is is part of the main image (earlier
+ * The code below assumes that is part of the main image (earlier
  * in the load order than libSystem and certainly before any dylib
  * that might use sigaction) -- a standard RTLD_NEXT caveat.
  *

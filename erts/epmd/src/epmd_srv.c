@@ -543,7 +543,7 @@ void run(EpmdVars *g)
 	      /*
 	       * The accept() succeeded, and we have at least one file
 	       * descriptor still free, which means that another accept()
-	       * could succeed. Go do do another select(), in case there
+	       * could succeed. Go do another select(), in case there
 	       * are more incoming connections waiting to be accepted.
 	       */
 	      goto select_again;

@@ -3684,7 +3684,7 @@ convert_to_down_message(Process *c_p,
         if (mdp->origin.flags & (ERTS_ML_FLG_SPAWN_ABANDONED
                                  | ERTS_ML_FLG_SPAWN_NO_EMSG)) {
             /*
-             * Operation has been been abandoned or
+             * Operation has been abandoned or
              * error message has been disabled...
              */
             erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), *omon);

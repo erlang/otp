@@ -1139,7 +1139,7 @@ struct hostent *dyn_gethostbyname_r(const char *name,
 #endif
 }
 
-/* Finds the the IP address for hostname and saves that IP address at
+/* Finds the IP address for hostname and saves that IP address at
    the location that ip_wb points to. Returns a negative error code if
    the IP address cannot be found for the hostname. */
 static int ip_address_from_hostname(char* hostname,

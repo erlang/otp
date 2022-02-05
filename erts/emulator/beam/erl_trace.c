@@ -1122,7 +1122,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
 	 *     use process flags
 	 */
 	tracee_flags = &ERTS_TRACE_FLAGS(p);
-        /* Is is not ideal at all to call this check twice,
+        /* It is not ideal at all to call this check twice,
            it should be optimized so that only one call is made. */
         if (!is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
                                TRACE_FUN_ENABLED, am_trace_status)
@@ -1246,7 +1246,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
     ASSERT(!ERTS_TRACER_IS_NIL(*tracer));
 
     /*
-     * Build the the {M,F,A} tuple in the local heap.
+     * Build the {M,F,A} tuple in the local heap.
      * (A is arguments or arity.)
      */
 

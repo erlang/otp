@@ -3401,7 +3401,7 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
  * continues down the 0:th slot until it finds a leaf.
  *
  * Once the leaf has been found, the return value is created
- * by traversing the tree using the the stack that was built
+ * by traversing the tree using the stack that was built
  * when searching for the first leaf to return.
  *
  * The index can become a bignum, which complicates the code
