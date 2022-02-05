@@ -37,7 +37,7 @@ FORBIDDEN_TYPES=hQ
 # needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler | never() =>
+too_old_compiler | never() => _
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
@@ -108,7 +108,7 @@ func_line n => empty_func_line
 empty_func_line
 func_line I
 
-line n =>
+line n => _
 line I
 
 allocate t t?
@@ -136,23 +136,31 @@ init_yregs I *
 # bytes. Therefore we shouldn't use a jump table if there are too few
 # values.
 
-select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
-  jump_tab(S, Fail, Size, Rest)
-is_integer Fail=f S | select_val S=s Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
+select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) =>
   jump_tab(S, Fail, Size, Rest)
 
-is_integer TypeFail=f S | select_val S=s Fail=fn Size=u Rest=* | \
-	   mixed_types(Size, Rest) => \
-  split_values(S, TypeFail, Fail, Size, Rest)
+is_integer Fail=f S | select_val S2=s Fail2=fn Size=u Rest=* |
+  equal(S, S2) | equal(Fail, Fail2) |
+  use_jump_tab(Size, Rest, 6) =>
+    jump_tab(S, Fail, Size, Rest)
 
-select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) => \
+is_integer TypeFail=f S | select_val S2=s Fail=fn Size=u Rest=* |
+  equal(S, S2) |
+  mixed_types(Size, Rest) =>
+    split_values(S, TypeFail, Fail, Size, Rest)
+
+select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) =>
   split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+is_integer Fail=f S | select_val S2=d Fail2=fn Size=u Rest=* |
+  equal(S, S2) | equal(Fail, Fail2) |
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+is_atom Fail=f S | select_val S2=d Fail2=fn Size=u Rest=* |
+  equal(S, S2) | equal(Fail, Fail2) |
+  fixed_size_values(Size, Rest) =>
+     select_val(S, Fail, Size, Rest)
 
 select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) => \
   select_literals(S, Fail, Size, Rest)
@@ -160,8 +168,9 @@ select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) => \
 select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) => \
   select_val(S, Fail, Size, Rest)
 
-is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
-  select_tuple_arity(S, Fail, Size, Rest)
+is_tuple Fail=f S | select_tuple_arity S2=d Fail2=f Size=u Rest=* |
+  equal(S, S2) | equal(Fail, Fail2) =>
+    select_tuple_arity(S, Fail, Size, Rest)
 
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   select_tuple_arity(S, Fail, Size, Rest)
@@ -184,9 +193,15 @@ jump f
 # by get_{list/hd/tl} are common, so we will optimize that.
 #
 is_nonempty_list Fail nqia => jump Fail
-is_nonempty_list Fail Src | get_list Src Hd Tl => is_nonempty_list_get_list Fail Src Hd Tl
-is_nonempty_list Fail Src | get_hd Src Hd => is_nonempty_list_get_hd Fail Src Hd
-is_nonempty_list Fail Src | get_tl Src Tl => is_nonempty_list_get_tl Fail Src Tl
+
+is_nonempty_list Fail Src | get_list Src2 Hd Tl | equal(Src, Src2) =>
+  is_nonempty_list_get_list Fail Src Hd Tl
+
+is_nonempty_list Fail Src | get_hd Src2 Hd | equal(Src, Src2) =>
+  is_nonempty_list_get_hd Fail Src Hd
+
+is_nonempty_list Fail Src | get_tl Src2 Tl | equal(Src, Src2) =>
+   is_nonempty_list_get_tl Fail Src Tl
 
 is_nonempty_list f? S
 
@@ -222,25 +237,23 @@ set_tuple_element s S P
 
 current_tuple/1
 current_tuple/2
-typed_current_tuple/1
 
-is_tuple Fail=f Src | test_arity Fail Src Arity => \
-   i_is_tuple_of_arity Fail Src Arity | current_tuple Src
+is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
+  equal(Fail, Fail2) | equal(Src, Src2) =>
+    i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
-is_tuple NotTupleFail Src | \
-  is_tagged_tuple WrongRecordFail Tuple Arity Atom | \
-  equal(Src, Tuple) => \
-   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom | \
+is_tuple NotTupleFail Src |
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom |
+  equal(Src, Tuple) =>
+   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom |
    current_tuple Src
 
-is_tagged_tuple Fail Tuple Arity Atom => \
-   i_is_tagged_tuple Fail Tuple Arity Atom | typed_current_tuple Tuple
+is_tagged_tuple Fail Tuple Arity Atom =>
+   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
 
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
-
-typed_current_tuple Tuple => remove_tuple_type(Tuple)
 
 i_is_tuple_of_arity f? s A
 i_test_arity f? s A
@@ -253,32 +266,42 @@ i_is_tuple f? s
 # Generate instruction sequence for fetching the tuple element and remember
 # that we have a current tuple pointer.
 
-get_tuple_element Tuple Pos Dst => \
+get_tuple_element Tuple Pos Dst =>
   load_tuple_ptr Tuple | i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
-current_tuple Tuple | get_tuple_element Tuple Pos Dst => \
-  i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
+
+current_tuple Tuple | get_tuple_element Tuple2 Pos Dst |
+  equal(Tuple, Tuple2) =>
+    i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
 
 # Drop the current_tuple instruction if the tuple is overwritten.
-i_get_tuple_element Tuple Pos Tuple | current_tuple Tuple => i_get_tuple_element Tuple Pos Tuple
+i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
+  equal(Tuple, Tuple2) | equal(Tuple, Tuple3) =>
+    i_get_tuple_element Tuple Pos Tuple
 
 # This is a current_tuple instruction instruction not followed by get_tuple_element.
 # Invalidate the current tuple pointer.
 
-current_tuple Tuple =>
+current_tuple Tuple => _
 
 load_tuple_ptr s
 
 # If both positions and destinations are in consecutive memory, fetch and store
 # two words at once.
-i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
-   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Dst1, Pos2, Dst2) => \
+i_get_tuple_element Tuple Pos1 Dst1 |
+   current_tuple Tuple2 |
+   get_tuple_element Tuple3 Pos2 Dst2 |
+   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
+   consecutive_words(Pos1, Dst1, Pos2, Dst2) =>
       get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
-i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
-   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Dst2, Pos2, Dst1) => \
+
+i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple2 |
+   get_tuple_element Tuple3 Pos2 Dst2 |
+   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
+   consecutive_words(Pos1, Dst2, Pos2, Dst1) =>
       get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
 
 # Drop the current_tuple instruction if the tuple is overwritten.
-current_tuple Tuple Tuple =>
+current_tuple Tuple Tuple2 | equal(Tuple, Tuple2) => _
 current_tuple Tuple Dst => current_tuple Tuple
 
 # The first operand will only be used in the debug-compiled runtime
@@ -302,7 +325,7 @@ raise s s
 
 # Workaround the limitation that generators must always return at least one instruction.
 delete_me/0
-delete_me =>
+delete_me => _
 
 system_limit/1
 system_limit p => system_limit_body
@@ -318,7 +341,8 @@ system_limit_body
 
 move Src=c Dst => i_move Src Dst
 
-move Src SrcDst | move SrcDst Dst => i_move Src SrcDst | move SrcDst Dst
+move Src SrcDst | move SrcDst2 Dst | equal(SrcDst, SrcDst2) =>
+  i_move Src SrcDst | move SrcDst Dst
 
 # Try to move two words at once. Always arrange the source operands in
 # consecutive order; the destination operands may be in consecutive or
@@ -388,13 +412,13 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl S S =>
+is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
 is_eq_exact Lbl R=xy C=q => is_eq_exact_literal(Lbl, R, C)
 
-is_ne_exact Lbl S S => jump Lbl
+is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
@@ -432,8 +456,13 @@ put_tuple2 S A *
 
 store_cons/2
 put_list Hd Tl Dst => put_cons Hd Tl | store_cons u=1 Dst
-store_cons Len Dst | put_list Hd Dst Dst | distinct(Dst, Hd) => combine_conses(Len, Dst, Hd)
-store_cons Len Dst | put_list Hd Dst OtherDst => store_cons Len Dst | append_cons u Hd | store_cons u=1 OtherDst
+
+store_cons Len Dst | put_list Hd Tl Dst2 |
+  equal(Dst, Tl) | equal(Dst, Dst2) | distinct(Dst, Hd)  =>
+    combine_conses(Len, Dst, Hd)
+
+store_cons Len Dst | put_list Hd Tl OtherDst | equal(Dst, Tl) =>
+    store_cons Len Dst | append_cons u Hd | store_cons u=1 OtherDst
 
 put_cons s s
 append_cons I s
@@ -466,7 +495,7 @@ is_list f? s
 is_atom f? s
 is_float f? s
 
-is_nil Fail=f n =>
+is_nil Fail=f n => _
 is_nil Fail=f qia => jump Fail
 is_nil f? S
 
@@ -835,7 +864,7 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Same Same =>
+bs_start_match4 a==am_resume Live Ctx Dst | equal(Ctx, Dst) => _
 bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
 %else
@@ -997,7 +1026,7 @@ i_bs_validate_unicode j? s
 
 # Will fail. No need to keep the instruction, because bs_add or
 # bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val =>
+bs_put_float Fail Sz=q Unit Flags Val => _
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			put_float(Fail, Sz, Unit, Flags, Src)
@@ -1048,8 +1077,8 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-fclearerror =>
-fcheckerror p =>
+fclearerror => _
+fcheckerror p => _
 
 %hot
 
@@ -1288,7 +1317,7 @@ gc_bif3 Fail Live Bif S1 S2 S3 Dst => i_bif3 S1 S2 S3 Fail Bif Dst
 # encountered.
 #
 unsupported_guard_bif/3
-unsupported_guard_bif A B C | never() =>
+unsupported_guard_bif A B C | never() => _
 
 #
 # R13B03

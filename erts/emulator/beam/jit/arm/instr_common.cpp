@@ -1073,21 +1073,13 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
     auto src = load_source(Src, ARG1);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    emit_untag_ptr(ARG1, src.reg);
 
     /* As an optimization for the `error | {ok, Value}` case, skip checking the
      * header word when we know that the only possible boxed type is a tuple. */
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
         comment("skipped header test since we know it's a tuple when boxed");
-
-        /* Note: ARG1 will NOT be set. This is OK since the operand
-         * for `current_tuple` has a type; that operand will not match
-         * the type-less operand for `get_tuple_element`. Thus, there
-         * will always be a `load_tuple_ptr` instruction emitted if
-         * this instruction is immediately followed by a
-         * `get_tuple_element` instruction. */
     } else {
-        emit_untag_ptr(ARG1, src.reg);
-
         a.ldr(TMP1, arm::Mem(ARG1));
         ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
         a.tst(TMP1, imm(_TAG_HEADER_MASK));

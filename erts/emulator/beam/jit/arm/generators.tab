@@ -584,13 +584,3 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
 
     return op;
 }
-
-gen.remove_tuple_type(Tuple) {
-    BeamOp* op;
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, current_tuple, 1);
-    op->a[0] = Tuple;
-    op->a[0].val = Tuple.val & REG_MASK;
-    return op;
-}

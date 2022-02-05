@@ -215,27 +215,33 @@ pred.map_key_sort(Size, Rest) {
     return beam_load_map_key_sort(S, Size, Rest);
 }
 
-// Test that the two registers are distinct.
-pred.distinct(Reg1, Reg2) {
-    if (Reg1.type != Reg2.type) {
+// Test that two operands are distinct.
+pred.distinct(Val1, Val2) {
+    if (Val1.type != Val2.type) {
         return 1;
-    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+    } else if (Val1.type == TAG_x || Val1.type == TAG_y) {
         /* We must not compare the type indices (if any). */
-        return (Reg1.val & REG_MASK) != (Reg2.val & REG_MASK);
+        return (Val1.val & REG_MASK) != (Val2.val & REG_MASK);
+    } else if (Val1.type == TAG_n) {
+        /* NIL has no associated value. */
+        return 0;
     } else {
-        return Reg1.val != Reg2.val;
+        return Val1.val != Val2.val;
     }
 }
 
-// Test that two registers are equal when disregarding types. Opposite of the
+// Test that two operands are equal when disregarding types. Opposite of the
 // `distinct` predicate.
-pred.equal(Reg1, Reg2) {
-    if (Reg1.type != Reg2.type) {
+pred.equal(Val1, Val2) {
+    if (Val1.type != Val2.type) {
         return 0;
-    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+    } else if (Val1.type == TAG_x || Val1.type == TAG_y) {
         /* We must not compare the type indices (if any). */
-        return (Reg1.val & REG_MASK) == (Reg2.val & REG_MASK);
+        return (Val1.val & REG_MASK) == (Val2.val & REG_MASK);
+    } else if (Val1.type == TAG_n) {
+        /* NIL has no associated value. */
+        return 1;
     } else {
-        return Reg1.val == Reg2.val;
+        return Val1.val == Val2.val;
     }
 }

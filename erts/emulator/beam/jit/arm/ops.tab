@@ -37,7 +37,7 @@ FORBIDDEN_TYPES=hQ
 # needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler | never() =>
+too_old_compiler | never() => _
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
@@ -108,7 +108,7 @@ func_line n => empty_func_line
 empty_func_line
 func_line I
 
-line n =>
+line n => _
 line I
 
 allocate t t?
@@ -135,34 +135,41 @@ init_yregs I *
 # table). Therefore we shouldn't use a jump table if there are too few
 # values.
 
-select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
-  jump_tab(S, Fail, Size, Rest)
-is_integer Fail=f S | select_val S=s Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) => \
+select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) =>
   jump_tab(S, Fail, Size, Rest)
 
-is_integer TypeFail=f S | select_val S=s Fail=fn Size=u Rest=* | \
-	   mixed_types(Size, Rest) => \
-  split_values(S, TypeFail, Fail, Size, Rest)
+is_integer Fail=f S=s | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  use_jump_tab(Size, Rest, 6) =>
+    jump_tab(S, Fail, Size, Rest)
 
-select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) => \
+is_integer TypeFail=f S=s | select_val S2 Fail=fn Size=u Rest=* |
+  equal(S, S2) |
+  mixed_types(Size, Rest) =>
+    split_values(S, TypeFail, Fail, Size, Rest)
+
+select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) =>
   split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
+is_integer Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
   fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=d Fail=fn Size=u Rest=* | \
+is_atom Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
   fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
 
-select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) =>
   select_literals(S, Fail, Size, Rest)
 
-select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) =>
   select_val(S, Fail, Size, Rest)
 
-is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
+is_tuple Fail=f S=d | select_tuple_arity S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) =>
   select_tuple_arity(S, Fail, Size, Rest)
 
-select_tuple_arity S=d Fail=f Size=u Rest=* => \
+select_tuple_arity S=d Fail=f Size=u Rest=* =>
   select_tuple_arity(S, Fail, Size, Rest)
 
 i_select_val_bins s fn I *
@@ -213,25 +220,23 @@ set_tuple_element s S P
 
 current_tuple/1
 current_tuple/2
-typed_current_tuple/1
 
-is_tuple Fail=f Src | test_arity Fail Src Arity => \
-   i_is_tuple_of_arity Fail Src Arity | current_tuple Src
+is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
+  equal(Fail, Fail2) | equal(Src, Src) =>
+    i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
-is_tuple NotTupleFail Src | \
-  is_tagged_tuple WrongRecordFail Tuple Arity Atom | \
-  equal(Src, Tuple) => \
-   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom | \
-   current_tuple Src
+is_tuple NotTupleFail Src |
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom |
+  equal(Src, Tuple) =>
+    i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom |
+    current_tuple Src
 
-is_tagged_tuple Fail Tuple Arity Atom => \
-   i_is_tagged_tuple Fail Tuple Arity Atom | typed_current_tuple Tuple
+is_tagged_tuple Fail Tuple Arity Atom =>
+   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
 
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
-
-typed_current_tuple Tuple => remove_tuple_type(Tuple)
 
 i_is_tuple_of_arity f? s A
 i_test_arity f? s A
@@ -244,32 +249,36 @@ i_is_tuple f? s
 # Generate instruction sequence for fetching the tuple element and remember
 # that we have a current tuple pointer.
 
-get_tuple_element Tuple Pos Dst => \
+get_tuple_element Tuple Pos Dst =>
   load_tuple_ptr Tuple | i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
-current_tuple Tuple | get_tuple_element Tuple Pos Dst => \
+
+current_tuple Tuple | get_tuple_element Tuple2 Pos Dst |
+  equal(Tuple, Tuple2) =>
   i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
 
 # Drop the current_tuple instruction if the tuple is overwritten.
-i_get_tuple_element Tuple Pos Tuple | current_tuple Tuple => i_get_tuple_element Tuple Pos Tuple
+i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
+  equal(Tuple, Tuple2) | equal(Tuple, Tuple3) =>
+    i_get_tuple_element Tuple Pos Tuple
 
 # This is a current_tuple instruction instruction not followed by get_tuple_element.
 # Invalidate the current tuple pointer.
 
-current_tuple Tuple =>
+current_tuple Tuple => _
 
 load_tuple_ptr s
 
-# If both positions and destinations are in consecutive memory, fetch and store
-# two words at once.
-i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
-   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Pos2) => \
-      get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
-i_get_tuple_element Tuple Pos1 Dst1 | current_tuple Tuple | \
-   get_tuple_element Tuple Pos2 Dst2 | consecutive_words(Pos1, Pos2) => \
-      get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
+# If positions are in consecutive memory, fetch and store two words at
+# once.
+i_get_tuple_element Tuple Pos1 Dst1 |
+  current_tuple Tuple2 |
+  get_tuple_element Tuple3 Pos2 Dst2 |
+  equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
+  consecutive_words(Pos1, Pos2) =>
+    get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
 
 # Drop the current_tuple instruction if the tuple is overwritten.
-current_tuple Tuple Tuple =>
+current_tuple Tuple Tuple2 | equal(Tuple, Tuple2) => _
 current_tuple Tuple Dst => current_tuple Tuple
 
 # The first operand will only be used in the debug-compiled runtime
@@ -293,7 +302,7 @@ raise s s
 
 # Workaround the limitation that generators must always return at least one instruction.
 delete_me/0
-delete_me =>
+delete_me => _
 
 system_limit/1
 system_limit p => system_limit_body
@@ -307,46 +316,74 @@ system_limit_body
 # Optimize moves of consecutive memory addresses.
 #
 move Src=c Dst => i_move Src Dst
-move Src SrcDst | move SrcDst Dst => i_move Src SrcDst | move SrcDst Dst
+move Src SrcDst | move SrcDst2 Dst |
+  equal(SrcDst, SrcDst2) =>
+    i_move Src SrcDst | move SrcDst Dst
 
-# Optimize two moves from X registers to Y registers when destination Y registers are consecutive.
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D1, D2) => store_two_xregs S1 D1 S2 D2
-move S1=x D1=y | move S2=x D2=y | consecutive_words(D2, D1) => store_two_xregs S2 D2 S1 D1
+# Optimize two moves from X registers to Y registers when destination
+# Y registers are consecutive.
 
-# Optimize two moves from Y registers to X registers when source Y registers are consecutive.
-move S1=y D1=x | move S2=y D2=x | consecutive_words(S1, S2) | distinct(D1, D2) => load_two_xregs S1 D1 S2 D2
-move S1=y D1=x | move S2=y D2=x | consecutive_words(S2, S1) | distinct(D1, D2) => load_two_xregs S2 D2 S1 D1
+move S1=x D1=y | move S2=x D2=y | consecutive_words(D1, D2) =>
+  store_two_xregs S1 D1 S2 D2
+move S1=x D1=y | move S2=x D2=y | consecutive_words(D2, D1) =>
+  store_two_xregs S2 D2 S1 D1
+
+# Optimize two moves from Y registers to X registers when source Y
+# registers are consecutive.
+
+move S1=y D1=x | move S2=y D2=x |
+  consecutive_words(S1, S2) |
+  distinct(D1, D2) =>
+    load_two_xregs S1 D1 S2 D2
+
+move S1=y D1=x | move S2=y D2=x |
+  consecutive_words(S2, S1) |
+  distinct(D1, D2) =>
+    load_two_xregs S2 D2 S1 D1
 
 # Optimize two moves of Y registers when destinations are consecutive.
-move S1=y D1=y | move S2=y D2=y | consecutive_words(D1, D2) => move_two_yregs S1 D1 S2 D2
-move S1=y D1=y | move S2=y D2=y | consecutive_words(D2, D1) => move_two_yregs S2 D2 S1 D1
+move S1=y D1=y | move S2=y D2=y |
+  consecutive_words(D1, D2) =>
+    move_two_yregs S1 D1 S2 D2
+
+move S1=y D1=y | move S2=y D2=y |
+  consecutive_words(D2, D1) =>
+    move_two_yregs S2 D2 S1 D1
 
 move Src Dst => i_move Src Dst
-
-#
-# Move instructions.
-#
-
-swap R1 R2 | swap R2 R3 => swap2 R1 R2 R3
-swap R1 R2 | swap R1 R3 => swap2 R2 R1 R3
-swap R1 R2 | swap R3 R2 => swap2 R1 R2 R3
-swap R1 R2 | swap R3 R1 => swap2 R2 R1 R3
-
-swap2 R1 R2 R3 | swap R3 R4 => swap3 R1 R2 R3 R4
-swap2 R1 R2 R3 | swap R4 R3 => swap3 R1 R2 R3 R4
-
-swap3 R1 R2 R3 R4 | swap R4 R5 => swap4 R1 R2 R3 R4 R5
-swap3 R1 R2 R3 R4 | swap R5 R4 => swap4 R1 R2 R3 R4 R5
-
-swap d d
-swap2 d d d
-swap3 d d d d
-swap4 d d d d d
 
 i_move s d
 store_two_xregs x y x y
 load_two_xregs y x y x
 move_two_yregs y y y y
+
+#
+# Swap instructions.
+#
+
+swap R1 R2 | swap R2Other R3 | equal(R2, R2Other) => swap2 R1 R2 R3
+swap R1 R2 | swap R1Other R3 | equal(R1, R1Other) => swap2 R2 R1 R3
+swap R1 R2 | swap R3 R1Other | equal(R1, R1Other) => swap2 R2 R1 R3
+swap R1 R2 | swap R3 R2Other | equal(R2, R2Other) => swap2 R1 R2 R3
+
+swap2 R1 R2 R3 | swap R3Other R4 |
+  equal(R3, R3Other) =>
+    swap3 R1 R2 R3 R4
+swap2 R1 R2 R3 | swap R4 R3Other |
+  equal(R3, R3Other) =>
+    swap3 R1 R2 R3 R4
+
+swap3 R1 R2 R3 R4 | swap R4Other R5 |
+  equal(R4, R4Other) =>
+    swap4 R1 R2 R3 R4 R5
+swap3 R1 R2 R3 R4 | swap R5 R4Other |
+  equal(R4, R4Other) =>
+    swap4 R1 R2 R3 R4 R5
+
+swap d d
+swap2 d d d
+swap3 d d d d
+swap4 d d d d d
 
 #
 # Receive operations. We conservatively align all labels before any
@@ -397,12 +434,12 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl S S =>
+is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
 
-is_ne_exact Lbl S S => jump Lbl
+is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
 is_eq_exact f? s s
@@ -431,7 +468,9 @@ put_tuple2 S A *
 # Putting lists.
 #
 
-put_list Hd1=y Tl Dst | put_list Hd2=y Dst Dst | consecutive_words(Hd1, Hd2) => \
+put_list Hd1=y Tl Dst | put_list Hd2=y Dst2 Dst3 |
+  equal(Dst, Dst2) | equal(Dst, Dst3) |
+  consecutive_words(Hd1, Hd2) =>
     put_list2 Hd1 Hd2 Tl Dst
 
 put_list s s d
@@ -464,7 +503,7 @@ is_list f? s
 is_atom f? s
 is_float f? s
 
-is_nil Fail=f n =>
+is_nil Fail=f n => _
 is_nil Fail=f qia => jump Fail
 is_nil f? S
 
@@ -856,7 +895,7 @@ bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
 %if ARCH_64
 
 # This instruction nops on 64-bit platforms
-bs_start_match4 a==am_resume Live Same Same =>
+bs_start_match4 a==am_resume Live Ctx Dst | equal(Ctx, Dst) => _
 bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
 %else
@@ -1018,7 +1057,7 @@ i_bs_validate_unicode j? s
 
 # Will fail. No need to keep the instruction, because bs_add or
 # bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val =>
+bs_put_float Fail Sz=q Unit Flags Val => _
 
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			put_float(Fail, Sz, Unit, Flags, Src)
@@ -1069,8 +1108,8 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-fclearerror =>
-fcheckerror p =>
+fclearerror => _
+fcheckerror p => _
 
 %hot
 
@@ -1282,7 +1321,7 @@ gc_bif3 Fail Live Bif S1 S2 S3 Dst => i_bif3 S1 S2 S3 Fail Bif Dst
 # encountered.
 #
 unsupported_guard_bif/3
-unsupported_guard_bif A B C | never() =>
+unsupported_guard_bif A B C | never() => _
 
 #
 # R13B03

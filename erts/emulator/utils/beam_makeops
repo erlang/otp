@@ -49,6 +49,7 @@ my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
 my $jit = 'no';
 my %defs;                        # Defines (from command line).
+my $pending_errors = 0;          # Number of pending errors.
 
 # Intentionally unused macros, predicates, and generators.
 my %intentionally_unused;
@@ -380,6 +381,12 @@ while (<>) {
     if (s/\\$//) {
 	$_ .= <>;
 	redo unless eof(ARGV);
+    } elsif (/([|]|=>)$/) {
+        # Automatically continue a line that ends in '|' or '=>'.
+        my $next_line = <>;
+	$_ .= $next_line;
+        chomp $next_line;
+	redo unless eof(ARGV) or $next_line eq '';
     }
     next if /^\s*$/;
     next if /^\#/;
@@ -594,7 +601,6 @@ $num_file_opcodes = @gen_opname;
 # or use forbidden types.
 #
 
-my $any_errors;
 foreach my $key (keys %specific_op) {
     my($arity) = (split('/', $key))[1];
     my @specific_ops = @{$specific_op{$key}};
@@ -619,23 +625,27 @@ foreach my $key (keys %specific_op) {
 	    my $cleaned_arg = $arg;
 	    $cleaned_arg =~ s/[?]$//;
 	    if ($jit ne 'no' and $cleaned_arg eq 'r') {
-		warn "specific instruction '$name @args' uses type 'r' which is is not supported for BeamAsm\n";
-		$any_errors = 1;
+                pending_error("specific instruction '$name @args' uses type " .
+                              "'r' which is is not supported for BeamAsm");
 	    } elsif ($forbidden_type{$cleaned_arg}) {
-		warn "specific instruction '$name @args' uses forbidden type '$arg'\n";
-		$any_errors = 1;
+		pending_error("specific instruction '$name @args' uses " .
+                              "forbidden type '$arg'\n");
 	    }
 	}
     }
 }
 
-error("there were previous type errors") if $any_errors;
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
 
 #
 # Produce output for the chosen target.
 #
 
 &$target();
+
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
 
 #
 # Ensure that all C code implementations have been used.
@@ -1281,6 +1291,13 @@ sub parse_c_args {
     }
     $_ eq '' or error("garbage in argument list: $_");
     @res;
+}
+
+sub pending_error {
+    my(@message) = @_;
+    my($where) = $. ? "$ARGV($.): " : "";
+    $pending_errors++;
+    warn $where, @message, "\n";
 }
 
 sub error {
@@ -2391,9 +2408,13 @@ sub parse_transformation {
     local($_) = @_;
     my($orig) = $_;
 
-    my($from, $to) = split(/\s*=>\s*/);
+    my($from, $to, @rest) = split(/\s*=>\s*/);
     my(@op);
     my $rest_var;
+
+    if (@rest) {
+        error("only one '=>' operator is allowed");
+    }
 
     # The source instructions.
 
@@ -2421,15 +2442,22 @@ sub parse_transformation {
             error("garbage after call to '$name()'");
         }
 	@to = (compile_transform_function($name, split(/\s*,\s*/, $arglist)));
+    } elsif ($to =~ /^\s*_\s*$/) {
+        # _ means that instructions on the left side should be removed.
+        @to = ();
     } else {
 	@to = split(/\s*\|\s*/, $to);
+        if (@to == 0) {
+            error("the right-hand side of a transformation must not be empty;\n" .
+                  "  use _ to indicate that no instructions should be produced");
+        }
 	foreach (@to) {
 	    (@op) = split;
 	    (undef,$_) = compile_transform(0, $rest_var, @op);
 	}
     }
     $orig =~ tr/ \t/ /s;
-    push(@transformations, [$., $orig, [@from], [reverse @to]]);
+    push(@transformations, ["$ARGV($.)", $orig, [@from], [reverse @to]]);
 }
 
 sub compile_transform_function {
@@ -2634,7 +2662,7 @@ sub tr_gen_from {
     my($var_num) = 0;
     my(@code);
     my($op, $ref);		# Loop variables.
-    my $where = "left side of transformation in line $line: ";
+    my $where = "$line: (left of =>): ";
     my $may_fail = 0;
     my $is_first = 1;
     my @instrs;
@@ -2743,14 +2771,14 @@ sub tr_gen_from {
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
-		    $ignored_var = '';
-		    $may_fail = 1;
-		    my $op = make_op($var, 'is_same_var', $var{$var});
-		    op_slot_usage($op, $var{$var});
-		    push(@code, $op);
+                    my $msg = "variable $var used more than once\n" .
+                        "   (repeated variables in matching is not supported;\n" .
+                        "   use the predicate equal(Var1, Var2) " .
+                        "to compare variables)";
+                    pending_error($where, $msg);
 		} elsif ($type eq '*') {
 		    foreach my $type (values %var_type) {
-			error("only one use of a '*' variable is " .
+			error($where, "only one use of a '*' variable is " .
 			      "allowed on the left hand side of " .
 			      "a transformation")
 			    if $type eq 'array';
@@ -2832,7 +2860,7 @@ sub tr_gen_to {
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
-    my($where) = "right side of transformation in line $line: ";
+    my($where) = "$line: (right of =>): ";
 
     my $last_instr = $code[$#code];
     my $cannot_fail = is_instr($last_instr, 'commit') &&

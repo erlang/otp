@@ -83,7 +83,7 @@ creating `.beam` files.  The compiler does not really need the arity,
 but it will use it as an internal sanity check when assembling the
 BEAM code.
 
-Let's have a look at `ops.tab` in `erts/emulator/beam`, where the
+Let's have a look at `ops.tab` in `erts/emulator/beam/emu`, where the
 specific `move` instructions are defined.  Here are a few of them:
 
     move x x
@@ -98,8 +98,8 @@ an integer, an atom, or a literal).
 
 Now let's look at the implementation of the `move` instruction.  There
 are multiple files containing implementations of instructions in the
-`erts/emulator/beam` directory.  The `move` instruction is defined in
-`instrs.tab`.  It looks like this:
+`erts/emulator/beam/emu` directory.  The `move` instruction is defined
+in `instrs.tab`.  It looks like this:
 
     move(Src, Dst) {
         $Dst = $Src;
@@ -163,7 +163,7 @@ word.
 the instruction word.  In this example, it will return 40 which is the
 byte offset for X register 5.  The `xb()` macro will cast a byte
 pointer to an `Eterm` pointer and dereference it.  The `I[1]` on
-the right side of the `=` fetches an Erlang term (the atom `id` in
+the right-hand side of the `=` fetches an Erlang term (the atom `id` in
 this case).
 
 * `I += 2` advances the instruction pointer to the next
@@ -231,13 +231,13 @@ to a `move2` instruction:
 
     move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 
-The left side of the arrow (`=>`) is a pattern.  If the pattern
+The left-hand side of the arrow (`=>`) is a pattern.  If the pattern
 matches, the matching instructions will be replaced by the
-instructions on the right side.  Variables in a pattern must start
+instructions on the right-hand side.  Variables in a pattern must start
 with an uppercase letter just as in Erlang.  A pattern variable may be
 followed `=` and one or more type letters to constrain the match to
-one of those types.  The variables that are bound on the left side can
-be used on the right side.
+one of those types.  The variables that are bound on the left-hand side can
+be used on the right-hand side.
 
 We will also need to define a specific instruction and an implementation:
 
@@ -258,14 +258,15 @@ it will match the new instructions against the transformation rules.
 Because of that, we can define the rule for a `move3/6` instruction
 as follows:
 
-    move2 X1=x Y1=y X2=x Y2=y | move X3=x Y3=y => \
+    move2 X1=x Y1=y X2=x Y2=y | move X3=x Y3=y =>
           move3 X1 Y1 X2 Y2 X3 Y3
 
-(A `\` before a newline can be used to break a long line for readability.)
+(For readability, a long transformation line can be broken after `|`
+and `=>` operators.)
 
 It would also be possible to define it like this:
 
-    move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y => \
+    move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y =>
          move3 X1 Y1 X2 Y2 X3 Y3
 
 but in that case it must be defined before the rule for `move2/4`
@@ -298,7 +299,7 @@ keep multiple generic instructions in a linked list.
 * The loader tries to apply transformation rules against the
 generic instructions in the linked list.  If a rule matches, the
 matched instructions will be removed and replaced with new
-generic instructions constructed from the right side of the
+generic instructions constructed from the right-hand side of the
 transformation.
 
 * If a transformation rule matched, the loader applies the
@@ -369,7 +370,7 @@ The following files will be written to the output directory:
 * `beam_opcode.hrl` - Used by `beam_asm`.  It contains tag definitions
 used for encoding instruction operands.
 
-The input file should only contain the definition of BEAM_FORMAT_NUMBER
+The input file should only contain the definition of BEAM\_FORMAT\_NUMBER
 and external generic instructions.  (Everything else would be ignored.)
 
 ### Running beam_makeops for the emulator ###
@@ -424,7 +425,11 @@ A line with `//` is also a comment.  It is recommended to only
 use this style of comments in files that define implementations of
 instructions.
 
-A long line can be broken into shorter lines by a placing a `\` before
+A long transformation line can be broken after the `=>` operator and
+after `|` operators. This is the recommended way to break transformation
+lines. (This way to break transformation lines was introduced in OTP 25.)
+
+A long line can also be broken into shorter lines by a placing a `\` before
 the newline.
 
 ### Variable definitions ###
@@ -544,7 +549,8 @@ The `Makefile` for building the emulator currently defines the
 following symbols by using the `-D` option on the command line for
 **beam\_makeops**.
 
-* `USE_VM_PROBES` - 1 if the runtime system is compiled to use VM probes (support for dtrace or systemtap), 0 otherwise.
+* `USE_VM_PROBES` - 1 if the runtime system is compiled to use VM
+  probes (support for dtrace or systemtap), 0 otherwise.
 
 ### Defining external generic instructions ###
 
@@ -586,8 +592,9 @@ the most common way.  Whenever a specific instruction is created,
 **beam\_makeops** automatically creates an internal generic instruction
 if it does not previously exist.
 
-* Explicitly.  This is necessary only when a generic instruction does
-not have any corresponding specific instruction.
+* Explicitly.  This is necessary only when a generic instruction is
+used in transformations, but does not have any corresponding specific
+instruction.
 
 The syntax for an internal generic instruction is as follows:
 
@@ -874,31 +881,24 @@ A rule is recognized by its right-pointer arrow: `=>`.  To the left of
 the arrow is one or more instruction patterns, separated by `|`.  To
 the right of the arrow is zero or more instructions, separated by `|`.
 If the instructions from the BEAM code matches the instruction
-patterns on the left side, they will be replaced with instructions on
-the right side (or removed if there are no instructions on the right).
+patterns on the left-hand side, they will be replaced with
+instructions on the right-hand side (or removed if there are no
+instructions on the right).
 
 #### Defining instruction patterns ####
 
-We will start looking at the patterns on the left side of the arrow.
+We will start looking at the patterns on the left-hand side of the arrow.
 
 A pattern for an instruction consists of its name, followed by a pattern
 for each of its operands.  The operand patterns are separated by spaces.
 
 The simplest possible pattern is a variable.  Just like in Erlang,
-a variable must begin with an uppercase letter.  If the same variable is
-used in multiple operands, the pattern will only match if the operands
-are equal.  For example:
+a variable must begin with an uppercase letter.  In constrast to Erlang,
+variables must **not** be repeated.
 
-    move Same Same =>
-
-This pattern will match if the operands for `move` are the same.  If
-the pattern match, the instruction will be removed.  (That used to be an
-actual rule a long time ago when the compiler would occasionally produce
-instructions such as `{move,{x,2},{x,2}}`.)
-
-Variables that have been bound on the left side can be used on the
-right side.  For example, this rule will rewrite all `move` instructions
-to `assign` instructions with the operands swapped:
+Variables that have been bound on the left-hand side can be used on
+the right-hand side.  For example, this rule will rewrite all `move`
+instructions to `assign` instructions with the operands swapped:
 
     move Src Dst => assign Dst Src
 
@@ -923,6 +923,18 @@ Here the `is_eq_exact` instruction is replaced with a specialized instruction
 that only compares literals, but only if the first operand is a register and
 the second operand is a literal.
 
+#### Removing instructions ####
+
+The instructions of the left-hand side of the pattern can be removed
+by using the `_` symbol on the right-hand side of the
+transformation. For example, a `line` instruction without any actual
+line-number information can be removed like this:
+
+    line n => _
+
+(Before OTP 25, this was instead achieved by leaving the right-hand side
+blank.)
+
 #### Further constraining patterns ####
 
 In addition to specifying a type letter, the actual value for the type can
@@ -934,10 +946,11 @@ Here the second operand of `move` is constrained to be X register 1.
 
 When specifying an atom constraint, the atom is written as it would be
 in the C source code.  That is, it needs an `am_` prefix, and it must
-be listed in `atom.names`.  For example:
+be listed in `atom.names`.  For example, redundant `is_boolean` instructions
+can be removed like this:
 
-    is_boolean Fail=f a==am_true =>
-    is_boolean Fail=f a==am_false =>
+    is_boolean Fail=f a==am_true => _
+    is_boolean Fail=f a==am_false => _
 
 There are several constraints available for testing whether a call is to a BIF
 or a function.
@@ -986,13 +999,14 @@ a specific function.  Here is an example:
     bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
 `is_constant/1` used to be a BIF a long time ago.  The transformation
-replaces the call with the `too_old_compiler` instruction which will produce
-a nicer error message than the default error would be for a missing guard BIF.
+replaces the call with the `too_old_compiler` instruction, which is
+specially handled in the loader to produce a nicer error message than
+the default error would be for a missing guard BIF.
 
 #### Type constraints allowed in patterns ####
 
-Here are all type letters that are allowed on the left side of a transformation
-rule.
+Here are all type letters that are allowed on the left-hand side of a
+transformation rule.
 
 * `u` - An untagged integer that fits in a machine word.
 
@@ -1026,26 +1040,47 @@ instruction, it must only be used for a destination register.)
 
 * `o` - Overflow.  An untagged integer that does not fit in a machine word.
 
-#### Guard constraints (predicates) ####
+#### Predicates ####
 
 If the constraints described so far is not enough, additional
 constraints can be implemented in C and be called as a guard function
-on the left side of the transformation.  If the guard function returns
+on the left-hand side of the transformation.  If the guard function returns
 a non-zero value, the matching of the rule will continue, otherwise
-the match will fail.  For example:
+the match will fail.  Such guard functions are hereafter called
+*predicates*.
 
-    ensure_map Lit=q | literal_is_map(Lit) =>
+The most commonly used guard constraints is `equal()`. It can be used
+to remove a redundant `move` instructio like this:
 
-The guard test `literal_is_map/1` tests whether the given literal is a map.
-If the literal is a map, the instruction is unnecessary and can be removed.
+    move R1 R2 | equal(R1, R2) => _
 
-Such guard tests are also called predicates.  At the time of writing, all
-predicates are defined in the file `predicates.tab`.
+or remove a redundant `is_eq_exact` instruction like this:
+
+    is_eq_exact Lbl Src1 Src2 | equal(Src1, Src2) => _
+
+At the time of writing, all predicates are defined in files named
+`predicates.tab` in several directories.  In `predicates.tab` directly
+in `$ERL_TOP/erts/emulator/beam`, predicates that are used by both the
+traditinal emulator and the JIT implementations are contained.
+Predicates only used by the emulator can be found in
+`emu/predicates.tab`.
+
+### A very brief note on implementation of predicates ####
 
 It is outside the scope for this document to describe in detail how
 predicates are implemented because it requires knowledge of the
-internal loader data structures, but here is the implementation of
-`literal_is_map()`:
+internal loader data structures, but here is quick look at the
+implementation of a simple predicate called `literal_is_map()`.
+
+Here is first an example how it is used:
+
+   is_map Fail Lit=q | literal_is_map(Lit) => _
+
+If the `Lit` operand is a literal, then the `literal_is_map()`
+predicate is called to determine wheter is is a map literal.
+It it is, the instruction is not needed and can be removed.
+
+`literal_is_map()` is implemented like this (in `emu/predicates.tab`):
 
     pred.literal_is_map(Lit) {
         Eterm term;
@@ -1096,23 +1131,24 @@ generic instruction:
 To match a variable number of arguments we need to use the special
 operand type `*` like this:
 
-    select_val Src=aiq Fail=f Size=u List=* => \
+    select_val Src=aiq Fail=f Size=u List=* =>
         i_const_select_val Src Fail Size List
 
 This transformation renames a `select_val/3` instruction
 with a constant source operand to `i_const_select_val/3`.
 
-#### Constructing new instructions on the right side ####
+#### Constructing new instructions on the right-hand side ####
 
-The most common operand on the right side is a variable that was bound while
-matching the left side.  For example:
+The most common operand on the right-hand side is a variable that was
+bound while matching the pattern on the left-hand side.  For example:
 
     trim N Remaining => i_trim N
 
-An operand can also be a type letter to construct an operand of that type.
-Each type has a default value.  For example, the type `x` has the default
-value 1023, which is the highest X register.  That makes `x` on the right
-side a convenient shortcut for a temporary X register.  For example:
+An operand can also be a type letter to construct an operand of that
+type.  Each type has a default value.  For example, the type `x` has
+the default value 1023, which is the highest X register.  That makes
+`x` on the right-hand side a convenient shortcut for a temporary X
+register.  For example:
 
     is_number Fail Literal=q => move Literal x | is_number Fail x
 
@@ -1133,15 +1169,15 @@ the atom `false` is written as `am_false`.  The atom must be listed in
 
 Here is an example showing how values can be specified:
 
-    bs_put_utf32 Fail=j Flags=u Src=s => \
-        i_bs_validate_unicode Fail Src | \
+    bs_put_utf32 Fail=j Flags=u Src=s =>
+        i_bs_validate_unicode Fail Src |
         bs_put_integer Fail i=32 u=1 Flags Src
 
-#### Type letters on the right side ####
+#### Type letters on the right-hand side ####
 
 Here follows all types that are allowed to be used in operands for
-instructions being constructed on the right side of a transformation
-rule.
+instructions being constructed on the right-hand side of a
+transformation rule.
 
 * `u` - Construct an untagged integer.  The default value is 0.
 
@@ -1160,16 +1196,16 @@ use as a temporary X register.
 
 * `n` - NIL (`[]`, the empty list).
 
-#### Function call on the right side ####
+#### Function call on the right-hand side ####
 
 Transformations that are not possible to describe with the rule
 language as described here can be implemented as a generator function
-in C and called from the right side of a transformation.  The left
+in C and called from the right-hand side of a transformation.  The left-hand
 side of the transformation will perform the match and bind operands to
 variables.  The variables can then be passed to a generator function
-on the right side.  For example:
+on the right-hand side.  For example:
 
-    bif2 Fail=j u$bif:erlang:element/2 Index=s Tuple=xy Dst=d => \
+    bif2 Fail=j u$bif:erlang:element/2 Index=s Tuple=xy Dst=d =>
         element(Jump, Index, Tuple, Dst)
 
 This transformation rule matches a call to the BIF `element/2`.
@@ -1191,12 +1227,13 @@ already an untagged integer.  It also knows that the index is at least
 instruction will have to fetch the index from a register, test that it
 is an integer, and untag the integer.
 
-At the time of writing, all generators functions were defined in the
-file `generators.tab`.
+At the time of writing, all generators functions were defined in files
+named `generators.tab` in several directories (in the same directories
+as the `predicates.tab` files).
 
 It is outside the scope of this document to describe in detail how
-generator functions are written, but here is the
-implementation of `element()`:
+generator functions are written, but here is the implementation of
+`element()`:
 
     gen.element(Fail, Index, Tuple, Dst) {
         BeamOp* op;

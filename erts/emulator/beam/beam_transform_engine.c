@@ -128,20 +128,6 @@ erts_transform_engine(LoaderState* st)
             ap++;
             break;
 #endif
-	case TOP_is_same_var:
-	    ASSERT(ap < instr->arity);
-	    i = *pc++;
-	    ASSERT(i < TE_MAX_VARS);
-	    if (var[i].type != instr->a[ap].type)
-		goto restart;
-	    switch (var[i].type) {
-	    case TAG_n:
-		break;
-	    default:
-		if (var[i].val != instr->a[ap].val)
-		    goto restart;
-	    }
-	    break;
 #if defined(TOP_is_bif)
 	case TOP_is_bif:
 	    {
