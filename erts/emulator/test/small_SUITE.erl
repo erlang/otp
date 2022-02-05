@@ -22,7 +22,7 @@
 -include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0]).
--export([edge_cases/1, multiplication/1]).
+-export([edge_cases/1, addition/1, subtraction/1, multiplication/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -31,7 +31,7 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() ->
-    [edge_cases, multiplication].
+    [edge_cases, addition, subtraction, multiplication].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -114,6 +114,134 @@ arith_test_1(A, B, MinS, MaxS) ->
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
+addition(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = add_gen_pairs(),
+    io:format("~p\n", [Pairs]),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_add_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_addition(Fs0, Mod),
+    ok.
+
+add_gen_pairs() ->
+    {MinSmall, MaxSmall} = determine_small_limits(0),
+
+    %% Generate random pairs of smalls.
+    N = 1000,
+    M = MaxSmall + N div 2,
+    Pairs0 = [{M - rand:uniform(N), rand:uniform(N)} ||
+                 _ <- lists:seq(1, 75)],
+
+    Seq = lists:seq(MinSmall-3, MinSmall+2) ++
+        lists:seq(-5, 5),
+        lists:seq(MaxSmall-2, MaxSmall+2),
+    [{N1, N2} || N1 <- Seq, N2 <- Seq] ++ Pairs0.
+
+gen_add_function({Name,{A,B}}) ->
+    APlusOne = abs(A) + 1,
+    BPlusOne = abs(B) + 1,
+    ?Q("'@Name@'(X0, Y0) when is_integer(X0), is_integer(Y0)->
+           X1 = X0 rem _@APlusOne@,
+           Y1 = Y0 rem _@BPlusOne@,
+           Res = X0 + Y0,
+           Res = X1 + Y1,
+           Res = Y1 + X1,
+           Res = X0 + Y1,
+           Res = X1 + Y0. ").
+
+test_addition([{Name,{A,B}}|T], Mod) ->
+    try
+        Res0 = A + B,
+        Res0 = Mod:Name(A, B),
+
+        Res1 = -A + B,
+        Res1 = Mod:Name(-A, B),
+
+        Res2 = A + (-B),
+        Res2 = Mod:Name(A, -B),
+
+        Res3 = -A + (-B),
+        Res3 = Mod:Name(-A, -B)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
+            erlang:raise(C, R, Stk)
+    end,
+
+    test_addition(T, Mod);
+test_addition([], _) ->
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+subtraction(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = sub_gen_pairs(),
+    io:format("~p\n", [Pairs]),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_sub_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_subtraction(Fs0, Mod),
+    ok.
+
+sub_gen_pairs() ->
+    {MinSmall, MaxSmall} = determine_small_limits(0),
+
+    %% Generate random pairs of smalls.
+    N = 1000,
+    M = MaxSmall + N div 2,
+    Pairs0 = [{M - rand:uniform(N), M - rand:uniform(N)} ||
+                 _ <- lists:seq(1, 75)],
+
+    [{N1, N2} ||
+        N1 <- lists:seq(MinSmall-2, MinSmall+2),
+        N2 <- lists:seq(MaxSmall-2, MaxSmall+2)] ++ Pairs0.
+
+gen_sub_function({Name,{A,B}}) ->
+    APlusOne = abs(A) + 1,
+    BPlusOne = abs(B) + 1,
+    ?Q("'@Name@'(X0, Y0) when is_integer(X0), is_integer(Y0)->
+           X1 = X0 rem _@APlusOne@,
+           Y1 = Y0 rem _@BPlusOne@,
+           Res = X0 - Y0,
+           Res = X1 - Y1,
+           Res = X0 - Y1,
+           Res = X1 - Y0. ").
+
+test_subtraction([{Name,{A,B}}|T], Mod) ->
+    try
+        Res0 = A - B,
+        Res0 = Mod:Name(A, B),
+
+        Res1 = -A - B,
+        Res1 = Mod:Name(-A, B),
+
+        Res2 = A - (-B),
+        Res2 = Mod:Name(A, -B),
+
+        Res3 = -A - (-B),
+        Res3 = Mod:Name(-A, -B)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
+            erlang:raise(C, R, Stk)
+    end,
+
+    test_subtraction(T, Mod);
+test_subtraction([], _) ->
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
 multiplication(_Config) ->
     _ = rand:uniform(),				%Seed generator
     io:format("Seed: ~p", [rand:export_seed()]),
@@ -150,11 +278,6 @@ mul_gen_pairs() ->
                    Offset <- [0,1,17,20333]],
     [{Div,ceil(LeastBig / Div)} || Div <- Divisors] ++ Pairs2.
 
-gen_func_names([E|Es], I) ->
-    Name = list_to_atom("f" ++ integer_to_list(I)),
-    [{Name,E}|gen_func_names(Es, I+1)];
-gen_func_names([], _) -> [].
-
 gen_mul_function({Name,{A,B}}) ->
     APlusOne = A + 1,
     BPlusOne = B + 1,
@@ -178,12 +301,6 @@ gen_mul_function({Name,{A,B}}) ->
                 Res
            end. ").
 
-num_bits(Int) ->
-    num_bits(Int, 0).
-
-num_bits(0, N) -> N;
-num_bits(Int, N) -> num_bits(Int bsr 1, N + 1).
-
 test_multiplication([{Name,{A,B}}|T], Mod) ->
     try
         Res0 = A * B,
@@ -205,6 +322,17 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
     test_multiplication(T, Mod);
 test_multiplication([], _) ->
     ok.
+
+gen_func_names([E|Es], I) ->
+    Name = list_to_atom("f" ++ integer_to_list(I)),
+    [{Name,E}|gen_func_names(Es, I+1)];
+gen_func_names([], _) -> [].
+
+num_bits(Int) when Int >= 0 ->
+    num_bits(Int, 0).
+
+num_bits(0, N) -> N;
+num_bits(Int, N) -> num_bits(Int bsr 1, N + 1).
 
 %% Verifies that N is a small when it should be
 verify_kind(N, MinS, MaxS) ->

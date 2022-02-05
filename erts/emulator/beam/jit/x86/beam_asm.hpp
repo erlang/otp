@@ -1276,8 +1276,8 @@ protected:
             Sint min, max;
             auto [min1, max1] = getIntRange(LHS);
             auto [min2, max2] = getIntRange(RHS);
-            min = min1 - min2;
-            max = max1 - max2;
+            min = min1 - max2;
+            max = max1 - min2;
             return IS_SSMALL(min) && IS_SSMALL(max);
         }
     }
