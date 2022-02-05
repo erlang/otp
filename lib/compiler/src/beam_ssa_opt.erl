@@ -292,7 +292,8 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
           ?PASS(ssa_opt_trim_unreachable),
-          ?PASS(ssa_opt_unfold_literals)],
+          ?PASS(ssa_opt_unfold_literals),
+          ?PASS(ssa_opt_ranges)],
     passes_1(Ps, Opts).
 
 passes_1(Ps, Opts0) ->
@@ -442,6 +443,9 @@ ssa_opt_merge_blocks({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
     RPO = beam_ssa:rpo(Blocks0),
     Blocks = beam_ssa:merge_blocks(RPO, Blocks0),
     {St#opt_st{ssa=Blocks}, FuncDb}.
+
+ssa_opt_ranges({#opt_st{ssa=Blocks}=St, FuncDb}) ->
+    {St#opt_st{ssa=beam_ssa_type:opt_ranges(Blocks)}, FuncDb}.
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.

@@ -27,7 +27,7 @@
 %%
 
 -module(beam_ssa_type).
--export([opt_start/2, opt_continue/4, opt_finish/3]).
+-export([opt_start/2, opt_continue/4, opt_finish/3, opt_ranges/1]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -637,6 +637,10 @@ benefits_from_type_anno(is_tagged_tuple, _Args) ->
 benefits_from_type_anno(call, [#b_var{} | _]) ->
     true;
 benefits_from_type_anno({float,convert}, _Args) ->
+    %% Note: The {float,convert} instruction does not exist when
+    %% the main type optimizer pass is run. It is created and
+    %% annotated by ssa_opt_float1 in beam_ssa_opt, and can also
+    %% be annotated by opt_ranges/1.
     true;
 benefits_from_type_anno(_Op, _Args) ->
     false.
@@ -756,6 +760,153 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], Acc0) ->
     end;
 opt_finish_1([], [], Acc) ->
     Acc.
+
+%%%
+%%% This sub pass is run once after the main type sub pass
+%%% to annotate more instructions with integer ranges.
+%%%
+%%% The main type sub pass annotates certain instructions with
+%%% their types to help the JIT generate better code.
+%%%
+%%% Example:
+%%%
+%%%   foo(N0) ->
+%%%       N1 = N0 band 3,
+%%%       N = N1 + 1,        % N1 is in 0..3
+%%%       element(N,
+%%%            {zero,one,two,three}).
+%%%
+%%% The main type pass is able to figure out the range for `N1` but
+%%% not for `N`. The reason is that the type pass iterates until it
+%%% reaches a fixpoint. To guarantee that it will converge, ranges for
+%%% results must only be calculated for operations that retain or
+%%% shrink the ranges of their arguments.
+%%%
+%%% Therefore, to ensure convergence, the main type pass can only
+%%% safely calculate ranges for results of operations such as `and`,
+%%% `bsr`, and `rem`, but not for operations such as `+`, '-', '*',
+%%% and `bsl`.
+%%%
+%%% This sub pass will start from the types found in the annotations
+%%% and propagate them forward through arithmetic instructions within
+%%% the same function.
+%%%
+%%% For the example, this sub pass adds a new annotation for `N`:
+%%%
+%%%   foo(N0) ->
+%%%       N1 = N0 band 3,
+%%%       N = N1 + 1,        % N1 is in 0..3
+%%%       element(N,         % N is in 1..4
+%%%           {zero,one,two,three}).
+%%%
+%%% With a known range and known tuple size, the JIT is able to remove
+%%% all range checks for the `element/2` instruction.
+%%%
+
+-spec opt_ranges(Blocks0) -> Blocks when
+      Blocks0 :: beam_ssa:block_map(),
+      Blocks :: beam_ssa:block_map().
+
+opt_ranges(Blocks) ->
+    RPO = beam_ssa:rpo(Blocks),
+    Tss = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
+    ranges(RPO, Tss, Blocks).
+
+ranges([L|Ls], Tss0, Blocks0) ->
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks0),
+    Ts0 = map_get(L, Tss0),
+    {Is,Ts} = ranges_is(Is0, Ts0, []),
+    Blk = Blk0#b_blk{is=Is},
+    Blocks = Blocks0#{L := Blk},
+    Tss = ranges_successors(beam_ssa:successors(Blk), Ts, Tss0),
+    ranges(Ls, Tss, Blocks);
+ranges([], _Tss, Blocks) -> Blocks.
+
+ranges_is([#b_set{op=Op,args=Args}=I0|Is], Ts0, Acc) ->
+    case benefits_from_type_anno(Op, Args) of
+        false ->
+            ranges_is(Is, Ts0, [I0|Acc]);
+        true ->
+            I = update_anno_types(I0, Ts0),
+            Ts = ranges_propagate_types(I, Ts0),
+            ranges_is(Is, Ts, [I|Acc])
+    end;
+ranges_is([], Ts, Acc) ->
+    {reverse(Acc),Ts}.
+
+ranges_successors([?EXCEPTION_BLOCK|Ls], Ts, Tss) ->
+    ranges_successors(Ls, Ts, Tss);
+ranges_successors([L|Ls], Ts0, Tss0) ->
+    case Tss0 of
+        #{L := Ts1} ->
+            Ts = join_types(Ts0, Ts1),
+            Tss = Tss0#{L := Ts},
+            ranges_successors(Ls, Ts0, Tss);
+        #{} ->
+            Tss = Tss0#{L => Ts0},
+            ranges_successors(Ls, Ts0, Tss)
+    end;
+ranges_successors([], _, Tss) -> Tss.
+
+ranges_propagate_types(#b_set{anno=Anno,op={bif,_}=Op,args=Args,dst=Dst}, Ts) ->
+    case Anno of
+        #{arg_types := ArgTypes0} ->
+            ArgTypes = ranges_get_arg_types(Args, 0, ArgTypes0),
+            case beam_call_types:arith_type(Op, ArgTypes) of
+                any -> Ts;
+                T -> Ts#{Dst => T}
+            end;
+        #{} ->
+            Ts
+    end;
+ranges_propagate_types(_, Ts) -> Ts.
+
+ranges_get_arg_types([#b_var{}|As], Index, ArgTypes) ->
+    case ArgTypes of
+        #{Index := Type} ->
+            [Type|ranges_get_arg_types(As, Index + 1, ArgTypes)];
+        #{} ->
+            [any|ranges_get_arg_types(As, Index + 1, ArgTypes)]
+    end;
+ranges_get_arg_types([#b_literal{val=Value}|As], Index, ArgTypes) ->
+    Type = beam_types:make_type_from_value(Value),
+    [Type|ranges_get_arg_types(As, Index + 1, ArgTypes)];
+ranges_get_arg_types([], _, _) -> [].
+
+update_anno_types(#b_set{anno=Anno,args=Args}=I, Ts) ->
+    ArgTypes1 = case Anno of
+                    #{arg_types := ArgTypes0} -> ArgTypes0;
+                    #{} -> #{}
+                end,
+    ArgTypes = update_anno_types_1(Args, Ts, 0, ArgTypes1),
+    case Anno of
+        #{arg_types := ArgTypes} ->
+            I;
+        #{} when map_size(ArgTypes) =/= 0 ->
+            I#b_set{anno=Anno#{arg_types => ArgTypes}};
+        #{} ->
+            I
+    end.
+
+update_anno_types_1([#b_var{}=V|As], Ts, Index, ArgTypes) ->
+    T0 = case ArgTypes of
+             #{Index := T00} -> T00;
+             #{} -> any
+         end,
+    T1 = case Ts of
+             #{V := T11} -> T11;
+             #{} -> any
+         end,
+    case beam_types:meet(T0, T1) of
+        any ->
+            update_anno_types_1(As, Ts, Index + 1, ArgTypes);
+        T ->
+            true = T =/= none,                  %Assertion.
+            update_anno_types_1(As, Ts, Index + 1, ArgTypes#{Index => T})
+    end;
+update_anno_types_1([_|As], Ts, Index, ArgTypes) ->
+    update_anno_types_1(As, Ts, Index + 1, ArgTypes);
+update_anno_types_1([], _, _, ArgTypes) -> ArgTypes.
 
 %%%
 %%% Optimization helpers
