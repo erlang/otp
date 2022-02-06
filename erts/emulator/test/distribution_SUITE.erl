@@ -1079,21 +1079,24 @@ dist_auto_connect_relay(Parent) ->
 
 
 dist_parallel_send(Config) when is_list(Config) ->
-    {ok, RNode} = start_node(dist_parallel_receiver),
-    {ok, SNode} = start_node(dist_parallel_sender),
-    WatchDog = spawn_link(
-                 fun () ->
-                         TRef = erlang:start_timer((2*60*1000), self(), oops),
-                         receive
-                             {timeout, TRef, _ } ->
-                                 spawn(SNode, fun () -> abort(timeout) end),
-                                 spawn(RNode, fun () -> abort(timeout) end)
-                                 %%       rpc:cast(SNode, erlang, halt,
-                                 %%		["Timetrap (sender)"]),
-                                 %%       rpc:cast(RNode, erlang, halt,
-                                 %%		["Timetrap (receiver)"])
-                         end
-                 end),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, RNode} = start_node(dist_parallel_receiver, "-connect_all false"),
+    {ok, SNode} = start_node(dist_parallel_sender, "-connect_all false"),
+
+    %% WatchDog = spawn_link(
+    %%             fun () ->
+    %%                     TRef = erlang:start_timer((2*60*1000), self(), oops),
+    %%                     receive
+    %%                         {timeout, TRef, _ } ->
+    %%                             spawn(SNode, fun () -> abort(timeout) end),
+    %%                             spawn(RNode, fun () -> abort(timeout) end)
+    %%                              %%       rpc:cast(SNode, erlang, halt,
+    %%                              %%		["Timetrap (sender)"]),
+    %%                              %%       rpc:cast(RNode, erlang, halt,
+    %%                              %%		["Timetrap (receiver)"])
+    %%                      end
+    %%              end),
+
     MkSndrs = fun (Receiver) ->
                       lists:map(fun (_) ->
                                         spawn_link(SNode,
@@ -1102,18 +1105,23 @@ dist_parallel_send(Config) when is_list(Config) ->
                                                    [self(), Receiver, 1000])
                                 end, lists:seq(1, 64))
               end,
+    Parent = self(),
     SndrsStart = fun (Sndrs) ->
-                         Parent = self(),
                          spawn_link(SNode,
                            fun () ->
                                    lists:foreach(fun (P) ->
                                                          P ! {go, Parent}
-                                                 end, Sndrs)
+                                                 end, Sndrs),
+                                   unlink(Parent)
                            end)
                  end,
     SndrsWait = fun (Sndrs) ->
                         lists:foreach(fun (P) ->
-                                              receive {P, done} -> ok end
+                                              receive
+                                                  {P, done} ->
+                                                      unlink(P),
+                                                      ok
+                                              end
                                       end, Sndrs)
                 end,
     DPR = spawn_link(RNode, ?MODULE, dist_parallel_receiver, []),
@@ -1130,8 +1138,8 @@ dist_parallel_send(Config) when is_list(Config) ->
     unlink(DEPR),
     exit(DEPR, bang),
 
-    unlink(WatchDog),
-    exit(WatchDog, bang),
+    %% unlink(WatchDog),
+    %% exit(WatchDog, bang),
 
     stop_node(RNode),
     stop_node(SNode),
@@ -1782,8 +1790,9 @@ start_link(Offender,P) ->
 bad_dist_structure(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
 
-    {ok, Offender} = start_node(bad_dist_structure_offender),
-    {ok, Victim} = start_node(bad_dist_structure_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_structure_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_structure_victim, "-connect_all false"),
     start_node_monitors([Offender,Victim]),
     Parent = self(),
     P = spawn(Victim,
@@ -1877,8 +1886,9 @@ bad_dist_structure(Config) when is_list(Config) ->
 bad_dist_fragments(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
 
-    {ok, Offender} = start_node(bad_dist_fragment_offender),
-    {ok, Victim} = start_node(bad_dist_fragment_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_fragment_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_fragment_victim, "-connect_all false"),
 
     Msg = iolist_to_binary(dmsg_ext(lists:duplicate(255,255))),
 
@@ -2032,8 +2042,9 @@ send_bad_fragments(Offender,VictimNode,Victim,Ctrl,WhereToPutSelf,Fragments) ->
     end.
 
 bad_dist_ext_receive(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_receive_offender),
-    {ok, Victim} = start_node(bad_dist_ext_receive_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_ext_receive_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_ext_receive_victim, "-connect_all false"),
     start_node_monitors([Offender,Victim]),
 
     Parent = self(),
@@ -2104,8 +2115,9 @@ bad_dist_ext_receive(Config) when is_list(Config) ->
 
 
 bad_dist_ext_process_info(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
-    {ok, Victim} = start_node(bad_dist_ext_process_info_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_ext_process_info_victim, "-connect_all false"),
     start_node_monitors([Offender,Victim]),
 
     Parent = self(),
@@ -2164,8 +2176,9 @@ bad_dist_ext_process_info(Config) when is_list(Config) ->
     stop_node(Victim).
 
 bad_dist_ext_control(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_control_offender),
-    {ok, Victim} = start_node(bad_dist_ext_control_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_ext_control_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_ext_control_victim, "-connect_all false"),
     start_node_monitors([Offender,Victim]),
 
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
@@ -2183,8 +2196,9 @@ bad_dist_ext_control(Config) when is_list(Config) ->
     stop_node(Victim).
 
 bad_dist_ext_connection_id(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_connection_id_offender),
-    {ok, Victim} = start_node(bad_dist_ext_connection_id_victim),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_ext_connection_id_offender, "-connect_all false"),
+    {ok, Victim} = start_node(bad_dist_ext_connection_id_victim, "-connect_all false"),
     start_node_monitors([Offender,Victim]),
 
     Parent = self(),
@@ -2250,10 +2264,11 @@ bad_dist_ext_connection_id(Config) when is_list(Config) ->
 
 %% OTP-14661: Bad message is discovered by erts_msg_attached_data_size
 bad_dist_ext_size(Config) when is_list(Config) ->
-    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender, "-connect_all false"),
     %%Prog = "Prog=/home/uabseri/src/otp_new3/bin/cerl -rr -debug",
     Prog = [],
-    {ok, Victim} = start_node(bad_dist_ext_process_info_victim, [], Prog),
+    {ok, Victim} = start_node(bad_dist_ext_process_info_victim, "-connect_all false", Prog),
     start_node_monitors([Offender,Victim]),
 
     Parent = self(),
