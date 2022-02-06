@@ -721,7 +721,7 @@ controller(Name, Scope, Self) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Pa2 = filename:dirname(code:which(pg)),
     Args = lists:concat(["-setcookie ", erlang:get_cookie(),
-            "-connect_all false -kernel dist_auto_connect never -noshell -pa ", Pa, " -pa ", Pa2]),
+            " -connect_all false -kernel dist_auto_connect never -noshell -pa ", Pa, " -pa ", Pa2]),
     {ok, Node} = test_server:start_node(Name, peer, [{args, Args}]),
     case rpc:call(Node, ?MODULE, control, [Scope], 5000) of
         {badrpc, nodedown} ->

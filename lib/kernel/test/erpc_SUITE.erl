@@ -938,27 +938,29 @@ send_request_against_ei_node(Config) when is_list(Config) ->
     ok = stop_ei_node(EiNode).
 
 multicall(Config) ->
-    {ok, _Peer1, Node1} = ?CT_PEER(),
-    {ok, Peer2, Node2} = ?CT_PEER(),
+    {ok, _Peer1, Node1} = ?CT_PEER(#{connection => 0}),
+    {ok, Peer2, Node2} = ?CT_PEER(#{connection => 0}),
     {ok, Node3} = start_ei_node(Config),
     %% Test once when erpc:multicall() brings up the connection...
     disconnect(Node3),
     Node3Res = {error, {erpc, notsup}},
-    {ok, _Peer4, Node4} = ?CT_PEER(),
-    {ok, _Peer5, Node5} = ?CT_PEER(),
+    {ok, _Peer4, Node4} = ?CT_PEER(#{connection => 0}),
+    {ok, _Peer5, Node5} = ?CT_PEER(#{connection => 0}),
     {OldRelName, OldRel} = old_release(),
     {OldTested, {ok, _Peer6, Node6}}
         = case ?CT_PEER(#{connection => 0},
                         OldRelName,
                         proplists:get_value(priv_dir, Config)) of
               not_available ->
-                  {false, ?CT_PEER()};
+                  {false, ?CT_PEER(#{connection => 0})};
               {ok, _OldPeer, OldNode} = OldNodeRes ->
                   compile_and_load_on_node(OldNode),
                   {true, OldNodeRes}
           end,
     peer:stop(Peer2),
-    
+    io:format("Node1=~p~nNode2=~p~nNode3=~p~nNode4=~p~nNode5=~p~nNode6=~p~n",
+              [Node1, Node2, Node3, Node4, Node5, Node6]),
+
     ThisNode = node(),
     Nodes = [ThisNode, Node1, Node2, Node3, Node4, Node5],
     

@@ -164,6 +164,11 @@ tick(Config) when is_list(Config) ->
     run_dist_configs(fun tick/2, Config).
 
 tick(DCfg, _Config) ->
+    %%
+    %% This test case use disabled "connect all" so that
+    %% global wont interfere...
+    %%
+
     %% First check that the normal case is OK!
     [Name1, Name2] = get_nodenames(2, dist_test),
     {ok, Node} = start_node(DCfg, Name1),
@@ -191,11 +196,11 @@ tick(DCfg, _Config) ->
     %% node doesn't tick the client node within the interval ...
 
     {ok, ServNode} = start_node(DCfg, Name2,
-				"-kernel net_ticktime 100"),
+				"-kernel net_ticktime 100 -connect_all false"),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
     {ok, Node} = start_node(DCfg, Name1,
-			 "-kernel net_ticktime 12"),
+			 "-kernel net_ticktime 12 -connect_all false"),
     rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [ServNode]),
 
     spawn_link(erl_distribution_SUITE, keep_conn, [Node]),
@@ -765,6 +770,10 @@ tick_change(Config) when is_list(Config) ->
     run_dist_configs(fun tick_change/2, Config).
 
 tick_change(DCfg, _Config) ->
+    %%
+    %% This test case use disabled "connect all" so that
+    %% global wont interfere...
+    %%
     [BN, CN] = get_nodenames(2, tick_change),
     DefaultTT = net_kernel:get_net_ticktime(),
     unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
@@ -781,7 +790,7 @@ tick_change(DCfg, _Config) ->
     end,
 
     wait_until(fun () -> 10 == net_kernel:get_net_ticktime() end),
-    {ok, B} = start_node(DCfg, BN, "-kernel net_ticktime 10"),
+    {ok, B} = start_node(DCfg, BN, "-kernel net_ticktime 10 -connect_all false"),
     {ok, C} = start_node(DCfg, CN, "-kernel net_ticktime 10 -hidden"),
 
     OTE = process_flag(trap_exit, true),
@@ -843,7 +852,7 @@ run_tick_change_test(DCfg, B, C, PrevTT, TT) ->
 			   wait_for_nodedowns(Tester, Ref)
 		   end,
 
-    {ok, D} = start_node(DCfg, DN, "-kernel net_ticktime "
+    {ok, D} = start_node(DCfg, DN, "-connect_all false -kernel net_ticktime "
 			 ++ integer_to_list(PrevTT)),
 
     NMA = spawn_link(fun () -> MonitorNodes([B, C, D]) end),
@@ -877,7 +886,7 @@ run_tick_change_test(DCfg, B, C, PrevTT, TT) ->
     sleep(7),
     change_initiated = rpc:call(C,net_kernel,set_net_ticktime,[TT,10]),
 
-    {ok, E} = start_node(DCfg, EN, "-kernel net_ticktime "
+    {ok, E} = start_node(DCfg, EN, "-connect_all false -kernel net_ticktime "
 			 ++ integer_to_list(TT)),
     NME  = spawn_link(E, fun () -> MonitorNodes([node(), B, C, D]) end),
     NMA2 = spawn_link(fun () -> MonitorNodes([E]) end),

@@ -96,10 +96,10 @@ off_heap(_Config) ->
 
 %% Test different rpc calls.
 call(Config) when is_list(Config) ->
-    {ok, _P1, N1} = ?CT_PEER(["-rpc_test_delay", "3"]),
-    {ok, _P2, N2} = ?CT_PEER(["-rpc_test_delay", "1"]),
-    {ok, _P3, N3} = ?CT_PEER(["-rpc_test_delay", "4"]),
-    {ok, _P4, N4} = ?CT_PEER(["-rpc_test_delay", "8"]),
+    {ok, _P1, N1} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "3"]),
+    {ok, _P2, N2} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "1"]),
+    {ok, _P3, N3} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "4"]),
+    {ok, _P4, N4} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "8"]),
     ok = io:format("~p~n", [[N1, N2, N3, N4]]),
     {hej,_,N1} = rpc:call(N1, ?MODULE, f, []),
     {hej,_,N2} = rpc:call(N2, ?MODULE, f, [], 2000),
@@ -164,10 +164,10 @@ reqtmo_test(Test) ->
 
 %% Test different rpc calls.
 block_call(Config) when is_list(Config) ->
-    {ok, _P1, N1} = ?CT_PEER(["-rpc_test_delay", "3"]),
-    {ok, _P2, N2} = ?CT_PEER(["-rpc_test_delay", "1"]),
-    {ok, _P3, N3} = ?CT_PEER(["-rpc_test_delay", "4"]),
-    {ok, _P4, N4} = ?CT_PEER(["-rpc_test_delay", "8"]),
+    {ok, _P1, N1} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "3"]),
+    {ok, _P2, N2} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "1"]),
+    {ok, _P3, N3} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "4"]),
+    {ok, _P4, N4} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "8"]),
     ok = io:format("~p~n", [[N1, N2, N3]]),
     {hej,_,N1} = rpc:block_call(N1, ?MODULE, f, []),
     {hej,_,N2} = rpc:block_call(N2, ?MODULE, f, [], 2000),
@@ -180,8 +180,8 @@ block_call(Config) when is_list(Config) ->
 
 %% OTP-3449.
 multicall(Config) when is_list(Config) ->
-    {ok, _P1, N1} = ?CT_PEER(["-rpc_test_delay", "3"]),
-    {ok, _P2, N2} = ?CT_PEER(["-rpc_test_delay", "1"]),
+    {ok, _P1, N1} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "3"]),
+    {ok, _P2, N2} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "1"]),
     ok = io:format("~p~n", [[N1, N2]]),
     {[{hej,_,N1},{hej,_,N2}],[]} =
 	rpc:multicall([N1, N2], ?MODULE, f, []),
@@ -190,10 +190,10 @@ multicall(Config) when is_list(Config) ->
     ok.
 
 multicall_timeout(Config) when is_list(Config) ->
-    {ok, _P1, N1} = ?CT_PEER(["-rpc_test_delay", "11"]),
-    {ok, _P2, N2} = ?CT_PEER(["-rpc_test_delay", "8"]),
-    {ok, _P3, N3} = ?CT_PEER(["-rpc_test_delay", "5"]),
-    {ok, _P4, N4} = ?CT_PEER(["-rpc_test_delay", "2"]),
+    {ok, _P1, N1} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "11"]),
+    {ok, _P2, N2} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "8"]),
+    {ok, _P3, N3} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "5"]),
+    {ok, _P4, N4} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "2"]),
     ok = io:format("~p~n", [[N1, N2, N3, N4]]),
     {[{hej,_,N3},{hej,_,N4}],[N1, N2]} =
 	rpc:multicall([N3, N1, N2, N4], ?MODULE, f, [], 6000),
@@ -227,8 +227,8 @@ multicall_reqtmo(Config) when is_list(Config) ->
 
 
 multicall_dies(Config) when is_list(Config) ->
-    {ok, P1, N1} = ?CT_PEER(),
-    {ok, P2, N2} = ?CT_PEER(),
+    {ok, P1, N1} = ?CT_PEER(["-connect_all", "false"]),
+    {ok, P2, N2} = ?CT_PEER(["-connect_all", "false"]),
     Nodes = [N1, N2],
     %%
     {[{badrpc, {'EXIT', normal}}, {badrpc, {'EXIT', normal}}], []} =
@@ -279,8 +279,8 @@ multicall_node_dies(Config) when is_list(Config) ->
 
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ok = io:format("~p:~p~p~n", [Mod, Func, Args]),
-    {ok, _P1, N1} = ?CT_PEER(),
-    {ok, _P2, N2} = ?CT_PEER(),
+    {ok, _P1, N1} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    {ok, _P2, N2} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
     Nodes = [N1, N2],
     case {Mod, Func, rpc:multicall(Nodes, Mod, Func, Args)} of
         {_, _, {[], Nodes}} ->
@@ -301,7 +301,7 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
 
 %% OTP-3766.
 called_dies(Config) when is_list(Config) ->
-    {ok, P, N} = ?CT_PEER(),
+    {ok, P, N} = ?CT_PEER(["-connect_all", "false"]),
     %%
     rep(fun (Tag, Call, Args) ->
 		{Tag,{badrpc,{'EXIT',normal}}} =
@@ -467,13 +467,13 @@ node_rep(Fun, M, F, A) ->
     node_rep_call(block_call, [M,F,A,infinity], Fun).
 
 node_rep_call(Call, Args, Fun) ->
-    {ok, _P, N} = ?CT_PEER(#{connection => 0}),
+    {ok, _P, N} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
     Fun(Call, [N|Args]),
     ok.
 
 %% OTP-3766.
 called_throws(Config) when is_list(Config) ->
-    {ok, P, N} = ?CT_PEER(),
+    {ok, P, N} = ?CT_PEER(["-connect_all", "false"]),
     %%
     rep(fun (Tag, Call, Args) ->
 		{Tag,up} =
@@ -490,7 +490,7 @@ called_throws(Config) when is_list(Config) ->
 
 
 call_benchmark(Config) when is_list(Config) ->
-    {ok, Peer, Node} = ?CT_PEER(),
+    {ok, Peer, Node} = ?CT_PEER(["-connect_all", "false"]),
     Iter = case erlang:system_info(modified_timing_level) of
 	       undefined -> 10000;
 	       _ -> 500		     %Modified timing - spawn is slower
@@ -516,9 +516,10 @@ do_call_benchmark(Node, I, M) ->
     do_call_benchmark(Node, I+1, M).
 
 async_call(Config) when is_list(Config) ->
-    {ok, _Peer1, Node1} = ?CT_PEER(["-rpc_test_delay", "1"]),
-    {ok, _Peer2, Node2} = ?CT_PEER(["-rpc_test_delay", "10"]),
-    {ok, _Peer3, Node3} = ?CT_PEER(["-rpc_test_delay", "20"]),
+    {ok, _Peer1, Node1} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "1"]),
+    {ok, _Peer2, Node2} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "10"]),
+    {ok, _Peer3, Node3} = ?CT_PEER(["-connect_all", "false", "-rpc_test_delay", "20"]),
+    %% Note: First part of nodename sets response delay in seconds.
     Promise1 = rpc:async_call(Node1, ?MODULE, f, []),
     Promise2 = rpc:async_call(Node2, ?MODULE, f, []),
     Promise3 = rpc:async_call(Node3, ?MODULE, f, []),
@@ -550,8 +551,8 @@ call_against_old_node(Config) ->
     end.
 
 multicall_mix(Config) ->
-    {ok, _Peer1, Node1} = ?CT_PEER(),
-    {ok, Peer2, Node2} = ?CT_PEER(),
+    {ok, _Peer1, Node1} = ?CT_PEER(#{connection => 0}),
+    {ok, Peer2, Node2} = ?CT_PEER(#{connection => 0}),
     {OldRelName, OldRel} = old_release(),
     {{ok, _Peer3, Node3}, OldNodeTest}
         = case ?CT_PEER(#{connection => 0},
@@ -560,10 +561,10 @@ multicall_mix(Config) ->
               {ok, _, _} = OldNRes ->
                   {OldNRes, true};
               not_available ->
-                  {?CT_PEER(), false}
+                  {?CT_PEER(#{connection => 0}), false}
           end,
-    {ok, _Peer4, Node4} = ?CT_PEER(),
-    {ok, _Peer5, Node5} = ?CT_PEER(),
+    {ok, _Peer4, Node4} = ?CT_PEER(#{connection => 0}),
+    {ok, _Peer5, Node5} = ?CT_PEER(#{connection => 0}),
     peer:stop(Peer2),
     
     [] = flush([]),
