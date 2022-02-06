@@ -664,10 +664,30 @@ stop_heart(State) ->
 
 shutdown_pids(Heart,Logger,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
+    global_prepare_shutdown(),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
     kill_all_pids(Heart,Logger), % Even the shutdown timer.
     kill_all_ports(Heart), % Logger has no ports
     flush_timout(Timer).
+
+global_prepare_shutdown() ->
+    %% Inform global that we are shutting down, so it wont
+    %% send 'lost_connection' messages when connections
+    %% goes down...
+    case whereis(global_name_server) of
+        undefined ->
+            ok;
+        Pid ->
+            Mon = erlang:monitor(process, Pid),
+            Pid ! {prepare_shutdown, self(), Mon},
+            receive
+                {Mon, ok} ->
+                    erlang:demonitor(Mon, [flush]),
+                    ok;
+                {'DOWN', Mon, process, Pid, _Reason} ->
+                    ok
+            end
+    end.
 
 get_heart(Kernel) ->
     get_kernelpid(heart,Kernel).

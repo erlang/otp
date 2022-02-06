@@ -762,20 +762,22 @@ send_request_against_old_node(Config) when is_list(Config) ->
     end.
 
 multicall(Config) ->
-    {ok, Node1} = start_node(Config),
-    {ok, Node2} = start_node(Config),
+    {ok, Node1} = start_peer_node(Config),
+    {ok, Node2} = start_peer_node(Config),
     {Node3, Node3Res} = case start_22_node(Config) of
                             {ok, N3} ->
                                 {N3, {error, {erpc, notsup}}};
                             _ ->
-                                {ok, N3} = start_node(Config),
+                                {ok, N3} = start_peer_node(Config),
                                 stop_node(N3),
                                 {N3, {error, {erpc, noconnection}}}
                         end,
-    {ok, Node4} = start_node(Config),
-    {ok, Node5} = start_node(Config),
+    {ok, Node4} = start_peer_node(Config),
+    {ok, Node5} = start_peer_node(Config),
     stop_node(Node2),
-    
+    io:format("Node1=~p~nNode2=~p~nNode3=~p~nNode4=~p~nNode5=~p~n",
+              [Node1, Node2, Node3, Node4, Node5]),
+
     ThisNode = node(),
     Nodes = [ThisNode, Node1, Node2, Node3, Node4, Node5],
     
@@ -1340,6 +1342,14 @@ start_node(Config) ->
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+
+start_peer_node(Config) ->
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+			++ "-" ++ integer_to_list(erlang:system_time(second))
+			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, peer, [{args,  "-pa " ++ Pa}]).
 
 start_22_node(Config) ->
     Rel = "22_latest",
