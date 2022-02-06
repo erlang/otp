@@ -52,9 +52,12 @@ import java.util.Iterator;
  *
  * <p>
  * Note that the use of this class requires that Epmd (Erlang Port Mapper
- * Daemon) is running on each cooperating host. This class does not start Epmd
- * automatically as Erlang does, you must start it manually or through some
- * other means. See the Erlang documentation for more information about this.
+ * Daemon) is running on each cooperating host, except when using a transport
+ * factory extending the OtpGenericTransportFactory abstract class.
+ *
+ * This class does not start Epmd automatically as Erlang does, you must start
+ * it manually or through some other means. See the Erlang documentation for
+ * more information about this.
  * </p>
  */
 public class OtpNode extends OtpLocalNode {
@@ -128,7 +131,14 @@ public class OtpNode extends OtpLocalNode {
             final OtpTransportFactory transportFactory) throws IOException {
         super(node, transportFactory);
 
-        init(0);
+        if (transportFactory instanceof OtpGenericTransportFactory) {
+            // For alternative distribution protocols using a transport factory
+            // extending the OtpGenericTransportFactory abstract class, the
+            // local node is used as the identifier for incoming connections.
+            init();
+        } else {
+            init(0);
+        }
     }
 
     /**
@@ -168,7 +178,16 @@ public class OtpNode extends OtpLocalNode {
      */
     public OtpNode(final String node, final String cookie,
             final OtpTransportFactory transportFactory) throws IOException {
-        this(node, cookie, 0, transportFactory);
+        super(node, cookie, transportFactory);
+
+        if (transportFactory instanceof OtpGenericTransportFactory) {
+            // For alternative distribution protocols using a transport factory
+            // extending the OtpGenericTransportFactory abstract class, the
+            // local node is used as the identifier for incoming connections.
+            init();
+        } else {
+            init(0);
+        }
     }
 
     /**
@@ -224,12 +243,30 @@ public class OtpNode extends OtpLocalNode {
         init(port);
     }
 
+    /*
+     * Initialize a node instance with the port number to use for incoming
+     * connections. Specifying 0 lets the system choose an available port.
+     */
     private synchronized void init(final int aport) throws IOException {
         if (!initDone) {
             connections = new Hashtable<String, OtpCookedConnection>(17,
                     (float) 0.95);
             mboxes = new Mailboxes();
             acceptor = new Acceptor(aport);
+            initDone = true;
+        }
+    }
+
+    /*
+     * Initialize a node instance using an alternative distribution protocol
+     * with the local node used as the identifier for incoming connections.
+     */
+    private synchronized void init() throws IOException {
+        if (!initDone) {
+            connections = new Hashtable<String, OtpCookedConnection>(17,
+                    (float) 0.95);
+            mboxes = new Mailboxes();
+            acceptor = new Acceptor(this);
             initDone = true;
         }
     }
@@ -446,8 +483,8 @@ public class OtpNode extends OtpLocalNode {
     public boolean ping(final String anode, final long timeout) {
         if (anode.equals(node)) {
             return true;
-        } else if (anode.indexOf('@', 0) < 0
-                && anode.equals(node.substring(0, node.indexOf('@', 0)))) {
+        } else if (anode.indexOf('@') < 0
+                && anode.equals(node.substring(0, node.indexOf('@')))) {
             return true;
         }
 
@@ -527,7 +564,7 @@ public class OtpNode extends OtpLocalNode {
 
             if (t == OtpMsg.regSendTag) {
                 final String name = m.getRecipientName();
-                /* special case for netKernel requests */
+                // special case for netKernel requests
                 if (name.equals("net_kernel")) {
                     return netKernel(m);
                 }
@@ -569,7 +606,10 @@ public class OtpNode extends OtpLocalNode {
 
             if (conn == null) {
                 // in case node had no '@' add localhost info and try again
-                peer = new OtpPeer(anode);
+                peer = new OtpPeer(anode,
+                                   // Pass the transport factory to use
+                                   // when creating connections
+                                   transportFactory);
                 conn = connections.get(peer.node());
 
                 if (conn == null) {
@@ -578,7 +618,7 @@ public class OtpNode extends OtpLocalNode {
                         conn.setFlags(connFlags);
                         addConnection(conn);
                     } catch (final Exception e) {
-                        /* false = outgoing */
+                        // false = outgoing
                         connAttempt(peer.node(), false, e);
                     }
                 }
@@ -773,7 +813,28 @@ public class OtpNode extends OtpLocalNode {
 
             setDaemon(true);
             setName("acceptor");
+            // Publish the node through Epmd
             publishPort();
+            start();
+        }
+
+        /*
+         * Constructor for alternative distribution protocols using a transport
+         * factory extending the OtpGenericTransportFactory abstract class.
+         *
+         * The notion of socket port is not used with such protocols so the
+         * node is not published via Epmd.
+         */
+        Acceptor(final OtpLocalNode node) throws IOException {
+            // Set acceptorPort arbitrarily to 0, it won't be used later on.
+            acceptorPort = 0;
+
+            // The local node is passed as the identifier to use for incoming
+            // connections.
+            sock = createServerTransport(node);
+
+            setDaemon(true);
+            setName("acceptor");
             start();
         }
 
@@ -786,10 +847,16 @@ public class OtpNode extends OtpLocalNode {
         }
 
         private void unPublishPort() {
-            // unregister with epmd
+            // The notion of socket port is not used with such an alternative
+            // distribution protocol so the node was not registered with Epmd.
+            if (transportFactory instanceof OtpGenericTransportFactory) {
+                return;
+            }
+
+            // Unregister the node from Epmd
             OtpEpmd.unPublishPort(OtpNode.this);
 
-            // close the local descriptor (if we have one)
+            // Close the local descriptor (if we have one)
             closeSock(epmd);
             epmd = null;
         }
@@ -875,7 +942,7 @@ public class OtpNode extends OtpLocalNode {
                 }
             } // while
 
-            // if we have exited loop we must do this too
+            // If we have exited loop we must do this too
             unPublishPort();
         }
     }

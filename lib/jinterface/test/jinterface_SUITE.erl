@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([transport_factory/1,
+-export([generic_transport_factory/1, transport_factory/1,
 	 nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
 	 node_ping/1, mbox_ping/1,
 	 java_erlang_send_receive/1,
@@ -114,14 +114,15 @@ end_per_group(_GroupName, Config) ->
 
 fundamental() ->
     [
-     transport_factory,    % TransportFactoryTest.java
-     nodename,             % Nodename.java
-     register_and_whereis, % RegisterAndWhereis.java
-     get_names,            % GetNames.java
-     boolean_atom,         % BooleanAtom.java
-     maps,                 % Maps.java
-     fun_equals,           % FunEquals.java
-     core_match_bind       % CoreMatchBind.java
+     generic_transport_factory, % GenericTransportFactoryTest.java
+     transport_factory,         % TransportFactoryTest.java
+     nodename,                  % Nodename.java
+     register_and_whereis,      % RegisterAndWhereis.java
+     get_names,                 % GetNames.java
+     boolean_atom,              % BooleanAtom.java
+     maps,                      % Maps.java
+     fun_equals,                % FunEquals.java
+     core_match_bind            % CoreMatchBind.java
     ].
 
 ping() ->
@@ -235,6 +236,17 @@ end_per_testcase(_Case,Config) ->
 
 %%%-----------------------------------------------------------------
 %%% TEST CASES
+%%%-----------------------------------------------------------------
+generic_transport_factory(doc) ->
+    ["GenericTransportFactoryTest.java: "
+     "Test custom OTP Generic Transport Factory"];
+generic_transport_factory(suite) ->
+    [];
+generic_transport_factory(Config) when is_list(Config) ->
+    ok = jitu:java(?config(java, Config),
+		   ?config(data_dir, Config),
+		   "GenericTransportFactoryTest").
+
 %%%-----------------------------------------------------------------
 transport_factory(doc) ->
     ["TransportFactoryTest.java: Test custom OTP Transport Factory"];

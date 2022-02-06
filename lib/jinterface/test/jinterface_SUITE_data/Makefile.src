@@ -36,6 +36,7 @@ JINTERFACE_CLASSPATH = @jinterface_classpath@
 CLASSPATH = .@PS@$(JINTERFACE_CLASSPATH)@PS@
 
 JAVA_FILES = \
+	GenericTransportFactoryTest.java \
 	TransportFactoryTest.java \
 	Nodename.java \
 	RegisterAndWhereis.java \

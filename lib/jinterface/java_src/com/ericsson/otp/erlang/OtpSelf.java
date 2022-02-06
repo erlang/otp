@@ -196,12 +196,20 @@ public class OtpSelf extends OtpLocalNode {
             final OtpTransportFactory transportFactory) throws IOException {
         super(node, cookie, transportFactory);
 
-        sock = createServerTransport(port);
+        if (transportFactory instanceof OtpGenericTransportFactory) {
+            // For alternative distribution protocols using a transport factory
+            // extending the OtpGenericTransportFactory abstract class, pass the
+            // local node as the identifier to use for incoming connections.
+            sock = createServerTransport(this);
 
-        if (port != 0) {
-            this.port = port;
         } else {
-            this.port = sock.getLocalPort();
+            sock = createServerTransport(port);
+
+            if (port != 0) {
+                this.port = port;
+            } else {
+                this.port = sock.getLocalPort();
+            }
         }
 
         pid = createPid();
