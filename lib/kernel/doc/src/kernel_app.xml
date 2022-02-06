@@ -370,11 +370,11 @@ MaxT = TickTime + TickTime / 4</code>
         <p>
           If enabled (<c>true</c>), <c>global</c> will actively prevent
           overlapping partitions from forming when connections are lost
-          between nodes. This fix is, however, currently disabled by
-          default. See the
+          between nodes. This fix is enabled by default. If you are about
+          to disable this fix, make sure to read the
           <seeerl marker="kernel:global#prevent_overlapping_partitions">
-            <c>global(3)</c></seeerl> documentation for more
-            information.
+            <c>global(3)</c></seeerl> documentation about this fix for
+            more important information about this.
         </p>
       </item>
       <tag><c>shutdown_timeout = integer() | infinity</c></tag>

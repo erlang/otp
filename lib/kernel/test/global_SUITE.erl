@@ -4598,10 +4598,10 @@ stop_partition_controller(PartCtrlr) ->
 
 prevent_overlapping_partitions() ->
     case application:get_env(kernel, prevent_overlapping_partitions) of
-        {ok, true} ->
-            true;
+        {ok, false} ->
+            false;
         _ ->
-            false
+            true
     end.
 
 cast_line([]) ->
