@@ -84,6 +84,7 @@
 
          %% instruction-level tests
          t_has_map_fields/1,
+         t_get_map_elements/1,
          y_regs/1,
 
          %%Bugs
@@ -157,6 +158,7 @@ groups() ->
 
        %% instruction-level tests
        t_has_map_fields,
+       t_get_map_elements,
        y_regs,
 
        %% Bugs
@@ -3141,6 +3143,19 @@ has_map_fields_2(#{}) -> false.
 has_map_fields_3(#{a:=_,b:=_}) -> true;
 has_map_fields_3(#{[]:=_,42.0:=_}) -> true;
 has_map_fields_3(#{}) -> false.
+
+t_get_map_elements(Config) when is_list(Config) ->
+    %% Tests that the JIT implementation of `get_map_elements` handles
+    %% collisions properly.
+    N = 500000,
+    Is = lists:seq(1, N),
+    Test = maps:from_list([{I,I}||I<-Is]),
+    [begin
+         #{ Key := Val } = Test,
+         Key = Val
+     end || Key <- Is],
+
+    ok.
 
 y_regs(Config) when is_list(Config) ->
     Val = [length(Config)],

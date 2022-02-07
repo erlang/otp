@@ -21,6 +21,8 @@
 
 -module(beam_block).
 
+-include("beam_asm.hrl").
+
 -export([module/2]).
 -import(lists, [keysort/2,member/2,reverse/1,reverse/2,
                 splitwith/2,usort/1]).
@@ -245,7 +247,8 @@ opt_maps([], Acc) -> reverse(Acc).
 simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
                           [{get_map_elements,Fail,Src,{list,List1}}|Acc]) ->
     case are_keys_literals([Key]) andalso are_keys_literals(List1) andalso
-        not is_source_overwritten(Src, List1) of
+        not is_reg_overwritten(Src, List1) andalso
+        not is_reg_overwritten(Dst, List1) of
         true ->
             case member(Key, List1) of
                 true ->
@@ -275,9 +278,10 @@ simplify_has_map_fields(Fail, [Src|Keys0],
     end;
 simplify_has_map_fields(_, _, _) -> error.
 
+are_keys_literals([#tr{}|_]) -> false;
 are_keys_literals([{x,_}|_]) -> false;
 are_keys_literals([{y,_}|_]) -> false;
 are_keys_literals([_|_]) -> true.
 
-is_source_overwritten(Src, [_Key,Src]) -> true;
-is_source_overwritten(_, _) -> false.
+is_reg_overwritten(Src, [_Key,Src]) -> true;
+is_reg_overwritten(_, _) -> false.

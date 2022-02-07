@@ -570,7 +570,7 @@ void BeamModuleAssembler::emit_bif_hd(const ArgVal &Src, const ArgVal &Hd) {
 
     ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << bitNumber));
 
-    a.tbz(src.reg, bitNumber, good_cons);
+    a.tbz(src.reg, imm(bitNumber), good_cons);
     mov_var(XREG0, src);
     fragment_call(ga->get_handle_hd_error());
 
@@ -736,7 +736,7 @@ void BeamModuleAssembler::emit_bif_tl(const ArgVal &Src, const ArgVal &Tl) {
 
     ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << bitNumber));
 
-    a.tbz(src.reg, bitNumber, good_cons);
+    a.tbz(src.reg, imm(bitNumber), good_cons);
     mov_var(XREG0, src);
     fragment_call(ga->get_handle_tl_error());
 

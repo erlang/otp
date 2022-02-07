@@ -641,7 +641,7 @@ void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail,
     const int bitNumber = 1;
 
     ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << bitNumber));
-    a.tbnz(list_ptr.reg, bitNumber, resolve_beam_label(Fail, disp32K));
+    a.tbnz(list_ptr.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
 }
 
 void BeamModuleAssembler::emit_jump(const ArgVal &Fail) {

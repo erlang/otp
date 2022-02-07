@@ -879,6 +879,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_breakpoint_trampoline_shared)                                          \
     _(i_bsr_body_shared)                                                       \
     _(i_bsl_body_shared)                                                       \
+    _(i_get_map_element_shared)                                                \
+    _(i_get_map_element_hash_shared)                                           \
     _(i_func_info_shared)                                                      \
     _(i_length_guard_shared)                                                   \
     _(i_length_body_shared)                                                    \
@@ -888,6 +890,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bxor_body_shared)                                                      \
     _(int_div_rem_body_shared)                                                 \
     _(int_div_rem_guard_shared)                                                \
+    _(internal_hash_helper)                                                    \
     _(minus_body_shared)                                                       \
     _(new_map_shared)                                                          \
     _(update_map_assoc_shared)                                                 \
@@ -937,6 +940,9 @@ class BeamGlobalAssembler : public BeamAssembler {
     void emit_bif_byte_size_helper(Label fail);
     void emit_bif_element_helper(Label fail);
     void emit_bif_tuple_size_helper(Label fail);
+
+    void emit_flatmap_get_element();
+    void emit_hashmap_get_element();
 
 public:
     BeamGlobalAssembler(JitAllocator *allocator);
