@@ -604,8 +604,11 @@ types(maps, fold, [Fun, Init, _Map]) ->
               end,
     sub_unsafe(RetType, [#t_fun{arity=3}, any, #t_map{}]);
 types(maps, from_keys, [Keys, Value]) ->
-    RetType = #t_map{super_key=erlang_hd_type(Keys),
-                     super_value=Value},
+    KeyType = erlang_hd_type(Keys),
+    RetType = case KeyType of
+                  none -> #t_map{super_key=none,super_value=none};
+                  _ -> #t_map{super_key=KeyType,super_value=Value}
+              end,
     sub_unsafe(RetType, [proper_list(), any]);
 types(maps, from_list, [Pairs]) ->
     PairType = erlang_hd_type(Pairs),
@@ -614,6 +617,8 @@ types(maps, from_list, [Pairs]) ->
                       SKey = beam_types:get_tuple_element(1, Es),
                       SValue = beam_types:get_tuple_element(2, Es),
                       #t_map{super_key=SKey,super_value=SValue};
+                  none ->
+                      #t_map{super_key=none,super_value=none};
                   _ ->
                       #t_map{}
               end,
@@ -707,14 +712,16 @@ types(maps, values, [Map]) ->
               end,
     sub_unsafe(RetType, [#t_map{}]);
 types(maps, with, [Keys, Map]) ->
-    RetType = case Map of
-                  #t_map{super_key=SKey0} ->
+    RetType = case {erlang_hd_type(Keys), Map} of
+                  {none, _} ->
+                      #t_map{super_key=none,super_value=none};
+                  {KeysType, #t_map{super_key=SKey0}} ->
                       %% Since we know that the Map will only contain the pairs
                       %% pointed out by Keys, we can restrict the types to
                       %% those in the list.
-                      SKey = beam_types:meet(erlang_hd_type(Keys), SKey0),
+                      SKey = beam_types:meet(KeysType, SKey0),
                       Map#t_map{super_key=SKey};
-                  _ ->
+                  {_, _} ->
                       #t_map{}
               end,
     sub_unsafe(RetType, [proper_list(), #t_map{}]);
@@ -749,12 +756,14 @@ mixed_arith_types([FirstType | _]=Args0) ->
 erlang_hd_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{type=Type} -> Type;
+        none -> none;
         _ -> any
     end.
 
 erlang_tl_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{terminator=Term}=Cons -> beam_types:join(Cons, Term);
+        none -> none;
         _ -> any
     end.
 
