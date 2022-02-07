@@ -1491,6 +1491,13 @@ protected:
         } else {
             mov_imm(to, from.getValue());
         }
+
+#ifdef DEBUG
+        /* Explicitly clear flags to catch bugs quicker, it may be very rare
+         * for a certain instruction to load values that would otherwise cause
+         * flags to be cleared. */
+        a.test(to, to);
+#endif
     }
 
     void mov_arg(x86::Mem to, const ArgVal &from, const x86::Gp &spill) {
