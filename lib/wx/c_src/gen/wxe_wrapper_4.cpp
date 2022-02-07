@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1172,7 +1172,7 @@ void wxImage_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   bool clear=true;
   ErlNifEnv *env = Ecmd.env;
@@ -1201,7 +1201,7 @@ void wxImage_new_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_2_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   bool clear=true;
   ErlNifEnv *env = Ecmd.env;
@@ -1234,9 +1234,8 @@ void wxImage_new_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   int width;
@@ -1246,24 +1245,9 @@ void wxImage_new_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[3];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
-  wxImage * Result = new EwxImage(width,height,data,static_data);
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
+  wxImage * Result = new EwxImage(width,height,data);
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxImage"));
@@ -1271,9 +1255,8 @@ void wxImage_new_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   const ERL_NIF_TERM *sz_t;
@@ -1287,20 +1270,9 @@ void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[2];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
-  wxImage * Result = new EwxImage(sz,data,static_data);
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
+  wxImage * Result = new EwxImage(sz,data);
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxImage"));
@@ -1308,9 +1280,8 @@ void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   int width;
@@ -1320,30 +1291,14 @@ void wxImage_new_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[3], &alpha_bin)) Badarg("alpha");
-  alpha = (unsigned char*) alpha_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[4];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    alpha = (unsigned char *) malloc(alpha_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);
-    memcpy(alpha,alpha_bin.data,alpha_bin.size);}
-;
-  wxImage * Result = new EwxImage(width,height,data,alpha,static_data);
+  alpha = (unsigned char *) malloc(alpha_bin.size);
+  memcpy(alpha,alpha_bin.data,alpha_bin.size);
+  wxImage * Result = new EwxImage(width,height,data,alpha);
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxImage"));
@@ -1351,9 +1306,8 @@ void wxImage_new_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_3_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   const ERL_NIF_TERM *sz_t;
@@ -1367,28 +1321,14 @@ void wxImage_new_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[2], &alpha_bin)) Badarg("alpha");
-  alpha = (unsigned char*) alpha_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[3];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
-  wxImage * Result = new EwxImage(sz,data,alpha,static_data);
+  alpha = (unsigned char *) malloc(alpha_bin.size);
+  memcpy(alpha,alpha_bin.data,alpha_bin.size);
+  wxImage * Result = new EwxImage(sz,data,alpha);
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxImage"));
@@ -1428,7 +1368,7 @@ void wxImage_new_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::wxImage
-void wxImage_new_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   int index=-1;
   ErlNifEnv *env = Ecmd.env;
@@ -1637,7 +1577,7 @@ void wxImage_Copy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::Create
-void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   bool clear=true;
   ErlNifEnv *env = Ecmd.env;
@@ -1668,7 +1608,7 @@ void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::Create
-void wxImage_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   bool clear=true;
   ErlNifEnv *env = Ecmd.env;
@@ -1703,9 +1643,8 @@ void wxImage_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::Create
-void wxImage_Create_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -1717,34 +1656,18 @@ void wxImage_Create_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[3], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[4];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   if(!This) throw wxe_badarg("This");
-  bool Result = This->Create(width,height,data,static_data);
+  bool Result = This->Create(width,height,data);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
 
 }
 
 // wxImage::Create
-void wxImage_Create_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -1760,30 +1683,18 @@ void wxImage_Create_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[3];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   if(!This) throw wxe_badarg("This");
-  bool Result = This->Create(sz,data,static_data);
+  bool Result = This->Create(sz,data);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
 
 }
 
 // wxImage::Create
-void wxImage_Create_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -1795,40 +1706,23 @@ void wxImage_Create_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[3], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[4], &alpha_bin)) Badarg("alpha");
-  alpha = (unsigned char*) alpha_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[5];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    alpha = (unsigned char *) malloc(alpha_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);
-    memcpy(alpha,alpha_bin.data,alpha_bin.size);}
-;
+  alpha = (unsigned char *) malloc(alpha_bin.size);
+  memcpy(alpha,alpha_bin.data,alpha_bin.size);
   if(!This) throw wxe_badarg("This");
-  bool Result = This->Create(width,height,data,alpha,static_data);
+  bool Result = This->Create(width,height,data,alpha);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
 
 }
 
 // wxImage::Create
-void wxImage_Create_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_Create_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -1844,29 +1738,15 @@ void wxImage_Create_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[3], &alpha_bin)) Badarg("alpha");
-  alpha = (unsigned char*) alpha_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[4];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
+  alpha = (unsigned char *) malloc(alpha_bin.size);
+  memcpy(alpha,alpha_bin.data,alpha_bin.size);
   if(!This) throw wxe_badarg("This");
-  bool Result = This->Create(sz,data,alpha,static_data);
+  bool Result = This->Create(sz,data,alpha);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
 
@@ -2784,9 +2664,8 @@ void wxImage_Size(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::SetAlpha
-void wxImage_SetAlpha_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_SetAlpha_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -2794,25 +2673,10 @@ void wxImage_SetAlpha_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[1], &alpha_bin)) Badarg("alpha");
-  alpha = (unsigned char*) alpha_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[2];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    alpha = (unsigned char *) malloc(alpha_bin.size);
-    memcpy(alpha,alpha_bin.data,alpha_bin.size);}
-;
+  alpha = (unsigned char *) malloc(alpha_bin.size);
+  memcpy(alpha,alpha_bin.data,alpha_bin.size);
   if(!This) throw wxe_badarg("This");
-  This->SetAlpha(alpha,static_data);
+  This->SetAlpha(alpha);
 
 }
 
@@ -2835,9 +2699,8 @@ void wxImage_SetAlpha_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 }
 
 // wxImage::SetData
-void wxImage_SetData_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_SetData_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -2845,32 +2708,16 @@ void wxImage_SetData_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[2];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   if(!This) throw wxe_badarg("This");
-  This->SetData(data,static_data);
+  This->SetData(data);
 
 }
 
 // wxImage::SetData
-void wxImage_SetData_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
+void wxImage_SetData_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
-  bool static_data=false;
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxImage *This;
@@ -2878,29 +2725,14 @@ void wxImage_SetData_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char*) data_bin.data;
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   int new_width;
   if(!enif_get_int(env, argv[2], &new_width)) Badarg("new_width"); // int
   int new_height;
   if(!enif_get_int(env, argv[3], &new_height)) Badarg("new_height"); // int
-  ERL_NIF_TERM lstHead, lstTail;
-  lstTail = argv[4];
-  if(!enif_is_list(env, lstTail)) Badarg("Options");
-  const ERL_NIF_TERM *tpl;
-  int tpl_sz;
-  while(!enif_is_empty_list(env, lstTail)) {
-    if(!enif_get_list_cell(env, lstTail, &lstHead, &lstTail)) Badarg("Options");
-    if(!enif_get_tuple(env, lstHead, &tpl_sz, &tpl) || tpl_sz != 2) Badarg("Options");
-    if(enif_is_identical(tpl[0], enif_make_atom(env, "static_data"))) {
-  static_data = enif_is_identical(tpl[1], WXE_ATOM_true);
-    } else        Badarg("Options");
-  };
- if(!static_data) {
-    data = (unsigned char *) malloc(data_bin.size);
-    memcpy(data,data_bin.data,data_bin.size);}
-;
   if(!This) throw wxe_badarg("This");
-  This->SetData(data,new_width,new_height,static_data);
+  This->SetData(data,new_width,new_height);
 
 }
 

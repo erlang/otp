@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1163,14 +1163,14 @@ extern void wxMask_Create_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMask_Create_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMask_Create_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_new_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_new_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_new_2_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_new_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_new_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_new_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_new_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_new_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_new_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_new_3_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_new_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_new_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_new_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Blur(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_BlurHorizontal(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_BlurVertical(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -1180,12 +1180,12 @@ extern void wxImage_ConvertToGreyscale_3(WxeApp *app, wxeMemEnv *memenv, wxeComm
 extern void wxImage_ConvertToGreyscale_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_ConvertToMono(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Copy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_Create_4_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Create_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_Create_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_Create_4_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_Create_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_Create_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_Create_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_Create_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_FindFirstUnusedColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_GetImageExtWildcard(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -1228,10 +1228,10 @@ extern void wxImage_SaveFile_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
 extern void wxImage_SaveFile_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Scale(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_Size(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_SetAlpha_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_SetAlpha_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_SetAlpha_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_SetData_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
-extern void wxImage_SetData_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_SetData_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+extern void wxImage_SetData_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_SetMask(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_SetMaskColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxImage_SetMaskFromImage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -5572,14 +5572,14 @@ wxe_fns_t wxe_fns[] =
   {wxMask_Create_1, "wxMask", "create", 2}, // 1081
   {wxMask_Create_2_1, "wxMask", "create", 3}, // 1082
   {wxImage_new_0, "wxImage", "new", 0}, // 1083
-  {wxImage_new_3_0, "wxImage", "new", 3}, // 1084
-  {wxImage_new_2_1, "wxImage", "new", 2}, // 1085
-  {wxImage_new_4_0, "wxImage", "new", 4}, // 1086
-  {wxImage_new_3_2, "wxImage", "new", 3}, // 1087
-  {wxImage_new_5, "wxImage", "new", 5}, // 1088
-  {wxImage_new_4_1, "wxImage", "new", 4}, // 1089
+  {wxImage_new_3_1, "wxImage", "new", 3}, // 1084
+  {wxImage_new_2_2, "wxImage", "new", 2}, // 1085
+  {wxImage_new_3_0, "wxImage", "new", 3}, // 1086
+  {wxImage_new_2_1, "wxImage", "new", 2}, // 1087
+  {wxImage_new_4, "wxImage", "new", 4}, // 1088
+  {wxImage_new_3_3, "wxImage", "new", 3}, // 1089
   {wxImage_new_2_0, "wxImage", "new", 2}, // 1090
-  {wxImage_new_3_1, "wxImage", "new", 3}, // 1091
+  {wxImage_new_3_2, "wxImage", "new", 3}, // 1091
   {NULL, "wxImage", "destroy", 1}, // 1092 obj destructor wxImage_destruct
   {wxImage_Blur, "wxImage", "blur", 2}, // 1093
   {wxImage_BlurHorizontal, "wxImage", "blurHorizontal", 2}, // 1094
@@ -5590,12 +5590,12 @@ wxe_fns_t wxe_fns[] =
   {wxImage_ConvertToGreyscale_0, "wxImage", "convertToGreyscale", 1}, // 1099
   {wxImage_ConvertToMono, "wxImage", "convertToMono", 4}, // 1100
   {wxImage_Copy, "wxImage", "copy", 1}, // 1101
-  {wxImage_Create_3_0, "wxImage", "create", 4}, // 1102
-  {wxImage_Create_2, "wxImage", "create", 3}, // 1103
-  {wxImage_Create_4_0, "wxImage", "create", 5}, // 1104
-  {wxImage_Create_3_1, "wxImage", "create", 4}, // 1105
-  {wxImage_Create_5, "wxImage", "create", 6}, // 1106
-  {wxImage_Create_4_1, "wxImage", "create", 5}, // 1107
+  {wxImage_Create_3_1, "wxImage", "create", 4}, // 1102
+  {wxImage_Create_2_1, "wxImage", "create", 3}, // 1103
+  {wxImage_Create_3_0, "wxImage", "create", 4}, // 1104
+  {wxImage_Create_2_0, "wxImage", "create", 3}, // 1105
+  {wxImage_Create_4, "wxImage", "create", 5}, // 1106
+  {wxImage_Create_3_2, "wxImage", "create", 4}, // 1107
   {wxImage_Destroy, "wxImage", "'Destroy'", 1}, // 1108
   {wxImage_FindFirstUnusedColour, "wxImage", "findFirstUnusedColour", 2}, // 1109
   {wxImage_GetImageExtWildcard, "wxImage", "getImageExtWildcard", 0}, // 1110
@@ -5638,10 +5638,10 @@ wxe_fns_t wxe_fns[] =
   {wxImage_SaveFile_1, "wxImage", "saveFile", 2}, // 1147
   {wxImage_Scale, "wxImage", "scale", 4}, // 1148
   {wxImage_Size, "wxImage", "size", 4}, // 1149
-  {wxImage_SetAlpha_2, "wxImage", "setAlpha", 3}, // 1150
+  {wxImage_SetAlpha_1, "wxImage", "setAlpha", 2}, // 1150
   {wxImage_SetAlpha_3, "wxImage", "setAlpha", 4}, // 1151
-  {wxImage_SetData_2, "wxImage", "setData", 3}, // 1152
-  {wxImage_SetData_4, "wxImage", "setData", 5}, // 1153
+  {wxImage_SetData_1, "wxImage", "setData", 2}, // 1152
+  {wxImage_SetData_3, "wxImage", "setData", 4}, // 1153
   {wxImage_SetMask, "wxImage", "setMask", 2}, // 1154
   {wxImage_SetMaskColour, "wxImage", "setMaskColour", 4}, // 1155
   {wxImage_SetMaskFromImage, "wxImage", "setMaskFromImage", 5}, // 1156
