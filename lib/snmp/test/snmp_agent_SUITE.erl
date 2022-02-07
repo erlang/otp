@@ -1334,7 +1334,7 @@ create_tables(SaNode) ->
     %%     				      {ram_copies, [SaNode]},
     %%     				      {snmp, [{key, integer}]},
     %%     				      {attributes, [a1,a2,a3]}]),
-    mnesia_create_table_or_skip([{name, friendsTable2},
+    mnesia_create_table_or_fail([{name, friendsTable2},
                                  {ram_copies, [SaNode]},
                                  {snmp, [{key, integer}]},
                                  {attributes, [a1,a2,a3]}]),
@@ -1342,23 +1342,31 @@ create_tables(SaNode) ->
     %%     				      {ram_copies, [SaNode]},
     %%     				      {snmp, [{key, integer}]},
     %%     				      {attributes, [a1,a2,a3]}]),
-    mnesia_create_table_or_skip([{name, kompissTable2},
+    mnesia_create_table_or_fail([{name, kompissTable2},
                                  {ram_copies, [SaNode]},
                                  {snmp, [{key, integer}]},
                                  {attributes, [a1,a2,a3]}]),
     %% ?line {atomic, ok} = mnesia:create_table([{name, snmp_variables},
     %%     				      {attributes, [a1,a2]}]),
-    mnesia_create_table_or_skip([{name, snmp_variables},
+    mnesia_create_table_or_fail([{name, snmp_variables},
                                  {attributes, [a1,a2]}]),
     ok.
 
-mnesia_create_table_or_skip(Args) ->
+mnesia_create_table_or_fail(Args) ->
+    ?IPRINT("mnesia_create_table_or_fail -> "
+            "try create table ~p", [proplists:get_value(name, Args)]),
     case mnesia:create_table(Args) of
         {atomic, ok} ->
             ok;
         {aborted, {already_exists, Table}}  ->
-            ?SKIP({table_already_exist, Table});
+            ?EPRINT("mnesia_create_table_or_fail -> "
+                    "table ~p already exists", [Table]),
+            %% ?SKIP({table_already_exist, Table});
+            ?FAIL({table_already_exist, Table});
         {aborted, Error}  ->
+            ?EPRINT("mnesia_create_table_or_fail -> "
+                    "failed creating table: "
+                    "~n      ~p", [Error]),
             ?FAIL({failed_create_table, Error})
     end.
 
