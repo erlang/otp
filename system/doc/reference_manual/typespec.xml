@@ -538,8 +538,7 @@
          ; (T4, T5) -> T6.</pre>
     <p>
       A current restriction, which currently results in a warning
-      (not an error) by the compiler, is that the domains of
-      the argument types cannot overlap.
+      by Dialyzer, is that the domains of the argument types cannot overlap.
       For example, the following specification results in a warning:
     </p>
     <pre>
