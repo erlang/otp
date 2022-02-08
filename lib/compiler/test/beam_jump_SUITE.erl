@@ -232,7 +232,8 @@ ambiguous_catch_try_state_3() ->
 -record(message3, {id, p1, p2}).
 
 build_tuple(_Config) ->
-    {'EXIT',{{badrecord,message3},_}} = (catch do_build_tuple(#message2{})),
+    Message2 = #message2{},
+    {'EXIT',{{badrecord,Message2},_}} = (catch do_build_tuple(#message2{})),
     ok.
 
 do_build_tuple(Message) ->
@@ -319,7 +320,7 @@ cs_2(I) -> I.
 
 undecided_allocation(_Config) ->
     ok = catch undecided_allocation_1(<<10:(3*7)>>),
-    {'EXIT',{{badrecord,rec},_}} = catch undecided_allocation_1(8),
+    {'EXIT',{{badrecord,<<0>>},_}} = catch undecided_allocation_1(8),
     ok.
 
 -record(rec, {}).

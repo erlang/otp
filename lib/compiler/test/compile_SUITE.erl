@@ -931,21 +931,21 @@ strict_record(Config) when is_list(Config) ->
     %% Default (possibly influenced by ERL_COMPILER_OPTIONS).
     {ok,M} = c:c(M, [{outdir,Priv},report_errors]),
     try
-	      {1,2} = record_access:test(Turtle),
-	      {comment,"Default: no_strict_record_tests"}
-	  catch
-	      error:{badrecord,tortoise} ->
-		  {comment,"Default: strict_record_tests"}
-	  end.
+        {1,2} = record_access:test(Turtle),
+        {comment,"Default: no_strict_record_tests"}
+    catch
+        error:{badrecord,Turtle} ->
+            {comment,"Default: strict_record_tests"}
+    end.
 
 test_strict() ->
     Turtle = record_access:turtle(),
     try
-	      record_access:test(Turtle)
-	  catch
-	      error:{badrecord,tortoise} ->
-		  ok
-	  end,
+        record_access:test(Turtle)
+    catch
+        error:{badrecord,Turtle} ->
+            ok
+    end,
     Turtle.
 
 test_sloppy() ->

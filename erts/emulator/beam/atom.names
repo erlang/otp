@@ -118,7 +118,8 @@ atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
-atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
+atom badarg badarith badarity badfile badfun badkey badmap badmatch
+atom badrecord badsig
 atom badopt badtype
 atom bad_map_iterator
 atom bag

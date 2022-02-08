@@ -1589,6 +1589,10 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
         (catch crash_huge_line(gurka)),
 
+    {'EXIT',{{badrecord,[1,2,3]},
+             [{?MODULE,bad_record,1,[{file,"bad_records.erl"},{line,4}]}|_]}} =
+        catch bad_record([1,2,3]),
+
     ok.
 
 id(I) -> I.
@@ -1716,3 +1720,8 @@ foo() -> id(100).
 
 crash_huge_line(_) ->                           %Line 100000002
     erlang:error(crash).                        %Line 100000003
+
+-file("bad_records.erl", 1).
+-record(foobar, {a,b,c,d}).                     %Line 2.
+bad_record(R) ->                                %Line 3.
+    R#foobar.a.                                 %Line 4.

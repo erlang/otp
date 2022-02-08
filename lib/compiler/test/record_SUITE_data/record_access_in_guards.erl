@@ -172,7 +172,7 @@ t() ->
 		 ok = F(R, 42, tab),
 		 error = F(R, 42, a),
  		 error = F(R, 0, tab),
-		 {'EXIT',{{badrecord,r},_}} = (catch F({x,y,z}, 4, 5)),
+		 {'EXIT',{{badrecord,{x,y,z}},_}} = (catch F({x,y,z}, 4, 5)),
 		 ok
 	 end(#r{a=42,b=tab}),
 

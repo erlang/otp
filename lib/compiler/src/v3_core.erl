@@ -742,10 +742,20 @@ expr({named_fun,L,'_',Cs}, St) ->
     fun_tq(Cs, L, St, unnamed);
 expr({named_fun,L,Name,Cs}, St) ->
     fun_tq(Cs, L, St, {named,Name});
-expr({call,L,{remote,_,M,F},As0}, St0) ->
-    {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
+expr({call,L,{remote,_,M0,F0},As0}, St0) ->
+    {[M1,F1|As1],Aps,St1} = safe_list([M0,F0|As0], St0),
     Anno = full_anno(L, St1),
-    {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1};
+    case {M1,F1,As1} of
+        {#c_literal{val=erlang},
+         #c_literal{val=error},
+         [#c_tuple{es=[#c_literal{val=badrecord},_]}=Tuple]} ->
+            Fail = #iprimop{anno=#a{anno=Anno},
+                            name=#c_literal{val=match_fail},
+                            args=[Tuple]},
+            {Fail,Aps,St1};
+        {_,_,_} ->
+            {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1}
+    end;
 expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     {As1,Aps,St1} = safe_list(As0, St0),
     Op = #c_var{anno=lineno_anno(Lf, St1),name={F,length(As1)}},

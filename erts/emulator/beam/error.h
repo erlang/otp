@@ -165,8 +165,10 @@
 					/* Bad map */
 #define EXC_BADKEY		((19 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad key in map */
+#define EXC_BADRECORD		((20 << EXC_OFFSET) | EXC_ERROR)
+					/* Bad key in map */
 
-#define NUMBER_EXIT_CODES 20	/* The number of exit code indices */
+#define NUMBER_EXIT_CODES 21	/* The number of exit code indices */
 
 /*
  * Internal pseudo-error codes.

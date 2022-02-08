@@ -595,11 +595,11 @@ strict_get_record_field(Anno, R, {atom,_,F}=Index, Name, St0) ->
             RAnno = mark_record(NAnno, St),
 	    E = {'case',Anno,R,
 		     [{clause,NAnno,[{tuple,RAnno,P}],[],[Var]},
-		      {clause,NAnno,[{var,NAnno,'_'}],[],
+		      {clause,NAnno,[Var],[],
 		       [{call,NAnno,{remote,NAnno,
 				    {atom,NAnno,erlang},
 				    {atom,NAnno,error}},
-			 [{tuple,NAnno,[{atom,NAnno,badrecord},{atom,NAnno,Name}]}]}]}]},
+			 [{tuple,NAnno,[{atom,NAnno,badrecord},Var]}]}]}]},
             expr(E, St);
         true ->                                 %In a guard.
             Fs = record_fields(Name, Anno, St0),
@@ -714,7 +714,7 @@ record_match(R, Name, AnnoR, Fs, Us, St0) ->
       [{clause,AnnoR,[{tuple,RAnno,[{atom,AnnoR,Name} | Ps]}],[],
         [{tuple,RAnno,[{atom,AnnoR,Name} | News]}]},
        {clause,NAnnoR,[{var,NAnnoR,'_'}],[],
-        [call_error(NAnnoR, {tuple,NAnnoR,[{atom,NAnnoR,badrecord},{atom,NAnnoR,Name}]})]}
+        [call_error(NAnnoR, {tuple,NAnnoR,[{atom,NAnnoR,badrecord},R]})]}
       ]},
      St1}.
 
@@ -752,7 +752,7 @@ record_setel(R, Name, Fs, Us0) ->
 				{atom,Anno,setelement}},[I,Acc,Val]} end,
               R, Us)]},
       {clause,NAnnoR,[{var,NAnnoR,'_'}],[],
-       [call_error(NAnnoR, {tuple,NAnnoR,[{atom,NAnnoR,badrecord},{atom,NAnnoR,Name}]})]}]}.
+       [call_error(NAnnoR, {tuple,NAnnoR,[{atom,NAnnoR,badrecord},R]})]}]}.
 
 %% Expand a call to record_info/2. We have checked that it is not
 %% shadowed by an import.

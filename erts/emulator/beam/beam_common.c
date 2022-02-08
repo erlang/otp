@@ -395,6 +395,7 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_notsup,		/* 17 */
   am_badmap,		/* 18 */
   am_badkey,		/* 19 */
+  am_badrecord,		/* 20 */
 };
 
 /* Returns the return address at E[0] in printable form, skipping tracing in
@@ -753,6 +754,7 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
     case (GET_EXC_INDEX(EXC_BADARITY)):
     case (GET_EXC_INDEX(EXC_BADMAP)):
     case (GET_EXC_INDEX(EXC_BADKEY)):
+    case (GET_EXC_INDEX(EXC_BADRECORD)):
         /* Some common exceptions: value -> {atom, value} */
         ASSERT(is_value(Value));
 	hp = HAlloc(c_p, 3);
