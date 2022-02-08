@@ -795,9 +795,23 @@ dom_intersection_1([E1|Es1]=Set1, [E2|Es2]=Set2, Df) ->
     #{E1:=Df1,E2:=Df2} = Df,
     if
         Df1 > Df2 ->
-            dom_intersection_1(Es1, Set2, Df);
+            dom_intersection_2(Es1, Set2, Df, Df2);
         Df2 > Df1 ->
-            dom_intersection_1(Es2, Set1, Df);  %switch arguments
+            dom_intersection_2(Es2, Set1, Df, Df1);
+        true ->                                  %Set1 == Set2
+            %% The common suffix of the sets is the intersection.
+            Set1
+    end.
+
+dom_intersection_2([E1|Es1]=Set1, [_|Es2]=Set2, Df, Df2) ->
+    %% Blocks are numbered in the order they are found in
+    %% reverse postorder.
+    #{E1:=Df1} = Df,
+    if
+        Df1 > Df2 ->
+            dom_intersection_2(Es1, Set2, Df, Df2);
+        Df2 > Df1 ->
+            dom_intersection_2(Es2, Set1, Df, Df1);  %switch arguments
         true ->                                  %Set1 == Set2
             %% The common suffix of the sets is the intersection.
             Set1
