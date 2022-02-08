@@ -292,7 +292,8 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
           ?PASS(ssa_opt_trim_unreachable),
-          ?PASS(ssa_opt_unfold_literals)],
+          ?PASS(ssa_opt_unfold_literals),
+          ?PASS(ssa_opt_ranges)],
     passes_1(Ps, Opts).
 
 passes_1(Ps, Opts0) ->
@@ -442,6 +443,9 @@ ssa_opt_merge_blocks({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
     RPO = beam_ssa:rpo(Blocks0),
     Blocks = beam_ssa:merge_blocks(RPO, Blocks0),
     {St#opt_st{ssa=Blocks}, FuncDb}.
+
+ssa_opt_ranges({#opt_st{ssa=Blocks}=St, FuncDb}) ->
+    {St#opt_st{ssa=beam_ssa_type:opt_ranges(Blocks)}, FuncDb}.
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
@@ -1214,9 +1218,12 @@ float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
 float_opt_is([#b_set{anno=Anno0}=I0|Is0], Fs0, Count0, Acc) ->
     case Anno0 of
         #{float_op:=FTypes} ->
-            Anno = maps:remove(float_op, Anno0),
+            ArgTypes0 = maps:get(arg_types, Anno0, #{}),
+            ArgTypes = float_arg_types(FTypes, 0, ArgTypes0),
+            Anno1 = maps:remove(float_op, Anno0),
+            Anno = maps:remove(arg_types, Anno1),
             I1 = I0#b_set{anno=Anno},
-            {Is,Fs,Count} = float_make_op(I1, FTypes, Fs0, Count0),
+            {Is,Fs,Count} = float_make_op(I1, FTypes, ArgTypes, Fs0, Count0),
             float_opt_is(Is0, Fs, Count, reverse(Is, Acc));
         #{} ->
             float_opt_is(Is0, Fs0, Count0, [I0|Acc])
@@ -1224,9 +1231,18 @@ float_opt_is([#b_set{anno=Anno0}=I0|Is0], Fs0, Count0, Acc) ->
 float_opt_is([], _Fs, _Count, _Acc) ->
     none.
 
+float_arg_types([_|As], Index, ArgTypes) ->
+    case ArgTypes of
+        #{Index := ArgType} ->
+            [ArgType|float_arg_types(As, Index + 1, ArgTypes)];
+        #{} ->
+            [any|float_arg_types(As, Index + 1, ArgTypes)]
+    end;
+float_arg_types([], _, _) -> [].
+
 float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
-              Ts, #fs{regs=Rs0}=Fs, Count0) ->
-    {As1,Rs1,Count1} = float_load(As0, Ts, Anno, Rs0, Count0, []),
+              Ts, ArgTypes, #fs{regs=Rs0}=Fs, Count0) ->
+    {As1,Rs1,Count1} = float_load(As0, Ts, ArgTypes, Anno, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
     {FrDst,Count2} = new_var('@fr', Count1),
     I = I0#b_set{op={float,Op},dst=FrDst,args=As},
@@ -1234,19 +1250,23 @@ float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
     Is = append(Is0) ++ [I],
     {Is,Fs#fs{regs=Rs},Count2}.
 
-float_load([A|As], [T|Ts], Anno, Rs0, Count0, Acc) ->
-    {Load,Rs,Count} = float_reg_arg(A, T, Anno, Rs0, Count0),
-    float_load(As, Ts, Anno, Rs, Count, [Load|Acc]);
-float_load([], [], _Anno, Rs, Count, Acc) ->
+float_load([A|As], [T|Ts], [AT|ATs], Anno, Rs0, Count0, Acc) ->
+    {Load,Rs,Count} = float_reg_arg(A, T, AT, Anno, Rs0, Count0),
+    float_load(As, Ts, ATs, Anno, Rs, Count, [Load|Acc]);
+float_load([], [], [], _Anno, Rs, Count, Acc) ->
     {reverse(Acc),Rs,Count}.
 
-float_reg_arg(A, T, Anno, Rs, Count0) ->
+float_reg_arg(A, T, AT, Anno0, Rs, Count0) ->
     case Rs of
         #{A:=Fr} ->
             {{Fr,[]},Rs,Count0};
         #{} ->
             {Dst,Count} = new_var('@fr_copy', Count0),
             I0 = float_load_reg(T, A, Dst),
+            Anno = case AT of
+                       any-> Anno0;
+                       _ -> Anno0#{arg_types => #{0 => AT}}
+                   end,
             I = I0#b_set{anno=Anno},
             {{Dst,[I]},Rs#{A=>Dst},Count}
     end.

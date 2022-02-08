@@ -99,6 +99,7 @@ opt_opts(Mod) ->
                      (no_share_opt) -> true;
                      (no_shared_fun_wrappers) -> true;
                      (no_ssa_opt_float) -> true;
+                     (no_ssa_opt_ranges) -> true;
                      (no_ssa_opt) -> true;
                      (no_stack_trimming) -> true;
                      (no_swap) -> true;

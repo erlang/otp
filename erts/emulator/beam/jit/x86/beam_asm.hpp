@@ -1276,8 +1276,8 @@ protected:
             Sint min, max;
             auto [min1, max1] = getIntRange(LHS);
             auto [min2, max2] = getIntRange(RHS);
-            min = min1 - min2;
-            max = max1 - max2;
+            min = min1 - max2;
+            max = max1 - min2;
             return IS_SSMALL(min) && IS_SSMALL(max);
         }
     }
@@ -1491,6 +1491,13 @@ protected:
         } else {
             mov_imm(to, from.getValue());
         }
+
+#ifdef DEBUG
+        /* Explicitly clear flags to catch bugs quicker, it may be very rare
+         * for a certain instruction to load values that would otherwise cause
+         * flags to be cleared. */
+        a.test(to, to);
+#endif
     }
 
     void mov_arg(x86::Mem to, const ArgVal &from, const x86::Gp &spill) {

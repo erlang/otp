@@ -456,10 +456,87 @@ void BeamGlobalAssembler::emit_bif_element_guard_shared() {
     }
 }
 
+void BeamGlobalAssembler::emit_handle_element_error_shared() {
+    static ErtsCodeMFA mfa = {am_erlang, am_element, 2};
+    a.mov(XREG0, ARG1);
+    a.mov(XREG1, ARG2);
+    emit_raise_badarg(&mfa);
+}
+
 void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
                                            const ArgVal &Pos,
                                            const ArgVal &Tuple,
                                            const ArgVal &Dst) {
+    /*
+     * Try to optimize the use of a tuple as a lookup table.
+     */
+    if (exact_type(Pos, BEAM_TYPE_INTEGER) && Tuple.isLiteral()) {
+        Eterm tuple_literal = beamfile_get_literal(beam, Tuple.getValue());
+        if (is_tuple(tuple_literal)) {
+            Label next = a.newLabel(), fail = a.newLabel();
+            Sint size = Sint(arityval(*tuple_val(tuple_literal)));
+            auto [min, max] = getIntRange(Pos);
+            bool is_bounded = min <= max;
+            bool can_fail = !is_bounded || min < 1 || size < max;
+            auto pos = load_source(Pos, ARG3);
+            auto tuple = load_source(Tuple, ARG4);
+            auto dst = init_destination(Dst, ARG1);
+
+            if (always_small(Pos)) {
+                comment("skipped test for small position since it is always "
+                        "small");
+            } else {
+                comment("simplified test for small position since it is an "
+                        "integer");
+                emit_is_not_boxed(fail, pos.reg);
+            }
+
+            comment("skipped tuple test since source is always a literal "
+                    "tuple");
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+            lea(TMP1, emit_boxed_val(boxed_ptr));
+
+            a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
+
+            if (is_bounded && min >= 1) {
+                comment("skipped check for position >= 1");
+            } else {
+                a.cmp(TMP3, imm(1));
+                a.cond_mi().b(fail);
+            }
+
+            if (is_bounded && size >= max) {
+                comment("skipped check for position beyond tuple");
+            } else {
+                mov_imm(TMP2, size);
+                a.cmp(TMP2, TMP3);
+                a.cond_lo().b(fail);
+            }
+
+            a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));
+
+            if (can_fail) {
+                a.b(next);
+            }
+
+            a.bind(fail);
+            if (can_fail) {
+                if (Fail.getValue() != 0) {
+                    a.b(resolve_beam_label(Fail, disp128MB));
+                } else {
+                    a.mov(ARG1, pos.reg);
+                    a.mov(ARG2, tuple.reg);
+                    fragment_call(ga->get_handle_element_error_shared());
+                }
+            }
+
+            a.bind(next);
+            flush_var(dst);
+
+            return;
+        }
+    }
+
     mov_arg(ARG1, Pos);
     mov_arg(ARG2, Tuple);
 

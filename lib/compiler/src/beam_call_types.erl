@@ -24,7 +24,7 @@
 
 -import(lists, [duplicate/2,foldl/3]).
 
--export([will_succeed/3, types/3]).
+-export([will_succeed/3, types/3, arith_type/2]).
 
 %%
 %% Returns whether a call will succeed or not.
@@ -234,28 +234,12 @@ types(erlang, 'trunc', [_]) ->
     sub_unsafe(#t_integer{}, [number]);
 types(erlang, '/', [_,_]) ->
     sub_unsafe(#t_float{}, [number, number]);
-types(erlang, 'div', [_,_]=Types) ->
+types(erlang, 'div', [_,_]=Args) ->
     ArgTypes = [#t_integer{}, #t_integer{}],
-    case Types of
-        [#t_integer{elements={Min,Max}},#t_integer{elements={D,D}}] when D > 0 ->
-            T = #t_integer{elements={Min div D,Max div D}},
-            sub_unsafe(T, ArgTypes);
-        _ ->
-            sub_unsafe(#t_integer{}, ArgTypes)
-    end;
-types(erlang, 'rem', [T1,T2]) ->
+    sub_unsafe(erlang_div_type(Args), ArgTypes);
+types(erlang, 'rem', Args) ->
     ArgTypes = [#t_integer{}, #t_integer{}],
-    case T2 of
-        #t_integer{elements={D,D}} when D > 0 ->
-            Max = abs(D) - 1,
-            Min = case T1 of
-                      #t_integer{elements={N,_}} when N >= 0 -> 0;
-                      _ -> -Max
-                  end,
-            sub_unsafe(#t_integer{elements={Min,Max}}, ArgTypes);
-        _ ->
-            sub_unsafe(#t_integer{}, ArgTypes)
-    end;
+    sub_unsafe(erlang_rem_type(Args), ArgTypes);
 
 %% Mixed-type arithmetic; '+'/2 and friends are handled in the catch-all
 %% clause for the 'erlang' module.
@@ -774,6 +758,50 @@ types(maps, without, [Keys, Map]) ->
 types(_, _, Args) ->
     sub_unsafe(any, [any || _ <- Args]).
 
+
+-spec arith_type(Op, ArgTypes) -> RetType when
+      Op :: beam_ssa:op(),
+      ArgTypes :: [normal_type()],
+      RetType :: type().
+
+arith_type({bif,'+'}, [#t_integer{elements={Min1,Max1}},
+                       #t_integer{elements={Min2,Max2}}]) ->
+    check_range(#t_integer{elements={Min1+Min2,Max1+Max2}});
+arith_type({bif,'-'}, [#t_integer{elements={Min1,Max1}},
+                       #t_integer{elements={Min2,Max2}}]) ->
+    check_range(#t_integer{elements={Min1-Max2,Max1-Min2}});
+arith_type({bif,'*'}, [#t_integer{elements={Min1,Max1}},
+                       #t_integer{elements={Min2,Max2}}])
+  when (abs(Max1) + abs(Max2)) bsr 128 =:= 0 ->
+    All = [A * B || A <- [Min1,Max1], B <- [Min2,Max2]],
+    Min = lists:min(All),
+    Max = lists:max(All),
+    check_range(#t_integer{elements={Min,Max}});
+arith_type({bif,'div'}, ArgTypes) ->
+    erlang_div_type(ArgTypes);
+arith_type({bif,'rem'}, ArgTypes) ->
+    erlang_rem_type(ArgTypes);
+arith_type({bif,'band'}, ArgTypes) ->
+    erlang_band_type(ArgTypes);
+arith_type({bif,'bor'}, Args) ->
+    erlang_bor_type(Args);
+arith_type({bif,'bsr'}, [#t_integer{elements={Min0,Max0}},
+                         #t_integer{elements={S1,S2}}])
+  when 0 < S1 ->
+    Min = min(Min0 bsr S1, Min0 bsr S2),
+    Max = max(Max0 bsr S1, Max0 bsr S2),
+    check_range(#t_integer{elements={Min,Max}});
+arith_type({bif,'bsl'}, [#t_integer{elements={Min0,Max0}},
+                         #t_integer{elements={S1,S2}}])
+  when 0 < S1, S2 < 128, abs(Max0) bsr 128 =:= 0 ->
+    Min = min(Min0 bsl S1, Min0 bsl S2),
+    Max = max(Max0 bsl S1, Max0 bsl S2),
+    check_range(#t_integer{elements={Min,Max}});
+arith_type(_Op, _Args) ->
+    any.
+
+check_range(#t_integer{elements={Min,Max}}=T) when Min =< Max -> T.
+
 %%
 %% Function-specific helpers.
 %%
@@ -855,6 +883,27 @@ erlang_bor_type_1(LHS, Int) ->
             #t_integer{elements={Min,Max}};
         _ ->
             beam_types:meet(LHS, #t_integer{})
+    end.
+
+erlang_div_type(ArgTypes) ->
+    case ArgTypes of
+        [#t_integer{elements={Min,Max}},#t_integer{elements={D,D}}] when D > 0 ->
+            #t_integer{elements={Min div D,Max div D}};
+        _ ->
+            #t_integer{}
+    end.
+
+erlang_rem_type([T1,T2]) ->
+    case T2 of
+        #t_integer{elements={D,D}} when D > 0 ->
+            Max = abs(D) - 1,
+            Min = case T1 of
+                      #t_integer{elements={N,_}} when N >= 0 -> 0;
+                      _ -> -Max
+                  end,
+            #t_integer{elements={Min,Max}};
+        _ ->
+            #t_integer{}
     end.
 
 erlang_map_get_type(Key, Map) ->
