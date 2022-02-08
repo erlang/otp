@@ -54,7 +54,7 @@ typer --help</code>
 typer [--help] [--version] [--plt PLT] [--edoc]
       [--show | --show-exported | --annotate | --annotate-inc-files]
       [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
-      [-T application]* [-r] file*</code>
+      [-T application]* file* [-r directory*]</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -66,7 +66,7 @@ typer [--help] [--version] [--plt PLT] [--edoc]
 
       <tag><c>-r</c></tag>
       <item>
-        <p>Search directories recursively for .erl files below them.</p>
+        <p>Search directories recursively for .erl files below them. If a list of files is given, this must be after them.</p>
       </item>
       <tag><c>--show</c></tag>
       <item>
