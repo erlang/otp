@@ -112,8 +112,10 @@
           args => [string()],                 %% additional command line parameters to append
           env => [{string(), string()}],      %% additional environment variables
           wait_boot => wait_boot(),           %% default is synchronous start with 15 sec timeout
-          shutdown => brutal_kill |           %% halt the peer brutally (default)
-          timeout()                       %% send init:stop() request and wait up to specified timeout
+          shutdown => close |                 %% close supervision channel
+          halt | %% The default...            %% stop node using erlang:halt() wait default timeout for nodedown
+          {halt, disconnect_timeout()} |      %% stop node using erlang:halt() wait timeout() for nodedown
+          disconnect_timeout()                %% send init:stop() request and wait up to specified timeout for nodedown
          }.
 
 %% Peer node states
@@ -122,8 +124,21 @@
 -export_type([
               start_options/0,
               peer_state/0,
-              exec/0
+              exec/0,
+              disconnect_timeout/0
              ]).
+
+%% Maximum integer timeout value in a receive...
+-define (MAX_INT_TIMEOUT, 4294967295).
+
+%% Default time we wait for distributed connection to be removed,
+%% when shutdown type is halt, before we disconnect from the node...
+-define (DEFAULT_HALT_DISCONNECT_TIMEOUT, 5000).
+
+%% Minimum time we wait for distributed connection to be removed,
+%% before we disconnect from the node (except in the shutdown
+%% close case)...
+-define (MIN_DISCONNECT_TIMEOUT, 1000).
 
 %% Socket connect timeout, for TCP connection.
 -define (CONNECT_TIMEOUT, 10000).
@@ -139,6 +154,8 @@
 
 %% Default timeout for peer node to boot.
 -define (WAIT_BOOT_TIMEOUT, 15000).
+
+-type disconnect_timeout() :: ?MIN_DISCONNECT_TIMEOUT..?MAX_INT_TIMEOUT | infinity.
 
 %% @doc Creates random node name, using "peer" as prefix.
 -spec random_name() -> string().
@@ -269,7 +286,16 @@ init([Notify, Options]) ->
                 receive {'EXIT', Port, _} -> undefined end
         end,
 
-    State = #peer_state{options = Options, notify = Notify, args = Args, exec = Exec},
+    %% Remove the default 'halt' shutdown option if present; the default is
+    %% defined in terminate()...
+    SaveOptions = case maps:find(shutdown, Options) of
+                      {ok, halt} ->
+                          maps:remove(shutdown, Options);
+                      _ ->
+                          Options
+                  end,
+
+    State = #peer_state{options = SaveOptions, notify = Notify, args = Args, exec = Exec},
 
     %% accept TCP connection if requested
     if ListenSocket =:= undefined ->
@@ -386,38 +412,101 @@ handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
 
 -spec terminate(Reason :: term(), state()) -> ok.
 terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node}) ->
-    case {maps:get(shutdown, Options, brutal_kill), maps:find(connection, Options)} of
-        {brutal_kill, {ok, standard_io}} ->
+    case {maps:get(shutdown, Options, {halt, ?DEFAULT_HALT_DISCONNECT_TIMEOUT}),
+          maps:find(connection, Options)} of
+        {close, {ok, standard_io}} ->
             Port /= undefined andalso (catch erlang:port_close(Port));
-        {brutal_kill, {ok, _TCP}} ->
+        {close, {ok, _TCP}} ->
             Port /= undefined andalso (catch gen_tcp:close(Port));
-        {brutal_kill, error} ->
-            net_kernel:disconnect(Node);
+        {close, error} ->
+            _ = erlang:disconnect_node(Node);
+        {{halt, Timeout}, {ok, standard_io}} ->
+            Port /= undefined andalso (catch erlang:port_close(Port)),
+            wait_disconnected(Node, {timeout, Timeout});
+        {{halt, Timeout}, {ok, _TCP}} ->
+            Port /= undefined andalso (catch gen_tcp:close(Port)),
+            wait_disconnected(Node, {timeout, Timeout});
+        {{halt, Timeout}, error} ->
+            try
+                _ = erpc:call(Node, erlang, halt, [], Timeout),
+                ok
+            catch
+                error:{erpc,noconnection} -> ok;
+                _:_ -> force_disconnect_node(Node)
+            end;
         {Shutdown, error} ->
             Timeout = shutdown(dist, undefined, Node, Shutdown),
-            receive {nodedown, Node} -> ok after Timeout -> ok end;
+            wait_disconnected(Node, {timeout, Timeout});
         {Shutdown, {ok, standard_io}} ->
             Timeout = shutdown(port, Port, Node, Shutdown),
+            Deadline = deadline(Timeout),
             receive {'EXIT', Port, _Reason2} -> ok after Timeout -> ok end,
-            catch erlang:port_close(Port);
+            catch erlang:port_close(Port),
+            wait_disconnected(Node, Deadline);
         {Shutdown, {ok, _TCP}} ->
             Timeout = shutdown(tcp, Port, Node, Shutdown),
+            Deadline = deadline(Timeout),
             receive {tcp_closed, Port} -> ok after Timeout -> ok end,
-            catch catch gen_tcp:close(Port)
+            catch catch gen_tcp:close(Port),
+            wait_disconnected(Node, Deadline)
     end,
     ok.
 
 %%--------------------------------------------------------------------
 %% Internal implementation
 
+deadline(infinity) ->
+    {timeout, infinity};
+deadline(Timeout) when is_integer(Timeout) ->
+    {deadline, erlang:monotonic_time(millisecond) + Timeout}.
+
+wait_disconnected(Node, WaitUntil) ->
+    %% Should only be called just before we are exiting the caller, so
+    %% we do not bother disabling nodes monitoring if we enable it and
+    %% do not flush any nodeup/nodedown messages that we got due to the
+    %% nodes monitoring...
+    case lists:member(Node, nodes(connected)) of
+        false ->
+            ok;
+        true ->
+            _ = net_kernel:monitor_nodes(true, [{node_type, all}]),
+            %% Need to check connected nodes list again, since it
+            %% might have disconnected before we enabled nodes
+            %% monitoring...
+            case lists:member(Node, nodes(connected)) of
+                false ->
+                    ok;
+                true ->
+                    Tmo = case WaitUntil of
+                              {timeout, T} ->
+                                  T;
+                              {deadline, T} ->
+                                  TL = T - erlang:monotonic_time(millisecond),
+                                  if TL < 0 -> 0;
+                                     true -> TL
+                                  end
+                          end,
+                    receive {nodedown, Node, _} -> ok
+                    after Tmo -> force_disconnect_node(Node)
+                    end
+            end
+    end.
+
+force_disconnect_node(Node) ->
+    _ = erlang:disconnect_node(Node),
+    logger:warning("peer:stop() timed out waiting for disconnect from "
+                   "node ~p. The connection was forcefully taken down.",
+                   [Node]).
+
 %% This hack is a temporary workaround for test coverage reports
-shutdown(_Type, _Port, _Node, Timeout) when is_integer(Timeout); timeout =:= infinity ->
+shutdown(_Type, _Port, Node, Timeout) when is_integer(Timeout); Timeout =:= infinity ->
+    erpc:cast(Node, init, stop, []),
     Timeout;
-shutdown(dist, undefined, Node, {Timeout, CoverNode}) when is_integer(Timeout); timeout =:= infinity ->
+shutdown(dist, undefined, Node, {Timeout, CoverNode}) when is_integer(Timeout); Timeout =:= infinity ->
     rpc:call(CoverNode, cover, flush, [Node]),
     erpc:cast(Node, init, stop, []),
     Timeout;
-shutdown(Type, Port, Node, {Timeout, CoverNode}) when is_integer(Timeout); timeout =:= infinity ->
+shutdown(Type, Port, Node, {Timeout, CoverNode}) when is_integer(Timeout); Timeout =:= infinity ->
     rpc:call(CoverNode, cover, flush, [Node]),
     Port /= undefined andalso origin_to_peer(Type, Port, {cast, init, stop, []}),
     Timeout.
@@ -445,7 +534,34 @@ verify_args(Options) ->
             ok;
         {ok, Err} ->
             error({exec, Err})
+    end,
+    case maps:find(shutdown, Options) of
+        {ok, close} ->
+            ok;
+        {ok, halt} ->
+            ok;
+        {ok, {halt, Tmo}} when (is_integer(Tmo)
+                                andalso ?MIN_DISCONNECT_TIMEOUT =< Tmo
+                                andalso Tmo =< ?MAX_INT_TIMEOUT)
+                               orelse Tmo == infinity ->
+            ok;
+        {ok, Tmo} when (is_integer(Tmo)
+                        andalso ?MIN_DISCONNECT_TIMEOUT =< Tmo
+                        andalso Tmo =< ?MAX_INT_TIMEOUT)
+                       orelse Tmo == infinity ->
+            ok;
+        {ok, {Tmo, Node}} when ((is_integer(Tmo)
+                                 andalso ?MIN_DISCONNECT_TIMEOUT =< Tmo
+                                 andalso Tmo =< ?MAX_INT_TIMEOUT)
+                                orelse Tmo == infinity)
+                               andalso is_atom(Node) ->
+            ok;
+        error ->
+            ok;
+        {ok, Err2} ->
+            error({shutdown, Err2})
     end.
+            
 
 make_notify_ref(infinity) ->
     {self(), make_ref()};

@@ -32,6 +32,11 @@
     detached/0, detached/1,
     dyn_peer/0, dyn_peer/1,
     stop_peer/0, stop_peer/1,
+    shutdown_halt/0, shutdown_halt/1,
+    shutdown_halt_timeout/0, shutdown_halt_timeout/1,
+    shutdown_stop/0, shutdown_stop/1,
+    shutdown_stop_timeout/0, shutdown_stop_timeout/1,
+    shutdown_close/0, shutdown_close/1,
     init_debug/0, init_debug/1,
     io_redirect/0, io_redirect/1,
     multi_node/0, multi_node/1,
@@ -45,14 +50,17 @@
 suite() ->
     [{timetrap, {minutes, 1}}].
 
+shutdown_alternatives() ->
+    [shutdown_halt, shutdown_halt_timeout, shutdown_stop, shutdown_stop_timeout, shutdown_close].
+
 alternative() ->
-    [basic, peer_states, cast, detached, dyn_peer, stop_peer, io_redirect,
-        multi_node, duplicate_name].
+    [basic, peer_states, cast, detached, dyn_peer, stop_peer,
+     io_redirect, multi_node, duplicate_name] ++ shutdown_alternatives().
 
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost]},
+            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect]}, %% Cannot be run in parallel in dist group
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
@@ -327,6 +335,69 @@ stop_peer(Config) when is_list(Config) ->
         connection => Conn, args => ["-eval", "timer:sleep(60000)."]}),
     %% shutdown node
     peer:stop(Peer).
+
+shutdown_halt() ->
+    [{doc, "Test that peer shutdown halt wait until node connection is down"}].
+shutdown_halt(Config) when is_list(Config) ->
+    false = shutdown_test(Config, ?FUNCTION_NAME, halt, 500, false, 1000),
+    ok.
+
+shutdown_halt_timeout() ->
+    [{doc, "Test that peer shutdown halt forcefully takes down connection on timeout"}].
+shutdown_halt_timeout(Config) when is_list(Config) ->
+    false = shutdown_test(Config, ?FUNCTION_NAME, {halt, 1000}, 5000, true, 1500),
+    ok.
+
+shutdown_stop() ->
+    [{doc, "Test that peer shutdown stop wait until node connection is down"}].
+shutdown_stop(Config) when is_list(Config) ->
+    false = shutdown_test(Config, ?FUNCTION_NAME, infinity, 500, false, 2000),
+    ok.
+
+shutdown_stop_timeout() ->
+    [{doc, "Test that peer shutdown stop forcefully takes down connection on timeout"}].
+shutdown_stop_timeout(Config) when is_list(Config) ->
+    false = shutdown_test(Config, ?FUNCTION_NAME, 1000, 5000, true, 2500),
+    ok.
+
+shutdown_close() ->
+    [{doc, "Test that peer shutdown close does not wait for dist connection"}].
+shutdown_close(Config) when is_list(Config) ->
+    _ = shutdown_test(Config, ?FUNCTION_NAME, close, 5000, true, 200),
+    ok.
+
+shutdown_test(Config, TC, Shutdown, BlockTime, StopWhileBlocked, MaxWaitTime) ->
+    Options0 = #{name => ?CT_PEER_NAME(TC),
+                 shutdown => Shutdown,
+                 args => ["-hidden", "-pa", filename:dirname(code:which(?MODULE)),
+                          "-setcookie", atom_to_list(erlang:get_cookie())]},
+    Options = case proplists:get_value(connection, Config) of
+                  undefined -> Options0;
+                  Conn -> maps:put(connection, Conn, Options0)
+              end,
+    {ok, Peer, Node} = peer:start_link(Options),
+    EnsureBlockedWait = 500,
+    BlockStart = erlang:monotonic_time(millisecond),
+    erpc:cast(Node,
+              fun () ->
+                      erts_debug:set_internal_state(available_internal_state, true),
+                      erts_debug:set_internal_state(block, BlockTime+EnsureBlockedWait)
+              end),
+    receive after EnsureBlockedWait -> ok end, %% Ensure blocked...
+    Start = erlang:monotonic_time(millisecond),
+    peer:stop(Peer),
+    End = erlang:monotonic_time(millisecond),
+    WaitTime = End - Start,
+    BlockTimeLeft = BlockTime + EnsureBlockedWait - (Start - BlockStart),
+    Connected = lists:member(Node, nodes(connected)),
+    ct:pal("Connected = ~p~nWaitTime = ~p~nBlockTimeLeft = ~p~n",
+           [Connected, WaitTime, BlockTimeLeft]),
+    true = WaitTime =< MaxWaitTime,
+    case StopWhileBlocked of
+        true -> ok;
+        false -> true = WaitTime >= BlockTimeLeft, ok
+    end,
+    Connected.
 
 init_debug() ->
     [{doc, "Test that debug messages in init work"}].

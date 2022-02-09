@@ -379,6 +379,11 @@
         is specified instead of a timeout, the peer will send <c>Tag</c> to the
         requested process.</p></desc>
     </datatype>
+    <datatype>
+      <name name="disconnect_timeout"/>
+      <desc><p>Disconnect timeout. See
+      <seemfa marker="#stop/1"><c>stop()</c></seemfa>.</p></desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -525,12 +530,76 @@
     <func>
       <name name="stop" arity="1" since="OTP @OTP-17720@"/>
       <fsummary>Stop controlling process and terminate peer node.</fsummary>
+      <type name="disconnect_timeout"/>
       <desc>
-        <p>Depending on the <c>shutdown</c> option used to start the peer,
-        stopping may be graceful (via <c>init:stop()</c>) or less so,
-        by just closing the control connection, which triggers <c>erlang:halt()</c>
-        executed by the peer.</p>
-        <p>A graceful shutdown can be slower, or even block indefinitely.</p>
+        <p>
+          Stops a peer node. How the node is stopped depends on the
+          <seetype marker="#start_options"><c>shutdown</c></seetype>
+          option passed when starting the peer node. Currently the
+          following <c>shutdown</c> options are supported:
+        </p>
+        <taglist>
+          <tag><c>halt</c></tag>
+          <item><p>
+            This is the default shutdown behavior. It behaves as <c>shutdown</c>
+            option <c>{halt, DefaultTimeout}</c> where <c>DefaultTimeout</c>
+            currently equals <c>5000</c>.
+          </p></item>
+          <tag><c>{halt, Timeout :: disconnect_timeout()}</c></tag>
+          <item><p>
+            Triggers a call to
+            <seemfa marker="erts:erlang#halt/0"><c>erlang:halt()</c></seemfa>
+            on the peer node and then waits for the Erlang distribution
+            connection to the peer node to be taken down. If this connection
+            has not been taken down after <c>Timeout</c> milliseconds, it will
+            forcefully be taken down by <c>peer:stop/1</c>. See the
+            <seeerl marker="#dist_connection_close">warning</seeerl> below for
+            more info about this.
+          </p></item>
+          <tag><c>Timeout :: disconnect_timeout()</c></tag>
+          <item><p>
+            Triggers a call to
+            <seemfa marker="erts:init#stop/0"><c>init:stop()</c></seemfa>
+            on the peer node and then waits for the Erlang distribution
+            connection to the peer node to be taken down. If this connection
+            has not been taken down after <c>Timeout</c> milliseconds, it will
+            forcefully be taken down by <c>peer:stop/1</c>. See the
+            <seeerl marker="#dist_connection_close">warning</seeerl> below for
+            more info about this.
+          </p></item>
+          <tag><c>close</c></tag>
+          <item><p>
+            Close the <i>control connection</i> to the peer node and
+            return. This is the fastest way for the caller of
+            <c>peer:stop/1</c> to stop a peer node.
+          </p>
+          <p>
+            Note that if the Erlang distribution connection is not used as
+            control connection it might not have been taken down when
+            <c>peer:stop/1</c> returns. Also note that the
+            <seeerl marker="#dist_connection_close">warning</seeerl> below
+            applies when the Erlang distribution connection is used as control
+            connection.
+          </p>
+          </item>
+        </taglist>
+
+        <marker id="dist_connection_close"/>
+        <warning>
+          <p>
+            In the cases where the Erlang distribution connection is taken
+            down by <c>peer:stop/1</c>, other code independent of the peer
+            code might react to the connection loss before the peer node is
+            stopped which might cause undesirable effects. For example,
+            <seeerl marker="kernel:global#prevent_overlapping_partitions"><c>global</c></seeerl>
+            might trigger even more Erlang distribution connections to other
+            nodes to be taken down. The potential undesirable effects are,
+            however, not limited to this. It is hard to say what the effects
+            will be since these effects can be caused by any code with links
+            or monitors to something on the origin node, or code monitoring
+            the connection to the origin node. 
+          </p>
+        </warning>
       </desc>
     </func>
 
