@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,7 +237,10 @@
          recompose/1,
          resolve/2,
          resolve/3,
-         transcode/2]).
+         transcode/2,
+         quote/1,
+         quote/2,
+         unquote/1]).
 -export_type([error/0,
               uri_map/0,
               uri_string/0]).
@@ -517,6 +520,29 @@ percent_decode(URIMap) when is_map(URIMap)->
 percent_decode(URI) when is_list(URI) orelse
                          is_binary(URI) ->
     raw_decode(URI).
+
+-spec quote(Data) -> QuotedData when
+      Data :: unicode:chardata(),
+      QuotedData :: unicode:chardata().
+quote(D) ->
+    encode(D, fun is_unreserved/1).
+
+-spec quote(Data, Safe) -> QuotedData when
+      Data :: unicode:chardata(),
+      Safe :: string(),
+      QuotedData :: unicode:chardata().
+quote(D, Safe) ->
+    UnreservedOrSafe =
+        fun(C) ->
+                is_unreserved(C) orelse lists:member(C, Safe)
+        end,
+    encode(D, UnreservedOrSafe).
+
+-spec unquote(QuotedData) -> Data when
+      QuotedData :: unicode:chardata(),
+      Data :: unicode:chardata().
+unquote(D) ->
+    raw_decode(D).
 
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list

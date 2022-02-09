@@ -4,8 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2020</year>
-      <year>2020</year>
+      <year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -294,12 +293,14 @@
     and it happens when converting a
     <seetype marker="uri_string#uri_map"><c>uri_map()</c></seetype>
     into a <seetype marker="uri_string#uri_string"><c>uri_string()</c></seetype>.
-    There is no equivalent to a raw percent-encoding function as percent-encoding
-    shall be applied on the component level using different sets of allowed characters.
-    Applying percent-encoding directly on an input URI would not be safe just as in
+    Applying any percent-encoding directly on an input URI would not be safe just as in
     the case of
     <seemfa marker="uri_string#percent_decode/1"><c>uri_string:percent_decode/1</c></seemfa>,
     the output could be an invalid URI.
+    Quoting functions allow users to perform raw percent encoding and decoding
+    on application data which cannot be handled automatically by
+    <c>uri_string:recompose/1</c>. For example in scenario when user would
+    need to use '/' or sub-delimeter as data rather than delimeter in a path component.
     </p>
     </note>
   </section>

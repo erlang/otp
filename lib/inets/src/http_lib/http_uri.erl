@@ -21,8 +21,8 @@
 
 -export([encode/1, decode/1]).
 
--deprecated({encode, 1, "use uri_string functions instead"}).
--deprecated({decode, 1, "use uri_string functions instead"}).
+-deprecated({encode, 1, "use uri_string:quote function instead"}).
+-deprecated({decode, 1, "use uri_string:unquote function instead"}).
 -removed({parse, 1, "use uri_string functions instead"}).
 -removed({parse, 2, "use uri_string functions instead"}).
 -removed({scheme_defaults, 0, "use uri_string functions instead"}).
