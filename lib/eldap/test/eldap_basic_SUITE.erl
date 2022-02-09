@@ -161,19 +161,25 @@ connection_tests() ->
     ].
 
 
+ldap_servers(_Config) ->
+    ["ulrad",
+     "orome",
+     "ecthelion",
+     "bifur"
+    ].
+
 
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
-    LDAP_server =  find_first_server(false, [{config,eldap_server},
-					     {config,ldap_server}, 
-					     {"localhost",9876},
-					     {"aramis.otp.ericsson.se",9876}]),
+    ServerHosts = ["localhost" | random_sorted(ldap_servers(Config))],
+    LDAP_server =  find_first_server(false,
+                                     [{H,9876} || H <- ServerHosts]),
+
     LDAPS_server =
 	case SSL_available of
 	    true ->
-		find_first_server(true,  [{config,ldaps_server},
-					  {"localhost",9877},
-					  {"aramis.otp.ericsson.se",9877}]);
+		find_first_server(true,
+                                  [{H,9877} || H <- ServerHosts]);
 	    false ->
 		undefined
 	end,
@@ -1233,3 +1239,13 @@ init_ssl_certs_et_al(Config) ->
 	    ct:log("init_per_suite failed to start ssl Error=~p Reason=~p", [Error, Reason]),
 	    false
     end.
+
+%%%----------------------------------------------------------------
+random_sorted(L) when is_list(L) ->
+    random_sorted(L, length(L), []).
+
+random_sorted([], 0, Acc) -> Acc;
+random_sorted(L, N, Acc) ->
+    R = rand:uniform(N),
+    E = lists:nth(R, L),
+    random_sorted(L -- [E], N-1, [E|Acc]).
