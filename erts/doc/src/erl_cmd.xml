@@ -473,29 +473,11 @@ $ <input>erl \
           instead.</p>
         <p>If <c>Name</c> is set to <em><c>undefined</c></em> the node will
           be started in a special mode optimized to be the temporary client
-          of another node. When enabled the node will request a
-          <seeguide marker="erl_dist_protocol#DFLAG_NAME_ME">dynamic
-          node name</seeguide> from the first node it connects to. In addition
-          these distribution settings will be set:
+          of another node. The node will then request a dynamic node
+          name from the first node it connects to. Read more in
+          <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+          Dynamic Node Name</seeguide>.
         </p>
-        <pre><seeapp marker="kernel:kernel_app#dist_listen">-dist_listen false</seeapp> <seecom marker="#hidden">-hidden</seecom> <seeapp marker="kernel:kernel_app#dist_auto_connect">-dist_auto_connect never</seeapp></pre>
-        <p>Because <c>-dist_auto_connect</c> is set to <c>never</c>, the system will have
-          to manually call <seemfa marker="kernel:net_kernel#connect_node/1">
-          <c>net_kernel:connect_node/1</c></seemfa> in order to start the distribution.
-          If the distribution channel is closed, when a node uses a dynamic
-          node name, the node will stop the distribution and a new call to
-          <seemfa marker="kernel:net_kernel#connect_node/1">
-          <c>net_kernel:connect_node/1</c></seemfa> has to be made. Note that the node
-          name may change if the distribution is dropped and then set up again.
-        </p>
-	<note>
-	  <p>
-	    The <em>dynamic node name</em> feature is supported from
-	    OTP 23. Both the temporary client node and the first
-	    connected peer node (supplying the dynamic node name) must
-	    be at least OTP 23 for it to work.
-	  </p>
-	</note>
         <warning>
           <p>
             Starting a distributed node without also specifying
@@ -665,6 +647,14 @@ $ <input>erl \
           exist between nodes running with flag <c><![CDATA[-sname]]></c>
           and those running with flag <c><![CDATA[-name]]></c>, as node
           names must be unique in distributed Erlang systems.</p>
+        <p>
+          If <c>Name</c> is set to <em><c>undefined</c></em> the node will
+          be started in a special mode optimized to be the temporary client
+          of another node. The node will then request a dynamic node
+          name from the first node it connects to. Read more in
+          <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+          Dynamic Node Name</seeguide>.
+        </p>
         <warning>
           <p>
             Starting a distributed node without also specifying

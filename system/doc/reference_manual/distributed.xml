@@ -59,14 +59,18 @@
 
   <section>
     <title>Nodes</title>
-    <p>A <em>node</em> is an executing Erlang runtime system that has
-      been given a name, using the command-line flag <c>-name</c>
-      (long names) or <c>-sname</c> (short names).</p>
+    <p>
+      A <em>node</em> is an executing Erlang runtime system that has
+      been given a name, using the command-line flag
+      <seecom marker="erts:erl#name"><c>-name</c></seecom> (long names) or
+      <seecom marker="erts:erl#sname"><c>-sname</c></seecom> (short names).
+    </p>
     <p>The format of the node name is an atom <c>name@host</c>.
       <c>name</c> is the name given by the user. <c>host</c> is
       the full host name if long names are used, or the first part of
-      the host name if short names are used. <c>node()</c> returns
-      the name of the node.</p>
+      the host name if short names are used. Function
+      <seemfa marker="erts:erlang#node/0"><c>node()</c></seemfa>
+      returns the name of the node.</p>
       <p><em>Example:</em></p>
     <pre>
 % <input>erl -name dilbert</input>
@@ -76,6 +80,21 @@
 % <input>erl -sname dilbert</input>
 (dilbert@uab)1> <input>node().</input>
 dilbert@uab</pre>
+
+    <p>
+      The node name can also be given in runtime by calling
+      <seemfa marker="kernel:net_kernel#start/1"><c>net_kernel:start/1</c></seemfa>.
+    </p>
+    <p><em>Example:</em></p>
+    <pre>
+% <input>erl</input>
+1> <input>node().</input>
+nonode@nohost
+2> <input>net_kernel:start([dilbert,shortnames]).</input>
+{ok,&lt;0.102.0&gt;}
+(dilbert@uab)3> <input>node().</input>
+dilbert@uab</pre>
+
     <note>
       <p>A node with a long node name cannot communicate with a node
         with a short node name.</p>
@@ -124,7 +143,38 @@ dilbert@uab</pre>
       <c>nodes(connected)</c> must be used. This means, for example,
       that the hidden node is not added to the set of nodes that
       <c>global</c> is keeping track of.</p>
-    <p>This feature was added in Erlang 5.0/OTP R7.</p>
+  </section>
+
+  <section>
+    <marker id="dyn_node_name"/>
+    <title>Dynamic Node Name</title>
+     <p>
+       If the node name is set to <em><c>undefined</c></em> the node will
+       be started in a special mode to be the temporary client
+       of another node. The node will then request a dynamic node
+       name from the first node it connects to. In addition these
+       distribution settings will be set:
+     </p>
+     <pre><seeapp marker="kernel:kernel_app#dist_listen">-dist_listen false</seeapp> <seecom marker="erts:erl#hidden">-hidden</seecom> <seeapp marker="kernel:kernel_app#dist_auto_connect">-dist_auto_connect never</seeapp></pre>
+     <p>
+       As <c>-dist_auto_connect</c> is set to <c>never</c>,
+       <seemfa marker="kernel:net_kernel#connect_node/1"><c>net_kernel:connect_node/1</c></seemfa>
+       must be called in order to setup connections. If the first established
+       connection is closed (which gave the node its dynamic name), then any
+       other connections will also be closed and the node will lose its dynamic
+       node name. A new call to
+       <seemfa marker="kernel:net_kernel#connect_node/1"><c>net_kernel:connect_node/1</c></seemfa>
+       can be made to get a new dynamic node name. The node name may
+       change if the distribution is dropped and then set up again.
+     </p>
+     <note>
+       <p>
+	 The <em>dynamic node name</em> feature is supported from OTP 23.
+         Both the temporary client node and the first connected peer node
+         (supplying the dynamic node name) must be at least OTP 23 for it to
+         work.
+       </p>
+     </note>
   </section>
 
   <section>

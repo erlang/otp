@@ -193,10 +193,6 @@ nodename() ->                  request(nodename).
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.
 stop() ->
-    case persistent_term:get(net_kernel, undefined) of
-        undefined -> ok;
-        _ -> persistent_term:erase(net_kernel)
-    end,
     erl_distribution:stop().
 
 -type node_info() ::
@@ -729,6 +725,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------
 
 terminate(Reason, State) ->
+    case State of
+        #state{supervisor = {restart, _}} ->
+            ok;
+        _ ->
+            case persistent_term:get(net_kernel, undefined) of
+                undefined -> ok;
+                _ -> persistent_term:erase(net_kernel)
+            end
+    end,
+
     case Reason of
         no_network ->
             ok;
