@@ -359,7 +359,14 @@ $ <input>erl -sname foobar</input></pre>
           starting <c>net_kernel</c> and other necessary processes.</p>
         <p>Notice that the argument is a list with exactly one, two, or
           three arguments. <c>NameType</c> defaults to <c>longnames</c>
-          and <c>Ticktime</c> to <c>15000</c>.</p>
+          and <c>Ticktime</c> to <c>15000</c>.
+        </p>
+        <p>
+          If <c>Name</c> is set to <em><c>undefined</c></em> the distribution
+          will be started to request a dynamic node name from the first node it
+          connects to. See <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+          Dynamic Node Name</seeguide>.
+        </p>
       </desc>
     </func>
 
