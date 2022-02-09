@@ -2208,12 +2208,13 @@ bs_match_type(integer, Args) ->
          #b_literal{val=Size},
          #b_literal{val=Unit}] when Size * Unit < 64 ->
             NumBits = Size * Unit,
+            Max = (1 bsl NumBits) - 1,
             case member(unsigned, Flags) of
                 true ->
-                    beam_types:make_integer(0, (1 bsl NumBits)-1);
+                    beam_types:make_integer(0, Max);
                 false ->
-                    %% Signed integer. Don't bother.
-                    #t_integer{}
+                    Min = -(Max + 1),
+                    beam_types:make_integer(Min, Max)
             end;
         [_|_] ->
             #t_integer{}
