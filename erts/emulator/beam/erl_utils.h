@@ -73,6 +73,7 @@ Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm, Uint32 salt);
+Uint32 make_map_hash(Eterm key, int level);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
