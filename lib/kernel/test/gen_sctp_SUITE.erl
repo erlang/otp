@@ -862,7 +862,7 @@ do_implicit_inet6(_Config) ->
                     {error, nxdomain = Reason_getaddr} ->
                         ?SKIPT(Reason_getaddr);
                     {error, Reason_getaddr} ->
-                        ?line ct:fail({unexpected, Reason_getaddr})
+                        ct:fail({unexpected, Reason_getaddr})
                 end,
             S2 = case gen_sctp:open(0, [{ip, Localhost}]) of
                      {ok, S} ->
@@ -870,7 +870,7 @@ do_implicit_inet6(_Config) ->
                      {error, nxdomain = Reason_open} ->
                          ?SKIPT(Reason_open);
                      {error, Reason_open} ->
-                         ?line ct:fail({unexpected, Reason_open})
+                         ct:fail({unexpected, Reason_open})
                  end,
 
             ?P("*** ~s: ~p ***", ["localhost", Localhost]),
@@ -1920,7 +1920,7 @@ recv_close(Config) when is_list(Config) ->
                "~n   ~p", [PreReason]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected pre close from reader (~p): ~p",
+            ct:fail("Unexpected pre close from reader (~p): ~p",
                           [Pid, PreReason]);
         {Pid, ready} ->
             ?P("reader ready"),
@@ -1932,7 +1932,7 @@ recv_close(Config) when is_list(Config) ->
             ?P("reader ready timeout"),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected pre close timeout (~p)", [Pid])
+            ct:fail("Unexpected pre close timeout (~p)", [Pid])
     end,
 
     ?P("\"ensure\" reader reading..."),
@@ -1942,7 +1942,7 @@ recv_close(Config) when is_list(Config) ->
                "~n   ~p", [Any]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected message: ~p", [Any])
+            ct:fail("Unexpected message: ~p", [Any])
     after 5000 ->
             ok
     end,
@@ -1959,14 +1959,14 @@ recv_close(Config) when is_list(Config) ->
             ?P("unexpected reader termination: "
                "~n   ~p", [PostReason]),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected post close from reader (~p): ~p",
+            ct:fail("Unexpected post close from reader (~p): ~p",
                           [Pid, PostReason])
     after 5000 ->
             ?P("unexpected reader termination timeout"),
             demonitor(MRef, [flush]),
             (catch gen_sctp:close(C)),
             exit(Pid, kill),
-            ?line ct:fail("Reader (~p) termination timeout", [Pid])
+            ct:fail("Reader (~p) termination timeout", [Pid])
     end,
     ?P("close client socket"),
     (catch gen_sctp:close(C)),
@@ -2627,10 +2627,10 @@ ok({ok, X}) ->
     X;
 ok({error, X}) ->
     ?P("ERROR: ~p", [X]),
-    ?line ct:fail({unexpected_error, X});
+    ct:fail({unexpected_error, X});
 ok(X) ->
     ?P("UNEXPECTED: ~p", [X]),
-    ?line ct:fail({unexpected, X}).
+    ct:fail({unexpected, X}).
     
 
 log(X) ->

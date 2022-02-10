@@ -40,7 +40,7 @@
 -define(DIRNAME, "ddtemp").
 
 init_per_testcase(Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     ttb:stop(),
     rm(?OUTPUT),
     [rm(Upload) || Upload<-filelib:wildcard("ttb_upload*")],
@@ -115,74 +115,74 @@ file(suite) ->
 file(doc) ->
     ["Start tracing on multiple nodes, single file"];
 file(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"file"),
-    ?line {ok,[Node]} =
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"file"),
+    {ok,[Node]} =
 	ttb:tracer(Node,[{file, File},
 			 {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{S,[{matched,Node,_}]}]} = ttb:p(S,call),
-    ?line {ok,[OtherNode]} = 
+    {ok,[{S,[{matched,Node,_}]}]} = ttb:p(S,call),
+    {ok,[OtherNode]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[]} = ttb:tracer([Node,OtherNode],
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[]} = ttb:tracer([Node,OtherNode],
 				  [{file, File},
 				   {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
-    ?line ok = ttb:format(filename:join(Privdir,
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-file")),
 
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace,
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
 file(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 file_no_pi(suite) ->
     [];
 file_no_pi(doc) ->
     ["Start tracing on multiple nodes, single file, no process information"];
 file_no_pi(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"file"),
-    ?line {ok,[_,_]} =
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"file"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
 				     {handler,{fun myhandler/4, S}},
 				     {process_info,false}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
-    ?line ok = ttb:format(filename:join(Privdir,
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-file")),
 
-    ?line [{trace_ts,LocalProc,call,{?MODULE,foo,[]}, {_,_,_}},
+    [{trace_ts,LocalProc,call,{?MODULE,foo,[]}, {_,_,_}},
 	   end_of_trace,
 	   {trace_ts,RemoteProc,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
-    ?line true = is_pid(LocalProc),
-    ?line true = is_pid(RemoteProc),
+    true = is_pid(LocalProc),
+    true = is_pid(RemoteProc),
     ok.
 
 file_no_pi(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 file_fetch(suite) ->
@@ -190,67 +190,67 @@ file_fetch(suite) ->
 file_fetch(doc) ->
     ["stop with the fetch option, i.e. collect all files when ttb is stopped"];
 file_fetch(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line ThisDir = filename:join(Privdir,this),
-    ?line ok = file:make_dir(ThisDir),
-    ?line OtherDir = filename:join(Privdir,other),
-    ?line ok = file:make_dir(OtherDir),
-    ?line ThisFile = filename:join(ThisDir,"file_fetch"),
-    ?line OtherFile = filename:join(OtherDir,"file_fetch"),
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    ThisDir = filename:join(Privdir,this),
+    ok = file:make_dir(ThisDir),
+    OtherDir = filename:join(Privdir,other),
+    ok = file:make_dir(OtherDir),
+    ThisFile = filename:join(ThisDir,"file_fetch"),
+    OtherFile = filename:join(OtherDir,"file_fetch"),
 
     %% I'm setting priv_dir as cwd, so ttb_upload directory is created there
     %% and not in any other strange place!
-    ?line {ok,Cwd} = file:get_cwd(),
-    ?line ok = file:set_cwd(Privdir),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Privdir),
 
-    ?line {ok,[Node]} =
+    {ok,[Node]} =
 	ttb:tracer(Node,[{file, ThisFile},
 			 {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[OtherNode]} = 
+    {ok,[OtherNode]} =
 	ttb:tracer([OtherNode],[{file, OtherFile},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line test_server:capture_start(),
-    ?line ttb:stop([return_fetch_dir]),
-    ?line test_server:capture_stop(),
-    ?line [StoreString] = test_server:capture_get(),
-    ?line UploadDir =
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    test_server:capture_start(),
+    ttb:stop([return_fetch_dir]),
+    test_server:capture_stop(),
+    [StoreString] = test_server:capture_get(),
+    UploadDir =
 	lists:last(string:lexemes(lists:flatten(StoreString),"$ \n")),
 
     %% check that files are no longer in original directories...
-    ?line ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch"),
-    ?line ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch.ti"),
-%    ?line false = lists:member(TrcLog,ThisList),
-%    ?line false = lists:member(TIFile,ThisList),
+    ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch"),
+    ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch.ti"),
+%    false = lists:member(TrcLog,ThisList),
+%    false = lists:member(TIFile,ThisList),
     
-    ?line {ok,OtherList} = file:list_dir(OtherDir),
-    ?line false = lists:member(atom_to_list(OtherNode)++"-file_fetch",OtherList),
-    ?line false = lists:member(atom_to_list(OtherNode)++"-file_fetch.ti",
+    {ok,OtherList} = file:list_dir(OtherDir),
+    false = lists:member(atom_to_list(OtherNode)++"-file_fetch",OtherList),
+    false = lists:member(atom_to_list(OtherNode)++"-file_fetch.ti",
 			       OtherList),
     
     %% but instead in ttb_upload directory, where they can be formatted
-    ?line ok = ttb:format(filename:join(UploadDir,
+    ok = ttb:format(filename:join(UploadDir,
 					atom_to_list(Node)++"-file_fetch")),
-    ?line ok = ttb:format(filename:join(UploadDir,
+    ok = ttb:format(filename:join(UploadDir,
 					atom_to_list(OtherNode)++"-file_fetch")),
 
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace,
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
-    ?line ok = file:set_cwd(Cwd),
+    ok = file:set_cwd(Cwd),
     ok.
 
 file_fetch(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 wrap(suite) ->
@@ -258,44 +258,44 @@ wrap(suite) ->
 wrap(doc) ->
     ["Start tracing on multiple nodes, wrap files"];
 wrap(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"wrap"),
-    ?line {ok,[_,_]} = 
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"wrap"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, {wrap,File,200,3}},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(filename:join(Privdir,
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(Node)++"-wrap.*.wrp")),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
-    ?line ok = ttb:format(filename:join(Privdir,
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-wrap.*.wrp")),
-    ?line [{trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     %% Check that merge does not crash even if the timestamp flag is not on.
-    ?line ok = ttb:format(
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-wrap.*.wrp"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-wrap.*.wrp")],[{disable_sort,true}]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
@@ -305,37 +305,37 @@ wrap(Config) when is_list(Config) ->
     ok.
 
 wrap(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 wrap_merge(suite) ->
     [];
 wrap_merge(doc) ->
     ["Start tracing on multiple nodes, wrap files, merge logs from both nodes"];
 wrap_merge(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"wrap_merge"),
-    ?line {ok,[_,_]} = 
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"wrap_merge"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, {wrap,File,200,3}},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]}=ttb:p(all,[call,timestamp]),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]}=ttb:p(all,[call,timestamp]),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-wrap_merge.*.wrp"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-wrap_merge.*.wrp")]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,_,call,{?MODULE,foo,[]},_},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,_,call,{?MODULE,foo,[]},_},
@@ -345,7 +345,7 @@ wrap_merge(Config) when is_list(Config) ->
     ok.
 
 wrap_merge(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 wrap_merge_fetch_format(suite) ->
@@ -353,31 +353,31 @@ wrap_merge_fetch_format(suite) ->
 wrap_merge_fetch_format(doc) ->
     ["Start tracing on multiple nodes, wrap files, fetch and format at stop"];
 wrap_merge_fetch_format(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"wrap_merge_fetch_format"),
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"wrap_merge_fetch_format"),
 
     %% I'm setting priv_dir as cwd, so ttb_upload directory is created there
     %% and not in any other strange place!
-    ?line {ok,Cwd} = file:get_cwd(),
-    ?line ok = file:set_cwd(Privdir),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Privdir),
 
-    ?line {ok,[_,_]} = 
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, {wrap,File,200,3}},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]}=ttb:p(all,[call,timestamp]),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([format]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]}=ttb:p(all,[call,timestamp]),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([format]),
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
@@ -385,55 +385,55 @@ wrap_merge_fetch_format(Config) when is_list(Config) ->
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
 	   end_of_trace] = flush(),
 
-    ?line ok = file:set_cwd(Cwd),
+    ok = file:set_cwd(Cwd),
     ok.
 
 wrap_merge_fetch_format(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 write_config1(suite) ->
     [];
 write_config1(doc) ->
     ["Write config given commands"];
 write_config1(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
 
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"write_config1"),
-    ?line ok = ttb:write_config(File,
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"write_config1"),
+    ok = ttb:write_config(File,
 				[{ttb,tracer,[[Node,OtherNode],
 					      [{file, File},
 					       {handler,{fun myhandler/4,S}}]]},
 				 {ttb,p,[all,call]},
 				 {ttb,tp,[?MODULE,foo,[]]}]),
-    ?line [_,_,_] = ttb:list_config(File),
-    ?line ok = ttb:run_config(File),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    [_,_,_] = ttb:list_config(File),
+    ok = ttb:run_config(File),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config1"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config1")]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config1.ti") of
 	{error,Reason} ->
 	    timer:sleep(5000),
-	    ?line ok = ttb:format(
+	    ok = ttb:format(
 			 [filename:join(Privdir,
 					atom_to_list(Node)++"-write_config1"),
 			  filename:join(Privdir,
 					atom_to_list(OtherNode)++
 					"-write_config1")]),
-	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ct:fail(Reason);
+	    io:format("\nTrying again: ~p\n",[flush()]),
+	    ct:fail(Reason);
 	ok ->
 	    ok
     end,	    
@@ -441,58 +441,58 @@ write_config1(Config) when is_list(Config) ->
 
 
 write_config1(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 write_config2(suite) ->
     [];
 write_config2(doc) ->
     ["Write config from history (all)"];
 write_config2(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"write_config2"),
-    ?line {ok,[_,_]} = 
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"write_config2"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ok = ttb:write_config(File,all),
-    ?line ttb:stop(),
-    ?line [_,_,_] = ttb:list_config(File),
-    ?line ok = ttb:run_config(File),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ok = ttb:write_config(File,all),
+    ttb:stop(),
+    [_,_,_] = ttb:list_config(File),
+    ok = ttb:run_config(File),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config2"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config2")]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config2.ti") of
 	{error,Reason} ->
 	    timer:sleep(5000),
-	    ?line ok = ttb:format(
+	    ok = ttb:format(
 			 [filename:join(Privdir,
 					atom_to_list(Node)++"-write_config2"),
 			  filename:join(Privdir,
 					atom_to_list(OtherNode)++
 					"-write_config2")]),
-	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ct:fail(Reason);
+	    io:format("\nTrying again: ~p\n",[flush()]),
+	    ct:fail(Reason);
 	ok ->
 	    ok
     end,
     ok.
 
 write_config2(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 write_config3(suite) ->
@@ -500,65 +500,65 @@ write_config3(suite) ->
 write_config3(doc) ->
     ["Write config from history (selected and append)"];
 write_config3(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"write_config3"),
-    ?line {ok,[_,_]} = 
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"write_config3"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ok = ttb:write_config(File,[1,2]),
-    ?line ttb:stop([nofetch]),
-    ?line [_,_] = ttb:list_config(File),
-    ?line ok = ttb:run_config(File),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ok = ttb:write_config(File,[1,2]),
+    ttb:stop([nofetch]),
+    [_,_] = ttb:list_config(File),
+    ok = ttb:run_config(File),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config3"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config3")]),
-    ?line [end_of_trace] = flush(), %foo is not traced
+    [end_of_trace] = flush(), %foo is not traced
 
-    ?line ok = ttb:write_config(File,[{ttb,tp,[?MODULE,foo,[]]}],
+    ok = ttb:write_config(File,[{ttb,tp,[?MODULE,foo,[]]}],
 			      [append]),
-    ?line [_,_,_] = ttb:list_config(File),
-    ?line ok = ttb:run_config(File),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    [_,_,_] = ttb:list_config(File),
+    ok = ttb:run_config(File),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config3"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config3")]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config3.ti") of
 	{error,Reason} ->
 	    timer:sleep(5000),
-	    ?line ok = ttb:format(
+	    ok = ttb:format(
 			 [filename:join(Privdir,
 					atom_to_list(Node)++"-write_config3"),
 			  filename:join(Privdir,
 					atom_to_list(OtherNode)++
 					"-write_config3")]),
-	    ?line io:format("\nTrying again: ~p\n",[flush()]),
-	    ?line ct:fail(Reason);
+	    io:format("\nTrying again: ~p\n",[flush()]),
+	    ct:fail(Reason);
 	ok ->
 	    ok
     end,
     ok.
 
 write_config3(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 
@@ -567,39 +567,39 @@ history(suite) ->
 history(doc) ->
     ["List history and execute entry from history"];
 history(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
 
-    ?line Nodes = [Node,OtherNode],
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"history"),
-    ?line StartOpts = [{file, File},
+    Nodes = [Node,OtherNode],
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"history"),
+    StartOpts = [{file, File},
 		       {handler,{fun myhandler/4, S}}],
-    ?line {ok,[_,_]} = ttb:tracer(Nodes,StartOpts),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:ctp(?MODULE,foo),
-    ?line [{1,{ttb,tracer,[Nodes,StartOpts]}},
+    {ok,[_,_]} = ttb:tracer(Nodes,StartOpts),
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:ctp(?MODULE,foo),
+    [{1,{ttb,tracer,[Nodes,StartOpts]}},
 	   {2,{ttb,p,[all,call]}},
 	   {3,{ttb,tp,[?MODULE,foo,[]]}},
 	   {4,{ttb,ctp,[?MODULE,foo]}}] = ttb:list_history(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ok = ttb:run_history(3),
-    ?line ?MODULE:foo(),
-    ?line ok = ttb:run_history([3,4]),
-    ?line ?MODULE:foo(),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ok = ttb:run_history(3),
+    ?MODULE:foo(),
+    ok = ttb:run_history([3,4]),
+    ?MODULE:foo(),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-history"),
 		  filename:join(Privdir,atom_to_list(OtherNode)++"-history")]),
-    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
 history(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 write_trace_info(suite) ->
@@ -607,34 +607,34 @@ write_trace_info(suite) ->
 write_trace_info(doc) ->
     ["Write trace info and give handler explicitly in format command"];
 write_trace_info(Config) when is_list(Config) ->
-    ?line Node = node(),
-    ?line {ok,OtherNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"write_trace_info"),
-    ?line {ok,[_,_]} = 
+    Node = node(),
+    {ok,OtherNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"write_trace_info"),
+    {ok,[_,_]} =
 	ttb:tracer([Node,OtherNode],[{file, File},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
-    ?line ok = ttb:write_trace_info(mytraceinfo,fun() -> node() end),
-    ?line ?MODULE:foo(),
-    ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
+    ok = ttb:write_trace_info(mytraceinfo,fun() -> node() end),
+    ?MODULE:foo(),
+    rpc:call(OtherNode,?MODULE,foo,[]),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-write_trace_info"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_trace_info")],
 		 [{handler,{fun otherhandler/4,S}}]),
-    ?line [{{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},[Node]},
+    [{{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},[Node]},
 	   {{trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},[OtherNode]},
 	   end_of_trace] = flush(),
 
     ok.
 
 write_trace_info(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 
 seq_trace(suite) ->
@@ -642,22 +642,22 @@ seq_trace(suite) ->
 seq_trace(doc) ->
     ["Test sequential tracing"];
 seq_trace(Config) when is_list(Config) ->
-    ?line S = self(),
+    S = self(),
 
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"seq_trace"),
-    ?line {ok,[Node]} = ttb:tracer(node(),[{file,File},
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"seq_trace"),
+    {ok,[Node]} = ttb:tracer(node(),[{file,File},
 				     {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{new,[{matched,Node,0}]}]} = ttb:p(new,call),
-    ?line {ok,[{matched,Node,1},{saved,1}]} = 
+    {ok,[{new,[{matched,Node,0}]}]} = ttb:p(new,call),
+    {ok,[{matched,Node,1},{saved,1}]} =
 	   ttb:tpl(?MODULE,seq,0,ttb:seq_trigger_ms(send)),
 
-    ?line Start = spawn(fun() -> seq() end),
-    ?line timer:sleep(300),
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(
+    Start = spawn(fun() -> seq() end),
+    timer:sleep(300),
+    ttb:stop([nofetch]),
+    ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-seq_trace")]),
-    ?line [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
+    [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
            {seq_trace,0,{send,{First, Seq0},StartProc,P1Proc,SpawnRequest1}},
            {seq_trace,0,{send,{Seq0, Seq1},P1Proc,StartProc,SpawnReply1}},
            {seq_trace,0,{send,{Seq2, Seq3},StartProc,P2Proc,SpawnRequest2}},
@@ -726,68 +726,68 @@ diskless(suite) ->
 diskless(doc) ->
     ["Start tracing on diskless remote node"];
 diskless(Config) when is_list(Config) ->
-    ?line {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"diskless"),
-    ?line {ok,[RemoteNode]} = 
+    {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"diskless"),
+    {ok,[RemoteNode]} =
 	ttb:tracer([RemoteNode],[{file, {local, File}},
 				 {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,RemoteNode,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
+    {ok,[{all,[{matched,RemoteNode,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
-    ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(5000), % needed for the IP port to flush
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(filename:join(Privdir,
+    rpc:call(RemoteNode,?MODULE,foo,[]),
+    timer:sleep(5000), % needed for the IP port to flush
+    ttb:stop([nofetch]),
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless")),
 
-    ?line [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
 diskless(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 diskless_wrap(suite) ->
     [];
 diskless_wrap(doc) ->
     ["Start tracing on diskless remote node, save to local wrapped file"];
 diskless_wrap(Config) when is_list(Config) ->
-    ?line {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
-    ?line c:nl(?MODULE),
-    ?line S = self(),
-    ?line Privdir=priv_dir(Config),
-    ?line File = filename:join(Privdir,"diskless"),
-    ?line {ok,[RemoteNode]} =
+    {ok,RemoteNode} = test_server:start_node(node2,slave,[]),
+    c:nl(?MODULE),
+    S = self(),
+    Privdir=priv_dir(Config),
+    File = filename:join(Privdir,"diskless"),
+    {ok,[RemoteNode]} =
 	ttb:tracer([RemoteNode],[{file, {local, {wrap,File,200,3}}},
 				 {handler,{fun myhandler/4, S}}]),
-    ?line {ok,[{all,[{matched,RemoteNode,_}]}]} = ttb:p(all,call),
-    ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
+    {ok,[{all,[{matched,RemoteNode,_}]}]} = ttb:p(all,call),
+    {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
 
-    ?line rpc:call(RemoteNode,?MODULE,foo,[]),
-    ?line timer:sleep(5000), % needed for the IP port to flush
-    ?line ttb:stop([nofetch]),
-    ?line ok = ttb:format(filename:join(Privdir,
+    rpc:call(RemoteNode,?MODULE,foo,[]),
+    timer:sleep(5000), % needed for the IP port to flush
+    ttb:stop([nofetch]),
+    ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless.*.wrp")),
 
-    ?line [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
+    [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
 diskless_wrap(cleanup,_Config) ->
-    ?line test_server:stop_node(ttb_helper:get_node(node2)).
+    test_server:stop_node(ttb_helper:get_node(node2)).
 
 otp_4967_1(suite) ->
     [];
 otp_4967_1(doc) ->
     ["OTP-4967: clear flag"];
 otp_4967_1(Config) when is_list(Config) ->
-    ?line {ok,[Node]} = ttb:tracer(),
-    ?line {ok,[{all,[{matched,Node,_}]}]} =  ttb:p(all,call),
-    ?line {ok,[{all,[{matched,Node,_}]}]} =  ttb:p(all,clear),
-    ?line stopped = ttb:stop(),
+    {ok,[Node]} = ttb:tracer(),
+    {ok,[{all,[{matched,Node,_}]}]} =  ttb:p(all,call),
+    {ok,[{all,[{matched,Node,_}]}]} =  ttb:p(all,clear),
+    stopped = ttb:stop(),
     ok.
 
 
@@ -797,37 +797,37 @@ otp_4967_2(doc) ->
     ["OTP-4967: Trace message sent to {Name, Node}"];
 otp_4967_2(Config) when is_list(Config) ->
     io:format("1: ~p",[erlang:timestamp()]),
-    ?line Privdir = priv_dir(Config),
+    Privdir = priv_dir(Config),
     io:format("2: ~p",[erlang:timestamp()]),
-    ?line File = filename:join(Privdir,"otp_4967"),
+    File = filename:join(Privdir,"otp_4967"),
     io:format("3: ~p",[erlang:timestamp()]),
-    ?line S = self(),
+    S = self(),
     io:format("4: ~p",[erlang:timestamp()]),
-    ?line {ok,[Node]} =
+    {ok,[Node]} =
 	ttb:tracer(node(),[{file, File},
 			   {handler,{fun myhandler/4, S}}]),
 
     io:format("5: ~p",[erlang:timestamp()]),
     %% Test that delayed registration of a process works.
     receive after 200 -> ok end,
-    ?line register(otp_4967,self()),
+    register(otp_4967,self()),
     io:format("6: ~p",[erlang:timestamp()]),
-    ?line {ok,[{S,[{matched,Node,1}]}]} =  ttb:p(self(),s),
+    {ok,[{S,[{matched,Node,1}]}]} =  ttb:p(self(),s),
     io:format("7: ~p",[erlang:timestamp()]),
-    ?line {otp_4967,node()} ! heihopp,
+    {otp_4967,node()} ! heihopp,
     io:format("8: ~p",[erlang:timestamp()]),
-    ?line stopped = ttb:stop([format]),
+    stopped = ttb:stop([format]),
     io:format("9: ~p",[erlang:timestamp()]),
-    ?line Msgs = flush(),
+    Msgs = flush(),
     io:format("10: ~p",[erlang:timestamp()]),
-    ?line io:format("Messages received: \n~p\n",[Msgs]),
+    io:format("Messages received: \n~p\n",[Msgs]),
     io:format("11: ~p",[erlang:timestamp()]),
-    ?line true = lists:member(heihopp,Msgs), % the heihopp message itself
+    true = lists:member(heihopp,Msgs), % the heihopp message itself
     io:format("13: ~p",[erlang:timestamp()]),
-    ?line {value,{trace_ts,_,send,heihopp,{_,otp_4967,Node},{_,_,_}}} =
+    {value,{trace_ts,_,send,heihopp,{_,otp_4967,Node},{_,_,_}}} =
 	lists:keysearch(heihopp,4,Msgs), % trace trace of the heihopp message
     io:format("14: ~p",[erlang:timestamp()]),
-    ?line end_of_trace = lists:last(Msgs), % end of the trace
+    end_of_trace = lists:last(Msgs), % end of the trace
     ok.
     
 
@@ -909,8 +909,8 @@ metatest(Proc,Node,Privdir,Filename) ->
     end.
 
 check_gone(Dir,File) ->
-    ?line {ok,List} = file:list_dir(Dir),
-    ?line case lists:member(File,List) of
+    {ok,List} = file:list_dir(Dir),
+    case lists:member(File,List) of
 	      true -> 
 		  timer:sleep(2000),
 		  {ok,NewList} = file:list_dir(Dir),
@@ -928,11 +928,11 @@ check_gone(Dir,File) ->
 	  end.
 
 start_client_and_server() ->
-    ?line {ok,ClientNode} = test_server:start_node(client,slave,[]),
-    ?line ok = ttb_helper:c(code, add_paths, [code:get_path()]),
-    ?line {ok,ServerNode} = test_server:start_node(server,slave,[]),
-    ?line ok = ttb_helper:s(code, add_paths, [code:get_path()]),
-    ?line ttb_helper:clear(),
+    {ok,ClientNode} = test_server:start_node(client,slave,[]),
+    ok = ttb_helper:c(code, add_paths, [code:get_path()]),
+    {ok,ServerNode} = test_server:start_node(server,slave,[]),
+    ok = ttb_helper:s(code, add_paths, [code:get_path()]),
+    ttb_helper:clear(),
     {ServerNode, ClientNode}.
 
 stop_client_and_server() ->
@@ -940,8 +940,8 @@ stop_client_and_server() ->
     ServerNode = ttb_helper:get_node(server),
     erlang:monitor_node(ClientNode,true),
     erlang:monitor_node(ServerNode,true),
-    ?line test_server:stop_node(ClientNode),
-    ?line test_server:stop_node(ServerNode),
+    test_server:stop_node(ClientNode),
+    test_server:stop_node(ServerNode),
     wait_for_client_and_server_stop(ClientNode,ServerNode).
 
 wait_for_client_and_server_stop(undefined,undefined) ->
@@ -957,20 +957,20 @@ wait_for_client_and_server_stop(ClientNode,ServerNode) ->
     end.
 
 begin_trace(ServerNode, ClientNode, Dest) ->
-    ?line {ok, _} =
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, Dest}]),
-    ?line ttb:p(all, call),
-    ?line ttb:tp(server, received, []),
-    ?line ttb:tp(client, put, []),
-    ?line ttb:tp(client, get, []).
+    ttb:p(all, call),
+    ttb:tp(server, received, []),
+    ttb:tp(client, put, []),
+    ttb:tp(client, get, []).
 
 begin_trace_local(ServerNode, ClientNode, Dest) ->
-    ?line {ok, _} =
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, Dest}]),
-    ?line ttb:p(all, call),
-    ?line ttb:tpl(server, received, []),
-    ?line ttb:tpl(client, put, []),
-    ?line ttb:tpl(client, get, []).
+    ttb:p(all, call),
+    ttb:tpl(server, received, []),
+    ttb:tpl(client, put, []),
+    ttb:tpl(client, get, []).
 
 check_size(N, Dest, Output, ServerNode, ClientNode) ->
     begin_trace(ServerNode, ClientNode, Dest),
@@ -997,16 +997,16 @@ fetch_when_no_option_given(suite) ->
 fetch_when_no_option_given(doc) ->
     ["Fetch when no option given"];
 fetch_when_no_option_given(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line {ok, Privdir} = file:get_cwd(),
-    ?line [] = filelib:wildcard(filename:join(Privdir,"ttb_upload_temptest*")),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    {ok, Privdir} = file:get_cwd(),
+    [] = filelib:wildcard(filename:join(Privdir,"ttb_upload_temptest*")),
     begin_trace(ServerNode, ClientNode, ?FNAME),
-    ?line ttb_helper:msgs(4),
-    ?line stopped = ttb:stop(),
-    ?line [_] = filelib:wildcard(filename:join(Privdir,"ttb_upload_temptest*")).
+    ttb_helper:msgs(4),
+    stopped = ttb:stop(),
+    [_] = filelib:wildcard(filename:join(Privdir,"ttb_upload_temptest*")).
 
 fetch_when_no_option_given(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 
 basic_ttb_run_ip_port(suite) ->
@@ -1014,123 +1014,123 @@ basic_ttb_run_ip_port(suite) ->
 basic_ttb_run_ip_port(doc) ->
     ["Basic ttb run ip port"];
 basic_ttb_run_ip_port(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line check_size(1, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
-    ?line check_size(2, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
-    ?line check_size(10, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    check_size(1, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
+    check_size(2, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
+    check_size(10, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode).
 basic_ttb_run_ip_port(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 basic_ttb_run_file_port(suite) ->
     [];
 basic_ttb_run_file_port(doc) ->
     ["Basic ttb run file port"];
 basic_ttb_run_file_port(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line check_size(1, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
-    ?line check_size(2, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
-    ?line check_size(10, ?FNAME, ?OUTPUT, ServerNode, ClientNode).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    check_size(1, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
+    check_size(2, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
+    check_size(10, ?FNAME, ?OUTPUT, ServerNode, ClientNode).
 basic_ttb_run_file_port(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 return_fetch_dir_implies_fetch(suite) ->
     [];
 return_fetch_dir_implies_fetch(doc) ->
     ["Return_fetch_dir implies fetch"];
 return_fetch_dir_implies_fetch(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
-    ?line ttb_helper:msgs(2),
-    ?line {_,_} = ttb:stop([return_fetch_dir]).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, ?FNAME),
+    ttb_helper:msgs(2),
+    {_,_} = ttb:stop([return_fetch_dir]).
 return_fetch_dir_implies_fetch(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 logfile_name_in_fetch_dir(suite) ->
     [];
 logfile_name_in_fetch_dir(doc) ->
     ["Logfile name in fetch dir"];
 logfile_name_in_fetch_dir(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line {_,Dir} = ttb:stop([return_fetch_dir]),
-    ?line P1 = lists:nth(3, string:lexemes(filename:basename(Dir), "_")),
-    ?line P2 = hd(string:lexemes(P1, "-")),
-    ?line _File = P2.
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
+    {_,Dir} = ttb:stop([return_fetch_dir]),
+    P1 = lists:nth(3, string:lexemes(filename:basename(Dir), "_")),
+    P2 = hd(string:lexemes(P1, "-")),
+    _File = P2.
 logfile_name_in_fetch_dir(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 upload_to_my_logdir(suite) ->
     [];
 upload_to_my_logdir(doc) ->
     ["Upload to my logdir"];
 upload_to_my_logdir(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line {ok, _} =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {stopped,_} = ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}]),
-    ?line true = filelib:is_file(?DIRNAME),
-    ?line [] = filelib:wildcard("ttb_upload_"++?FNAME).
+    {stopped,_} = ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}]),
+    true = filelib:is_file(?DIRNAME),
+    [] = filelib:wildcard("ttb_upload_"++?FNAME).
 upload_to_my_logdir(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 upload_to_my_existing_logdir(suite) ->
     [];
 upload_to_my_existing_logdir(doc) ->
     ["Upload to my existing logdir"];
 upload_to_my_existing_logdir(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line ok = file:make_dir(?DIRNAME),
-    ?line {ok, _} =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    ok = file:make_dir(?DIRNAME),
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {error,_,_} = (catch ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}])),
-    ?line {stopped,_} = ttb:stop(return_fetch_dir).
+    {error,_,_} = (catch ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}])),
+    {stopped,_} = ttb:stop(return_fetch_dir).
 upload_to_my_existing_logdir(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 fetch_with_options_not_as_list(suite) ->
     [];
 fetch_with_options_not_as_list(doc) ->
     ["Fetch with options not as list"];
 fetch_with_options_not_as_list(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line {ok, _} =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {stopped, D} = ttb:stop(return_fetch_dir),
-    ?line false = filelib:is_file(?OUTPUT),
-    ?line ttb:format(D, {out, ?OUTPUT}),
-    ?line true = filelib:is_file(?OUTPUT).
+    {stopped, D} = ttb:stop(return_fetch_dir),
+    false = filelib:is_file(?OUTPUT),
+    ttb:format(D, {out, ?OUTPUT}),
+    true = filelib:is_file(?OUTPUT).
 fetch_with_options_not_as_list(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 error_when_formatting_multiple_files_4393(suite) ->
     [];
 error_when_formatting_multiple_files_4393(doc) ->
     ["Error when formatting multiple files"];
 error_when_formatting_multiple_files_4393(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
-    ?line ttb_helper:msgs(2),
-    ?line {_, Dir} = ttb:stop(return_fetch_dir),
-    ?line Files = [filename:join(Dir, atom_to_list(ServerNode) ++ "-" ++ ?FNAME),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, ?FNAME),
+    ttb_helper:msgs(2),
+    {_, Dir} = ttb:stop(return_fetch_dir),
+    Files = [filename:join(Dir, atom_to_list(ServerNode) ++ "-" ++ ?FNAME),
 		   filename:join(Dir, atom_to_list(ClientNode) ++ "-" ++ ?FNAME)],
-    ?line ok = ttb:format(Files).
+    ok = ttb:format(Files).
 error_when_formatting_multiple_files_4393(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 format_on_trace_stop(suite) ->
     [];
 format_on_trace_stop(doc) ->
     ["Format on trace stop"];
 format_on_trace_stop(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line ttb_helper:msgs_ip(2),
-    ?line file:delete("HANDLER_OK"),
-    ?line {_,_} = ttb:stop([fetch, return_fetch_dir, {format, {handler, marking_call_handler()}}]),
-    ?line true = filelib:is_file("HANDLER_OK"),
-    ?line ok = file:delete("HANDLER_OK").
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
+    ttb_helper:msgs_ip(2),
+    file:delete("HANDLER_OK"),
+    {_,_} = ttb:stop([fetch, return_fetch_dir, {format, {handler, marking_call_handler()}}]),
+    true = filelib:is_file("HANDLER_OK"),
+    ok = file:delete("HANDLER_OK").
 format_on_trace_stop(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 %% The following three tests are for the issue "fixes fetch fail when nodes on the same host
 %% have different cwd"
@@ -1139,41 +1139,41 @@ trace_to_remote_files_on_localhost_with_different_pwd(suite) ->
 trace_to_remote_files_on_localhost_with_different_pwd(doc) ->
     ["Trace to remote files on localhost with different pwd"];
 trace_to_remote_files_on_localhost_with_different_pwd(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line ok = file:set_cwd(".."),
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line check_size(2, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
-    ?line ok = file:set_cwd(OldDir).
+    {ok, OldDir} = file:get_cwd(),
+    ok = file:set_cwd(".."),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    check_size(2, ?FNAME, ?OUTPUT, ServerNode, ClientNode),
+    ok = file:set_cwd(OldDir).
 trace_to_remote_files_on_localhost_with_different_pwd(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_to_local_files_on_localhost_with_different_pwd(suite) ->
     [];
 trace_to_local_files_on_localhost_with_different_pwd(doc) ->
     ["Trace to local files on localhost with different pwd"];
 trace_to_local_files_on_localhost_with_different_pwd(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line ok = file:set_cwd(".."),
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line check_size(2, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
-    ?line ok = file:set_cwd(OldDir).
+    {ok, OldDir} = file:get_cwd(),
+    ok = file:set_cwd(".."),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    check_size(2, {local, ?FNAME}, ?OUTPUT, ServerNode, ClientNode),
+    ok = file:set_cwd(OldDir).
 trace_to_local_files_on_localhost_with_different_pwd(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_to_remote_files_on_localhost_with_different_pwd_abs(suite) ->
     [];
 trace_to_remote_files_on_localhost_with_different_pwd_abs(doc) ->
     ["Trace to remote files on localhost with different pwd abs"];
 trace_to_remote_files_on_localhost_with_different_pwd_abs(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line ok = file:set_cwd(".."),
-    ?line {ok, Path} = file:get_cwd(),
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line File = filename:join(Path, ?FNAME),
-    ?line check_size(2, File, ?OUTPUT, ServerNode, ClientNode),
-    ?line ok = file:set_cwd(OldDir).
+    {ok, OldDir} = file:get_cwd(),
+    ok = file:set_cwd(".."),
+    {ok, Path} = file:get_cwd(),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    File = filename:join(Path, ?FNAME),
+    check_size(2, File, ?OUTPUT, ServerNode, ClientNode),
+    ok = file:set_cwd(OldDir).
 trace_to_remote_files_on_localhost_with_different_pwd_abs(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 %% Trace is not affected by changes of cwd on control node or remote nodes during tracing
 %% (three tests)
@@ -1182,20 +1182,20 @@ changing_cwd_on_control_node(suite) ->
 changing_cwd_on_control_node(doc) ->
     ["Changing cwd on control node during tracing is safe"];
 changing_cwd_on_control_node(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
-    ?line NumMsgs = 3,
-    ?line ttb_helper:msgs(NumMsgs),
-    ?line ok = file:set_cwd(".."),
-    ?line ttb_helper:msgs(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
+    {ok, OldDir} = file:get_cwd(),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, ?FNAME),
+    NumMsgs = 3,
+    ttb_helper:msgs(NumMsgs),
+    ok = file:set_cwd(".."),
+    ttb_helper:msgs(NumMsgs),
+    {_, D} = ttb:stop([fetch, return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    {ok, Ret} = file:consult(?OUTPUT),
     check_output(2*(NumMsgs + 1),Ret),
     ok = file:set_cwd(OldDir).
 changing_cwd_on_control_node(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 changing_cwd_on_control_node_with_local_trace(suite) ->
     [];
@@ -1216,156 +1216,156 @@ changing_cwd_on_control_node_with_local_trace(Config) when is_list(Config) ->
     check_output(Expected, Ret),
     ok = file:set_cwd(OldDir).
 changing_cwd_on_control_node_with_local_trace(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 changing_cwd_on_remote_node(suite) ->
     [];
 changing_cwd_on_remote_node(doc) ->
     ["Changing cwd on remote node during tracing is safe"];
 changing_cwd_on_remote_node(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
-    ?line NumMsgs = 2,
-    ?line ttb_helper:msgs(NumMsgs),
-    ?line ok = rpc:call(ClientNode, file, set_cwd, [".."]),
-    ?line ttb_helper:msgs(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, ?FNAME),
+    NumMsgs = 2,
+    ttb_helper:msgs(NumMsgs),
+    ok = rpc:call(ClientNode, file, set_cwd, [".."]),
+    ttb_helper:msgs(NumMsgs),
+    {_, D} = ttb:stop([fetch, return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    {ok, Ret} = file:consult(?OUTPUT),
     check_output(2*(NumMsgs + 1),Ret).
 changing_cwd_on_remote_node(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 one_command_trace_setup(suite) ->
     [];
 one_command_trace_setup(doc) ->
     ["One command trace setup"];
 one_command_trace_setup(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line ttb:start_trace([ClientNode, ServerNode],
+    {ServerNode, ClientNode} = start_client_and_server(),
+    ttb:start_trace([ClientNode, ServerNode],
 			  [{server, received, '_', []},
 			   {client, put, 1, []},
 			   {client, get, '_', []}],
 			  {all, call},
 			  [{file, ?FNAME}]),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop(return_fetch_dir),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line 5 = length(Ret).
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop(return_fetch_dir),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    5 = length(Ret).
 one_command_trace_setup(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 dbg_style_fetch(suite) ->
     [];
 dbg_style_fetch(doc) ->
     ["Dbg style fetch"];
 dbg_style_fetch(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line DirSize = length(element(2, file:list_dir("."))),
-    ?line ttb:start_trace([ClientNode, ServerNode],
+    {ServerNode, ClientNode} = start_client_and_server(),
+    DirSize = length(element(2, file:list_dir("."))),
+    ttb:start_trace([ClientNode, ServerNode],
 			  [{server, received, '_', []},
 			   {client, put, 1, []},
 			   {client, get, '_', []}],
 			  {all, call},
 			  [{shell, only}]),
-    ?line DirSize = length(element(2, file:list_dir("."))),
-    ?line ttb_helper:msgs(2),
-    ?line DirSize = length(element(2, file:list_dir("."))),
-    ?line stopped, ttb:stop(format),
+    DirSize = length(element(2, file:list_dir("."))),
+    ttb_helper:msgs(2),
+    DirSize = length(element(2, file:list_dir("."))),
+    stopped, ttb:stop(format),
     %%+1 -> ttb_last_trace
-    ?line true = (DirSize + 1 == length(element(2, file:list_dir(".")))),
-    ?line {ok,[{all, [{matched,_,_}, {matched,_,_}]}]} =
+    true = (DirSize + 1 == length(element(2, file:list_dir(".")))),
+    {ok,[{all, [{matched,_,_}, {matched,_,_}]}]} =
 	ttb:start_trace([ClientNode, ServerNode],
 			[{server, received, '_', []},
 			 {client, put, 1, []},
 			 {client, get, '_', []}],
 			{all, call},
 			[{shell, only}]),
-    ?line ttb:stop().
+    ttb:stop().
 dbg_style_fetch(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 shell_tracing_init(suite) ->
     [];
 shell_tracing_init(doc) ->
     ["Shell tracing init"];
 shell_tracing_init(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line ttb:tracer([ClientNode, ServerNode], shell),
-    ?line ttb:stop(),
-    ?line ttb:tracer([ClientNode, ServerNode],
+    {ServerNode, ClientNode} = start_client_and_server(),
+    ttb:tracer([ClientNode, ServerNode], shell),
+    ttb:stop(),
+    ttb:tracer([ClientNode, ServerNode],
 		     [{file, {local, ?FNAME}}, shell]),
-    ?line ttb:stop(),
-    ?line local_client_required_on_shell_tracing =
+    ttb:stop(),
+    local_client_required_on_shell_tracing =
 	try  ttb:tracer([ClientNode, ServerNode],[{file, ?FNAME}, shell])
 	catch
 	    exit:local_client_required_on_shell_tracing ->
 		local_client_required_on_shell_tracing
 	end.
 shell_tracing_init(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 only_one_state_for_format_handler(suite) ->
     [];
 only_one_state_for_format_handler(doc) ->
     ["Only one state for format handler"];
 only_one_state_for_format_handler(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, counter_call_handler()}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line [5] = Ret.
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_local(ServerNode, ClientNode, ?FNAME),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, counter_call_handler()}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    [5] = Ret.
 only_one_state_for_format_handler(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 only_one_state_with_default_format_handler(suite) ->
     [];
 only_one_state_with_default_format_handler(doc) ->
     ["Only one state with default format handler"];
 only_one_state_with_default_format_handler(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}]),
-    ?line true = filelib:is_file(?OUTPUT).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_local(ServerNode, ClientNode, ?FNAME),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}]),
+    true = filelib:is_file(?OUTPUT).
 only_one_state_with_default_format_handler(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 only_one_state_with_initial_format_handler(suite) ->
     [];
 only_one_state_with_initial_format_handler(doc) ->
     ["Only one state with initial format handler"];
 only_one_state_with_initial_format_handler(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line {ok, _} =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}, {handler, counter_call_handler()}]),
-    ?line ttb:p(all, call),
-    ?line ttb:tpl(server, received, []),
-    ?line ttb:tpl(client, put, []),
-    ?line ttb:tpl(client, get, []),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line [5] = Ret.
+    ttb:p(all, call),
+    ttb:tpl(server, received, []),
+    ttb:tpl(client, put, []),
+    ttb:tpl(client, get, []),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    [5] = Ret.
 only_one_state_with_initial_format_handler(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 run_trace_with_shortcut(Shortcut, Ret, F) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line {ok, _} =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line ttb:p(all, call),
-    ?line ttb:F(client, put, Shortcut),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler()}]),
-    ?line {ok, Ret} =file:consult(?OUTPUT),
-    ?line stop_client_and_server().
+    ttb:p(all, call),
+    ttb:F(client, put, Shortcut),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler()}]),
+    {ok, Ret} =file:consult(?OUTPUT),
+    stop_client_and_server().
 
 fun_for(return) ->
     {codestr, "fun(_) -> return_trace() end"};
@@ -1377,48 +1377,48 @@ run_trace_with_shortcut1(suite) ->
 run_trace_with_shortcut1(doc) ->
     ["Run trace with shortcut 1"];
 run_trace_with_shortcut1(Config) when is_list(Config) ->
-    ?line run_trace_with_shortcut(caller, [ok,ok], tp),
-    ?line run_trace_with_shortcut(caller, [ok,ok], tpl).
+    run_trace_with_shortcut(caller, [ok,ok], tp),
+    run_trace_with_shortcut(caller, [ok,ok], tpl).
 run_trace_with_shortcut1(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 run_trace_with_shortcut2(suite) ->
     [];
 run_trace_with_shortcut2(doc) ->
     ["Run trace with shortcut 2"];
 run_trace_with_shortcut2(Config) when is_list(Config) ->
-    ?line run_trace_with_shortcut(return, [ok,ok], tp),
-    ?line run_trace_with_shortcut(return, [ok,ok], tpl).
+    run_trace_with_shortcut(return, [ok,ok], tp),
+    run_trace_with_shortcut(return, [ok,ok], tpl).
 run_trace_with_shortcut2(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 run_trace_with_shortcut3(suite) ->
     [];
 run_trace_with_shortcut3(doc) ->
     ["Run trace with shortcut 3"];
 run_trace_with_shortcut3(Config) when is_list(Config) ->
-    ?line run_trace_with_shortcut(fun_for(return), [ok,ok], tp),
-    ?line run_trace_with_shortcut(fun_for(return), [ok,ok], tpl).
+    run_trace_with_shortcut(fun_for(return), [ok,ok], tp),
+    run_trace_with_shortcut(fun_for(return), [ok,ok], tpl).
 run_trace_with_shortcut3(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 run_trace_with_shortcut4(suite) ->
     [];
 run_trace_with_shortcut4(doc) ->
     ["Run trace with shortcut 4"];
 run_trace_with_shortcut4(Config) when is_list(Config) ->
-    ?line run_trace_with_shortcut(fun_for(msg_false), [], tp),
-    ?line run_trace_with_shortcut(fun_for(msg_false), [], tpl).
+    run_trace_with_shortcut(fun_for(msg_false), [], tp),
+    run_trace_with_shortcut(fun_for(msg_false), [], tpl).
 run_trace_with_shortcut4(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 cant_specify_local_and_flush(suite) ->
     [];
 cant_specify_local_and_flush(doc) ->
     ["Can't specify local and flush"];
 cant_specify_local_and_flush(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line flush_unsupported_with_ip_trace_port =
+    {ServerNode, ClientNode} = start_client_and_server(),
+    flush_unsupported_with_ip_trace_port =
 	try ttb:tracer([ServerNode, ClientNode],
 		       [{flush, 1000}, {file, {local, ?FNAME}}])
 	catch
@@ -1426,37 +1426,37 @@ cant_specify_local_and_flush(Config) when is_list(Config) ->
 		flush_unsupported_with_ip_trace_port
 	end.
 cant_specify_local_and_flush(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_sorted_by_default(suite) ->
     [];
 trace_sorted_by_default(doc) ->
     ["Trace sorted by default"];
 trace_sorted_by_default(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, false}]),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_local(ServerNode, ClientNode, ?FILE),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, false}]),
     {ok, Ret} = file:consult(?OUTPUT),
-    ?line [ClientNode,ServerNode,ClientNode,ServerNode,ServerNode] = Ret.
+    [ClientNode,ServerNode,ClientNode,ServerNode,ServerNode] = Ret.
 trace_sorted_by_default(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 disable_sorting(suite) ->
     [];
 disable_sorting(doc) ->
     ["Disable sorting"];
 disable_sorting(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
-    ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, true}]),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_local(ServerNode, ClientNode, ?FILE),
+    ttb_helper:msgs(2),
+    {_, D} = ttb:stop([return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, true}]),
     {ok, Ret} = file:consult(?OUTPUT),
-    ?line [ClientNode,ClientNode,ServerNode,ServerNode,ServerNode] = Ret.
+    [ClientNode,ClientNode,ServerNode,ServerNode,ServerNode] = Ret.
 disable_sorting(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 %% -----------------------------------------------------------------------------
 %% tests for autoresume of tracing
@@ -1467,71 +1467,71 @@ trace_resumed_after_node_restart(suite) ->
 trace_resumed_after_node_restart(doc) ->
     ["Test trace resumed after node restart, trace to files on remote node."];
 trace_resumed_after_node_restart(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_with_resume(ServerNode, ClientNode, ?FNAME),
-    ?line logic(2,6,file).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_with_resume(ServerNode, ClientNode, ?FNAME),
+    logic(2,6,file).
 trace_resumed_after_node_restart(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_resumed_after_node_restart_ip(suite) ->
     [];
 trace_resumed_after_node_restart_ip(doc) ->
     ["Test trace resumed after node restart, trace via tcp/ip to local node."];
 trace_resumed_after_node_restart_ip(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_with_resume(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line logic(2,6,local).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_with_resume(ServerNode, ClientNode, {local, ?FNAME}),
+    logic(2,6,local).
 trace_resumed_after_node_restart_ip(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_resumed_after_node_restart_wrap(suite) ->
     [];
 trace_resumed_after_node_restart_wrap(doc) ->
     ["Test trace resumed after node restart, wrap option."];
 trace_resumed_after_node_restart_wrap(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
-    ?line logic(1,4,file).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
+    logic(1,4,file).
 trace_resumed_after_node_restart_wrap(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 trace_resumed_after_node_restart_wrap_mult(suite) ->
     [];
 trace_resumed_after_node_restart_wrap_mult(doc) ->
     ["Test trace resumed after node restart, wrap option, multiple files."];
 trace_resumed_after_node_restart_wrap_mult(Config) when is_list(Config) ->
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
-    ?line logic(20,8,file).
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
+    logic(20,8,file).
 trace_resumed_after_node_restart_wrap_mult(cleanup,_Config) ->
-    ?line stop_client_and_server().
+    stop_client_and_server().
 
 logic(N, M, TracingType) ->
     helper_msgs(N, TracingType),
     test_server:stop_node(ttb_helper:get_node(client)),
     timer:sleep(2500),
-    ?line {ok,_ClientNode} = test_server:start_node(client,slave,[]),
+    {ok,_ClientNode} = test_server:start_node(client,slave,[]),
     ct:log("client started",[]),
-    ?line ok = ttb_helper:c(code, add_paths, [code:get_path()]),
+    ok = ttb_helper:c(code, add_paths, [code:get_path()]),
     ct:log("paths added",[]),
-    ?line ttb_helper:c(client, init, []),
+    ttb_helper:c(client, init, []),
     ct:log("client initiated",[]),
-    ?line helper_msgs(N, TracingType),
+    helper_msgs(N, TracingType),
     ct:log("helper msgs sent and flushed",[]),
-    ?line {_, D} = ttb:stop([return_fetch_dir]),
+    {_, D} = ttb:stop([return_fetch_dir]),
     ct:log("stopped ~p",[D]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler2()}]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler2()}]),
     ct:log("formatted ~p",[{D,?OUTPUT}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
+    {ok, Ret} = file:consult(?OUTPUT),
     ct:log("consulted: ~p",[Ret]),
     check_output(M,Ret).
 
 begin_trace_with_resume(ServerNode, ClientNode, Dest) ->
-    ?line {ok, _} = ttb:tracer([ServerNode,ClientNode], [{file, Dest}, resume]),
-    ?line ttb:p(all, [call, timestamp]),
-    ?line ttb:tp(server, received, []),
-    ?line ttb:tp(client, put, []),
-    ?line ttb:tp(client, get, []).
+    {ok, _} = ttb:tracer([ServerNode,ClientNode], [{file, Dest}, resume]),
+    ttb:p(all, [call, timestamp]),
+    ttb:tp(server, received, []),
+    ttb:tp(client, put, []),
+    ttb:tp(client, get, []).
 
 ret_caller_call_handler2() ->
     {fun(A, {trace_ts, _, call, _, _} ,_,_) -> io:format(A, "ok.~n", []);

@@ -2100,7 +2100,7 @@ do_econnreset_after_async_send_passive(Config) ->
     ok = ct:sleep(20),
 
     ?P("verify 1 (default)"),
-    ?line ok = craasp_verify(Client1, default, SPayload),
+    ok = craasp_verify(Client1, default, SPayload),
 
     ?P("cleanup 1 (default)"),
     craasp_cleanup(Client1, Sender1),
@@ -2120,7 +2120,7 @@ do_econnreset_after_async_send_passive(Config) ->
     ok = ct:sleep(20),
 
     ?P("verify 2 (default)"),
-    ?line ok = craasp_verify(Client2, true, SPayload),
+    ok = craasp_verify(Client2, true, SPayload),
 
     ?P("cleanup 2 (default)"),
     craasp_cleanup(Client2, Sender2),

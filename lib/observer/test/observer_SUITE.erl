@@ -139,7 +139,7 @@ app_file(suite) ->
 app_file(doc) ->
     ["Testing .app file"];
 app_file(Config) when is_list(Config) ->
-    ?line ok = test_server:app_test(observer),
+    ok = test_server:app_test(observer),
     ok.
 
 %% Testing .appup file

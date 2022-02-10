@@ -269,7 +269,7 @@ syntax(Config) when is_list(Config) ->
             nt -> t.">>),
     {ok,_,[{_,[{{2,13},yecc,bad_declaration}]}]} =
         yecc:file(Filename, Ret),
-    ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
         yecc:file(Filename, [{error_location, line} | Ret]),
 
     %% Syntax error found by yeccparser.

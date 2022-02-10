@@ -33298,7 +33298,7 @@ sc_rc_receive_response_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator"),
-    ?line ok = ?SEV_AWAIT_FINISH([Server,
+    ok = ?SEV_AWAIT_FINISH([Server,
                                   Client1, Client2, Client3,
                                   Tester]).
 

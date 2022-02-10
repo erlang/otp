@@ -1660,7 +1660,7 @@ recv_close(Config) when is_list(Config) ->
     receive
         {'DOWN', MRef, process, Pid, PreReason} ->
             %% Make sure id does not die for some other reason...
-            ?line ct:fail("Unexpected pre close from reader (~p): ~p",
+            ct:fail("Unexpected pre close from reader (~p): ~p",
                           [Pid, PreReason])
     after 5000 -> % Just in case...
             ok
@@ -1674,13 +1674,13 @@ recv_close(Config) when is_list(Config) ->
             ok;
         {'DOWN', MRef, process, Pid, PostReason} ->
             ?P("unexpected reader termination: ~p", [PostReason]),
-            ?line ct:fail("Unexpected post close from reader (~p): ~p",
+            ct:fail("Unexpected post close from reader (~p): ~p",
                           [Pid, PostReason])
     after 5000 ->
             ?P("unexpected reader termination timeout"),
             demonitor(MRef, [flush]),
             exit(Pid, kill),
-            ?line ct:fail("Reader (~p) termination timeout", [Pid])
+            ct:fail("Reader (~p) termination timeout", [Pid])
     end,
     ?P("done"),
     ok.
