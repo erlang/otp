@@ -15,6 +15,8 @@
 #include "../core/misc_p.h"
 #include "../core/support.h"
 #include "../x86/x86assembler.h"
+#include "../x86/x86emithelper_p.h"
+#include "../x86/x86instapi_p.h"
 #include "../x86/x86instdb_p.h"
 #include "../x86/x86formatter_p.h"
 #include "../x86/x86opcode_p.h"
@@ -525,6 +527,10 @@ static ASMJIT_FORCE_INLINE bool x86ShouldUseMovabs(Assembler* self, X86BufferWri
 // ===========================================
 
 Assembler::Assembler(CodeHolder* code) noexcept : BaseAssembler() {
+  _archMask = (uint64_t(1) << uint32_t(Arch::kX86)) |
+              (uint64_t(1) << uint32_t(Arch::kX64)) ;
+  assignEmitterFuncs(this);
+
   if (code)
     code->attach(this);
 }
@@ -604,7 +610,7 @@ ASMJIT_FAVOR_SPEED Error Assembler::_emit(InstId instId, const Operand_& o0, con
       Operand_ opArray[Globals::kMaxOpCount];
       EmitterUtils::opArrayFromEmitArgs(opArray, o0, o1, o2, opExt);
 
-      err = InstAPI::validate(arch(), BaseInst(instId, options, _extraReg), opArray, Globals::kMaxOpCount);
+      err = _funcs.validate(arch(), BaseInst(instId, options, _extraReg), opArray, Globals::kMaxOpCount, ValidationFlags::kNone);
       if (ASMJIT_UNLIKELY(err))
         goto Failed;
     }
@@ -5077,9 +5083,6 @@ Error Assembler::align(AlignMode alignMode, uint32_t alignment) {
 
 Error Assembler::onAttach(CodeHolder* code) noexcept {
   Arch arch = code->arch();
-  if (!Environment::isFamilyX86(arch))
-    return DebugUtils::errored(kErrorInvalidArch);
-
   ASMJIT_PROPAGATE(Base::onAttach(code));
 
   if (Environment::is32Bit(arch)) {
@@ -5099,7 +5102,6 @@ Error Assembler::onAttach(CodeHolder* code) noexcept {
 Error Assembler::onDetach(CodeHolder* code) noexcept {
   _forcedInstOptions &= ~InstOptions::kX86_InvalidRex;
   _setAddressOverrideMask(0);
-
   return Base::onDetach(code);
 }
 

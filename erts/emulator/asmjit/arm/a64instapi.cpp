@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
 
 #include "../core/cpuinfo.h"
 #include "../core/misc_p.h"
@@ -20,12 +20,13 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 #ifndef ASMJIT_NO_TEXT
 Error InstInternal::instIdToString(Arch arch, InstId instId, String& output) noexcept {
+  uint32_t realId = instId & uint32_t(InstIdParts::kRealId);
   DebugUtils::unused(arch);
 
-  if (ASMJIT_UNLIKELY(!Inst::isDefinedId(instId)))
+  if (ASMJIT_UNLIKELY(!Inst::isDefinedId(realId)))
     return DebugUtils::errored(kErrorInvalidInstruction);
 
-  const InstDB::InstInfo& info = InstDB::infoById(instId);
+  const InstDB::InstInfo& info = InstDB::infoById(realId);
   return output.append(InstDB::_nameData + info._nameDataIndex);
 }
 
@@ -133,8 +134,9 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
   ASMJIT_ASSERT(Environment::isFamilyARM(arch));
 
   // Get the instruction data.
-  InstId instId = inst.id();
-  if (ASMJIT_UNLIKELY(!Inst::isDefinedId(instId)))
+  uint32_t realId = inst.id() & uint32_t(InstIdParts::kRealId);
+
+  if (ASMJIT_UNLIKELY(!Inst::isDefinedId(realId)))
     return DebugUtils::errored(kErrorInvalidInstruction);
 
   out->_instFlags = 0;
@@ -144,7 +146,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
   out->_readFlags = CpuRWFlags::kNone; // TODO: [ARM] Read PSTATUS.
   out->_writeFlags = CpuRWFlags::kNone; // TODO: [ARM] Write PSTATUS
 
-  const InstDB::InstInfo& instInfo = InstDB::_instInfoTable[instId];
+  const InstDB::InstInfo& instInfo = InstDB::_instInfoTable[realId];
   const InstRWInfoData& rwInfo = instRWInfoData[instInfo.rwInfoIndex()];
 
   if (instInfo.hasFlag(InstDB::kInstFlagConsecutive) && opCount > 2) {
@@ -157,7 +159,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
         continue;
       }
 
-      OpRWFlags rwFlags = i < opCount -1 ? (OpRWFlags)rwInfo.rwx[0] : (OpRWFlags)rwInfo.rwx[1];
+      OpRWFlags rwFlags = i < opCount - 1 ? (OpRWFlags)rwInfo.rwx[0] : (OpRWFlags)rwInfo.rwx[1];
 
       op._opFlags = rwFlags & ~(OpRWFlags::kZExt);
       op._physId = BaseReg::kIdBad;
@@ -170,6 +172,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       op._readByteMask = rByteMask;
       op._writeByteMask = wByteMask;
       op._extendByteMask = 0;
+      op._consecutiveLeadCount = 0;
 
       if (srcOp.isReg()) {
         if (i == 0)
@@ -214,6 +217,7 @@ Error InstInternal::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_*
       op._readByteMask = rByteMask;
       op._writeByteMask = wByteMask;
       op._extendByteMask = 0;
+      op._consecutiveLeadCount = 0;
 
       if (srcOp.isReg()) {
         if (srcOp.as<Vec>().hasElementIndex()) {
@@ -271,4 +275,4 @@ UNIT(arm_inst_api_text) {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM
+#endif // !ASMJIT_NO_AARCH64

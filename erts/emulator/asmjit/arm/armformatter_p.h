@@ -21,41 +21,17 @@ ASMJIT_BEGIN_SUB_NAMESPACE(arm)
 
 namespace FormatterInternal {
 
-Error formatFeature(
+Error ASMJIT_CDECL formatFeature(
   String& sb,
   uint32_t featureId) noexcept;
 
-Error formatCondCode(
+Error ASMJIT_CDECL formatCondCode(
   String& sb,
-  uint32_t condCode) noexcept;
+  CondCode cc) noexcept;
 
-Error formatShiftOp(
+Error ASMJIT_CDECL formatShiftOp(
   String& sb,
   ShiftOp shiftOp) noexcept;
-
-Error formatRegister(
-  String& sb,
-  FormatFlags flags,
-  const BaseEmitter* emitter,
-  Arch arch,
-  RegType regType,
-  uint32_t regId,
-  uint32_t elementType = 0,
-  uint32_t elementIndex = 0xFFFFFFFFu) noexcept;
-
-Error formatOperand(
-  String& sb,
-  FormatFlags flags,
-  const BaseEmitter* emitter,
-  Arch arch,
-  const Operand_& op) noexcept;
-
-Error formatInstruction(
-  String& sb,
-  FormatFlags flags,
-  const BaseEmitter* emitter,
-  Arch arch,
-  const BaseInst& inst, const Operand_* operands, size_t opCount) noexcept;
 
 } // {FormatterInternal}
 

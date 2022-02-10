@@ -28,776 +28,776 @@ struct Inst {
   //! Instruction id.
   enum Id : uint32_t {
     // ${InstId:Begin}
-    kIdNone = 0,
-    kIdAdc,
-    kIdAdcs,
-    kIdAdd,
-    kIdAddg,
-    kIdAdds,
-    kIdAdr,
-    kIdAdrp,
-    kIdAnd,
-    kIdAnds,
-    kIdAsr,
-    kIdAsrv,
-    kIdAt,
-    kIdAutda,
-    kIdAutdza,
-    kIdAutdb,
-    kIdAutdzb,
-    kIdAutia,
-    kIdAutia1716,
-    kIdAutiasp,
-    kIdAutiaz,
-    kIdAutib,
-    kIdAutib1716,
-    kIdAutibsp,
-    kIdAutibz,
-    kIdAutiza,
-    kIdAutizb,
-    kIdAxflag,
-    kIdB,
-    kIdBfc,
-    kIdBfi,
-    kIdBfm,
-    kIdBfxil,
-    kIdBic,
-    kIdBics,
-    kIdBl,
-    kIdBlr,
-    kIdBr,
-    kIdBrk,
-    kIdCas,
-    kIdCasa,
-    kIdCasab,
-    kIdCasah,
-    kIdCasal,
-    kIdCasalb,
-    kIdCasalh,
-    kIdCasb,
-    kIdCash,
-    kIdCasl,
-    kIdCaslb,
-    kIdCaslh,
-    kIdCasp,
-    kIdCaspa,
-    kIdCaspal,
-    kIdCaspl,
-    kIdCbnz,
-    kIdCbz,
-    kIdCcmn,
-    kIdCcmp,
-    kIdCfinv,
-    kIdCinc,
-    kIdCinv,
-    kIdClrex,
-    kIdCls,
-    kIdClz,
-    kIdCmn,
-    kIdCmp,
-    kIdCmpp,
-    kIdCneg,
-    kIdCrc32b,
-    kIdCrc32cb,
-    kIdCrc32ch,
-    kIdCrc32cw,
-    kIdCrc32cx,
-    kIdCrc32h,
-    kIdCrc32w,
-    kIdCrc32x,
-    kIdCsdb,
-    kIdCsel,
-    kIdCset,
-    kIdCsetm,
-    kIdCsinc,
-    kIdCsinv,
-    kIdCsneg,
-    kIdDc,
-    kIdDcps1,
-    kIdDcps2,
-    kIdDcps3,
-    kIdDgh,
-    kIdDmb,
-    kIdDrps,
-    kIdDsb,
-    kIdEon,
-    kIdEor,
-    kIdEsb,
-    kIdExtr,
-    kIdEret,
-    kIdGmi,
-    kIdHint,
-    kIdHlt,
-    kIdHvc,
-    kIdIc,
-    kIdIsb,
-    kIdLdadd,
-    kIdLdadda,
-    kIdLdaddab,
-    kIdLdaddah,
-    kIdLdaddal,
-    kIdLdaddalb,
-    kIdLdaddalh,
-    kIdLdaddb,
-    kIdLdaddh,
-    kIdLdaddl,
-    kIdLdaddlb,
-    kIdLdaddlh,
-    kIdLdar,
-    kIdLdarb,
-    kIdLdarh,
-    kIdLdaxp,
-    kIdLdaxr,
-    kIdLdaxrb,
-    kIdLdaxrh,
-    kIdLdclr,
-    kIdLdclra,
-    kIdLdclrab,
-    kIdLdclrah,
-    kIdLdclral,
-    kIdLdclralb,
-    kIdLdclralh,
-    kIdLdclrb,
-    kIdLdclrh,
-    kIdLdclrl,
-    kIdLdclrlb,
-    kIdLdclrlh,
-    kIdLdeor,
-    kIdLdeora,
-    kIdLdeorab,
-    kIdLdeorah,
-    kIdLdeoral,
-    kIdLdeoralb,
-    kIdLdeoralh,
-    kIdLdeorb,
-    kIdLdeorh,
-    kIdLdeorl,
-    kIdLdeorlb,
-    kIdLdeorlh,
-    kIdLdg,
-    kIdLdgm,
-    kIdLdlar,
-    kIdLdlarb,
-    kIdLdlarh,
-    kIdLdnp,
-    kIdLdp,
-    kIdLdpsw,
-    kIdLdr,
-    kIdLdraa,
-    kIdLdrab,
-    kIdLdrb,
-    kIdLdrh,
-    kIdLdrsb,
-    kIdLdrsh,
-    kIdLdrsw,
-    kIdLdset,
-    kIdLdseta,
-    kIdLdsetab,
-    kIdLdsetah,
-    kIdLdsetal,
-    kIdLdsetalb,
-    kIdLdsetalh,
-    kIdLdsetb,
-    kIdLdseth,
-    kIdLdsetl,
-    kIdLdsetlb,
-    kIdLdsetlh,
-    kIdLdsmax,
-    kIdLdsmaxa,
-    kIdLdsmaxab,
-    kIdLdsmaxah,
-    kIdLdsmaxal,
-    kIdLdsmaxalb,
-    kIdLdsmaxalh,
-    kIdLdsmaxb,
-    kIdLdsmaxh,
-    kIdLdsmaxl,
-    kIdLdsmaxlb,
-    kIdLdsmaxlh,
-    kIdLdsmin,
-    kIdLdsmina,
-    kIdLdsminab,
-    kIdLdsminah,
-    kIdLdsminal,
-    kIdLdsminalb,
-    kIdLdsminalh,
-    kIdLdsminb,
-    kIdLdsminh,
-    kIdLdsminl,
-    kIdLdsminlb,
-    kIdLdsminlh,
-    kIdLdtr,
-    kIdLdtrb,
-    kIdLdtrh,
-    kIdLdtrsb,
-    kIdLdtrsh,
-    kIdLdtrsw,
-    kIdLdumax,
-    kIdLdumaxa,
-    kIdLdumaxab,
-    kIdLdumaxah,
-    kIdLdumaxal,
-    kIdLdumaxalb,
-    kIdLdumaxalh,
-    kIdLdumaxb,
-    kIdLdumaxh,
-    kIdLdumaxl,
-    kIdLdumaxlb,
-    kIdLdumaxlh,
-    kIdLdumin,
-    kIdLdumina,
-    kIdLduminab,
-    kIdLduminah,
-    kIdLduminal,
-    kIdLduminalb,
-    kIdLduminalh,
-    kIdLduminb,
-    kIdLduminh,
-    kIdLduminl,
-    kIdLduminlb,
-    kIdLduminlh,
-    kIdLdur,
-    kIdLdurb,
-    kIdLdurh,
-    kIdLdursb,
-    kIdLdursh,
-    kIdLdursw,
-    kIdLdxp,
-    kIdLdxr,
-    kIdLdxrb,
-    kIdLdxrh,
-    kIdLsl,
-    kIdLslv,
-    kIdLsr,
-    kIdLsrv,
-    kIdMadd,
-    kIdMneg,
-    kIdMov,
-    kIdMovk,
-    kIdMovn,
-    kIdMovz,
-    kIdMrs,
-    kIdMsr,
-    kIdMsub,
-    kIdMul,
-    kIdMvn,
-    kIdNeg,
-    kIdNegs,
-    kIdNgc,
-    kIdNgcs,
-    kIdNop,
-    kIdOrn,
-    kIdOrr,
-    kIdPacda,
-    kIdPacdb,
-    kIdPacdza,
-    kIdPacdzb,
-    kIdPacga,
-    kIdPssbb,
-    kIdRbit,
-    kIdRet,
-    kIdRev,
-    kIdRev16,
-    kIdRev32,
-    kIdRev64,
-    kIdRor,
-    kIdRorv,
-    kIdSbc,
-    kIdSbcs,
-    kIdSbfiz,
-    kIdSbfm,
-    kIdSbfx,
-    kIdSdiv,
-    kIdSetf8,
-    kIdSetf16,
-    kIdSev,
-    kIdSevl,
-    kIdSmaddl,
-    kIdSmc,
-    kIdSmnegl,
-    kIdSmsubl,
-    kIdSmulh,
-    kIdSmull,
-    kIdSsbb,
-    kIdSt2g,
-    kIdStadd,
-    kIdStaddl,
-    kIdStaddb,
-    kIdStaddlb,
-    kIdStaddh,
-    kIdStaddlh,
-    kIdStclr,
-    kIdStclrl,
-    kIdStclrb,
-    kIdStclrlb,
-    kIdStclrh,
-    kIdStclrlh,
-    kIdSteor,
-    kIdSteorl,
-    kIdSteorb,
-    kIdSteorlb,
-    kIdSteorh,
-    kIdSteorlh,
-    kIdStg,
-    kIdStgm,
-    kIdStgp,
-    kIdStllr,
-    kIdStllrb,
-    kIdStllrh,
-    kIdStlr,
-    kIdStlrb,
-    kIdStlrh,
-    kIdStlxp,
-    kIdStlxr,
-    kIdStlxrb,
-    kIdStlxrh,
-    kIdStnp,
-    kIdStp,
-    kIdStr,
-    kIdStrb,
-    kIdStrh,
-    kIdStset,
-    kIdStsetl,
-    kIdStsetb,
-    kIdStsetlb,
-    kIdStseth,
-    kIdStsetlh,
-    kIdStsmax,
-    kIdStsmaxl,
-    kIdStsmaxb,
-    kIdStsmaxlb,
-    kIdStsmaxh,
-    kIdStsmaxlh,
-    kIdStsmin,
-    kIdStsminl,
-    kIdStsminb,
-    kIdStsminlb,
-    kIdStsminh,
-    kIdStsminlh,
-    kIdSttr,
-    kIdSttrb,
-    kIdSttrh,
-    kIdStumax,
-    kIdStumaxl,
-    kIdStumaxb,
-    kIdStumaxlb,
-    kIdStumaxh,
-    kIdStumaxlh,
-    kIdStumin,
-    kIdStuminl,
-    kIdStuminb,
-    kIdStuminlb,
-    kIdStuminh,
-    kIdStuminlh,
-    kIdStur,
-    kIdSturb,
-    kIdSturh,
-    kIdStxp,
-    kIdStxr,
-    kIdStxrb,
-    kIdStxrh,
-    kIdStz2g,
-    kIdStzg,
-    kIdStzgm,
-    kIdSub,
-    kIdSubg,
-    kIdSubp,
-    kIdSubps,
-    kIdSubs,
-    kIdSvc,
-    kIdSwp,
-    kIdSwpa,
-    kIdSwpab,
-    kIdSwpah,
-    kIdSwpal,
-    kIdSwpalb,
-    kIdSwpalh,
-    kIdSwpb,
-    kIdSwph,
-    kIdSwpl,
-    kIdSwplb,
-    kIdSwplh,
-    kIdSxtb,
-    kIdSxth,
-    kIdSxtw,
-    kIdSys,
-    kIdTlbi,
-    kIdTst,
-    kIdTbnz,
-    kIdTbz,
-    kIdUbfiz,
-    kIdUbfm,
-    kIdUbfx,
-    kIdUdf,
-    kIdUdiv,
-    kIdUmaddl,
-    kIdUmnegl,
-    kIdUmull,
-    kIdUmulh,
-    kIdUmsubl,
-    kIdUxtb,
-    kIdUxth,
-    kIdWfe,
-    kIdWfi,
-    kIdXaflag,
-    kIdXpacd,
-    kIdXpaci,
-    kIdXpaclri,
-    kIdYield,
-    kIdAbs_v,
-    kIdAdd_v,
-    kIdAddhn_v,
-    kIdAddhn2_v,
-    kIdAddp_v,
-    kIdAddv_v,
-    kIdAesd_v,
-    kIdAese_v,
-    kIdAesimc_v,
-    kIdAesmc_v,
-    kIdAnd_v,
-    kIdBcax_v,
-    kIdBfcvt_v,
-    kIdBfcvtn_v,
-    kIdBfcvtn2_v,
-    kIdBfdot_v,
-    kIdBfmlalb_v,
-    kIdBfmlalt_v,
-    kIdBfmmla_v,
-    kIdBic_v,
-    kIdBif_v,
-    kIdBit_v,
-    kIdBsl_v,
-    kIdCls_v,
-    kIdClz_v,
-    kIdCmeq_v,
-    kIdCmge_v,
-    kIdCmgt_v,
-    kIdCmhi_v,
-    kIdCmhs_v,
-    kIdCmle_v,
-    kIdCmlt_v,
-    kIdCmtst_v,
-    kIdCnt_v,
-    kIdDup_v,
-    kIdEor_v,
-    kIdEor3_v,
-    kIdExt_v,
-    kIdFabd_v,
-    kIdFabs_v,
-    kIdFacge_v,
-    kIdFacgt_v,
-    kIdFadd_v,
-    kIdFaddp_v,
-    kIdFcadd_v,
-    kIdFccmp_v,
-    kIdFccmpe_v,
-    kIdFcmeq_v,
-    kIdFcmge_v,
-    kIdFcmgt_v,
-    kIdFcmla_v,
-    kIdFcmle_v,
-    kIdFcmlt_v,
-    kIdFcmp_v,
-    kIdFcmpe_v,
-    kIdFcsel_v,
-    kIdFcvt_v,
-    kIdFcvtas_v,
-    kIdFcvtau_v,
-    kIdFcvtl_v,
-    kIdFcvtl2_v,
-    kIdFcvtms_v,
-    kIdFcvtmu_v,
-    kIdFcvtn_v,
-    kIdFcvtn2_v,
-    kIdFcvtns_v,
-    kIdFcvtnu_v,
-    kIdFcvtps_v,
-    kIdFcvtpu_v,
-    kIdFcvtxn_v,
-    kIdFcvtxn2_v,
-    kIdFcvtzs_v,
-    kIdFcvtzu_v,
-    kIdFdiv_v,
-    kIdFjcvtzs_v,
-    kIdFmadd_v,
-    kIdFmax_v,
-    kIdFmaxnm_v,
-    kIdFmaxnmp_v,
-    kIdFmaxnmv_v,
-    kIdFmaxp_v,
-    kIdFmaxv_v,
-    kIdFmin_v,
-    kIdFminnm_v,
-    kIdFminnmp_v,
-    kIdFminnmv_v,
-    kIdFminp_v,
-    kIdFminv_v,
-    kIdFmla_v,
-    kIdFmlal_v,
-    kIdFmlal2_v,
-    kIdFmls_v,
-    kIdFmlsl_v,
-    kIdFmlsl2_v,
-    kIdFmov_v,
-    kIdFmsub_v,
-    kIdFmul_v,
-    kIdFmulx_v,
-    kIdFneg_v,
-    kIdFnmadd_v,
-    kIdFnmsub_v,
-    kIdFnmul_v,
-    kIdFrecpe_v,
-    kIdFrecps_v,
-    kIdFrecpx_v,
-    kIdFrint32x_v,
-    kIdFrint32z_v,
-    kIdFrint64x_v,
-    kIdFrint64z_v,
-    kIdFrinta_v,
-    kIdFrinti_v,
-    kIdFrintm_v,
-    kIdFrintn_v,
-    kIdFrintp_v,
-    kIdFrintx_v,
-    kIdFrintz_v,
-    kIdFrsqrte_v,
-    kIdFrsqrts_v,
-    kIdFsqrt_v,
-    kIdFsub_v,
-    kIdIns_v,
-    kIdLd1_v,
-    kIdLd1r_v,
-    kIdLd2_v,
-    kIdLd2r_v,
-    kIdLd3_v,
-    kIdLd3r_v,
-    kIdLd4_v,
-    kIdLd4r_v,
-    kIdLdnp_v,
-    kIdLdp_v,
-    kIdLdr_v,
-    kIdLdur_v,
-    kIdMla_v,
-    kIdMls_v,
-    kIdMov_v,
-    kIdMovi_v,
-    kIdMul_v,
-    kIdMvn_v,
-    kIdMvni_v,
-    kIdNeg_v,
-    kIdNot_v,
-    kIdOrn_v,
-    kIdOrr_v,
-    kIdPmul_v,
-    kIdPmull_v,
-    kIdPmull2_v,
-    kIdRaddhn_v,
-    kIdRaddhn2_v,
-    kIdRax1_v,
-    kIdRbit_v,
-    kIdRev16_v,
-    kIdRev32_v,
-    kIdRev64_v,
-    kIdRshrn_v,
-    kIdRshrn2_v,
-    kIdRsubhn_v,
-    kIdRsubhn2_v,
-    kIdSaba_v,
-    kIdSabal_v,
-    kIdSabal2_v,
-    kIdSabd_v,
-    kIdSabdl_v,
-    kIdSabdl2_v,
-    kIdSadalp_v,
-    kIdSaddl_v,
-    kIdSaddl2_v,
-    kIdSaddlp_v,
-    kIdSaddlv_v,
-    kIdSaddw_v,
-    kIdSaddw2_v,
-    kIdScvtf_v,
-    kIdSdot_v,
-    kIdSha1c_v,
-    kIdSha1h_v,
-    kIdSha1m_v,
-    kIdSha1p_v,
-    kIdSha1su0_v,
-    kIdSha1su1_v,
-    kIdSha256h_v,
-    kIdSha256h2_v,
-    kIdSha256su0_v,
-    kIdSha256su1_v,
-    kIdSha512h_v,
-    kIdSha512h2_v,
-    kIdSha512su0_v,
-    kIdSha512su1_v,
-    kIdShadd_v,
-    kIdShl_v,
-    kIdShll_v,
-    kIdShll2_v,
-    kIdShrn_v,
-    kIdShrn2_v,
-    kIdShsub_v,
-    kIdSli_v,
-    kIdSm3partw1_v,
-    kIdSm3partw2_v,
-    kIdSm3ss1_v,
-    kIdSm3tt1a_v,
-    kIdSm3tt1b_v,
-    kIdSm3tt2a_v,
-    kIdSm3tt2b_v,
-    kIdSm4e_v,
-    kIdSm4ekey_v,
-    kIdSmax_v,
-    kIdSmaxp_v,
-    kIdSmaxv_v,
-    kIdSmin_v,
-    kIdSminp_v,
-    kIdSminv_v,
-    kIdSmlal_v,
-    kIdSmlal2_v,
-    kIdSmlsl_v,
-    kIdSmlsl2_v,
-    kIdSmmla_v,
-    kIdSmov_v,
-    kIdSmull_v,
-    kIdSmull2_v,
-    kIdSqabs_v,
-    kIdSqadd_v,
-    kIdSqdmlal_v,
-    kIdSqdmlal2_v,
-    kIdSqdmlsl_v,
-    kIdSqdmlsl2_v,
-    kIdSqdmulh_v,
-    kIdSqdmull_v,
-    kIdSqdmull2_v,
-    kIdSqneg_v,
-    kIdSqrdmlah_v,
-    kIdSqrdmlsh_v,
-    kIdSqrdmulh_v,
-    kIdSqrshl_v,
-    kIdSqrshrn_v,
-    kIdSqrshrn2_v,
-    kIdSqrshrun_v,
-    kIdSqrshrun2_v,
-    kIdSqshl_v,
-    kIdSqshlu_v,
-    kIdSqshrn_v,
-    kIdSqshrn2_v,
-    kIdSqshrun_v,
-    kIdSqshrun2_v,
-    kIdSqsub_v,
-    kIdSqxtn_v,
-    kIdSqxtn2_v,
-    kIdSqxtun_v,
-    kIdSqxtun2_v,
-    kIdSrhadd_v,
-    kIdSri_v,
-    kIdSrshl_v,
-    kIdSrshr_v,
-    kIdSrsra_v,
-    kIdSshl_v,
-    kIdSshll_v,
-    kIdSshll2_v,
-    kIdSshr_v,
-    kIdSsra_v,
-    kIdSsubl_v,
-    kIdSsubl2_v,
-    kIdSsubw_v,
-    kIdSsubw2_v,
-    kIdSt1_v,
-    kIdSt2_v,
-    kIdSt3_v,
-    kIdSt4_v,
-    kIdStnp_v,
-    kIdStp_v,
-    kIdStr_v,
-    kIdStur_v,
-    kIdSub_v,
-    kIdSubhn_v,
-    kIdSubhn2_v,
-    kIdSudot_v,
-    kIdSuqadd_v,
-    kIdSxtl_v,
-    kIdSxtl2_v,
-    kIdTbl_v,
-    kIdTbx_v,
-    kIdTrn1_v,
-    kIdTrn2_v,
-    kIdUaba_v,
-    kIdUabal_v,
-    kIdUabal2_v,
-    kIdUabd_v,
-    kIdUabdl_v,
-    kIdUabdl2_v,
-    kIdUadalp_v,
-    kIdUaddl_v,
-    kIdUaddl2_v,
-    kIdUaddlp_v,
-    kIdUaddlv_v,
-    kIdUaddw_v,
-    kIdUaddw2_v,
-    kIdUcvtf_v,
-    kIdUdot_v,
-    kIdUhadd_v,
-    kIdUhsub_v,
-    kIdUmax_v,
-    kIdUmaxp_v,
-    kIdUmaxv_v,
-    kIdUmin_v,
-    kIdUminp_v,
-    kIdUminv_v,
-    kIdUmlal_v,
-    kIdUmlal2_v,
-    kIdUmlsl_v,
-    kIdUmlsl2_v,
-    kIdUmmla_v,
-    kIdUmov_v,
-    kIdUmull_v,
-    kIdUmull2_v,
-    kIdUqadd_v,
-    kIdUqrshl_v,
-    kIdUqrshrn_v,
-    kIdUqrshrn2_v,
-    kIdUqshl_v,
-    kIdUqshrn_v,
-    kIdUqshrn2_v,
-    kIdUqsub_v,
-    kIdUqxtn_v,
-    kIdUqxtn2_v,
-    kIdUrecpe_v,
-    kIdUrhadd_v,
-    kIdUrshl_v,
-    kIdUrshr_v,
-    kIdUrsqrte_v,
-    kIdUrsra_v,
-    kIdUsdot_v,
-    kIdUshl_v,
-    kIdUshll_v,
-    kIdUshll2_v,
-    kIdUshr_v,
-    kIdUsmmla_v,
-    kIdUsqadd_v,
-    kIdUsra_v,
-    kIdUsubl_v,
-    kIdUsubl2_v,
-    kIdUsubw_v,
-    kIdUsubw2_v,
-    kIdUxtl_v,
-    kIdUxtl2_v,
-    kIdUzp1_v,
-    kIdUzp2_v,
-    kIdXar_v,
-    kIdXtn_v,
-    kIdXtn2_v,
-    kIdZip1_v,
-    kIdZip2_v,
+    kIdNone = 0,                         //!< Instruction ''.
+    kIdAdc,                              //!< Instruction 'adc'.
+    kIdAdcs,                             //!< Instruction 'adcs'.
+    kIdAdd,                              //!< Instruction 'add'.
+    kIdAddg,                             //!< Instruction 'addg'.
+    kIdAdds,                             //!< Instruction 'adds'.
+    kIdAdr,                              //!< Instruction 'adr'.
+    kIdAdrp,                             //!< Instruction 'adrp'.
+    kIdAnd,                              //!< Instruction 'and'.
+    kIdAnds,                             //!< Instruction 'ands'.
+    kIdAsr,                              //!< Instruction 'asr'.
+    kIdAsrv,                             //!< Instruction 'asrv'.
+    kIdAt,                               //!< Instruction 'at'.
+    kIdAutda,                            //!< Instruction 'autda'.
+    kIdAutdza,                           //!< Instruction 'autdza'.
+    kIdAutdb,                            //!< Instruction 'autdb'.
+    kIdAutdzb,                           //!< Instruction 'autdzb'.
+    kIdAutia,                            //!< Instruction 'autia'.
+    kIdAutia1716,                        //!< Instruction 'autia1716'.
+    kIdAutiasp,                          //!< Instruction 'autiasp'.
+    kIdAutiaz,                           //!< Instruction 'autiaz'.
+    kIdAutib,                            //!< Instruction 'autib'.
+    kIdAutib1716,                        //!< Instruction 'autib1716'.
+    kIdAutibsp,                          //!< Instruction 'autibsp'.
+    kIdAutibz,                           //!< Instruction 'autibz'.
+    kIdAutiza,                           //!< Instruction 'autiza'.
+    kIdAutizb,                           //!< Instruction 'autizb'.
+    kIdAxflag,                           //!< Instruction 'axflag'.
+    kIdB,                                //!< Instruction 'b'.
+    kIdBfc,                              //!< Instruction 'bfc'.
+    kIdBfi,                              //!< Instruction 'bfi'.
+    kIdBfm,                              //!< Instruction 'bfm'.
+    kIdBfxil,                            //!< Instruction 'bfxil'.
+    kIdBic,                              //!< Instruction 'bic'.
+    kIdBics,                             //!< Instruction 'bics'.
+    kIdBl,                               //!< Instruction 'bl'.
+    kIdBlr,                              //!< Instruction 'blr'.
+    kIdBr,                               //!< Instruction 'br'.
+    kIdBrk,                              //!< Instruction 'brk'.
+    kIdCas,                              //!< Instruction 'cas'.
+    kIdCasa,                             //!< Instruction 'casa'.
+    kIdCasab,                            //!< Instruction 'casab'.
+    kIdCasah,                            //!< Instruction 'casah'.
+    kIdCasal,                            //!< Instruction 'casal'.
+    kIdCasalb,                           //!< Instruction 'casalb'.
+    kIdCasalh,                           //!< Instruction 'casalh'.
+    kIdCasb,                             //!< Instruction 'casb'.
+    kIdCash,                             //!< Instruction 'cash'.
+    kIdCasl,                             //!< Instruction 'casl'.
+    kIdCaslb,                            //!< Instruction 'caslb'.
+    kIdCaslh,                            //!< Instruction 'caslh'.
+    kIdCasp,                             //!< Instruction 'casp'.
+    kIdCaspa,                            //!< Instruction 'caspa'.
+    kIdCaspal,                           //!< Instruction 'caspal'.
+    kIdCaspl,                            //!< Instruction 'caspl'.
+    kIdCbnz,                             //!< Instruction 'cbnz'.
+    kIdCbz,                              //!< Instruction 'cbz'.
+    kIdCcmn,                             //!< Instruction 'ccmn'.
+    kIdCcmp,                             //!< Instruction 'ccmp'.
+    kIdCfinv,                            //!< Instruction 'cfinv'.
+    kIdCinc,                             //!< Instruction 'cinc'.
+    kIdCinv,                             //!< Instruction 'cinv'.
+    kIdClrex,                            //!< Instruction 'clrex'.
+    kIdCls,                              //!< Instruction 'cls'.
+    kIdClz,                              //!< Instruction 'clz'.
+    kIdCmn,                              //!< Instruction 'cmn'.
+    kIdCmp,                              //!< Instruction 'cmp'.
+    kIdCmpp,                             //!< Instruction 'cmpp'.
+    kIdCneg,                             //!< Instruction 'cneg'.
+    kIdCrc32b,                           //!< Instruction 'crc32b'.
+    kIdCrc32cb,                          //!< Instruction 'crc32cb'.
+    kIdCrc32ch,                          //!< Instruction 'crc32ch'.
+    kIdCrc32cw,                          //!< Instruction 'crc32cw'.
+    kIdCrc32cx,                          //!< Instruction 'crc32cx'.
+    kIdCrc32h,                           //!< Instruction 'crc32h'.
+    kIdCrc32w,                           //!< Instruction 'crc32w'.
+    kIdCrc32x,                           //!< Instruction 'crc32x'.
+    kIdCsdb,                             //!< Instruction 'csdb'.
+    kIdCsel,                             //!< Instruction 'csel'.
+    kIdCset,                             //!< Instruction 'cset'.
+    kIdCsetm,                            //!< Instruction 'csetm'.
+    kIdCsinc,                            //!< Instruction 'csinc'.
+    kIdCsinv,                            //!< Instruction 'csinv'.
+    kIdCsneg,                            //!< Instruction 'csneg'.
+    kIdDc,                               //!< Instruction 'dc'.
+    kIdDcps1,                            //!< Instruction 'dcps1'.
+    kIdDcps2,                            //!< Instruction 'dcps2'.
+    kIdDcps3,                            //!< Instruction 'dcps3'.
+    kIdDgh,                              //!< Instruction 'dgh'.
+    kIdDmb,                              //!< Instruction 'dmb'.
+    kIdDrps,                             //!< Instruction 'drps'.
+    kIdDsb,                              //!< Instruction 'dsb'.
+    kIdEon,                              //!< Instruction 'eon'.
+    kIdEor,                              //!< Instruction 'eor'.
+    kIdEsb,                              //!< Instruction 'esb'.
+    kIdExtr,                             //!< Instruction 'extr'.
+    kIdEret,                             //!< Instruction 'eret'.
+    kIdGmi,                              //!< Instruction 'gmi'.
+    kIdHint,                             //!< Instruction 'hint'.
+    kIdHlt,                              //!< Instruction 'hlt'.
+    kIdHvc,                              //!< Instruction 'hvc'.
+    kIdIc,                               //!< Instruction 'ic'.
+    kIdIsb,                              //!< Instruction 'isb'.
+    kIdLdadd,                            //!< Instruction 'ldadd'.
+    kIdLdadda,                           //!< Instruction 'ldadda'.
+    kIdLdaddab,                          //!< Instruction 'ldaddab'.
+    kIdLdaddah,                          //!< Instruction 'ldaddah'.
+    kIdLdaddal,                          //!< Instruction 'ldaddal'.
+    kIdLdaddalb,                         //!< Instruction 'ldaddalb'.
+    kIdLdaddalh,                         //!< Instruction 'ldaddalh'.
+    kIdLdaddb,                           //!< Instruction 'ldaddb'.
+    kIdLdaddh,                           //!< Instruction 'ldaddh'.
+    kIdLdaddl,                           //!< Instruction 'ldaddl'.
+    kIdLdaddlb,                          //!< Instruction 'ldaddlb'.
+    kIdLdaddlh,                          //!< Instruction 'ldaddlh'.
+    kIdLdar,                             //!< Instruction 'ldar'.
+    kIdLdarb,                            //!< Instruction 'ldarb'.
+    kIdLdarh,                            //!< Instruction 'ldarh'.
+    kIdLdaxp,                            //!< Instruction 'ldaxp'.
+    kIdLdaxr,                            //!< Instruction 'ldaxr'.
+    kIdLdaxrb,                           //!< Instruction 'ldaxrb'.
+    kIdLdaxrh,                           //!< Instruction 'ldaxrh'.
+    kIdLdclr,                            //!< Instruction 'ldclr'.
+    kIdLdclra,                           //!< Instruction 'ldclra'.
+    kIdLdclrab,                          //!< Instruction 'ldclrab'.
+    kIdLdclrah,                          //!< Instruction 'ldclrah'.
+    kIdLdclral,                          //!< Instruction 'ldclral'.
+    kIdLdclralb,                         //!< Instruction 'ldclralb'.
+    kIdLdclralh,                         //!< Instruction 'ldclralh'.
+    kIdLdclrb,                           //!< Instruction 'ldclrb'.
+    kIdLdclrh,                           //!< Instruction 'ldclrh'.
+    kIdLdclrl,                           //!< Instruction 'ldclrl'.
+    kIdLdclrlb,                          //!< Instruction 'ldclrlb'.
+    kIdLdclrlh,                          //!< Instruction 'ldclrlh'.
+    kIdLdeor,                            //!< Instruction 'ldeor'.
+    kIdLdeora,                           //!< Instruction 'ldeora'.
+    kIdLdeorab,                          //!< Instruction 'ldeorab'.
+    kIdLdeorah,                          //!< Instruction 'ldeorah'.
+    kIdLdeoral,                          //!< Instruction 'ldeoral'.
+    kIdLdeoralb,                         //!< Instruction 'ldeoralb'.
+    kIdLdeoralh,                         //!< Instruction 'ldeoralh'.
+    kIdLdeorb,                           //!< Instruction 'ldeorb'.
+    kIdLdeorh,                           //!< Instruction 'ldeorh'.
+    kIdLdeorl,                           //!< Instruction 'ldeorl'.
+    kIdLdeorlb,                          //!< Instruction 'ldeorlb'.
+    kIdLdeorlh,                          //!< Instruction 'ldeorlh'.
+    kIdLdg,                              //!< Instruction 'ldg'.
+    kIdLdgm,                             //!< Instruction 'ldgm'.
+    kIdLdlar,                            //!< Instruction 'ldlar'.
+    kIdLdlarb,                           //!< Instruction 'ldlarb'.
+    kIdLdlarh,                           //!< Instruction 'ldlarh'.
+    kIdLdnp,                             //!< Instruction 'ldnp'.
+    kIdLdp,                              //!< Instruction 'ldp'.
+    kIdLdpsw,                            //!< Instruction 'ldpsw'.
+    kIdLdr,                              //!< Instruction 'ldr'.
+    kIdLdraa,                            //!< Instruction 'ldraa'.
+    kIdLdrab,                            //!< Instruction 'ldrab'.
+    kIdLdrb,                             //!< Instruction 'ldrb'.
+    kIdLdrh,                             //!< Instruction 'ldrh'.
+    kIdLdrsb,                            //!< Instruction 'ldrsb'.
+    kIdLdrsh,                            //!< Instruction 'ldrsh'.
+    kIdLdrsw,                            //!< Instruction 'ldrsw'.
+    kIdLdset,                            //!< Instruction 'ldset'.
+    kIdLdseta,                           //!< Instruction 'ldseta'.
+    kIdLdsetab,                          //!< Instruction 'ldsetab'.
+    kIdLdsetah,                          //!< Instruction 'ldsetah'.
+    kIdLdsetal,                          //!< Instruction 'ldsetal'.
+    kIdLdsetalb,                         //!< Instruction 'ldsetalb'.
+    kIdLdsetalh,                         //!< Instruction 'ldsetalh'.
+    kIdLdsetb,                           //!< Instruction 'ldsetb'.
+    kIdLdseth,                           //!< Instruction 'ldseth'.
+    kIdLdsetl,                           //!< Instruction 'ldsetl'.
+    kIdLdsetlb,                          //!< Instruction 'ldsetlb'.
+    kIdLdsetlh,                          //!< Instruction 'ldsetlh'.
+    kIdLdsmax,                           //!< Instruction 'ldsmax'.
+    kIdLdsmaxa,                          //!< Instruction 'ldsmaxa'.
+    kIdLdsmaxab,                         //!< Instruction 'ldsmaxab'.
+    kIdLdsmaxah,                         //!< Instruction 'ldsmaxah'.
+    kIdLdsmaxal,                         //!< Instruction 'ldsmaxal'.
+    kIdLdsmaxalb,                        //!< Instruction 'ldsmaxalb'.
+    kIdLdsmaxalh,                        //!< Instruction 'ldsmaxalh'.
+    kIdLdsmaxb,                          //!< Instruction 'ldsmaxb'.
+    kIdLdsmaxh,                          //!< Instruction 'ldsmaxh'.
+    kIdLdsmaxl,                          //!< Instruction 'ldsmaxl'.
+    kIdLdsmaxlb,                         //!< Instruction 'ldsmaxlb'.
+    kIdLdsmaxlh,                         //!< Instruction 'ldsmaxlh'.
+    kIdLdsmin,                           //!< Instruction 'ldsmin'.
+    kIdLdsmina,                          //!< Instruction 'ldsmina'.
+    kIdLdsminab,                         //!< Instruction 'ldsminab'.
+    kIdLdsminah,                         //!< Instruction 'ldsminah'.
+    kIdLdsminal,                         //!< Instruction 'ldsminal'.
+    kIdLdsminalb,                        //!< Instruction 'ldsminalb'.
+    kIdLdsminalh,                        //!< Instruction 'ldsminalh'.
+    kIdLdsminb,                          //!< Instruction 'ldsminb'.
+    kIdLdsminh,                          //!< Instruction 'ldsminh'.
+    kIdLdsminl,                          //!< Instruction 'ldsminl'.
+    kIdLdsminlb,                         //!< Instruction 'ldsminlb'.
+    kIdLdsminlh,                         //!< Instruction 'ldsminlh'.
+    kIdLdtr,                             //!< Instruction 'ldtr'.
+    kIdLdtrb,                            //!< Instruction 'ldtrb'.
+    kIdLdtrh,                            //!< Instruction 'ldtrh'.
+    kIdLdtrsb,                           //!< Instruction 'ldtrsb'.
+    kIdLdtrsh,                           //!< Instruction 'ldtrsh'.
+    kIdLdtrsw,                           //!< Instruction 'ldtrsw'.
+    kIdLdumax,                           //!< Instruction 'ldumax'.
+    kIdLdumaxa,                          //!< Instruction 'ldumaxa'.
+    kIdLdumaxab,                         //!< Instruction 'ldumaxab'.
+    kIdLdumaxah,                         //!< Instruction 'ldumaxah'.
+    kIdLdumaxal,                         //!< Instruction 'ldumaxal'.
+    kIdLdumaxalb,                        //!< Instruction 'ldumaxalb'.
+    kIdLdumaxalh,                        //!< Instruction 'ldumaxalh'.
+    kIdLdumaxb,                          //!< Instruction 'ldumaxb'.
+    kIdLdumaxh,                          //!< Instruction 'ldumaxh'.
+    kIdLdumaxl,                          //!< Instruction 'ldumaxl'.
+    kIdLdumaxlb,                         //!< Instruction 'ldumaxlb'.
+    kIdLdumaxlh,                         //!< Instruction 'ldumaxlh'.
+    kIdLdumin,                           //!< Instruction 'ldumin'.
+    kIdLdumina,                          //!< Instruction 'ldumina'.
+    kIdLduminab,                         //!< Instruction 'lduminab'.
+    kIdLduminah,                         //!< Instruction 'lduminah'.
+    kIdLduminal,                         //!< Instruction 'lduminal'.
+    kIdLduminalb,                        //!< Instruction 'lduminalb'.
+    kIdLduminalh,                        //!< Instruction 'lduminalh'.
+    kIdLduminb,                          //!< Instruction 'lduminb'.
+    kIdLduminh,                          //!< Instruction 'lduminh'.
+    kIdLduminl,                          //!< Instruction 'lduminl'.
+    kIdLduminlb,                         //!< Instruction 'lduminlb'.
+    kIdLduminlh,                         //!< Instruction 'lduminlh'.
+    kIdLdur,                             //!< Instruction 'ldur'.
+    kIdLdurb,                            //!< Instruction 'ldurb'.
+    kIdLdurh,                            //!< Instruction 'ldurh'.
+    kIdLdursb,                           //!< Instruction 'ldursb'.
+    kIdLdursh,                           //!< Instruction 'ldursh'.
+    kIdLdursw,                           //!< Instruction 'ldursw'.
+    kIdLdxp,                             //!< Instruction 'ldxp'.
+    kIdLdxr,                             //!< Instruction 'ldxr'.
+    kIdLdxrb,                            //!< Instruction 'ldxrb'.
+    kIdLdxrh,                            //!< Instruction 'ldxrh'.
+    kIdLsl,                              //!< Instruction 'lsl'.
+    kIdLslv,                             //!< Instruction 'lslv'.
+    kIdLsr,                              //!< Instruction 'lsr'.
+    kIdLsrv,                             //!< Instruction 'lsrv'.
+    kIdMadd,                             //!< Instruction 'madd'.
+    kIdMneg,                             //!< Instruction 'mneg'.
+    kIdMov,                              //!< Instruction 'mov'.
+    kIdMovk,                             //!< Instruction 'movk'.
+    kIdMovn,                             //!< Instruction 'movn'.
+    kIdMovz,                             //!< Instruction 'movz'.
+    kIdMrs,                              //!< Instruction 'mrs'.
+    kIdMsr,                              //!< Instruction 'msr'.
+    kIdMsub,                             //!< Instruction 'msub'.
+    kIdMul,                              //!< Instruction 'mul'.
+    kIdMvn,                              //!< Instruction 'mvn'.
+    kIdNeg,                              //!< Instruction 'neg'.
+    kIdNegs,                             //!< Instruction 'negs'.
+    kIdNgc,                              //!< Instruction 'ngc'.
+    kIdNgcs,                             //!< Instruction 'ngcs'.
+    kIdNop,                              //!< Instruction 'nop'.
+    kIdOrn,                              //!< Instruction 'orn'.
+    kIdOrr,                              //!< Instruction 'orr'.
+    kIdPacda,                            //!< Instruction 'pacda'.
+    kIdPacdb,                            //!< Instruction 'pacdb'.
+    kIdPacdza,                           //!< Instruction 'pacdza'.
+    kIdPacdzb,                           //!< Instruction 'pacdzb'.
+    kIdPacga,                            //!< Instruction 'pacga'.
+    kIdPssbb,                            //!< Instruction 'pssbb'.
+    kIdRbit,                             //!< Instruction 'rbit'.
+    kIdRet,                              //!< Instruction 'ret'.
+    kIdRev,                              //!< Instruction 'rev'.
+    kIdRev16,                            //!< Instruction 'rev16'.
+    kIdRev32,                            //!< Instruction 'rev32'.
+    kIdRev64,                            //!< Instruction 'rev64'.
+    kIdRor,                              //!< Instruction 'ror'.
+    kIdRorv,                             //!< Instruction 'rorv'.
+    kIdSbc,                              //!< Instruction 'sbc'.
+    kIdSbcs,                             //!< Instruction 'sbcs'.
+    kIdSbfiz,                            //!< Instruction 'sbfiz'.
+    kIdSbfm,                             //!< Instruction 'sbfm'.
+    kIdSbfx,                             //!< Instruction 'sbfx'.
+    kIdSdiv,                             //!< Instruction 'sdiv'.
+    kIdSetf8,                            //!< Instruction 'setf8'.
+    kIdSetf16,                           //!< Instruction 'setf16'.
+    kIdSev,                              //!< Instruction 'sev'.
+    kIdSevl,                             //!< Instruction 'sevl'.
+    kIdSmaddl,                           //!< Instruction 'smaddl'.
+    kIdSmc,                              //!< Instruction 'smc'.
+    kIdSmnegl,                           //!< Instruction 'smnegl'.
+    kIdSmsubl,                           //!< Instruction 'smsubl'.
+    kIdSmulh,                            //!< Instruction 'smulh'.
+    kIdSmull,                            //!< Instruction 'smull'.
+    kIdSsbb,                             //!< Instruction 'ssbb'.
+    kIdSt2g,                             //!< Instruction 'st2g'.
+    kIdStadd,                            //!< Instruction 'stadd'.
+    kIdStaddl,                           //!< Instruction 'staddl'.
+    kIdStaddb,                           //!< Instruction 'staddb'.
+    kIdStaddlb,                          //!< Instruction 'staddlb'.
+    kIdStaddh,                           //!< Instruction 'staddh'.
+    kIdStaddlh,                          //!< Instruction 'staddlh'.
+    kIdStclr,                            //!< Instruction 'stclr'.
+    kIdStclrl,                           //!< Instruction 'stclrl'.
+    kIdStclrb,                           //!< Instruction 'stclrb'.
+    kIdStclrlb,                          //!< Instruction 'stclrlb'.
+    kIdStclrh,                           //!< Instruction 'stclrh'.
+    kIdStclrlh,                          //!< Instruction 'stclrlh'.
+    kIdSteor,                            //!< Instruction 'steor'.
+    kIdSteorl,                           //!< Instruction 'steorl'.
+    kIdSteorb,                           //!< Instruction 'steorb'.
+    kIdSteorlb,                          //!< Instruction 'steorlb'.
+    kIdSteorh,                           //!< Instruction 'steorh'.
+    kIdSteorlh,                          //!< Instruction 'steorlh'.
+    kIdStg,                              //!< Instruction 'stg'.
+    kIdStgm,                             //!< Instruction 'stgm'.
+    kIdStgp,                             //!< Instruction 'stgp'.
+    kIdStllr,                            //!< Instruction 'stllr'.
+    kIdStllrb,                           //!< Instruction 'stllrb'.
+    kIdStllrh,                           //!< Instruction 'stllrh'.
+    kIdStlr,                             //!< Instruction 'stlr'.
+    kIdStlrb,                            //!< Instruction 'stlrb'.
+    kIdStlrh,                            //!< Instruction 'stlrh'.
+    kIdStlxp,                            //!< Instruction 'stlxp'.
+    kIdStlxr,                            //!< Instruction 'stlxr'.
+    kIdStlxrb,                           //!< Instruction 'stlxrb'.
+    kIdStlxrh,                           //!< Instruction 'stlxrh'.
+    kIdStnp,                             //!< Instruction 'stnp'.
+    kIdStp,                              //!< Instruction 'stp'.
+    kIdStr,                              //!< Instruction 'str'.
+    kIdStrb,                             //!< Instruction 'strb'.
+    kIdStrh,                             //!< Instruction 'strh'.
+    kIdStset,                            //!< Instruction 'stset'.
+    kIdStsetl,                           //!< Instruction 'stsetl'.
+    kIdStsetb,                           //!< Instruction 'stsetb'.
+    kIdStsetlb,                          //!< Instruction 'stsetlb'.
+    kIdStseth,                           //!< Instruction 'stseth'.
+    kIdStsetlh,                          //!< Instruction 'stsetlh'.
+    kIdStsmax,                           //!< Instruction 'stsmax'.
+    kIdStsmaxl,                          //!< Instruction 'stsmaxl'.
+    kIdStsmaxb,                          //!< Instruction 'stsmaxb'.
+    kIdStsmaxlb,                         //!< Instruction 'stsmaxlb'.
+    kIdStsmaxh,                          //!< Instruction 'stsmaxh'.
+    kIdStsmaxlh,                         //!< Instruction 'stsmaxlh'.
+    kIdStsmin,                           //!< Instruction 'stsmin'.
+    kIdStsminl,                          //!< Instruction 'stsminl'.
+    kIdStsminb,                          //!< Instruction 'stsminb'.
+    kIdStsminlb,                         //!< Instruction 'stsminlb'.
+    kIdStsminh,                          //!< Instruction 'stsminh'.
+    kIdStsminlh,                         //!< Instruction 'stsminlh'.
+    kIdSttr,                             //!< Instruction 'sttr'.
+    kIdSttrb,                            //!< Instruction 'sttrb'.
+    kIdSttrh,                            //!< Instruction 'sttrh'.
+    kIdStumax,                           //!< Instruction 'stumax'.
+    kIdStumaxl,                          //!< Instruction 'stumaxl'.
+    kIdStumaxb,                          //!< Instruction 'stumaxb'.
+    kIdStumaxlb,                         //!< Instruction 'stumaxlb'.
+    kIdStumaxh,                          //!< Instruction 'stumaxh'.
+    kIdStumaxlh,                         //!< Instruction 'stumaxlh'.
+    kIdStumin,                           //!< Instruction 'stumin'.
+    kIdStuminl,                          //!< Instruction 'stuminl'.
+    kIdStuminb,                          //!< Instruction 'stuminb'.
+    kIdStuminlb,                         //!< Instruction 'stuminlb'.
+    kIdStuminh,                          //!< Instruction 'stuminh'.
+    kIdStuminlh,                         //!< Instruction 'stuminlh'.
+    kIdStur,                             //!< Instruction 'stur'.
+    kIdSturb,                            //!< Instruction 'sturb'.
+    kIdSturh,                            //!< Instruction 'sturh'.
+    kIdStxp,                             //!< Instruction 'stxp'.
+    kIdStxr,                             //!< Instruction 'stxr'.
+    kIdStxrb,                            //!< Instruction 'stxrb'.
+    kIdStxrh,                            //!< Instruction 'stxrh'.
+    kIdStz2g,                            //!< Instruction 'stz2g'.
+    kIdStzg,                             //!< Instruction 'stzg'.
+    kIdStzgm,                            //!< Instruction 'stzgm'.
+    kIdSub,                              //!< Instruction 'sub'.
+    kIdSubg,                             //!< Instruction 'subg'.
+    kIdSubp,                             //!< Instruction 'subp'.
+    kIdSubps,                            //!< Instruction 'subps'.
+    kIdSubs,                             //!< Instruction 'subs'.
+    kIdSvc,                              //!< Instruction 'svc'.
+    kIdSwp,                              //!< Instruction 'swp'.
+    kIdSwpa,                             //!< Instruction 'swpa'.
+    kIdSwpab,                            //!< Instruction 'swpab'.
+    kIdSwpah,                            //!< Instruction 'swpah'.
+    kIdSwpal,                            //!< Instruction 'swpal'.
+    kIdSwpalb,                           //!< Instruction 'swpalb'.
+    kIdSwpalh,                           //!< Instruction 'swpalh'.
+    kIdSwpb,                             //!< Instruction 'swpb'.
+    kIdSwph,                             //!< Instruction 'swph'.
+    kIdSwpl,                             //!< Instruction 'swpl'.
+    kIdSwplb,                            //!< Instruction 'swplb'.
+    kIdSwplh,                            //!< Instruction 'swplh'.
+    kIdSxtb,                             //!< Instruction 'sxtb'.
+    kIdSxth,                             //!< Instruction 'sxth'.
+    kIdSxtw,                             //!< Instruction 'sxtw'.
+    kIdSys,                              //!< Instruction 'sys'.
+    kIdTlbi,                             //!< Instruction 'tlbi'.
+    kIdTst,                              //!< Instruction 'tst'.
+    kIdTbnz,                             //!< Instruction 'tbnz'.
+    kIdTbz,                              //!< Instruction 'tbz'.
+    kIdUbfiz,                            //!< Instruction 'ubfiz'.
+    kIdUbfm,                             //!< Instruction 'ubfm'.
+    kIdUbfx,                             //!< Instruction 'ubfx'.
+    kIdUdf,                              //!< Instruction 'udf'.
+    kIdUdiv,                             //!< Instruction 'udiv'.
+    kIdUmaddl,                           //!< Instruction 'umaddl'.
+    kIdUmnegl,                           //!< Instruction 'umnegl'.
+    kIdUmull,                            //!< Instruction 'umull'.
+    kIdUmulh,                            //!< Instruction 'umulh'.
+    kIdUmsubl,                           //!< Instruction 'umsubl'.
+    kIdUxtb,                             //!< Instruction 'uxtb'.
+    kIdUxth,                             //!< Instruction 'uxth'.
+    kIdWfe,                              //!< Instruction 'wfe'.
+    kIdWfi,                              //!< Instruction 'wfi'.
+    kIdXaflag,                           //!< Instruction 'xaflag'.
+    kIdXpacd,                            //!< Instruction 'xpacd'.
+    kIdXpaci,                            //!< Instruction 'xpaci'.
+    kIdXpaclri,                          //!< Instruction 'xpaclri'.
+    kIdYield,                            //!< Instruction 'yield'.
+    kIdAbs_v,                            //!< Instruction 'abs' {ASIMD}.
+    kIdAdd_v,                            //!< Instruction 'add' {ASIMD}.
+    kIdAddhn_v,                          //!< Instruction 'addhn' {ASIMD}.
+    kIdAddhn2_v,                         //!< Instruction 'addhn2' {ASIMD}.
+    kIdAddp_v,                           //!< Instruction 'addp' {ASIMD}.
+    kIdAddv_v,                           //!< Instruction 'addv' {ASIMD}.
+    kIdAesd_v,                           //!< Instruction 'aesd' {ASIMD}.
+    kIdAese_v,                           //!< Instruction 'aese' {ASIMD}.
+    kIdAesimc_v,                         //!< Instruction 'aesimc' {ASIMD}.
+    kIdAesmc_v,                          //!< Instruction 'aesmc' {ASIMD}.
+    kIdAnd_v,                            //!< Instruction 'and' {ASIMD}.
+    kIdBcax_v,                           //!< Instruction 'bcax' {ASIMD}.
+    kIdBfcvt_v,                          //!< Instruction 'bfcvt' {ASIMD}.
+    kIdBfcvtn_v,                         //!< Instruction 'bfcvtn' {ASIMD}.
+    kIdBfcvtn2_v,                        //!< Instruction 'bfcvtn2' {ASIMD}.
+    kIdBfdot_v,                          //!< Instruction 'bfdot' {ASIMD}.
+    kIdBfmlalb_v,                        //!< Instruction 'bfmlalb' {ASIMD}.
+    kIdBfmlalt_v,                        //!< Instruction 'bfmlalt' {ASIMD}.
+    kIdBfmmla_v,                         //!< Instruction 'bfmmla' {ASIMD}.
+    kIdBic_v,                            //!< Instruction 'bic' {ASIMD}.
+    kIdBif_v,                            //!< Instruction 'bif' {ASIMD}.
+    kIdBit_v,                            //!< Instruction 'bit' {ASIMD}.
+    kIdBsl_v,                            //!< Instruction 'bsl' {ASIMD}.
+    kIdCls_v,                            //!< Instruction 'cls' {ASIMD}.
+    kIdClz_v,                            //!< Instruction 'clz' {ASIMD}.
+    kIdCmeq_v,                           //!< Instruction 'cmeq' {ASIMD}.
+    kIdCmge_v,                           //!< Instruction 'cmge' {ASIMD}.
+    kIdCmgt_v,                           //!< Instruction 'cmgt' {ASIMD}.
+    kIdCmhi_v,                           //!< Instruction 'cmhi' {ASIMD}.
+    kIdCmhs_v,                           //!< Instruction 'cmhs' {ASIMD}.
+    kIdCmle_v,                           //!< Instruction 'cmle' {ASIMD}.
+    kIdCmlt_v,                           //!< Instruction 'cmlt' {ASIMD}.
+    kIdCmtst_v,                          //!< Instruction 'cmtst' {ASIMD}.
+    kIdCnt_v,                            //!< Instruction 'cnt' {ASIMD}.
+    kIdDup_v,                            //!< Instruction 'dup' {ASIMD}.
+    kIdEor_v,                            //!< Instruction 'eor' {ASIMD}.
+    kIdEor3_v,                           //!< Instruction 'eor3' {ASIMD}.
+    kIdExt_v,                            //!< Instruction 'ext' {ASIMD}.
+    kIdFabd_v,                           //!< Instruction 'fabd' {ASIMD}.
+    kIdFabs_v,                           //!< Instruction 'fabs' {ASIMD}.
+    kIdFacge_v,                          //!< Instruction 'facge' {ASIMD}.
+    kIdFacgt_v,                          //!< Instruction 'facgt' {ASIMD}.
+    kIdFadd_v,                           //!< Instruction 'fadd' {ASIMD}.
+    kIdFaddp_v,                          //!< Instruction 'faddp' {ASIMD}.
+    kIdFcadd_v,                          //!< Instruction 'fcadd' {ASIMD}.
+    kIdFccmp_v,                          //!< Instruction 'fccmp' {ASIMD}.
+    kIdFccmpe_v,                         //!< Instruction 'fccmpe' {ASIMD}.
+    kIdFcmeq_v,                          //!< Instruction 'fcmeq' {ASIMD}.
+    kIdFcmge_v,                          //!< Instruction 'fcmge' {ASIMD}.
+    kIdFcmgt_v,                          //!< Instruction 'fcmgt' {ASIMD}.
+    kIdFcmla_v,                          //!< Instruction 'fcmla' {ASIMD}.
+    kIdFcmle_v,                          //!< Instruction 'fcmle' {ASIMD}.
+    kIdFcmlt_v,                          //!< Instruction 'fcmlt' {ASIMD}.
+    kIdFcmp_v,                           //!< Instruction 'fcmp' {ASIMD}.
+    kIdFcmpe_v,                          //!< Instruction 'fcmpe' {ASIMD}.
+    kIdFcsel_v,                          //!< Instruction 'fcsel' {ASIMD}.
+    kIdFcvt_v,                           //!< Instruction 'fcvt' {ASIMD}.
+    kIdFcvtas_v,                         //!< Instruction 'fcvtas' {ASIMD}.
+    kIdFcvtau_v,                         //!< Instruction 'fcvtau' {ASIMD}.
+    kIdFcvtl_v,                          //!< Instruction 'fcvtl' {ASIMD}.
+    kIdFcvtl2_v,                         //!< Instruction 'fcvtl2' {ASIMD}.
+    kIdFcvtms_v,                         //!< Instruction 'fcvtms' {ASIMD}.
+    kIdFcvtmu_v,                         //!< Instruction 'fcvtmu' {ASIMD}.
+    kIdFcvtn_v,                          //!< Instruction 'fcvtn' {ASIMD}.
+    kIdFcvtn2_v,                         //!< Instruction 'fcvtn2' {ASIMD}.
+    kIdFcvtns_v,                         //!< Instruction 'fcvtns' {ASIMD}.
+    kIdFcvtnu_v,                         //!< Instruction 'fcvtnu' {ASIMD}.
+    kIdFcvtps_v,                         //!< Instruction 'fcvtps' {ASIMD}.
+    kIdFcvtpu_v,                         //!< Instruction 'fcvtpu' {ASIMD}.
+    kIdFcvtxn_v,                         //!< Instruction 'fcvtxn' {ASIMD}.
+    kIdFcvtxn2_v,                        //!< Instruction 'fcvtxn2' {ASIMD}.
+    kIdFcvtzs_v,                         //!< Instruction 'fcvtzs' {ASIMD}.
+    kIdFcvtzu_v,                         //!< Instruction 'fcvtzu' {ASIMD}.
+    kIdFdiv_v,                           //!< Instruction 'fdiv' {ASIMD}.
+    kIdFjcvtzs_v,                        //!< Instruction 'fjcvtzs' {ASIMD}.
+    kIdFmadd_v,                          //!< Instruction 'fmadd' {ASIMD}.
+    kIdFmax_v,                           //!< Instruction 'fmax' {ASIMD}.
+    kIdFmaxnm_v,                         //!< Instruction 'fmaxnm' {ASIMD}.
+    kIdFmaxnmp_v,                        //!< Instruction 'fmaxnmp' {ASIMD}.
+    kIdFmaxnmv_v,                        //!< Instruction 'fmaxnmv' {ASIMD}.
+    kIdFmaxp_v,                          //!< Instruction 'fmaxp' {ASIMD}.
+    kIdFmaxv_v,                          //!< Instruction 'fmaxv' {ASIMD}.
+    kIdFmin_v,                           //!< Instruction 'fmin' {ASIMD}.
+    kIdFminnm_v,                         //!< Instruction 'fminnm' {ASIMD}.
+    kIdFminnmp_v,                        //!< Instruction 'fminnmp' {ASIMD}.
+    kIdFminnmv_v,                        //!< Instruction 'fminnmv' {ASIMD}.
+    kIdFminp_v,                          //!< Instruction 'fminp' {ASIMD}.
+    kIdFminv_v,                          //!< Instruction 'fminv' {ASIMD}.
+    kIdFmla_v,                           //!< Instruction 'fmla' {ASIMD}.
+    kIdFmlal_v,                          //!< Instruction 'fmlal' {ASIMD}.
+    kIdFmlal2_v,                         //!< Instruction 'fmlal2' {ASIMD}.
+    kIdFmls_v,                           //!< Instruction 'fmls' {ASIMD}.
+    kIdFmlsl_v,                          //!< Instruction 'fmlsl' {ASIMD}.
+    kIdFmlsl2_v,                         //!< Instruction 'fmlsl2' {ASIMD}.
+    kIdFmov_v,                           //!< Instruction 'fmov' {ASIMD}.
+    kIdFmsub_v,                          //!< Instruction 'fmsub' {ASIMD}.
+    kIdFmul_v,                           //!< Instruction 'fmul' {ASIMD}.
+    kIdFmulx_v,                          //!< Instruction 'fmulx' {ASIMD}.
+    kIdFneg_v,                           //!< Instruction 'fneg' {ASIMD}.
+    kIdFnmadd_v,                         //!< Instruction 'fnmadd' {ASIMD}.
+    kIdFnmsub_v,                         //!< Instruction 'fnmsub' {ASIMD}.
+    kIdFnmul_v,                          //!< Instruction 'fnmul' {ASIMD}.
+    kIdFrecpe_v,                         //!< Instruction 'frecpe' {ASIMD}.
+    kIdFrecps_v,                         //!< Instruction 'frecps' {ASIMD}.
+    kIdFrecpx_v,                         //!< Instruction 'frecpx' {ASIMD}.
+    kIdFrint32x_v,                       //!< Instruction 'frint32x' {ASIMD}.
+    kIdFrint32z_v,                       //!< Instruction 'frint32z' {ASIMD}.
+    kIdFrint64x_v,                       //!< Instruction 'frint64x' {ASIMD}.
+    kIdFrint64z_v,                       //!< Instruction 'frint64z' {ASIMD}.
+    kIdFrinta_v,                         //!< Instruction 'frinta' {ASIMD}.
+    kIdFrinti_v,                         //!< Instruction 'frinti' {ASIMD}.
+    kIdFrintm_v,                         //!< Instruction 'frintm' {ASIMD}.
+    kIdFrintn_v,                         //!< Instruction 'frintn' {ASIMD}.
+    kIdFrintp_v,                         //!< Instruction 'frintp' {ASIMD}.
+    kIdFrintx_v,                         //!< Instruction 'frintx' {ASIMD}.
+    kIdFrintz_v,                         //!< Instruction 'frintz' {ASIMD}.
+    kIdFrsqrte_v,                        //!< Instruction 'frsqrte' {ASIMD}.
+    kIdFrsqrts_v,                        //!< Instruction 'frsqrts' {ASIMD}.
+    kIdFsqrt_v,                          //!< Instruction 'fsqrt' {ASIMD}.
+    kIdFsub_v,                           //!< Instruction 'fsub' {ASIMD}.
+    kIdIns_v,                            //!< Instruction 'ins' {ASIMD}.
+    kIdLd1_v,                            //!< Instruction 'ld1' {ASIMD}.
+    kIdLd1r_v,                           //!< Instruction 'ld1r' {ASIMD}.
+    kIdLd2_v,                            //!< Instruction 'ld2' {ASIMD}.
+    kIdLd2r_v,                           //!< Instruction 'ld2r' {ASIMD}.
+    kIdLd3_v,                            //!< Instruction 'ld3' {ASIMD}.
+    kIdLd3r_v,                           //!< Instruction 'ld3r' {ASIMD}.
+    kIdLd4_v,                            //!< Instruction 'ld4' {ASIMD}.
+    kIdLd4r_v,                           //!< Instruction 'ld4r' {ASIMD}.
+    kIdLdnp_v,                           //!< Instruction 'ldnp' {ASIMD}.
+    kIdLdp_v,                            //!< Instruction 'ldp' {ASIMD}.
+    kIdLdr_v,                            //!< Instruction 'ldr' {ASIMD}.
+    kIdLdur_v,                           //!< Instruction 'ldur' {ASIMD}.
+    kIdMla_v,                            //!< Instruction 'mla' {ASIMD}.
+    kIdMls_v,                            //!< Instruction 'mls' {ASIMD}.
+    kIdMov_v,                            //!< Instruction 'mov' {ASIMD}.
+    kIdMovi_v,                           //!< Instruction 'movi' {ASIMD}.
+    kIdMul_v,                            //!< Instruction 'mul' {ASIMD}.
+    kIdMvn_v,                            //!< Instruction 'mvn' {ASIMD}.
+    kIdMvni_v,                           //!< Instruction 'mvni' {ASIMD}.
+    kIdNeg_v,                            //!< Instruction 'neg' {ASIMD}.
+    kIdNot_v,                            //!< Instruction 'not' {ASIMD}.
+    kIdOrn_v,                            //!< Instruction 'orn' {ASIMD}.
+    kIdOrr_v,                            //!< Instruction 'orr' {ASIMD}.
+    kIdPmul_v,                           //!< Instruction 'pmul' {ASIMD}.
+    kIdPmull_v,                          //!< Instruction 'pmull' {ASIMD}.
+    kIdPmull2_v,                         //!< Instruction 'pmull2' {ASIMD}.
+    kIdRaddhn_v,                         //!< Instruction 'raddhn' {ASIMD}.
+    kIdRaddhn2_v,                        //!< Instruction 'raddhn2' {ASIMD}.
+    kIdRax1_v,                           //!< Instruction 'rax1' {ASIMD}.
+    kIdRbit_v,                           //!< Instruction 'rbit' {ASIMD}.
+    kIdRev16_v,                          //!< Instruction 'rev16' {ASIMD}.
+    kIdRev32_v,                          //!< Instruction 'rev32' {ASIMD}.
+    kIdRev64_v,                          //!< Instruction 'rev64' {ASIMD}.
+    kIdRshrn_v,                          //!< Instruction 'rshrn' {ASIMD}.
+    kIdRshrn2_v,                         //!< Instruction 'rshrn2' {ASIMD}.
+    kIdRsubhn_v,                         //!< Instruction 'rsubhn' {ASIMD}.
+    kIdRsubhn2_v,                        //!< Instruction 'rsubhn2' {ASIMD}.
+    kIdSaba_v,                           //!< Instruction 'saba' {ASIMD}.
+    kIdSabal_v,                          //!< Instruction 'sabal' {ASIMD}.
+    kIdSabal2_v,                         //!< Instruction 'sabal2' {ASIMD}.
+    kIdSabd_v,                           //!< Instruction 'sabd' {ASIMD}.
+    kIdSabdl_v,                          //!< Instruction 'sabdl' {ASIMD}.
+    kIdSabdl2_v,                         //!< Instruction 'sabdl2' {ASIMD}.
+    kIdSadalp_v,                         //!< Instruction 'sadalp' {ASIMD}.
+    kIdSaddl_v,                          //!< Instruction 'saddl' {ASIMD}.
+    kIdSaddl2_v,                         //!< Instruction 'saddl2' {ASIMD}.
+    kIdSaddlp_v,                         //!< Instruction 'saddlp' {ASIMD}.
+    kIdSaddlv_v,                         //!< Instruction 'saddlv' {ASIMD}.
+    kIdSaddw_v,                          //!< Instruction 'saddw' {ASIMD}.
+    kIdSaddw2_v,                         //!< Instruction 'saddw2' {ASIMD}.
+    kIdScvtf_v,                          //!< Instruction 'scvtf' {ASIMD}.
+    kIdSdot_v,                           //!< Instruction 'sdot' {ASIMD}.
+    kIdSha1c_v,                          //!< Instruction 'sha1c' {ASIMD}.
+    kIdSha1h_v,                          //!< Instruction 'sha1h' {ASIMD}.
+    kIdSha1m_v,                          //!< Instruction 'sha1m' {ASIMD}.
+    kIdSha1p_v,                          //!< Instruction 'sha1p' {ASIMD}.
+    kIdSha1su0_v,                        //!< Instruction 'sha1su0' {ASIMD}.
+    kIdSha1su1_v,                        //!< Instruction 'sha1su1' {ASIMD}.
+    kIdSha256h_v,                        //!< Instruction 'sha256h' {ASIMD}.
+    kIdSha256h2_v,                       //!< Instruction 'sha256h2' {ASIMD}.
+    kIdSha256su0_v,                      //!< Instruction 'sha256su0' {ASIMD}.
+    kIdSha256su1_v,                      //!< Instruction 'sha256su1' {ASIMD}.
+    kIdSha512h_v,                        //!< Instruction 'sha512h' {ASIMD}.
+    kIdSha512h2_v,                       //!< Instruction 'sha512h2' {ASIMD}.
+    kIdSha512su0_v,                      //!< Instruction 'sha512su0' {ASIMD}.
+    kIdSha512su1_v,                      //!< Instruction 'sha512su1' {ASIMD}.
+    kIdShadd_v,                          //!< Instruction 'shadd' {ASIMD}.
+    kIdShl_v,                            //!< Instruction 'shl' {ASIMD}.
+    kIdShll_v,                           //!< Instruction 'shll' {ASIMD}.
+    kIdShll2_v,                          //!< Instruction 'shll2' {ASIMD}.
+    kIdShrn_v,                           //!< Instruction 'shrn' {ASIMD}.
+    kIdShrn2_v,                          //!< Instruction 'shrn2' {ASIMD}.
+    kIdShsub_v,                          //!< Instruction 'shsub' {ASIMD}.
+    kIdSli_v,                            //!< Instruction 'sli' {ASIMD}.
+    kIdSm3partw1_v,                      //!< Instruction 'sm3partw1' {ASIMD}.
+    kIdSm3partw2_v,                      //!< Instruction 'sm3partw2' {ASIMD}.
+    kIdSm3ss1_v,                         //!< Instruction 'sm3ss1' {ASIMD}.
+    kIdSm3tt1a_v,                        //!< Instruction 'sm3tt1a' {ASIMD}.
+    kIdSm3tt1b_v,                        //!< Instruction 'sm3tt1b' {ASIMD}.
+    kIdSm3tt2a_v,                        //!< Instruction 'sm3tt2a' {ASIMD}.
+    kIdSm3tt2b_v,                        //!< Instruction 'sm3tt2b' {ASIMD}.
+    kIdSm4e_v,                           //!< Instruction 'sm4e' {ASIMD}.
+    kIdSm4ekey_v,                        //!< Instruction 'sm4ekey' {ASIMD}.
+    kIdSmax_v,                           //!< Instruction 'smax' {ASIMD}.
+    kIdSmaxp_v,                          //!< Instruction 'smaxp' {ASIMD}.
+    kIdSmaxv_v,                          //!< Instruction 'smaxv' {ASIMD}.
+    kIdSmin_v,                           //!< Instruction 'smin' {ASIMD}.
+    kIdSminp_v,                          //!< Instruction 'sminp' {ASIMD}.
+    kIdSminv_v,                          //!< Instruction 'sminv' {ASIMD}.
+    kIdSmlal_v,                          //!< Instruction 'smlal' {ASIMD}.
+    kIdSmlal2_v,                         //!< Instruction 'smlal2' {ASIMD}.
+    kIdSmlsl_v,                          //!< Instruction 'smlsl' {ASIMD}.
+    kIdSmlsl2_v,                         //!< Instruction 'smlsl2' {ASIMD}.
+    kIdSmmla_v,                          //!< Instruction 'smmla' {ASIMD}.
+    kIdSmov_v,                           //!< Instruction 'smov' {ASIMD}.
+    kIdSmull_v,                          //!< Instruction 'smull' {ASIMD}.
+    kIdSmull2_v,                         //!< Instruction 'smull2' {ASIMD}.
+    kIdSqabs_v,                          //!< Instruction 'sqabs' {ASIMD}.
+    kIdSqadd_v,                          //!< Instruction 'sqadd' {ASIMD}.
+    kIdSqdmlal_v,                        //!< Instruction 'sqdmlal' {ASIMD}.
+    kIdSqdmlal2_v,                       //!< Instruction 'sqdmlal2' {ASIMD}.
+    kIdSqdmlsl_v,                        //!< Instruction 'sqdmlsl' {ASIMD}.
+    kIdSqdmlsl2_v,                       //!< Instruction 'sqdmlsl2' {ASIMD}.
+    kIdSqdmulh_v,                        //!< Instruction 'sqdmulh' {ASIMD}.
+    kIdSqdmull_v,                        //!< Instruction 'sqdmull' {ASIMD}.
+    kIdSqdmull2_v,                       //!< Instruction 'sqdmull2' {ASIMD}.
+    kIdSqneg_v,                          //!< Instruction 'sqneg' {ASIMD}.
+    kIdSqrdmlah_v,                       //!< Instruction 'sqrdmlah' {ASIMD}.
+    kIdSqrdmlsh_v,                       //!< Instruction 'sqrdmlsh' {ASIMD}.
+    kIdSqrdmulh_v,                       //!< Instruction 'sqrdmulh' {ASIMD}.
+    kIdSqrshl_v,                         //!< Instruction 'sqrshl' {ASIMD}.
+    kIdSqrshrn_v,                        //!< Instruction 'sqrshrn' {ASIMD}.
+    kIdSqrshrn2_v,                       //!< Instruction 'sqrshrn2' {ASIMD}.
+    kIdSqrshrun_v,                       //!< Instruction 'sqrshrun' {ASIMD}.
+    kIdSqrshrun2_v,                      //!< Instruction 'sqrshrun2' {ASIMD}.
+    kIdSqshl_v,                          //!< Instruction 'sqshl' {ASIMD}.
+    kIdSqshlu_v,                         //!< Instruction 'sqshlu' {ASIMD}.
+    kIdSqshrn_v,                         //!< Instruction 'sqshrn' {ASIMD}.
+    kIdSqshrn2_v,                        //!< Instruction 'sqshrn2' {ASIMD}.
+    kIdSqshrun_v,                        //!< Instruction 'sqshrun' {ASIMD}.
+    kIdSqshrun2_v,                       //!< Instruction 'sqshrun2' {ASIMD}.
+    kIdSqsub_v,                          //!< Instruction 'sqsub' {ASIMD}.
+    kIdSqxtn_v,                          //!< Instruction 'sqxtn' {ASIMD}.
+    kIdSqxtn2_v,                         //!< Instruction 'sqxtn2' {ASIMD}.
+    kIdSqxtun_v,                         //!< Instruction 'sqxtun' {ASIMD}.
+    kIdSqxtun2_v,                        //!< Instruction 'sqxtun2' {ASIMD}.
+    kIdSrhadd_v,                         //!< Instruction 'srhadd' {ASIMD}.
+    kIdSri_v,                            //!< Instruction 'sri' {ASIMD}.
+    kIdSrshl_v,                          //!< Instruction 'srshl' {ASIMD}.
+    kIdSrshr_v,                          //!< Instruction 'srshr' {ASIMD}.
+    kIdSrsra_v,                          //!< Instruction 'srsra' {ASIMD}.
+    kIdSshl_v,                           //!< Instruction 'sshl' {ASIMD}.
+    kIdSshll_v,                          //!< Instruction 'sshll' {ASIMD}.
+    kIdSshll2_v,                         //!< Instruction 'sshll2' {ASIMD}.
+    kIdSshr_v,                           //!< Instruction 'sshr' {ASIMD}.
+    kIdSsra_v,                           //!< Instruction 'ssra' {ASIMD}.
+    kIdSsubl_v,                          //!< Instruction 'ssubl' {ASIMD}.
+    kIdSsubl2_v,                         //!< Instruction 'ssubl2' {ASIMD}.
+    kIdSsubw_v,                          //!< Instruction 'ssubw' {ASIMD}.
+    kIdSsubw2_v,                         //!< Instruction 'ssubw2' {ASIMD}.
+    kIdSt1_v,                            //!< Instruction 'st1' {ASIMD}.
+    kIdSt2_v,                            //!< Instruction 'st2' {ASIMD}.
+    kIdSt3_v,                            //!< Instruction 'st3' {ASIMD}.
+    kIdSt4_v,                            //!< Instruction 'st4' {ASIMD}.
+    kIdStnp_v,                           //!< Instruction 'stnp' {ASIMD}.
+    kIdStp_v,                            //!< Instruction 'stp' {ASIMD}.
+    kIdStr_v,                            //!< Instruction 'str' {ASIMD}.
+    kIdStur_v,                           //!< Instruction 'stur' {ASIMD}.
+    kIdSub_v,                            //!< Instruction 'sub' {ASIMD}.
+    kIdSubhn_v,                          //!< Instruction 'subhn' {ASIMD}.
+    kIdSubhn2_v,                         //!< Instruction 'subhn2' {ASIMD}.
+    kIdSudot_v,                          //!< Instruction 'sudot' {ASIMD}.
+    kIdSuqadd_v,                         //!< Instruction 'suqadd' {ASIMD}.
+    kIdSxtl_v,                           //!< Instruction 'sxtl' {ASIMD}.
+    kIdSxtl2_v,                          //!< Instruction 'sxtl2' {ASIMD}.
+    kIdTbl_v,                            //!< Instruction 'tbl' {ASIMD}.
+    kIdTbx_v,                            //!< Instruction 'tbx' {ASIMD}.
+    kIdTrn1_v,                           //!< Instruction 'trn1' {ASIMD}.
+    kIdTrn2_v,                           //!< Instruction 'trn2' {ASIMD}.
+    kIdUaba_v,                           //!< Instruction 'uaba' {ASIMD}.
+    kIdUabal_v,                          //!< Instruction 'uabal' {ASIMD}.
+    kIdUabal2_v,                         //!< Instruction 'uabal2' {ASIMD}.
+    kIdUabd_v,                           //!< Instruction 'uabd' {ASIMD}.
+    kIdUabdl_v,                          //!< Instruction 'uabdl' {ASIMD}.
+    kIdUabdl2_v,                         //!< Instruction 'uabdl2' {ASIMD}.
+    kIdUadalp_v,                         //!< Instruction 'uadalp' {ASIMD}.
+    kIdUaddl_v,                          //!< Instruction 'uaddl' {ASIMD}.
+    kIdUaddl2_v,                         //!< Instruction 'uaddl2' {ASIMD}.
+    kIdUaddlp_v,                         //!< Instruction 'uaddlp' {ASIMD}.
+    kIdUaddlv_v,                         //!< Instruction 'uaddlv' {ASIMD}.
+    kIdUaddw_v,                          //!< Instruction 'uaddw' {ASIMD}.
+    kIdUaddw2_v,                         //!< Instruction 'uaddw2' {ASIMD}.
+    kIdUcvtf_v,                          //!< Instruction 'ucvtf' {ASIMD}.
+    kIdUdot_v,                           //!< Instruction 'udot' {ASIMD}.
+    kIdUhadd_v,                          //!< Instruction 'uhadd' {ASIMD}.
+    kIdUhsub_v,                          //!< Instruction 'uhsub' {ASIMD}.
+    kIdUmax_v,                           //!< Instruction 'umax' {ASIMD}.
+    kIdUmaxp_v,                          //!< Instruction 'umaxp' {ASIMD}.
+    kIdUmaxv_v,                          //!< Instruction 'umaxv' {ASIMD}.
+    kIdUmin_v,                           //!< Instruction 'umin' {ASIMD}.
+    kIdUminp_v,                          //!< Instruction 'uminp' {ASIMD}.
+    kIdUminv_v,                          //!< Instruction 'uminv' {ASIMD}.
+    kIdUmlal_v,                          //!< Instruction 'umlal' {ASIMD}.
+    kIdUmlal2_v,                         //!< Instruction 'umlal2' {ASIMD}.
+    kIdUmlsl_v,                          //!< Instruction 'umlsl' {ASIMD}.
+    kIdUmlsl2_v,                         //!< Instruction 'umlsl2' {ASIMD}.
+    kIdUmmla_v,                          //!< Instruction 'ummla' {ASIMD}.
+    kIdUmov_v,                           //!< Instruction 'umov' {ASIMD}.
+    kIdUmull_v,                          //!< Instruction 'umull' {ASIMD}.
+    kIdUmull2_v,                         //!< Instruction 'umull2' {ASIMD}.
+    kIdUqadd_v,                          //!< Instruction 'uqadd' {ASIMD}.
+    kIdUqrshl_v,                         //!< Instruction 'uqrshl' {ASIMD}.
+    kIdUqrshrn_v,                        //!< Instruction 'uqrshrn' {ASIMD}.
+    kIdUqrshrn2_v,                       //!< Instruction 'uqrshrn2' {ASIMD}.
+    kIdUqshl_v,                          //!< Instruction 'uqshl' {ASIMD}.
+    kIdUqshrn_v,                         //!< Instruction 'uqshrn' {ASIMD}.
+    kIdUqshrn2_v,                        //!< Instruction 'uqshrn2' {ASIMD}.
+    kIdUqsub_v,                          //!< Instruction 'uqsub' {ASIMD}.
+    kIdUqxtn_v,                          //!< Instruction 'uqxtn' {ASIMD}.
+    kIdUqxtn2_v,                         //!< Instruction 'uqxtn2' {ASIMD}.
+    kIdUrecpe_v,                         //!< Instruction 'urecpe' {ASIMD}.
+    kIdUrhadd_v,                         //!< Instruction 'urhadd' {ASIMD}.
+    kIdUrshl_v,                          //!< Instruction 'urshl' {ASIMD}.
+    kIdUrshr_v,                          //!< Instruction 'urshr' {ASIMD}.
+    kIdUrsqrte_v,                        //!< Instruction 'ursqrte' {ASIMD}.
+    kIdUrsra_v,                          //!< Instruction 'ursra' {ASIMD}.
+    kIdUsdot_v,                          //!< Instruction 'usdot' {ASIMD}.
+    kIdUshl_v,                           //!< Instruction 'ushl' {ASIMD}.
+    kIdUshll_v,                          //!< Instruction 'ushll' {ASIMD}.
+    kIdUshll2_v,                         //!< Instruction 'ushll2' {ASIMD}.
+    kIdUshr_v,                           //!< Instruction 'ushr' {ASIMD}.
+    kIdUsmmla_v,                         //!< Instruction 'usmmla' {ASIMD}.
+    kIdUsqadd_v,                         //!< Instruction 'usqadd' {ASIMD}.
+    kIdUsra_v,                           //!< Instruction 'usra' {ASIMD}.
+    kIdUsubl_v,                          //!< Instruction 'usubl' {ASIMD}.
+    kIdUsubl2_v,                         //!< Instruction 'usubl2' {ASIMD}.
+    kIdUsubw_v,                          //!< Instruction 'usubw' {ASIMD}.
+    kIdUsubw2_v,                         //!< Instruction 'usubw2' {ASIMD}.
+    kIdUxtl_v,                           //!< Instruction 'uxtl' {ASIMD}.
+    kIdUxtl2_v,                          //!< Instruction 'uxtl2' {ASIMD}.
+    kIdUzp1_v,                           //!< Instruction 'uzp1' {ASIMD}.
+    kIdUzp2_v,                           //!< Instruction 'uzp2' {ASIMD}.
+    kIdXar_v,                            //!< Instruction 'xar' {ASIMD}.
+    kIdXtn_v,                            //!< Instruction 'xtn' {ASIMD}.
+    kIdXtn2_v,                           //!< Instruction 'xtn2' {ASIMD}.
+    kIdZip1_v,                           //!< Instruction 'zip1' {ASIMD}.
+    kIdZip2_v,                           //!< Instruction 'zip2' {ASIMD}.
     _kIdCount
     // ${InstId:End}
   };
 
   //! Tests whether the `instId` is defined (counts also Inst::kIdNone, which must be zero).
-  static inline bool isDefinedId(InstId instId) noexcept { return instId < _kIdCount; }
+  static inline bool isDefinedId(InstId instId) noexcept { return (instId & uint32_t(InstIdParts::kRealId)) < _kIdCount; }
 };
 
 namespace Predicate {

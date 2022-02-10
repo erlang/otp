@@ -327,17 +327,18 @@ public:
 
   //! \}
 
-  //! \name Finalize
-  //! \{
-
-  ASMJIT_API Error finalize() override;
-
-  //! \}
-
   //! \name Events
   //! \{
 
   ASMJIT_API Error onAttach(CodeHolder* code) noexcept override;
+  ASMJIT_API Error onDetach(CodeHolder* code) noexcept override;
+
+  //! \}
+
+  //! \name Finalize
+  //! \{
+
+  ASMJIT_API Error finalize() override;
 
   //! \}
 };

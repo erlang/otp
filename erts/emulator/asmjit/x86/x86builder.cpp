@@ -8,14 +8,36 @@
 
 #include "../x86/x86assembler.h"
 #include "../x86/x86builder.h"
+#include "../x86/x86emithelper_p.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
+// x86::Builder - Construction & Destruction
+// =========================================
+
 Builder::Builder(CodeHolder* code) noexcept : BaseBuilder() {
+  _archMask = (uint64_t(1) << uint32_t(Arch::kX86)) |
+              (uint64_t(1) << uint32_t(Arch::kX64)) ;
+  assignEmitterFuncs(this);
+
   if (code)
     code->attach(this);
 }
 Builder::~Builder() noexcept {}
+
+// x86::Builder - Events
+// =====================
+
+Error Builder::onAttach(CodeHolder* code) noexcept {
+  return Base::onAttach(code);
+}
+
+Error Builder::onDetach(CodeHolder* code) noexcept {
+  return Base::onDetach(code);
+}
+
+// x86::Builder - Finalize
+// =======================
 
 Error Builder::finalize() {
   ASMJIT_PROPAGATE(runPasses());
@@ -23,14 +45,6 @@ Error Builder::finalize() {
   a.addEncodingOptions(encodingOptions());
   a.addDiagnosticOptions(diagnosticOptions());
   return serializeTo(&a);
-}
-
-Error Builder::onAttach(CodeHolder* code) noexcept {
-  Arch arch = code->arch();
-  if (!Environment::isFamilyX86(arch))
-    return DebugUtils::errored(kErrorInvalidArch);
-
-  return Base::onAttach(code);
 }
 
 ASMJIT_END_SUB_NAMESPACE

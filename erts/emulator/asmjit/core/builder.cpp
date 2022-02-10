@@ -590,7 +590,9 @@ Error BaseBuilder::_emit(InstId instId, const Operand_& o0, const Operand_& o1, 
       Operand_ opArray[Globals::kMaxOpCount];
       EmitterUtils::opArrayFromEmitArgs(opArray, o0, o1, o2, opExt);
 
-      Error err = InstAPI::validate(arch(), BaseInst(instId, options, _extraReg), opArray, opCount);
+      ValidationFlags validationFlags = isCompiler() ? ValidationFlags::kEnableVirtRegs : ValidationFlags::kNone;
+      Error err = _funcs.validate(arch(), BaseInst(instId, options, _extraReg), opArray, opCount, validationFlags);
+
       if (ASMJIT_UNLIKELY(err)) {
         resetInstOptions();
         resetExtraReg();

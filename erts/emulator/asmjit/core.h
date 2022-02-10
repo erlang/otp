@@ -26,9 +26,9 @@ namespace asmjit {
 //!
 //! \note It's important to understand that in order to learn AsmJit all groups are important. Some groups can be
 //! omitted if a particular tool is out of interest - for example \ref asmjit_assembler users don't need to know
-//! about \ref asmjit_builder, but it's not the opposite. \ref asmjit_builder users must know about \ref
+//! about \ref asmjit_builder, but it's not the opposite. \ref asmjit_builder users should know about \ref
 //! asmjit_assembler as it also uses operands, labels, and other concepts. Similarly \ref asmjit_compiler users
-//! must know how both \ref asmjit_assembler and \ref asmjit_builder tools work.
+//! should know how both \ref asmjit_assembler and \ref asmjit_builder tools work.
 //!
 //! \section where_to_start Where To Start
 //!
@@ -70,13 +70,13 @@ namespace asmjit {
 //!
 //!   - Make sure you put a breakpoint into \ref DebugUtils::errored() function if you have a problem with AsmJit
 //!     returning errors during instruction encoding or register allocation. Having an active breakpoint there can
-//!     help to reveal the origin of the error, to inspect variables and other conditions that caused to it.
+//!     help to reveal the origin of the error, to inspect variables and other conditions that caused it.
 //!
 //! The reason for using \ref Logger and \ref ErrorHandler is that they provide a very useful information about what's
-//! happening inside emitters. In many cases the information provided by these two is crucial to quickly fix issues
-//! that happen during development (for example wrong instruction, address, or register used). In addition, output from
-//! \ref Logger is always necessary when filling bug reports. In other words, using logging and proper error handling
-//! can save a lot of time during the development.
+//! happening inside emitters. In many cases the information provided by these two is crucial to quickly identify and
+//! fix issues that happen during development (for example wrong instruction, address, or register used). In addition,
+//! output from \ref Logger is always necessary when filling bug reports. In other words, using logging and proper error
+//! handling can save a lot of time during the development and can also save users from submitting issues.
 //!
 //! \section main_other Other Pages
 //!
@@ -147,7 +147,9 @@ namespace asmjit {
 //!
 //! ### Supported Backends / Architectures
 //!
-//!   - **X86** - Both 32-bit and 64-bit backends tested on our CI.
+//!   - **X86** and **X86_64** - Both 32-bit and 64-bit backends tested on CI.
+//!   - **AArch64** - AArch64 backend is currently only partially tested (there is no native AArch64 runner to test
+//!     AsmJit Builder/Compiler)
 //!
 //! ### Static Builds and Embedding
 //!
@@ -1807,8 +1809,8 @@ namespace asmjit {
 //! \brief X86/X64 backend.
 
 
-//! \defgroup asmjit_arm ARM Backend
-//! \brief ARM backend.
+//! \defgroup asmjit_arm ARM Commons
+//! \brief ARM commons shared between AArch32 and AArch64.
 
 
 //! \defgroup asmjit_a64 AArch64 Backend

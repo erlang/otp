@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
 
 #include "../core/codewriter_p.h"
 #include "../core/cpuinfo.h"
@@ -15,16 +15,24 @@
 #include "../core/support.h"
 #include "../arm/armformatter_p.h"
 #include "../arm/a64assembler.h"
+#include "../arm/a64emithelper_p.h"
 #include "../arm/a64instdb_p.h"
 #include "../arm/a64utils.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
+// a64::Assembler - Cond
+// =====================
+
+static inline uint32_t condCodeToOpcodeCond(uint32_t cond) noexcept {
+  return (uint32_t(cond) - 2u) & 0xFu;
+}
+
 // a64::Assembler - Bits
 // =====================
 
 template<typename T>
-static constexpr inline uint32_t B(const T& index) noexcept { return uint32_t(1u) << uint32_t(index); }
+static inline constexpr uint32_t B(const T& index) noexcept { return uint32_t(1u) << uint32_t(index); }
 
 static constexpr uint32_t kSP = Gp::kIdSp;
 static constexpr uint32_t kZR = Gp::kIdZr;
@@ -715,6 +723,9 @@ static inline bool checkValidRegs(const Operand_& o0, const Operand_& o1, const 
 // ===========================================
 
 Assembler::Assembler(CodeHolder* code) noexcept : BaseAssembler() {
+  _archMask = uint64_t(1) << uint32_t(Arch::kAArch64);
+  assignEmitterFuncs(this);
+
   if (code)
     code->attach(this);
 }
@@ -749,6 +760,14 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
   Error err;
   CodeWriter writer(this);
 
+  // Combine all instruction options and also check whether the instruction
+  // is valid. All options that require special handling (including invalid
+  // instruction) are handled by the next branch.
+  InstOptions options = InstOptions(instId - 1 >= Inst::_kIdCount - 1) | InstOptions((size_t)(_bufferEnd - writer.cursor()) < 4) | instOptions() | forcedInstOptions();
+
+  CondCode instCC = BaseInst::extractARMCondCode(instId);
+  instId = instId & uint32_t(InstIdParts::kRealId);
+
   if (instId >= Inst::_kIdCount)
     instId = 0;
 
@@ -769,17 +788,16 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
   OffsetFormat offsetFormat;     // Offset format.
   uint64_t offsetValue;          // Offset value (if known).
 
-  // Combine all instruction options and also check whether the instruction
-  // is valid. All options that require special handling (including invalid
-  // instruction) are handled by the next branch.
-  InstOptions options = InstOptions(instId == 0) | InstOptions((size_t)(_bufferEnd - writer.cursor()) < 4) | instOptions() | forcedInstOptions();
-
   if (ASMJIT_UNLIKELY(Support::test(options, kRequiresSpecialHandling))) {
     if (ASMJIT_UNLIKELY(!_code))
       return reportError(DebugUtils::errored(kErrorNotInitialized));
 
     // Unknown instruction.
     if (ASMJIT_UNLIKELY(instId == 0))
+      goto InvalidInstruction;
+
+    // Condition code can only be used with 'B' instruction.
+    if (ASMJIT_UNLIKELY(instCC != CondCode::kAL && instId != Inst::kIdB))
       goto InvalidInstruction;
 
     // Grow request, happens rarely.
@@ -793,7 +811,7 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
       Operand_ opArray[Globals::kMaxOpCount];
       EmitterUtils::opArrayFromEmitArgs(opArray, o0, o1, o2, opExt);
 
-      err = InstAPI::validate(arch(), BaseInst(instId, options, _extraReg), opArray, Globals::kMaxOpCount);
+      err = _funcs.validate(arch(), BaseInst(instId, options, _extraReg), opArray, Globals::kMaxOpCount, ValidationFlags::kNone);
       if (ASMJIT_UNLIKELY(err))
         goto Failed;
     }
@@ -1878,7 +1896,7 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
 
         opcode.reset(opData.opcode);
         opcode.addImm(x, 31);
-        opcode.addImm(cond, 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)), 12);
         opcode.addImm(nzcv, 0);
 
         if (isign4 == ENC_OPS4(Reg, Reg, Imm, Imm)) {
@@ -1921,13 +1939,13 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
           goto InvalidPhysId;
 
         uint64_t cond = o2.as<Imm>().valueAs<uint64_t>();
-        if (cond >= 0xEu)
+        if (cond - 2u > 0xEu)
           goto InvalidImmediate;
 
         opcode.reset(opData.opcode);
         opcode.addImm(x, 31);
         opcode.addReg(o1, 16);
-        opcode.addImm(negateCond(CondCode(cond)), 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)) ^ 1u, 12);
         opcode.addReg(o1, 5);
         opcode.addReg(o0, 0);
         goto EmitOp;
@@ -1954,7 +1972,7 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
         opcode.reset(opData.opcode);
         opcode.addImm(x, 31);
         opcode.addReg(o2, 16);
-        opcode.addImm(cond, 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)), 12);
         opcode.addReg(o1, 5);
         opcode.addReg(o0, 0);
         goto EmitOp;
@@ -1975,12 +1993,12 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
           goto InvalidPhysId;
 
         uint64_t cond = o1.as<Imm>().valueAs<uint64_t>();
-        if (cond >= 0xEu)
+        if (cond - 2u >= 0xEu)
           goto InvalidImmediate;
 
         opcode.reset(opData.opcode);
         opcode.addImm(x, 31);
-        opcode.addImm(negateCond(CondCode(cond)), 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)) ^ 1u, 12);
         opcode.addReg(o0, 0);
         goto EmitOp;
       }
@@ -2162,14 +2180,11 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
         opcode.reset(opData.opcode);
         rmRel = &o0;
 
-        if (Support::test(options, InstOptions::kARM_CondFlagMask)) {
-          CondCode cond = CondCode((uint32_t(options) >> Support::ConstCTZ<uint32_t(InstOptions::kARM_CondCodeMask)>::value) & 0xFu);
-          if (cond != CondCode::kAL) {
-            opcode |= B(30);
-            opcode.addImm(cond, 0);
-            offsetFormat.resetToImmValue(OffsetType::kSignedOffset, 4, 5, 19, 2);
-            goto EmitOp_Rel;
-          }
+        if (instCC != CondCode::kAL) {
+          opcode |= B(30);
+          opcode.addImm(condCodeToOpcodeCond(uint32_t(instCC)), 0);
+          offsetFormat.resetToImmValue(OffsetType::kSignedOffset, 4, 5, 19, 2);
+          goto EmitOp_Rel;
         }
 
         offsetFormat.resetToImmValue(OffsetType::kSignedOffset, 4, 0, 26, 2);
@@ -2838,19 +2853,17 @@ Case_BaseLdurStur:
         if (!checkSignature(o0, o1) || o0.as<Vec>().hasElementType())
           goto InvalidInstruction;
 
-        if (o2.as<Imm>().valueAs<uint64_t>() > 0xFu)
-          goto InvalidImmediate;
+        uint64_t nzcv = o2.as<Imm>().valueAs<uint64_t>();
+        uint64_t cond = o3.as<Imm>().valueAs<uint64_t>();
 
-        if (o3.as<Imm>().valueAs<uint64_t>() > 0xFu)
+        if ((nzcv | cond) > 0xFu)
           goto InvalidImmediate;
 
         uint32_t type = (sz - 1) & 0x3u;
-        uint32_t nzcv = o2.as<Imm>().valueAs<uint32_t>();
-        uint32_t cond = o3.as<Imm>().valueAs<uint32_t>();
 
         opcode.reset(opData.opcode());
         opcode.addImm(type, 22);
-        opcode.addImm(cond, 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)), 12);
         opcode.addImm(nzcv, 0);
 
         goto EmitOp_Rn5_Rm16;
@@ -3001,14 +3014,13 @@ Case_BaseLdurStur:
         if (sz > 2 || o0.as<Vec>().hasElementType())
           goto InvalidInstruction;
 
-        if (o3.as<Imm>().valueAs<uint64_t>() > 0xFu)
+        uint64_t cond = o3.as<Imm>().valueAs<uint64_t>();
+        if (cond > 0xFu)
           goto InvalidImmediate;
-
-        uint32_t cond = o3.as<Imm>().valueAs<uint32_t>();
 
         opcode.reset(0b00011110001000000000110000000000);
         opcode.addImm(type, 22);
-        opcode.addImm(cond, 12);
+        opcode.addImm(condCodeToOpcodeCond(uint32_t(cond)), 12);
         goto EmitOp_Rd0_Rn5_Rm16;
       }
 
@@ -5029,6 +5041,8 @@ Failed:
 // ======================
 
 Error Assembler::align(AlignMode alignMode, uint32_t alignment) {
+  constexpr uint32_t kNopA64 = 0xD503201Fu; // [11010101|00000011|00100000|00011111].
+
   if (ASMJIT_UNLIKELY(!_code))
     return reportError(DebugUtils::errored(kErrorNotInitialized));
 
@@ -5042,37 +5056,15 @@ Error Assembler::align(AlignMode alignMode, uint32_t alignment) {
     return reportError(DebugUtils::errored(kErrorInvalidArgument));
 
   uint32_t i = uint32_t(Support::alignUpDiff<size_t>(offset(), alignment));
-
   if (i == 0)
     return kErrorOk;
 
   CodeWriter writer(this);
   ASMJIT_PROPAGATE(writer.ensureSpace(this, i));
 
-  constexpr uint32_t kNopT16 = 0x0000BF00u; // [10111111|00000000].
-  constexpr uint32_t kNopT32 = 0xF3AF8000u; // [11110011|10101111|10000000|00000000].
-  constexpr uint32_t kNopA32 = 0xE3AF8000u; // [Cond0011|00100000|11110000|00000000].
-  constexpr uint32_t kNopA64 = 0xD503201Fu; // [11010101|00000011|00100000|00011111].
-
   switch (alignMode) {
     case AlignMode::kCode: {
-      uint32_t pattern = 0;
-      if (is64Bit()) {
-        pattern = kNopA64;
-      }
-      else if (isInThumbMode()) {
-        if (ASMJIT_UNLIKELY(offset() & 0x1u))
-          return DebugUtils::errored(kErrorInvalidState);
-
-        if (i & 0x2) {
-          writer.emit16uLE(kNopT16);
-          i -= 2;
-        }
-        pattern = kNopT32;
-      }
-      else {
-        pattern = kNopA32;
-      }
+      uint32_t pattern = kNopA64;
 
       if (ASMJIT_UNLIKELY(offset() & 0x3u))
         return DebugUtils::errored(kErrorInvalidState);
@@ -5110,11 +5102,8 @@ Error Assembler::align(AlignMode alignMode, uint32_t alignment) {
 // =======================
 
 Error Assembler::onAttach(CodeHolder* code) noexcept {
-  Arch arch = code->arch();
-  if (!Environment::isFamilyARM(arch))
-    return DebugUtils::errored(kErrorInvalidArch);
-
-  return Base::onAttach(code);
+  ASMJIT_PROPAGATE(Base::onAttach(code));
+  return kErrorOk;
 }
 
 Error Assembler::onDetach(CodeHolder* code) noexcept {
@@ -5123,4 +5112,4 @@ Error Assembler::onDetach(CodeHolder* code) noexcept {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM
+#endif // !ASMJIT_NO_AARCH64

@@ -94,9 +94,16 @@ static void BaseRAPass_reset(BaseRAPass* self, FuncDetail* funcDetail) noexcept 
 }
 
 static void BaseRAPass_resetVirtRegData(BaseRAPass* self) noexcept {
-  // Zero everything so it cannot be used by accident.
   for (RAWorkReg* wReg : self->_workRegs) {
     VirtReg* vReg = wReg->virtReg();
+
+    // Update the information regarding the stack of the virtual register.
+    if (wReg->hasStackSlot()) {
+      RAStackSlot* slot = wReg->stackSlot();
+      vReg->assignStackSlot(slot->offset());
+    }
+
+    // Reset work reg association so it cannot be used by accident (RAWorkReg data will be destroyed).
     vReg->_workReg = nullptr;
   }
 }

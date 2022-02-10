@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM) && !defined(ASMJIT_NO_COMPILER)
+#if !defined(ASMJIT_NO_AARCH64) && !defined(ASMJIT_NO_COMPILER)
 
 #include "../core/cpuinfo.h"
 #include "../core/support.h"
@@ -101,14 +101,14 @@ public:
 // ==========================
 
 // TODO: [ARM] This is just a workaround...
-static InstControlFlow getControlFlowType(InstId instId, InstOptions options) noexcept {
+static InstControlFlow getControlFlowType(InstId instId) noexcept {
   switch (instId) {
     case Inst::kIdB:
     case Inst::kIdBr:
-      if (Support::test(options, InstOptions::kARM_CondFlagMask))
-        return InstControlFlow::kBranch;
-      else
+      if (BaseInst::extractARMCondCode(instId) == CondCode::kAL)
         return InstControlFlow::kJump;
+      else
+        return InstControlFlow::kBranch;
     case Inst::kIdBl:
     case Inst::kIdBlr:
       return InstControlFlow::kCall;
@@ -309,7 +309,7 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstB
       }
     }
 
-    controlType = getControlFlowType(instId, inst->options());
+    controlType = getControlFlowType(instId);
   }
 
   return kErrorOk;
@@ -803,4 +803,4 @@ Error ARMRAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM && !ASMJIT_NO_COMPILER
+#endif // !ASMJIT_NO_AARCH64 && !ASMJIT_NO_COMPILER

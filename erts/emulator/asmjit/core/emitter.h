@@ -8,6 +8,7 @@
 
 #include "../core/archtraits.h"
 #include "../core/codeholder.h"
+#include "../core/formatter.h"
 #include "../core/inst.h"
 #include "../core/operand.h"
 #include "../core/type.h"
@@ -209,6 +210,9 @@ public:
   //! Validation options.
   DiagnosticOptions _diagnosticOptions = DiagnosticOptions::kNone;
 
+  //! All supported architectures in a bit-mask, where LSB is the bit with a zero index.
+  uint64_t _archMask = 0;
+
   //! Encoding options.
   EncodingOptions _encodingOptions = EncodingOptions::kNone;
 
@@ -235,6 +239,45 @@ public:
   RegOnly _extraReg {};
   //! Inline comment of the next instruction (affects the next instruction).
   const char* _inlineComment = nullptr;
+
+  //! Function callbacks used by emitter implementation.
+  //!
+  //! These are typically shared between Assembler/Builder/Compiler of a single backend.
+  struct Funcs {
+    typedef Error (ASMJIT_CDECL* EmitProlog)(BaseEmitter* emitter, const FuncFrame& frame);
+    typedef Error (ASMJIT_CDECL* EmitEpilog)(BaseEmitter* emitter, const FuncFrame& frame);
+    typedef Error (ASMJIT_CDECL* EmitArgsAssignment)(BaseEmitter* emitter, const FuncFrame& frame, const FuncArgsAssignment& args);
+
+    typedef Error (ASMJIT_CDECL* FormatInstruction)(
+      String& sb,
+      FormatFlags formatFlags,
+      const BaseEmitter* emitter,
+      Arch arch,
+      const BaseInst& inst, const Operand_* operands, size_t opCount) ASMJIT_NOEXCEPT_TYPE;
+
+    typedef Error (ASMJIT_CDECL* ValidateFunc)(Arch arch, const BaseInst& inst, const Operand_* operands, size_t opCount, ValidationFlags validationFlags) ASMJIT_NOEXCEPT_TYPE;
+
+    //! Emit prolog implementation.
+    EmitProlog emitProlog;
+    //! Emit epilog implementation.
+    EmitEpilog emitEpilog;
+    //! Emit arguments assignment implementation.
+    EmitArgsAssignment emitArgsAssignment;
+    //! Instruction formatter implementation.
+    FormatInstruction formatInstruction;
+    //! Instruction validation implementation.
+    ValidateFunc validate;
+
+    //! Resets all functions to nullptr.
+    inline void reset() noexcept {
+      emitProlog = nullptr;
+      emitEpilog = nullptr;
+      emitArgsAssignment = nullptr;
+      validate = nullptr;
+    }
+  };
+
+  Funcs _funcs {};
 
   //! \}
 

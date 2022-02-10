@@ -203,7 +203,7 @@ static constexpr bool bitTest(T x, IndexT n) noexcept {
 // Tests whether the given `value` is a consecutive mask of bits that starts at
 // the least significant bit.
 template<typename T>
-static constexpr inline bool isLsbMask(const T& value) {
+static inline constexpr bool isLsbMask(const T& value) {
   typedef typename std::make_unsigned<T>::type U;
   return value && ((U(value) + 1u) & U(value)) == 0;
 }
@@ -214,7 +214,7 @@ static constexpr inline bool isLsbMask(const T& value) {
 // This function is similar to \ref isLsbMask(), but the mask doesn't have to
 // start at a least significant bit.
 template<typename T>
-static constexpr inline bool isConsecutiveMask(const T& value) {
+static inline constexpr bool isConsecutiveMask(const T& value) {
   typedef typename std::make_unsigned<T>::type U;
   return value && isLsbMask((U(value) - 1u) | U(value));
 }

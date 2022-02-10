@@ -4,10 +4,11 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM) && !defined(ASMJIT_NO_BUILDER)
+#if !defined(ASMJIT_NO_AARCH64) && !defined(ASMJIT_NO_BUILDER)
 
 #include "../arm/a64assembler.h"
 #include "../arm/a64builder.h"
+#include "../arm/a64emithelper_p.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
@@ -15,10 +16,24 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 // =========================================
 
 Builder::Builder(CodeHolder* code) noexcept : BaseBuilder() {
+  _archMask = uint64_t(1) << uint32_t(Arch::kAArch64);
+  assignEmitterFuncs(this);
+
   if (code)
     code->attach(this);
 }
 Builder::~Builder() noexcept {}
+
+// a64::Builder - Events
+// =====================
+
+Error Builder::onAttach(CodeHolder* code) noexcept {
+  return Base::onAttach(code);
+}
+
+Error Builder::onDetach(CodeHolder* code) noexcept {
+  return Base::onDetach(code);
+}
 
 // a64::Builder - Finalize
 // =======================
@@ -31,17 +46,6 @@ Error Builder::finalize() {
   return serializeTo(&a);
 }
 
-// a64::Builder - Events
-// =====================
-
-Error Builder::onAttach(CodeHolder* code) noexcept {
-  Arch arch = code->arch();
-  if (!Environment::isFamilyARM(arch))
-    return DebugUtils::errored(kErrorInvalidArch);
-
-  return Base::onAttach(code);
-}
-
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM && !ASMJIT_NO_BUILDER
+#endif // !ASMJIT_NO_AARCH64 && !ASMJIT_NO_BUILDER

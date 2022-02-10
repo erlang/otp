@@ -339,8 +339,12 @@ public:
 
   //! Tests whether this architecture is of X86 family.
   inline bool isFamilyX86() const noexcept { return isFamilyX86(_arch); }
-  //! Tests whether this architecture family is ARM, Thumb, or AArch64.
+  //! Tests whether this architecture family is ARM, THUMB, or AArch64.
   inline bool isFamilyARM() const noexcept { return isFamilyARM(_arch); }
+  //! Tests whether this architecture family is AArch32 (ARM or THUMB).
+  inline bool isFamilyAArch32() const noexcept { return isFamilyAArch32(_arch); }
+  //! Tests whether this architecture family is AArch64.
+  inline bool isFamilyAArch64() const noexcept { return isFamilyAArch64(_arch); }
   //! Tests whether this architecture family is MISP or MIPS64.
   inline bool isFamilyMIPS() const noexcept { return isFamilyMIPS(_arch); }
   //! Tests whether this architecture family is RISC-V (both 32-bit and 64-bit).
@@ -431,14 +435,14 @@ public:
     return uint32_t(arch) >= uint32_t(Arch::kBigEndian);
   }
 
-  //! Tests whether the given architecture is ARM or ARM_BE.
-  static inline bool isArchARM(Arch arch) noexcept {
-    return arch == Arch::kARM || arch == Arch::kARM_BE;
-  }
-
   //! Tests whether the given architecture is Thumb or Thumb_BE.
   static inline bool isArchThumb(Arch arch) noexcept {
     return arch == Arch::kThumb || arch == Arch::kThumb_BE;
+  }
+
+  //! Tests whether the given architecture is ARM or ARM_BE.
+  static inline bool isArchARM(Arch arch) noexcept {
+    return arch == Arch::kARM || arch == Arch::kARM_BE;
   }
 
   //! Tests whether the given architecture is AArch64 or AArch64_BE.
@@ -461,9 +465,19 @@ public:
     return arch == Arch::kX86 || arch == Arch::kX64;
   }
 
-  //! Tests whether the given architecture family is ARM, Thumb, or AArch64.
+  //! Tests whether the given architecture family is ARM, THUMB, or AArch64.
   static inline bool isFamilyARM(Arch arch) noexcept {
     return isArchARM(arch) || isArchAArch64(arch) || isArchThumb(arch);
+  }
+
+  //! Tests whether the given architecture family is AArch32 (ARM or THUMB).
+  static inline bool isFamilyAArch32(Arch arch) noexcept {
+    return isArchARM(arch) || isArchThumb(arch);
+  }
+
+  //! Tests whether the given architecture family is AArch64.
+  static inline bool isFamilyAArch64(Arch arch) noexcept {
+    return isArchAArch64(arch);
   }
 
   //! Tests whether the given architecture family is MISP or MIPS64.

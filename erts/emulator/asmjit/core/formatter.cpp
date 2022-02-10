@@ -20,8 +20,8 @@
   #include "../x86/x86formatter_p.h"
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  #include "../arm/armformatter_p.h"
+#if !defined(ASMJIT_NO_AARCH64)
+  #include "../arm/a64formatter_p.h"
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -107,7 +107,7 @@ Error formatFeature(
     return x86::FormatterInternal::formatFeature(sb, featureId);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH32) && !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatFeature(sb, featureId);
 #endif
@@ -164,9 +164,9 @@ Error formatRegister(
     return x86::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isFamilyARM(arch))
-    return arm::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
+    return a64::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
 
   return kErrorInvalidArch;
@@ -184,9 +184,9 @@ Error formatOperand(
     return x86::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isFamilyARM(arch))
-    return arm::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
+    return a64::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
 
   return kErrorInvalidArch;
@@ -282,9 +282,9 @@ Error formatInstruction(
     return x86::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyARM(arch))
-    return arm::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
+    return a64::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
 #endif
 
   return kErrorInvalidArch;
@@ -408,7 +408,7 @@ Error formatNode(
     case NodeType::kInst:
     case NodeType::kJump: {
       const InstNode* instNode = node->as<InstNode>();
-      ASMJIT_PROPAGATE(formatInstruction(sb, formatOptions.flags(), builder,
+      ASMJIT_PROPAGATE(builder->_funcs.formatInstruction(sb, formatOptions.flags(), builder,
         builder->arch(),
         instNode->baseInst(), instNode->operands(), instNode->opCount()));
       break;
@@ -525,7 +525,7 @@ Error formatNode(
 
     case NodeType::kInvoke: {
       const InvokeNode* invokeNode = node->as<InvokeNode>();
-      ASMJIT_PROPAGATE(formatInstruction(sb, formatOptions.flags(), builder,
+      ASMJIT_PROPAGATE(builder->_funcs.formatInstruction(sb, formatOptions.flags(), builder,
         builder->arch(),
         invokeNode->baseInst(), invokeNode->operands(), invokeNode->opCount()));
       break;
