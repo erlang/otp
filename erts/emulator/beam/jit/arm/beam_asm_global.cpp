@@ -18,7 +18,9 @@
  * %CopyrightEnd%
  */
 
+#define ERTS_BEAM_ASM_GLOBAL_WANT_STATIC_DEFS
 #include "beam_asm.hpp"
+#undef ERTS_BEAM_ASM_GLOBAL_WANT_STATIC_DEFS
 
 using namespace asmjit;
 
@@ -27,21 +29,6 @@ extern "C"
 #include "bif.h"
 #include "beam_common.h"
 }
-
-#define STRINGIFY_(X) #X
-#define STRINGIFY(X) STRINGIFY_(X)
-
-#define DECL_EMIT(NAME) {NAME, &BeamGlobalAssembler::emit_##NAME},
-const std::map<BeamGlobalAssembler::GlobalLabels, BeamGlobalAssembler::emitFptr>
-        BeamGlobalAssembler::emitPtrs = {BEAM_GLOBAL_FUNCS(DECL_EMIT)};
-#undef DECL_EMIT
-
-#define DECL_LABEL_NAME(NAME) {NAME, STRINGIFY(NAME)},
-
-const std::map<BeamGlobalAssembler::GlobalLabels, const std::string>
-        BeamGlobalAssembler::labelNames = {BEAM_GLOBAL_FUNCS(
-                DECL_LABEL_NAME) PROCESS_MAIN_LABELS(DECL_LABEL_NAME)};
-#undef DECL_LABEL_NAME
 
 BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         : BeamAssembler("beam_asm_global") {

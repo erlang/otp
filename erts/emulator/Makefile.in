@@ -595,6 +595,11 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
+ifeq ($(FLAVOR),jit)
+$(TTF_DIR)/beam_asm_global.hpp: beam/jit/$(JIT_ARCH)/beam_asm_global.hpp.pl
+	$(gen_verbose)LANG=C $(PERL) $<  > $@
+GENERATE += $(TTF_DIR)/beam_asm_global.hpp
+endif
 
 # bif and atom table
 ATOMS=	beam/atom.names
