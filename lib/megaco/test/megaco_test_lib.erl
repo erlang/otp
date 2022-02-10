@@ -2363,10 +2363,18 @@ stop_node(Node) ->
     rpc:call(Node, erlang, halt, []),
     receive
         {nodedown, Node} ->
+            p("node ~p stopped", [Node]),
             ok
     after 10000 ->
             e("failed stop node ~p", [Node]),
-            error
+            erlang:monitor_node(Node, false),
+            receive
+                {nodedown, Node} ->
+                    p("node ~p stopped after timeout (race)", [Node]),
+                    ok
+            after 0 ->
+                    error
+            end
     end.
 
 
