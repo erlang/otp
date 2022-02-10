@@ -1074,6 +1074,13 @@ if_end() {
     //| -no_next;
 }
 
+badrecord(Src) {
+    c_p->fvalue = $Src;
+    c_p->freason = EXC_BADRECORD;
+    goto find_func_info;
+    //| -no_next;
+}
+
 system_limit_body() {
     c_p->freason = SYSTEM_LIMIT;
     $FAIL_BODY();

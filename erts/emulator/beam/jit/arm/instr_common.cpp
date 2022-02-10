@@ -1473,6 +1473,11 @@ void BeamModuleAssembler::emit_if_end() {
     emit_error(EXC_IF_CLAUSE);
 }
 
+void BeamModuleAssembler::emit_badrecord(const ArgVal &Src) {
+    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
+    emit_error(EXC_BADRECORD);
+}
+
 void BeamModuleAssembler::emit_catch(const ArgVal &Y, const ArgVal &Handler) {
     a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, catches)));
     a.add(TMP1, TMP1, imm(1));

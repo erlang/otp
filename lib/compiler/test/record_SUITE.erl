@@ -73,17 +73,17 @@ errors(Config) when is_list(Config) ->
     Foo = #foo{a=1,b=2,c=3,d=4},
     #foo{a=19,b=42,c=3,d=4} = update_foo(Foo, 19, 42),
 
-    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19)),
-    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35)),
-    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17)),
-    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17, 42)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35, 17)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_bar(Foo, 19, 35, 17, 42)),
 
-    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19)),
-    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35)),
-    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17)),
-    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17, 42)),
-    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19,
-								 35, 17, 42, -2)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35, 17)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19, 35, 17, 42)),
+    {'EXIT',{{badrecord,Foo},_}} = (catch update_foo_barf(Foo, 19,
+                                                          35, 17, 42, -2)),
 
     ok.
 

@@ -362,6 +362,8 @@ is_safe_label([{try_case_end,{Tag,_}}|_]) ->
     Tag =/= y;
 is_safe_label([if_end|_]) ->
     true;
+is_safe_label([{badrecord,{Tag,_}}|_]) ->
+    Tag =/= y;
 is_safe_label([{block,Bl}|Is]) ->
     is_safe_label_block(Bl) andalso is_safe_label(Is);
 is_safe_label([{call_ext,_,{extfunc,M,F,A}}|_]) ->

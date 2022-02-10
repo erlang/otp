@@ -777,6 +777,7 @@ is_exit_instruction(if_end) -> true;
 is_exit_instruction({case_end,_}) -> true;
 is_exit_instruction({try_case_end,_}) -> true;
 is_exit_instruction({badmatch,_}) -> true;
+is_exit_instruction({badrecord,_}) -> true;
 is_exit_instruction(_) -> false.
 
 %% remove_unused_labels(Instructions0) -> Instructions

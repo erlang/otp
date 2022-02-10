@@ -321,6 +321,8 @@ badmatch s
 
 if_end
 
+badrecord s
+
 raise s s
 
 # Workaround the limitation that generators must always return at least one instruction.

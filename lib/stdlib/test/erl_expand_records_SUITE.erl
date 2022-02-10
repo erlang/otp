@@ -39,7 +39,8 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1, maps/1]).
+	 otp_7078/1, otp_7101/1, maps/1,
+         side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -53,7 +54,8 @@ suite() ->
 
 all() -> 
     [attributes, expr, guard, init,
-     pattern, strict, update, maps, {group, tickets}].
+     pattern, strict, update, maps,
+     side_effects, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
@@ -317,7 +319,7 @@ strict(Config) when is_list(Config) ->
              ok = try 
                       {1, 2} = {A#r2.a, A#r2.b},
                       not_ok
-                  catch error:{badrecord,r2} -> ok
+                  catch error:{badrecord,{r1,1,2}} -> ok
                   end,
              try
                  case foo of
@@ -760,6 +762,30 @@ otp_7101_update3(R) ->
 
 otp_7101_update4(R) ->
     R#otp_7101{a=1,b=2}.
+
+
+-record(side_effects, {a,b,c}).
+
+%% Make sure that the record expression is only evaluated once.
+side_effects(_Config) ->
+    init_counter(),
+
+    {'EXIT',{{badrecord,0},_}} = catch (id(bump_counter()))#side_effects{a=1},
+    1 = read_counter(),
+
+    {'EXIT',{{badrecord,1},_}} = catch (id(bump_counter()))#side_effects.b,
+    2 = read_counter(),
+
+    ok.
+
+init_counter() ->
+    put(counter, 0).
+
+bump_counter() ->
+    put(counter, get(counter) + 1).
+
+read_counter() ->
+    get(counter).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

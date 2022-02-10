@@ -666,3 +666,7 @@ BEAM_FORMAT_NUMBER=0
 ## @spec nif_start
 ## @doc  No-op at start of each function declared in -nifs().
 179: nif_start/0
+
+## @spec badrecord Value
+## @doc Raises a {badrecord,Value} error exception.
+180: badrecord/1

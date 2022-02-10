@@ -1736,6 +1736,11 @@ void BeamModuleAssembler::emit_if_end() {
     emit_error(EXC_IF_CLAUSE);
 }
 
+void BeamModuleAssembler::emit_badrecord(const ArgVal &Src) {
+    mov_arg(x86::qword_ptr(c_p, offsetof(Process, fvalue)), Src);
+    emit_error(EXC_BADRECORD);
+}
+
 void BeamModuleAssembler::emit_catch(const ArgVal &Y, const ArgVal &Fail) {
     a.inc(x86::qword_ptr(c_p, offsetof(Process, catches)));
 

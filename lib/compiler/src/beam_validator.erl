@@ -1058,6 +1058,9 @@ vi(if_end, Vst) ->
 vi({try_case_end,Src}, Vst) ->
     assert_durable_term(Src, Vst),
     branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+vi({badrecord,Src}, Vst) ->
+    assert_durable_term(Src, Vst),
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
 vi(raw_raise=I, Vst0) ->
     validate_body_call(I, 3, Vst0);
 

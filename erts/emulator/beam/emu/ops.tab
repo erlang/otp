@@ -287,6 +287,8 @@ badmatch x
 
 if_end
 
+badrecord s
+
 # Operands for raise/2 are almost always in x(2) and x(1).
 # Optimize for that case.
 raise x==2 x==1 => i_raise

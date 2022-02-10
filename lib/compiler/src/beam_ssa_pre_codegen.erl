@@ -916,6 +916,9 @@ expand_mf_instr(#b_set{args=[#b_literal{val=try_clause} | Args]}=I0,
 expand_mf_instr(#b_set{args=[#b_literal{val=badmatch} | _Args]}=I,
                 Is, Count, Acc) ->
     {reverse(Acc, [I | Is]), Count};
+expand_mf_instr(#b_set{args=[#b_literal{val=badrecord} | _Args]}=I,
+                Is, Count, Acc) ->
+    {reverse(Acc, [I | Is]), Count};
 expand_mf_instr(#b_set{args=[#b_literal{val=function_clause} | Args]}=I0,
                 Is, Count0, Acc0) ->
     %% We can't make a direct jump to `func_info` or an inlined stub: simulate
