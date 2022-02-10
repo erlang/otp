@@ -701,7 +701,7 @@ start_agent(Config, Vsns, Opts) ->
     process_flag(trap_exit,true),
 
     ?IPRINT("start_agent -> try start snmp app supervisor", []),
-    {ok, AppSup} = snmp_app_sup:start_link(),
+    AppSup = start_app_sup(),
     unlink(AppSup),
     ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
@@ -953,6 +953,18 @@ stop_agent(Config) when is_list(Config) ->
     ?IPRINT("stop_agent -> done", []),
     Config4.
 
+start_app_sup() ->
+    case snmp_app_sup:start_link() of
+        {ok, AppSup} ->
+            AppSup;
+        {error, {already_started, Pid}} ->
+            ?EPRINT("start_agent -> "
+                    "SNMP app supervisor already started: "
+                    "~n      (existing) Pid:          ~p"
+                    "~n      (existing) Process Info: ~p",
+                    [Pid, (catch process_info(Pid))]),
+            ?FAIL({already_started, snmp_app_supervisor})
+    end.
 
 start_sup(Env) ->
     case (catch snmp_app_sup:start_agent(normal, Env)) of
