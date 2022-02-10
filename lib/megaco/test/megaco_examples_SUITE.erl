@@ -342,12 +342,16 @@ simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    d("simple -> create node name(s)"),
-    [_Local, MGC, MG] = ?LIB:mk_nodes(3), %% Grrr
+
+    d("simple -> create (3) node name(s) (includes the own node)"),
+    %% We actually need two (nodes), but the function includes the own node,
+    %% so we need to ask for one more.
+    [_Local, MGC, MG] = ?MK_NODES(3),
     Nodes = [MGC, MG],
 
-    d("simple -> start nodes"),
-    ok = ?LIB:start_nodes(Nodes, ?MODULE, ?LINE),
+    d("simple -> start nodes: "
+      "~n      ~p", [Nodes]),
+    ok = ?START_NODES(Nodes, true),
     
     MGCId = "MGC",
     MGId  = "MG",
@@ -472,11 +476,9 @@ simple(Config) when is_list(Config) ->
 	    ok
     end,
 
-    d("simple -> stop ~p", [MGC]),
-    slave:stop(MGC),
-
-    d("simple -> stop ~p", [MG]),
-    slave:stop(MG),
+    d("simple -> stop nodes"
+      "~n      ~p", [Nodes]),
+    ?STOP_NODES(Nodes),
 
     d("simple -> done", []),
     ok.
