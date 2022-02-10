@@ -419,10 +419,10 @@ certify(internal, #certificate_request{} = CertRequest,
                                         cert_db = CertDbHandle,
                                         cert_db_ref = CertDbRef},
                connection_env = #connection_env{negotiated_version = Version,
-                                                cert_key_pairs = CertKeyPairs},
+                                                cert_key_pairs = CertKeyPairs
+                                               },
                session = Session0,
                ssl_options = #{signature_algs := SupportedHashSigns}} = State) ->
-
     TLSVersion = ssl:tls_version(Version),
     Session = select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs,
                                           SupportedHashSigns, TLSVersion,
@@ -872,9 +872,9 @@ verify_client_cert(#state{static_env = #static_env{role = client},
                           connection_env = #connection_env{negotiated_version = Version},
                           client_certificate_requested = true,
 			  session = #session{sign_alg = HashSign,
-                                       master_secret = MasterSecret,
-                                       private_key = PrivateKey,
-                                       own_certificates = OwnCerts}} = State, Connection) ->
+                                             master_secret = MasterSecret,
+                                             private_key = PrivateKey,
+                                             own_certificates = OwnCerts}} = State, Connection) ->
     case ssl_handshake:client_certificate_verify(OwnCerts, MasterSecret,
 						 ssl:tls_version(Version), HashSign, PrivateKey, Hist) of
         #certificate_verify{} = Verified ->
@@ -1283,15 +1283,11 @@ request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                     cert_db_ref = CertDbRef},
                            connection_env = #connection_env{negotiated_version = Version},
                            ssl_options = #{verify := verify_peer,
-                                           signature_algs := SupportedHashSigns},
-                           connection_states = ConnectionStates0} = State0, Connection) ->
-    #{security_parameters :=
-	  #security_parameters{cipher_suite = CipherSuite}} =
-	ssl_record:pending_connection_state(ConnectionStates0, read),
+                                           signature_algs := SupportedHashSigns}} = State0, Connection) ->
     TLSVersion =  ssl:tls_version(Version),
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, 
 						       TLSVersion),
-    Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, 
+    Msg = ssl_handshake:certificate_request(CertDbHandle, CertDbRef, 
 					    HashSigns, TLSVersion),
     State = Connection:queue_handshake(Msg, State0),
     State#state{client_certificate_requested = true};
@@ -1642,25 +1638,46 @@ ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
       ocsp_state => OcspState
      }.
 
-select_client_cert_key_pair(Session0, _, [], _, _) ->
-    %% No certificate compliant: empty certificate will be sent
-    Session0#session{own_certificates = undefined,
-                     private_key = undefined};
-select_client_cert_key_pair(Session0, _,
+select_client_cert_key_pair(Session0,_,
                               [#{private_key := undefined = NoKey, certs := undefined = NoCerts}],
-                              _, _) ->
+                            _,_,_,_) ->
     %% No certificate supplied : empty certificate will be sent
     Session0#session{own_certificates = NoCerts,
                      private_key = NoKey};
-select_client_cert_key_pair(Session0, CertRequest,
-                              [#{private_key := PrivateKey, certs := [Cert| _] = Certs} | Rest],
-                              SupportedHashSigns, TLSVersion) ->
+select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef) ->
+    select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, undefined).
+
+select_client_cert_key_pair(Session0,_,[], _, _,_,_, undefined = Default) ->
+    %% No certificate compliant signing algorithms found: empty certificate will be sent
+     Session0#session{own_certificates = Default,
+                      private_key = Default};
+select_client_cert_key_pair(_,_,[], _, _,_,_,#session{}=Session) ->
+    %% No certificate compliant with guide lines send default
+    Session;
+select_client_cert_key_pair(Session0, #certificate_request{certificate_authorities = CertAuths} = CertRequest,
+                            [#{private_key := PrivateKey, certs := [Cert| _] = Certs} | Rest],
+                            SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, TLSVersion) of
         #alert {} ->
-            select_client_cert_key_pair(Session0, CertRequest, Rest, SupportedHashSigns, TLSVersion);
+            select_client_cert_key_pair(Session0, CertRequest, Rest, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default);
         SelectedHashSign ->
-            Session0#session{sign_alg = SelectedHashSign,
-                             own_certificates = Certs,
-                             private_key = PrivateKey
-                            }
+            case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of
+                {ok, EncodedChain} ->
+                    Session0#session{sign_alg = SelectedHashSign,
+                                     own_certificates = EncodedChain,
+                                     private_key = PrivateKey
+                                    };
+                {error, EncodedChain, not_in_auth_domain} ->
+                    Session = Session0#session{sign_alg = SelectedHashSign,
+                                               own_certificates = EncodedChain,
+                                               private_key = PrivateKey
+                                              },
+                    select_client_cert_key_pair(Session0, CertRequest, Rest, SupportedHashSigns, TLSVersion,
+                                                CertDbHandle, CertDbRef, default_cert_key_pair_return(Default, Session))
+            end
     end.
+
+default_cert_key_pair_return(undefined, Session) ->
+    Session;
+default_cert_key_pair_return(Default, _) ->
+    Default.

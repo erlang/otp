@@ -36,7 +36,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
--export([client_hello/9, hello/5, hello/4]).
+-export([client_hello/11, hello/5, hello/4]).
 
 %% Handshake encoding
 -export([encode_handshake/2]).
@@ -56,7 +56,7 @@
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   ssl_options(), binary(), boolean(),
                    #key_share_client_hello{} | undefined, tuple() | undefined,
-                   binary() | undefined) ->
+                   binary() | undefined, db_handle() | undefined, certdb_ref() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -66,7 +66,7 @@ client_hello(_Host, _Port, ConnectionStates,
                ciphers := UserSuites,
                fallback := Fallback
               } = SslOpts,
-	     Id, Renegotiation, KeyShare, TicketData, OcspNonce) ->
+	     Id, Renegotiation, KeyShare, TicketData, OcspNonce, CertDbHandle, CertDbRef) ->
     Version = tls_record:highest_protocol_version(Versions),
 
     %% In TLS 1.3, the client indicates its version preferences in the
@@ -90,7 +90,7 @@ client_hello(_Host, _Port, ConnectionStates,
                                                        Renegotiation,
                                                        KeyShare,
                                                        TicketData,
-                                                       OcspNonce),
+                                                       OcspNonce, CertDbHandle, CertDbRef),
     CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
