@@ -27,6 +27,7 @@
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
 
 %% Common test
 -export([all/0,
@@ -78,6 +79,12 @@
          tls_dont_crash_on_handshake_garbage/1,
          tls_tcp_error_propagation_in_active_mode/0,
          tls_tcp_error_propagation_in_active_mode/1,
+         tls_reject_warning_alert_in_initial_hs/0,
+         tls_reject_warning_alert_in_initial_hs/1,
+         tls_reject_fake_warning_alert_in_initial_hs/0,
+         tls_reject_fake_warning_alert_in_initial_hs/1,
+         tls_app_data_in_initial_hs_state/0,
+         tls_app_data_in_initial_hs_state/1,
          peername/0,
          peername/1,
          sockname/0,
@@ -126,7 +133,7 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], api_tests() -- [sockname]},
+     {'tlsv1.3', [],  api_tests() -- [sockname]},
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
      {'tlsv1', [],  api_tests()}
@@ -153,6 +160,9 @@ api_tests() ->
      tls_tcp_msg_big,
      tls_dont_crash_on_handshake_garbage,
      tls_tcp_error_propagation_in_active_mode,
+     tls_reject_warning_alert_in_initial_hs,
+     tls_reject_fake_warning_alert_in_initial_hs,
+     tls_app_data_in_initial_hs_state,
      peername,
      sockname,
      tls_server_handshake_timeout,
@@ -684,6 +694,86 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     Pid ! {tcp_error, Socket, etimedout},
 
     ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
+
+%%--------------------------------------------------------------------
+tls_reject_warning_alert_in_initial_hs() ->
+    [{doc,"Test sending warning ALERT instead of client hello"}].
+tls_reject_warning_alert_in_initial_hs(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
+                         {3,4} ->
+                             {3,3};
+                         Other ->
+                             Other
+                     end,
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					 {from, self()},
+					 {mfa, {ssl_test_lib, no_result, []}},
+					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    NoRenegotiateAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?WARNING), ?BYTE(?NO_RENEGOTIATION)>>,
+    gen_tcp:send(Socket, NoRenegotiateAlert),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
+
+%%--------------------------------------------------------------------
+tls_reject_fake_warning_alert_in_initial_hs() ->
+    [{doc,"Test sending 'fake' warning ALERT covers different function clause pre TLS-1.3"}].
+tls_reject_fake_warning_alert_in_initial_hs(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    {Major, Minor} = case ssl_test_lib:protocol_version(Config, tuple) of
+                         {3,4} ->
+                             {3,3};
+                         Other ->
+                             Other
+                     end,
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					 {from, self()},
+					 {mfa, {ssl_test_lib, no_result, []}},
+					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    NoRenegotiateAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?WARNING), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    gen_tcp:send(Socket, NoRenegotiateAlert),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
+
+%%--------------------------------------------------------------------
+tls_app_data_in_initial_hs_state() ->
+     [{doc,"Test sending application data instead of initial client hello. In TLS-1.3 application data can be sent",
+       "in first round trip but not before client hello."}].
+tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    Version =  ssl_test_lib:protocol_version(Config, tuple),
+    {Major, Minor} = case Version of
+                         {3,4} ->
+                             {3,3};
+                         Other ->
+                             Other
+                     end,
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					 {from, self()},
+					 {mfa, {ssl_test_lib, no_result, []}},
+					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    AppData = <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>,
+    gen_tcp:send(Socket, AppData),
+     UnexpectedMsgAlert =
+        case Version of
+            {_, 4} ->
+                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?DECODE_ERROR)>>;
+            _  ->
+                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>
+        end,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
 
 %%--------------------------------------------------------------------
 peername() ->
