@@ -2505,8 +2505,7 @@
           <p>Utility module 
 	  <seeerl marker="http_uri">http_uri</seeerl>
 	  now officially supported. </p>
-	  <p>Also, the 
-	  <seeerl marker="http_uri#parse">parse</seeerl> 
+	  <p>Also, the <c>http_uri:parse</c>
 	  function has been extended with more
 	  scheme support and a way to provide your own scheme info. </p>
 	  <p>Own Id: OTP-9983</p>
