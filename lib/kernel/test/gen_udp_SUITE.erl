@@ -2884,11 +2884,10 @@ pi(Item) ->
 %%
 
 start_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
+    ?START_NODE(Name, []).
 
 stop_node(Node) ->
-    test_server:stop_node(Node).
+    ?STOP_NODE(Node).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
