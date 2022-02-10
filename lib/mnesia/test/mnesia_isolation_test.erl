@@ -632,8 +632,8 @@ sticky_sync(Config) when is_list(Config) ->
     {Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
     io:format("200 trans done in ~p ~n",[Time div (1000000)]),
     case (Time div (1000000)) < 20 of
-        false -> lists:foreach(TestFun, lists:seq(201,1000));
-        true -> ignore  %% Some virtual test machines are really slow..
+        true -> lists:foreach(TestFun, lists:seq(201,1000));
+        false -> ignore  %% Some virtual test machines are really slow..
     end,
     io:format("Written, check content~n",[]),
     All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
