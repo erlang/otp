@@ -367,8 +367,10 @@ measure(Factor, Dir, Codec, Conf, [{Name, Bin}|Msgs], Results, MCount) ->
 do_measure(Factor, _Id, Codec, Conf, Name, BinMsg, MCount) ->
     %% io:format("~n~s~n", [binary_to_list(BinMsg)]),
     {Version, NewBin}  = detect_version(Codec, Conf, BinMsg),
-    {Msg, Dcnt, Dtime} = measure_decode(Factor, Codec, Conf, Version, NewBin, MCount),
-    {_,   Ecnt, Etime} = measure_encode(Factor, Codec, Conf, Version, Msg, MCount),
+    {Msg, Dcnt, Dtime} =
+        measure_decode(Factor, Codec, Conf, Version, NewBin, MCount),
+    {_,   Ecnt, Etime} =
+        measure_encode(Factor, Codec, Conf, Version, Msg, MCount),
 
     {ok, #stat{name   = Name, 
 	       ecount = Ecnt, etime = Etime, 
@@ -408,9 +410,15 @@ measure_encode(Factor, Codec, Conf, Version, Bin, MCount) ->
     end.
 
 
-measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
-    Pid = spawn_link(?MODULE, do_measure_codec, 
-                     [Factor, self(), Codec, Func, Conf, Version, Bin, MCount]),
+measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) 
+  when is_integer(Factor) andalso (Factor > 0) andalso
+       is_atom(Codec) andalso
+       is_atom(Func) andalso
+       is_list(Conf) andalso
+       is_integer(MCount) andalso (MCount > 0) ->
+    Self = self(),
+    Pid  = spawn_link(?MODULE, do_measure_codec, 
+                      [Factor, Self, Codec, Func, Conf, Version, Bin, MCount]),
     receive
 	{measure_result, Pid, Func, Res} ->
 	    {ok, Res};
@@ -459,13 +467,13 @@ measure_warmup(Codec, Func, Conf, Version, M, MCount) ->
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
 		   [Codec, Func, Conf, Version, M, MCount, dummy]),
     case Res of
-	{Time, {ok, _}} ->
+	{Time, {ok, _}} when is_integer(Time) ->
 	    %% OK so far, now calculate the count:
 	    Count = round(?MEASURE_COUNT_TIME/(Time/MCount)),
 	    %% io:format("~w ", [Count]),
 	    {ok, Count};
-	{_Time, Error} ->
-	    {error, {warmup_failed, Error}}
+	{Time, Error} ->
+	    {error, {warmup_failed, Time, Error}}
     end.
 
 
