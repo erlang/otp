@@ -1748,6 +1748,11 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	the process owning the sslsocket will receive messages of type 
 	<seetype marker="#active_msgs"> active_msgs() </seetype>
 	</p>	
+
+	<warning><p>Not setting the timeout makes the server more vulnerable to
+	DoS attacks.
+	</p></warning>
+	
       </desc>
     </func>
 
@@ -1760,9 +1765,11 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	or equivalent, socket to an SSL socket, that is, performs
         the TLS server-side handshake and returns a TLS socket.</p>
 
-	<warning><p>The <c>Socket</c> shall be in passive mode ({active,
-	false}) before calling this function or else the behavior of this function
-	is undefined.
+	<warning><p>The ordinary <c>Socket</c> shall be in passive mode ({active,
+	false}) before calling this function, and before the client tries
+	to connect with TLS, or else the behavior of this function
+	is undefined. The best way to ensure this is to create the ordinary listen socket
+	in passive mode.
 	</p></warning>
 
 	<p>If <c>Socket</c> is an 
@@ -1771,6 +1778,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<seemfa marker="#listen/2">listen/2</seemfa> and then performs
 	the TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
 
+	<warning><p>Not setting the timeout makes the server more vulnerable to
+	DoS attacks.
+	</p></warning>
+	
 	<p>
 	  If option <c>{handshake, hello}</c> is specified the handshake is
 	  paused after receiving the client hello message and the

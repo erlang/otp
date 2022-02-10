@@ -1004,7 +1004,6 @@ handle_alert(#alert{level = ?FATAL} = Alert0, StateName,
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
-
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 	     downgrade= StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, Alert}]};
@@ -1013,6 +1012,31 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert0,
     Alert = Alert0#alert{role = opposite_role(Role)},
     handle_normal_shutdown(Alert, StateName, State),
     {stop,{shutdown, peer_close}, State};
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName,
+	     #state{static_env = #static_env{role = server = Role,
+                                             protocol_cb = Connection},
+                    handshake_env = #handshake_env{renegotiation = {false, first}},
+                    ssl_options = #{log_level := LogLevel}
+		   } = State) when StateName == intial_hello;
+                                   StateName == hello;
+                                   StateName == certify;
+                                   StateName == abbreviated;
+                                   StateName == cipher ->
+    log_alert(LogLevel, Role,
+              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    OwnAlert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, unexpected_renegotiate_alert_during_initial_handshake),
+    handle_own_alert(OwnAlert, StateName, State);
+handle_alert(#alert{} = Alert, StateName,
+	     #state{static_env = #static_env{role = server = Role,
+                                             protocol_cb = Connection},
+                    handshake_env = #handshake_env{renegotiation = {false, first}},
+                    ssl_options = #{log_level := LogLevel}} = State) when StateName == start;
+                                                                          StateName == intial_hello;
+                                                                          StateName == hello ->
+    log_alert(LogLevel, Role,
+              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    OwnAlert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, unexpected_alert),
+    handle_own_alert(OwnAlert, StateName, State);
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert0, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
@@ -1023,7 +1047,6 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert0,
               Connection:protocol_name(), StateName, Alert),
     handle_normal_shutdown(Alert, StateName, State),
     {stop,{shutdown, peer_close}, State};
-
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, connection = StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
@@ -1035,7 +1058,6 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     gen_statem:reply(From, {error, renegotiation_rejected}),
     State = Connection:reinit_handshake_data(State0),
     Connection:next_event(connection, no_record, State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}});
-
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
@@ -1048,16 +1070,20 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     %% Go back to connection!
     State = Connection:reinit(State0#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}}),
     Connection:next_event(connection, no_record, State);
-
-%% Gracefully log and ignore all other warning alerts
+%% Gracefully log and ignore all other warning alerts pre TLS-1.3
 handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
-                    ssl_options = #{log_level := LogLevel}} = State) ->
+                    connection_env = #connection_env{negotiated_version = Version},
+                    ssl_options = #{log_level := LogLevel}} = State) when Version < {3,4} ->
     log_alert(LogLevel, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
-    Connection:next_event(StateName, no_record, State).
+    Connection:next_event(StateName, no_record, State);
+handle_alert(Alert0, StateName, State) ->
+    %% In TLS-1.3 all error alerts are fatal not matter of legacy level
+    handle_alert(Alert0#alert{level = ?FATAL}, StateName, State).
+
 handle_trusted_certs_db(#state{ssl_options =
 				   #{cacertfile := <<>>, cacerts := []}}) ->
     %% No trusted certs specified
