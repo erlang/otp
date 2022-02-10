@@ -368,7 +368,7 @@ key :: % encoded key from eg ssh_host_*.pub
 	an RFC4716 public key or an OpenSSH public key.</p>
 	<note>
 	  <p>The following key types have been renamed from the deprecated
-	  <seemfa marker="public_key:public_key#ssh_decode/2">public_key:ssh_decode/2</seemfa>:</p>
+	  <c>public_key:ssh_decode/2</c>:</p>
 	  <list>
 	    <item>rfc4716_public_key -> rfc4716_key</item>
 	    <item>openssh_public_key -> openssh_key</item>
@@ -393,8 +393,7 @@ key :: % encoded key from eg ssh_host_*.pub
       <desc>
 	<p>Encodes a list of SSH file entries (public keys and attributes) to a binary.</p>
 	<note>
-	  <p>The following key types have been renamed from the deprecated
-	  <seemfa marker="public_key:public_key#ssh_encode/2">public_key:ssh_encode/2</seemfa>:</p>
+	  <p>The following key types have been renamed from the removed <c>public_key:ssh_encode/2</c>:</p>
 	  <list>
 	    <item>rfc4716_public_key -> rfc4716_key</item>
 	    <item>openssh_public_key -> openssh_key</item>

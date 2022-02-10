@@ -34,6 +34,8 @@
 -export([ssh2_pubkey_decode/1,
          ssh2_pubkey_encode/1,
          ssh2_privkey_decode2/1,
+         oid2ssh_curvename/1,
+         ssh_curvename2oid/1,
          %% experimental:
          ssh2_privkey_encode/1
         ]).
@@ -571,20 +573,29 @@ decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?DEC_BIN(Msg,__0), ?DEC_BIN(Lang,__
 %%%-------- public key --------
 ssh2_pubkey_encode(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     <<?STRING(<<"ssh-rsa">>), ?Empint(E), ?Empint(N)>>;
+
 ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     <<?STRING(<<"ssh-dss">>), ?Empint(P), ?Empint(Q), ?Empint(G), ?Empint(Y)>>;
+
+ssh2_pubkey_encode({#'ECPoint'{point = Q}, {namedCurve,OID}}) when OID == ?'id-Ed25519' orelse
+                                                                   OID == ?'id-Ed448' ->
+    {KeyType, _} = oid2ssh_curvename(OID),
+    <<?STRING(KeyType), ?Estring(Q)>>;
+
+ssh2_pubkey_encode(#'ECPrivateKey'{parameters = {namedCurve,OID},
+                                   publicKey = Key}) when OID == ?'id-Ed25519' orelse
+                                                          OID == ?'id-Ed448' ->
+    {KeyType, _} = oid2ssh_curvename(OID),
+    <<?STRING(KeyType), ?Estring(Key)>>;
+
+ssh2_pubkey_encode(#'ECPrivateKey'{parameters = {namedCurve,OID},
+                                   publicKey = Key}) ->
+    {KeyType,Curve} = oid2ssh_curvename(OID),
+    <<?STRING(KeyType), ?STRING(Curve), ?Estring(Key)>>;
+
 ssh2_pubkey_encode({#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
-    Curve = public_key:oid2ssh_curvename(OID),
-    KeyType = <<"ecdsa-sha2-", Curve/binary>>,
-    <<?STRING(KeyType), ?STRING(Curve), ?Estring(Q)>>;
-ssh2_pubkey_encode({ed_pub, ed25519, Key}) ->
-    <<?STRING(<<"ssh-ed25519">>), ?Estring(Key)>>;
-ssh2_pubkey_encode({ed_pub, ed448, Key}) ->
-    <<?STRING(<<"ssh-ed448">>), ?Estring(Key)>>;
-ssh2_pubkey_encode({ed_priv, ed25519, Key, _}) ->
-    <<?STRING(<<"ssh-ed25519">>), ?Estring(Key)>>;
-ssh2_pubkey_encode({ed_priv, ed448, Key, _}) ->
-    <<?STRING(<<"ssh-ed448">>), ?Estring(Key)>>.
+    {KeyType,Curve} = oid2ssh_curvename(OID),
+    <<?STRING(KeyType), ?STRING(Curve), ?Estring(Q)>>.
 
 %%%--------
 ssh2_pubkey_decode(KeyBlob) ->
@@ -608,26 +619,23 @@ ssh2_pubkey_decode2(<<?UINT32(7), "ssh-dss",
                       q = Q,
                       g = G}
      }, Rest};
-ssh2_pubkey_decode2(<<?UINT32(TL), "ecdsa-sha2-",KeyRest/binary>>) ->
-    Sz = TL-11,
-    <<_Curve:Sz/binary,
-      ?DEC_BIN(SshName, _IL),
-      ?DEC_BIN(Q, _QL),
-      Rest/binary>> = KeyRest,
-    OID = public_key:ssh_curvename2oid(SshName),
-    {{#'ECPoint'{point = Q}, {namedCurve,OID}
-     }, Rest};
-ssh2_pubkey_decode2(<<?UINT32(11), "ssh-ed25519",
-                      ?DEC_BIN(Key, _L),
-                      Rest/binary>>) ->
-    {{ed_pub, ed25519, Key},
-     Rest};
-ssh2_pubkey_decode2(<<?UINT32(9), "ssh-ed448",
-                      ?DEC_BIN(Key, _L),
-                      Rest/binary>>) ->
-    {{ed_pub, ed448, Key},
+
+ssh2_pubkey_decode2(<<?DEC_BIN(SshCurveName,SCNL), Rest0/binary>>) ->
+    {Pub, Rest} =
+        case {SshCurveName, Rest0} of
+            {<<"ecdsa-sha2-", _/binary>>,
+             <<?DEC_BIN(_Curve, _IL),
+               ?DEC_BIN(Q, _QL),
+               Rest1/binary>>} ->  {Q, Rest1};
+            
+            {<<"ssh-ed",_/binary>>,
+             <<?DEC_BIN(Key, _L),
+               Rest1/binary>>} ->  {Key, Rest1}
+        end,
+    OID = ssh_curvename2oid(SshCurveName),
+    {{#'ECPoint'{point = Pub}, {namedCurve,OID}},
      Rest}.
-                     
+
 %%%-------- private key --------
 
 %% dialyser... ssh2_privkey_decode(KeyBlob) ->
@@ -674,20 +682,26 @@ ssh2_privkey_encode(#'ECPrivateKey'
                     {version = 1,
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
+                     publicKey = Pub
+                    }) when OID == ?'id-Ed25519' orelse
+                            OID == ?'id-Ed448' ->
+    {CurveName,_} = oid2ssh_curvename(OID),
+    <<?STRING(CurveName),
+      ?STRING(Pub),
+      ?STRING(Priv)>>;
+
+ssh2_privkey_encode(#'ECPrivateKey'
+                    {version = 1,
+                     parameters = {namedCurve,OID},
+                     privateKey = Priv,
                      publicKey = Q
                     }) ->
-    CurveName = public_key:oid2ssh_curvename(OID),
-    <<?STRING(<<"ecdsa-sha2-",CurveName/binary>>),
-      ?STRING(<<"ecdsa-sha2-",CurveName/binary>>), % Yes
+    {CurveName,_} = oid2ssh_curvename(OID),
+    <<?STRING(CurveName),
+      ?STRING(CurveName), % SIC!
       ?STRING(Q),
-      ?STRING(Priv)>>;
+      ?STRING(Priv)>>.
       
-ssh2_privkey_encode({ed_pri, Alg, Pub, Priv}) ->
-    Name = atom_to_binary(Alg),
-    <<?STRING(<<"ssh-",Name/binary>>),
-      ?STRING(Pub),
-      ?STRING(<<Priv/binary,Pub/binary>>)>>.
-
 %%%--------
 ssh2_privkey_decode2(<<?UINT32(7), "ssh-rsa",
                        ?DEC_INT(N, _NL), % Yes, N and E is reversed relative pubkey format
@@ -721,34 +735,49 @@ ssh2_privkey_decode2(<<?UINT32(7), "ssh-dss",
                       y = Y,
                       x = X
                      }, Rest};
-ssh2_privkey_decode2(<<?UINT32(TL), "ecdsa-sha2-",KeyRest/binary>>) ->
-    Sz = TL-11,
-    <<_Curve:Sz/binary,
-      ?DEC_BIN(CurveName, _SNN),
-      ?DEC_BIN(Q, _QL),
-      ?DEC_BIN(Priv, _PrivL),
-      Rest/binary>> = KeyRest,
-    OID = public_key:ssh_curvename2oid(CurveName),
+
+ssh2_privkey_decode2(<<?DEC_BIN(SshCurveName,SCNL), Rest0/binary>>) ->
+    {Pub, Priv, Rest} =
+        case {SshCurveName, Rest0} of
+            {<<"ecdsa-sha2-",_/binary>>,
+             <<?DEC_BIN(_Curve, _IL),
+               ?DEC_BIN(Pub1, _QL),
+               ?DEC_BIN(Priv1, _PrivL),
+               Rest1/binary>>} ->
+                {Pub1, Priv1, Rest1};
+
+            {<<"ssh-ed",_/binary>>,
+             <<?DEC_BIN(Pub1, PL),
+               ?DEC_BIN(PrivPub, PPL),
+               Rest1/binary>>} ->
+               PL = PPL div 2,
+                <<Priv1:PL/binary, _/binary>> = PrivPub,
+                {Pub1, Priv1, Rest1}
+        end,
+    OID = ssh_curvename2oid(SshCurveName),
     {#'ECPrivateKey'{version = 1,
                      parameters = {namedCurve,OID},
                      privateKey = Priv,
-                     publicKey = Q
-                    }, Rest};
-ssh2_privkey_decode2(<<?UINT32(11), "ssh-ed25519",
-                       ?DEC_BIN(Pub,_Lpub),
-                       64:32/unsigned-big-integer,
-                       Priv:32/binary,
-                       _Pub:32/binary,
-                       Rest/binary>>) ->
-    {{ed_pri, ed25519, Pub, Priv}, Rest};
-ssh2_privkey_decode2(<<?UINT32(9), "ssh-ed448",
-                       ?DEC_BIN(Pub,_Lpub),
-                       114:32/unsigned-big-integer,
-                       Priv:57/binary,
-                       _Pub:57/binary,
-                       Rest/binary>>) ->
-    {{ed_pri, ed448, Pub, Priv}, Rest}.
+                     publicKey = Pub
+                    }, Rest}.
 
+
+%% Description: Converts from the ssh name of elliptic curves to
+%% the OIDs.
+%%--------------------------------------------------------------------
+ssh_curvename2oid(<<"ssh-ed25519">>) -> ?'id-Ed25519';
+ssh_curvename2oid(<<"ssh-ed448">>  ) -> ?'id-Ed448';
+ssh_curvename2oid(<<"ecdsa-sha2-nistp256">>) -> ?'secp256r1';
+ssh_curvename2oid(<<"ecdsa-sha2-nistp384">>) -> ?'secp384r1';
+ssh_curvename2oid(<<"ecdsa-sha2-nistp521">>) -> ?'secp521r1'.
+
+%% Description: Converts from elliptic curve OIDs to the ssh name.
+%%--------------------------------------------------------------------
+oid2ssh_curvename(?'id-Ed25519')-> {<<"ssh-ed25519">>, 'n/a'};
+oid2ssh_curvename(?'id-Ed448')  -> {<<"ssh-ed448">>,   'n/a'};
+oid2ssh_curvename(?'secp256r1') -> {<<"ecdsa-sha2-nistp256">>, <<"nistp256">>};
+oid2ssh_curvename(?'secp384r1') -> {<<"ecdsa-sha2-nistp384">>, <<"nistp384">>};
+oid2ssh_curvename(?'secp521r1') -> {<<"ecdsa-sha2-nistp521">>, <<"nistp521">>}.
 
 %%%================================================================
 %%%
@@ -810,13 +839,8 @@ encode_signature(#'RSAPublicKey'{}, SigAlg, Signature) ->
 encode_signature({_, #'Dss-Parms'{}}, _SigAlg, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
 encode_signature({#'ECPoint'{}, {namedCurve,OID}}, _SigAlg, Signature) ->
-    Curve = public_key:oid2ssh_curvename(OID),
-    <<?Ebinary(<<"ecdsa-sha2-",Curve/binary>>), ?Ebinary(Signature)>>;
-encode_signature({ed_pub, ed25519,_}, _SigAlg, Signature) ->
-    <<?Ebinary(<<"ssh-ed25519">>), ?Ebinary(Signature)>>;
-encode_signature({ed_pub, ed448,_}, _SigAlg, Signature) ->
-    <<?Ebinary(<<"ssh-ed448">>), ?Ebinary(Signature)>>.
-    
+    {SshCurveName,_} = oid2ssh_curvename(OID),
+    <<?Ebinary(<<SshCurveName/binary>>), ?Ebinary(Signature)>>.
 
 
 %%%################################################################

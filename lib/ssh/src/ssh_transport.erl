@@ -932,22 +932,20 @@ extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Pub0, privateKey = Priv}) when
-      OID == ?'id-Ed25519'orelse
+      OID == ?'id-Ed25519' orelse
       OID == ?'id-Ed448' ->
     case {pubkey_cert_records:namedCurves(OID), Pub0} of
         {Alg, asn1_NOVALUE} ->
             %% If we're missing the public key, we can create it with
             %% the private key.
             {Pub, Priv} = crypto:generate_key(eddsa, Alg, Priv),
-            {ed_pub, Alg, Pub};
-        {Alg, Pub} ->
-            {ed_pub, Alg, Pub}
+            {#'ECPoint'{point=Pub}, {namedCurve,OID}};
+        {_Alg, Pub} ->
+            {#'ECPoint'{point=Pub}, {namedCurve,OID}}
     end;
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Q}) when is_tuple(OID) ->
     {#'ECPoint'{point=Q}, {namedCurve,OID}};
-extract_public_key({ed_pri, Alg, Pub, _Priv}) ->
-    {ed_pub, Alg, Pub};
 extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
     case {Alg, crypto:privkey_to_pubkey(Alg, M)} of
         {rsa, [E,N]} ->
@@ -1546,7 +1544,7 @@ do_verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
         _ ->
             false
     end;
-do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) ->
+do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) when HashAlg =/= undefined ->
     case Sig of
         <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
           ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> ->
@@ -2061,40 +2059,27 @@ valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 valid_key_sha_alg(public, {_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
 valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
 
-valid_key_sha_alg(public, {ed_pub, ed25519,_},  'ssh-ed25519') -> true;
-valid_key_sha_alg(private, {ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
-valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}},'ssh-ed25519') when OID == ?'id-Ed25519' -> true;
-valid_key_sha_alg(public, {ed_pub, ed448,_},    'ssh-ed448') -> true;
-valid_key_sha_alg(private, {ed_pri, ed448,_,_},  'ssh-ed448') -> true;
-valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}},'ssh-ed448') when OID == ?'id-Ed448' -> true;
-
-valid_key_sha_alg(public, {#'ECPoint'{},{namedCurve,OID}}, Alg) when is_tuple(OID) ->
+valid_key_sha_alg(public, {#'ECPoint'{},{namedCurve,OID}}, Alg) ->
     valid_key_sha_alg_ec(OID, Alg);
-valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) when is_tuple(OID) ->
+valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) ->
     valid_key_sha_alg_ec(OID, Alg);
 valid_key_sha_alg(_, _, _) -> false.
-    
-valid_key_sha_alg_ec(OID, Alg) ->
-    try
-        Curve = public_key:oid2ssh_curvename(OID),
-        Alg == list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(Curve))
-    catch
-        _:_ -> false
-    end.
+
+
+valid_key_sha_alg_ec(OID, Alg) when is_tuple(OID) ->
+    {SshCurveType, _} = ssh_message:oid2ssh_curvename(OID),
+    Alg == binary_to_atom(SshCurveType);
+valid_key_sha_alg_ec(_, _) -> false.
+
     
 
 -dialyzer({no_match, public_algo/1}).
 
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
-public_algo({ed_pub, ed25519,_}) -> 'ssh-ed25519';
-public_algo({ed_pub, ed448,_}) -> 'ssh-ed448';
 public_algo({#'ECPoint'{},{namedCurve,OID}}) when is_tuple(OID) -> 
-    SshName = public_key:oid2ssh_curvename(OID),
-    try list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(SshName))
-    catch
-        _:_ -> undefined
-    end.
+    {SshCurveType, _} = ssh_message:oid2ssh_curvename(OID),
+    binary_to_atom(SshCurveType).
 
 
 sha('ssh-rsa') -> sha;

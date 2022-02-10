@@ -1068,7 +1068,7 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%----------------------------------------------------------------
-%% KeyPairs :: [ {Pub,Priv,Comment} | {ed_pri{_,_,_},Comment} ]
+%% KeyPairs :: [ {Pub,Priv,Comment} ]
 openssh_key_v1_encode(KeyPairs) ->
     CipherName = <<"none">>,
     BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent
@@ -1094,8 +1094,9 @@ openssh_key_v1_encode(KeyPairs) ->
 openssh_key_v1_encode_pub_keys(KeyPairs) ->
     openssh_key_v1_encode_pub_keys(KeyPairs, []).
 
-openssh_key_v1_encode_pub_keys([{{ed_pri,Alg,PubKey,_},_C}|Ks], Acc) ->
-    Bk = ssh_message:ssh2_pubkey_encode({ed_pub,Alg,PubKey}),
+openssh_key_v1_encode_pub_keys([{Priv = #'ECPrivateKey'{}, _Cmnt} | Ks], Acc) ->
+    Pub = ssh_transport:extract_public_key(Priv),
+    Bk = ssh_message:ssh2_pubkey_encode(Pub),
     openssh_key_v1_encode_pub_keys(Ks, [<<?STRING(Bk)>>|Acc]);
 openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->
     Bk = ssh_message:ssh2_pubkey_encode(K),
@@ -1103,11 +1104,12 @@ openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->
 openssh_key_v1_encode_pub_keys([], Acc) ->
     list_to_binary(lists:reverse(Acc)).
 
+
 %%%----
 openssh_key_v1_encode_priv_keys_cmnts(KeyPairs) ->
     openssh_key_v1_encode_priv_keys_cmnts(KeyPairs, []).
 
-openssh_key_v1_encode_priv_keys_cmnts([{K={ed_pri,_,_,_},C} | Ks], Acc) ->
+openssh_key_v1_encode_priv_keys_cmnts([{K = #'ECPrivateKey'{}, C} | Ks], Acc) ->
     Bk = ssh_message:ssh2_privkey_encode(K),
     openssh_key_v1_encode_priv_keys_cmnts(Ks, [<<Bk/binary,?STRING(C)>>|Acc]);
 openssh_key_v1_encode_priv_keys_cmnts([{_,K,C}|Ks], Acc) ->
