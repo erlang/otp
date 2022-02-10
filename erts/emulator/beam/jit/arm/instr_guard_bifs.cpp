@@ -63,12 +63,12 @@ void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
     Label succ = a.newLabel(), fail = a.newLabel();
 
     a.cmp(ARG1, ARG2);
-    a.cond_eq().b(succ);
+    a.b_eq(succ);
 
     /* The terms could still be equal if both operands are pointers
      * having the same tag. */
     emit_is_unequal_based_on_tags(ARG1, ARG2);
-    a.cond_eq().b(fail);
+    a.b_eq(fail);
 
     emit_enter_runtime_frame();
     emit_enter_runtime();
@@ -97,10 +97,10 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     Label succ = a.newLabel(), fail = a.newLabel();
 
     a.cmp(ARG1, ARG2);
-    a.cond_eq().b(fail);
+    a.b_eq(fail);
 
     emit_is_unequal_based_on_tags(ARG1, ARG2);
-    a.cond_eq().b(succ);
+    a.b_eq(succ);
 
     emit_enter_runtime_frame();
     emit_enter_runtime();
@@ -215,9 +215,9 @@ void BeamModuleAssembler::emit_bif_and(const ArgVal &Fail,
     a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
 
     if (Fail.getValue()) {
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
-        a.cond_eq().b(next);
+        a.b_eq(next);
         mov_var(XREG0, src1);
         mov_var(XREG1, src2);
         fragment_call(ga->get_handle_or_error());
@@ -244,7 +244,7 @@ void BeamGlobalAssembler::emit_bif_bit_size_helper(Label fail) {
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.cond_ne().b(not_sub_bin);
+    a.b_ne(not_sub_bin);
 
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
@@ -258,7 +258,7 @@ void BeamGlobalAssembler::emit_bif_bit_size_helper(Label fail) {
     ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
     a.and_(TMP1, TMP1, imm(~4));
     a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     mov_imm(ARG1, _TAG_IMMED1_SMALL);
@@ -325,7 +325,7 @@ void BeamGlobalAssembler::emit_bif_byte_size_helper(Label fail) {
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.cond_ne().b(not_sub_bin);
+    a.b_ne(not_sub_bin);
 
     a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
@@ -340,7 +340,7 @@ void BeamGlobalAssembler::emit_bif_byte_size_helper(Label fail) {
     ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
     a.and_(TMP1, TMP1, imm(~4));
     a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     mov_imm(ARG1, _TAG_IMMED1_SMALL);
@@ -407,7 +407,7 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgVal &Fail,
 void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     /* Ensure that ARG2 contains a tuple. */
     emit_is_boxed(fail, ARG2);
@@ -416,15 +416,15 @@ void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     a.ldr(TMP2, arm::Mem(TMP1));
     ERTS_CT_ASSERT(make_arityval_zero() == 0);
     a.tst(TMP2, imm(_TAG_HEADER_MASK));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     /* Ensure that the position points within the tuple. */
     a.lsr(TMP2, TMP2, imm(_HEADER_ARITY_OFFS));
     a.asr(TMP3, ARG1, imm(_TAG_IMMED1_SIZE));
     a.cmp(TMP3, imm(1));
-    a.cond_mi().b(fail);
+    a.b_mi(fail);
     a.cmp(TMP2, TMP3);
-    a.cond_lo().b(fail);
+    a.b_lo(fail);
 
     a.ldr(ARG1, arm::Mem(TMP1, TMP3, arm::lsl(3)));
     a.ret(a64::x30);
@@ -502,7 +502,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
                 comment("skipped check for position >= 1");
             } else {
                 a.cmp(TMP3, imm(1));
-                a.cond_mi().b(fail);
+                a.b_mi(fail);
             }
 
             if (is_bounded && size >= max) {
@@ -510,7 +510,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
             } else {
                 mov_imm(TMP2, size);
                 a.cmp(TMP2, TMP3);
-                a.cond_lo().b(fail);
+                a.b_lo(fail);
             }
 
             a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));
@@ -615,14 +615,14 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgVal &Fail,
     a.cmp(TMP4, imm(_TAG_HEADER_MAP));
 
     if (Fail.getValue() == 0) {
-        a.cond_eq().b(good_map);
+        a.b_eq(good_map);
         a.bind(error);
         {
             mov_var(XREG0, src);
             fragment_call(ga->get_handle_map_size_error());
         }
     } else {
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
         a.bind(error); /* Never referenced. */
     }
 
@@ -660,11 +660,11 @@ void BeamModuleAssembler::emit_bif_not(const ArgVal &Fail,
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
 
     if (Fail.getValue() == 0) {
-        a.cond_eq().b(next);
+        a.b_eq(next);
         mov_var(XREG0, src);
         fragment_call(ga->get_handle_not_error());
     } else {
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -703,9 +703,9 @@ void BeamModuleAssembler::emit_bif_or(const ArgVal &Fail,
     a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
 
     if (Fail.getValue()) {
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
-        a.cond_eq().b(next);
+        a.b_eq(next);
         mov_var(XREG0, src1);
         mov_var(XREG1, src2);
         fragment_call(ga->get_handle_or_error());
@@ -761,7 +761,7 @@ void BeamGlobalAssembler::emit_bif_tuple_size_helper(Label fail) {
     ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.tst(TMP1, imm(_TAG_HEADER_MASK));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
     ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);

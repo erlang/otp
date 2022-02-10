@@ -40,6 +40,8 @@ public:
   Error emitEpilog(const FuncFrame& frame);
 };
 
+void assignEmitterFuncs(BaseEmitter* emitter);
+
 //! \}
 //! \endcond
 

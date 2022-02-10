@@ -8,29 +8,28 @@
 
 #include "../x86/x86assembler.h"
 #include "../x86/x86compiler.h"
+#include "../x86/x86instapi_p.h"
 #include "../x86/x86rapass_p.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
+// x86::Compiler - Construction & Destruction
+// ==========================================
+
 Compiler::Compiler(CodeHolder* code) noexcept : BaseCompiler() {
+  _archMask = (uint64_t(1) << uint32_t(Arch::kX86)) |
+              (uint64_t(1) << uint32_t(Arch::kX64)) ;
+  assignEmitterFuncs(this);
+
   if (code)
     code->attach(this);
 }
 Compiler::~Compiler() noexcept {}
 
-Error Compiler::finalize() {
-  ASMJIT_PROPAGATE(runPasses());
-  Assembler a(_code);
-  a.addEncodingOptions(encodingOptions());
-  a.addDiagnosticOptions(diagnosticOptions());
-  return serializeTo(&a);
-}
+// x86::Compiler - Events
+// ======================
 
 Error Compiler::onAttach(CodeHolder* code) noexcept {
-  Arch arch = code->arch();
-  if (!Environment::isFamilyX86(arch))
-    return DebugUtils::errored(kErrorInvalidArch);
-
   ASMJIT_PROPAGATE(Base::onAttach(code));
   Error err = addPassT<X86RAPass>();
 
@@ -40,6 +39,21 @@ Error Compiler::onAttach(CodeHolder* code) noexcept {
   }
 
   return kErrorOk;
+}
+
+Error Compiler::onDetach(CodeHolder* code) noexcept {
+  return Base::onDetach(code);
+}
+
+// x86::Compiler - Finalize
+// ========================
+
+Error Compiler::finalize() {
+  ASMJIT_PROPAGATE(runPasses());
+  Assembler a(_code);
+  a.addEncodingOptions(encodingOptions());
+  a.addDiagnosticOptions(diagnosticOptions());
+  return serializeTo(&a);
 }
 
 ASMJIT_END_SUB_NAMESPACE

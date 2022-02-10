@@ -18,6 +18,7 @@ using arm::Mem;
 using arm::Gp;
 using arm::GpW;
 using arm::GpX;
+
 using arm::Vec;
 using arm::VecB;
 using arm::VecH;
@@ -300,7 +301,7 @@ static constexpr VecV v31 = VecV(31);
 #ifndef _DOXYGEN
 } // {regs}
 
-// Make `arm::regs` accessible through `arm` namespace as well.
+// Make `a64::regs` accessible through `a64` namespace as well.
 using namespace regs;
 #endif
 

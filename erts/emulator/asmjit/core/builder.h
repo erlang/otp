@@ -746,6 +746,9 @@ public:
 
   //! Returns the instruction id, see `BaseInst::Id`.
   inline InstId id() const noexcept { return _baseInst.id(); }
+  //! Returns the instruction real id, see `BaseInst::Id`.
+  inline InstId realId() const noexcept { return _baseInst.realId(); }
+
   //! Sets the instruction id to `id`, see `BaseInst::Id`.
   inline void setId(InstId id) noexcept { _baseInst.setId(id); }
 

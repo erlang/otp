@@ -75,7 +75,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     arm::Gp fun_thing = emit_ptr_val(TMP1, ARG4);
     a.ldur(TMP1, emit_boxed_val(fun_thing));
     a.cmp(TMP1, imm(HEADER_FUN));
-    a.cond_eq().b(bad_arity);
+    a.b_eq(bad_arity);
 
     a.bind(bad_fun);
     {
@@ -111,7 +111,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
 
             add(ARG3, HTOP, bytes_needed);
             a.cmp(ARG3, E);
-            a.cond_ls().b(after_gc);
+            a.b_ls(after_gc);
             {
                 mov_imm(ARG4, 2);
                 a.bl(labels[garbage_collect]);
@@ -259,7 +259,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
         a.bind(unpack_next);
         {
             a.cmp(TMP1, imm(NIL));
-            a.cond_eq().b(finished);
+            a.b_eq(finished);
 
             ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << 1));
             a.tbnz(TMP1, imm(1), malformed_list);
@@ -273,7 +273,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
              * is reserved for the loader. */
             a.add(ARG3, ARG3, imm(1));
             a.cmp(ARG3, imm(MAX_REG - 1));
-            a.cond_lo().b(unpack_next);
+            a.b_lo(unpack_next);
         }
 
         a.mov(TMP1, imm(SYSTEM_LIMIT));
@@ -346,7 +346,7 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         /* As emit_is_boxed(), but explicitly sets ZF so we can rely on that
          * for error checking in `next`. */
         a.tst(ARG4, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-        a.cond_ne().b(next);
+        a.b_ne(next);
     } else {
         comment("skipped box test since source is always boxed");
     }
@@ -359,7 +359,7 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         a.ldp(TMP1, ARG1, arm::Mem(TMP2));
 
         a.cmp(TMP1, imm(HEADER_FUN));
-        a.cond_ne().b(next);
+        a.b_ne(next);
     } else {
         comment("skipped fun test since source is always a fun when boxed");
         a.ldr(ARG1, arm::Mem(TMP2, offsetof(ErlFunThing, entry)));

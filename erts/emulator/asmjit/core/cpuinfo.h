@@ -429,7 +429,7 @@ public:
       kARMv8_4a,                 //!< ARMv8.4-A ISA.
       kARMv8_5a,                 //!< ARMv8.5-A ISA.
       kARMv8_6a,                 //!< ARMv8.6-A ISA.
-      kARMv8_7a,                 //!< ARMv8.6-A ISA.
+      kARMv8_7a,                 //!< ARMv8.7-A ISA.
 
       kVFPv2,                    //!< CPU has VFPv2 instruction set.
       kVFPv3,                    //!< CPU has VFPv3 instruction set.

@@ -34,7 +34,7 @@ void BeamGlobalAssembler::emit_check_float_error() {
     a.fabs(a64::d30, a64::d0);
     a.ldr(a64::d31, arm::Mem(double_max));
     a.fcmp(a64::d30, a64::d31);
-    a.cond_hi().b(error);
+    a.b_hi(error);
     a.ret(a64::x30);
 
     a.align(AlignMode::kCode, 8);
@@ -104,7 +104,7 @@ void BeamGlobalAssembler::emit_fconv_shared() {
         mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
         a.and_(TMP2, TMP1, TMP2);
         a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
-        a.cond_ne().b(error);
+        a.b_ne(error);
     }
 
     emit_enter_runtime_frame();
@@ -148,7 +148,7 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
 
     a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_MASK));
-    a.cond_ne().b(not_small);
+    a.b_ne(not_small);
 
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
     a.scvtf(dst.reg, TMP1);
@@ -175,7 +175,7 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
 
             a.ldr(TMP1, arm::Mem(TMP1));
             a.cmp(TMP1, imm(HEADER_FLONUM));
-            a.cond_eq().b(next);
+            a.b_eq(next);
         }
 
         a.bind(fallback);

@@ -230,7 +230,7 @@ void BeamGlobalAssembler::emit_i_length_common(Label fail, int state_size) {
         a.ldp(ARG2, ARG3, TMP_MEM1q);
         a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
         a.cmp(TMP1, imm(TRAP));
-        a.cond_ne().b(fail);
+        a.b_ne(fail);
 
         emit_leave_runtime<Update::eReductions | Update::eXRegs>();
         emit_leave_runtime_frame();
@@ -361,7 +361,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
     a.cbnz(TMP1, trace);
 
     a.subs(FCALLS, FCALLS, imm(1));
-    a.cond_le().b(yield);
+    a.b_le(yield);
     {
         emit_enter_runtime_frame();
         emit_enter_runtime<Update::eReductions | Update::eStack |
@@ -423,7 +423,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, bin_vheap_sz)));
             a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, off_heap.overhead)));
             a.cmp(TMP2, TMP1);
-            a.cond_hi().b(gc_after_bif_call);
+            a.b_hi(gc_after_bif_call);
 
             /* Test whether GC is forced. */
             a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
@@ -434,7 +434,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.asr(TMP1, TMP1, imm(3));
             a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, mbuf_sz)));
             a.cmp(TMP1, TMP2);
-            a.cond_lt().b(gc_after_bif_call);
+            a.b_lt(gc_after_bif_call);
         }
         /*
            ARG2 is set to E
@@ -622,7 +622,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     a.bind(check_trap);
     a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
     a.cmp(TMP1, imm(TRAP));
-    a.cond_ne().b(error);
+    a.b_ne(error);
     {
         comment("yield");
 
@@ -857,7 +857,7 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
     Label yield = a.newLabel();
 
     a.subs(FCALLS, FCALLS, imm(1));
-    a.cond_le().b(yield);
+    a.b_le(yield);
     a.b(labels[call_nif_shared]);
 
     a.bind(yield);
@@ -978,10 +978,10 @@ void BeamModuleAssembler::emit_i_load_nif() {
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>(2);
 
     a.cmp(ARG1, imm(RET_NIF_yield));
-    a.cond_eq().b(schedule);
+    a.b_eq(schedule);
 
     a.cmp(ARG1, imm(RET_NIF_success));
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     emit_raise_exception(currLabel, &mfa);
 

@@ -81,7 +81,7 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgVal &Need,
 
     add(ARG3, HTOP, bytes_needed);
     a.cmp(ARG3, E);
-    a.cond_ls().b(after_gc_check);
+    a.b_ls(after_gc_check);
 
     ASSERT(Live.getValue() < ERTS_X_REGS_ALLOCATED);
     mov_arg(ArgVal(ArgVal::XReg, Live.getValue()), term);
@@ -103,7 +103,7 @@ void BeamModuleAssembler::emit_gc_test(const ArgVal &Ns,
 
     add(ARG3, HTOP, bytes_needed);
     a.cmp(ARG3, E);
-    a.cond_ls().b(after_gc_check);
+    a.b_ls(after_gc_check);
 
     mov_imm(ARG4, Live.getValue());
     fragment_call(ga->get_garbage_collect());
@@ -117,16 +117,16 @@ void BeamModuleAssembler::emit_validate(const ArgVal &arity) {
 
     /* Crash if the Erlang heap is not word-aligned */
     a.tst(HTOP, imm(sizeof(Eterm) - 1));
-    a.cond_ne().b(crash);
+    a.b_ne(crash);
 
     /* Crash if the Erlang stack is not word-aligned */
     a.tst(E, imm(sizeof(Eterm) - 1));
-    a.cond_ne().b(crash);
+    a.b_ne(crash);
 
     /* Crash if we've overrun the stack */
     lea(TMP1, arm::Mem(E, -(int32_t)(S_REDZONE * sizeof(Eterm))));
     a.cmp(HTOP, TMP1);
-    a.cond_hi().b(crash);
+    a.b_hi(crash);
 
     a.b(next);
 
@@ -312,7 +312,7 @@ void BeamModuleAssembler::emit_tuple_assertion(const ArgVal &Src,
     emit_is_boxed(fatal, TMP1);
     emit_untag_ptr(TMP1, TMP1);
     a.cmp(TMP1, tuple_reg);
-    a.cond_eq().b(ok);
+    a.b_eq(ok);
 
     a.bind(fatal);
     a.udf(0xaaaa);
@@ -653,7 +653,7 @@ void BeamModuleAssembler::emit_is_atom(const ArgVal &Fail, const ArgVal &Src) {
 
     a.and_(TMP1, src.reg, imm(_TAG_IMMED2_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_boolean(const ArgVal &Fail,
@@ -666,7 +666,7 @@ void BeamModuleAssembler::emit_is_boolean(const ArgVal &Fail,
     auto src = load_source(Src, TMP1);
     a.and_(TMP1, src.reg, imm(~(am_true & ~_TAG_IMMED1_MASK)));
     a.cmp(TMP1, imm(am_false));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
@@ -681,7 +681,7 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.cond_eq().b(subbin);
+    a.b_eq(subbin);
 
     if (masked_types(Src, BEAM_TYPE_MASK_ALWAYS_BOXED) == BEAM_TYPE_BITSTRING) {
         comment("simplified binary test since source is always a bitstring "
@@ -690,7 +690,7 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgVal &Fail,
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(TMP1, TMP1, imm(~4));
         a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.b(next);
@@ -737,7 +737,7 @@ void BeamModuleAssembler::emit_is_float(const ArgVal &Fail, const ArgVal &Src) {
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
         a.cmp(TMP1, imm(HEADER_FLONUM));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
 
@@ -753,7 +753,7 @@ void BeamModuleAssembler::emit_is_function(const ArgVal &Fail,
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.cmp(TMP1, imm(HEADER_FUN));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
 
@@ -775,7 +775,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
         emit_leave_runtime();
 
         a.cmp(ARG1, imm(am_true));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
 
         return;
     }
@@ -799,7 +799,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgVal &Fail,
     } else {
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
         a.cmp(TMP2, imm(HEADER_FUN));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.ldur(TMP2, emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
@@ -814,7 +814,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
         comment("skipped test for boxed since the value is always immediate");
         a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
 
         return;
     }
@@ -827,7 +827,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
     } else {
         a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
@@ -846,7 +846,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgVal &Fail,
         mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
         a.and_(TMP1, TMP1, TMP2);
         a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -858,7 +858,7 @@ void BeamModuleAssembler::emit_is_list(const ArgVal &Fail, const ArgVal &Src) {
     a.tst(src.reg, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.mov(TMP2, NIL);
     a.ccmp(src.reg, TMP2, 4, arm::CondCode::kNE);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_map(const ArgVal &Fail, const ArgVal &Src) {
@@ -875,14 +875,14 @@ void BeamModuleAssembler::emit_is_map(const ArgVal &Fail, const ArgVal &Src) {
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_MAP));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
 
 void BeamModuleAssembler::emit_is_nil(const ArgVal &Fail, const ArgVal &Src) {
     auto src = load_source(Src, TMP1);
     a.cmp(src.reg, imm(NIL));
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
@@ -896,7 +896,7 @@ void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
     } else {
         a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
     }
@@ -918,7 +918,7 @@ void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
 
         a.mov(TMP3, imm(HEADER_FLONUM));
         a.ccmp(TMP1, TMP3, 4, arm::CondCode::kNE);
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -934,7 +934,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgVal &Fail, const ArgVal &Src) {
     } else {
         a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP2, imm(_TAG_IMMED1_PID));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         /* Reuse TMP2 as the important bits are still available. */
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
@@ -947,7 +947,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgVal &Fail, const ArgVal &Src) {
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
         a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
         a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PID));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -963,7 +963,7 @@ void BeamModuleAssembler::emit_is_port(const ArgVal &Fail, const ArgVal &Src) {
     } else {
         a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP2, imm(_TAG_IMMED1_PORT));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         /* Reuse TMP2 as the important bits are still available. */
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
@@ -976,7 +976,7 @@ void BeamModuleAssembler::emit_is_port(const ArgVal &Fail, const ArgVal &Src) {
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
         a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
         a.cmp(TMP2, imm(_TAG_HEADER_EXTERNAL_PORT));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -996,7 +996,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
         a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::CondCode::kNE);
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
 
@@ -1023,11 +1023,11 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
         a.ccmp(TMP1, imm(Arity.getValue()), imm(0), arm::CondCode::kEQ);
     } else {
         cmp_arg(TMP1, Arity);
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
         cmp_arg(TMP2, Tag);
     }
 
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -1051,18 +1051,18 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgVal &NotTuple,
     a.ldp(TMP1, TMP2, arm::Mem(ARG1));
 
     cmp_arg(TMP1, Arity);
-    a.cond_eq().b(correct_arity);
+    a.b_eq(correct_arity);
 
     /* Not a tuple or the wrong arity. Decide which. */
     ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
     a.tst(TMP1, imm(_TAG_HEADER_MASK));
-    a.cond_eq().b(resolve_beam_label(NotRecord, disp1MB));
+    a.b_eq(resolve_beam_label(NotRecord, disp1MB));
     a.b(resolve_beam_label(NotTuple, disp128MB));
 
     a.bind(correct_arity);
     {
         cmp_arg(TMP2, Tag);
-        a.cond_ne().b(resolve_beam_label(NotRecord, disp1MB));
+        a.b_ne(resolve_beam_label(NotRecord, disp1MB));
     }
 }
 
@@ -1083,7 +1083,7 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgVal &Fail,
         a.ldr(TMP1, arm::Mem(ARG1));
         ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
         a.tst(TMP1, imm(_TAG_HEADER_MASK));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
 
@@ -1100,7 +1100,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgVal &Fail,
 
     a.ldr(TMP1, arm::Mem(ARG1));
     cmp_arg(TMP1, Arity);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -1113,7 +1113,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgVal &Fail,
 
     a.ldr(TMP1, arm::Mem(ARG1));
     cmp_arg(TMP1, Arity);
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
@@ -1129,7 +1129,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
         }
 
         cmp_arg(x.reg, Y);
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
 
         return;
     }
@@ -1139,7 +1139,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
     auto y = load_source(Y, ARG2);
 
     a.cmp(x.reg, y.reg);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
@@ -1147,7 +1147,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgVal &Fail,
         /* The terms could still be equal if both operands are pointers
          * having the same tag. */
         emit_is_unequal_based_on_tags(x.reg, y.reg);
-        a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+        a.b_eq(resolve_beam_label(Fail, disp1MB));
     }
 
     /* Both operands are pointers having the same tag. Must do a
@@ -1179,7 +1179,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
         }
 
         cmp_arg(x.reg, Y);
-        a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+        a.b_eq(resolve_beam_label(Fail, disp1MB));
 
         return;
     }
@@ -1189,7 +1189,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
     auto y = load_source(Y, ARG2);
 
     a.cmp(x.reg, y.reg);
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    a.b_eq(resolve_beam_label(Fail, disp1MB));
 
     if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
@@ -1197,7 +1197,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgVal &Fail,
         /* Test whether the terms are definitely unequal based on the tags
          * alone. */
         emit_is_unequal_based_on_tags(x.reg, y.reg);
-        a.cond_eq().b(next);
+        a.b_eq(next);
     }
 
     /* Both operands are pointers having the same tag. Must do a
@@ -1225,16 +1225,16 @@ void BeamModuleAssembler::emit_is_eq(const ArgVal &Fail,
     auto y = load_source(Y, ARG2);
 
     a.cmp(x.reg, y.reg);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     /* We can skip deep comparisons when both args are immediates. */
     emit_are_both_immediate(x.reg, y.reg);
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    a.b_eq(resolve_beam_label(Fail, disp1MB));
 
     mov_var(ARG1, x);
     mov_var(ARG2, y);
     fragment_call(ga->get_arith_compare_shared());
-    a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 
     a.bind(next);
 }
@@ -1248,16 +1248,16 @@ void BeamModuleAssembler::emit_is_ne(const ArgVal &Fail,
     auto y = load_source(Y, ARG2);
 
     a.cmp(x.reg, y.reg);
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    a.b_eq(resolve_beam_label(Fail, disp1MB));
 
     /* We can skip deep comparisons when both args are immediates. */
     emit_are_both_immediate(x.reg, y.reg);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     mov_var(ARG1, x);
     mov_var(ARG2, y);
     fragment_call(ga->get_arith_compare_shared());
-    a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+    a.b_eq(resolve_beam_label(Fail, disp1MB));
 
     a.bind(next);
 }
@@ -1286,7 +1286,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     mov_imm(TMP5, HEADER_FLONUM);
     a.cmp(TMP3, TMP5);
     a.ccmp(TMP4, TMP5, 0, arm::CondCode::kEQ);
-    a.cond_ne().b(generic_compare);
+    a.b_ne(generic_compare);
 
     a.ldur(a64::d0, emit_boxed_val(boxed_ptr1, sizeof(Eterm)));
     a.ldur(a64::d1, emit_boxed_val(boxed_ptr2, sizeof(Eterm)));
@@ -1343,7 +1343,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         a.cmp(ARG1, ARG2);
-        a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
@@ -1361,7 +1361,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
         /* The flags will either be from the initial comparison, or from the
          * shared fragment. */
         a.bind(branch_compare);
-        a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
     } else {
         Label generic = a.newLabel(), next = a.newLabel();
 
@@ -1378,16 +1378,16 @@ void BeamModuleAssembler::emit_is_lt(const ArgVal &Fail,
         }
 
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.cond_ne().b(generic);
+        a.b_ne(generic);
 
         a.cmp(ARG1, ARG2);
-        a.cond_lt().b(next);
+        a.b_lt(next);
         a.b(resolve_beam_label(Fail, disp128MB));
 
         a.bind(generic);
         {
             fragment_call(ga->get_arith_compare_shared());
-            a.cond_ge().b(resolve_beam_label(Fail, disp1MB));
+            a.b_ge(resolve_beam_label(Fail, disp1MB));
         }
 
         a.bind(next);
@@ -1403,7 +1403,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         a.cmp(ARG1, ARG2);
-        a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
@@ -1422,7 +1422,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
         /* The flags will either be from the initial comparison, or from the
          * shared fragment. */
         a.bind(branch_compare);
-        a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
     } else {
         Label generic = a.newLabel(), next = a.newLabel();
 
@@ -1439,16 +1439,16 @@ void BeamModuleAssembler::emit_is_ge(const ArgVal &Fail,
         }
 
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.cond_ne().b(generic);
+        a.b_ne(generic);
 
         a.cmp(ARG1, ARG2);
-        a.cond_ge().b(next);
+        a.b_ge(next);
         a.b(resolve_beam_label(Fail, disp128MB));
 
         a.bind(generic);
         {
             fragment_call(ga->get_arith_compare_shared());
-            a.cond_lt().b(resolve_beam_label(Fail, disp1MB));
+            a.b_lt(resolve_beam_label(Fail, disp1MB));
         }
 
         a.bind(next);
@@ -1499,7 +1499,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
     a.mov(XREG0, XREG1);
     a.cmp(XREG3, imm(am_throw));
 
-    a.cond_ne().b(not_throw);
+    a.b_ne(not_throw);
 
     /* Return thrown value. */
     a.ret(a64::x30);
@@ -1511,7 +1511,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         a.mov(ARG1, XREG0);
 
         a.cmp(XREG3, imm(am_error));
-        a.cond_ne().b(not_error);
+        a.b_ne(not_error);
 
         a.mov(ARG2, XREG0);
         a.mov(ARG3, XREG2);
@@ -1536,7 +1536,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         add(ARG3, HTOP, bytes_needed);
         a.cmp(ARG3, E);
 
-        a.cond_ls().b(after_gc);
+        a.b_ls(after_gc);
         {
             /* Preserve stacktrace / reason. */
             a.mov(XREG0, ARG1);
@@ -1602,7 +1602,7 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     mov_imm(TMP3, NIL);
     a.cmp(TMP1, TMP3);
     a.ccmp(TMP2, TMP3, 0, arm::CondCode::kEQ);
-    a.cond_eq().b(ok);
+    a.b_eq(ok);
 
     comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");
     a.udf(0x42);
@@ -1692,7 +1692,7 @@ void BeamModuleAssembler::emit_i_test_yield() {
 
     a.adr(ARG3, currLabel);
     a.subs(FCALLS, FCALLS, imm(1));
-    a.cond_le().b(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
+    a.b_le(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
 
     ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
            TEST_YIELD_RETURN_OFFSET);
@@ -1713,7 +1713,7 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     a.asr(TMP1, ARG1, imm(SMALL_BITS - 1));
     a.add(TMP1, TMP1, imm(1));
     a.cmp(TMP1, imm(1));
-    a.cond_ls().b(small);
+    a.b_ls(small);
 
     {
         a.mov(XREG0, ARG1);

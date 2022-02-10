@@ -34,6 +34,29 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 #define ASMJIT_INST_6x(NAME, ID, T0, T1, T2, T3, T4, T5) \
   inline Error NAME(const T0& o0, const T1& o1, const T2& o2, const T3& o3, const T4& o4, const T5& o5) { return _emitter()->_emitI(Inst::kId##ID, o0, o1, o2, o3, o4, o5); }
 
+#define ASMJIT_INST_1cc(NAME, ID, T0) \
+  inline Error NAME(const T0& o0) { return _emitter()->_emitI(Inst::kId##ID, o0); } \
+  \
+  inline Error NAME(CondCode cc, const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, cc), o0); } \
+  \
+  inline Error NAME##_eq(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kEQ), o0); } \
+  inline Error NAME##_ne(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kNE), o0); } \
+  inline Error NAME##_cs(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kCS), o0); } \
+  inline Error NAME##_hs(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kHS), o0); } \
+  inline Error NAME##_cc(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kCC), o0); } \
+  inline Error NAME##_lo(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kLO), o0); } \
+  inline Error NAME##_mi(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kMI), o0); } \
+  inline Error NAME##_pl(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kPL), o0); } \
+  inline Error NAME##_vs(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kVS), o0); } \
+  inline Error NAME##_vc(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kVC), o0); } \
+  inline Error NAME##_hi(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kHI), o0); } \
+  inline Error NAME##_ls(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kLS), o0); } \
+  inline Error NAME##_ge(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kGE), o0); } \
+  inline Error NAME##_lt(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kLT), o0); } \
+  inline Error NAME##_gt(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kGT), o0); } \
+  inline Error NAME##_le(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kLE), o0); } \
+  inline Error NAME##_al(const T0& o0) { return _emitter()->_emitI(BaseInst::composeARMInstId(Inst::kId##ID, CondCode::kAL), o0); }
+
 //! \addtogroup asmjit_a64
 //! \{
 
@@ -64,54 +87,6 @@ protected:
   }
 
 public:
-  //! \name Condition Flags
-  //! \{
-
-  inline This& cond(CondCode condCode) noexcept {
-    return _addInstOptions(InstOptions(uint32_t(condCode) << uint32_t(InstOptions::kARM_CondCodeShift)) | InstOptions::kARM_CondFlagMask);
-  }
-
-  inline This& cond_eq() noexcept { return cond(CondCode::kEQ); }
-  inline This& cond_ne() noexcept { return cond(CondCode::kNE); }
-  inline This& cond_cs() noexcept { return cond(CondCode::kCS); }
-  inline This& cond_hs() noexcept { return cond(CondCode::kHS); }
-  inline This& cond_cc() noexcept { return cond(CondCode::kCC); }
-  inline This& cond_lo() noexcept { return cond(CondCode::kLO); }
-  inline This& cond_mi() noexcept { return cond(CondCode::kMI); }
-  inline This& cond_pl() noexcept { return cond(CondCode::kPL); }
-  inline This& cond_vs() noexcept { return cond(CondCode::kVS); }
-  inline This& cond_vc() noexcept { return cond(CondCode::kVC); }
-  inline This& cond_hi() noexcept { return cond(CondCode::kHI); }
-  inline This& cond_ls() noexcept { return cond(CondCode::kLS); }
-  inline This& cond_ge() noexcept { return cond(CondCode::kGE); }
-  inline This& cond_lt() noexcept { return cond(CondCode::kLT); }
-  inline This& cond_gt() noexcept { return cond(CondCode::kGT); }
-  inline This& cond_le() noexcept { return cond(CondCode::kLE); }
-  inline This& cond_al() noexcept { return cond(CondCode::kAL); }
-  inline This& cond_na() noexcept { return cond(CondCode::kNA); }
-
-  inline This& cond_sign() noexcept { return cond(CondCode::kSign); }
-  inline This& cond_not_sign() noexcept { return cond(CondCode::kNotSign); }
-  inline This& cond_overflow() noexcept { return cond(CondCode::kOverflow); }
-  inline This& cond_not_overflow() noexcept { return cond(CondCode::kNotOverflow); }
-  inline This& cond_equal() noexcept { return cond(CondCode::kEqual); }
-  inline This& cond_not_equal() noexcept { return cond(CondCode::kNotEqual); }
-  inline This& cond_zero() noexcept { return cond(CondCode::kZero); }
-  inline This& cond_not_zero() noexcept { return cond(CondCode::kNotZero); }
-  inline This& cond_positive() noexcept { return cond(CondCode::kPositive); }
-  inline This& cond_negative() noexcept { return cond(CondCode::kNegative); }
-  inline This& cond_signed_le() noexcept { return cond(CondCode::kSignedLT); }
-  inline This& cond_signed_lt() noexcept { return cond(CondCode::kSignedLE); }
-  inline This& cond_signed_gt() noexcept { return cond(CondCode::kSignedGT); }
-  inline This& cond_signed_ge() noexcept { return cond(CondCode::kSignedGE); }
-  inline This& cond_unsigned_le() noexcept { return cond(CondCode::kUnsignedLT); }
-  inline This& cond_unsigned_lt() noexcept { return cond(CondCode::kUnsignedLE); }
-  inline This& cond_unsigned_gt() noexcept { return cond(CondCode::kUnsignedGT); }
-  inline This& cond_unsigned_ge() noexcept { return cond(CondCode::kUnsignedGE); }
-
-
-  //! \}
-
   //! \name General Purpose Instructions
   //! \{
 
@@ -355,8 +330,8 @@ public:
   //! \name Branch Instructions
   //! \{
 
-  ASMJIT_INST_1x(b, B, Imm)
-  ASMJIT_INST_1x(b, B, Label)
+  ASMJIT_INST_1cc(b, B, Imm)
+  ASMJIT_INST_1cc(b, B, Label)
   ASMJIT_INST_1x(bl, Bl, Imm)
   ASMJIT_INST_1x(bl, Bl, Label)
   ASMJIT_INST_1x(blr, Blr, Gp)
@@ -1246,6 +1221,7 @@ class Emitter : public BaseEmitter, public EmitterExplicitT<Emitter> {
 #undef ASMJIT_INST_4x
 #undef ASMJIT_INST_5x
 #undef ASMJIT_INST_6x
+#undef ASMJIT_INST_1cc
 
 ASMJIT_END_SUB_NAMESPACE
 

@@ -364,6 +364,7 @@ public:
   static inline ZoneTreeNode* _doubleRotate(ZoneTreeNode* ASMJIT_NONNULL(root), size_t dir) noexcept {
     ZoneTreeNode* child = root->_getChild(!dir);
     ASMJIT_ASSUME(child != nullptr);
+
     root->_setChild(!dir, _singleRotate(child, !dir));
     return _singleRotate(root, dir);
   }

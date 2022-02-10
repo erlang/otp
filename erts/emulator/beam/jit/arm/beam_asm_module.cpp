@@ -182,7 +182,7 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
           nif_only = a.newLabel();
 
     a.cmp(ARG1, imm(ERTS_ASM_BP_FLAG_BP_NIF_CALL_NIF_EARLY));
-    a.cond_eq().b(bp_and_nif);
+    a.b_eq(bp_and_nif);
     ERTS_CT_ASSERT((1 << 0) == ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
     a.tbnz(ARG1, imm(0), nif_only);
     ERTS_CT_ASSERT((1 << 1) == ERTS_ASM_BP_FLAG_BP);

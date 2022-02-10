@@ -44,7 +44,7 @@ void BeamModuleAssembler::emit_return() {
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.subs(FCALLS, FCALLS, imm(1));
-    a.cond_mi().b(resolve_fragment(ga->get_dispatch_return(), disp1MB));
+    a.b_mi(resolve_fragment(ga->get_dispatch_return(), disp1MB));
 
     a.ret(a64::x30);
 }

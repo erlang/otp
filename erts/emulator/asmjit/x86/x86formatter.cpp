@@ -10,6 +10,7 @@
 #include "../core/misc_p.h"
 #include "../core/support.h"
 #include "../x86/x86formatter_p.h"
+#include "../x86/x86instapi_p.h"
 #include "../x86/x86instdb_p.h"
 #include "../x86/x86operand.h"
 
@@ -880,7 +881,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
       }
     }
 
-    ASMJIT_PROPAGATE(InstAPI::instIdToString(arch, instId, sb));
+    ASMJIT_PROPAGATE(InstInternal::instIdToString(arch, instId, sb));
   }
   else {
     ASMJIT_PROPAGATE(sb.appendFormat("[InstId=#%u]", unsigned(instId)));

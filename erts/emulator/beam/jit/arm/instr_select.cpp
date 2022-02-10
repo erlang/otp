@@ -120,7 +120,7 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
         a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
     }
 
-    a.cond_ne().b(resolve_label(fail, disp1MB));
+    a.b_ne(resolve_label(fail, disp1MB));
 
     if (shift != 0) {
         a.lsr(ARG1, comparand, imm(shift));
@@ -197,7 +197,7 @@ void BeamModuleAssembler::emit_linear_search(arm::Gp comparand,
         }
 
         cmp_arg(comparand, value);
-        a.cond_eq().b(resolve_beam_label(label, disp1MB));
+        a.b_eq(resolve_beam_label(label, disp1MB));
     }
 
     /* An invalid label means fallthrough to the next instruction. */
@@ -223,7 +223,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
     } else {
         ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
         a.tst(TMP1, imm(_TAG_HEADER_MASK));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     Label fail = rawLabels[Fail.getValue()];
@@ -378,10 +378,10 @@ void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
     ASSERT(Left != Right);
     ASSERT(Left != mid);
 
-    a.cond_eq().b(resolve_beam_label(lbl, disp1MB));
+    a.b_eq(resolve_beam_label(lbl, disp1MB));
 
     Label right_tree = a.newLabel();
-    a.cond_hs().b(resolve_label(right_tree, disp1MB));
+    a.b_hs(resolve_label(right_tree, disp1MB));
 
     emit_binsearch_nodes(reg, Left, mid - 1, fail, args);
 
@@ -403,12 +403,12 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
     a.cmp(TMP3, imm(_TAG_IMMED1_SMALL));
 
     if (Fail.isLabel()) {
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         /* NIL means fallthrough to the next instruction. */
         ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);
         fail = a.newLabel();
-        a.cond_ne().b(fail);
+        a.b_ne(fail);
     }
 
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
@@ -424,9 +424,9 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
 
     a.cmp(TMP1, imm(args.size()));
     if (Fail.isLabel()) {
-        a.cond_hs().b(resolve_beam_label(Fail, disp1MB));
+        a.b_hs(resolve_beam_label(Fail, disp1MB));
     } else {
-        a.cond_hs().b(fail);
+        a.b_hs(fail);
     }
 
     embed_vararg_rodata(args, TMP2);
@@ -474,7 +474,7 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
 
     a.orr(TMP1, reg, imm(diff));
     cmp_arg(TMP1, val);
-    a.cond_eq().b(resolve_beam_label(args[2], disp1MB));
+    a.b_eq(resolve_beam_label(args[2], disp1MB));
 
     /* An invalid label means fallthrough to the next instruction. */
     if (fail.isValid()) {

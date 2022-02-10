@@ -13,7 +13,7 @@
 //! \{
 
 //! AsmJit library version in `(Major << 16) | (Minor << 8) | (Patch)` format.
-#define ASMJIT_LIBRARY_VERSION 0x010800 /* 1.8.0 */
+#define ASMJIT_LIBRARY_VERSION 0x010900 /* 1.9.0 */
 
 //! \def ASMJIT_ABI_NAMESPACE
 //!
@@ -24,7 +24,7 @@
 //! default, which makes it possible to use use multiple AsmJit libraries within a single project, totally controlled
 //! by the users. This is useful especially in cases in which some of such library comes from a third party.
 #ifndef ASMJIT_ABI_NAMESPACE
-  #define ASMJIT_ABI_NAMESPACE _abi_1_8
+  #define ASMJIT_ABI_NAMESPACE _abi_1_9
 #endif
 
 //! \}
@@ -79,8 +79,11 @@ namespace asmjit {
 //! Disables X86/X64 backends.
 #define ASMJIT_NO_X86
 
+//! Disables AArch32 backends (both ARM and Thumb).
+#define ASMJIT_NO_AARCH32
+
 //! Disables AArch64 backend.
-#define ASMJIT_NO_ARM
+#define ASMJIT_NO_AARCH64
 
 //! Disables non-host backends entirely (useful for JIT compilers to minimize the library size).
 #define ASMJIT_NO_FOREIGN
@@ -210,8 +213,8 @@ namespace asmjit {
     #define ASMJIT_NO_X86
   #endif
 
-  #if !ASMJIT_ARCH_ARM && !defined(ASMJIT_NO_ARM)
-    #define ASMJIT_NO_ARM
+  #if !ASMJIT_ARCH_ARM && !defined(ASMJIT_NO_AARCH64)
+    #define ASMJIT_NO_AARCH64
   #endif
 #endif
 
@@ -351,7 +354,6 @@ namespace asmjit {
   #define ASMJIT_VECTORCALL
 #endif
 
-
 // Type alignment (not allowed by C++11 'alignas' keyword).
 #if defined(__GNUC__)
   #define ASMJIT_ALIGN_TYPE(TYPE, N) __attribute__((__aligned__(N))) TYPE
@@ -388,6 +390,15 @@ namespace asmjit {
   #define ASMJIT_NONNULL(FUNCTION_ARGUMENT) FUNCTION_ARGUMENT __attribute__((__nonnull__))
 #else
   #define ASMJIT_NONNULL(FUNCTION_ARGUMENT) FUNCTION_ARGUMENT
+#endif
+
+//! \def ASMJIT_NOEXCEPT_TYPE
+//!
+//! Defined to `noexcept` in C++17 mode or nothing otherwise. Used by function typedefs.
+#if __cplusplus >= 201703L
+  #define ASMJIT_NOEXCEPT_TYPE noexcept
+#else
+  #define ASMJIT_NOEXCEPT_TYPE
 #endif
 
 //! \def ASMJIT_ASSUME(...)

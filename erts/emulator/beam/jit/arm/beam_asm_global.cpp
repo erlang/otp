@@ -174,16 +174,16 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     /* We test the generic bp first as it is most likely to be triggered in a
      * loop. */
     a.cmp(TMP1, imm(op_i_generic_breakpoint));
-    a.cond_eq().b(labels[generic_bp_global]);
+    a.b_eq(labels[generic_bp_global]);
 
     a.cmp(TMP1, imm(op_call_bif_W));
-    a.cond_eq().b(call_bif);
+    a.b_eq(call_bif);
 
     a.cmp(TMP1, imm(op_call_error_handler));
-    a.cond_eq().b(error_handler);
+    a.b_eq(error_handler);
 
     a.cmp(TMP1, imm(op_trace_jump_W));
-    a.cond_eq().b(jump_trace);
+    a.b_eq(jump_trace);
 
     /* Must never happen. */
     a.udf(0xffff);
@@ -313,7 +313,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
 
     /* The error address must be a valid CP or NULL. */
     a.tst(ARG2, imm(_CPMASK));
-    a.cond_ne().b(crash);
+    a.b_ne(crash);
 
     /* ARG2 and ARG4 must be set prior to jumping here! */
     a.mov(ARG1, c_p);

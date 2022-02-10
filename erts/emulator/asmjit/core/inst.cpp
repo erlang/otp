@@ -11,7 +11,7 @@
   #include "../x86/x86instapi_p.h"
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
   #include "../arm/a64instapi_p.h"
 #endif
 
@@ -27,8 +27,8 @@ Error InstAPI::instIdToString(Arch arch, InstId instId, String& output) noexcept
     return x86::InstInternal::instIdToString(arch, instId, output);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isArchAArch64(arch))
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
     return a64::InstInternal::instIdToString(arch, instId, output);
 #endif
 
@@ -41,8 +41,8 @@ InstId InstAPI::stringToInstId(Arch arch, const char* s, size_t len) noexcept {
     return x86::InstInternal::stringToInstId(arch, s, len);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isArchAArch64(arch))
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
     return a64::InstInternal::stringToInstId(arch, s, len);
 #endif
 
@@ -60,8 +60,8 @@ Error InstAPI::validate(Arch arch, const BaseInst& inst, const Operand_* operand
     return x86::InstInternal::validate(arch, inst, operands, opCount, validationFlags);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isArchAArch64(arch))
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
     return a64::InstInternal::validate(arch, inst, operands, opCount, validationFlags);
 #endif
 
@@ -82,8 +82,8 @@ Error InstAPI::queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* oper
     return x86::InstInternal::queryRWInfo(arch, inst, operands, opCount, out);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isArchAArch64(arch))
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
     return a64::InstInternal::queryRWInfo(arch, inst, operands, opCount, out);
 #endif
 
@@ -101,8 +101,8 @@ Error InstAPI::queryFeatures(Arch arch, const BaseInst& inst, const Operand_* op
     return x86::InstInternal::queryFeatures(arch, inst, operands, opCount, out);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (Environment::isArchAArch64(arch))
+#if !defined(ASMJIT_NO_AARCH64)
+  if (Environment::isFamilyAArch64(arch))
     return a64::InstInternal::queryFeatures(arch, inst, operands, opCount, out);
 #endif
 

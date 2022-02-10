@@ -9,16 +9,6 @@
 #include "../core/logger.h"
 #include "../core/support.h"
 
-#if !defined(ASMJIT_NO_X86)
-  #include "../x86/x86emithelper_p.h"
-  #include "../x86/x86instdb_p.h"
-#endif // !ASMJIT_NO_X86
-
-#if !defined(ASMJIT_NO_ARM)
-  #include "../arm/a64emithelper_p.h"
-  #include "../arm/a64instdb.h"
-#endif // !ASMJIT_NO_ARM
-
 ASMJIT_BEGIN_NAMESPACE
 
 // BaseEmitter - Construction & Destruction
@@ -219,70 +209,28 @@ Error BaseEmitter::_emitOpArray(InstId instId, const Operand_* operands, size_t 
   }
 }
 
-// BaseEmitter - Emit (High-Level)
-// ===============================
+// BaseEmitter - Emit Utilities
+// ============================
 
-ASMJIT_FAVOR_SIZE Error BaseEmitter::emitProlog(const FuncFrame& frame) {
+Error BaseEmitter::emitProlog(const FuncFrame& frame) {
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#if !defined(ASMJIT_NO_X86)
-  if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
-    return emitHelper.emitProlog(frame);
-  }
-#endif
-
-#if !defined(ASMJIT_NO_ARM)
-  if (environment().isArchAArch64()) {
-    a64::EmitHelper emitHelper(this);
-    return emitHelper.emitProlog(frame);
-  }
-#endif
-
-  return DebugUtils::errored(kErrorInvalidArch);
+  return _funcs.emitProlog(this, frame);
 }
 
-ASMJIT_FAVOR_SIZE Error BaseEmitter::emitEpilog(const FuncFrame& frame) {
+Error BaseEmitter::emitEpilog(const FuncFrame& frame) {
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#if !defined(ASMJIT_NO_X86)
-  if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
-    return emitHelper.emitEpilog(frame);
-  }
-#endif
-
-#if !defined(ASMJIT_NO_ARM)
-  if (environment().isArchAArch64()) {
-    a64::EmitHelper emitHelper(this);
-    return emitHelper.emitEpilog(frame);
-  }
-#endif
-
-  return DebugUtils::errored(kErrorInvalidArch);
+  return _funcs.emitEpilog(this, frame);
 }
 
-ASMJIT_FAVOR_SIZE Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, const FuncArgsAssignment& args) {
+Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, const FuncArgsAssignment& args) {
   if (ASMJIT_UNLIKELY(!_code))
     return DebugUtils::errored(kErrorNotInitialized);
 
-#if !defined(ASMJIT_NO_X86)
-  if (environment().isFamilyX86()) {
-    x86::EmitHelper emitHelper(this, frame.isAvxEnabled(), frame.isAvx512Enabled());
-    return emitHelper.emitArgsAssignment(frame, args);
-  }
-#endif
-
-#if !defined(ASMJIT_NO_ARM)
-  if (environment().isArchAArch64()) {
-    a64::EmitHelper emitHelper(this);
-    return emitHelper.emitArgsAssignment(frame, args);
-  }
-#endif
-
-  return DebugUtils::errored(kErrorInvalidArch);
+  return _funcs.emitArgsAssignment(this, frame, args);
 }
 
 // BaseEmitter - Comment

@@ -292,7 +292,7 @@ protected:
         a.sub(SUPER_TMP, E, imm(REDZONE_BYTES));
         a.cmp(HTOP, SUPER_TMP);
 
-        a.cond_ls().b(next);
+        a.b_ls(next);
         a.udf(0xbeef);
 
         a.bind(next);
@@ -634,7 +634,7 @@ protected:
             a.cbz(reg, lbl);
         } else {
             a.cmp(reg, imm(value));
-            a.cond_eq().b(lbl);
+            a.b_eq(lbl);
         }
     }
 
@@ -643,7 +643,7 @@ protected:
             a.cbnz(reg, lbl);
         } else {
             a.cmp(reg, imm(value));
-            a.cond_ne().b(lbl);
+            a.b_ne(lbl);
         }
     }
 
@@ -1456,7 +1456,7 @@ protected:
         Label next = a.newLabel();
         a.ldr(SUPER_TMP, getInitialSPRef());
         a.cmp(a64::sp, SUPER_TMP);
-        a.cond_eq().b(next);
+        a.b_eq(next);
         a.udf(0xdead);
         a.bind(next);
 #endif

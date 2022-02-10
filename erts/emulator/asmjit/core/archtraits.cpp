@@ -11,8 +11,8 @@
   #include "../x86/x86archtraits_p.h"
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  #include "../arm/armarchtraits_p.h"
+#if !defined(ASMJIT_NO_AARCH64)
+  #include "../arm/a64archtraits_p.h"
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -83,8 +83,8 @@ ASMJIT_VARAPI const ArchTraits _archTraits[uint32_t(Arch::kMaxValue) + 1] = {
   noArchTraits,
 
   // AArch64 architecture.
-#if !defined(ASMJIT_NO_ARM)
-  arm::a64ArchTraits,
+#if !defined(ASMJIT_NO_AARCH64)
+  a64::a64ArchTraits,
 #else
   noArchTraits,
 #endif

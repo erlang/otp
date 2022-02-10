@@ -16,16 +16,40 @@ ASMJIT_BEGIN_NAMESPACE
 //! \addtogroup asmjit_instruction_db
 //! \{
 
-//! Describes an instruction.
+//! Describes an instruction id and modifiers used together with the id.
 //!
 //! Each architecture has a set of valid instructions indexed from 0. Instruction with 0 id is, however, a special
-//! instruction that describes an invalid instruction. Different architectures can share the same instruction id,
-//! which would describe a different instruction per architecture.
+//! instruction that describes a "no instruction" or "invalid instruction". Different architectures can assign a.
+//! different instruction to the same id, each architecture typicall has its own instructions indexed from 1.
 //!
 //! Instruction identifiers listed by architecture:
 //!
 //!   - \ref x86::Inst (X86 and X86_64)
+//!   - \ref a64::Inst (AArch64)
 typedef uint32_t InstId;
+
+//! Instruction id parts.
+//!
+//! A mask that specifies a bit-layout of \ref InstId.
+enum class InstIdParts : uint32_t {
+  // Common Masks
+  // ------------
+
+  //! Real id without any modifiers (always 16 least significant bits).
+  kRealId   = 0x0000FFFFu,
+  //! Instruction is abstract (or virtual, IR, etc...).
+  kAbstract = 0x80000000u,
+
+  // ARM Specific
+  // ------------
+
+  //! AArch32 first data type, used by ASIMD instructions (`inst.dt.dt2`).
+  kA32_DT   = 0x000F0000u,
+  //! AArch32 second data type, used by ASIMD instructions (`inst.dt.dt2`).
+  kA32_DT2  = 0x00F00000u,
+  //! AArch32/AArch64 condition code.
+  kARM_Cond = 0x78000000u
+};
 
 //! Instruction options.
 //!
@@ -142,20 +166,7 @@ enum class InstOptions : uint32_t {
   //! Force REX prefix (X64 only).
   kX86_Rex = 0x40000000u,
   //! Invalid REX prefix (set by X86 or when AH|BH|CH|DH regs are used on X64).
-  kX86_InvalidRex = 0x80000000u,
-
-  // ARM & AArch86 Options
-  // ---------------------
-
-  //! Condition code flag shift
-  kARM_CondFlagShift = 27,
-  //! Condition code flag shift
-  kARM_CondFlagMask = 1u << kARM_CondFlagShift,
-
-  //! Condition code value shift.
-  kARM_CondCodeShift = 28u,
-  //! Condition code value mask.
-  kARM_CondCodeMask = 0xFu << kARM_CondCodeShift
+  kX86_InvalidRex = 0x80000000u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(InstOptions)
 
@@ -197,7 +208,7 @@ public:
   //! \name Members
   //! \{
 
-  //! Instruction id.
+  //! Instruction id with modifiers.
   InstId _id;
   //! Instruction options.
   InstOptions _options;
@@ -237,25 +248,33 @@ public:
 
   //! \}
 
-  //! \name Instruction Id
+  //! \name Instruction id and modifiers
   //! \{
 
-  //! Returns the instruction id.
+  //! Returns the instruction id with modifiers.
   inline InstId id() const noexcept { return _id; }
-  //! Sets the instruction id to the given `id`.
+  //! Sets the instruction id and modiiers from `id`.
   inline void setId(InstId id) noexcept { _id = id; }
-  //! Resets the instruction id to zero, see \ref kIdNone.
+  //! Resets the instruction id and modifiers to zero, see \ref kIdNone.
   inline void resetId() noexcept { _id = 0; }
+
+  //! Returns a real instruction id that doesn't contain any modifiers.
+  inline InstId realId() const noexcept { return _id & uint32_t(InstIdParts::kRealId); }
+
+  template<InstIdParts kPart>
+  inline uint32_t getInstIdPart() const noexcept {
+    return (uint32_t(_id) & uint32_t(kPart)) >> Support::ConstCTZ<uint32_t(kPart)>::value;
+  }
+
+  template<InstIdParts kPart>
+  inline void setInstIdPart(uint32_t value) noexcept {
+    _id = (_id & ~uint32_t(kPart)) | (value << Support::ConstCTZ<uint32_t(kPart)>::value);
+  }
 
   //! \}
 
   //! \name Instruction Options
   //! \{
-
-  template<uint32_t kFieldMask>
-  inline uint32_t getOptionField() const noexcept {
-    return (uint32_t(_options) & kFieldMask) >> Support::ConstCTZ<kFieldMask>::value;
-  }
 
   inline InstOptions options() const noexcept { return _options; }
   inline bool hasOption(InstOptions option) const noexcept { return Support::test(_options, option); }
@@ -281,8 +300,21 @@ public:
   //! \name ARM Specific
   //! \{
 
-  inline bool hasARMCondFlag() const noexcept { return hasOption(InstOptions::kARM_CondFlagMask); }
-  inline uint32_t armCondCode() const noexcept { return getOptionField<uint32_t(InstOptions::kARM_CondCodeMask)>(); }
+  inline arm::CondCode armCondCode() const noexcept { return (arm::CondCode)getInstIdPart<InstIdParts::kARM_Cond>(); }
+  inline void setArmCondCode(arm::CondCode cc) noexcept { setInstIdPart<InstIdParts::kARM_Cond>(uint32_t(cc)); }
+
+  //! \}
+
+  //! \name Statics
+  //! \{
+
+  static inline constexpr InstId composeARMInstId(uint32_t id, arm::CondCode cc) noexcept {
+    return id | (uint32_t(cc) << Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  }
+
+  static inline constexpr arm::CondCode extractARMCondCode(uint32_t id) noexcept {
+    return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
+  }
 
   //! \}
 };

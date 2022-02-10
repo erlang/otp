@@ -117,7 +117,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &Fail,
 
     /* Test for not overflow AND small operands. */
     a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -201,7 +201,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgVal &Fail,
 
     /* Test for not overflow AND small operands. */
     a.ccmp(TMP2, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     mov_var(ARG2, src);
     if (Fail.getValue() != 0) {
@@ -311,7 +311,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &Fail,
 
     /* Test for not overflow AND small operands. */
     a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -352,14 +352,14 @@ void BeamGlobalAssembler::emit_times_guard_shared() {
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic);
+    a.b_ne(generic);
 
     /* The high 65 bits of result will all be the same if no overflow
      * occurred. Another way to say that is that the sign bit of the
      * low 64 bits repeated 64 times must be equal to the high 64 bits
      * of the product. */
     a.cmp(TMP4, TMP3, arm::asr(63));
-    a.cond_ne().b(generic);
+    a.b_ne(generic);
 
     a.orr(ARG1, TMP3, imm(_TAG_IMMED1_SMALL));
     a.ret(a64::x30);
@@ -397,14 +397,14 @@ void BeamGlobalAssembler::emit_times_body_shared() {
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic);
+    a.b_ne(generic);
 
     /* The high 65 bits of result will all be the same if no overflow
      * occurred. Another way to say that is that the sign bit of the
      * low 64 bits repeated 64 times must be equal to the high 64 bits
      * of the product. */
     a.cmp(TMP4, TMP3, arm::asr(63));
-    a.cond_ne().b(generic);
+    a.b_ne(generic);
 
     a.orr(ARG1, TMP3, imm(_TAG_IMMED1_SMALL));
     a.ret(a64::x30);
@@ -492,20 +492,20 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     a.msub(TMP4, TMP3, TMP2, TMP1);
 
     a.cmp(ARG3, imm(make_small(0)));
-    a.cond_eq().b(exit);
+    a.b_eq(exit);
 
     /* Check whether both operands are small integers. */
     ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic);
+    a.b_ne(generic);
 
     /* MIN_SMALL divided by -1 will overflow, and we'll need to fall
      * back to the generic handler in that case. */
     a.asr(TMP1, TMP3, imm(SMALL_BITS - 1));
     a.cmp(TMP1, imm(1));
-    a.cond_ge().b(generic);
+    a.b_ge(generic);
 
     /* The Z flag is now clear (meaning no error). */
 
@@ -554,20 +554,20 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.msub(TMP4, TMP3, TMP2, TMP1);
 
     a.cmp(ARG3, imm(make_small(0)));
-    a.cond_eq().b(div_zero);
+    a.b_eq(div_zero);
 
     /* Check whether both operands are small integers. */
     ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(generic_div);
+    a.b_ne(generic_div);
 
     /* MIN_SMALL divided by -1 will overflow, and we'll need to fall
      * back to the generic handler in that case. */
     a.asr(TMP1, TMP3, imm(SMALL_BITS - 1));
     a.cmp(TMP1, imm(1));
-    a.cond_ge().b(generic_div);
+    a.b_ge(generic_div);
 
     mov_imm(TMP1, _TAG_IMMED1_SMALL);
     arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
@@ -595,7 +595,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
 
         a.tst(ARG1, ARG1);
         a.ldp(ARG1, ARG2, TMP_MEM4q);
-        a.cond_eq().b(generic_error);
+        a.b_eq(generic_error);
 
         a.ret(a64::x30);
     }
@@ -666,7 +666,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgVal &Fail,
 
         if (Fail.getValue() != 0) {
             fragment_call(ga->get_int_div_rem_guard_shared());
-            a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+            a.b_eq(resolve_beam_label(Fail, disp1MB));
         } else {
             a.mov(ARG4, imm(error_mfa));
             fragment_call(ga->get_int_div_rem_body_shared());
@@ -749,9 +749,9 @@ void BeamModuleAssembler::emit_i_m_div(const ArgVal &Fail,
     a.cmp(ARG1, imm(THE_NON_VALUE));
 
     if (Fail.getValue() != 0) {
-        a.cond_eq().b(resolve_beam_label(Fail, disp1MB));
+        a.b_eq(resolve_beam_label(Fail, disp1MB));
     } else {
-        a.cond_ne().b(next);
+        a.b_ne(next);
 
         mov_arg(XREG0, LHS);
         mov_arg(XREG1, RHS);
@@ -830,7 +830,7 @@ void BeamModuleAssembler::emit_i_band(const ArgVal &Fail,
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
         a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         mov_var(ARG2, lhs);
         mov_var(ARG3, rhs);
@@ -895,7 +895,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgVal &Fail,
         }
 
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.cond_eq().b(next);
+        a.b_eq(next);
 
         a.bind(generic);
         {
@@ -961,7 +961,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgVal &Fail,
     }
 
     a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -1065,7 +1065,7 @@ void BeamModuleAssembler::emit_i_bnot(const ArgVal &Fail,
     } else {
         a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.cond_eq().b(next);
+        a.b_eq(next);
     }
 
     if (Fail.getValue() != 0) {
@@ -1124,7 +1124,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgVal &Fail,
             } else {
                 a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
                 a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-                a.cond_ne().b(generic);
+                a.b_ne(generic);
             }
 
             /* We don't need to clear the mask after shifting because
@@ -1249,7 +1249,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &Fail,
             } else {
                 a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
                 a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-                a.cond_ne().b(generic);
+                a.b_ne(generic);
             }
         } else {
             UWord value = LHS.getValue();
@@ -1276,14 +1276,14 @@ void BeamModuleAssembler::emit_i_bsl(const ArgVal &Fail,
              * or immediate, and the `cmp` helper doesn't accept untyped
              * `Operand`s. */
             a.emit(a64::Inst::kIdCmp, ARG5, shiftLimit);
-            a.cond_hi().b(generic);
+            a.b_hi(generic);
         } else {
             ASSERT(!shiftLimit.isImm());
 
             shiftCount = imm(signed_val(RHS.getValue()));
 
             a.emit(a64::Inst::kIdCmp, shiftLimit, shiftCount);
-            a.cond_lo().b(generic);
+            a.b_lo(generic);
         }
 
         a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));

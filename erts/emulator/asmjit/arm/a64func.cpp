@@ -4,12 +4,12 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
 
-#include "../arm/armfunc_p.h"
-#include "../arm/armoperand.h"
+#include "../arm/a64func_p.h"
+#include "../arm/a64operand.h"
 
-ASMJIT_BEGIN_SUB_NAMESPACE(arm)
+ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 namespace FuncInternal {
 
@@ -42,37 +42,30 @@ static RegType regTypeFromFpOrVecTypeId(TypeId typeId) noexcept {
 ASMJIT_FAVOR_SIZE Error initCallConv(CallConv& cc, CallConvId ccId, const Environment& environment) noexcept {
   cc.setArch(environment.arch());
 
-  if (environment.is32Bit()) {
-    // TODO: [ARM] 32-bit ARM not supported yet.
-    return DebugUtils::errored(kErrorInvalidState);
+  cc.setSaveRestoreRegSize(RegGroup::kGp, 8);
+  cc.setSaveRestoreRegSize(RegGroup::kVec, 8);
+  cc.setSaveRestoreAlignment(RegGroup::kGp, 16);
+  cc.setSaveRestoreAlignment(RegGroup::kVec, 16);
+  cc.setSaveRestoreAlignment(RegGroup::kExtraVirt2, 1);
+  cc.setSaveRestoreAlignment(RegGroup::kExtraVirt3, 1);
+  cc.setPassedOrder(RegGroup::kGp, 0, 1, 2, 3, 4, 5, 6, 7);
+  cc.setPassedOrder(RegGroup::kVec, 0, 1, 2, 3, 4, 5, 6, 7);
+  cc.setNaturalStackAlignment(16);
+
+  if (shouldThreatAsCDecl(ccId)) {
+    // ARM doesn't have that many calling conventions as we can find in X86 world, treat most conventions as __cdecl.
+    cc.setId(CallConvId::kCDecl);
+    cc.setPreservedRegs(RegGroup::kGp, Support::bitMask(Gp::kIdOs, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30));
+    cc.setPreservedRegs(RegGroup::kVec, Support::bitMask(8, 9, 10, 11, 12, 13, 14, 15));
   }
   else {
-    cc.setSaveRestoreRegSize(RegGroup::kGp, 8);
-    cc.setSaveRestoreRegSize(RegGroup::kVec, 8);
-    cc.setSaveRestoreAlignment(RegGroup::kGp, 16);
-    cc.setSaveRestoreAlignment(RegGroup::kVec, 16);
-    cc.setSaveRestoreAlignment(RegGroup::kExtraVirt2, 1);
-    cc.setSaveRestoreAlignment(RegGroup::kExtraVirt3, 1);
-
-    cc.setPassedOrder(RegGroup::kGp, 0, 1, 2, 3, 4, 5, 6, 7);
-    cc.setPassedOrder(RegGroup::kVec, 0, 1, 2, 3, 4, 5, 6, 7);
-    cc.setNaturalStackAlignment(16);
-
-    if (shouldThreatAsCDecl(ccId)) {
-      // ARM doesn't have that many calling conventions as we can find in X86 world, treat most conventions as __cdecl.
-      cc.setId(CallConvId::kCDecl);
-      cc.setPreservedRegs(RegGroup::kGp, Support::bitMask(Gp::kIdOs, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30));
-      cc.setPreservedRegs(RegGroup::kVec, Support::bitMask(8, 9, 10, 11, 12, 13, 14, 15));
-    }
-    else {
-      cc.setId(ccId);
-      cc.setSaveRestoreRegSize(RegGroup::kVec, 16);
-      cc.setPreservedRegs(RegGroup::kGp, Support::bitMask(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30));
-      cc.setPreservedRegs(RegGroup::kVec, Support::bitMask(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31));
-    }
-
-    return kErrorOk;
+    cc.setId(ccId);
+    cc.setSaveRestoreRegSize(RegGroup::kVec, 16);
+    cc.setPreservedRegs(RegGroup::kGp, Support::bitMask(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30));
+    cc.setPreservedRegs(RegGroup::kVec, Support::bitMask(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31));
   }
+
+  return kErrorOk;
 }
 
 ASMJIT_FAVOR_SIZE Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t registerSize) noexcept {
@@ -193,4 +186,4 @@ ASMJIT_FAVOR_SIZE Error initFuncDetail(FuncDetail& func, const FuncSignature& si
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM
+#endif // !ASMJIT_NO_AARCH64

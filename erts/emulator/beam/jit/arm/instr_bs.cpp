@@ -88,7 +88,7 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgVal &Size,
             a.mul(out, out, TMP1);
         }
 
-        a.cond_ne().b(fail);
+        a.b_ne(fail);
 
         return 1;
     }
@@ -526,16 +526,16 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgVal &Src,
 
     a.and_(TMP1, TMP1, imm(_HEADER_SUBTAG_MASK));
     a.cmp(TMP1, imm(BIN_MATCHSTATE_SUBTAG));
-    a.cond_eq().b(next);
+    a.b_eq(next);
 
     if (Fail.getValue() != 0) {
         comment("is_binary_header");
         a.cmp(TMP1, _TAG_HEADER_SUB_BIN);
-        a.cond_eq().b(is_binary);
+        a.b_eq(is_binary);
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(TMP1, TMP1, imm(~4));
         a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(is_binary);
@@ -578,7 +578,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgVal &Ctx,
         a.ldur(TMP3, emit_boxed_val(ctx_reg.reg, size_offset));
         a.add(TMP4, TMP2, imm(size));
         a.cmp(TMP4, TMP3);
-        a.cond_hi().b(resolve_beam_label(Fail, disp1MB));
+        a.b_hi(resolve_beam_label(Fail, disp1MB));
 
         /* ARG4 = mb->offset & 7 */
         a.and_(ARG4, TMP2, imm(7));
@@ -713,7 +713,7 @@ void BeamModuleAssembler::emit_bs_test_tail2(const ArgVal &Fail,
 
     if (Offset.getValue() != 0) {
         a.cmp(TMP2, imm(Offset.getValue()));
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         a.cbnz(TMP2, resolve_beam_label(Fail, disp1MB));
     }
@@ -765,7 +765,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgVal &Ctx,
             a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
         } else {
             a.tst(TMP1, imm(unit - 1));
-            a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
         }
     }
 
@@ -834,7 +834,7 @@ void BeamModuleAssembler::emit_bs_skip_bits(const ArgVal &Fail,
 
     a.add(TMP2, TMP2, ARG1);
     a.cmp(TMP2, TMP3);
-    a.cond_hi().b(resolve_beam_label(Fail, disp1MB));
+    a.b_hi(resolve_beam_label(Fail, disp1MB));
 
     a.stur(TMP2, emit_boxed_val(ctx_reg.reg, position_offset));
 }
@@ -945,11 +945,11 @@ void BeamModuleAssembler::emit_i_bs_utf8_size(const ArgVal &Src,
     a.lsr(TMP1, src_reg.reg, imm(_TAG_IMMED1_SIZE));
     mov_imm(dst_reg.reg, make_small(1));
     a.cmp(TMP1, imm(0x7F));
-    a.cond_ls().b(next);
+    a.b_ls(next);
 
     mov_imm(dst_reg.reg, make_small(2));
     a.cmp(TMP1, imm(0x7FFUL));
-    a.cond_ls().b(next);
+    a.b_ls(next);
 
     a.cmp(TMP1, imm(0x10000UL));
     mov_imm(TMP2, make_small(3));
@@ -1086,19 +1086,19 @@ void BeamModuleAssembler::emit_validate_unicode(Label next,
 
     a.and_(TMP2, value, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     mov_imm(TMP2, make_small(0xD800UL));
     a.cmp(value, TMP2);
-    a.cond_lo().b(next);
+    a.b_lo(next);
 
     mov_imm(TMP2, make_small(0xDFFFUL));
     a.cmp(value, TMP2);
-    a.cond_ls().b(fail);
+    a.b_ls(fail);
 
     mov_imm(TMP2, make_small(0x10FFFFUL));
     a.cmp(value, TMP2);
-    a.cond_hi().b(fail);
+    a.b_hi(fail);
 
     a.b(next);
 }
@@ -1173,7 +1173,7 @@ void BeamModuleAssembler::emit_bs_test_unit(const ArgVal &Fail,
         a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
     } else {
         a.tst(TMP1, imm(unit - 1));
-        a.cond_ne().b(resolve_beam_label(Fail, dispUnknown));
+        a.b_ne(resolve_beam_label(Fail, dispUnknown));
     }
 }
 
@@ -1194,7 +1194,7 @@ void BeamGlobalAssembler::emit_bs_add_guard_shared() {
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
-    a.cond_ne().b(error);
+    a.b_ne(error);
 
     /* Return `Size` + `Add` * `Unit`
      *
@@ -1222,7 +1222,7 @@ void BeamGlobalAssembler::emit_bs_add_body_shared() {
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
     a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
-    a.cond_ne().b(error);
+    a.b_ne(error);
 
     /* Return `Size` + `Add` * `Unit`
      *
@@ -1263,7 +1263,7 @@ void BeamModuleAssembler::emit_bs_add(const ArgVal &Fail,
         fragment_call(ga->get_bs_add_body_shared());
     } else {
         fragment_call(ga->get_bs_add_guard_shared());
-        a.cond_ne().b(resolve_beam_label(Fail, disp1MB));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
     mov_arg(Dst, ARG1);
@@ -1394,7 +1394,7 @@ void BeamGlobalAssembler::emit_bs_bit_size_shared() {
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
     a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.cond_ne().b(not_sub_bin);
+    a.b_ne(not_sub_bin);
 
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
@@ -1406,7 +1406,7 @@ void BeamGlobalAssembler::emit_bs_bit_size_shared() {
     ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
     a.and_(TMP1, TMP1, imm(~4));
     a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
-    a.cond_ne().b(fail);
+    a.b_ne(fail);
 
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
     a.lsl(ARG1, TMP1, imm(3));
@@ -1586,7 +1586,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                                                             BSC_INFO_TYPE,
                                                             BSC_VALUE_ARG3));
                 }
-                a.cond_mi().b(resolve_label(error, disp1MB));
+                a.b_mi(resolve_label(error, disp1MB));
             }
             a.add(sizeReg, sizeReg, ARG1);
         } else if (seg.unit != 0) {
@@ -1619,7 +1619,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
             } else {
                 a.and_(TMP2, ARG3, imm(_TAG_IMMED1_MASK));
                 a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-                a.cond_ne().b(resolve_label(error, disp1MB));
+                a.b_ne(resolve_label(error, disp1MB));
             }
             if (can_fail) {
                 a.tbnz(ARG3, 63, resolve_label(error, disp32K));
@@ -1637,7 +1637,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                                     BSC_VALUE_ARG3));
                 }
                 a.tst(TMP1, imm(0xffful << 52));
-                a.cond_ne().b(resolve_label(error, disp1MB));
+                a.b_ne(resolve_label(error, disp1MB));
                 mov_imm(TMP2, seg.unit);
                 a.madd(sizeReg, TMP1, TMP2, sizeReg);
             }
@@ -1651,11 +1651,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
                 a.lsr(TMP1, src_reg.reg, imm(_TAG_IMMED1_SIZE));
                 mov_imm(TMP2, 1 * 8);
                 a.cmp(TMP1, imm(0x7F));
-                a.cond_ls().b(next);
+                a.b_ls(next);
 
                 mov_imm(TMP2, 2 * 8);
                 a.cmp(TMP1, imm(0x7FFUL));
-                a.cond_ls().b(next);
+                a.b_ls(next);
 
                 a.cmp(TMP1, imm(0x10000UL));
                 mov_imm(TMP2, 3 * 8);
@@ -1699,19 +1699,19 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgVal &Fail,
 
                 a.and_(TMP2, ARG3, imm(_TAG_IMMED1_MASK));
                 a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
-                a.cond_ne().b(error);
+                a.b_ne(error);
 
                 mov_imm(TMP2, make_small(0xD800UL));
                 a.cmp(ARG3, TMP2);
-                a.cond_lo().b(next);
+                a.b_lo(next);
 
                 mov_imm(TMP2, make_small(0xDFFFUL));
                 a.cmp(ARG3, TMP2);
-                a.cond_ls().b(error);
+                a.b_ls(error);
 
                 mov_imm(TMP2, make_small(0x10FFFFUL));
                 a.cmp(ARG3, TMP2);
-                a.cond_hi().b(error);
+                a.b_hi(error);
 
                 a.bind(next);
                 break;

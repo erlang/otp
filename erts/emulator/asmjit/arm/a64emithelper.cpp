@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
 
 #include "../core/formatter.h"
 #include "../core/funcargscontext_p.h"
@@ -12,6 +12,8 @@
 #include "../core/support.h"
 #include "../core/type.h"
 #include "../arm/a64emithelper_p.h"
+#include "../arm/a64formatter_p.h"
+#include "../arm/a64instapi_p.h"
 #include "../arm/a64operand.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
@@ -298,7 +300,6 @@ struct PrologEpilogInfo {
   }
 };
 
-// TODO: [ARM] Emit prolog.
 ASMJIT_FAVOR_SIZE Error EmitHelper::emitProlog(const FuncFrame& frame) {
   Emitter* emitter = _emitter->as<Emitter>();
 
@@ -429,6 +430,35 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
   return kErrorOk;
 }
 
+static Error ASMJIT_CDECL Emitter_emitProlog(BaseEmitter* emitter, const FuncFrame& frame) {
+  EmitHelper emitHelper(emitter);
+  return emitHelper.emitProlog(frame);
+}
+
+static Error ASMJIT_CDECL Emitter_emitEpilog(BaseEmitter* emitter, const FuncFrame& frame) {
+  EmitHelper emitHelper(emitter);
+  return emitHelper.emitEpilog(frame);
+}
+
+static Error ASMJIT_CDECL Emitter_emitArgsAssignment(BaseEmitter* emitter, const FuncFrame& frame, const FuncArgsAssignment& args) {
+  EmitHelper emitHelper(emitter);
+  return emitHelper.emitArgsAssignment(frame, args);
+}
+
+void assignEmitterFuncs(BaseEmitter* emitter) {
+  emitter->_funcs.emitProlog = Emitter_emitProlog;
+  emitter->_funcs.emitEpilog = Emitter_emitEpilog;
+  emitter->_funcs.emitArgsAssignment = Emitter_emitArgsAssignment;
+
+#ifndef ASMJIT_NO_LOGGING
+  emitter->_funcs.formatInstruction = FormatterInternal::formatInstruction;
+#endif
+
+#ifndef ASMJIT_NO_VALIDATION
+  emitter->_funcs.validate = InstInternal::validate;
+#endif
+}
+
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM
+#endif // !ASMJIT_NO_AARCH64

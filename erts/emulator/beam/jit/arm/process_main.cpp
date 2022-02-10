@@ -124,7 +124,7 @@ void BeamGlobalAssembler::emit_process_main() {
         Label check_i = a.newLabel();
         /* Check that ARG3 is set to a valid CP. */
         a.tst(ARG3, imm(_CPMASK));
-        a.cond_eq().b(check_i);
+        a.b_eq(check_i);
         a.udf(1);
         a.bind(check_i);
 #endif
@@ -133,7 +133,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, state.value)));
 
         a.tst(TMP1, imm(ERTS_PSFLG_EXITING));
-        a.cond_eq().b(not_exiting);
+        a.b_eq(not_exiting);
         {
             comment("Process exiting");
 
@@ -256,11 +256,11 @@ void BeamGlobalAssembler::emit_process_main() {
 
         ERTS_CT_ASSERT((op_call_nif_WWW & 0xFFFF0000) == 0);
         a.cmp(TMP1, imm(op_call_nif_WWW));
-        a.cond_eq().b(labels[dispatch_nif]);
+        a.b_eq(labels[dispatch_nif]);
 
         ERTS_CT_ASSERT((op_call_bif_W & 0xFFFF0000) == 0);
         a.cmp(TMP1, imm(op_call_bif_W));
-        a.cond_eq().b(labels[dispatch_bif]);
+        a.b_eq(labels[dispatch_bif]);
 
         a.br(ARG1);
     }

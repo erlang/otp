@@ -3,18 +3,18 @@
 // See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#ifndef ASMJIT_ARM_ARMARCHTRAITS_P_H_INCLUDED
-#define ASMJIT_ARM_ARMARCHTRAITS_P_H_INCLUDED
+#ifndef ASMJIT_ARM_A64ARCHTRAITS_P_H_INCLUDED
+#define ASMJIT_ARM_A64ARCHTRAITS_P_H_INCLUDED
 
 #include "../core/archtraits.h"
 #include "../core/misc_p.h"
 #include "../core/type.h"
-#include "../arm/armoperand.h"
+#include "../arm/a64operand.h"
 
-ASMJIT_BEGIN_SUB_NAMESPACE(arm)
+ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 //! \cond INTERNAL
-//! \addtogroup asmjit_arm
+//! \addtogroup asmjit_a64
 //! \{
 
 static const constexpr ArchTraits a64ArchTraits = {
@@ -71,7 +71,6 @@ static const constexpr ArchTraits a64ArchTraits = {
     ArchTypeNameId::kWord,
     ArchTypeNameId::kXWord
   }
-
 };
 
 //! \}
@@ -79,4 +78,4 @@ static const constexpr ArchTraits a64ArchTraits = {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_ARM_ARMARCHTRAITS_P_H_INCLUDED
+#endif // ASMJIT_ARM_A64ARCHTRAITS_P_H_INCLUDED

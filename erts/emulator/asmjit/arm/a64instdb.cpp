@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#if !defined(ASMJIT_NO_ARM)
+#if !defined(ASMJIT_NO_AARCH64)
 
 #include "../core/codeholder.h"
 #include "../core/support.h"
@@ -1954,4 +1954,4 @@ const InstDB::InstNameIndex InstDB::instNameIndex[26] = {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_ARM
+#endif // !ASMJIT_NO_AARCH64

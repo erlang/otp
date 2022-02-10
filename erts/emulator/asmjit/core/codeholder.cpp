@@ -194,6 +194,10 @@ Error CodeHolder::attach(BaseEmitter* emitter) noexcept {
   if (ASMJIT_UNLIKELY(type == EmitterType::kNone || uint32_t(type) > uint32_t(EmitterType::kMaxValue)))
     return DebugUtils::errored(kErrorInvalidState);
 
+  uint64_t archMask = emitter->_archMask;
+  if (ASMJIT_UNLIKELY(!(archMask & (uint64_t(1) << uint32_t(arch())))))
+    return DebugUtils::errored(kErrorInvalidArch);
+
   // This is suspicious, but don't fail if `emitter` is already attached
   // to this code holder. This is not error, but it's not recommended.
   if (emitter->_code != nullptr) {

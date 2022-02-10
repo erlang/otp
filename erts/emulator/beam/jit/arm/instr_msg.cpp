@@ -162,7 +162,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     a.bind(restart);
     {
         a.tst(FCALLS, FCALLS);
-        a.cond_le().b(schedule_out);
+        a.b_le(schedule_out);
 
         /* !! FALL THROUGH !! */
     }
@@ -355,8 +355,8 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
 
     ERTS_CT_ASSERT(RET_next < RET_wait && RET_wait < RET_badarg);
     a.cmp(ARG1, imm(RET_wait));
-    a.cond_eq().b(wait);
-    a.cond_lt().b(next);
+    a.b_eq(wait);
+    a.b_lt(next);
 
     emit_raise_exception(currLabel, (ErtsCodeMFA *)nullptr);
 

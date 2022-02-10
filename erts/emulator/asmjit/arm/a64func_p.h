@@ -3,24 +3,24 @@
 // See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#ifndef ASMJIT_ARM_ARMFUNC_P_H_INCLUDED
-#define ASMJIT_ARM_ARMFUNC_P_H_INCLUDED
+#ifndef ASMJIT_ARM_A64FUNC_P_H_INCLUDED
+#define ASMJIT_ARM_A64FUNC_P_H_INCLUDED
 
 #include "../core/func.h"
 
-ASMJIT_BEGIN_SUB_NAMESPACE(arm)
+ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 //! \cond INTERNAL
-//! \addtogroup asmjit_arm
+//! \addtogroup asmjit_a64
 //! \{
 
-//! ARM-specific function API (calling conventions and other utilities).
+//! AArch64-specific function API (calling conventions and other utilities).
 namespace FuncInternal {
 
-//! Initialize `CallConv` structure (ARM specific).
+//! Initialize `CallConv` structure (AArch64 specific).
 Error initCallConv(CallConv& cc, CallConvId ccId, const Environment& environment) noexcept;
 
-//! Initialize `FuncDetail` (ARM specific).
+//! Initialize `FuncDetail` (AArch64 specific).
 Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t registerSize) noexcept;
 
 } // {FuncInternal}
@@ -30,4 +30,4 @@ Error initFuncDetail(FuncDetail& func, const FuncSignature& signature, uint32_t 
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_ARM_ARMFUNC_P_H_INCLUDED
+#endif // ASMJIT_ARM_A64FUNC_P_H_INCLUDED

@@ -14,6 +14,8 @@
 #include "../core/radefs_p.h"
 #include "../x86/x86emithelper_p.h"
 #include "../x86/x86emitter.h"
+#include "../x86/x86formatter_p.h"
+#include "../x86/x86instapi_p.h"
 
 ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
@@ -581,6 +583,35 @@ ASMJIT_FAVOR_SIZE Error EmitHelper::emitEpilog(const FuncFrame& frame) {
     ASMJIT_PROPAGATE(emitter->emit(Inst::kIdRet));
 
   return kErrorOk;
+}
+
+static Error ASMJIT_CDECL Emitter_emitProlog(BaseEmitter* emitter, const FuncFrame& frame) {
+  EmitHelper emitHelper(emitter, frame.isAvxEnabled(), frame.isAvx512Enabled());
+  return emitHelper.emitProlog(frame);
+}
+
+static Error ASMJIT_CDECL Emitter_emitEpilog(BaseEmitter* emitter, const FuncFrame& frame) {
+  EmitHelper emitHelper(emitter, frame.isAvxEnabled(), frame.isAvx512Enabled());
+  return emitHelper.emitEpilog(frame);
+}
+
+static Error ASMJIT_CDECL Emitter_emitArgsAssignment(BaseEmitter* emitter, const FuncFrame& frame, const FuncArgsAssignment& args) {
+  EmitHelper emitHelper(emitter, frame.isAvxEnabled(), frame.isAvx512Enabled());
+  return emitHelper.emitArgsAssignment(frame, args);
+}
+
+void assignEmitterFuncs(BaseEmitter* emitter) {
+  emitter->_funcs.emitProlog = Emitter_emitProlog;
+  emitter->_funcs.emitEpilog = Emitter_emitEpilog;
+  emitter->_funcs.emitArgsAssignment = Emitter_emitArgsAssignment;
+
+#ifndef ASMJIT_NO_LOGGING
+  emitter->_funcs.formatInstruction = FormatterInternal::formatInstruction;
+#endif
+
+#ifndef ASMJIT_NO_VALIDATION
+  emitter->_funcs.validate = InstInternal::validate;
+#endif
 }
 
 ASMJIT_END_SUB_NAMESPACE

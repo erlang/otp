@@ -27,31 +27,26 @@
 //!
 //! ### Register Operands
 //!
-//!   - \ref arm::Reg - Base class for any X86 register.
+//!   - \ref arm::Reg - Base class for any AArch32/AArch64 register.
 //!     - \ref arm::Gp - General purpose register:
 //!       - \ref arm::GpW - 32-bit register.
 //!       - \ref arm::GpX - 64-bit register.
 //!     - \ref arm::Vec - Vector (SIMD) register:
-//!       - \ref arm::VecB - 8-bit SIMD register.
-//!       - \ref arm::VecH - 16-bit SIMD register.
+//!       - \ref arm::VecB - 8-bit SIMD register (AArch64 only).
+//!       - \ref arm::VecH - 16-bit SIMD register (AArch64 only).
 //!       - \ref arm::VecS - 32-bit SIMD register.
 //!       - \ref arm::VecD - 64-bit SIMD register.
 //!       - \ref arm::VecV - 128-bit SIMD register.
 //!
 //! ### Memory Operands
 //!
-//!   - \ref arm::Mem - ARM/AArch64 memory operand that provides support
-//!     for all ARM addressing features including BASE, INDEX, Pre/Post increment,
-//!     and ARM-specific shift addressing features.
+//!   - \ref arm::Mem - AArch32/AArch64 memory operand that provides support for all ARM addressing features
+//!     including base, index, pre/post increment, and ARM-specific shift addressing and index extending.
 //!
 //! ### Other
 //!
 //!   - \ref arm::Shift - Shift operation and value.
-//!   - \ref a64::Utils - Utilities that can help during code generation for ARM target.
-//!
-//! ### Predicates
-//!
-//!   - \ref a64::Predicate - namespace that provides AArch64 predicates.
+//!   - \ref a64::Utils - Utilities that can help during code generation for AArch64.
 
 #include "./arm.h"
 #include "./arm/a64assembler.h"

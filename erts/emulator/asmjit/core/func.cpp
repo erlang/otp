@@ -14,8 +14,8 @@
   #include "../x86/x86func_p.h"
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  #include "../arm/armfunc_p.h"
+#if !defined(ASMJIT_NO_AARCH64)
+  #include "../arm/a64func_p.h"
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -31,9 +31,9 @@ ASMJIT_FAVOR_SIZE Error CallConv::init(CallConvId ccId, const Environment& envir
     return x86::FuncInternal::initCallConv(*this, ccId, environment);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (environment.isFamilyARM())
-    return arm::FuncInternal::initCallConv(*this, ccId, environment);
+#if !defined(ASMJIT_NO_AARCH64)
+  if (environment.isFamilyAArch64())
+    return a64::FuncInternal::initCallConv(*this, ccId, environment);
 #endif
 
   return DebugUtils::errored(kErrorInvalidArgument);
@@ -73,9 +73,9 @@ ASMJIT_FAVOR_SIZE Error FuncDetail::init(const FuncSignature& signature, const E
     return x86::FuncInternal::initFuncDetail(*this, signature, registerSize);
 #endif
 
-#if !defined(ASMJIT_NO_ARM)
-  if (environment.isFamilyARM())
-    return arm::FuncInternal::initFuncDetail(*this, signature, registerSize);
+#if !defined(ASMJIT_NO_AARCH64)
+  if (environment.isFamilyAArch64())
+    return a64::FuncInternal::initFuncDetail(*this, signature, registerSize);
 #endif
 
   // We should never bubble here as if `cc.init()` succeeded then there has to be an implementation for the current

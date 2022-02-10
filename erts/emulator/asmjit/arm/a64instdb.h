@@ -13,7 +13,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 //! \addtogroup asmjit_a64
 //! \{
 
-//! Instruction database (ARM/THUMB/AArch64).
+//! Instruction database (AArch64).
 namespace InstDB {
 
 //! Instruction flags.
@@ -33,7 +33,7 @@ enum InstFlags : uint32_t {
   kInstFlagConsecutive = 0x00000080u
 };
 
-//! Instruction information (ARM/THUMB/AArch64).
+//! Instruction information (AArch64).
 struct InstInfo {
   //! Instruction encoding type.
   uint32_t _encoding : 8;
@@ -60,6 +60,7 @@ struct InstInfo {
 ASMJIT_VARAPI const InstInfo _instInfoTable[];
 
 static inline const InstInfo& infoById(InstId instId) noexcept {
+  instId &= uint32_t(InstIdParts::kRealId);
   ASMJIT_ASSERT(Inst::isDefinedId(instId));
   return _instInfoTable[instId];
 }

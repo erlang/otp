@@ -84,7 +84,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
                        Update::eReductions>();
 
     a.cmp(ARG1, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
-    a.cond_eq().b(labels[debug_bp]);
+    a.b_eq(labels[debug_bp]);
 
     emit_leave_runtime_frame();
     a.ret(a64::x30);

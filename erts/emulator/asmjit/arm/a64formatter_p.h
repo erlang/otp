@@ -3,27 +3,26 @@
 // See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#ifndef ASMJIT_X86_X86FORMATTER_P_H_INCLUDED
-#define ASMJIT_X86_X86FORMATTER_P_H_INCLUDED
+#ifndef ASMJIT_ARM_A64FORMATTER_P_H_INCLUDED
+#define ASMJIT_ARM_A64FORMATTER_P_H_INCLUDED
 
 #include "../core/api-config.h"
 #ifndef ASMJIT_NO_LOGGING
 
 #include "../core/formatter.h"
 #include "../core/string.h"
-#include "../x86/x86globals.h"
+#include "../arm/armformatter_p.h"
+#include "../arm/a64globals.h"
 
-ASMJIT_BEGIN_SUB_NAMESPACE(x86)
+ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 //! \cond INTERNAL
-//! \addtogroup asmjit_x86
+//! \addtogroup asmjit_a64
 //! \{
 
 namespace FormatterInternal {
 
-Error ASMJIT_CDECL formatFeature(
-  String& sb,
-  uint32_t featureId) noexcept;
+using namespace arm::FormatterInternal;
 
 Error ASMJIT_CDECL formatRegister(
   String& sb,
@@ -31,7 +30,9 @@ Error ASMJIT_CDECL formatRegister(
   const BaseEmitter* emitter,
   Arch arch,
   RegType regType,
-  uint32_t regId) noexcept;
+  uint32_t regId,
+  uint32_t elementType = 0,
+  uint32_t elementIndex = 0xFFFFFFFFu) noexcept;
 
 Error ASMJIT_CDECL formatOperand(
   String& sb,
@@ -55,4 +56,4 @@ Error ASMJIT_CDECL formatInstruction(
 ASMJIT_END_SUB_NAMESPACE
 
 #endif // !ASMJIT_NO_LOGGING
-#endif // ASMJIT_X86_X86FORMATTER_P_H_INCLUDED
+#endif // ASMJIT_ARM_A64FORMATTER_P_H_INCLUDED

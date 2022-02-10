@@ -42,7 +42,15 @@ public:
   uint8_t _isFixed : 1;
   //! True if the virtual register is only used as a stack (never accessed as register).
   uint8_t _isStack : 1;
-  uint8_t _reserved : 6;
+  //! True if this virtual register has assigned stack offset (can be only valid after register allocation pass).
+  uint8_t _hasStackSlot : 1;
+  uint8_t _reservedBits : 5;
+
+  //! Stack offset assigned by the register allocator relative to stack pointer (can be negative as well).
+  int32_t _stackOffset = 0;
+
+  //! Reserved for future use (padding).
+  uint32_t _reservedU32 = 0;
 
   //! Virtual register name (user provided or automatically generated).
   ZoneString<16> _name {};
@@ -66,7 +74,10 @@ public:
       _typeId(typeId),
       _isFixed(false),
       _isStack(false),
-      _reserved(0) {}
+      _hasStackSlot(false),
+      _reservedBits(0),
+      _stackOffset(0),
+      _reservedU32(0) {}
 
   //! \}
 
@@ -124,10 +135,31 @@ public:
   //! \note It's an error if a stack is accessed as a register.
   inline bool isStack() const noexcept { return bool(_isStack); }
 
+  //! Tests whether this virtual register (or stack) has assigned a stack offset.
+  //!
+  //! If this is a virtual register that was never allocated on stack, it would return false, otherwise if
+  //! it's a virtual register that was spilled or explicitly allocated stack, the return value would be true.
+  inline bool hasStackSlot() const noexcept { return bool(_hasStackSlot); }
+
+  //! Assigns a stack offset of this virtual register to `stackOffset` and sets `_hasStackSlot` to true.
+  inline void assignStackSlot(int32_t stackOffset) noexcept {
+    _hasStackSlot = 1;
+    _stackOffset = stackOffset;
+  }
+
+  //! Returns a stack offset associated with a virtual register or explicit stack allocation.
+  //!
+  //! \note Always verify that the stack offset has been assigned by calling \ref hasStackSlot(). The return
+  //! value will be zero when the stack offset was not assigned.
+  inline int32_t stackOffset() const noexcept { return _stackOffset; }
+
   //! Tests whether the virtual register has an associated `RAWorkReg` at the moment.
   inline bool hasWorkReg() const noexcept { return _workReg != nullptr; }
+  //! Returns an associated RAWorkReg with this virtual register (only valid during register allocation).
   inline RAWorkReg* workReg() const noexcept { return _workReg; }
+  //! Associates a RAWorkReg with this virtual register (used by register allocator).
   inline void setWorkReg(RAWorkReg* workReg) noexcept { _workReg = workReg; }
+  //! Reset the RAWorkReg association (used by register allocator).
   inline void resetWorkReg() noexcept { _workReg = nullptr; }
 
   //! \}
