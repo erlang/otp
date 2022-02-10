@@ -22,7 +22,7 @@
 
 -export([init_per_suite/1,
          end_per_suite/1]).
--export([tc_try/3]).
+-export([tc_try/2, tc_try/3, tc_try/4, tc_try/5]).
 -export([socket_type/1,
 	 listen/3,
          connect/4, connect/5,
@@ -30,7 +30,8 @@
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0,
-         test_inet_backends/0]).
+         test_inet_backends/0,
+         which_inet_backend/1]).
 -export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
@@ -1619,68 +1620,108 @@ tc_end(Result) when is_list(Result) ->
              "", "----------------------------------------------------~n~n"),
     ok.
 
-%% *** tc_try/2,3 ***
-%% Case: Basically the test case name
-%% Cond: A fun that is evaluated before the actual test case
-%%       The point of this is that it can performs checks to
-%%       see if we shall run the test case at all.
-%%       For instance, the test case may only work in specific
-%%       conditions.
-%% TC:   The test case fun
-tc_try(Case, Cond, TC) 
+
+%% *** tc_try/2,3,4,5 ***
+%% Case:   Basically the test case name
+%% TCCond: A fun that is evaluated before the actual test case
+%%         The point of this is that it can performs checks to
+%%         see if we shall run the test case at all.
+%%         For instance, the test case may only work in specific
+%%         conditions.
+%% Pre:    A fun that is nominally part of the test case
+%%         but is an initiation that must be "undone". This is
+%%         done by the Post fun (regardless if the TC is successfull
+%%         or not). Example: Starts a couple of nodes,
+%% TC:     The test case fun
+%% Post:   A fun that undo what was done by the Pre fun.
+%%         Example: Stops the nodes created by the Pre function.
+tc_try(Case, TC) ->
+    tc_try(Case, fun() -> ok end, TC).
+
+tc_try(Case, TCCond, TC0) when is_function(TC0, 0) ->
+    Pre  = fun()  -> undefined end,
+    TC   = fun(_) -> TC0() end,
+    Post = fun(_) -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, Pre, TC, Post)
   when is_atom(Case) andalso
-       is_function(Cond, 0) andalso
-       is_function(TC, 0) ->
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
+    TCCond = fun() -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, TCCond, Pre, TC, Post)
+  when is_atom(Case) andalso
+       is_function(TCCond, 0) andalso
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
     tc_begin(Case),
-    try Cond() of
+    try TCCond() of
         ok ->
-            try 
-                begin
-                    TC(),
-                    ?SLEEP(?SECS(1)),
-                    tc_end("ok")
-                end
+            tc_print("starting: try pre"),
+            try Pre() of
+                State ->
+                    tc_print("pre done: try test case"),
+                    try
+                        begin
+                            TC(State),
+                            ?SLEEP(?SECS(1)),
+                            tc_print("test case done: try post"),
+                            (catch Post(State)),
+                            tc_end("ok")
+                        end
+                    catch
+                        C:{skip, _} = SKIP when (C =:= throw) orelse
+                                                (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
+                            (catch Post(State)),
+                            tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            tc_print("test case failed: try post"),
+                            (catch Post(State)),
+                            tc_end( f("failed(catched,~w,tc)", [C]) ),
+                            erlang:raise(C, E, S)
+                    end
             catch
-                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    %% i("caught[tc] (skip): "
-                    %%   "~n   C:    ~p"
-                    %%   "~n   SKIP: ~p"
-                    %%   "~n", [C, SKIP]),
-                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                C:{skip, _} = SKIP when (C =:= throw) orelse
+                                        (C =:= exit) ->
+                    tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% i("caught[tc]: "
-                    %%   "~n   C: ~p"
-                    %%   "~n   E: ~p"
-                    %%   "~n   S: ~p"
-                    %%    "~n", [C, E, S]),
-                    tc_end( f("failed(caught,~w,tc)", [C]) ),
-                    erlang:raise(C, E, S)
+                    tc_print("tc-pre failed: auto-skip"
+                             "~n   C: ~p"
+                             "~n   E: ~p"
+                             "~n   S: ~p",
+                             [C, E, S]),
+                    tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
+                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                    SKIP
             end;
         {skip, _} = SKIP ->
-            tc_end("skipping(tc)"),
+            tc_end("skipping(cond)"),
             SKIP;
         {error, Reason} ->
-            tc_end("failed(tc)"),
+            tc_end("failed(cond)"),
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            %% i("caught[cond] (skip): "
-            %%   "~n   C:    ~p"
-            %%   "~n   SKIP: ~p"
-            %%   "~n", [C, SKIP]),
-            tc_end( f("skipping(caught,~w,cond)", [C]) ),
+            tc_end( f("skipping(catched,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
-            %% i("caught[cond]: "
-            %%   "~n   C: ~p"
-            %%   "~n   E: ~p"
-            %%   "~n   S: ~p"
-            %%   "~n", [C, E, S]),
-            tc_end( f("failed(caught,~w,cond)", [C]) ),
+            tc_end( f("failed(catched,~w,cond)", [C]) ),
             erlang:raise(C, E, S)
     end.
 
+
+tc_print(F) ->
+    tc_print(F, [], "", "").
+
+tc_print(F, A) ->
+    tc_print(F, A, "", "").
 
 tc_print(F, Before, After) ->
     tc_print(F, [], Before, After).
@@ -1825,6 +1866,15 @@ test_inet_backends() ->
         _ ->
             false 
     end.
+
+which_inet_backend(Config) ->
+    case lists:keysearch(socket_create_opts, 1, Config) of
+        {value, {socket_create_opts, [{inet_backend, Backend}]}} ->
+            Backend;
+        _ ->
+            default
+    end.
+    
 
 
 proxy_call(F, Timeout, Default)
