@@ -40,6 +40,20 @@
       ArgTypes :: [normal_type()],
       Result :: yes | no | maybe.
 
+will_succeed(erlang, Op, [LHS, RHS])
+  when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
+    succeeds_if_smallish(LHS, RHS);
+will_succeed(erlang, Op, [#t_integer{elements={_,_}},
+                          #t_integer{elements={Div,_}}])
+  when (Op =:= 'div' orelse Op =:= 'rem'), Div > 0 ->
+    yes;
+will_succeed(erlang, 'bsr', [#t_integer{elements={_,_}},
+                             #t_integer{elements={S,_}}])
+  when S >= 0 ->
+    yes;
+will_succeed(erlang, 'bsl', [#t_integer{}=LHS,#t_integer{elements={S,_}}])
+  when S < 64 ->
+    succeeds_if_smallish(LHS);
 will_succeed(erlang, '++', [LHS, _RHS]) ->
     succeeds_if_type(LHS, proper_list());
 will_succeed(erlang, '--', [_, _] = Args) ->
@@ -53,6 +67,14 @@ will_succeed(erlang, bit_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
+will_succeed(erlang, element, [Pos, #t_tuple{size=Sz}] = Args) when Sz > 0 ->
+    SizeType = #t_integer{elements={1,Sz}},
+    case beam_types:meet(Pos, SizeType) of
+        Pos ->
+            yes;
+        _ ->
+            fails_on_conflict(Args, [#t_integer{}, #t_tuple{}])
+    end;
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
 will_succeed(erlang, is_function, [_,#t_integer{elements={Min,_}}])
@@ -129,6 +151,19 @@ succeeds_if_type(ArgType, Required) ->
         ArgType -> yes;
         none -> no;
         _ -> maybe
+    end.
+
+succeeds_if_smallish(#t_integer{elements={Min,Max}})
+  when abs(Min) bsr 128 =:= 0, abs(Max) bsr 128 =:= 0 ->
+    yes;
+succeeds_if_smallish(_) ->
+    maybe.
+
+succeeds_if_smallish(LHS, RHS) ->
+    case {succeeds_if_smallish(LHS),
+          succeeds_if_smallish(RHS)} of
+        {yes, yes} -> yes;
+        {_, _} -> maybe
     end.
 
 %%
