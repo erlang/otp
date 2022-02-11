@@ -32,7 +32,8 @@
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
          info/1, socket_to_list/1,
-	 ip/1, stats/0, options/0, 
+	 ip/1, is_ipv4_address/1, is_ipv6_address/1, is_ip_address/1,
+	 stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
 	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1,
@@ -753,6 +754,25 @@ ip(Name) ->
 	    {ok, hd(Ent#hostent.h_addr_list)};
 	Error -> Error
     end.
+
+-spec is_ipv4_address(IPv4Address) -> boolean() when
+      IPv4Address :: ip4_address() | term().
+is_ipv4_address({A,B,C,D}) when ?ip(A,B,C,D) ->
+    true;
+is_ipv4_address(_) ->
+    false.
+
+-spec is_ipv6_address(IPv6Address) -> boolean() when
+      IPv6Address :: ip6_address() | term().
+is_ipv6_address({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
+    true;
+is_ipv6_address(_) ->
+    false.
+
+-spec is_ip_address(IPAddress) -> boolean() when
+      IPAddress :: ip_address() | term().
+is_ip_address(Address) ->
+    is_ipv4_address(Address) orelse is_ipv6_address(Address).
 
 %% This function returns the erlang port used (with inet_drv)
 

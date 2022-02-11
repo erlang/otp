@@ -783,6 +783,36 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
+      <name name="is_ip_address" arity="1" since="OTP @OTP-17923@"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv4 or IPv6 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip_address"><c>ip_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_ipv4_address" arity="1" since="OTP @OTP-17923@"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv4 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_ipv6_address" arity="1" since="OTP @OTP-17923@"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv6 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
