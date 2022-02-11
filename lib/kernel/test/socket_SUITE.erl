@@ -2124,7 +2124,7 @@ init_per_group(GroupName, Config)
               "~n", [GroupName, Config]),
     %% Maybe we should skip the entire suite for this platform,
     %% but for now we just skip these groups, which seem to 
-    %% have problems (slave node start).
+    %% have problems (node start).
     %% As stated elsewhere, its not really Fedora 16, but 
     %% the *really* slow VM that is the issue.
     try is_old_fedora16() of
@@ -15932,7 +15932,7 @@ api_opt_sock_peek_off(InitState) ->
 
 %% Tests that we get the peer credentials for a connected unix domain
 %% TCP (stream) socket.
-%% That is, all we need to do is to create a slave node, and have 
+%% That is, all we need to do is to create a node, and have 
 %% process connect from that to a local (unix domain socket) socket.
 %%
 %% THIS IS A PLACEHOLDER!!

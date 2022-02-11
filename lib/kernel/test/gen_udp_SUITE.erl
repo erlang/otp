@@ -630,7 +630,7 @@ do_bad_address(Config) when is_list(Config) ->
 %%-------------------------------------------------------------
 %% OTP-6249 UDP option for number of packet reads
 %%
-%% Starts a slave node that on command sends a bunch of messages
+%% Starts a node that on command sends a bunch of messages
 %% to our UDP port. The receiving process just receives and
 %% ignores the incoming messages.
 %% A tracing process traces the receiving port for

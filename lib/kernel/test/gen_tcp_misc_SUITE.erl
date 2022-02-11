@@ -1080,14 +1080,14 @@ iter_max_socks_run(Node, F) ->
         _Any ->
             ?P("Unexpected process start result: "
                "~n   ~p", [_Any]),
-            {skip, "Failed starting iterator (slave) process"}
+            {skip, "Failed starting iterator (remote) process"}
     catch
         C:E:S ->
-            ?P("Failed starting iterator (slave) process: "
+            ?P("Failed starting iterator (remote) process: "
                "~n   Class: ~p"
                "~n   Error: ~p"
                "~n   Stack: ~p", [C, E, S]),
-            {skip, "Failed starting iterator (slave) process"}
+            {skip, "Failed starting iterator (remote) process"}
     end.
             
              
@@ -5050,7 +5050,7 @@ send_timeout(Config) when is_list(Config) ->
 do_send_timeout(Config) ->
     ?P("begin"),
     Dir = filename:dirname(code:which(?MODULE)),
-    ?P("create (slave) node"),
+    ?P("create node"),
     {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
 
     {TslTimeout, SndTimeout, BinData, SndBuf} = 
@@ -5101,7 +5101,7 @@ do_send_timeout(Config) ->
     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		      true, RNode),
 
-    ?P("stop (slave) node"),
+    ?P("stop node"),
     ?STOP_NODE(RNode),
 
     ?P("done"),
@@ -5458,12 +5458,12 @@ flush() ->
 
 setup_closed_ao(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    ?P("[setup] start slave node"),
+    ?P("[setup] start node"),
     R = case ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir) of
-            {ok, Slave} ->
-                Slave;
+            {ok, Node} ->
+                Node;
             {error, Reason} ->
-                ?SKIPT(?F("failed starting slave node: ~p", [Reason]))
+                ?SKIPT(?F("failed starting node: ~p", [Reason]))
         end,
     Host = get_hostname(node()),
     ?P("[setup] create listen socket"),
@@ -5525,7 +5525,7 @@ setup_closed_ao(Config) ->
 		    end
 	    end,
     Loop = fun(Match2,F3) ->  Loop2(Loop2,Match2,F3,10) end,
-    ?P("[setup] stop slave node"),
+    ?P("[setup] stop node"),
     ?STOP_NODE(R),
     ?P("[setup] done"),
     {Loop,A}.
