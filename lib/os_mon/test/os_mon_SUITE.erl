@@ -31,7 +31,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    case test_server:os_type() of
+    case os:type() of
         {unix, sunos} -> [app_file, appup_file, config];
         _OS -> [app_file, appup_file]
     end.

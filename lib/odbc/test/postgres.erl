@@ -27,7 +27,7 @@
 
 %-------------------------------------------------------------------------
 connection_string() ->
-    case test_server:os_type() of
+    case os:type() of
 	{unix, sunos} ->
 	    "DSN=Postgres;UID=odbctest";
 	{unix, linux} ->

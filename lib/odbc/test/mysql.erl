@@ -27,7 +27,7 @@
 
 %-------------------------------------------------------------------------
 connection_string() ->
-    case test_server:os_type() of
+    case os:type() of
 	{unix, linux} ->
 	    "DSN=MySQL;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';";
 	{unix, sunos} ->

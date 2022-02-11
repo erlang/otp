@@ -150,7 +150,7 @@ compile_mib(Config) when is_list(Config) ->
     %% Try -W option and more verbose.
 
     ok = file:delete(Output),
-    case test_server:os_type() of
+    case os:type() of
         {unix,_} ->
             run(Config, Cmd, FileName, "-W +'{verbosity,info}'",
                 ["\\[GOOD-MIB[.]mib\\]\\[INF\\]: No accessfunction for 'sysDescr' => using default",

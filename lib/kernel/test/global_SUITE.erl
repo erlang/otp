@@ -2902,7 +2902,7 @@ many_nodes(Config) when is_list(Config) ->
     OrigNames = global:registered_names(),
 
     {Rels, N_cps} = 
-        case test_server:os_type() of
+        case os:type() of
             {unix, Osname} when Osname =:= linux; 
                                 Osname =:= openbsd; 
                                 Osname =:= darwin ->
@@ -3051,7 +3051,7 @@ sync_0(Config) when is_list(Config) ->
     init_condition(Config),
 
     N_cps = 
-        case test_server:os_type() of
+        case os:type() of
             {unix, Osname} when Osname =:= linux; 
                                 Osname =:= openbsd; 
                                 Osname =:= darwin ->

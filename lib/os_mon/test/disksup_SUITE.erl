@@ -61,7 +61,7 @@ all() ->
     Bugs = [otp_5910],
     Always = [api, config, alarm, port, posix_only, unavailable,
               parse_df_output_posix, parse_df_output_susv3] ++ Bugs,
-    case test_server:os_type() of
+    case os:type() of
 	{unix, _OSname} -> Always;
 	{win32, _OSname} -> Always;
 	_OS -> [unavailable]

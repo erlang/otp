@@ -43,7 +43,6 @@
 -export([peer_name/2, start_peer/3, start_peer/5]).
 -export([app_test/1, app_test/2, appup_test/1]).
 -export([comment/1, make_priv_dir/0]).
--export([os_type/0]).
 -export([run_on_shielded_node/2]).
 -export([is_cover/0,is_debug/0,is_commercial/0]).
 
@@ -3027,15 +3026,6 @@ read_comment() ->
 %% for the current test case.
 make_priv_dir() ->
     tc_supervisor_req(make_priv_dir).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% os_type() -> OsType
-%%
-%% Returns the OsType of the target node. OsType is
-%% the same as returned from os:type()
-os_type() ->
-    os:type().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% is_cover() -> boolean()

@@ -102,7 +102,7 @@ end_per_suite(Config) when is_list(Config) ->
 start_check(Type, Name) ->
     start_check(Type, Name, []).
 start_check(Type, Name, Envs) ->
-    Args = case test_server:os_type() of
+    Args = case os:type() of
 	{win32,_} ->
 	    "+t50000 -heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
 	_ ->

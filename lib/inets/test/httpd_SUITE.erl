@@ -1042,7 +1042,7 @@ cgi() ->
 
 cgi(Config) when is_list(Config) -> 
     {Script, Script2, Script3} =
-	case test_server:os_type() of
+	case os:type() of
 	    {win32, _} ->
 		{"printenv.bat", "printenv.sh", "cgi_echo.exe"};
 	    _ ->
@@ -1117,7 +1117,7 @@ cgi_chunked_encoding_test() ->
 cgi_chunked_encoding_test(Config) when is_list(Config) ->
     Host = proplists:get_value(host, Config),
     Script =
-	case test_server:os_type() of
+	case os:type() of
 	    {win32, _} ->
 		"/cgi-bin/printenv.bat";
 	    _ ->
@@ -1947,7 +1947,7 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     inets_test_lib:copy_dirs(PicsSrc, PicsDir),
     inets_test_lib:copy_dirs(ConfigSrc, ConfigDir),
         
-    Cgi = case test_server:os_type() of
+    Cgi = case os:type() of
 	      {win32, _} ->
 		  "cgi_echo.exe";
 	      _ ->
