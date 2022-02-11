@@ -58,15 +58,15 @@ obsolete(ftp, start_service, 1) ->
 obsolete(ftp, stop_service, 1) ->
     {deprecated, "use ftp:close/1 instead", "OTP 26"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string functions instead", "OTP 26"};
+    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string functions instead", "OTP 26"};
+    {deprecated, "use uri_string:quote function instead", "OTP 26"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
 obsolete(httpd_util, decode_hex, 1) ->
-    {deprecated, "use uri_string functions instead", "OTP 26"};
+    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
 obsolete(httpd_util, encode_hex, 1) ->
-    {deprecated, "use uri_string functions instead", "OTP 26"};
+    {deprecated, "use uri_string:quote function instead", "OTP 26"};
 obsolete(httpd_util, flatlength, 1) ->
     {deprecated, "use erlang:iolist_size/1 instead", "OTP 26"};
 obsolete(httpd_util, hexlist_to_integer, 1) ->
