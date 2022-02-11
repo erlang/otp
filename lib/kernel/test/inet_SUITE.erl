@@ -47,6 +47,7 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
+	 is_ip_address/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
@@ -71,7 +72,7 @@ all() ->
     [
      t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
-     ipv4_to_ipv6, host_and_addr, {group, parse},
+     ipv4_to_ipv6, host_and_addr, is_ip_address, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
      missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
@@ -815,6 +816,63 @@ parse_strict_address(Config) when is_list(Config) ->
 	inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088"),
     {ok, {3089,3106,23603,50240,0,0,119,136}} =
 	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
+
+is_ip_address(Config) when is_list(Config) ->
+    IPv4Addresses = [
+        {0, 0, 0, 0},
+        {255, 255, 255, 255}
+    ],
+    IPv6Addresses = [
+        {0, 0, 0, 0, 0, 0, 0, 0},
+        {16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff}
+    ],
+    NonIPAddresses = [
+        foo,
+        "0.0.0.0",
+        {},
+        {0},
+        {0, 0},
+        {0, 0, 0},
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, foo},
+        {0, 0, 0, 0, 0, 0, 0, foo},
+        {0, 0, 0, 256},
+        {0, 0, 256, 0},
+        {0, 256, 0, 0},
+        {256, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 16#10000},
+        {0, 0, 0, 0, 0, 0, 16#10000, 0},
+        {0, 0, 0, 0, 0, 16#10000, 0, 0},
+        {0, 0, 0, 0, 16#10000, 0, 0, 0},
+        {0, 0, 0, 16#10000, 0, 0, 0, 0},
+        {0, 0, 16#10000, 0, 0, 0, 0, 0},
+        {0, 16#10000, 0, 0, 0, 0, 0, 0},
+        {16#10000, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, -1},
+        {0, 0, -1, 0},
+        {0, -1, 0, 0},
+        {-1, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, -1},
+        {0, 0, 0, 0, 0, 0, -1, 0},
+        {0, 0, 0, 0, 0, -1, 0, 0},
+        {0, 0, 0, 0, -1, 0, 0, 0},
+        {0, 0, 0, -1, 0, 0, 0, 0},
+        {0, 0, -1, 0, 0, 0, 0, 0},
+        {0, -1, 0, 0, 0, 0, 0, 0},
+        {-1, 0, 0, 0, 0, 0, 0, 0}
+    ],
+
+    true = lists:all(fun inet:is_ipv4_address/1, IPv4Addresses),
+    false = lists:any(fun inet:is_ipv4_address/1, IPv6Addresses ++ NonIPAddresses),
+
+    true = lists:all(fun inet:is_ipv6_address/1, IPv6Addresses),
+    false = lists:any(fun inet:is_ipv6_address/1, IPv4Addresses ++ NonIPAddresses),
+
+    true = lists:all(fun inet:is_ip_address/1, IPv6Addresses ++ IPv4Addresses),
+    false = lists:any(fun inet:is_ip_address/1, NonIPAddresses).
 
 ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
     {D1,D2,D3,D4} = IPv4Address =
