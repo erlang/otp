@@ -658,7 +658,7 @@ find_source_otp(Config) when is_list(Config) ->
     %% We do this in a peer as testcases before this may have
     %% edited the code path and thus more modules show up as
     %% available than should.
-    {ok, Peer, Node} = ?CT_PEER(),
+    {ok, Peer, Node} = ?CT_PEER(#{ env => [{"ERL_LIBS", false}] }),
     erpc:call(
       Node,
       fun() ->
