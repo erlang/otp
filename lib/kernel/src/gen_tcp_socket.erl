@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -351,13 +351,12 @@ send(?MODULE_socket(Server, Socket), Data) ->
                     Size = iolist_size(Data),
 		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
                     Header = <<?header(Packet, Size)>>,
-                    Result =
-                        socket_send(Socket, [Header, Data], SendTimeout),
-                    send_result(Server, Meta, Result);
-
+                    Header_Data = [Header, Data],
+                    Result = socket_send(Socket, Header_Data, SendTimeout),
+                    send_result(Server, Header_Data, Meta, Result);
                 true ->
                     Result = socket_send(Socket, Data, SendTimeout),
-                    send_result(Server, Meta, Result)
+                    send_result(Server, Data, Meta, Result)
             end;
         {ok, _BadMeta} ->
             exit(badarg);
@@ -365,43 +364,51 @@ send(?MODULE_socket(Server, Socket), Data) ->
             Error
     end.
 %%
-send_result(Server, Meta, Result) ->
+send_result(Server, Data, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
-	%% We should really return the rest data rather then just ignoring it.
-	%% In the case we get a timeout when sending and 'send_timeout_close'
-	%% is set true, we close the connection and only return the timeout.
-	%% Otherwise we return the full error.
-        {error, {timeout = Reason, RestData}} = E when is_binary(RestData) ->
-	    case maps:get(send_timeout_close, Meta) of
-		true ->
-		    close_server(Server),
-		    {error, Reason};
-		false ->
-		    E
-	    end;
         {error, Reason} ->
-            %% To handle RestData we would have to pass
-            %% all writes through a single process that buffers
-            %% the write data, which would be a bottleneck
-            %%
-            %% Since send data may have been lost, and there is no room
-            %% in this API to inform the caller, we at least close
-            %% the socket in the write direction
-            %%
             %% ?DBG(Result),
             case Reason of
                 econnreset ->
                     case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
+                        true  -> Result;
                         false -> {error, closed}
                     end;
+                {timeout = R, RestData} when is_binary(RestData) ->
+                    %% To handle RestData we would have to pass
+                    %% all writes through a single process that buffers
+                    %% the write data, which would be a bottleneck.
+                    %%
+                    %% For send_timeout_close we have to waste RestData.
+                    %%
+                    case maps:get(send_timeout_close, Meta) of
+                        true ->
+                            close_server(Server),
+                            {error, R};
+                        false ->
+                            Result
+                    end;
                 timeout ->
-                    _ = maps:get(send_timeout_close, Meta)
-                        andalso close_server(Server),
-                    {error, Reason};
+                    %% No data was sent.
+                    %%
+                    %% Return all data to the user as RestData.
+                    %% For packet modes (inserted header);
+                    %% the user will have to switch to raw packet
+                    %% mode to retransmit RestData since at least
+                    %% part of the packet header has been transmitted
+                    %% and inserting a new packet header into the
+                    %% stream would be dead wrong.
+                    %%
+                    case maps:get(send_timeout_close, Meta) of
+                        true ->
+                            close_server(Server),
+                            Result;
+                        false ->
+                            {error, {Reason, iolist_to_binary(Data)}}
+                    end;
                 _ ->
-                    ?badarg_exit({error, Reason})
+                    ?badarg_exit(Result)
             end;
         ok ->
             ok
