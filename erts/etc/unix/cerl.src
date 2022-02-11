@@ -155,27 +155,27 @@ while [ $# -gt 0 ]; do
 	"-lcnt")
 	    shift
 	    cargs="$cargs -lcnt"
-	    TYPE=.lcnt
+	    TYPE=lcnt
 	    ;;
 	"-gprof")
 	    shift
 	    cargs="$cargs -gprof"
-	    TYPE=.gprof
+	    TYPE=gprof
 	    ;;
 	"-debug")
 	    shift
 	    cargs="$cargs -debug"
-	    TYPE=.debug
+	    TYPE=debug
 	    ;;
 	"-frmptr")
 	    shift
 	    cargs="$cargs -frmptr"
-	    TYPE=.frmptr
+	    TYPE=frmptr
 	    ;;
 	"-icount")
 	    shift
 	    cargs="$cargs -icount"
-	    TYPE=.icount
+	    TYPE=icount
 	    ;;
 	"-dump")
 	    shift
@@ -220,12 +220,12 @@ while [ $# -gt 0 ]; do
 	"-gcov")
 	    shift
 	    cargs="$cargs -gcov"
-	    TYPE=.gcov
+	    TYPE=gcov
 	    ;;
 	"-valgrind")
 	    shift
 	    cargs="$cargs -valgrind"
-	    TYPE=.valgrind
+	    TYPE=valgrind
 	    run_valgrind=yes
 	    skip_erlexec=yes
 	    ;;
@@ -233,12 +233,12 @@ while [ $# -gt 0 ]; do
 	    shift
 	    cargs="$cargs -asan"
 	    run_asan=yes
-	    TYPE=.asan
+	    TYPE=asan
 	    ;;
         "-emu_type")
             shift
             cargs="$cargs -emu_type $1"
-            TYPE=.$1
+            TYPE=$1
             shift
             ;;
         "-emu_flavor")
@@ -276,13 +276,17 @@ PATH=$BINDIR:$ROOTDIR/bin:$PATH
 EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
-EMU="$EMU$TYPE"
-if [ "x$FLAVOR" = "x" ]; then
-   EMU_NAME=`$EXEC -emu_name_exit`
-else
-    EMU_NAME=`$EXEC -emu_name_exit -emu_flavor $FLAVOR`
-    xargs="$xargs -emu_flavor $FLAVOR"
+EMU_NAME_ARGS=""
+if [ "x$TYPE" != "x" ]; then
+    EMU_NAME_ARGS="${EMU_NAME_ARGS} -emu_type ${TYPE}"
+    set -- -emu_type ${TYPE} ${1+"$@"}
 fi
+if [ "x$FLAVOR" != "x" ]; then
+    EMU_NAME_ARGS="${EMU_NAME_ARGS} -emu_flavor ${FLAVOR}"
+    set -- -emu_flavor ${FLAVOR} ${1+"$@"}
+fi
+EMU_NAME=`$EXEC -emu_name_exit ${EMU_NAME_ARGS}`
+
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -378,7 +382,7 @@ if [ "x$GDB" = "x" ]; then
 	    taskset1=
 	    sched_arg=
 	fi
-        if [ $EMU_NAME = "beam.valgrind.asm" ]; then
+        if [ $EMU_NAME = "beam.valgrind.smp" ] && [ "x${VALGRIND_LOG_DIR}" != "x" ]; then
             # Always enable `perf` support as we use the same symbol map
             emu_xargs="$emu_xargs -JPperf true "
             set -m
@@ -505,6 +509,12 @@ elif [ "x$GDB" = "xegdb" ]; then
     exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
 elif [ "x$GDB" = "xdump" ]; then
     cmdfile="/tmp/.cerlgdb.$$"
+    ## Examine the result of "file $core" in case it is not the emulator
+    ## that created the dump
+    fileCore=$(file "$core" | sed "s@.*execfn:\\s*'\([^']*\).*@\\1@g")
+    if [ -f "${fileCore}" ] && [ "$(basename ${fileCore})" != "${EMU_NAME}" ]; then
+        EMU_NAME="${fileCore}"
+    fi
     case "x$core" in
 	x/*)
 	    ;;
@@ -524,11 +534,11 @@ quit
         *)
 	    echo "set width 0
 set height 0
-set verbose off
-
-source $ROOTDIR/erts/etc/unix/etp-commands
-thread apply all bt
-" > $cmdfile
+set verbose off" > $cmdfile
+            if echo "${EMU_NAME}" | grep "beam."; then
+                echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+            fi
+            echo "thread apply all bt" >> $cmdfile
 	    exec gdb --batch --command=$cmdfile $EMU_NAME $core
 	    ;;
     esac
