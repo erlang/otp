@@ -28,44 +28,53 @@
 
 main(_) ->
     %%  Parse main table
-    {ok, UD} = file:open("../uc_spec/UnicodeData.txt", [read, raw, {read_ahead, 1000000}]),
+    UD = file_open("../uc_spec/UnicodeData.txt"),
     Data0 = foldl(fun parse_unicode_data/2, [], UD),
     Data1  = array:from_orddict(lists:reverse(Data0)),
     ok = file:close(UD),
 
     %%  Special Casing table
-    {ok, SC} = file:open("../uc_spec/SpecialCasing.txt", [read, raw, {read_ahead, 1000000}]),
+    SC = file_open("../uc_spec/SpecialCasing.txt"),
     Data2 = foldl(fun parse_special_casing/2, Data1, SC),
     ok = file:close(SC),
     %%  Casing Folding table
-    {ok, CF} = file:open("../uc_spec/CaseFolding.txt", [read, raw, {read_ahead, 1000000}]),
+    CF = file_open("../uc_spec/CaseFolding.txt"),
     Data = foldl(fun parse_case_folding/2, Data2, CF),
     ok = file:close(CF),
 
     %% Normalization
-    {ok, ExclF} = file:open("../uc_spec/CompositionExclusions.txt", [read, raw, {read_ahead, 1000000}]),
+    ExclF = file_open("../uc_spec/CompositionExclusions.txt"),
     ExclData = foldl(fun parse_comp_excl/2, Data, ExclF),
     ok = file:close(ExclF),
 
     %%  GraphemeBreakProperty table
-    {ok, Emoji} = file:open("../uc_spec/emoji-data.txt", [read, raw, {read_ahead, 1000000}]),
+    Emoji = file_open("../uc_spec/emoji-data.txt"),
     Props00 = foldl(fun parse_properties/2, [], Emoji),
     %% Filter Extended_Pictographic class which we are interested in.
     Props0 = [EP || {extended_pictographic, _} = EP <- Props00],
     ok = file:close(Emoji),
-    {ok, GBPF} = file:open("../uc_spec/GraphemeBreakProperty.txt", [read, raw, {read_ahead, 1000000}]),
+    GBPF = file_open("../uc_spec/GraphemeBreakProperty.txt"),
     Props1 = foldl(fun parse_properties/2, Props0, GBPF),
     ok = file:close(GBPF),
-    {ok, PropF} = file:open("../uc_spec/PropList.txt", [read, raw, {read_ahead, 1000000}]),
+    PropF = file_open("../uc_spec/PropList.txt"),
     Props2 = foldl(fun parse_properties/2, Props1, PropF),
     ok = file:close(PropF),
     Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props2))),
 
+    WidthF = file_open("../uc_spec/EastAsianWidth.txt"),
+    WideCs = foldl(fun parse_widths/2, [], WidthF),
+    ok = file:close(WidthF),
+
     %% Make module
     {ok, Out} = file:open(?MOD++".erl", [write]),
-    gen_file(Out, Data, ExclData, maps:from_list(Props)),
+    gen_file(Out, Data, ExclData, maps:from_list(Props), WideCs),
     ok = file:close(Out),
     ok.
+
+file_open(File) ->
+    {ok, Fd} = file:open(File, [read, raw, {read_ahead, 1000000}]),
+    Fd.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -152,7 +161,62 @@ parse_properties(Line0, Acc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_file(Fd, Data, ExclData, Props) ->
+%% Pick ranges that are wide when seen from a non East Asian context,
+%% That way we can minimize the data, every other code point is considered narrow.
+%% We loose information but hopefully keep the important width for a standard
+%% terminal.
+parse_widths(Line0, Acc) ->
+    [{WidthClass, {From, _To}=Range}] = parse_properties(Line0, []),
+    case is_default_width(From, WidthClass) of
+        {true, narrow} ->
+            Acc;
+        {false, narrow} ->
+            [Range|Acc];
+        {true, RuleRange} ->
+            [RuleRange|Acc]
+%%%     {false, rule_execption} ->  i.e. narrow codepoint in wide range
+%%%        Should not happen in current specs
+    end.
+
+is_default_width(Index, WD) ->
+    if
+        16#3400 =< Index, Index =< 16#4DBF ->
+            if WD =:= w orelse WD =:= f ->
+                    {true, {16#3400, 16#4DBF}};
+               true ->
+                    {false, rule_execption}
+            end;
+        16#4E00 =< Index, Index =< 16#9FFF ->
+            if WD =:= w orelse WD =:= f ->
+                    {true, {16#4E00, 16#9FFF}};
+               true ->
+                    {false, rule_execption}
+            end;
+        16#F900 =< Index, Index =< 16#FAFF ->
+            if WD =:= w orelse WD =:= f ->
+                    {true, {16#F900, 16#FAFF}};
+               true ->
+                    {false, rule_execption}
+            end;
+        16#20000 =< Index, Index =< 16#2FFFD ->
+            if WD =:= w orelse WD =:= f ->
+                    {true, {16#20000, 16#2FFFD}};
+               true ->
+                    {false, rule_execption}
+            end;
+        16#30000 =< Index, Index =< 16#3FFFD ->
+            if WD =:= w orelse WD =:= f ->
+                    {true, {16#30000, 16#3FFFD}};
+               true ->
+                    {false, rule_execption}
+            end;
+        true ->
+            {WD =:= n orelse WD =:= na orelse WD == h orelse WD =:= a, narrow}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+gen_file(Fd, Data, ExclData, Props, WideCs) ->
     gen_header(Fd),
     gen_static(Fd),
     gen_norm(Fd),
@@ -162,6 +226,7 @@ gen_file(Fd, Data, ExclData, Props) ->
     gen_compose_pairs(Fd, ExclData, Data),
     gen_case_table(Fd, Data),
     gen_unicode_table(Fd, Data),
+    gen_width_table(Fd, WideCs),
     ok.
 
 gen_header(Fd) ->
@@ -173,6 +238,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-export([whitespace/0, is_whitespace/1]).\n"),
     io:put_chars(Fd, "-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).\n\n"),
     io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
+    io:put_chars(Fd, "-export([is_wide/1]).\n"),
     io:put_chars(Fd, "-compile({inline, [class/1]}).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
     io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
@@ -185,14 +251,17 @@ gen_static(Fd) ->
     io:put_chars(Fd, "lookup(Codepoint) ->\n"
                  "    {CCC,Can,Comp} = unicode_table(Codepoint),\n"
                  "    #{ccc=>CCC, canon=>Can, compat=>Comp}.\n\n"),
+
     io:put_chars(Fd, "-spec get_case(char()) -> #{'fold':=gc(), 'lower':=gc(), 'title':=gc(), 'upper':=gc()}.\n"),
     io:put_chars(Fd, "get_case(Codepoint) ->\n"
                  "    case case_table(Codepoint) of\n"
                  "        {U,L} -> #{upper=>U,lower=>L,title=>U,fold=>L};\n"
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
+
     io:put_chars(Fd, "spec_version() -> {14,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) -> {CCC,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
+
     io:put_chars(Fd, "-spec uppercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
     io:put_chars(Fd, "uppercase(Str0) ->\n"),
@@ -217,6 +286,7 @@ gen_static(Fd) ->
     io:put_chars(Fd, "        [] -> [];\n"),
     io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
+
     io:put_chars(Fd, "-spec titlecase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
     io:put_chars(Fd, "titlecase(Str0) ->\n"),
@@ -229,6 +299,7 @@ gen_static(Fd) ->
     io:put_chars(Fd, "        [] -> [];\n"),
     io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
+
     io:put_chars(Fd, "-spec casefold(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
     io:put_chars(Fd, "casefold(Str0) ->\n"),
@@ -242,6 +313,15 @@ gen_static(Fd) ->
     io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
 
+    io:put_chars(Fd, "%% Returns true if the character is considered wide in non east asian context.\n"),
+    io:put_chars(Fd, "-spec is_wide(gc()) -> boolean().\n"),
+    io:put_chars(Fd, "is_wide(C) when is_integer(C) ->\n"),
+    io:put_chars(Fd, "    is_wide_cp(C);\n"),
+    io:put_chars(Fd, "is_wide([_, 16#FE0E|Cs]) -> true; %% Presentation sequence\n"),
+    io:put_chars(Fd, "is_wide([_, 16#FE0F|Cs]) -> true; %% Presentation sequence\n"),
+    io:put_chars(Fd, "is_wide([C|Cs]) ->\n"),
+    io:put_chars(Fd, "    is_wide_cp(C) orelse is_wide(Cs);\n"),
+    io:put_chars(Fd, "is_wide([]) ->\n    false.\n\n"),
     ok.
 
 gen_norm(Fd) ->
@@ -883,6 +963,12 @@ decompose_compat([{_,CP}|CPs], Data) ->
     decompose_compat([CP|CPs], Data).
 
 
+gen_width_table(Fd, WideChars) ->
+    MergedWCs = merge_ranges(WideChars),
+    Write = fun(Range) -> io:format(Fd, "is_wide_cp~s true;~n", [gen_single_clause(Range)]) end,
+    [Write(Range) || Range <- MergedWCs],
+    io:format(Fd, "is_wide_cp(_) -> false.~n", []).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_clause({R0, undefined}) ->
@@ -911,7 +997,7 @@ merge_ranges(List) ->
     merge_ranges(List, true).
 
 merge_ranges(List, Opt) ->
-    Res0 = merge_ranges_1(lists:sort(List), []),
+    Res0 = merge_ranges_1(lists:usort(List), []),
     case Opt of
         split ->
             split_ranges(Res0,[]);     % One clause per CP
