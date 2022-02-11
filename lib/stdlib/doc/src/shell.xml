@@ -789,6 +789,14 @@ q                 - quit erlang
       manual page. (Arguments in <c>ArgList</c> are evaluated before the
       callback functions are called.)</p>
 
+    <p>From OTP 25.0, if there are errors evaluating Erlang constructs,
+      such as <c>badmatch</c> during pattern matching or <c>bad_generator</c>
+      in a comprehension, the evaluator will dispatch to
+      <c>erlang:raise(error, Reason, Stacktrace)</c>. This call will be
+      checked against the <c>non_local_allowed/3</c> callback function.
+      You can either forbid it, allow it, or redirect to another call of
+      your choice.</p>
+
     <p>Argument <c>State</c> is a tuple
       <c>{ShellState,ExprState}</c>. The return value <c>NewState</c>
       has the same form. This can be used to carry a state between calls

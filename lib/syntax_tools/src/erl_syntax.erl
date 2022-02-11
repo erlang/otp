@@ -7310,7 +7310,7 @@ concrete(Node) ->
 		eval_bits:expr_grp(Fs, [],
 				   fun(F, _) ->
 					   {value, concrete(F), []}
-				   end, [], true),
+				   end),
 	    B;
         arity_qualifier ->
             A = erl_syntax:arity_qualifier_argument(Node),

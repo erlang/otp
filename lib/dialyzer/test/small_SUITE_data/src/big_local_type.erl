@@ -409,7 +409,7 @@ normalise({bin,_,Fs}) ->
 	eval_bits:expr_grp(Fs, [],
 			   fun(E, _) ->
 				   {value, normalise(E), []}
-			   end, [], true),
+			   end),
     B;
 normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];

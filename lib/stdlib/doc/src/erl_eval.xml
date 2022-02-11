@@ -273,10 +273,13 @@ Func(Name, Arguments, Bindings)</code>
     <taglist>
       <tag><c>{value,Func}</c></tag>
       <item>
-        <p>This defines a non-local function handler that is called with:</p>
-        <code type="none">
-Func(FuncSpec, Arguments)</code>
-        <p><c>FuncSpec</c> is the name of the function on the form
+        <p>This defines a non-local function handler. The function
+          may be called with two arguments:</p>
+        <code type="none">Func(FuncSpec, Arguments)</code>
+        <p>or three arguments:</p>
+        <code type="none">Func(Anno, FuncSpec, Arguments)</code>
+        <p><c>Anno</c> is the <c>erl_anno:anno()</c> of the node,
+          <c>FuncSpec</c> is the name of the function on the form
           <c>{Module,Function}</c> or a fun, and <c>Arguments</c> is a
           list of the <em>evaluated</em> arguments. The function
           handler returns the value of the function. To

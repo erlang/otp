@@ -1043,9 +1043,7 @@ expr({bin,Line,Fs}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line,top=false},
     try
 	eval_bits:expr_grp(Fs, Bs0,
-			   fun (E, B) -> expr(E, B, Ieval) end,
-			   [],
-			   false)
+			   fun (E, B) -> expr(E, B, Ieval) end)
     catch
 	Class:Reason ->
 	    exception(Class, Reason, Bs0, Ieval)
@@ -1504,7 +1502,7 @@ guard_expr({bin,_,Flds}, Bs) ->
 			   fun(E,B) ->
 				   {value,V} = guard_expr(E,B),
 				   {value,V,B}
-			   end, [], false),
+			   end),
     {value,V}.
 
 
@@ -1583,8 +1581,7 @@ match1({map,_,Fields}, Map, Bs, BBs) when is_map(Map) ->
 match1({bin,_,Fs}, B, Bs0, BBs) when is_bitstring(B) ->
     try eval_bits:match_bits(Fs, B, Bs0, BBs,
 			     match_fun(BBs),
-			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end,
-			     false)
+			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end)
     catch
 	_:_ -> throw(nomatch)
     end;

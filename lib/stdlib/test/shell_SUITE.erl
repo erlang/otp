@@ -256,6 +256,8 @@ restricted_local(Config) when is_list(Config) ->
                   local_allowed(_,_,State) ->
                       {false,State}.
 
+                  non_local_allowed({erlang,raise},[error, _, _],State) ->
+                      {true,State};
                   non_local_allowed({shell,stop_restricted},[],State) ->
                       {true,State};
                   non_local_allowed(_,_,State) ->
