@@ -52,7 +52,8 @@ alternative() ->
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_io_redirect, dist_up_down, dist_localhost]},
+            dist_up_down, dist_localhost]},
+        {dist_seq, [], [dist_io_redirect]}, %% Cannot be run in parallel in dist group
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
@@ -60,7 +61,8 @@ groups() ->
     ].
 
 all() ->
-    [{group, dist}, {group, tcp}, {group, standard_io}, {group, compatibility}, {group, remote}].
+    [{group, dist}, {group, dist_seq}, {group, tcp}, {group, standard_io},
+     {group, compatibility}, {group, remote}].
 
 init_per_group(remote, Config) ->
     %% check that SSH can connect to localhost, skip the test if not
