@@ -122,10 +122,7 @@
 
     <datatype>
       <name name="ed_public_key"/>
-      <name name="ed_legacy_pubkey"/>
       <desc>
-	<warning><p>The tagged ed_pub format will not be returned from any public_key
-	functions but can be used as input, should be considered deprecated.</p></warning>
       </desc>
     </datatype>
 
@@ -145,10 +142,7 @@
 
     <datatype>
       <name name="ed_private_key"/>
-      <name name="ed_legacy_privkey"/>
       <desc>
-	<warning><p>The tagged ed_pri format will not be returned from any public_key
-	functions but can be used as input, should be considered deprecated.</p></warning>
       </desc>
     </datatype>
 
@@ -951,106 +945,6 @@ end
     digest.</p>
   </desc> 
   </func>   
-
-  <func>
-    <name name="ssh_decode" arity="2" since="OTP R14B03"/>
-    <fsummary>Decodes an SSH file-binary.</fsummary>
-    <desc>
-    <note>
-      <p>This function is deprecated and should not be used in new programs. Use
-      <seemfa marker="ssh:ssh_file#decode/2">ssh_file:decode/2</seemfa>
-      instead.
-      </p>
-    </note>
-      <p>Decodes an SSH file-binary. In the case of <c>known_hosts</c> or
-      <c>auth_keys</c>, the binary can include one or more lines of the
-      file. Returns a list of public keys and their attributes, possible
-      attribute values depends on the file type represented by the
-      binary.
-      </p>
-      <p>If the <c>Type</c> is <c>ssh2_pubkey</c>, the result will be
-      <c>Decoded_ssh2_pubkey</c>. Otherwise it will be <c>Decoded_OtherType</c>.
-      </p>
-    <taglist>
-      <tag>RFC4716 attributes - see RFC 4716.</tag>
-      <item><p>{headers, [{string(), utf8_string()}]}</p></item>
-      <tag>auth_key attributes - see manual page for sshd.</tag>
-      <item>{comment, string()}</item>
-      <item>{options, [string()]}</item>
-      <item><p>{bits, integer()} - In SSH version 1 files.</p></item>
-      <tag>known_host attributes - see manual page for sshd.</tag>
-      <item>{hostnames, [string()]}</item>
-      <item>{comment, string()}</item>
-      <item><p>{bits, integer()} - In SSH version 1 files.</p></item>
-    </taglist>
-      <p>Example: <c>{ok, SshBin} = file:read_file("known_hosts")</c>.
-      </p>
-      <p>If <c>Type</c> is <c>public_key</c> the binary can be either
-      an RFC4716 public key or an OpenSSH public key.</p>
-  </desc>
-  </func>
-
-  <func>
-    <name name="ssh_encode" arity="2" since="OTP R14B03"/>
-    <fsummary>Encodes a list of SSH file entries to a binary.</fsummary>
-    <desc>
-    <note>
-      <p>This function is deprecated and should not be used in new programs. Use
-      <seemfa marker="ssh:ssh_file#encode/2">ssh_file:encode/2</seemfa>
-      instead.
-      </p>
-    </note>
-      <p>Encodes a list of SSH file entries (public keys and attributes) to a binary. Possible
-      attributes depend on the file type, see
-      <seemfa marker="#ssh_decode/2"> ssh_decode/2 </seemfa>.
-      </p>
-      <p>If the <c>Type</c> is <c>ssh2_pubkey</c>, the <c>InData</c> shall be
-      <c>InData_ssh2_pubkey</c>. Otherwise it shall be <c>OtherInData</c>.
-      </p>
-    </desc>
-  </func>
-
-  <func>
-    <name since="OTP 19.2">ssh_hostkey_fingerprint(HostKey) -> string()</name>
-    <name since="OTP 19.2">ssh_hostkey_fingerprint(DigestType, HostKey) -> string()</name>
-    <name since="OTP 19.2">ssh_hostkey_fingerprint([DigestType], HostKey) -> [string()]</name>
-    <fsummary>Calculates a ssh fingerprint for a hostkey.</fsummary>
-    <type>
-      <v>HostKey = <seetype marker="#public_key">public_key()</seetype></v>
-      <v>DigestType = <seetype marker="#digest_type">digest_type()</seetype></v>
-    </type>
-  <desc>
-    <p>Calculates a ssh fingerprint from a public host key as openssh does.</p>
-    <note>
-      <p>This function is deprecated and should not be used in new programs. Use
-      <seemfa marker="ssh:ssh#hostkey_fingerprint/1">ssh:hostkey_fingerprint/1</seemfa> or
-      <seemfa marker="ssh:ssh#hostkey_fingerprint/2">ssh:hostkey_fingerprint/2</seemfa>
-      instead.
-      </p>
-    </note>
-    <p>The algorithm in <c>ssh_hostkey_fingerprint/1</c> is md5 to be compatible with older
-    ssh-keygen commands. The string from the second variant is prepended by the algorithm name
-    in uppercase as in newer ssh-keygen commands.</p>
-    <p>Examples:</p>
-    <code>
- 2> public_key:ssh_hostkey_fingerprint(Key).    
- "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
-
- 3> public_key:ssh_hostkey_fingerprint(md5,Key).
- "MD5:f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
-
- 4> public_key:ssh_hostkey_fingerprint(sha,Key).
- "SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY"
-
- 5> public_key:ssh_hostkey_fingerprint(sha256,Key).
- "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"
-
- 6> public_key:ssh_hostkey_fingerprint([sha,sha256],Key).
- ["SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY",
-  "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"]
-    </code>
-  </desc>
-  </func>
 
   <func>
     <name name="verify" arity="4" since="OTP R14B"/>
