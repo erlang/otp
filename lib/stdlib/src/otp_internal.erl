@@ -87,14 +87,6 @@ obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
-obsolete(public_key, ssh_decode, 2) ->
-    {deprecated, "use ssh_file:decode/2 instead", "OTP 26"};
-obsolete(public_key, ssh_encode, 2) ->
-    {deprecated, "use ssh_file:encode/2 instead", "OTP 26"};
-obsolete(public_key, ssh_hostkey_fingerprint, 1) ->
-    {deprecated, "use ssh:hostkey_fingerprint/1 instead", "OTP 26"};
-obsolete(public_key, ssh_hostkey_fingerprint, 2) ->
-    {deprecated, "use ssh:hostkey_fingerprint/2 instead", "OTP 26"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(sys, get_debug, 3) ->
@@ -199,6 +191,14 @@ obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
 obsolete(net, relay, 1) ->
     {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
+obsolete(public_key, ssh_decode, 2) ->
+    {removed, "use ssh_file:decode/2 instead"};
+obsolete(public_key, ssh_encode, 2) ->
+    {removed, "use ssh_file:encode/2 instead"};
+obsolete(public_key, ssh_hostkey_fingerprint, 1) ->
+    {removed, "use ssh:hostkey_fingerprint/1 instead"};
+obsolete(public_key, ssh_hostkey_fingerprint, 2) ->
+    {removed, "use ssh:hostkey_fingerprint/2 instead"};
 obsolete(rpc, safe_multi_server_call, 2) ->
     {removed, "use rpc:multi_server_call/2 instead"};
 obsolete(rpc, safe_multi_server_call, 3) ->
