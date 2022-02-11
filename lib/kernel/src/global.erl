@@ -513,7 +513,7 @@ init([]) ->
                          prevent_overlapping_partitions,
                          Invalid});
               undefined ->
-                  false
+                  true
           end,
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
