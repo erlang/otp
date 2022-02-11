@@ -132,12 +132,6 @@ static int modified_sched_thread_suggested_stack_size = 0;
 
 Eterm erts_init_process_id = ERTS_INVALID_PID;
 
-/*
- * Note about VxWorks: All variables must be initialized by executable code,
- * not by an initializer. Otherwise a new instance of the emulator will
- * inherit previous values.
- */
-
 extern void erl_crash_dump_v(char *, int, const char *, va_list);
 #ifdef __WIN32__
 extern void ConNormalExit(void);

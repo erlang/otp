@@ -79,7 +79,7 @@
       <c><![CDATA['file']]></c> or <c><![CDATA['dns']]></c>, see below.</p>
 
     <p>Native lookup (system calls) is always the default resolver method.
-      This is true for all platforms, except VxWorks and OSE Delta where
+      This is true for all platforms, except OSE Delta where
       <c><![CDATA['file']]></c> or <c><![CDATA['dns']]></c> is used (in that
       priority order).</p>
 

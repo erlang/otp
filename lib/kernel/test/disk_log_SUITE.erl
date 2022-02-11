@@ -120,14 +120,6 @@
 	 open_change_size, change_attribute, otp_6278, otp_10131,
          otp_16768, otp_16809]).
 
-%% These tests should be skipped if the VxWorks card is configured *with*
-%% nfs cache.
--define(SKIP_LARGE_CACHE,[inc_wrap_file, halt_ext, wrap_ext, read_mode, 
-			  head, wrap_notif, open_size, error_log, 
-                          error_index, chunk, 
-			  change_size_before, change_size_during, 
-			  change_size_after, default_size]).
-
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},

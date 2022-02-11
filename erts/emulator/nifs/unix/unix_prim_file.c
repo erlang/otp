@@ -139,11 +139,7 @@ static int get_flags(enum efile_modes_t modes) {
     if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
         flags |= O_RDONLY;
     } else if(modes & EFILE_MODE_WRITE && !(modes & EFILE_MODE_READ)) {
-        if(!(modes & EFILE_MODE_NO_TRUNCATE)) {
-            flags |= O_TRUNC;
-        }
-
-        flags |= O_WRONLY | O_CREAT;
+        flags |= O_TRUNC | O_WRONLY | O_CREAT;
     } else if(modes & EFILE_MODE_READ_WRITE) {
         flags |= O_RDWR | O_CREAT;
     } else {

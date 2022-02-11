@@ -57,9 +57,7 @@ cross compiling.
 The build system, including cross compilation configuration variables used,
 may be subject to non backward compatible changes without prior notice.
 Current cross build system has been tested when cross compiling some Linux/GNU
-systems, but has only been partly tested for more esoteric platforms. The
-VxWorks example file is highly dependent on our environment and is here more
-or less only for internal use.
+systems, but has only been partly tested for more esoteric platforms.
 
 ### Patches ###
 

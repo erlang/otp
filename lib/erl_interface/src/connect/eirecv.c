@@ -21,7 +21,7 @@
 # include <winsock2.h>
 # include <windows.h>
 # include <winbase.h>
-#else /* Unix/VxWorks */
+#else /* Unix */
 # include <unistd.h>
 #endif
 
