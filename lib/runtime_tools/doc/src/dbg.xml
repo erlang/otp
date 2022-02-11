@@ -1156,20 +1156,12 @@ hello</pre>
     </func>
     <func>
       <name since="">stop() -> ok</name>
-      <fsummary>Stop the <c>dbg</c>server and the tracing of all processes.</fsummary>
-      <desc>
-        <p>Stops the <c>dbg</c> server and clears all trace flags for
-          all processes and all local trace patterns for all functions. Also
-          shuts down all trace clients and closes all trace ports.</p>
-        <p>Note that no global trace patterns are affected by this
-          function.</p>
-      </desc>
-    </func>
-    <func>
-      <name since="">stop_clear() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes, and clears trace patterns.</fsummary>
       <desc>
-        <p>Same as stop/0, but also clears all trace patterns on global functions calls.</p>
+        <p>Stops the <c>dbg</c> server, clears all trace flags for
+          all processes, clears all trace patterns for all functions,
+          clears trace patterns for send/receive, shuts down all trace clients,
+          and closes all trace ports.</p>
       </desc>
     </func>
   </funcs>

@@ -595,17 +595,23 @@ c(Parent, M, F, A, Flags) ->
     Parent ! {self(), Res}.
 
 stop() ->
-    Mref = erlang:monitor(process, dbg),
-    catch dbg ! {self(),stop},
-    receive
-	{'DOWN',Mref,_,_,_} ->
-	    ok
-    end.
-
-stop_clear() ->
     {ok, _} = ctp(),
     {ok, _} = ctpe('receive'),
     {ok, _} = ctpe('send'),
+
+    Mref = erlang:monitor(process, dbg),
+    catch dbg ! {self(),stop},
+
+    receive
+        {'DOWN',Mref,_,_,_} -> ok
+    end.
+
+%% This is a vestigial function that used to be documented as a variant of
+%% `stop/0` that also clears global function traces. Since `stop/0` now clears
+%% all tracing as the user would expect it to, we've removed this from the
+%% documentation but keep it around for backwards compatibility, much like
+%% `queue:lait`.
+stop_clear() ->
     stop().
 
 %%% Calling the server.
