@@ -65,6 +65,10 @@
 
 -type optimize_key_lookup() :: {optimize, time|space} .
 
+-type key() :: public_key:public_key() | public_key:private_key() .
+-type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
+-type openssh_key_v1_attributes() :: [{atom(),term()}].
+
 %%%================================================================
 %%%
 %%% API
@@ -155,7 +159,7 @@ add_host_key(Hosts0, Port, Key, Opts) ->
 %%%---------------- UTILITY API -----------------------------------
 %%% In public key before OTP-24.0 as ssh_decode/2 and ssh_encode/2
 
--spec decode(SshBin, Type) -> Decoded
+-spec decode(SshBin, Type) -> Decoded | {error,term()}
                                   when SshBin :: binary(),
                                        Type :: ssh2_pubkey
                                              | public_key
@@ -164,12 +168,27 @@ add_host_key(Hosts0, Port, Key, Opts) ->
                                              | openssh_key_v1  % Experimental
                                              | known_hosts
                                              | auth_keys,
-                                       Decoded :: public_key:public_key()
-                                                | [{public_key:public_key(), [{headers,Attrs}]}]
-                                                | [{public_key:public_key(), [{comment,string()}]}]
-                                                | {error, term()},
-                                       Attrs :: {Key::string()|atom(), Value::string()}
-                                                .
+                                       Decoded :: Decoded_ssh2_pubkey
+                                                | Decoded_public
+                                                | Decoded_openssh
+                                                | Decoded_rfc4716
+                                                | Decoded_openssh_key_v1
+                                                | Decoded_known_hosts
+                                                | Decoded_auth_keys,
+
+                                       Decoded_ssh2_pubkey :: public_key:public_key(),
+                                       Decoded_public :: Decoded_rfc4716
+                                                       | Decoded_openssh_key_v1
+                                                       | Decoded_openssh,
+                                       Decoded_openssh :: [{public_key:public_key(), [{comment,string()}]}],
+                                       Decoded_rfc4716 :: [{key(), [{headers,Attrs}]}],
+                                       Decoded_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       Decoded_known_hosts :: [{public_key:public_key(), [{comment,string()}
+                                                                                          | {hostnames,[string()]}]}],
+                                       Decoded_auth_keys :: [{public_key:public_key(), [{comment,string()}
+                                                                                        | {options,[string()]}]}],
+                                       Attrs :: {Key::string(), Value::string()} .
+
 decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
@@ -285,12 +304,23 @@ decode(_KeyBin, _Type) ->
                                              | openssh_key_v1  % Experimental
                                              | known_hosts
                                              | auth_keys,
-                                       InData :: public_key:public_key()
-                                               | [{public_key:public_key(), [{headers,Attrs}]}]
-                                               | [{public_key:public_key(), [{comment,string()}]}]
-                                               | {error, term()},
-                                       Attrs :: {Key::string()|atom(), Value::string()}
-                                                .
+                                       InData :: InData_ssh2_pubkey
+                                               | InData_openssh
+                                               | InData_rfc4716
+                                               | InData_openssh_key_v1
+                                               | InData_known_hosts
+                                               | InData_auth_keys,
+
+                                       InData_ssh2_pubkey :: public_key:public_key(),
+                                       InData_openssh :: [{public_key:public_key(), [{comment,string()}]}],
+                                       InData_rfc4716 :: [{key(), [{headers,Attrs}]}],
+                                       InData_openssh_key_v1 :: experimental_openssh_key_v1(),
+                                       InData_known_hosts :: [{public_key:public_key(), [{comment,string()}
+                                                                                          | {hostnames,[string()]}]}],
+                                       InData_auth_keys :: [{public_key:public_key(), [{comment,string()}
+                                                                                        | {options,[string()]}]}],
+                                       Attrs :: {Key::string(), Value::string()} .
+
 encode(Key, ssh2_pubkey) ->
     ssh_message:ssh2_pubkey_encode(Key);
 
@@ -1068,7 +1098,7 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%----------------------------------------------------------------
-%% KeyPairs :: [ {Pub,Priv,Comment} | {ed_pri{_,_,_},Comment} ]
+%% KeyPairs :: [ {Pub,Priv,Comment} ]
 openssh_key_v1_encode(KeyPairs) ->
     CipherName = <<"none">>,
     BlockSize = ?NON_CRYPT_BLOCKSIZE, % Cipher dependent
@@ -1094,8 +1124,9 @@ openssh_key_v1_encode(KeyPairs) ->
 openssh_key_v1_encode_pub_keys(KeyPairs) ->
     openssh_key_v1_encode_pub_keys(KeyPairs, []).
 
-openssh_key_v1_encode_pub_keys([{{ed_pri,Alg,PubKey,_},_C}|Ks], Acc) ->
-    Bk = ssh_message:ssh2_pubkey_encode({ed_pub,Alg,PubKey}),
+openssh_key_v1_encode_pub_keys([{Priv = #'ECPrivateKey'{}, _Cmnt} | Ks], Acc) ->
+    Pub = ssh_transport:extract_public_key(Priv),
+    Bk = ssh_message:ssh2_pubkey_encode(Pub),
     openssh_key_v1_encode_pub_keys(Ks, [<<?STRING(Bk)>>|Acc]);
 openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->
     Bk = ssh_message:ssh2_pubkey_encode(K),
@@ -1103,11 +1134,12 @@ openssh_key_v1_encode_pub_keys([{K,_,_C}|Ks], Acc) ->
 openssh_key_v1_encode_pub_keys([], Acc) ->
     list_to_binary(lists:reverse(Acc)).
 
+
 %%%----
 openssh_key_v1_encode_priv_keys_cmnts(KeyPairs) ->
     openssh_key_v1_encode_priv_keys_cmnts(KeyPairs, []).
 
-openssh_key_v1_encode_priv_keys_cmnts([{K={ed_pri,_,_,_},C} | Ks], Acc) ->
+openssh_key_v1_encode_priv_keys_cmnts([{K = #'ECPrivateKey'{}, C} | Ks], Acc) ->
     Bk = ssh_message:ssh2_privkey_encode(K),
     openssh_key_v1_encode_priv_keys_cmnts(Ks, [<<Bk/binary,?STRING(C)>>|Acc]);
 openssh_key_v1_encode_priv_keys_cmnts([{_,K,C}|Ks], Acc) ->
