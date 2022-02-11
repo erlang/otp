@@ -821,7 +821,7 @@ DbTable* db_get_table_aux(Process *p,
     }
 
     if (tb) {
-        erl_db_hash_adapt_number_of_locks(tb);
+        DB_HASH_ADAPT_NUMBER_OF_LOCKS(tb);
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
         /*
@@ -2338,7 +2338,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         Sint number_of_locks_param;
                         if (arityval(stp[0]) == 2 &&
                             stp[1] == am_debug_hash_fixed_number_of_locks &&
-                            is_integer(stp[2]) &&
                             term_to_Sint(stp[2], &number_of_locks_param) &&
                             number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
                             number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
@@ -5211,7 +5210,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    Eterm* hp;
 
 	    db_calc_stats_hash(&tb->hash, &stats);
-	    hp = HAlloc(p, 1 + 7 + FLOAT_SIZE_OBJECT*3);
+	    hp = HAlloc(p, 1 + 8 + FLOAT_SIZE_OBJECT*3);
 	    f.fd = stats.avg_chain_len;
 	    avg = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -5226,11 +5225,12 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE7(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
+	    ret = TUPLE8(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(stats.kept_items));
+			 make_small(stats.kept_items),
+                         make_small(tb->hash.nlocks));
 	}
 	else if (IS_CATREE_TABLE(tb->common.status)) {
             DbCATreeStats stats;
