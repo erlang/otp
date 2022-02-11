@@ -1314,7 +1314,7 @@ BIF_RETTYPE error_3(BIF_ALIST_3)
 /**********************************************************************/
 /*
  * This is like exactly like error/1. The only difference is
- * that Dialyzer thinks that it it will return an arbitrary term.
+ * that Dialyzer thinks that it will return an arbitrary term.
  * It is useful in stub functions for NIFs.
  */
 
@@ -1327,7 +1327,7 @@ BIF_RETTYPE nif_error_1(BIF_ALIST_1)
 /**********************************************************************/
 /*
  * This is like exactly like error/2. The only difference is
- * that Dialyzer thinks that it it will return an arbitrary term.
+ * that Dialyzer thinks that it will return an arbitrary term.
  * It is useful in stub functions for NIFs.
  */
 

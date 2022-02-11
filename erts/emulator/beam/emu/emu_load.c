@@ -526,7 +526,7 @@ int beam_load_finish_emit(LoaderState *stp) {
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
-     * Save the updated code code size.
+     * Save the updated code size.
      */
     stp->loaded_size = size;
 

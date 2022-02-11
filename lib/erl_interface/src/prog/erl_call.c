@@ -1097,7 +1097,7 @@ static char* ei_chk_strdup(char *s)
 }
 
 /*
- * Helper function that that:
+ * Helper function that:
  *
  * 1. Executes a function on a remote node
  *

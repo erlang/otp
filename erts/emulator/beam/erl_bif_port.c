@@ -1124,7 +1124,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     goto do_return;
 }
 
-/* Merges the the global environment and the given {Key, Value} list into env,
+/* Merges the global environment and the given {Key, Value} list into env,
  * unsetting all keys whose value is either 'false' or NIL. The behavior on
  * NIL is undocumented and perhaps surprising, but the previous implementation
  * worked in this manner. */

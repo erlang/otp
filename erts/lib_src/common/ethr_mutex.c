@@ -884,7 +884,7 @@ enqueue_mtx(ethr_mutex *mtx, ethr_ts_event *tse_start, ethr_ts_event *tse_end)
      * is not currently locked by current thread, we almost certainly have a
      * hard to debug race condition. There might however be some (strange)
      * use for it. POSIX also allow a call to `pthread_cond_signal' or
-     * `pthread_cond_broadcast' even though the the associated mutex isn't
+     * `pthread_cond_broadcast' even though the associated mutex isn't
      * locked by the caller. Therefore, we also allow this kind of strange
      * usage, but optimize for the case where the mutex is locked by the
      * calling thread.

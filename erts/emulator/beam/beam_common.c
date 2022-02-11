@@ -843,7 +843,7 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
  *
  * There is an issue with line number information. Line number
  * information is associated with the address *before* an operation
- * that may fail or be stored stored on the stack. But continuation
+ * that may fail or be stored on the stack. But continuation
  * pointers point after its call instruction, not before. To avoid
  * finding the wrong line number, we'll need to adjust them so that
  * they point at the beginning of the call instruction or inside the
@@ -1115,7 +1115,7 @@ static Eterm *get_freason_ptr_from_exc(Eterm exc) {
 
     if (exc == NIL) {
         /*
-         * Is is not exactly clear when exc can be NIL. Probably only
+         * It is not exactly clear when exc can be NIL. Probably only
          * when the exception has been generated from native code.
          * Return a pointer to an Eterm that can be safely written and
          * ignored.
@@ -2181,7 +2181,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	    old_keys++, old_vals++, num_old--;
 	} else {		/* Replace or insert new */
 	    GET_TERM(new_p[1], *hp++);
-	    if (c > 0) {	/* If new new key */
+	    if (c > 0) {	/* If new key */
 		*kp++ = new_key;
 	    } else {		/* If replacement */
 		*kp++ = key;

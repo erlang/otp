@@ -708,7 +708,7 @@ release_driver_data(DriverData* dp)
 	   requests issued by another thread and that we can't use
 	   CancelIoEx as that's only available in Vista etc.
 	   R14: Avoid scheduler deadlock by only wait for 10ms, and then spawn
-	    a thread that will keep waiting in in order to close handles. */
+	    a thread that will keep waiting in order to close handles. */
 	HANDLE handles[2];
 	int i = 0;
 	int timeout = 10;
@@ -1526,7 +1526,7 @@ create_child_process
  wchar_t *wd,      /* Working dir for the child */
  unsigned st,    /* Flags for spawn, tells us how to interpret origcmd */
  wchar_t **argv,     /* Argument vector if given. */
- int *errno_return /* Place to put an errno in in case of failure */
+ int *errno_return /* Place to put an errno in case of failure */
  )
 {
     PROCESS_INFORMATION piProcInfo = {0};

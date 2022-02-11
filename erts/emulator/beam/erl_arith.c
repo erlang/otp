@@ -710,7 +710,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			    return res;
 			} else {
 			    /*
-			     * The result is a a big number.
+			     * The result is a big number.
 			     * Allocate a heap fragment and copy the result.
 			     * Be careful to allocate exactly what we need
 			     * to not leave any holes.
