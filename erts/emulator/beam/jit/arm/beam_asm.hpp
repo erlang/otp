@@ -165,6 +165,10 @@ protected:
      */
     const arm::Gp SUPER_TMP = a64::x14;
 
+    /*
+     * Note that x18 is reserved on Apple platforms and must not be used.
+     */
+
     /* Callee-saved floating-point registers.
      *
      * Note that only the bottom 64 bits of these (128-bit) registers are
@@ -181,10 +185,6 @@ protected:
     const arm::VecD register_backed_fregs[num_register_backed_fregs] =
             {FREG0, FREG1, FREG2, FREG3, FREG4, FREG5, FREG6, FREG7};
 
-    /*
-     * Note that x18 is reserved on Apple platforms and must not be used.
-     */
-
     const arm::Mem TMP_MEM1q = getSchedulerRegRef(
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[0]));
     const arm::Mem TMP_MEM2q = getSchedulerRegRef(
@@ -197,12 +197,29 @@ protected:
             offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[4]));
 
     /* Fill registers with undefined contents to find bugs faster.
-     * A boxed value is most likely to cause noticeable trouble.
-     */
+     * A boxed value is most likely to cause noticeable trouble. */
     static const Uint64 bad_boxed_ptr = 0xcafebad0000002UL;
 
     /* Number of highest element displacement for stp/ldp. */
     static const int MAX_LDP_STP_DISPLACEMENT = 0x3F;
+
+    /* Constants for "alternate flag state" operands, which are distinct from
+     * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
+    enum NZCV : int {
+        kNF = 16,
+        kSigned = kNF,
+
+        kZF = 4,
+        kEqual = kZF,
+
+        kCF = 2,
+        kCarry = kCF,
+
+        kVF = 1,
+        kOverflow = kVF,
+
+        kNone = 0
+    };
 
 public:
     static bool hasCpuFeature(uint32_t featureId);

@@ -1193,7 +1193,10 @@ void BeamGlobalAssembler::emit_bs_add_guard_shared() {
 
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
+    a.ccmp(TMP1,
+           imm(_TAG_IMMED1_SMALL),
+           imm(NZCV::kNone),
+           imm(arm::CondCode::kEQ));
     a.b_ne(error);
 
     /* Return `Size` + `Add` * `Unit`
@@ -1221,7 +1224,10 @@ void BeamGlobalAssembler::emit_bs_add_body_shared() {
 
     a.and_(TMP1, ARG2, ARG3);
     a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), imm(0), imm(arm::CondCode::kEQ));
+    a.ccmp(TMP1,
+           imm(_TAG_IMMED1_SMALL),
+           imm(NZCV::kNone),
+           imm(arm::CondCode::kEQ));
     a.b_ne(error);
 
     /* Return `Size` + `Add` * `Unit`

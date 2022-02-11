@@ -212,7 +212,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgVal &Fail,
     a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
+    a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
     if (Fail.getValue()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
@@ -700,7 +700,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgVal &Fail,
     a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, 0, arm::CondCode::kEQ);
+    a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
     if (Fail.getValue()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
