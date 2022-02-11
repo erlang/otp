@@ -10107,6 +10107,17 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                     if (((state & (ERTS_PSFLG_SUSPENDED
                                    | ERTS_PSFLG_ACTIVE)) != ERTS_PSFLG_ACTIVE)
                         & !(state & ERTS_PSFLG_EXITING)) {
+
+                        /* Tracing, handling signals and running sys_tasks may
+                           have created data on the process heap that should
+                           be GC:ed. */
+                        if (ERTS_IS_GC_DESIRED(p)
+                            && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
+                            int cost = scheduler_gc_proc(p, reds);
+                            calls += cost;
+                            reds -= cost;
+                        }
+
                         goto sched_out_proc;
                     }
 
