@@ -11,7 +11,18 @@ erl
 > make_certs:all("/dev/null", "eldap_basic_SUITE_data/certs").
 
 2)-------
-To start slapd:
+To start slapd you have two options:
+
+- Via Docker and provided `run_server.sh` script.
+
+This uses the [bitnami/openldap:2.5](https://hub.docker.com/r/bitnami/openldap)
+image to run an openldap/slapd server using docker.
+
+It will also take care of generating the server TLS certificates if they're not
+present.
+
+- Using system installed slapd:
+
    sudo slapd -f $ERL_TOP/lib/eldap/test/ldap_server/slapd.conf -F /tmp/slapd/slapd.d -h "ldap://localhost:9876 ldaps://localhost:9877"
 
 This will however not work, since slapd is guarded by apparmor that checks that slapd does not access other than allowed files...
