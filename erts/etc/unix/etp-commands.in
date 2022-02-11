@@ -2147,24 +2147,45 @@ define etp-term-dump-pid
 end
 
 define etp-term-dump-header
-# Args: Header term
+  # Args: Header term
   if (($arg0) & 0x3f) == 0
-    printf  "| H:%4d-tuple ", ($arg0) >> 6
+    printf  "| H:%4u-tuple ", ($arg0) >> 6
   else
     set $etp_heapdump_skips = ($arg0) >> 6
     if ((($arg0) & 0x3f) == 0x18)
-      printf  "| H: float %3d ", ($arg0) >> 6
+      printf  "| H: float %3u ", ($arg0) >> 6
     else
       if ((($arg0) & 0x3f) == 0x28)
-        # sub-binary
         printf  "| H:   sub-bin "
       else
-        if ((($arg0) & 0x3f) == 0x8)
-          # pos-bignum
-          printf  "| H:bignum %3u ", ($arg0) >> 6
+        if ((($arg0) & 0x3f) == 0x24)
+          printf  "| H:  heap-bin "
         else
-          printf  "| header %5d ", ($arg0) >> 6
-	end
+          if ((($arg0) & 0x3f) == 0x20)
+            printf  "| H:  refc-bin "
+          else
+            if ((($arg0) & 0x3f) == 0x8)
+              # pos-bignum
+              printf  "| H:bignum %3u ", ($arg0) >> 6
+            else
+              if ((($arg0) & 0x3f) == 0x14)
+                printf  "| H:fun %6u ", ($arg0) >> 6
+              else
+                if ((($arg0) & 0xbc) == 0x3c)
+                  set $etp_heapdump_skips = (($arg0)>>(6+2)) & 0xff
+                  printf  "| flatmap %5u ", $etp_heapdump_skips
+                else
+                  if ((($arg0) & 0xbc) == 0xbc)
+                    set $etp_heapdump_skips = (($arg0)>>(6+2)) & 0xff
+                    printf  "| hashmap %4u ", $etp_heapdump_skips
+                  else
+                    printf  "| header %5u ", ($arg0) >> 6
+                  end
+                end
+              end
+	    end
+          end
+        end
       end
     end
   end

@@ -1729,18 +1729,31 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
             ProcBin* new_pb;
+            Uint sz = PROC_BIN_SIZE;
 
             sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 
-            new_pb = (ProcBin*) HeapFragOnlyAlloc(p, PROC_BIN_SIZE);
+            /* If the subbinary is on the mature or old heap, we need to also move it */
+            if (ErtsInArea(sb, OLD_HEAP(p), ((char *)OLD_HTOP(p)) - ((char *)OLD_HEAP(p))) ||
+                ErtsInArea(sb, HEAP_START(p), ((char *)HIGH_WATER(p)) - ((char *)HEAP_START(p)))) {
+                sz += ERL_SUB_BIN_SIZE;
+            }
+
+            new_pb = (ProcBin*) HeapFragOnlyAlloc(p, sz);
             new_pb->thing_word = HEADER_PROC_BIN;
             new_pb->size = pb->size;
             new_pb->val = bptr;
             new_pb->bytes = (byte *) bptr->orig_bytes;
             new_pb->next = p->wrt_bins;
             p->wrt_bins = (struct erl_off_heap_header*) new_pb;
-            sb->orig = make_binary(new_pb);
             pb = new_pb;
+            if (sz != PROC_BIN_SIZE) {
+                ErlSubBin *new_sb = (ErlSubBin*)(new_pb+1);
+                sys_memcpy(new_sb, sb, sizeof(*new_sb));
+                sb = new_sb;
+                bin = make_binary(sb);
+            }
+            sb->orig = make_binary(new_pb);
 	}
     }
     pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
