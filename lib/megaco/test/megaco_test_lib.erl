@@ -2374,7 +2374,8 @@ stop_node(Node, File, Line) when is_atom(Node) ->
 stop_node(Node) ->
     p("try stop node ~p", [Node]),
     erlang:monitor_node(Node, true),
-    rpc:call(Node, erlang, halt, []),
+    %% Make sure we do not hang in case 'Node' has problems
+    erlang:spawn(fun() -> rpc:call(Node, erlang, halt, []) end),
     receive
         {nodedown, Node} ->
             p("node ~p stopped", [Node]),
