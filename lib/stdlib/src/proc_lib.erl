@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,13 +46,33 @@
 
 %%-----------------------------------------------------------------------------
 
+%% This shall be spawn_option() -- monitor options and must be kept in sync
+%% (with erlang:spawn_opt_options())
+%%
 -type start_spawn_option() :: 'link'
                             | {'priority', erlang:priority_level()}
-                            | {'max_heap_size', erlang:max_heap_size()}
+                            | {'fullsweep_after', non_neg_integer()}
                             | {'min_heap_size', non_neg_integer()}
                             | {'min_bin_vheap_size', non_neg_integer()}
-                            | {'fullsweep_after', non_neg_integer()}
+                            | {'max_heap_size', erlang:max_heap_size()}
                             | {'message_queue_data', erlang:message_queue_data() }.
+%% and this macro is used to verify that there are no monitor options
+%% which also needs to be kept in sync all kinds of monitor options
+%% in erlang:spawn_opt_options().
+%%
+-define(VERIFY_NO_MONITOR_OPT(M, F, A, T, Opts),
+        Monitor = monitor,
+        case lists:member(Monitor, Opts) of
+            true ->
+                erlang:error(badarg, [M,F,A,T,Opts]);
+            false ->
+                case lists:keyfind(Monitor, 1, Opts) of
+                    false ->
+                        ok;
+                    {Monitor, _} ->
+                        erlang:error(badarg, [M,F,A,T,Opts])
+                end
+        end).
 
 -type spawn_option()   :: erlang:spawn_opt_option().
 
@@ -61,12 +81,6 @@
                         | {X :: integer(), Y :: integer(), Z :: integer()}.
 
 %%-----------------------------------------------------------------------------
-
--define(VERIFY_NO_MONITOR_OPT(M, F, A, T, Opts),
-        case lists:member(monitor, Opts) of
-            true -> erlang:error(badarg, [M,F,A,T,Opts]);
-            false -> ok
-        end).
 
 %%-----------------------------------------------------------------------------
 
