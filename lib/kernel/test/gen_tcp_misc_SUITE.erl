@@ -847,28 +847,48 @@ do_active_n(Config) ->
 
 %% Tests that a socket can be closed fast enough.
 otp_3924(Config) when is_list(Config) ->
-    MaxDelay = (case has_superfluous_schedulers() of
-	    true -> 4;
-	    false -> 1
-	end
-	* case {erlang:system_info(debug_compiled),
-		erlang:system_info(lock_checking)} of
-	    {true, _} -> 6;
-	    {_, true} -> 2;
-	    _ -> 1
-	end * ?OTP_3924_MAX_DELAY),
-    otp_3924_1(Config, MaxDelay).
+    ?P("~w -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [?FUNCTION_NAME, Config, nodes()]),
+    Pre = fun() ->
+                  ?P("~w:pre -> calculate max delay", [?FUNCTION_NAME]),
+                  MaxDelay = (case has_superfluous_schedulers() of
+                                  true -> 4;
+                                  false -> 1
+                              end
+                              * case {erlang:system_info(debug_compiled),
+                                      erlang:system_info(lock_checking)} of
+                                    {true, _} -> 6;
+                                    {_, true} -> 2;
+                                    _ -> 1
+                                end * ?OTP_3924_MAX_DELAY),
+                  ?P("~w:pre -> try start node", [?FUNCTION_NAME]),
+                  {ok, Node} = start_node(otp_3924),
+                  ?P("~w:pre -> done with: "
+                     "~n      Node:     ~p"
+                     "~n      MaxDelay: ~p", [?FUNCTION_NAME, Node, MaxDelay]),
+                  {Node, MaxDelay}
+          end,
+    TC  = fun({Node, MaxDelay}) ->
+                  ?P("~w:tc -> begin", [?FUNCTION_NAME]),
+                  Res = do_otp_3924(Config, Node, MaxDelay),
+                  ?P("~w:tc -> done", [?FUNCTION_NAME]),
+                  Res
+          end,
+    Post = fun({Node, _}) ->
+                   ?P("~w:post -> try stop node ~p", [?FUNCTION_NAME, Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
-otp_3924_1(Config, MaxDelay) ->
-    {ok, Node} = start_node(otp_3924),
+do_otp_3924(Config, Node, MaxDelay) ->
     DataLen = 100*1024,
-    Data = otp_3924_data(DataLen),
+    Data    = otp_3924_data(DataLen),
     %% Repeat the test a couple of times to prevent the test from passing
     %% by chance.
     repeat(10, fun(N) ->
                        ok = otp_3924(Config, MaxDelay, Node, Data, DataLen, N)
                end),
-    ?STOP_NODE(Node),
     ok.
 
 otp_3924(Config, MaxDelay, Node, Data, DataLen, N) ->
