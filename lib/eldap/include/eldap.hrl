@@ -20,7 +20,8 @@
 %%%
 -record(eldap_search_result, {
 	  entries = [],          % List of #eldap_entry{} records
-	  referrals = []         % List of referrals
+	  referrals = [],        % List of referrals
+	  controls = []          % List of controls
 	  }).
 
 %%%
