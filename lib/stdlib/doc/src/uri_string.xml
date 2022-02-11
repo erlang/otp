@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2017</year><year>2020</year>
+      <year>2017</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -84,8 +84,13 @@
       <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
       <seemfa marker="#dissect_query/1"><c>dissect_query/1</c></seemfa>
       </item>
-      <item>Decoding percent-encoded triplets<br></br>
+      <item>Decoding percent-encoded triplets in URI map or a specific component of URI<br></br>
       <seemfa marker="#percent_decode/1"><c>percent_decode/1</c></seemfa>
+      </item>
+      <item>Preparing and retrieving application specific data included in URI components<br></br>
+      <seemfa marker="#quote/1"><c>quote/1</c></seemfa>
+      <seemfa marker="#quote/2"><c>quote/2</c></seemfa>
+      <seemfa marker="#unquote/1"><c>unquote/1</c></seemfa>
       </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
@@ -110,6 +115,15 @@
     character encoding and it is usually defined by the protocol or surrounding text. This library
     takes the same assumption, binary and percent-encoding are handled as one configuration unit,
     they cannot be set to different values.</p>
+    <p>Quoting functions are intended to be used by URI producing application
+    during component preparation or retrieval phase to avoid conflicts between
+    data and characters used in URI syntax. Quoting functions use percent
+    encoding, but with different rules than for example during execution of
+    <c>recompose/1</c>. It is user responsibility to provide quoting
+    functions with application data only and using their output to combine an
+    URI component.<br></br>Quoting functions can for instance be used for constructing a path
+    component with a segment containing '/' character which should not collide with
+    '/' used as general delimiter in path component.</p>
   </description>
 
   <datatypes>
@@ -358,6 +372,48 @@
     </func>
 
     <func>
+      <name name="quote" arity="1" since="OTP 25.0"/>
+      <fsummary>Percent encode characters out of unreserved set.</fsummary>
+      <desc>
+        <p>Replaces characters out of unreserved set with their percent encoded equivalents.</p>
+        <p>Unreserved characters defined in
+        <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url> are not quoted.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:quote("SomeId/04").]]></input>
+<![CDATA["SomeId%2F04"]]>
+2> <input><![CDATA[uri_string:quote(<<"SomeId/04">>).]]></input>
+<![CDATA[<<"SomeId%2F04">>]]>
+	</pre>
+
+        <warning><p>Function is not aware about any URI component context and
+        should not be used on whole URI. If applied more than once on the same
+        data, might produce unexpected results.</p></warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="quote" arity="2" since="OTP 25.0"/>
+      <fsummary>Percent encode characters out of unreserved set and user defined
+      safe list.</fsummary>
+      <desc>
+        <p>Same as <c>quote/1</c>, but <c><anno>Safe</anno></c> allows user to
+        provide a list of characters to be protected from encoding.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:quote("SomeId/04", "/").]]></input>
+<![CDATA["SomeId/04"]]>
+2> <input><![CDATA[uri_string:quote(<<"SomeId/04">>, "/").]]></input>
+<![CDATA[<<"SomeId/04">>]]>
+	</pre>
+
+        <warning><p>Function is not aware about any URI component context and
+        should not be used on whole URI. If applied more than once on the same
+        data, might produce unexpected results.</p></warning>
+      </desc>
+    </func>
+
+    <func>
       <name name="recompose" arity="1" since="OTP 21.0"/>
       <fsummary>Recompose URI.</fsummary>
       <desc>
@@ -445,5 +501,24 @@
       </desc>
     </func>
 
+    <func>
+      <name name="unquote" arity="1" since="OTP 25.0"/>
+      <fsummary>Percent decode characters.</fsummary>
+      <desc>
+        <p>Percent decode characters.</p>
+
+        <p><em>Example:</em></p>
+        <pre>
+1> <input><![CDATA[uri_string:unquote("SomeId%2F04").]]></input>
+<![CDATA["SomeId/04"]]>
+2> <input><![CDATA[uri_string:unquote(<<"SomeId%2F04">>).]]></input>
+<![CDATA[<<"SomeId/04">>]]>
+	</pre>
+
+        <warning><p>Function is not aware about any URI component context and
+        should not be used on whole URI. If applied more than once on the same
+        data, might produce unexpected results.</p></warning>
+      </desc>
+    </func>
   </funcs>
 </erlref>
