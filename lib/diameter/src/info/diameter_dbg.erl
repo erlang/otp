@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,9 +30,7 @@
          modules/0,
          versions/0,
          version_info/0,
-         compiled/0,
          procs/0,
-         latest/0,
          nl/0,
          sizes/0]).
 
@@ -165,25 +163,11 @@ version_info() ->
     ?I:version_info(modules()).
 
 %% ----------------------------------------------------------
-%% # compiled/0
-%% ----------------------------------------------------------
-
-compiled() ->
-    ?I:compiled(modules()).
-
-%% ----------------------------------------------------------
 %% # procs/0
 %% ----------------------------------------------------------
 
 procs() ->
     ?I:procs(?APP).
-
-%% ----------------------------------------------------------
-%% # latest/0
-%% ----------------------------------------------------------
-
-latest() ->
-    ?I:latest(modules()).
 
 %% ----------------------------------------------------------
 %% # nl/0
