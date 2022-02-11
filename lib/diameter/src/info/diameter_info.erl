@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,9 +40,7 @@
          versions/1,
          version_info/1,
          attrs/2,
-         compiled/1,
          procs/1,
-         latest/1,
          list/1]).
 
 %% Support for rolling your own.
@@ -375,7 +373,7 @@ attr(Width, Mod, Attr, VFun) ->
     io:format(": ~*s~s~n", [-Width, Mod, attr(Mod, Attr, VFun)]).
 
 attr(Mod, Attr, VFun) ->
-    Key = key(Attr),
+    Key = attributes,
     try
         VFun(val(Attr, keyfetch(Attr, Mod:module_info(Key))))
     catch
@@ -383,43 +381,8 @@ attr(Mod, Attr, VFun) ->
             "-"
     end.
 
-attr(Mod, Attr) ->
-    attr(Mod, Attr, fun attr/1).
-
-key(time) -> compile;
-key(_)    -> attributes.
-
-val(time, {_,_,_,_,_,_} = T) ->
-    lists:flatten(io_lib:format("~p-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B",
-                                tuple_to_list(T)));
 val(_, [V]) ->
     V.
-
-%%% ----------------------------------------------------------
-%%% # compiled(Modules|Prefix)
-%%%
-%%% Output: Number of modules listed.
-%%%
-%%% Description: List the compile times of the specified modules.
-%%% ----------------------------------------------------------
-
-compiled(Modules)
-  when is_list(Modules) ->
-    attrs(Modules, fun compiled/2);
-
-compiled(Prefix) ->
-    compiled(modules(Prefix)).
-
-compiled(Width, Mod) ->
-    io:format(": ~*s~19s  ~s~n", [-Width,
-                                  Mod,
-                                  attr(Mod, time),
-                                  opt(attr(Mod, date))]).
-
-opt("-") ->
-    "";
-opt(D) ->
-    "(" ++ D ++ ")".
 
 %%% ----------------------------------------------------------
 %%% # procs(Pred|Prefix|Prefixes|Pid|Pids)
@@ -510,42 +473,13 @@ pre(A, Prefixes) ->
     lists:any(fun(P) -> pre1(A, atom_to_list(P)) end, Prefixes).
 
 %%% ----------------------------------------------------------
-%%% # latest(Modules|Prefix)
-%%%
-%%% Output: {Mod, {Y,M,D,HH,MM,SS}, Version}
-%%%
-%%% Description: Return the compile time of the most recently compiled
-%%%              module from the specified non-empty list. The modules
-%%%              are assumed to exist.
-%%% ----------------------------------------------------------
-
-latest(Prefix)
-  when is_atom(Prefix) ->
-    latest(modules(Prefix));
-
-latest([_|_] = Modules) ->
-    {Mod, T}
-        = hd(lists:sort(fun latest/2, lists:map(fun compile_time/1, Modules))),
-    {Mod, T, app_vsn(Mod)}.
-
-app_vsn(Mod) ->
-    keyfetch(app_vsn, Mod:module_info(attributes)).
-
-compile_time(Mod) ->
-    T = keyfetch(time, Mod:module_info(compile)),
-    {Mod, T}.
-
-latest({_,T1},{_,T2}) ->
-    T1 > T2.
-
-%%% ----------------------------------------------------------
 %%% version_info(Modules|Prefix)
 %%%
 %%% Output: {SysInfo, OSInfo, [ModInfo]}
 %%%
 %%%         SysInfo = {Arch, Vers}
 %%%         OSInfo  = {Vers, {Fam, Name}}
-%%%         ModInfo = {Vsn, AppVsn, Time, CompilerVsn}
+%%%         ModInfo = {Vsn, AppVsn, CompilerVsn}
 %%% ----------------------------------------------------------
 
 version_info(Prefix)
@@ -560,8 +494,8 @@ mod_version_info(Mod) ->
     try
         Info = Mod:module_info(),
         [[Vsn], AppVsn] = get_values(attributes, [vsn, app_vsn], Info),
-        [Ver, Time] = get_values(compile, [version, time], Info),
-        [Vsn, AppVsn, Ver, Time]
+        [Ver] = get_values(compile, [version], Info),
+        [Vsn, AppVsn, Ver]
     catch
         _:_ ->
             []
@@ -600,15 +534,12 @@ print_mod_info(Mods) ->
 
 print_mod({Mod, []}) ->
     io:format("   ~w:~n", [Mod]);
-print_mod({Mod, [Vsn, AppVsn, Ver, {Year, Month, Day, Hour, Min, Sec}]}) ->
-    Time = io_lib:format("~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-                         [Year, Month, Day, Hour, Min, Sec]),
+print_mod({Mod, [Vsn, AppVsn, Ver]}) ->
     io:format("   ~w:~n"
               "      vsn      : ~s~n"
               "      app_vsn  : ~s~n"
-              "      compiled : ~s~n"
               "      compiler : ~s~n",
-              [Mod, str(Vsn), str(AppVsn), Time, Ver]).
+              [Mod, str(Vsn), str(AppVsn), Ver]).
 
 str(A)
   when is_atom(A) ->
