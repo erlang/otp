@@ -180,7 +180,7 @@ recv(_Config) ->
     self() ! 1,
     {1,yes} = tricky_recv_2(),
     self() ! 2,
-    {2,maybe} = tricky_recv_2(),
+    {2,'maybe'} = tricky_recv_2(),
 
     %% Test 'receive after infinity' in try/catch.
     Pid = spawn(fun recv_after_inf_in_try/0),
@@ -284,7 +284,7 @@ tricky_recv_2() ->
                 end,
             a;
         X=2 ->
-            Y = maybe,
+            Y = 'maybe',
             b
     end,
     {X,Y}.

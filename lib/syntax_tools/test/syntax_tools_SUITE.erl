@@ -106,7 +106,8 @@ revert(Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog).
 
 revert_file(File, Path) ->
-    case epp:parse_file(File, Path, []) of
+    case epp:parse_file(File, [{includes,Path},
+                               res_word_option()]) of
         {ok,Fs0} ->
             Fs1 = erl_syntax:form_list(Fs0),
             Fs2 = erl_syntax_lib:map(fun (Node) -> Node end, Fs1),
@@ -350,8 +351,7 @@ t_comment_scan(Config) when is_list(Config) ->
 t_prettypr(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
     PrivDir   = ?config(priv_dir, Config),
-    Filenames = ["type_specs.erl",
-                 "specs_and_funs.erl"],
+    Filenames = test_files(),
     ok = test_prettypr(Filenames,DataDir,PrivDir),
     ok.
 
@@ -391,15 +391,16 @@ test_comment_scan([File|Files],DataDir) ->
 test_prettypr([],_,_) -> ok;
 test_prettypr([File|Files],DataDir,PrivDir) ->
     Filename  = filename:join(DataDir,File),
+    Options = [res_word_option()],
     io:format("Parsing ~p~n", [Filename]),
-    {ok, Fs0} = epp:parse_file(Filename, [], []),
+    {ok, Fs0} = epp:parse_file(Filename, Options),
     Fs = erl_syntax:form_list(Fs0),
     PP = erl_prettypr:format(Fs, [{paper,  120}, {ribbon, 110}]),
     io:put_chars(PP),
     OutFile = filename:join(PrivDir, File),
     ok = file:write_file(OutFile,unicode:characters_to_binary(PP)),
     io:format("Parsing OutFile: ~ts~n", [OutFile]),
-    {ok, Fs2} = epp:parse_file(OutFile, [], []),
+    {ok, Fs2} = epp:parse_file(OutFile, Options),
     case [Error || {error, _} = Error <- Fs2] of
         [] ->
             ok;
@@ -407,7 +408,6 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
             ct:fail(Errors)
     end,
     test_prettypr(Files,DataDir,PrivDir).
-
 
 test_epp_dodger([], _, _) -> ok;
 test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
@@ -617,3 +617,13 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
 	    Refs = Refs0 -- [Ref],
 	    p_run_loop(Test, List, N, Refs, Errors)
     end.
+
+res_word_option() ->
+    %% FIXME: When the experimental features EEP has been implemented, we should
+    %% dig out all keywords defined in all features.
+    ResWordFun =
+        fun('maybe') -> true;
+           ('else') -> true;
+           (Other) -> erl_scan:reserved_word(Other)
+        end,
+    {reserved_word_fun, ResWordFun}.

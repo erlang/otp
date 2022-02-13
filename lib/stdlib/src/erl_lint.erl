@@ -2606,6 +2606,23 @@ expr({match,_Anno,P,E}, Vt, St0) ->
     {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
     St = reject_invalid_alias_expr(P, E, Vt, St2),
     {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
+expr({maybe_match,Anno,P,E}, Vt, St0) ->
+    expr({match,Anno,P,E}, Vt, St0);
+expr({'maybe',Anno,Es}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',Anno}, Evt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    {Evt2,St1};
+expr({'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',MaybeAnno}, Evt0, Vt), Vt),
+    {Cvt0, St2} = icrt_clauses(Cs, {'else',ElseAnno}, Evt1, St1),
+    Cvt1 = vtupdate(vtunsafe({'else',ElseAnno}, Cvt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    Cvt2 = vtmerge(Cvt0, Cvt1),
+    {vtmerge(Evt2, Cvt2),St2};
 %% No comparison or boolean operators yet.
 expr({op,_Anno,_Op,A}, Vt, St) ->
     expr(A, Vt, St);
@@ -4211,7 +4228,7 @@ check_format_2a(Fmt, FmtAnno, As) ->
         false ->
             Anno = element(2, As),
             {warn,1,Anno,"format arguments not a list",[]};
-        maybe ->
+        'maybe' ->
             Anno = erl_parse:first_anno(As),
             {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
@@ -4257,12 +4274,12 @@ arguments(N) ->
 args_list({cons,_A,_H,T}) -> args_list(T);
 %% Strange case: user has written something like [a | "bcd"]; pretend
 %% we don't know:
-args_list({string,_A,_Cs}) -> maybe;
+args_list({string,_A,_Cs}) -> 'maybe';
 args_list({nil,_A}) -> true;
 args_list({atom,_,_}) -> false;
 args_list({integer,_,_}) -> false;
 args_list({float,_,_}) -> false;
-args_list(_Other) -> maybe.
+args_list(_Other) -> 'maybe'.
 
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.

@@ -136,6 +136,32 @@ exprs([E|Es], Bs0, Lf, Ef, RBs, FUVs) ->
     {value,_V,Bs} = expr(E, Bs0, Lf, Ef, RBs1, FUVs),
     exprs(Es, Bs, Lf, Ef, RBs, FUVs).
 
+%% maybe_match_exprs(Expression, Bindings, LocalFuncHandler, ExternalFuncHandler)
+%%  Returns one of:
+%%	 {success,Value}
+%%	 {failure,Value}
+%%  or raises an exception.
+
+maybe_match_exprs([{maybe_match,Anno,Lhs,Rhs0}|Es], Bs0, Lf, Ef) ->
+    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Lf, Ef, none),
+    case match(Lhs, Rhs, Anno, Bs1, Bs1, Ef) of
+	{match,Bs} ->
+            case Es of
+                [] ->
+                    {success,Rhs};
+                [_|_] ->
+                    maybe_match_exprs(Es, Bs, Lf, Ef)
+            end;
+	nomatch ->
+            {failure,Rhs}
+    end;
+maybe_match_exprs([E], Bs0, Lf, Ef) ->
+    {value,V,_Bs} = expr(E, Bs0, Lf, Ef, none),
+    {success,V};
+maybe_match_exprs([E|Es], Bs0, Lf, Ef) ->
+    {value,_V,Bs} = expr(E, Bs0, Lf, Ef, none),
+    maybe_match_exprs(Es, Bs, Lf, Ef).
+
 %% expr(Expression, Bindings)
 %% expr(Expression, Bindings, LocalFuncHandler)
 %% expr(Expression, Bindings, LocalFuncHandler, ExternalFuncHandler)
@@ -468,6 +494,21 @@ expr({match,Anno,Lhs,Rhs0}, Bs0, Lf, Ef, RBs, FUVs) ->
 	{match,Bs} ->
             ret_expr(Rhs, Bs, RBs);
 	nomatch -> apply_error({badmatch,Rhs}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({'maybe',_,Es}, Bs, Lf, Ef, RBs, _FUVs) ->
+    {_,Val} = maybe_match_exprs(Es, Bs, Lf, Ef),
+    ret_expr(Val, Bs, RBs);
+expr({'maybe',Anno,Es,{'else',_,Cs}}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case maybe_match_exprs(Es, Bs0, Lf, Ef) of
+        {success,Val} ->
+            ret_expr(Val, Bs0, RBs);
+        {failure,Val} ->
+            case match_clause(Cs, [Val], Bs0, Lf, Ef) of
+                {B, Bs} ->
+                    exprs(B, Bs, Lf, Ef, RBs, FUVs);
+                nomatch ->
+                    apply_error({else_clause,Val}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end
     end;
 expr({op,Anno,Op,A0}, Bs0, Lf, Ef, RBs, FUVs) ->
     {value,A,Bs} = expr(A0, Bs0, Lf, Ef, none, FUVs),

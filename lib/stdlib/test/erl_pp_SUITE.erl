@@ -55,7 +55,8 @@
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
           otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1,
-          otp_16435/1, gh_5093/1]).
+          otp_16435/1, gh_5093/1,
+          eep49/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -87,7 +88,7 @@ groups() ->
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
        otp_14285, otp_15592, otp_15751, otp_15755, otp_16435,
-       gh_5093]}].
+       gh_5093, eep49]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1380,6 +1381,18 @@ gh_5093(_Config) ->
   assert_same("f(X, Y) ->\n    X - Y.\n"),
   ok.
 
+eep49(_Config) ->
+    assert_same("f() ->\n"
+                "    maybe ok ?= ok end.\n"),
+    assert_same("f() ->\n"
+                "    maybe\n"
+                "        ok ?= ok\n"
+                "    else\n"
+                "        {error, _} ->\n"
+                "            error\n"
+                "    end.\n"),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1475,7 +1488,15 @@ parse_forms(Chars) ->
 parse_forms2([], _Cont, _Line, Forms) ->
     lists:reverse(Forms);
 parse_forms2(String, Cont0, Line, Forms) ->
-    case erl_scan:tokens(Cont0, String, Line) of
+    %% FIXME: When the experimental features EEP has been implemented, we should
+    %% dig out all keywords defined in all features.
+    ResWordFun =
+        fun('maybe') -> true;
+           ('else') -> true;
+           (Other) -> erl_scan:reserved_word(Other)
+        end,
+    Options = [{reserved_word_fun,ResWordFun}],
+    case erl_scan:tokens(Cont0, String, Line, Options) of
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);

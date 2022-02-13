@@ -395,6 +395,134 @@ is_valid_signal(Signal) ->
   </section>
 
   <section>
+    <marker id="maybe"></marker>
+    <title>Maybe</title>
+    <note><p><c>maybe</c> is an experimental new feature introduced in
+    OTP 25. By default, it is disabled. To enable <c>maybe</c>, use
+    compiler option <c>{enable_feature,maybe_expr}</c>.</p></note>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+end]]></code>
+
+    <p>The expressions in a <c>maybe</c> block are evaluated sequentially. If all
+    expressions are evaluated successfully, the return value of the <c>maybe</c>
+    block is <c>ExprN</c>. However, execution can be short-circuited by a
+    conditional match expression:</p>
+
+    <code type="erl"><![CDATA[
+Expr1 ?= Expr2]]></code>
+
+    <p><c>?=</c> is called the conditional match operator. It is only
+    allowed to be used at the top-level of a <c>maybe</c> block. It
+    matches the pattern <c>Expr1</c> against <c>Expr2</c>. If the
+    matching succeeds, any unbound variable in the pattern becomes
+    bound. If the expression is the last expression in the
+    <c>maybe</c> block, it also returns the value of <c>Expr2</c>. If the
+    matching is unsuccessful, the rest of the expressions in the <c>maybe</c>
+    block are skipped and the return value of the <c>maybe</c>
+    block is <c>Expr2</c>.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be
+    used in the code that follows the block.</p>
+
+    <p>Here is an example:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+end]]></code>
+
+    <p>Let us first assume that <c>a()</c> returns <c>{ok,42}</c> and
+    <c>b()</c> returns <c>{ok,58}</c>. With those return values, all
+    of the match operators will succeed, and the return value of the
+    <c>maybe</c> block is <c>A + B</c>, which is equal to <c>42 +
+    58 = 100</c>.</p>
+
+    <p>Now let us assume that <c>a()</c> returns <c>error</c>. The
+    conditional match operator in <c>{ok, A} ?= a()</c> fails to
+    match, and the return value of the <c>maybe</c> block is the
+    value of the expression that failed to match, namely <c>error</c>.
+    Similarly, if <c>b()</c> returns <c>wrong</c>, the return value of
+    the <c>maybe</c> block is <c>wrong</c>.</p>
+
+    <p>Finally, let us assume that <c>a()</c> returns
+    <c>-1</c>. Because <c>true = A >= 0</c> uses the match operator
+    `=`, a <c>{badmatch,false}</c> run-time error occurs when the
+    expression fails to match the pattern.</p>
+
+    <p>The example can be written in a less succient way using nested
+    case expressions:</p>
+
+    <code type="erl"><![CDATA[
+case a() of
+    {ok, A} ->
+        true = A >= 0,
+        case b() of
+            {ok, B} ->
+                A + B;
+            Other1 ->
+                Other1
+        end;
+    Other2 ->
+        Other2
+end]]></code>
+
+    <p>The <c>maybe</c> block can be augmented with <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+else
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+end]]></code>
+
+    <p>If a conditional match operator fails, the failed expression is
+    matched against the patterns in all clauses between the
+    <c>else</c> and <c>end</c> keywords. If a match succeeds and the
+    optional guard sequence <c>GuardSeq</c> is true, the corresponding
+    <c>Body</c> is evaluated. The value returned from the body is the
+    return value of the <c>maybe</c> block.</p>
+
+    <p>If there is no matching pattern with a true guard sequence,
+    an <c>else_clause</c> run-time error occurs.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be used in
+    the <c>else</c> clauses. None of the variables bound in the <c>else</c> clauses
+    must be used in the code that follows the <c>maybe</c> block.</p>
+
+    <p>Here is the previous example augmented with a <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+else
+    error -> error;
+    wrong -> error
+end]]></code>
+
+    <p>The <c>else</c> clauses translate the failing value from
+    the conditional match operators to the value <c>error</c>. If the
+    failing value is not one of the recognized values, a
+    <c>else_clause</c> run-time error occurs.</p>
+  </section>
+
+  <section>
     <marker id="send"></marker>
     <title>Send</title>
     <pre>
@@ -1860,6 +1988,10 @@ end</pre>
       <row>
         <cell align="left" valign="middle">= !</cell>
         <cell align="left" valign="middle">Right associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">?=</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
       </row>
       <row>
         <cell align="left" valign="middle">catch</cell>
