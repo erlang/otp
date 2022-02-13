@@ -152,9 +152,10 @@
   {applications, []},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false},
-         {shell_docs_ansi,auto}
+         {shell_docs_ansi,auto},
+         {prevent_overlapping_partitions, true}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-12.2", "stdlib-3.15", "sasl-3.0", "crypto-5.0"]}
+  {runtime_dependencies, ["erts-@OTP-17843@", "stdlib-3.15", "sasl-3.0", "crypto-5.0"]}
  ]
 }.
