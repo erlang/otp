@@ -32,7 +32,7 @@
 -define(start_exclude,
 	[cosEvent,cosEventDomain,cosFileTransfer,cosNotification,
 	 cosProperty,cosTime,cosTransactions,erts,ic,netconf,orber,
-	 safe]).
+	 safe,wx,observer,et,debugger,dialyzer]).
 
 %% Applications that are excluded from this test because their appup
 %% file don't support the upgrade.
