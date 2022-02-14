@@ -244,9 +244,8 @@
 	    to be forwarded to the handlers.</p>
 	</note>
       </item>
-      <tag><c>global_groups = [GroupTuple]</c></tag>
+      <tag><marker id="global_groups"/><c>global_groups = [GroupTuple]</c></tag>
       <item>
-        <marker id="global_groups"></marker>
         <p>Defines global groups, see
 	  <seeerl marker="global_group"><c>global_group(3)</c></seeerl>.
 	In this parameter:</p>
@@ -257,7 +256,7 @@
           <item><p><c>Node = node()</c></p></item>
         </list>
       </item>
-      <tag><c>inet_default_connect_options = [{Opt, Val}]</c></tag>
+      <tag><marker id="inet_default_connect_options"/><c>inet_default_connect_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>connect</c> sockets,
           see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
@@ -267,47 +266,29 @@
         <p>Specifies default options for <c>listen</c> (and
           <c>accept</c>) sockets, see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
-      <tag><c>{inet_dist_use_interface, ip_address()}</c></tag>
+      <tag><marker id="inet_dist_use_interface"/><c>inet_dist_use_interface = ip_address()</c></tag>
       <item>
         <p>If the host of an Erlang node has many network interfaces,
           this parameter specifies which one to listen on. For the type definition
 	  of <c>ip_address()</c>,
 	  see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
-      <tag><c>{inet_dist_listen_min, First}</c> and <c>{inet_dist_listen_max, Last}</c></tag>
+      <tag><marker id="inet_dist_listen"/><c>inet_dist_listen_min = First</c><br/><c>inet_dist_listen_max = Last</c></tag>
       <item>
         <p>Defines the <c>First..Last</c> port range for the listener
           socket of a distributed Erlang node.</p>
       </item>
-      <tag><c>{inet_dist_listen_options, Opts}</c></tag>
+      <tag><marker id="inet_dist_listen_options"/><c>inet_dist_listen_options = Opts</c></tag>
       <item>
-	<marker id="inet_dist_listen_options"></marker>
         <p>Defines a list of extra socket options to be used when opening the
 	  listening socket for a distributed Erlang node.
 	  See <seemfa marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seemfa>.</p>
       </item>
-      <tag><c>{inet_dist_connect_options, Opts}</c></tag>
+      <tag><marker id="inet_dist_connect_options"/><c>inet_dist_connect_options = Opts</c></tag>
       <item>
-	<marker id="inet_dist_connect_options"></marker>
         <p>Defines a list of extra socket options to be used when connecting to
 	  other distributed Erlang nodes.
 	  See <seemfa marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seemfa>.</p>
-      </item>
-      <tag><c>{net_ticker_spawn_options, Opts}</c></tag>
-      <item>
-        <marker id="net_ticker_spawn_options"></marker>
-        <p>
-          Defines a list of extra spawn options for net ticker processes. There exist
-          one such process for each connection to another node. A net ticker process is
-          responsible for supervising the connection it is associated with. These
-          processes also execute the distribution handshake protocol when setting up
-          connections. When there is a large number of distribution connections,
-          setting up garbage collection options can be helpful to reduce memory usage.
-          Default is <c>[link, {priority, max}]</c>, and these two options cannot be
-          changed. See the documentation of the
-          <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>
-          BIF for information about valid options.
-        </p>
       </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
@@ -334,6 +315,35 @@
         <p>Notice that this value does not limit the total connection
           setup time, but rather each individual network operation during
           the connection setup and handshake.</p>
+      </item>
+      <tag><marker id="net_ticker_spawn_options"/><c>net_ticker_spawn_options = Opts</c></tag>
+      <item>
+        <p>
+          Defines a list of extra spawn options for net ticker processes. There exist
+          one such process for each connection to another node. A net ticker process is
+          responsible for supervising the connection it is associated with. These
+          processes also execute the distribution handshake protocol when setting up
+          connections. When there is a large number of distribution connections,
+          setting up garbage collection options can be helpful to reduce memory usage.
+          Default is <c>[link, {priority, max}]</c>, and these two options cannot be
+          changed. The <c>monitor</c> and <c>{monitor, MonitorOpts}</c> options are
+          not allowed and will be dropped if present. See the documentation of the
+          <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>
+          BIF for information about valid options. If the <c>Opts</c> list is not
+          a proper list, or containing invalid options the setup of connections
+          will fail.
+        </p>
+        <p>
+          Note that the behavior described above is only true if the distribution
+          carrier protocol used is implemented as described in
+ 	  <seeguide marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seeguide> without
+          further alterations. The implementer of the distribution carrier protocol
+          used, may have chosen to ignore the <c>net_ticker_spawn_options</c> parameter
+          or altered its behavior. Currently all distribution modules shipped with OTP
+          do, however, behave as described above.
+        </p>
       </item>
       <tag><c>net_ticktime = TickTime</c></tag>
       <item>

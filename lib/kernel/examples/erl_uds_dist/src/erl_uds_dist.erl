@@ -432,7 +432,7 @@ accept_loop(Kernel, ListeningSocket) ->
 accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, accept_supervisor,
               [self(), AcceptPid, DistCtrl, MyNode, Allowed, SetupTime],
-              net_ticker_spawn_options()).
+              dist_util:net_ticker_spawn_options()).
 
 accept_supervisor(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     ?trace("~p~n", [{?MODULE, accept_connection, self()}]),
@@ -471,18 +471,6 @@ accept_supervisor(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
                    [MyNode]),
             dist_util:handshake_other_started(HSData)
     end.
-
-
-%% ---------------------------------------------------------------------
-%% Allow to set different spawn options for dist_util processes using
-%% the net_ticker_spawn_options configuration parameter. Default is
-%% [link, {priority, max}] and these two options cannot be changed.
-%% ---------------------------------------------------------------------
-net_ticker_spawn_options() ->
-    Opts = application:get_env(kernel, net_ticker_spawn_options, []),
-    Opts1 = [{priority, max} | proplists:delete(priority, Opts)],
-    [link | proplists:delete(link, Opts1)].
-
 
 %% ---------------------------------------------------------------------
 %% Define common values of the handshake data record, defined in
@@ -676,7 +664,7 @@ getopts(ListeningSocket, Options) ->
 setup(Node, Type, MyNode, _LongOrShortNames, SetupTime) ->
     spawn_opt(?MODULE, setup_supervisor,
 	      [self(), Node, Type, MyNode, SetupTime],
-              net_ticker_spawn_options()).
+              dist_util:net_ticker_spawn_options()).
 
 setup_supervisor(Kernel, Node, Type, MyNode, SetupTime) ->
     ?trace("~p~n", [{?MODULE, setup, self(), Node}]),

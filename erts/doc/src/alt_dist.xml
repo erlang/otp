@@ -314,8 +314,18 @@
 	    <c>accept_connection/5</c> should spawn a process that will
 	    perform the Erlang distribution handshake for the connection.
 	    If the handshake successfully completes it should continue to
-	    function as a connection supervisor. This process
-	    should preferably execute on <c>max</c> priority.
+	    function as a connection supervisor. This process should
+            preferably execute on <c>max</c> priority and should be linked
+            to the caller. The <c>dist_util:net_ticker_spawn_options()</c>
+            function can be called to get spawn options suitable for this process
+            which can be passed directly to
+            <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>.
+            <c>dist_util:net_ticker_spawn_options()</c> will by default return
+            <c>[link, {priority, max}]</c>, but allows the user to configure more
+            options using the
+            <seeapp marker="kernel:kernel_app#net_ticker_spawn_options"><c>net_ticker_spawn_options</c></seeapp>
+            kernel parameter. The process identifier of this process should be
+            returned.
 	  </p>
 	  <p>The arguments:</p>
 	  <taglist>
@@ -380,8 +390,18 @@
 	    <c>Node</c>. When connection has been established it should
 	    perform the Erlang distribution handshake for the connection.
 	    If the handshake successfully completes it should continue to
-	    function as a connection supervisor. This process
-	    should preferably execute on <c>max</c> priority.
+	    function as a connection supervisor. This process should
+            preferably execute on <c>max</c> priority and should be linked
+            to the caller. The <c>dist_util:net_ticker_spawn_options()</c>
+            function can be called to get spawn options suitable for this process
+            which can be passed directly to
+            <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>.
+            <c>dist_util:net_ticker_spawn_options()</c> will by default return
+            <c>[link, {priority, max}]</c>, but allows the user to configure more
+            options using the
+            <seeapp marker="kernel:kernel_app#net_ticker_spawn_options"><c>net_ticker_spawn_options</c></seeapp>
+            kernel parameter. The process identifier of this process should be
+            returned.
 	  </p>
 	  <p>The arguments:</p>
 	  <taglist>

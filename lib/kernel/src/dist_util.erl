@@ -31,7 +31,8 @@
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
          is_node_name/1, split_node/1, is_allowed/2,
-	 shutdown/3, shutdown/4]).
+	 shutdown/3, shutdown/4,
+         net_ticker_spawn_options/0]).
 
 -import(error_logger,[error_msg/2]).
 
@@ -1268,4 +1269,21 @@ reset_timer(Timer) ->
 cancel_timer(Timer) ->
     unlink(Timer),
     exit(Timer, shutdown).
+
+net_ticker_spawn_options() ->
+    Opts = application:get_env(kernel, net_ticker_spawn_options, []),
+    [link, {priority, max} | cleanup_net_ticker_spawn_options(Opts)].
+
+cleanup_net_ticker_spawn_options([]) ->
+    [];
+cleanup_net_ticker_spawn_options([link|Opts]) ->
+    cleanup_net_ticker_spawn_options(Opts);
+cleanup_net_ticker_spawn_options([{priority, _}|Opts]) ->
+    cleanup_net_ticker_spawn_options(Opts);
+cleanup_net_ticker_spawn_options([monitor|Opts]) ->
+    cleanup_net_ticker_spawn_options(Opts);
+cleanup_net_ticker_spawn_options([{monitor, _}|Opts]) ->
+    cleanup_net_ticker_spawn_options(Opts);
+cleanup_net_ticker_spawn_options([Opt|Opts]) ->
+    [Opt|cleanup_net_ticker_spawn_options(Opts)].
 
