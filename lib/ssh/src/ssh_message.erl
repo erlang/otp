@@ -581,9 +581,9 @@ ssh2_pubkey_encode({ed_pub, ed25519, Key}) ->
     <<?STRING(<<"ssh-ed25519">>), ?Estring(Key)>>;
 ssh2_pubkey_encode({ed_pub, ed448, Key}) ->
     <<?STRING(<<"ssh-ed448">>), ?Estring(Key)>>;
-ssh2_pubkey_encode({ed_priv, ed25519, Key, _}) ->
+ssh2_pubkey_encode({ed_pri, ed25519, Key, _}) ->
     <<?STRING(<<"ssh-ed25519">>), ?Estring(Key)>>;
-ssh2_pubkey_encode({ed_priv, ed448, Key, _}) ->
+ssh2_pubkey_encode({ed_pri, ed448, Key, _}) ->
     <<?STRING(<<"ssh-ed448">>), ?Estring(Key)>>.
 
 %%%--------
