@@ -1276,7 +1276,7 @@ iolist_to_iovec(_IoListOrBinary) ->
 %% is_alive/0
 -spec is_alive() -> boolean().
 is_alive() ->
-    erlang:nif_error(undefined).
+    net_kernel:is_alive().
 
 %% is_builtin/3
 -spec erlang:is_builtin(Module, Function, Arity) -> boolean() when
