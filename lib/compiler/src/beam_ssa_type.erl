@@ -966,7 +966,7 @@ simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
     Type = case will_succeed(I, Ts0, Ds0, Sub) of
                yes -> beam_types:make_atom(true);
                no -> beam_types:make_atom(false);
-               maybe -> beam_types:make_boolean()
+               'maybe' -> beam_types:make_boolean()
            end,
     case Type of
         #t_atom{elements=[true]} ->
@@ -1346,7 +1346,7 @@ will_succeed_1(#b_set{op=bs_start_match,args=[_, Arg]}, _Src, Ts) ->
             %% Is it at all possible to match?
             case beam_types:meet(ArgType, #t_bs_matchable{}) of
                 none -> no;
-                _ -> maybe
+                _ -> 'maybe'
             end
     end;
 
@@ -1376,17 +1376,17 @@ will_succeed_1(#b_set{op=bs_create_bin}, _Src, _Ts) ->
     %% fail. Construction is unlikely to fail, and if it fails, the
     %% instruction in the runtime system will generate an exception with
     %% better information of what went wrong.
-    maybe;
+    'maybe';
 will_succeed_1(#b_set{op=bs_match,
                       args=[#b_literal{val=Type},_,_,#b_literal{val=Size},_]},
                _Src, _Ts) ->
     if
         is_integer(Size), Size >= 0 ->
-            maybe;
+            'maybe';
         Type =:= binary, Size =:= all ->
             %% `all` is a legal size for binary segments at the end of
             %% a binary pattern.
-            maybe;
+            'maybe';
         true ->
             %% Invalid size. Matching will fail.
             no
@@ -1394,18 +1394,18 @@ will_succeed_1(#b_set{op=bs_match,
 
 %% These operations may fail even though we know their return value on success.
 will_succeed_1(#b_set{op=call}, _Src, _Ts) ->
-    maybe;
+    'maybe';
 will_succeed_1(#b_set{op=get_map_element}, _Src, _Ts) ->
-    maybe;
+    'maybe';
 will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts) ->
     %% It is essential to keep the {succeeded,body} instruction to
     %% ensure that the failure edge, which potentially leads to a
     %% landingpad, is preserved. If the failure edge is removed, a Y
     %% register holding a `try` tag could be reused prematurely.
-    maybe;
+    'maybe';
 
 will_succeed_1(#b_set{}, _Src, _Ts) ->
-    maybe.
+    'maybe'.
 
 simplify_is_record(I, #t_tuple{exact=Exact,
                                size=Size,
@@ -1419,7 +1419,7 @@ simplify_is_record(I, #t_tuple{exact=Exact,
                        %% Is it at all possible for the tag to match?
                        case beam_types:meet(concrete_type(RecTag, Ts), TagType) of
                            none -> no;
-                           _ -> maybe
+                           _ -> 'maybe'
                        end
                end,
     if

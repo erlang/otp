@@ -543,7 +543,7 @@ eval_switch_1([{Lit,Lbl}|T], Arg, PrevOp, Fail) ->
         no ->
             %% This branch will never be taken.
             eval_switch_1(T, Arg, PrevOp, Fail);
-        maybe ->
+        'maybe' ->
             %% This label could be reached.
             eval_switch_1(T, Arg, PrevOp, none)
     end;
@@ -707,11 +707,11 @@ eval_test(Bif, Args, #st{test=Prev}) ->
             case will_succeed(Prev, Test) of
                 yes -> #b_literal{val=true};
                 no -> #b_literal{val=false};
-                maybe -> none
+                'maybe' -> none
             end
     end.
 
-%% will_succeed(PrevCondition, Condition) -> yes | no | maybe
+%% will_succeed(PrevCondition, Condition) -> yes | no | 'maybe'
 %%  PrevCondition is a condition known to be true. This function
 %%  will tell whether Condition will succeed.
 
@@ -733,29 +733,29 @@ will_succeed({{'not',is_boolean},Var}, {'=:=',Var,#b_literal{val=Lit}})
   when is_boolean(Lit) ->
     no;
 will_succeed({_,_}, {_,_}) ->
-    maybe;
+    'maybe';
 will_succeed({_,_}, {_,_,_}) ->
-    maybe;
+    'maybe';
 will_succeed({_,_,_}, {_,_}) ->
-    maybe;
+    'maybe';
 will_succeed({_,_,_}, {_,_,_}) ->
-    maybe.
+    'maybe'.
 
 will_succeed_test({'not',Test1}, Test2) ->
     case Test1 =:= Test2 of
         true -> no;
-        false -> maybe
+        false -> 'maybe'
     end;
 will_succeed_test(is_tuple, {is_tagged_tuple,_,_}) ->
-    maybe;
+    'maybe';
 will_succeed_test({is_tagged_tuple,_,_}, is_tuple) ->
     yes;
 will_succeed_test(is_list, is_nonempty_list) ->
-    maybe;
+    'maybe';
 will_succeed_test(is_nonempty_list, is_list) ->
     yes;
 will_succeed_test(_T1, _T2) ->
-    maybe.
+    'maybe'.
 
 will_succeed_1('=:=', A, '<', B) ->
     if
@@ -824,7 +824,7 @@ will_succeed_1('==', A, '/=', B) ->
 will_succeed_1('/=', A, '/=', B) when A == B -> yes;
 will_succeed_1('/=', A, '==', B) when A == B -> no;
 
-will_succeed_1(_, _, _, _) -> maybe.
+will_succeed_1(_, _, _, _) -> 'maybe'.
 
 will_succeed_vars('=/=', Val, '=:=', Val) -> no;
 will_succeed_vars('=:=', Val, '=/=', Val) -> no;
@@ -834,7 +834,7 @@ will_succeed_vars('=:=', Val, '=<',  Val) -> yes;
 will_succeed_vars('/=', Val1, '==', Val2) when Val1 == Val2 -> no;
 will_succeed_vars('==', Val1, '/=', Val2) when Val1 == Val2 -> no;
 
-will_succeed_vars(_, _, _, _) -> maybe.
+will_succeed_vars(_, _, _, _) -> 'maybe'.
 
 eval_type_test(Test, Arg) ->
     case eval_type_test_1(Test, Arg) of

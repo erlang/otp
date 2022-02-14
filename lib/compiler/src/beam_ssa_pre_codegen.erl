@@ -2509,7 +2509,7 @@ reserve_zreg([#b_set{op=Op,dst=Dst}], #b_br{bool=Dst}, ShortLived, A) ->
     case use_zreg(Op) of
         yes -> [{Dst,z} | A];
         no -> A;
-        maybe -> reserve_test_zreg(Dst, ShortLived, A)
+        'maybe' -> reserve_test_zreg(Dst, ShortLived, A)
     end;
 reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
     case use_zreg(Op) of
@@ -2541,7 +2541,7 @@ use_zreg(get_tl) -> no;
 use_zreg(get_tuple_element) -> no;
 %% Assume the instruction can use a z register, provided it's the last in its
 %% block and that the result is only used in the terminator.
-use_zreg(_) -> maybe.
+use_zreg(_) -> 'maybe'.
 
 %% If V is defined just before a branch, we may be able to combine it into a
 %% test instruction.

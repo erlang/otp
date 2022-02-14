@@ -1236,7 +1236,7 @@ validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
             %% The call cannot fail; we don't need to handle exceptions
             Vst = deallocate(Vst0),
             verify_return(Vst);
-        maybe when Deallocate =:= NumY ->
+        'maybe' when Deallocate =:= NumY ->
             %% The call may fail; make sure we update exception state
             Vst = deallocate(Vst0),
             branch(?EXCEPTION_LABEL, Vst, fun verify_return/1);
@@ -1269,7 +1269,7 @@ validate_body_call(Func, Live,
     case will_call_succeed(Func, Vst) of
         yes ->
             SuccFun(Vst);
-        maybe ->
+        'maybe' ->
             branch(?EXCEPTION_LABEL, Vst, SuccFun);
         no ->
             branch(?EXCEPTION_LABEL, Vst, fun kill_state/1)
@@ -1482,7 +1482,7 @@ validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
             %% This BIF always fails; jump directly to the fail block or
             %% exception handler.
             branch(Fail, Vst, fun kill_state/1);
-        maybe ->
+        'maybe' ->
             validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst)
     end.
 
@@ -3102,7 +3102,7 @@ will_bif_succeed(raise, [_,_], _Vst) ->
 will_bif_succeed(Op, Ss, Vst) ->
     case is_float_arith_bif(Op, Ss) of
         true ->
-            maybe;
+            'maybe';
         false ->
             Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
             beam_call_types:will_succeed(erlang, Op, Args)
@@ -3119,10 +3119,10 @@ will_call_succeed({f,Lbl}, #vst{ft=Ft}) ->
         #{Lbl := #{always_fails := true}} ->
             no;
         #{} ->
-            maybe
+            'maybe'
     end;
 will_call_succeed(_Call, _Vst) ->
-    maybe.
+    'maybe'.
 
 get_call_args(Arity, Vst) ->
     get_call_args_1(0, Arity, Vst).

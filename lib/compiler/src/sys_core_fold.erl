@@ -1433,15 +1433,15 @@ shadow_warning([C|Cs], Line, Anno) ->
     shadow_warning(Cs, Line, Anno);
 shadow_warning([], _, _) -> ok.
 
-%% will_succeed(Guard) -> yes | maybe | no.
+%% will_succeed(Guard) -> yes | 'maybe' | no.
 %%  Test if we know whether a guard will succeed/fail or just don't
 %%  know.  Be VERY conservative!
 
 will_succeed(#c_literal{val=true}) -> yes;
 will_succeed(#c_literal{val=false}) -> no;
-will_succeed(_Guard) -> maybe.
+will_succeed(_Guard) -> 'maybe'.
 
-%% will_match(Expr, [Pattern]) -> yes | maybe.
+%% will_match(Expr, [Pattern]) -> yes | 'maybe'.
 %%  We KNOW that this function is only used after optimizations
 %%  in case_opt/4. Therefore clauses that can definitely not match
 %%  have already been pruned.
@@ -1451,7 +1451,7 @@ will_match(#c_values{es=Es}, Ps) ->
 will_match(E, [P]) ->
     will_match_1(cerl_clauses:match(P, E)).
 
-will_match_1({false,_}) -> maybe;
+will_match_1({false,_}) -> 'maybe';
 will_match_1({true,_}) -> yes.
 
 %% opt_bool_case(CoreExpr, Sub) - CoreExpr'.

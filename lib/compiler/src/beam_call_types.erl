@@ -38,7 +38,7 @@
       Mod :: atom(),
       Func :: atom(),
       ArgTypes :: [normal_type()],
-      Result :: yes | no | maybe.
+      Result :: 'yes' | 'no' | 'maybe'.
 
 will_succeed(erlang, Op, [LHS, RHS])
   when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
@@ -93,7 +93,7 @@ will_succeed(erlang, setelement, [#t_integer{elements={Min,Max}},
     case Min >= 1 andalso Max =< Size of
         true -> yes;
         false when Exact -> no;
-        false -> maybe
+        false -> 'maybe'
     end;
 will_succeed(erlang, size, [Arg]) ->
     ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
@@ -106,7 +106,7 @@ will_succeed(erlang, raise, [Class, _Reason, nil]) ->
     case beam_types:meet(Class, #t_atom{elements=[error,exit,throw]}) of
         Class -> no;
         none -> yes;
-        _ -> maybe
+        _ -> 'maybe'
     end;
 will_succeed(Mod, Func, Args) ->
     Arity = length(Args),
@@ -135,7 +135,7 @@ fails_on_conflict([ArgType | Args], [Required | Types]) ->
         _ -> fails_on_conflict(Args, Types)
     end;
 fails_on_conflict([], []) ->
-    maybe.
+    'maybe'.
 
 succeeds_if_types([LHS, RHS], Required) ->
     case {succeeds_if_type(LHS, Required),
@@ -143,27 +143,27 @@ succeeds_if_types([LHS, RHS], Required) ->
         {yes, yes} -> yes;
         {no, _} -> no;
         {_, no} -> no;
-        {_, _} -> maybe
+        {_, _} -> 'maybe'
     end.
 
 succeeds_if_type(ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
         ArgType -> yes;
         none -> no;
-        _ -> maybe
+        _ -> 'maybe'
     end.
 
 succeeds_if_smallish(#t_integer{elements={Min,Max}})
   when abs(Min) bsr 128 =:= 0, abs(Max) bsr 128 =:= 0 ->
     yes;
 succeeds_if_smallish(_) ->
-    maybe.
+    'maybe'.
 
 succeeds_if_smallish(LHS, RHS) ->
     case {succeeds_if_smallish(LHS),
           succeeds_if_smallish(RHS)} of
         {yes, yes} -> yes;
-        {_, _} -> maybe
+        {_, _} -> 'maybe'
     end.
 
 %%
