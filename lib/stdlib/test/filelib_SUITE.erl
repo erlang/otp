@@ -665,6 +665,8 @@ find_source_otp(Config) when is_list(Config) ->
               lists:map(
                 fun F({Module, preloaded, Loaded}) ->
                         F({Module, code:where_is_file(Module ++ ".beam"), Loaded});
+		    F({Module, cover_compiled, Loaded}) ->
+		        ok;
                     F({Module, Filename, _Loaded}) ->
                         case filelib:find_source(Filename) of
                             {ok, _} -> ok;
