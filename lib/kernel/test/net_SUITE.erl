@@ -138,7 +138,7 @@ init_per_suite(Config) ->
             Config
     catch
         error : notsup ->
-            {skip, "esock not supported"}
+            {skip, "net not supported"}
     end.
 
 end_per_suite(_) ->
@@ -188,6 +188,9 @@ api_b_gethostname() ->
         {ok, Hostname} ->
             i("hostname: ~s", [Hostname]),
             ok;
+        {error, enotsup = Reason} ->
+            i("getifaddrs not supported - skipping"),
+            skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
     end.
@@ -210,7 +213,7 @@ api_b_getifaddrs(_Config) when is_list(_Config) ->
 
 
 api_b_getifaddrs() ->
-    case net:getifaddrs() of
+    try net:getifaddrs() of
         {ok, IfAddrs} ->
             i("IfAddrs: "
               "~n   ~p", [IfAddrs]),
@@ -220,6 +223,10 @@ api_b_getifaddrs() ->
             skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
+    catch
+        error : notsup = CReason ->
+            i("~w => skipping", [CReason]),
+            skip(CReason)
     end.
 
 
@@ -242,33 +249,41 @@ api_b_name_and_addr_info() ->
     Domain = inet,
     Addr   = which_local_addr(Domain),
     SA     = #{family => Domain, addr => Addr},
-    Hostname =
-        case net:getnameinfo(SA) of
-            {ok, #{host := Name, service := Service} = NameInfo} 
-              when is_list(Name) andalso is_list(Service) ->
-                i("getnameinfo: "
-                  "~n   ~p", [NameInfo]),
-                Name;
-            {ok, BadNameInfo} ->
-                ?FAIL({getnameinfo, SA, BadNameInfo});
-            {error, enotsup = ReasonNI} ->
-                i("getnameinfo not supported - skipping"),
-                ?SKIP({getnameinfo, ReasonNI});
-            {error, Reason1} ->
-                ?FAIL({getnameinfo, SA, Reason1})
-        end,
-    case net:getaddrinfo(Hostname) of
-        {ok, AddrInfos} when is_list(AddrInfos) ->
-            i("getaddrinfo: "
-              "~n   ~p", [AddrInfos]),
-            verify_addr_info(AddrInfos, Domain);
-        {ok, BadAddrInfo} ->
-            ?FAIL({getaddrinfo, Hostname, BadAddrInfo});
-        {error, enotsup = ReasonAI} ->
-            i("getaddrinfo not supported - skipping"),
-            ?SKIP({getaddrinfo, ReasonAI});
-        {error, Reason2} ->
-            ?FAIL({getaddrinfo, Hostname, Reason2})
+    try
+        begin
+            Hostname =
+                case net:getnameinfo(SA) of
+                    {ok, #{host := Name, service := Service} = NameInfo} 
+                      when is_list(Name) andalso is_list(Service) ->
+                        i("getnameinfo: "
+                          "~n   ~p", [NameInfo]),
+                        Name;
+                    {ok, BadNameInfo} ->
+                        ?FAIL({getnameinfo, SA, BadNameInfo});
+                    {error, enotsup = ReasonNI} ->
+                        i("getnameinfo not supported - skipping"),
+                        ?SKIP({getnameinfo, ReasonNI});
+                    {error, Reason1} ->
+                        ?FAIL({getnameinfo, SA, Reason1})
+                end,
+            case net:getaddrinfo(Hostname) of
+                {ok, AddrInfos} when is_list(AddrInfos) ->
+                    i("getaddrinfo: "
+                      "~n   ~p", [AddrInfos]),
+                    verify_addr_info(AddrInfos, Domain);
+                {ok, BadAddrInfo} ->
+                    ?FAIL({getaddrinfo, Hostname, BadAddrInfo});
+                {error, enotsup = ReasonAI} ->
+                    i("getaddrinfo not supported - skipping"),
+                    ?SKIP({getaddrinfo, ReasonAI});
+                {error, Reason2} ->
+                    ?FAIL({getaddrinfo, Hostname, Reason2})
+            end
+        end
+    catch
+        error : notsup = Reason ->
+            i("~w => skipping", [Reason]),
+            skip(Reason)
     end.
 
 
@@ -315,17 +330,26 @@ api_b_name_and_index(_Config) when is_list(_Config) ->
 
 
 api_b_name_and_index() ->
-    Names =
-        case net:if_names() of
-            {ok, N} when is_list(N) andalso (N =/= []) ->
-                N;
-            {error, enotsup = Reason} ->
-                i("if_names not supported - skipping"),
-                ?SKIP({if_names, Reason});
-            {error, Reason} ->
-                ?FAIL({if_names, Reason})
-        end,
-    verify_if_names(Names).
+    try
+        begin
+            Names =
+                case net:if_names() of
+                    {ok, N} when is_list(N) andalso (N =/= []) ->
+                        N;
+                    {error, enotsup = Reason} ->
+                        i("if_names not supported - skipping"),
+                        ?SKIP({if_names, Reason});
+                    {error, Reason} ->
+                        ?FAIL({if_names, Reason})
+                end,
+            verify_if_names(Names)
+        end
+    catch
+        error : notsup = CReason ->
+            i("~w => skipping", [CReason]),
+            skip(CReason)
+    end.
+        
 
 verify_if_names([]) ->
     ok;
@@ -398,8 +422,8 @@ which_addr2(Domain, [_|IFO]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-not_yet_implemented() ->
-    skip("not yet implemented").
+%% not_yet_implemented() ->
+%%     skip("not yet implemented").
 
 skip(Reason) ->
     throw({skip, Reason}).
