@@ -783,7 +783,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="is_ip_address" arity="1" since="OTP @OTP-17923@"/>
+      <name name="is_ip_address" arity="1" since="OTP 25.0"/>
       <fsummary>Tests if <c>IPAddress</c> is an IPv4 or IPv6 address tuple.</fsummary>
       <desc>
         <p>Tests if <c>IPAddress</c> is an
@@ -793,7 +793,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="is_ipv4_address" arity="1" since="OTP @OTP-17923@"/>
+      <name name="is_ipv4_address" arity="1" since="OTP 25.0"/>
       <fsummary>Tests if <c>IPAddress</c> is an IPv4 address tuple.</fsummary>
       <desc>
         <p>Tests if <c>IPAddress</c> is an
@@ -803,7 +803,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="is_ipv6_address" arity="1" since="OTP @OTP-17923@"/>
+      <name name="is_ipv6_address" arity="1" since="OTP 25.0"/>
       <fsummary>Tests if <c>IPAddress</c> is an IPv6 address tuple.</fsummary>
       <desc>
         <p>Tests if <c>IPAddress</c> is an

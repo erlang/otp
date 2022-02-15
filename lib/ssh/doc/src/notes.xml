@@ -30,6 +30,28 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The representation of Edward curves (ed25519 and ed448)
+	    inside ssh had a temporary representation (ed_pri and
+	    ed_pub).</p>
+          <p>
+	    That is now changed to the public_key form. See the
+	    manual for more information.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17920</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

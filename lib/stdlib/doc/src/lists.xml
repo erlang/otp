@@ -175,7 +175,7 @@
     </func>
 
     <func>
-      <name name="enumerate" arity="1" since="OTP @OTP-17523@"/>
+      <name name="enumerate" arity="1" since="OTP 25.0"/>
       <fsummary>Annotates elements with their index.</fsummary>
       <desc>
         <p>Returns <c><anno>List1</anno></c> with each element
@@ -196,7 +196,7 @@ enumerate(List) ->
     </func>
     
     <func>
-      <name name="enumerate" arity="2" since="OTP @OTP-17523@"/>
+      <name name="enumerate" arity="2" since="OTP 25.0"/>
       <fsummary>Annotates elements with their index.</fsummary>
       <desc>
         <p>Returns <c><anno>List1</anno></c> with each element
