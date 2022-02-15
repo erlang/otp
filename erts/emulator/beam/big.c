@@ -1483,6 +1483,18 @@ erts_make_integer(Uint x, Process *p)
 	return uint_to_big(x,hp);
     }
 }
+
+Eterm
+erts_make_integer_fact(Uint x, ErtsHeapFactory *hf)
+{
+    Eterm* hp;
+    if (IS_USMALL(0,x))
+	return make_small(x);
+    else {
+	hp = erts_produce_heap(hf, BIG_UINT_HEAP_SIZE, 0);
+	return uint_to_big(x, hp);
+    }
+}
 /*
  * As erts_make_integer, but from a whole UWord.
  */

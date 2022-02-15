@@ -156,6 +156,7 @@ Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);
 Eterm erts_make_integer(Uint, Process *);
+Eterm erts_make_integer_fact(Uint, ErtsHeapFactory *);
 Eterm erts_make_integer_from_uword(UWord x, Process *p);
 
 dsize_t big_bytes(Eterm);
