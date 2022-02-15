@@ -4634,11 +4634,11 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     if (ret != am_ok) {
 	goto error;
     }
+    ASSERT(lib);
     ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
 
     /* Call load or upgrade:
      */
-    ASSERT(lib);
     env.mod_nif = lib;
 
     lib->priv_data = NULL;
