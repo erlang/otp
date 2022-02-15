@@ -519,9 +519,6 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ERL_NIF_TERM info, tmp;
 
     NDBG( ("NET", "info -> entry\r\n") );
@@ -533,7 +530,6 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
     NDBG( ("NET", "info -> done: %T\r\n", info) );
 
     return info;
-#endif
 }
 
 
@@ -555,9 +551,6 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ERL_NIF_TERM ecmd, result;
 
     NDBG( ("NET", "command -> entry (%d)\r\n", argc) );
@@ -574,7 +567,6 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
     NDBG( ("NET", "command -> result: %T\r\n", result) );
 
     return result;
-#endif
 }
 
 
@@ -583,7 +575,6 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
  * The command can, in principle, be anything, though currently we only
  * support a debug command.
  */
-#if !defined(__WIN32__)
 static
 ERL_NIF_TERM enet_command(ErlNifEnv*   env,
                           ERL_NIF_TERM cmd)
@@ -610,7 +601,6 @@ ERL_NIF_TERM enet_command(ErlNifEnv*   env,
     }
 
 }
-#endif
 
 
 
@@ -626,9 +616,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#elif defined(HAVE_GETHOSTNAME)
+#if defined(HAVE_GETHOSTNAME)
     ERL_NIF_TERM result;
     
     NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
@@ -647,7 +635,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
 }
 
 
-#if !defined(__WIN32__) && defined(HAVE_GETHOSTNAME)
+#if defined(HAVE_GETHOSTNAME)
 static
 ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 {
@@ -684,7 +672,6 @@ ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
     return result;
 }
 #endif
-
 
 
 

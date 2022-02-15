@@ -25,7 +25,7 @@
 %% can't handle the "variables" we need (USE_ESOCK). So instead, we just
 %% leave everything hanging...
 %% If one of the "hanging" functions is called when esock has been disabled,
-%% the function will through a 'notsup' error (erlang:error/1).
+%% the function will throw a 'notsup' error (erlang:error/1).
 
 %% Administrative and utility functions
 -export([
@@ -137,7 +137,7 @@ sleep(T) -> receive after T -> ok end.
 %%
 %% ===========================================================================
 
--spec info() -> list().
+-spec info() -> map().
 
 -ifdef(USE_ESOCK).
 info() ->
