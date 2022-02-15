@@ -581,24 +581,24 @@ dyn_node_name(Config) when is_list(Config) ->
     dyn_node_name("", Config).
 
 dyn_node_name(DCfg, _Config) ->
-    DomainType = case net_kernel:get_state() of
-                     #{domain_type := short} -> "short";
-                     #{domain_type := long} -> "long"
+    NameDomain = case net_kernel:get_state() of
+                     #{name_domain := short} -> "short";
+                     #{name_domain := long} -> "long"
                  end,
     {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
                                           undefined, ?MODULE, run_remote_test,
                                           ["dyn_node_name_do", atom_to_list(node()),
-                                           DomainType]),
+                                           NameDomain]),
     0 = wait_for_port_exit(Port1),
     ok.
 
-dyn_node_name_do(TestNode, [DomainTypeStr]) ->
+dyn_node_name_do(TestNode, [NameDomainStr]) ->
     nonode@nohost = node(),
     [] = nodes(),
     [] = nodes(hidden),
-    DomainType = list_to_atom(DomainTypeStr),
+    NameDomain = list_to_atom(NameDomainStr),
     #{started := static, name_type := dynamic, name := undefined,
-     domain_type := DomainType} = net_kernel:get_state(),
+     name_domain := NameDomain} = net_kernel:get_state(),
     net_kernel:monitor_nodes(true, [{node_type,all}]),
     net_kernel:connect_node(TestNode),
     [] = nodes(),

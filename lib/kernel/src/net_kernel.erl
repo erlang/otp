@@ -861,14 +861,14 @@ handle_call(get_state, From, State) ->
                           {dynamic_node_name, Node} ->
                               {dynamic, Node}
                       end,
-    DomainType = case get(longnames) of
+    NameDomain = case get(longnames) of
                      true -> long;
                      false -> short
                  end,
     Return = #{started => Started,
                name_type => NameType,
                name => Name,
-               domain_type => DomainType},
+               name_domain => NameDomain},
     async_reply({reply, Return, State}, From);
 
 handle_call(_Msg, _From, State) ->
