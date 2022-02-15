@@ -191,7 +191,7 @@ gen_static(Fd) ->
                  "        {U,L} -> #{upper=>U,lower=>L,title=>U,fold=>L};\n"
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
-    io:put_chars(Fd, "spec_version() -> {13,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {14,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) -> {CCC,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
     io:put_chars(Fd, "-spec uppercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
