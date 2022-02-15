@@ -196,6 +196,10 @@ longnames() ->                 request(longnames).
 
 nodename() ->                  request(nodename).
 
+-spec get_state() -> #{started => no | static | dynamic,
+                       name => atom(),
+                       name_type => static | dynamic,
+                       name_domain => short | long}.
 get_state() ->
     case whereis(net_kernel) of
         undefined ->
