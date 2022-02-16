@@ -11,7 +11,10 @@ on:
 jobs:
 
   sync-releases:
-    if: github.repository == 'erlang/otp'
+    # TODO:
+    # if: github.repository == 'erlang/otp'
+    if: github.repository == 'wojtekmach/otp'
+
     concurrency: sync-github-releases
     runs-on: ubuntu-latest
     steps:
