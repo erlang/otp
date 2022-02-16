@@ -208,13 +208,14 @@ initial_hello({call, From}, {start, Timeout},
                                      session_cache_cb = CacheCb},
             protocol_specific = PS,
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
-            connection_env = #connection_env{cert_key_pairs = CertKeyPairs} = CEnv,
+            connection_env = #connection_env{cert_key_alts = CertKeyAlts} = CEnv,
 	    ssl_options = #{versions := Versions} = SslOpts,
 	    session = Session0,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
     Packages = maps:get(active_n, PS),
     dtls_socket:setopts(Transport, Socket, [{active,Packages}]),
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0, CertKeyPairs),
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Session#session.session_id, Renegotiation),
@@ -516,13 +517,14 @@ connection(internal, #hello_request{}, #state{static_env = #static_env{host = Ho
                                                                        session_cache_cb = CacheCb
                                                                       },
                                               handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
-                                              connection_env = #connection_env{cert_key_pairs = CertKeyPairs} = CEnv,
+                                              connection_env = #connection_env{cert_key_alts = CertKeyAlts} = CEnv,
                                               session = Session0,
                                               ssl_options = #{versions := Versions} = SslOpts,
                                               connection_states = ConnectionStates0,
                                               protocol_specific = PS
                                              } = State0) ->
     #{current_cookie_secret := Cookie} = PS,
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, Session0, CertKeyPairs),
     Hello = dtls_handshake:client_hello(Host, Port, Cookie, ConnectionStates0, SslOpts,
 					Session#session.session_id, Renegotiation, undefined),
@@ -681,14 +683,14 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello, State
                handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
                                               renegotiation = {Renegotiation, _},
                                               negotiated_protocol = CurrentProtocol} = HsEnv,
-               connection_env = #connection_env{cert_key_pairs = CertKeyPairs} = CEnv,
+               connection_env = #connection_env{cert_key_alts = CertKeyAlts} = CEnv,
                session = Session0,
                ssl_options = SslOpts} =
             tls_dtls_connection:handle_sni_extension(State0, Hello),
         SessionTracker = proplists:get_value(session_id_tracker, Trackers),
         {Version, {Type, Session}, ConnectionStates, Protocol0, ServerHelloExt, HashSign} =
             dtls_handshake:hello(Hello, SslOpts, {SessionTracker, Session0,
-                                                  ConnectionStates0, CertKeyPairs, KeyExAlg}, Renegotiation),
+                                                  ConnectionStates0, CertKeyAlts, KeyExAlg}, Renegotiation),
         Protocol = case Protocol0 of
                        undefined -> CurrentProtocol;
                        _ -> Protocol0

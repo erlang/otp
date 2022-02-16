@@ -80,7 +80,9 @@
          public_key_type/1,
          foldl_db/3,
          find_cross_sign_root_paths/4,
-         handle_cert_auths/4
+         handle_cert_auths/4,
+         available_cert_key_pairs/1,
+         available_cert_key_pairs/2
 	]).
 
 %%====================================================================
@@ -325,6 +327,36 @@ handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
         false ->
             {error, EChain, not_in_auth_domain}
     end.
+
+available_cert_key_pairs(CertKeyGroups) ->
+    %% To be able to find possible TLS session pre TLS-1.3
+    %% that may be reused. At this point the version is
+    %% not negotiated.
+    RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
+
+%% Create the prioritized list of cert key pairs that
+%% are availble for use in the negotiated version
+available_cert_key_pairs(CertKeyGroups, {3, 4}) ->
+    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
+available_cert_key_pairs(CertKeyGroups, {3, 3}) ->
+     RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
+available_cert_key_pairs(CertKeyGroups, {3, N}) when N < 3->
+    RevAlgos = [dsa, rsa, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
+
+cert_key_group_to_list([], _, Acc) ->
+    final_group_list(Acc);
+cert_key_group_to_list([Algo| Rest], CertKeyGroups, Acc) ->
+    CertKeyPairs = maps:get(Algo, CertKeyGroups, []),
+    cert_key_group_to_list(Rest, CertKeyGroups, CertKeyPairs ++ Acc).
+
+final_group_list([]) ->
+    [#{certs => [[]], private_key => #{}}];
+final_group_list(List) ->
+    List.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

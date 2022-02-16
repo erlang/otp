@@ -132,6 +132,7 @@
                                                      cacerts]},
           cacerts                    => {undefined, [versions]},
           cert                       => {undefined, [versions]},
+          certs_keys                 => {undefined, [versions]},
           certfile                   => {<<>>,      [versions]},
           certificate_authorities    => {false,     [versions]},
           ciphers                    => {[],        [versions]},

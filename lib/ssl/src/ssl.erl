@@ -311,7 +311,8 @@
                                 {certfile, cert_pem()} |
                                 {key, key()} |
                                 {keyfile, key_pem()} |
-                                {password, key_password()} |
+                                {password, key_pem_password()} |
+                                {certs_keys, certs_keys()} |
                                 {ciphers, cipher_suites()} |
                                 {eccs, [named_curve()]} |
                                 {signature_algs, signature_algs()} |
@@ -350,8 +351,14 @@
                                        key_id := crypto:key_id(), 
                                        password => crypto:password()}. % exported
 -type key_pem()                   :: file:filename().
--type key_password()              :: iodata() | fun(() -> iodata()).
--type cipher_suites()             :: ciphers().    
+-type key_pem_password()          :: iodata() | fun(() -> iodata()).
+-type certs_keys()                :: [cert_key_conf()].
+-type cert_key_conf()             :: #{cert => cert(),
+                                       key => key(),
+                                       certfile => cert_pem(),
+                                       keyfile => key_pem(),
+                                       password => key_pem_password()}.
+-type cipher_suites()             :: ciphers().
 -type ciphers()                   :: [erl_cipher_suite()] |
                                      string(). % (according to old API) exported
 -type cipher_filters()            :: list({key_exchange | cipher | mac | prf,
@@ -1756,6 +1763,11 @@ handle_option(password = Option, unbound, OptionsMap, #{rules := Rules}) ->
 handle_option(password = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
     OptionsMap#{password => Value};
+handle_option(certs_keys, unbound, OptionsMap, _Env) ->
+    OptionsMap;
+handle_option(certs_keys = Option, Value0, OptionsMap, _Env) ->
+    Value = validate_option(Option, Value0),
+    OptionsMap#{certs_keys => Value};
 handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
     OptionsMap#{Option => Value};
@@ -2307,6 +2319,8 @@ validate_option(password, Value, _)
     Value;
 validate_option(password, Value, _)
   when is_function(Value, 0) ->
+    Value;
+validate_option(certs_keys, Value, _) when is_list(Value) ->
     Value;
 validate_option(protocol, Value = tls, _) ->
     Value;

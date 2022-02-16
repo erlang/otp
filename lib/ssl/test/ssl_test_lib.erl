@@ -126,6 +126,7 @@
          client_msg/2,
          server_msg/2,
          hardcode_rsa_key/1,
+         hardcode_dsa_key/1,
          bigger_buffers/0,
          stop/2,
          working_openssl_client/0,
