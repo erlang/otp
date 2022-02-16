@@ -10,3 +10,5 @@ mv otp otp_src_${VSN}
 tar -czf ${DIR}/otp_src_${VSN}.tar.gz otp_src_${VSN}
 mv otp_doc_man.tar.gz ${DIR}/otp_doc_man_${VSN}.tar.gz
 mv otp_doc_html.tar.gz ${DIR}/otp_doc_html_${VSN}.tar.gz
+mv otp_doc_html.tar.gz ${DIR}/otp_doc_html_${VSN}.tar.gz
+mv otp_macos_x86-64.tar.gz ${DIR}/otp_macos_x86-64_${VSN}.tar.gz
