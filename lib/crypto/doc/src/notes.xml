@@ -31,42 +31,6 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
-<section><title>Crypto 5.1</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Input for <c>configure</c> scripts adapted to
-	    <c>autoconf</c> 2.71.</p>
-          <p>
-	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
-        </item>
-        <item>
-          <p>
-	    Add crypto:hash_equals/2</p>
-          <p>
-	    Own Id: OTP-17471 Aux Id: PR-4750 </p>
-        </item>
-        <item>
-          <p>
-	    Add /opt/homebrew/opt/openssl to standard locations to
-	    search for OpenSSL cryptolib.</p>
-          <p>
-	    Own Id: OTP-17561</p>
-        </item>
-        <item>
-          <p>
-	    <c>crypto_dyn_iv_init/3</c> and
-	    <c>crypto_dyn_iv_update/3</c> are deprecated.</p>
-          <p>
-	    Own Id: OTP-17870</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Crypto 5.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

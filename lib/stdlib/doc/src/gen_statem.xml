@@ -2480,7 +2480,7 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
     </func>
 
     <func>
-      <name since="OTP 25.0">Module:format_status(Status) -> NewStatus</name>
+      <name since="OTP @OTP-17351@">Module:format_status(Status) -> NewStatus</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_statem</c> status.</fsummary>
       <type>

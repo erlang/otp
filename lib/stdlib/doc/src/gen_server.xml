@@ -788,7 +788,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP 25.0">Module:format_status(Status) -> NewStatus</name>
+      <name since="OTP @OTP-17351@">Module:format_status(Status) -> NewStatus</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>
