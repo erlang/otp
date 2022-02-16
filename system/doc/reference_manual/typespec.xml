@@ -550,40 +550,22 @@
       For example, the following specification defines the type of a
       polymorphic identity function:
     </p>
-    <pre>
-  -spec id(X) -> X.</pre>
+    <pre> -spec id(X) -> X.</pre>
     <p>
-      Notice that the above specification does not restrict the input
-      and output type in any way.
-      These types can be constrained by guard-like subtype constraints
-      and provide bounded quantification:
+    Notice that the above specification restricts the output type
+    to be the same as the input type, but imposes no other requirements.
+    So `id(atom())` is expected to return `atom()` and `id({a, b})` is
+    expected to return `{a, b}`.
     </p>
-    <pre>  -spec id(X) -> X when X :: tuple().</pre>
-    <p>
-      Currently, the <c>::</c> constraint
-      (read as &laquo;is a subtype of&raquo;) is
-      the only guard constraint that can be used in the <c>when</c>
-      part of a <c>-spec</c> attribute.
+    <p>Constraint syntax is permitted in function specifications.
+    The meaning of such constraints is the same as substituting the
+    right-hand side of <c>::</c> for the left-hand side. The following
+    two definitions are equivalent
     </p>
-    <note>
-      <p>
-      The above function specification uses multiple occurrences of
-      the same type variable. That provides more type information than the
-      following function specification, where the type variables are missing:
-      </p>
-      <pre>  -spec id(tuple()) -> tuple().</pre>
-      <p>
-	The latter specification says that the function takes some tuple
-	and returns some tuple. The specification with the <c>X</c> type
-	variable specifies that the function takes a tuple and returns
-	<em>the same</em> tuple.
-      </p>
-      <p>
-	However, it is up to the tools that process the specifications
-        to choose whether to take this extra information into account
-        or not.
-      </p>
-    </note>
+    <pre>  -spec id_atom(X) -> X when X :: atom().
+           % equivalent to
+           -spec id_atom(atom()) -> atom().
+    </pre>
     <p>
       The scope of a <c>::</c> constraint is the
       <c>(...) -> RetType</c>
