@@ -262,10 +262,16 @@ log_error(_Out, #logacc{app_err=AppErr, tc_err=TcErr}=LogAcc, Txt0) ->
                           [_Exe, App, _Rest] ->
                               io_format("<h3>Before first test case of ~s</h3>\n",
                                         [App]);
-                          [_Exe, _App, "tc", Num, Mod, Rest] ->
-                              [Func | _] = string:lexemes(Rest, "."),
-                              io_format("<h3>Test case #~s ~s:~s</h3>\n",
-                                        [Num, Mod, Func]);
+                          [_Exe, _App, "tc", Num, Mod, Rest0] ->
+                              [Func | Rest1] = string:lexemes(Rest0, "."),
+                              SubNode = case Rest1 of
+                                            ["subnode" | _] ->
+                                                " (subnode)";
+                                            _ ->
+                                                ""
+                                        end,
+                              io_format("<h3>Test case #~s ~s:~s~s</h3>\n",
+                                        [Num, Mod, Func, SubNode]);
                           _ ->
                               io_format("<h3>Strange log file name '~s'</h3>\n",
                                         [SrcFile])
