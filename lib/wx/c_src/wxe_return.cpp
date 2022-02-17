@@ -409,7 +409,7 @@ ERL_NIF_TERM  wxeReturn::make(wxGBSpan val) {
 
 INLINE
 ERL_NIF_TERM  wxeReturn::make(wxMouseState val) {
-  return enif_make_tuple(env, 11,
+  return enif_make_tuple(env, 13,
                          enif_make_atom(env, "wxMouseState"),
                          // TODO not int?
                          enif_make_uint(env, val.GetX()),
@@ -421,7 +421,9 @@ ERL_NIF_TERM  wxeReturn::make(wxMouseState val) {
                          make_bool(val.ShiftDown()),
                          make_bool(val.AltDown()),
                          make_bool(val.MetaDown()),
-                         make_bool(val.CmdDown())
+                         make_bool(val.CmdDown()),
+                         make_bool(val.Aux1IsDown()),
+                         make_bool(val.Aux2IsDown())
                          );
 }
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -315,7 +315,8 @@
 -record(wxMouseState, {x :: integer(), y :: integer(),
           leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), 
           controlDown :: boolean(), shiftDown :: boolean(),
-          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()
+          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean(),
+          aux1Down :: boolean(), aux2Down :: boolean()
         }).
 -record(wxHtmlLinkInfo, {
           href :: unicode:chardata(), target :: unicode:chardata()
