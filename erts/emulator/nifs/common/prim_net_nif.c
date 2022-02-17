@@ -1885,8 +1885,10 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
 
     return result;
 }
+#endif // __WIN32__
 
 
+#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                                      const ERL_NIF_TERM eflags,
@@ -1969,12 +1971,14 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
 
     return TRUE;
 }
+#endif // __WIN32__
 
 
 
 /* Decode the address info string (hostname or service name)
  * The string is either the atom undefined or an actual string.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
                                  const ERL_NIF_TERM eString,
@@ -2001,24 +2005,7 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
     return result;
 
 }
-
-
-
-static
-ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                         ERL_NIF_TERM ebool,
-                         BOOLEAN_T*   ibool)
-{
-    if (COMPARE(ebool, esock_atom_true) == 0) {
-        *ibool = TRUE;
-        return esock_atom_ok;
-    } else if (COMPARE(ebool, esock_atom_false) == 0) {
-        *ibool = FALSE;
-        return esock_atom_ok;
-    } else {
-        return esock_make_error(env, esock_atom_einval);
-    }
-}
+#endif // __WIN32__
 
 
 
@@ -2026,6 +2013,7 @@ ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
  * The address info is a linked list och address info, which
  * will result in the result being a list of zero or more length.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
                                   struct addrinfo* addrInfo)
@@ -2057,6 +2045,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
 
     return result;
 }
+#endif // __WIN32__
 
 
 
@@ -2064,6 +2053,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
  * The list is NULL-terminated, so the only way is to
  * iterate through the list until we find next = NULL.
  */
+#if !defined(__WIN32__)
 static
 unsigned int address_info_length(struct addrinfo* addrInfoP)
 {
@@ -2084,6 +2074,7 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
 
     return len;
 }
+#endif // __WIN32__
 
 
 
@@ -2092,6 +2083,7 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
  *
  * {address_info, Fam, Type, Proto, Addr}
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                                  struct addrinfo* addrInfoP)
@@ -2109,6 +2101,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
     make_address_info(env, fam, type, proto, addr, &addrInfo);
     return addrInfo;
 }
+#endif // __WIN32__
 
 
 /* Convert an "native" family to an erlang family (=domain).
@@ -2116,6 +2109,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
  * inet and inet6. Other values will be returned as is, that is
  * in the form of an integer.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
                                         int        family)
@@ -2125,6 +2119,7 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
     esock_encode_domain(env, family, &efam);
     return efam;
 }
+#endif // __WIN32__
 
 
 
@@ -2133,6 +2128,7 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
  * stream and dgram. Other values will be returned as is, that is
  * in the form of an integer.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                       int        socktype)
@@ -2142,9 +2138,11 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
     esock_encode_type(env, socktype, &etype);
     return etype;
 }
+#endif // __WIN32__
 
 
 
+#if !defined(__WIN32__)
 static
 void make_address_info(ErlNifEnv*    env,
                        ERL_NIF_TERM  fam,
@@ -2264,6 +2262,22 @@ BOOLEAN_T restore_network_namespace(int ns, int* err)
 #endif // if !defined(__WIN32__)
 #endif // ifdef HAVE_SETNS
 
+
+static
+ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
+                         ERL_NIF_TERM ebool,
+                         BOOLEAN_T*   ibool)
+{
+    if (COMPARE(ebool, esock_atom_true) == 0) {
+        *ibool = TRUE;
+        return esock_atom_ok;
+    } else if (COMPARE(ebool, esock_atom_false) == 0) {
+        *ibool = FALSE;
+        return esock_atom_ok;
+    } else {
+        return esock_make_error(env, esock_atom_einval);
+    }
+}
 
 
 
