@@ -218,9 +218,10 @@
 /* Debug stuff... */
 #define NET_NIF_DEBUG_DEFAULT FALSE
 
-#define NDBG( proto ) ESOCK_DBG_PRINTF( data.debug , proto )
+#define NDBG( proto )       ESOCK_DBG_PRINTF( data.debug , proto )
+#define NDBG2( dbg, proto ) ESOCK_DBG_PRINTF( (dbg || data.debug) , proto )
 
-
+/* Global 'stuff' */
 typedef struct {
     BOOLEAN_T debug;
 } NetData;
@@ -258,15 +259,16 @@ extern char* erl_errno_id(int error);
  * These are the functions making up the "official" API.
  */
 
-#define ENET_NIF_FUNCS                  \
-    ENET_NIF_FUNC_DEF(info);            \
-    ENET_NIF_FUNC_DEF(command);         \
-    ENET_NIF_FUNC_DEF(gethostname);     \
-    ENET_NIF_FUNC_DEF(getnameinfo);     \
-    ENET_NIF_FUNC_DEF(getaddrinfo);     \
-    ENET_NIF_FUNC_DEF(getifaddrs);      \
-    ENET_NIF_FUNC_DEF(if_name2index);   \
-    ENET_NIF_FUNC_DEF(if_index2name);   \
+#define ENET_NIF_FUNCS                   \
+    ENET_NIF_FUNC_DEF(info);             \
+    ENET_NIF_FUNC_DEF(command);          \
+    ENET_NIF_FUNC_DEF(gethostname);      \
+    ENET_NIF_FUNC_DEF(getnameinfo);      \
+    ENET_NIF_FUNC_DEF(getaddrinfo);      \
+    ENET_NIF_FUNC_DEF(getifaddrs);       \
+    ENET_NIF_FUNC_DEF(getinterfaceinfo); \
+    ENET_NIF_FUNC_DEF(if_name2index);    \
+    ENET_NIF_FUNC_DEF(if_index2name);    \
     ENET_NIF_FUNC_DEF(if_names);
 
 #define ENET_NIF_FUNC_DEF(F)                              \
@@ -300,6 +302,13 @@ static ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
 #if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
                                     char*      netns);
+#endif
+
+#if defined(__WIN32__)
+static ERL_NIF_TERM enet_getinterfaceinfo(ErlNifEnv* env,
+                                          BOOLEAN_T  dbg);
+static BOOLEAN_T enet_getinterfaceinfo_extra_debug(ErlNifEnv*         env,
+                                                   const ERL_NIF_TERM eextra);
 #endif
 
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -501,6 +510,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_getnameinfo/2
  * nif_getaddrinfo/3
  * nif_getifaddrs/1
+ * nif_getinterfaceinfo/1
  * nif_if_name2index/1
  * nif_if_index2name/1
  * nif_if_names/0
@@ -1509,6 +1519,75 @@ void make_ifaddrs(ErlNifEnv*    env,
 
 
 /* ----------------------------------------------------------------------
+ * nif_getinterfaceinfo
+ *
+ * Description:
+ * Get interface info table (only IPv4 interfaces)
+ * This is a windows only function!
+ *
+ * Arguments:
+ * Extra - A way to pass 'extra' arguments.
+ *         Currently not used.
+ */
+
+static
+ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
+                                  int                argc,
+                                  const ERL_NIF_TERM argv[])
+{
+#if !defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    ERL_NIF_TERM result, eextra;
+    BOOLEAN_T    dbg;
+
+    NDBG( ("NET", "nif_getinterfaceinfo -> entry (%d)\r\n", argc) );
+
+    if ((argc != 1) ||
+        !IS_MAP(env, argv[0])) {
+        return enif_make_badarg(env);
+    }
+    eextra = argv[0];
+
+    dbg    = enet_getinterfaceinfo_extra_debug(env, eextra);
+
+    result = enet_getinterfaceinfo(env, dbg);
+
+    NDBG2( dbg,
+           ("NET",
+           "nif_getinterfaceinfo -> done when result: "
+           "\r\n   %T\r\n", result) );
+
+    return result;
+#endif
+}
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_getinterfaceinfo_extra_debug(ErlNifEnv*         env,
+                                            const ERL_NIF_TERM eextra)
+{
+    return get_debug(env, eextra);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+// Placeholder function!!
+static
+ERL_NIF_TERM enet_getinterfaceinfo(ErlNifEnv* env,
+                                   BOOLEAN_T  dbg)
+{
+    VOID(dbg);
+
+    return MKEL(env);
+}
+#endif // __WIN32__
+
+
+
+/* ----------------------------------------------------------------------
  * nif_if_name2index
  *
  * Description:
@@ -2248,18 +2327,19 @@ ErlNifFunc net_funcs[] =
     {"nif_command",   1, nif_command,   0}, // Shall we let this be dirty?
 
     /* get/set hostname */
-    {"nif_gethostname",         0, nif_gethostname,   0},
+    {"nif_gethostname",      0, nif_gethostname,   0},
 
     /* address and name translation in protocol-independent manner */
-    {"nif_getnameinfo",         2, nif_getnameinfo,   0},
-    {"nif_getaddrinfo",         3, nif_getaddrinfo,   0},
+    {"nif_getnameinfo",      2, nif_getnameinfo,   0},
+    {"nif_getaddrinfo",      3, nif_getaddrinfo,   0},
     
-    {"nif_getifaddrs",          1, nif_getifaddrs,    ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_getifaddrs",       1, nif_getifaddrs,       ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_getinterfaceinfo", 1, nif_getinterfaceinfo, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Network interface (name and/or index) functions */
-    {"nif_if_name2index",       1, nif_if_name2index, 0},
-    {"nif_if_index2name",       1, nif_if_index2name, 0},
-    {"nif_if_names",            0, nif_if_names,      0}
+    {"nif_if_name2index",    1, nif_if_name2index, 0},
+    {"nif_if_index2name",    1, nif_if_index2name, 0},
+    {"nif_if_names",         0, nif_if_names,      0}
 };
 
 
