@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,15 +171,14 @@ void initEventTable()
      {wxEVT_GRID_LABEL_RIGHT_CLICK, 198, "grid_label_right_click", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_LABEL_LEFT_DCLICK, 198, "grid_label_left_dclick", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_LABEL_RIGHT_DCLICK, 198, "grid_label_right_dclick", "wxGridEvent", "wxGrid"},
-     {wxEVT_GRID_ROW_SIZE, 198, "grid_row_size", "wxGridEvent", "wxGrid"},
-     {wxEVT_GRID_COL_SIZE, 198, "grid_col_size", "wxGridEvent", "wxGrid"},
-     {wxEVT_GRID_RANGE_SELECT, 198, "grid_range_select", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_CELL_CHANGED, 198, "grid_cell_changed", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_SELECT_CELL, 198, "grid_select_cell", "wxGridEvent", "wxGrid"},
+     {wxEVT_GRID_CELL_BEGIN_DRAG, 198, "grid_cell_begin_drag", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_EDITOR_SHOWN, 198, "grid_editor_shown", "wxGridEvent", "wxGrid"},
      {wxEVT_GRID_EDITOR_HIDDEN, 198, "grid_editor_hidden", "wxGridEvent", "wxGrid"},
-     {wxEVT_GRID_EDITOR_CREATED, 198, "grid_editor_created", "wxGridEvent", "wxGrid"},
-     {wxEVT_GRID_CELL_BEGIN_DRAG, 198, "grid_cell_begin_drag", "wxGridEvent", "wxGrid"},
+     {wxEVT_GRID_COL_MOVE, 198, "grid_col_move", "wxGridEvent", "wxGrid"},
+     {wxEVT_GRID_COL_SORT, 198, "grid_col_sort", "wxGridEvent", "wxGrid"},
+     {wxEVT_GRID_TABBING, 198, "grid_tabbing", "wxGridEvent", "wxGrid"},
      {wxEVT_SASH_DRAGGED, 200, "sash_dragged", "wxSashEvent", "wxSash"},
      {wxEVT_COMMAND_LIST_BEGIN_DRAG, 201, "command_list_begin_drag", "wxListEvent", "wxList"},
      {wxEVT_COMMAND_LIST_BEGIN_RDRAG, 201, "command_list_begin_rdrag", "wxListEvent", "wxList"},

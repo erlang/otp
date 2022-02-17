@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year>
     <holder>wxWidgets team.</holder></copyright>
   <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
@@ -70,8 +70,6 @@
     <name name="new" arity="3" clause_i="3" since=""/>
   
     <name name="new" arity="3" clause_i="4" since=""/>
-  
-    <name name="new" arity="3" clause_i="5" since=""/>
     <fsummary>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. </fsummary>
     <desc><p>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. 
       </p></desc>
@@ -79,17 +77,6 @@
   
   <func>
     <name name="new" arity="4" clause_i="1" since=""/>
-  
-    <name name="new" arity="4" clause_i="2" since=""/>
-  
-    <name name="new" arity="4" clause_i="3" since=""/>
-    <fsummary>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. </fsummary>
-    <desc><p>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. 
-      </p></desc>
-  </func>
-  
-  <func>
-    <name name="new" arity="5" clause_i="1" since=""/>
     <fsummary>Creates an image from data in memory. </fsummary>
     <desc><p>Creates an image from data in memory. 
       </p><p>If <c>static_data</c> is false then the <seeerl marker="wxImage"><c>wxImage</c></seeerl> will take ownership of the data and free it afterwards. For this, it has to be allocated with <c>malloc</c>.
@@ -214,8 +201,6 @@
     <name name="create" arity="4" clause_i="2" since=""/>
   
     <name name="create" arity="4" clause_i="3" since=""/>
-  
-    <name name="create" arity="4" clause_i="4" since=""/>
     <fsummary>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. </fsummary>
     <desc><p>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. 
       </p></desc>
@@ -223,20 +208,9 @@
   
   <func>
     <name name="create" arity="5" clause_i="1" since=""/>
-  
-    <name name="create" arity="5" clause_i="2" since=""/>
-  
-    <name name="create" arity="5" clause_i="3" since=""/>
-    <fsummary>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. </fsummary>
-    <desc><p>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. 
-      </p></desc>
-  </func>
-  
-  <func>
-    <name name="create" arity="6" clause_i="1" since=""/>
     <fsummary>Creates a fresh image. </fsummary>
     <desc><p>Creates a fresh image. 
-      </p><p>See <seemfa marker="#new/5"><c>new/5</c></seemfa> for more info.
+      </p><p>See <seemfa marker="#new/4"><c>new/4</c></seemfa> for more info.
       </p><p>Return: true if the call succeeded, false otherwise. 
       </p></desc>
   </func>
@@ -301,7 +275,7 @@
     <fsummary>Returns the image data as an array. </fsummary>
     <desc><p>Returns the image data as an array. 
       </p><p>This is most often used when doing direct image manipulation. The return value points to an array of characters in RGBRGBRGB... format in the top-to-bottom, left-to-right order, that is the first RGB triplet corresponds to the first pixel of the first row, the second one - to the second pixel of the first row and so on until the end of the first row, with second row following after it and so on.
-      </p><p>You should not delete the returned pointer nor pass it to <seemfa marker="#setData/5"><c>setData/5</c></seemfa>. 
+      </p><p>You should not delete the returned pointer nor pass it to <seemfa marker="#setData/4"><c>setData/4</c></seemfa>. 
       </p></desc>
   </func>
   
@@ -660,13 +634,8 @@
   
   <func>
     <name name="setAlpha" arity="2" clause_i="1" since=""/>
-    <fsummary>See: <c>setAlpha/3</c></fsummary>
-  </func>
-  
-  <func>
-    <name name="setAlpha" arity="3" clause_i="1" since=""/>
-    <fsummary>This function is similar to <c>setData/5</c> and has similar restrictions. </fsummary>
-    <desc><p>This function is similar to <seemfa marker="#setData/5"><c>setData/5</c></seemfa> and has similar restrictions. 
+    <fsummary>This function is similar to <c>setData/4</c> and has similar restrictions. </fsummary>
+    <desc><p>This function is similar to <seemfa marker="#setData/4"><c>setData/4</c></seemfa> and has similar restrictions. 
       </p><p>The pointer passed to it may however be NULL in which case the function will allocate the alpha array internally - this is useful to add alpha channel data to an image which doesn't have any.
       </p><p>If the pointer is not NULL, it must have one byte for each image pixel and be allocated with malloc(). <seeerl marker="wxImage"><c>wxImage</c></seeerl> takes ownership of the pointer and will free it unless <c>static_data</c> parameter is set to true - in this case the caller should do it. 
       </p></desc>
@@ -682,11 +651,6 @@
   
   <func>
     <name name="setData" arity="2" clause_i="1" since=""/>
-    <fsummary>See: <c>setData/3</c></fsummary>
-  </func>
-  
-  <func>
-    <name name="setData" arity="3" clause_i="1" since=""/>
     <fsummary>Sets the image data without performing checks. </fsummary>
     <desc><p>Sets the image data without performing checks. 
       </p><p>The data given must have the size (width*height*3) or results will be unexpected. Don't use this method if you aren't sure you know what you are doing.
@@ -697,11 +661,6 @@
   
   <func>
     <name name="setData" arity="4" clause_i="1" since=""/>
-    <fsummary>See: <c>setData/5</c></fsummary>
-  </func>
-  
-  <func>
-    <name name="setData" arity="5" clause_i="1" since=""/>
     <fsummary>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. </fsummary>
     <desc><p>This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts. 
       </p></desc>

@@ -702,12 +702,18 @@ decode_arg(N,#type{name="wxArrayInt"},_arg,Argc) ->
     w("    ~s.Add(~s_tmp);~n",[N,N]),
     w("  };~n",[]);
 
-decode_arg(N,#type{name=Type,base=binary,mod=Mod0},Arg,Argc) ->
+decode_arg(N,#type{name=Type,base=binary,mod=Mod0,by_val=Copy},Arg,Argc) ->
     Mod = mods(Mod0),
     wa("  ~s~s * ~s;~n",[Mod,Type,N], Arg),
     w("  ErlNifBinary ~s_bin;~n",[N]),
     w("  if(!enif_inspect_binary(env, ~s, &~s_bin)) ~s;~n",[Argc, N, badarg(N)]),
-    w("  ~s = (~s~s*) ~s_bin.data;~n", [N,Mod,Type,N]);
+    case Copy of
+        copy ->
+            w("  ~s = (unsigned char *) malloc(~s_bin.size);\n", [N,N]),
+            w("  memcpy(~s,~s_bin.data,~s_bin.size);\n", [N,N,N]);
+        _ ->
+            w("  ~s = (~s~s*) ~s_bin.data;~n", [N,Mod,Type,N])
+    end;
 
 decode_arg(N,#type{name=Type,base={term,_},single=Single,mod=Mod0},Arg,Argc) ->
     case Single of
@@ -1013,6 +1019,7 @@ call_arg(#param{name=N,in=true, def=Def,type=#type{name=Type, base=Base, single=
             N ++ ".data()"
     end;
 call_arg(#param{name=N,type=#type{by_val=true, single=_False}}) -> N;
+call_arg(#param{name=N,type=#type{by_val=copy, single=_False}}) -> N;
 call_arg(#param{name=N,in=true, def=Def,type=#type{base={comp,_,_},ref={pointer,1},single=true}}) ->
     case Def =:= none of
         true -> "&" ++ N;

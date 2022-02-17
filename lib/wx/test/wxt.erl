@@ -22,6 +22,8 @@
 -module(wxt).
 -export([t/0, t/1, t/2, user/0, user/1,user/2]).
 
+-compile({no_auto_import,[alias/1]}).
+
 %%  Modules or suites can be shortcuts i.e. basic expands to wx_basic_SUITE.
 %%  
 %%  t(Tests) run wx testcases.
