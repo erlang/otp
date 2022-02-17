@@ -590,7 +590,7 @@ loop(#state{transports = Transports,
 		    loop(S)
 	    end;
 
-	{udp_error, Socket, Error} when is_port(Socket) ->
+	{udp_error, Socket, Error} ->
 	    ?vinfo("got udp-error on ~p: ~w", [Socket, Error]),
 	    case lists:keyfind(Socket, #transport.socket, Transports) of
 		#transport{socket = Socket} = Transport ->
