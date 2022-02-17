@@ -467,7 +467,7 @@ parse_member(Data,MType,Virtual,Opts = #hs{fopt=Fopts}) ->
 	     end, PS2),
     Alias = find_erl_alias_name(MName,PS,Fopts),
     FOpts = find_func_options(MName, PS2, Fopts),
-    %% ?DBGCF("wxTopLevelWindow", "ShowFullScreen", "~p~n", [Method#method.doc]),
+    %% ?DBGCF("wxImage", "SetAlpha", "~p~n", [PS]),
     Method#method{params=PS, alias=Alias, opts=FOpts}.
 
 
@@ -614,6 +614,7 @@ handle_param_opt({skip_member, Type}, P) ->
 handle_param_opt({erl_func,_Name}, P) -> P;  %% Handled elsewhere
 handle_param_opt(in, P) -> P#param{in=true};
 handle_param_opt(out, P) -> P#param{in=false};
+handle_param_opt(copy, P=#param{type=T}) ->  P#param{type=T#type{by_val=copy}};
 handle_param_opt(both, P) -> P#param{in=both};
 handle_param_opt({def,Def},P) -> P#param{def=Def};
 handle_param_opt({type,Type}, P=#param{type=T})  ->  P#param{type=T#type{name=Type}};

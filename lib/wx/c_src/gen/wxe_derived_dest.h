@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -216,13 +216,13 @@ class EwxMask : public wxMask {
 
 class EwxImage : public wxImage {
  public: ~EwxImage() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxImage(int width,int height,unsigned char * data,unsigned char * alpha,bool static_data) : wxImage(width,height,data,alpha,static_data) {};
- EwxImage(int width,int height,unsigned char * data,bool static_data) : wxImage(width,height,data,static_data) {};
- EwxImage(const wxSize& sz,unsigned char * data,unsigned char * alpha,bool static_data) : wxImage(sz,data,alpha,static_data) {};
+ EwxImage(int width,int height,unsigned char * data,unsigned char * alpha) : wxImage(width,height,data,alpha) {};
+ EwxImage(int width,int height,unsigned char * data) : wxImage(width,height,data) {};
  EwxImage(int width,int height,bool clear) : wxImage(width,height,clear) {};
  EwxImage(const wxString& name,const wxString& mimetype,int index) : wxImage(name,mimetype,index) {};
- EwxImage(const wxSize& sz,unsigned char * data,bool static_data) : wxImage(sz,data,static_data) {};
+ EwxImage(const wxSize& sz,unsigned char * data,unsigned char * alpha) : wxImage(sz,data,alpha) {};
  EwxImage(const wxString& name,wxBitmapType type,int index) : wxImage(name,type,index) {};
+ EwxImage(const wxSize& sz,unsigned char * data) : wxImage(sz,data) {};
  EwxImage(const wxSize& sz,bool clear) : wxImage(sz,clear) {};
  EwxImage() : wxImage() {};
  EwxImage(wxImage copy) : wxImage(copy) {};

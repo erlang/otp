@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,19 +27,18 @@
 -export(['Destroy'/1,blur/2,blurHorizontal/2,blurVertical/2,convertAlphaToMask/1,
   convertAlphaToMask/2,convertAlphaToMask/4,convertAlphaToMask/5,convertToGreyscale/1,
   convertToGreyscale/4,convertToMono/4,copy/1,create/2,create/3,create/4,
-  create/5,create/6,destroy/1,findFirstUnusedColour/1,findFirstUnusedColour/2,
+  create/5,destroy/1,findFirstUnusedColour/1,findFirstUnusedColour/2,
   getAlpha/1,getAlpha/3,getBlue/3,getData/1,getGreen/3,getHeight/1,getImageCount/1,
   getImageCount/2,getImageExtWildcard/0,getMaskBlue/1,getMaskGreen/1,
   getMaskRed/1,getOption/2,getOptionInt/2,getOrFindMaskColour/1,getPalette/1,
   getRed/3,getSubImage/2,getWidth/1,hasAlpha/1,hasMask/1,hasOption/2,
   initAlpha/1,initStandardHandlers/0,isOk/1,isTransparent/3,isTransparent/4,
   loadFile/2,loadFile/3,loadFile/4,mirror/1,mirror/2,new/0,new/1,new/2,
-  new/3,new/4,new/5,ok/1,removeHandler/1,replace/7,rescale/3,rescale/4,
-  resize/3,resize/4,rotate/3,rotate/4,rotate90/1,rotate90/2,rotateHue/2,
-  saveFile/2,saveFile/3,scale/3,scale/4,setAlpha/2,setAlpha/3,setAlpha/4,
-  setData/2,setData/3,setData/4,setData/5,setMask/1,setMask/2,setMaskColour/4,
-  setMaskFromImage/5,setOption/3,setPalette/2,setRGB/5,setRGB/6,size/3,
-  size/4]).
+  new/3,new/4,ok/1,removeHandler/1,replace/7,rescale/3,rescale/4,resize/3,
+  resize/4,rotate/3,rotate/4,rotate90/1,rotate90/2,rotateHue/2,saveFile/2,
+  saveFile/3,scale/3,scale/4,setAlpha/2,setAlpha/4,setData/2,setData/4,
+  setMask/1,setMask/2,setMaskColour/4,setMaskFromImage/5,setOption/3,
+  setPalette/2,setRGB/5,setRGB/6,size/3,size/4]).
 
 %% inherited exports
 -export([parent_class/1]).
@@ -76,12 +75,12 @@ new({SzW,SzH} = Sz)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
 %% <br /> Also:<br />
-%% new(Sz, Data) -> wxImage() when<br />
-%% 	Sz::{W::integer(), H::integer()}, Data::binary();<br />
-%%       (Name, [Option]) -> wxImage() when<br />
+%% new(Name, [Option]) -> wxImage() when<br />
 %% 	Name::unicode:chardata(),<br />
 %% 	Option :: {'type', wx:wx_enum()}<br />
 %% 		 | {'index', integer()};<br />
+%%       (Sz, Data) -> wxImage() when<br />
+%% 	Sz::{W::integer(), H::integer()}, Data::binary();<br />
 %%       (Sz, [Option]) -> wxImage() when<br />
 %% 	Sz::{W::integer(), H::integer()},<br />
 %% 	Option :: {'clear', boolean()}.<br />
@@ -89,12 +88,12 @@ new({SzW,SzH} = Sz)
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Width, Height) -> wxImage() when
 	Width::integer(), Height::integer();
-      (Sz, Data) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary();
       (Name, [Option]) -> wxImage() when
 	Name::unicode:chardata(),
 	Option :: {'type', wx:wx_enum()}
 		 | {'index', integer()};
+      (Sz, Data) -> wxImage() when
+	Sz::{W::integer(), H::integer()}, Data::binary();
       (Sz, [Option]) -> wxImage() when
 	Sz::{W::integer(), H::integer()},
 	Option :: {'clear', boolean()}.
@@ -102,10 +101,6 @@ new({SzW,SzH} = Sz)
 new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
   new(Width,Height, []);
-
-new({SzW,SzH} = Sz,Data)
- when is_integer(SzW),is_integer(SzH),is_binary(Data) ->
-  new(Sz,Data, []);
 new(Name, Options)
  when ?is_chardata(Name),is_list(Options) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -115,56 +110,50 @@ new(Name, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(Name_UC, Opts,?get_env(),?wxImage_new_2_0),
   wxe_util:rec(?wxImage_new_2_0);
+new({SzW,SzH} = Sz,Data)
+ when is_integer(SzW),is_integer(SzH),is_binary(Data) ->
+  wxe_util:queue_cmd(Sz,Data,?get_env(),?wxImage_new_2_1),
+  wxe_util:rec(?wxImage_new_2_1);
 new({SzW,SzH} = Sz, Options)
  when is_integer(SzW),is_integer(SzH),is_list(Options) ->
   MOpts = fun({clear, _clear} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Sz, Opts,?get_env(),?wxImage_new_2_1),
-  wxe_util:rec(?wxImage_new_2_1).
+  wxe_util:queue_cmd(Sz, Opts,?get_env(),?wxImage_new_2_2),
+  wxe_util:rec(?wxImage_new_2_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
 %% <br /> Also:<br />
-%% new(Sz, Data, Alpha) -> wxImage() when<br />
-%% 	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary();<br />
-%%       (Width, Height, [Option]) -> wxImage() when<br />
+%% new(Width, Height, [Option]) -> wxImage() when<br />
 %% 	Width::integer(), Height::integer(),<br />
 %% 	Option :: {'clear', boolean()};<br />
 %%       (Name, Mimetype, [Option]) -> wxImage() when<br />
 %% 	Name::unicode:chardata(), Mimetype::unicode:chardata(),<br />
 %% 	Option :: {'index', integer()};<br />
-%%       (Sz, Data, [Option]) -> wxImage() when<br />
-%% 	Sz::{W::integer(), H::integer()}, Data::binary(),<br />
-%% 	Option :: {'static_data', boolean()}.<br />
+%%       (Sz, Data, Alpha) -> wxImage() when<br />
+%% 	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().<br />
 %% 
 -spec new(Width, Height, Data) -> wxImage() when
 	Width::integer(), Height::integer(), Data::binary();
-      (Sz, Data, Alpha) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary();
       (Width, Height, [Option]) -> wxImage() when
 	Width::integer(), Height::integer(),
 	Option :: {'clear', boolean()};
       (Name, Mimetype, [Option]) -> wxImage() when
 	Name::unicode:chardata(), Mimetype::unicode:chardata(),
 	Option :: {'index', integer()};
-      (Sz, Data, [Option]) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary(),
-	Option :: {'static_data', boolean()}.
-
+      (Sz, Data, Alpha) -> wxImage() when
+	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
 new(Width,Height,Data)
  when is_integer(Width),is_integer(Height),is_binary(Data) ->
-  new(Width,Height,Data, []);
-
-new({SzW,SzH} = Sz,Data,Alpha)
- when is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha) ->
-  new(Sz,Data,Alpha, []);
+  wxe_util:queue_cmd(Width,Height,Data,?get_env(),?wxImage_new_3_0),
+  wxe_util:rec(?wxImage_new_3_0);
 new(Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   MOpts = fun({clear, _clear} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Width,Height, Opts,?get_env(),?wxImage_new_3_0),
-  wxe_util:rec(?wxImage_new_3_0);
+  wxe_util:queue_cmd(Width,Height, Opts,?get_env(),?wxImage_new_3_1),
+  wxe_util:rec(?wxImage_new_3_1);
 new(Name,Mimetype, Options)
  when ?is_chardata(Name),?is_chardata(Mimetype),is_list(Options) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -172,63 +161,20 @@ new(Name,Mimetype, Options)
   MOpts = fun({index, _index} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Name_UC,Mimetype_UC, Opts,?get_env(),?wxImage_new_3_1),
-  wxe_util:rec(?wxImage_new_3_1);
-new({SzW,SzH} = Sz,Data, Options)
- when is_integer(SzW),is_integer(SzH),is_binary(Data),is_list(Options) ->
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Sz,Data, Opts,?get_env(),?wxImage_new_3_2),
-  wxe_util:rec(?wxImage_new_3_2).
+  wxe_util:queue_cmd(Name_UC,Mimetype_UC, Opts,?get_env(),?wxImage_new_3_2),
+  wxe_util:rec(?wxImage_new_3_2);
+new({SzW,SzH} = Sz,Data,Alpha)
+ when is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha) ->
+  wxe_util:queue_cmd(Sz,Data,Alpha,?get_env(),?wxImage_new_3_3),
+  wxe_util:rec(?wxImage_new_3_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
-%% <br /> Also:<br />
-%% new(Width, Height, Data, [Option]) -> wxImage() when<br />
-%% 	Width::integer(), Height::integer(), Data::binary(),<br />
-%% 	Option :: {'static_data', boolean()};<br />
-%%       (Sz, Data, Alpha, [Option]) -> wxImage() when<br />
-%% 	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary(),<br />
-%% 	Option :: {'static_data', boolean()}.<br />
-%% 
 -spec new(Width, Height, Data, Alpha) -> wxImage() when
-	Width::integer(), Height::integer(), Data::binary(), Alpha::binary();
-      (Width, Height, Data, [Option]) -> wxImage() when
-	Width::integer(), Height::integer(), Data::binary(),
-	Option :: {'static_data', boolean()};
-      (Sz, Data, Alpha, [Option]) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary(),
-	Option :: {'static_data', boolean()}.
-
+	Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
 new(Width,Height,Data,Alpha)
  when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha) ->
-  new(Width,Height,Data,Alpha, []);
-new(Width,Height,Data, Options)
- when is_integer(Width),is_integer(Height),is_binary(Data),is_list(Options) ->
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Width,Height,Data, Opts,?get_env(),?wxImage_new_4_0),
-  wxe_util:rec(?wxImage_new_4_0);
-new({SzW,SzH} = Sz,Data,Alpha, Options)
- when is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha),is_list(Options) ->
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Sz,Data,Alpha, Opts,?get_env(),?wxImage_new_4_1),
-  wxe_util:rec(?wxImage_new_4_1).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
--spec new(Width, Height, Data, Alpha, [Option]) -> wxImage() when
-	Width::integer(), Height::integer(), Data::binary(), Alpha::binary(),
-	Option :: {'static_data', boolean()}.
-new(Width,Height,Data,Alpha, Options)
- when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha),is_list(Options) ->
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(Width,Height,Data,Alpha, Opts,?get_env(),?wxImage_new_5),
-  wxe_util:rec(?wxImage_new_5).
+  wxe_util:queue_cmd(Width,Height,Data,Alpha,?get_env(),?wxImage_new_4),
+  wxe_util:rec(?wxImage_new_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximageblur">external documentation</a>.
 -spec blur(This, BlurRadius) -> wxImage() when
@@ -360,115 +306,62 @@ create(This,{SzW,SzH} = Sz)
 create(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
   create(This,Width,Height, []);
-
-create(This,{SzW,SzH} = Sz,Data)
- when is_record(This, wx_ref),is_integer(SzW),is_integer(SzH),is_binary(Data) ->
-  create(This,Sz,Data, []);
+create(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz,Data)
+ when is_integer(SzW),is_integer(SzH),is_binary(Data) ->
+  ?CLASS(ThisT,wxImage),
+  wxe_util:queue_cmd(This,Sz,Data,?get_env(),?wxImage_Create_2_0),
+  wxe_util:rec(?wxImage_Create_2_0);
 create(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz, Options)
  when is_integer(SzW),is_integer(SzH),is_list(Options) ->
   ?CLASS(ThisT,wxImage),
   MOpts = fun({clear, _clear} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Sz, Opts,?get_env(),?wxImage_Create_2),
-  wxe_util:rec(?wxImage_Create_2).
+  wxe_util:queue_cmd(This,Sz, Opts,?get_env(),?wxImage_Create_2_1),
+  wxe_util:rec(?wxImage_Create_2_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagecreate">external documentation</a>.
 %% <br /> Also:<br />
-%% create(This, Sz, Data, Alpha) -> boolean() when<br />
-%% 	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary();<br />
-%%       (This, Width, Height, [Option]) -> boolean() when<br />
+%% create(This, Width, Height, [Option]) -> boolean() when<br />
 %% 	This::wxImage(), Width::integer(), Height::integer(),<br />
 %% 	Option :: {'clear', boolean()};<br />
-%%       (This, Sz, Data, [Option]) -> boolean() when<br />
-%% 	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(),<br />
-%% 	Option :: {'static_data', boolean()}.<br />
+%%       (This, Sz, Data, Alpha) -> boolean() when<br />
+%% 	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().<br />
 %% 
 -spec create(This, Width, Height, Data) -> boolean() when
 	This::wxImage(), Width::integer(), Height::integer(), Data::binary();
-      (This, Sz, Data, Alpha) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary();
       (This, Width, Height, [Option]) -> boolean() when
 	This::wxImage(), Width::integer(), Height::integer(),
 	Option :: {'clear', boolean()};
-      (This, Sz, Data, [Option]) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(),
-	Option :: {'static_data', boolean()}.
-
-create(This,Width,Height,Data)
- when is_record(This, wx_ref),is_integer(Width),is_integer(Height),is_binary(Data) ->
-  create(This,Width,Height,Data, []);
-
-create(This,{SzW,SzH} = Sz,Data,Alpha)
- when is_record(This, wx_ref),is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha) ->
-  create(This,Sz,Data,Alpha, []);
+      (This, Sz, Data, Alpha) -> boolean() when
+	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
+create(#wx_ref{type=ThisT}=This,Width,Height,Data)
+ when is_integer(Width),is_integer(Height),is_binary(Data) ->
+  ?CLASS(ThisT,wxImage),
+  wxe_util:queue_cmd(This,Width,Height,Data,?get_env(),?wxImage_Create_3_0),
+  wxe_util:rec(?wxImage_Create_3_0);
 create(#wx_ref{type=ThisT}=This,Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxImage),
   MOpts = fun({clear, _clear} = Arg) -> Arg;
           (BadOpt) -> erlang:error({badoption, BadOpt}) end,
   Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Width,Height, Opts,?get_env(),?wxImage_Create_3_0),
-  wxe_util:rec(?wxImage_Create_3_0);
-create(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz,Data, Options)
- when is_integer(SzW),is_integer(SzH),is_binary(Data),is_list(Options) ->
+  wxe_util:queue_cmd(This,Width,Height, Opts,?get_env(),?wxImage_Create_3_1),
+  wxe_util:rec(?wxImage_Create_3_1);
+create(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz,Data,Alpha)
+ when is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha) ->
   ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Sz,Data, Opts,?get_env(),?wxImage_Create_3_1),
-  wxe_util:rec(?wxImage_Create_3_1).
+  wxe_util:queue_cmd(This,Sz,Data,Alpha,?get_env(),?wxImage_Create_3_2),
+  wxe_util:rec(?wxImage_Create_3_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagecreate">external documentation</a>.
-%% <br /> Also:<br />
-%% create(This, Width, Height, Data, [Option]) -> boolean() when<br />
-%% 	This::wxImage(), Width::integer(), Height::integer(), Data::binary(),<br />
-%% 	Option :: {'static_data', boolean()};<br />
-%%       (This, Sz, Data, Alpha, [Option]) -> boolean() when<br />
-%% 	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary(),<br />
-%% 	Option :: {'static_data', boolean()}.<br />
-%% 
 -spec create(This, Width, Height, Data, Alpha) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary();
-      (This, Width, Height, Data, [Option]) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer(), Data::binary(),
-	Option :: {'static_data', boolean()};
-      (This, Sz, Data, Alpha, [Option]) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary(),
-	Option :: {'static_data', boolean()}.
-
-create(This,Width,Height,Data,Alpha)
- when is_record(This, wx_ref),is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha) ->
-  create(This,Width,Height,Data,Alpha, []);
-create(#wx_ref{type=ThisT}=This,Width,Height,Data, Options)
- when is_integer(Width),is_integer(Height),is_binary(Data),is_list(Options) ->
+	This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
+create(#wx_ref{type=ThisT}=This,Width,Height,Data,Alpha)
+ when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha) ->
   ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Width,Height,Data, Opts,?get_env(),?wxImage_Create_4_0),
-  wxe_util:rec(?wxImage_Create_4_0);
-create(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz,Data,Alpha, Options)
- when is_integer(SzW),is_integer(SzH),is_binary(Data),is_binary(Alpha),is_list(Options) ->
-  ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Sz,Data,Alpha, Opts,?get_env(),?wxImage_Create_4_1),
-  wxe_util:rec(?wxImage_Create_4_1).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagecreate">external documentation</a>.
--spec create(This, Width, Height, Data, Alpha, [Option]) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary(),
-	Option :: {'static_data', boolean()}.
-create(#wx_ref{type=ThisT}=This,Width,Height,Data,Alpha, Options)
- when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha),is_list(Options) ->
-  ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Width,Height,Data,Alpha, Opts,?get_env(),?wxImage_Create_5),
-  wxe_util:rec(?wxImage_Create_5).
+  wxe_util:queue_cmd(This,Width,Height,Data,Alpha,?get_env(),?wxImage_Create_4),
+  wxe_util:rec(?wxImage_Create_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagedestroy">external documentation</a>.
 -spec 'Destroy'(This) -> 'ok' when
@@ -1003,25 +896,13 @@ size(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size,{PosX,PosY} = Pos, Options)
   wxe_util:queue_cmd(This,Size,Pos, Opts,?get_env(),?wxImage_Size),
   wxe_util:rec(?wxImage_Size).
 
-%% @equiv setAlpha(This,Alpha, [])
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetalpha">external documentation</a>.
 -spec setAlpha(This, Alpha) -> 'ok' when
 	This::wxImage(), Alpha::binary().
-
-setAlpha(This,Alpha)
- when is_record(This, wx_ref),is_binary(Alpha) ->
-  setAlpha(This,Alpha, []).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetalpha">external documentation</a>.
--spec setAlpha(This, Alpha, [Option]) -> 'ok' when
-	This::wxImage(), Alpha::binary(),
-	Option :: {'static_data', boolean()}.
-setAlpha(#wx_ref{type=ThisT}=This,Alpha, Options)
- when is_binary(Alpha),is_list(Options) ->
+setAlpha(#wx_ref{type=ThisT}=This,Alpha)
+ when is_binary(Alpha) ->
   ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Alpha, Opts,?get_env(),?wxImage_SetAlpha_2).
+  wxe_util:queue_cmd(This,Alpha,?get_env(),?wxImage_SetAlpha_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetalpha">external documentation</a>.
 -spec setAlpha(This, X, Y, Alpha) -> 'ok' when
@@ -1031,45 +912,21 @@ setAlpha(#wx_ref{type=ThisT}=This,X,Y,Alpha)
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,X,Y,Alpha,?get_env(),?wxImage_SetAlpha_3).
 
-%% @equiv setData(This,Data, [])
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetdata">external documentation</a>.
 -spec setData(This, Data) -> 'ok' when
 	This::wxImage(), Data::binary().
-
-setData(This,Data)
- when is_record(This, wx_ref),is_binary(Data) ->
-  setData(This,Data, []).
+setData(#wx_ref{type=ThisT}=This,Data)
+ when is_binary(Data) ->
+  ?CLASS(ThisT,wxImage),
+  wxe_util:queue_cmd(This,Data,?get_env(),?wxImage_SetData_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetdata">external documentation</a>.
--spec setData(This, Data, [Option]) -> 'ok' when
-	This::wxImage(), Data::binary(),
-	Option :: {'static_data', boolean()}.
-setData(#wx_ref{type=ThisT}=This,Data, Options)
- when is_binary(Data),is_list(Options) ->
-  ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Data, Opts,?get_env(),?wxImage_SetData_2).
-
-%% @equiv setData(This,Data,New_width,New_height, [])
 -spec setData(This, Data, New_width, New_height) -> 'ok' when
 	This::wxImage(), Data::binary(), New_width::integer(), New_height::integer().
-
-setData(This,Data,New_width,New_height)
- when is_record(This, wx_ref),is_binary(Data),is_integer(New_width),is_integer(New_height) ->
-  setData(This,Data,New_width,New_height, []).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagesetdata">external documentation</a>.
--spec setData(This, Data, New_width, New_height, [Option]) -> 'ok' when
-	This::wxImage(), Data::binary(), New_width::integer(), New_height::integer(),
-	Option :: {'static_data', boolean()}.
-setData(#wx_ref{type=ThisT}=This,Data,New_width,New_height, Options)
- when is_binary(Data),is_integer(New_width),is_integer(New_height),is_list(Options) ->
+setData(#wx_ref{type=ThisT}=This,Data,New_width,New_height)
+ when is_binary(Data),is_integer(New_width),is_integer(New_height) ->
   ?CLASS(ThisT,wxImage),
-  MOpts = fun({static_data, _static_data} = Arg) -> Arg;
-          (BadOpt) -> erlang:error({badoption, BadOpt}) end,
-  Opts = lists:map(MOpts, Options),
-  wxe_util:queue_cmd(This,Data,New_width,New_height, Opts,?get_env(),?wxImage_SetData_4).
+  wxe_util:queue_cmd(This,Data,New_width,New_height,?get_env(),?wxImage_SetData_3).
 
 %% @equiv setMask(This, [])
 -spec setMask(This) -> 'ok' when

@@ -110,6 +110,7 @@ check_diff(Diff) ->
 
 copyright(<<_, _, "%% Copyright", _/binary>>) -> ok;
 copyright(<<_, _, " * Copyright", _/binary>>) -> ok;
+copyright(<<_, _, "    <year>", _/binary>>) -> ok;
 copyright(_) -> throw(diff).
 
 w(Str) ->

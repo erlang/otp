@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -963,14 +963,14 @@
 -define(wxMask_Create_1, 1081).
 -define(wxMask_Create_2_1, 1082).
 -define(wxImage_new_0, 1083).
--define(wxImage_new_3_0, 1084).
--define(wxImage_new_2_1, 1085).
--define(wxImage_new_4_0, 1086).
--define(wxImage_new_3_2, 1087).
--define(wxImage_new_5, 1088).
--define(wxImage_new_4_1, 1089).
+-define(wxImage_new_3_1, 1084).
+-define(wxImage_new_2_2, 1085).
+-define(wxImage_new_3_0, 1086).
+-define(wxImage_new_2_1, 1087).
+-define(wxImage_new_4, 1088).
+-define(wxImage_new_3_3, 1089).
 -define(wxImage_new_2_0, 1090).
--define(wxImage_new_3_1, 1091).
+-define(wxImage_new_3_2, 1091).
 -define(wxImage_destruct, 1092).
 -define(wxImage_Blur, 1093).
 -define(wxImage_BlurHorizontal, 1094).
@@ -981,12 +981,12 @@
 -define(wxImage_ConvertToGreyscale_0, 1099).
 -define(wxImage_ConvertToMono, 1100).
 -define(wxImage_Copy, 1101).
--define(wxImage_Create_3_0, 1102).
--define(wxImage_Create_2, 1103).
--define(wxImage_Create_4_0, 1104).
--define(wxImage_Create_3_1, 1105).
--define(wxImage_Create_5, 1106).
--define(wxImage_Create_4_1, 1107).
+-define(wxImage_Create_3_1, 1102).
+-define(wxImage_Create_2_1, 1103).
+-define(wxImage_Create_3_0, 1104).
+-define(wxImage_Create_2_0, 1105).
+-define(wxImage_Create_4, 1106).
+-define(wxImage_Create_3_2, 1107).
 -define(wxImage_Destroy, 1108).
 -define(wxImage_FindFirstUnusedColour, 1109).
 -define(wxImage_GetImageExtWildcard, 1110).
@@ -1029,10 +1029,10 @@
 -define(wxImage_SaveFile_1, 1147).
 -define(wxImage_Scale, 1148).
 -define(wxImage_Size, 1149).
--define(wxImage_SetAlpha_2, 1150).
+-define(wxImage_SetAlpha_1, 1150).
 -define(wxImage_SetAlpha_3, 1151).
--define(wxImage_SetData_2, 1152).
--define(wxImage_SetData_4, 1153).
+-define(wxImage_SetData_1, 1152).
+-define(wxImage_SetData_3, 1153).
 -define(wxImage_SetMask, 1154).
 -define(wxImage_SetMaskColour, 1155).
 -define(wxImage_SetMaskFromImage, 1156).

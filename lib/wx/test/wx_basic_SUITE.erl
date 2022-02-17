@@ -368,7 +368,7 @@ data_types(_Config) ->
     wx:destroy().
 
 enums(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
-enums(Config) ->
+enums(_Config) ->
     %% Test that all needed enums are available and have not changed value
     wx_test_enums:test().
 
@@ -395,7 +395,7 @@ wx_object(Config) ->
     Me = self(),
     ?m({call, foobar, {Me, _}}, wx_object:call(Frame, foobar)),
     ?m(ok, wx_object:cast(Frame, foobar2)),
-    ?m([{cast, foobar2}|_], flush()),
+    ?m([{cast, foobar2}|_], flush(true)),
 
     ?m(Frame, wx_obj_test:who_are_you(Frame)),
     {call, {Frame,Panel}, _} = wx_object:call(Frame, fun(US) -> US end),
@@ -406,17 +406,17 @@ wx_object(Config) ->
     timeout = wx_object:wait_response(ReqId, 0),
     {reply, {call, yes1, {Me,_}}} = wx_object:wait_response(ReqId, 1000),
     ReqId2 = wx_object:send_request(Frame, yes2),
-    [Msg] = flush(),
+    [Msg] = flush(true),
     no_reply = wx_object:check_response(Msg, ReqId),
     {reply, {call, yes2, {Me,_}}} = wx_object:check_response(Msg, ReqId2),
 
     FramePid = wx_object:get_pid(Frame),
     io:format("wx_object pid ~p~n",[FramePid]),
     FramePid ! foo3,
-    ?m([{info, foo3}], flush()),
+    ?m([{info, foo3}], flush(true)),
 
     ?m(ok, wx_object:cast(Frame, fun(_) -> hehe end)),
-    ?m([{cast, hehe}|_], flush()),
+    ?m([{cast, hehe}|_], flush(true)),
     wxWindow:refresh(Frame),
     ?m([{sync_event, #wx{event=#wxPaint{}}, _}|_], flush()),
     ?m(ok, wx_object:cast(Frame, fun(_) -> timer:sleep(500), slept end)),
@@ -441,7 +441,7 @@ wx_object(Config) ->
     end,
     ?m(ok, receive
 	       {'DOWN', Monitor, _, _, _} ->
-		   ?m([{terminate, wx_deleted}], flush()),
+		   ?m([{terminate, wx_deleted}], flush(true)),
 		   ok
 	   after 1000 ->
 		   Msgs = flush(),
@@ -613,11 +613,17 @@ check_events([], Async, Sync) ->
     end.
 
 flush() ->
-    flush([], 1500).
+    flush([], false, 1500).
 
-flush(Acc, Wait) ->
+flush(FilterSync) ->
+    flush([], FilterSync, 1500).
+
+flush(Acc, FilterSync, Wait) ->
     receive
-	Msg -> flush([Msg|Acc], Wait div 10)
+        {sync_event, _} when FilterSync ->
+            flush(Acc, FilterSync, Wait);
+	Msg ->
+            flush([Msg|Acc], FilterSync, Wait div 10)
     after Wait ->
 	    lists:reverse(Acc)
     end.
