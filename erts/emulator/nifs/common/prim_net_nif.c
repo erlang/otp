@@ -1555,8 +1555,8 @@ ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
 
     NDBG2( dbg,
            ("NET",
-           "nif_getinterfaceinfo -> done when result: "
-           "\r\n   %T\r\n", result) );
+            "nif_getinterfaceinfo -> done when result: "
+            "\r\n   %T\r\n", result) );
 
     return result;
 #endif
@@ -1579,7 +1579,7 @@ static
 ERL_NIF_TERM enet_getinterfaceinfo(ErlNifEnv* env,
                                    BOOLEAN_T  dbg)
 {
-    VOID(dbg);
+    NDBG2( dbg, ("NET", "enet_getinterfaceinfo -> entry\r\n") );
 
     return MKEL(env);
 }
