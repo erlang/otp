@@ -34,6 +34,7 @@
          getnameinfo/2,
          getaddrinfo/2,
          getifaddrs/1,
+         getinterfaceinfo/1,
 
          if_name2index/1,
          if_index2name/1,
@@ -44,6 +45,9 @@
               address_info/0,
               ifaddrs/0,
               name_info/0,
+
+              ip_adapter_index_map/0,
+              ip_interface_info/0,
 
               ifaddrs_flag/0,
               ifaddrs_flags/0,
@@ -72,6 +76,11 @@
                      netmask   := socket:sockaddr(),
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
+
+-type ip_adapter_index_map() :: #{index := integer(),
+                                  name  := string()}.
+
+-type ip_interface_info()    :: [ip_adapter_index_map()].
 
 -type name_info_flag()          :: namereqd |
                                    dgram |
@@ -232,6 +241,21 @@ getifaddrs(Extra) when is_map(Extra) ->
 
 %% ===========================================================================
 %%
+%% getinterfaceinfo - Get interface info
+%%
+
+-spec getinterfaceinfo(Extra) -> {ok, IfInfo} | {error, Reason} when
+      Extra   :: map(),
+      IfInfo  :: ip_interface_info(),
+      Reason  :: term().
+
+getinterfaceinfo(Extra) when is_map(Extra) ->
+    nif_getinterfaceinfo(Extra).
+
+
+
+%% ===========================================================================
+%%
 %% if_name2index - Mappings between network interface names and indexes:
 %%                 name -> idx
 %%
@@ -335,6 +359,9 @@ nif_getaddrinfo(_Host, _Service, _Hints) ->
     erlang:nif_error(undef).
 
 nif_getifaddrs(_Extra) ->
+    erlang:nif_error(undef).
+
+nif_getinterfaceinfo(_Extra) ->
     erlang:nif_error(undef).
 
 nif_if_name2index(_Name) ->
