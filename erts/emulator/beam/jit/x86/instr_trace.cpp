@@ -178,7 +178,7 @@ void BeamModuleAssembler::emit_return_trace() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgWord(2));
     emit_return();
 }
 
@@ -198,7 +198,7 @@ void BeamModuleAssembler::emit_i_return_time_trace() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
 
-    emit_deallocate(ArgVal(ArgVal::Word, 1));
+    emit_deallocate(ArgWord(1));
     emit_return();
 }
 
@@ -212,7 +212,7 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 
     /* Remove the zero-sized stack frame. (Will actually do nothing if
      * the native stack is used.) */
-    emit_deallocate(ArgVal(ArgVal::Word, 0));
+    emit_deallocate(ArgWord(0));
     emit_return();
 }
 

@@ -146,23 +146,29 @@ Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
 
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
-        case ArgVal::XReg:
-            data.as_beam = make_loader_x_reg(arg.getValue());
+        case ArgVal::XReg: {
+            auto index = arg.as<ArgXRegister>().get();
+            data.as_beam = make_loader_x_reg(index);
             a.embed(&data.as_char, sizeof(data.as_beam));
-            break;
-        case ArgVal::YReg:
-            data.as_beam = make_loader_y_reg(arg.getValue() + y_offset);
+        } break;
+        case ArgVal::YReg: {
+            auto index = arg.as<ArgYRegister>().get();
+            data.as_beam = make_loader_y_reg(index + y_offset);
             a.embed(&data.as_char, sizeof(data.as_beam));
-            break;
-        case ArgVal::Literal:
-            make_word_patch(literals[arg.getValue()].patches);
-            break;
+        } break;
+        case ArgVal::Literal: {
+            auto index = arg.as<ArgLiteral>().get();
+            make_word_patch(literals[index].patches);
+        } break;
         case ArgVal::Label:
             a.embedLabel(resolve_beam_label(arg));
             break;
         case ArgVal::Immediate:
+            data.as_beam = arg.as<ArgImmed>().get();
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
         case ArgVal::Word:
-            data.as_beam = arg.getValue();
+            data.as_beam = arg.as<ArgWord>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         default:
@@ -291,17 +297,20 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     a.jmp(labels[raise_exception_shared]);
 }
 
-void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
-                                           const ArgVal &Module,
-                                           const ArgVal &Function,
-                                           const ArgVal &Arity) {
+void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
+                                           const ArgAtom &Module,
+                                           const ArgAtom &Function,
+                                           const ArgWord &Arity) {
     ErtsCodeInfo info;
 
-    functions.push_back(Label.getValue());
+    /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
+     * label is always encoded as a word, even though the signature ought to
+     * be `op_i_func_info_LaaI`. */
+    functions.push_back(Label.get());
 
-    info.mfa.module = Module.getValue();
-    info.mfa.function = Function.getValue();
-    info.mfa.arity = Arity.getValue();
+    info.mfa.module = Module.get();
+    info.mfa.function = Function.get();
+    info.mfa.arity = Arity.get();
     info.u.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
@@ -324,17 +333,16 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
     a.embed(&info.mfa, sizeof(info.mfa));
 }
 
-void BeamModuleAssembler::emit_label(const ArgVal &Label) {
+void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     ASSERT(Label.isLabel());
 
-    currLabel = rawLabels[Label.getValue()];
+    currLabel = rawLabels[Label.get()];
     a.bind(currLabel);
 }
 
-void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
-                                             const ArgVal &Alignment) {
-    ASSERT(Alignment.isWord());
-    a.align(AlignMode::kCode, Alignment.getValue());
+void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
+                                             const ArgWord &Alignment) {
+    a.align(AlignMode::kCode, Alignment.get());
     emit_label(Label);
 }
 
@@ -350,7 +358,7 @@ void BeamModuleAssembler::emit_int_code_end() {
     emit_nyi("int_code_end");
 }
 
-void BeamModuleAssembler::emit_line(const ArgVal &) {
+void BeamModuleAssembler::emit_line(const ArgWord &) {
     /*
      * There is no need to align the line instruction. In the loaded
      * code, the type of the pointer will be void* and that pointer
@@ -358,7 +366,7 @@ void BeamModuleAssembler::emit_line(const ArgVal &) {
      */
 }
 
-void BeamModuleAssembler::emit_func_line(const ArgVal &Loc) {
+void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
     emit_line(Loc);
 }
 
@@ -377,7 +385,7 @@ void BeamModuleAssembler::emit_i_generic_breakpoint() {
     emit_nyi("i_generic_breakpoint should never be called");
 }
 
-void BeamModuleAssembler::emit_trace_jump(const ArgVal &) {
+void BeamModuleAssembler::emit_trace_jump(const ArgWord &) {
     emit_nyi("trace_jump should never be called");
 }
 

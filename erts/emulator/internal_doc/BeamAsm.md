@@ -32,7 +32,7 @@ Then each instruction is encoded using the C++ functions in the
 
     void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail, const ArgVal &Src) {
       a.test(getArgRef(Src), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-      a.jne(labels[Fail.getValue()]);
+      a.jne(labels[Fail.getLabel()]);
     }
 
 [asmjit](https://github.com/asmjit/asmjit) provides a fairly straightforward

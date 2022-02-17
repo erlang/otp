@@ -381,18 +381,14 @@ protected:
         a.br(SUPER_TMP);
     }
 
-    constexpr arm::Mem getArgRef(const ArgVal &val) const {
-        switch (val.getType()) {
-        case ArgVal::FReg:
-            return getFRef(val.getValue());
-        case ArgVal::XReg:
-            return getXRef(val.getValue());
-        case ArgVal::YReg:
-            return getYRef(val.getValue());
-        default:
-            ERTS_ASSERT(!"NYI");
-            return arm::Mem();
+    constexpr arm::Mem getArgRef(const ArgRegister &arg) const {
+        if (arg.isXRegister()) {
+            return getXRef(arg.as<ArgXRegister>().get());
+        } else if (arg.isYRegister()) {
+            return getYRef(arg.as<ArgYRegister>().get());
         }
+
+        return getFRef(arg.as<ArgFRegister>().get());
     }
 
     /* Returns the current code address for the `Export` or `ErlFunEntry` in
@@ -1175,25 +1171,31 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    int getTypeUnion(const ArgVal &arg) const {
-        ASSERT(arg.typeIndex() < beam->types.count);
-        return beam->types.entries[arg.typeIndex()].type_union;
+    int getTypeUnion(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+        ASSERT(typeIndex < beam->types.count);
+        return beam->types.entries[typeIndex].type_union;
     }
 
-    auto getIntRange(const ArgVal &arg) const {
-        if (arg.isImmed() && is_small(arg.getValue())) {
-            Sint value = signed_val(arg.getValue());
+    auto getIntRange(const ArgSource &arg) const {
+        if (arg.isSmall()) {
+            Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
         } else {
-            ASSERT(arg.typeIndex() < beam->types.count);
-            const auto &entry = beam->types.entries[arg.typeIndex()];
+            auto typeIndex =
+                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+            ASSERT(typeIndex < beam->types.count);
+            const auto &entry = beam->types.entries[typeIndex];
             ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
             return std::make_pair(entry.min, entry.max);
         }
     }
 
-    bool always_small(const ArgVal &arg) const {
-        if (arg.isImmed() && is_small(arg.getValue())) {
+    bool always_small(const ArgSource &arg) const {
+        if (arg.isSmall()) {
             return true;
         }
 
@@ -1206,7 +1208,7 @@ protected:
         }
     }
 
-    bool always_immediate(const ArgVal &arg) const {
+    bool always_immediate(const ArgSource &arg) const {
         if (arg.isImmed() || always_small(arg)) {
             return true;
         }
@@ -1215,7 +1217,7 @@ protected:
         return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
     }
 
-    bool always_same_types(const ArgVal &lhs, const ArgVal &rhs) const {
+    bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
         int lhs_types = getTypeUnion(lhs);
         int rhs_types = getTypeUnion(rhs);
 
@@ -1229,13 +1231,13 @@ protected:
         return false;
     }
 
-    bool always_one_of(const ArgVal &arg, int types) const {
+    bool always_one_of(const ArgSource &arg, int types) const {
         if (arg.isImmed()) {
-            if (is_small(arg.getValue())) {
+            if (arg.isSmall()) {
                 return !!(types & BEAM_TYPE_INTEGER);
-            } else if (is_atom(arg.getValue())) {
+            } else if (arg.isAtom()) {
                 return !!(types & BEAM_TYPE_ATOM);
-            } else if (is_nil(arg.getValue())) {
+            } else if (arg.isNil()) {
                 return !!(types & BEAM_TYPE_NIL);
             }
 
@@ -1246,13 +1248,13 @@ protected:
         }
     }
 
-    int masked_types(const ArgVal &arg, int mask) const {
+    int masked_types(const ArgSource &arg, int mask) const {
         if (arg.isImmed()) {
-            if (is_small(arg.getValue())) {
+            if (arg.isSmall()) {
                 return mask & BEAM_TYPE_INTEGER;
-            } else if (is_atom(arg.getValue())) {
+            } else if (arg.isAtom()) {
                 return mask & BEAM_TYPE_ATOM;
-            } else if (is_nil(arg.getValue())) {
+            } else if (arg.isNil()) {
                 return mask & BEAM_TYPE_NIL;
             }
 
@@ -1262,11 +1264,11 @@ protected:
         }
     }
 
-    bool exact_type(const ArgVal &arg, int type_id) const {
+    bool exact_type(const ArgSource &arg, int type_id) const {
         return always_one_of(arg, type_id);
     }
 
-    bool is_sum_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1279,7 +1281,7 @@ protected:
         }
     }
 
-    bool is_difference_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1292,7 +1294,7 @@ protected:
         }
     }
 
-    bool is_product_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1311,22 +1313,22 @@ protected:
     }
 
     /* Helpers */
-    void emit_gc_test(const ArgVal &Stack,
-                      const ArgVal &Heap,
-                      const ArgVal &Live);
-    void emit_gc_test_preserve(const ArgVal &Need,
-                               const ArgVal &Live,
+    void emit_gc_test(const ArgWord &Stack,
+                      const ArgWord &Heap,
+                      const ArgWord &Live);
+    void emit_gc_test_preserve(const ArgWord &Need,
+                               const ArgWord &Live,
                                arm::Gp term);
 
     arm::Mem emit_variable_apply(bool includeI);
-    arm::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
+    arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     arm::Gp emit_call_fun(bool skip_box_test = false,
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    arm::Gp emit_is_binary(const ArgVal &Fail,
-                           const ArgVal &Src,
+    arm::Gp emit_is_binary(const ArgLabel &Fail,
+                           const ArgSource &Src,
                            Label next,
                            Label subbin);
 
@@ -1344,51 +1346,53 @@ protected:
     }
 
     void emit_get_list(const arm::Gp boxed_ptr,
-                       const ArgVal &Hd,
-                       const ArgVal &Tl);
+                       const ArgRegister &Hd,
+                       const ArgRegister &Tl);
 
-    void emit_div_rem(const ArgVal &Fail,
-                      const ArgVal &LHS,
-                      const ArgVal &RHS,
+    void emit_div_rem(const ArgLabel &Fail,
+                      const ArgSource &LHS,
+                      const ArgSource &RHS,
                       const ErtsCodeMFA *error_mfa,
-                      const ArgVal &Quotient,
-                      const ArgVal &Remainder,
+                      const ArgRegister &Quotient,
+                      const ArgRegister &Remainder,
                       bool need_div,
                       bool need_rem);
 
-    void emit_i_bif(const ArgVal &Fail, const ArgVal &Bif, const ArgVal &Dst);
+    void emit_i_bif(const ArgLabel &Fail,
+                    const ArgWord &Bif,
+                    const ArgRegister &Dst);
 
     void emit_error(int code);
 
-    int emit_bs_get_field_size(const ArgVal &Size,
+    int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
                                Label Fail,
                                const arm::Gp &out);
 
-    void emit_bs_get_utf8(const ArgVal &Ctx, const ArgVal &Fail);
-    void emit_bs_get_utf16(const ArgVal &Ctx,
-                           const ArgVal &Fail,
-                           const ArgVal &Flags);
+    void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
+    void emit_bs_get_utf16(const ArgRegister &Ctx,
+                           const ArgLabel &Fail,
+                           const ArgWord &Flags);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
     void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
 
-    void emit_validate(const ArgVal &arity);
-    void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
+    void emit_validate(const ArgWord &Arity);
+    void emit_bs_skip_bits(const ArgLabel &Fail, const ArgRegister &Ctx);
 
     void emit_linear_search(arm::Gp val, Label fail, const Span<ArgVal> &args);
 
     void emit_float_instr(uint32_t instId,
-                          const ArgVal &LHS,
-                          const ArgVal &RHS,
-                          const ArgVal &Dst);
+                          const ArgFRegister &LHS,
+                          const ArgFRegister &RHS,
+                          const ArgFRegister &Dst);
 
     void emit_validate_unicode(Label next, Label fail, arm::Gp value);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
-                                       const ArgVal &Immed,
-                                       const ArgVal &Dst,
+    void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
+                                       const ArgSource &RHS,
+                                       const ArgRegister &Dst,
                                        Eterm fail_value,
                                        Eterm succ_value);
 
@@ -1417,7 +1421,7 @@ protected:
                                          const Span<ArgVal> &args);
 
 #ifdef DEBUG
-    void emit_tuple_assertion(const ArgVal &Src, arm::Gp tuple_reg);
+    void emit_tuple_assertion(const ArgSource &Src, arm::Gp tuple_reg);
 #endif
 
 #include "beamasm_protos.h"
@@ -1426,7 +1430,7 @@ protected:
      *
      * When the branch type is not `dispUnknown`, this must be used
      * _IMMEDIATELY BEFORE_ the instruction that the label is used in. */
-    const Label &resolve_beam_label(const ArgVal &Label,
+    const Label &resolve_beam_label(const ArgLabel &Label,
                                     enum Displacement disp);
     const Label &resolve_label(const Label &target,
                                enum Displacement disp,
@@ -1447,10 +1451,12 @@ protected:
     arm::Mem embed_constant(const ArgVal &value, enum Displacement disp);
 
     /* Convenience wrapper for embedding raw pointers or immediates. */
-    template<typename T>
+    template<typename T,
+             std::enable_if_t<std::is_integral<T>::value ||
+                                      std::is_pointer<T>::value,
+                              bool> = true>
     arm::Mem embed_constant(T data, enum Displacement disp) {
-        static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
-        return embed_constant(ArgVal(ArgVal::Word, (UWord)data), disp);
+        return embed_constant(ArgWord((UWord)data), disp);
     }
 
     /* Binds a label and all related veneers that are within reach of it. */
@@ -1500,14 +1506,13 @@ protected:
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
-        switch (arg.getType()) {
-        case ArgVal::XReg:
-            return arg.getValue() < num_register_backed_xregs;
-        case ArgVal::FReg:
-            return arg.getValue() < num_register_backed_fregs;
-        default:
-            return false;
+        if (arg.isXRegister()) {
+            return arg.as<ArgXRegister>().get() < num_register_backed_xregs;
+        } else if (arg.isFRegister()) {
+            return arg.as<ArgFRegister>().get() < num_register_backed_fregs;
         }
+
+        return false;
     }
 
     template<typename RegType = arm::Gp>
@@ -1527,8 +1532,8 @@ protected:
         ASSERT(tmp.isGpX());
 
         if (isRegisterBacked(arg)) {
-            arm::Gp reg = register_backed_xregs[arg.getValue()];
-            return Variable(reg);
+            auto index = arg.as<ArgXRegister>().get();
+            return Variable(register_backed_xregs[index]);
         } else {
             return Variable(tmp, getArgRef(arg));
         }
@@ -1536,7 +1541,8 @@ protected:
 
     Variable<arm::VecD> init_destination(const ArgVal &arg, arm::VecD tmp) {
         if (isRegisterBacked(arg)) {
-            return Variable(register_backed_fregs[arg.getValue()]);
+            auto index = arg.as<ArgFRegister>().get();
+            return Variable(register_backed_fregs[index]);
         } else {
             return Variable(tmp, getArgRef(arg));
         }
@@ -1550,22 +1556,28 @@ protected:
         if (arg.isLiteral()) {
             a.ldr(tmp, embed_constant(arg, disp32K));
             return Variable(tmp);
-        } else if (isRegisterBacked(arg)) {
-            arm::Gp xreg = register_backed_xregs[arg.getValue()];
-            return Variable(xreg);
-        } else if (arg.isConstant()) {
-            if ((arg.isImmed() || arg.isWord()) &&
-                Support::isIntOrUInt32(arg.getValue())) {
-                mov_imm(tmp, arg.getValue());
-            } else {
-                a.ldr(tmp, embed_constant(arg, disp32K));
+        } else if (arg.isRegister()) {
+            if (isRegisterBacked(arg)) {
+                auto index = arg.as<ArgXRegister>().get();
+                return Variable(register_backed_xregs[index]);
             }
 
-            return Variable(tmp);
+            auto ref = getArgRef(arg);
+            a.ldr(tmp, ref);
+            return Variable(tmp, ref);
         } else {
-            /* Register */
-            a.ldr(tmp, getArgRef(arg));
-            return Variable(tmp, getArgRef(arg));
+            if (arg.isImmed() || arg.isWord()) {
+                auto val = arg.isImmed() ? arg.as<ArgImmed>().get()
+                                         : arg.as<ArgWord>().get();
+
+                if (Support::isIntOrUInt32(val)) {
+                    mov_imm(tmp, val);
+                    return Variable(tmp);
+                }
+            }
+
+            a.ldr(tmp, embed_constant(arg, disp32K));
+            return Variable(tmp);
         }
     }
 
@@ -1575,7 +1587,7 @@ protected:
                       arm::Gp tmp2) {
         if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
             !isRegisterBacked(Src2)) {
-            switch (ArgVal::register_relation(Src1, Src2)) {
+            switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);
                 return std::make_pair(Variable(tmp1, getArgRef(Src1)),
@@ -1594,12 +1606,12 @@ protected:
 
     Variable<arm::VecD> load_source(const ArgVal &arg, arm::VecD tmp) {
         if (isRegisterBacked(arg)) {
-            return Variable<arm::VecD>(register_backed_fregs[arg.getValue()]);
-        } else {
-            /* Register */
-            a.ldr(tmp, getArgRef(arg));
-            return Variable<arm::VecD>(tmp);
+            auto index = arg.as<ArgFRegister>().get();
+            return Variable<arm::VecD>(register_backed_fregs[index]);
         }
+
+        a.ldr(tmp, getArgRef(arg));
+        return Variable<arm::VecD>(tmp);
     }
 
     template<typename Reg>
@@ -1690,18 +1702,21 @@ protected:
         flush_var(r);
     }
 
-    void cmp_arg(arm::Gp gp, const ArgVal &val) {
-        if ((val.isImmed() || val.isWord())) {
-            if (Support::isUInt12((Sint)val.getValue())) {
-                a.cmp(gp, imm(val.getValue()));
-            } else if (Support::isUInt12(-(Sint)val.getValue())) {
-                a.adds(ZERO, gp, imm(-(Sint)val.getValue()));
+    void cmp_arg(arm::Gp gp, const ArgVal &arg) {
+        if (arg.isImmed() || arg.isWord()) {
+            Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
+                                     : arg.as<ArgWord>().get();
+
+            if (Support::isUInt12(val)) {
+                a.cmp(gp, imm(val));
+            } else if (Support::isUInt12(-val)) {
+                a.adds(ZERO, gp, imm(-val));
             } else {
-                mov_arg(SUPER_TMP, val);
+                mov_arg(SUPER_TMP, arg);
                 a.cmp(gp, SUPER_TMP);
             }
         } else {
-            mov_arg(SUPER_TMP, val);
+            mov_arg(SUPER_TMP, arg);
             a.cmp(gp, SUPER_TMP);
         }
     }
@@ -1710,7 +1725,7 @@ protected:
                   arm::Gp gp2,
                   const ArgVal &Dst1,
                   const ArgVal &Dst2) {
-        ASSERT(ArgVal::register_relation(Dst1, Dst2) ==
+        ASSERT(ArgVal::memory_relation(Dst1, Dst2) ==
                ArgVal::Relation::consecutive);
         safe_stp(gp1, gp2, getArgRef(Dst1));
     }
@@ -1747,7 +1762,7 @@ protected:
                   arm::Gp gp2,
                   const ArgVal &Src1,
                   const ArgVal &Src2) {
-        ASSERT(ArgVal::register_relation(Src1, Src2) ==
+        ASSERT(ArgVal::memory_relation(Src1, Src2) ==
                ArgVal::Relation::consecutive);
 
         safe_ldp(gp1, gp2, getArgRef(Src1));

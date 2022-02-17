@@ -186,6 +186,78 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero,
 		'H' => 1,	# exception handler
 	     );
 
+# Maps operand type to the argument classes used by the JIT.
+my %arg_jit_class = ('r' => 'ArgXRegister',
+                     'x' => 'ArgXRegister',
+                     'y' => 'ArgYRegister',
+                     'a' => 'ArgAtom',
+                     'n' => 'ArgNil',
+                     'c' => 'ArgConstant',
+                     's' => 'ArgSource',
+                     'S' => 'ArgRegister',
+                     'd' => 'ArgRegister',
+                     'f' => 'ArgLabel',
+                     'j' => 'ArgLabel',
+                     'e' => 'ArgExport',
+                     'L' => 'ArgLabel',
+                     't' => 'ArgWord',
+                     'I' => 'ArgWord',
+                     'W' => 'ArgWord',
+                     'b' => 'ArgWord',
+                     'F' => 'ArgLambda',
+                     'A' => 'ArgWord',
+                     'P' => 'ArgWord',
+                     'Q' => 'ArgWord',
+                     'h' => 'ArgWord',
+                     'l' => 'ArgFRegister',
+                     'q' => 'ArgLiteral',
+                     'M' => 'ArgBytePtr',
+                     'H' => 'ArgCatch',
+                    );
+
+# Define a lattice for the parameter classes used in the JIT.
+#
+# The classes are represented as a bitset where each class is represented by
+# a single bit, which is combined with that of its superclasses, letting us
+# find the best superclass for a given set of classes by AND-ing them together.
+my %arg_jit_lattice;
+{
+    # Perl lacks enums, lovely :(
+    my $iota = 0;
+    my %jcl;
+
+    $jcl{'ArgVal'} = (1 << $iota++),
+
+    $jcl{'ArgBytePtr'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgCatch'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgExport'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgLabel'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgLambda'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgSource'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgWord'} = $jcl{'ArgVal'} | (1 << $iota++);
+
+    $jcl{'ArgConstant'} = $jcl{'ArgSource'} | (1 << $iota++);
+    $jcl{'ArgRegister'} = $jcl{'ArgSource'} | (1 << $iota++);
+
+    $jcl{'ArgLiteral'} = $jcl{'ArgConstant'} | (1 << $iota++);
+    $jcl{'ArgImmed'} = $jcl{'ArgConstant'} | (1 << $iota++);
+
+    $jcl{'ArgAtom'} = $jcl{'ArgImmed'} | (1 << $iota++);
+    $jcl{'ArgNil'} = $jcl{'ArgImmed'} | (1 << $iota++);
+    $jcl{'ArgSmall'} = $jcl{'ArgImmed'} | (1 << $iota++);
+
+    $jcl{'ArgXRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+    $jcl{'ArgYRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+    $jcl{'ArgFRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+
+    foreach my $class (keys %jcl) {
+        my $bits = $jcl{$class};
+        $jcl{$bits} = $class;
+    }
+
+    %arg_jit_lattice = %jcl;
+}
+
 #
 # Types that are forbidden to use for specific operations.
 #
@@ -758,17 +830,33 @@ sub emulator_output {
 
         # Sort the generated code to create beamasm_protos.h deterministically
         foreach $key (sort keys %specific_op) {
-            foreach (@{$specific_op{$key}}) {
-                my($name, $hotness, $varargs, @args) = @$_;
+            my @specific_ops = @{$specific_op{$key}};
+            my ($name,
+                $hotness,
+                $varargs,
+                @combined_signs) = @{shift @specific_ops};
 
-		@args = ("const ArgVal&") x @args;
-		if ($varargs) {
-		    push @args, "const Span<ArgVal>&";
-		}
+            # We want to reduce all specific ops to the same prototype, so
+            # their signs must be combined to find the right argument types.
+            foreach (@specific_ops) {
+                my (undef, undef, undef, @specific_signs) = @$_;
 
-                print "void emit_$name(", join(", ", @args), ");\n";
-                last; # We only want to print one prototype
+                for my $i (0..$#combined_signs) {
+                    $combined_signs[$i] .= $specific_signs[$i];
+                }
             }
+
+            my @typed_args;
+            for my $signs (@combined_signs) {
+                my $class = get_jit_class($signs);
+                push @typed_args, "const $class&";
+            }
+
+            if ($varargs) {
+                push @typed_args, "const Span<ArgVal>&";
+            }
+
+            print "void emit_$name(", join(", ", @typed_args), ");\n";
         }
     }
 
@@ -3365,4 +3453,26 @@ sub include_files() {
     print '#include "erl_atom_table.h"', "\n";
     print '#include "beam_load.h"', "\n";
     print "\n";
+}
+
+# Converts a sign string to its most specific argument class, e.g. "an" becomes
+# 'ArgImmed' because both are immediates, and "anx" becomes 'ArgSource' because
+# all of them are sources.
+sub get_jit_class {
+    my $signs__ = shift;
+    $signs__ =~ s/[?]//g;
+
+    my @signs = split //, $signs__;
+
+    my $type = $arg_jit_class{shift(@signs)};
+    my $combined_bits = $arg_jit_lattice{$type};
+
+    foreach my $sign (@signs) {
+        my $next_type = $arg_jit_class{$sign};
+        my $next_bits = $arg_jit_lattice{$next_type};
+
+        $combined_bits &= $next_bits;
+    }
+
+    return $arg_jit_lattice{$combined_bits};
 }

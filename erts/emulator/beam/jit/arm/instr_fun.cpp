@@ -142,41 +142,41 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
  * not clobber LR (x30).
  *
  * ARG4 = fun thing */
-void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
-                                                   const ArgVal &Lbl,
-                                                   const ArgVal &Arity,
-                                                   const ArgVal &NumFree) {
+void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
+                                                   const ArgLabel &Lbl,
+                                                   const ArgWord &Arity,
+                                                   const ArgWord &NumFree) {
     const ssize_t env_offset = offsetof(ErlFunThing, env) - TAG_PRIMARY_BOXED;
-    const ssize_t fun_arity = Arity.getValue() - NumFree.getValue();
-    const ssize_t total_arity = Arity.getValue();
+    const ssize_t fun_arity = Arity.get() - NumFree.get();
+    const ssize_t total_arity = Arity.get();
 
-    const auto &lambda = lambdas[Index.getValue()];
+    const auto &lambda = lambdas[Lambda.get()];
     a.bind(lambda.trampoline);
 
-    if (NumFree.getValue() == 1) {
-        auto first = init_destination(ArgVal(ArgVal::XReg, fun_arity), TMP1);
+    if (NumFree.get() == 1) {
+        auto first = init_destination(ArgXRegister(fun_arity), TMP1);
 
         /* Don't bother untagging when there's only a single element, it's
          * guaranteed to be within range of LDUR. */
         emit_ptr_val(ARG4, ARG4);
         a.ldur(first.reg, arm::Mem(ARG4, env_offset));
         flush_var(first);
-    } else if (NumFree.getValue() >= 2) {
+    } else if (NumFree.get() >= 2) {
         ssize_t i;
 
         emit_ptr_val(ARG4, ARG4);
         a.add(ARG4, ARG4, imm(env_offset));
 
         for (i = fun_arity; i < total_arity - 1; i += 2) {
-            auto first = init_destination(ArgVal(ArgVal::XReg, i), TMP1);
-            auto second = init_destination(ArgVal(ArgVal::XReg, i + 1), TMP2);
+            auto first = init_destination(ArgXRegister(i), TMP1);
+            auto second = init_destination(ArgXRegister(i + 1), TMP2);
 
             a.ldp(first.reg, second.reg, arm::Mem(ARG4).post(sizeof(Eterm[2])));
             flush_vars(first, second);
         }
 
         if (i < total_arity) {
-            auto last = init_destination(ArgVal(ArgVal::XReg, i), TMP1);
+            auto last = init_destination(ArgXRegister(i), TMP1);
             a.ldr(last.reg, arm::Mem(ARG4));
             flush_var(last);
         }
@@ -185,18 +185,18 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgVal &Index,
     a.b(resolve_beam_label(Lbl, disp128MB));
 }
 
-void BeamModuleAssembler::emit_i_make_fun3(const ArgVal &Fun,
-                                           const ArgVal &Dst,
-                                           const ArgVal &Arity,
-                                           const ArgVal &NumFree,
+void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
+                                           const ArgRegister &Dst,
+                                           const ArgWord &Arity,
+                                           const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    const ssize_t num_free = NumFree.getValue();
+    const ssize_t num_free = NumFree.get();
     ssize_t i;
 
     ASSERT(num_free == env.size());
 
     a.mov(ARG1, c_p);
-    mov_arg(ARG2, Fun);
+    mov_arg(ARG2, Lambda);
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
@@ -309,7 +309,7 @@ void BeamModuleAssembler::emit_i_apply_fun() {
     erlang_call(emit_call_fun());
 }
 
-void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_apply_fun_last(const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
     emit_i_apply_fun_only();
 }
@@ -386,77 +386,68 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
 }
 
 void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
-                                           const ArgVal &Arity,
-                                           const ArgVal &Func) {
+                                           const ArgWord &Arity,
+                                           const ArgRegister &Func) {
     mov_arg(ARG4, Func);
 
-    if (Tag.isImmed()) {
-        ASSERT(is_atom(Tag.getValue()));
-
-        mov_imm(ARG3, Arity.getValue());
+    if (Tag.isAtom()) {
+        mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
                 always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
                 masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
-                Tag.getValue() == am_safe);
+                Tag.as<ArgAtom>().get() == am_safe);
 
         erlang_call(target);
     } else {
-        ASSERT(Tag.getType() == ArgVal::FunEntry);
-
-        const auto &trampoline = lambdas[Tag.getValue()].trampoline;
+        const auto &trampoline = lambdas[Tag.as<ArgLambda>().get()].trampoline;
         erlang_call(resolve_label(trampoline, disp128MB));
     }
 }
 
 void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
-                                                const ArgVal &Arity,
-                                                const ArgVal &Func,
-                                                const ArgVal &Deallocate) {
+                                                const ArgWord &Arity,
+                                                const ArgRegister &Func,
+                                                const ArgWord &Deallocate) {
     mov_arg(ARG4, Func);
 
-    if (Tag.isImmed()) {
-        ASSERT(is_atom(Tag.getValue()));
-
-        mov_imm(ARG3, Arity.getValue());
+    if (Tag.isAtom()) {
+        mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
                 always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
                 masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
-                Tag.getValue() == am_safe);
+                Tag.as<ArgAtom>().get() == am_safe);
 
         emit_deallocate(Deallocate);
         emit_leave_erlang_frame();
 
         a.br(target);
     } else {
-        ASSERT(Tag.getType() == ArgVal::FunEntry);
-
-        const auto &trampoline = lambdas[Tag.getValue()].trampoline;
-
         emit_deallocate(Deallocate);
         emit_leave_erlang_frame();
 
+        const auto &trampoline = lambdas[Tag.as<ArgLambda>().get()].trampoline;
         a.b(resolve_label(trampoline, disp128MB));
     }
 }
 
-void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Arity) {
-    const ArgVal Func(ArgVal::XReg, Arity.getValue());
-    const ArgVal Tag(ArgVal::Immediate, am_unsafe);
+void BeamModuleAssembler::emit_i_call_fun(const ArgWord &Arity) {
+    const ArgXRegister Func(Arity.get());
+    const ArgAtom Tag(am_unsafe);
 
     emit_i_call_fun2(Tag, Arity, Func);
 }
 
-void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Arity,
-                                               const ArgVal &Deallocate) {
-    const ArgVal Func(ArgVal::XReg, Arity.getValue());
-    const ArgVal Tag(ArgVal::Immediate, am_unsafe);
+void BeamModuleAssembler::emit_i_call_fun_last(const ArgWord &Arity,
+                                               const ArgWord &Deallocate) {
+    const ArgXRegister Func(Arity.get());
+    const ArgAtom Tag(am_unsafe);
 
     emit_i_call_fun2_last(Tag, Arity, Func, Deallocate);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
-void BeamModuleAssembler::emit_i_lambda_error(const ArgVal &Dummy) {
+void BeamModuleAssembler::emit_i_lambda_error(const ArgWord &Dummy) {
     emit_nyi("emit_i_lambda_error");
 }

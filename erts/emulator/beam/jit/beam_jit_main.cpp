@@ -272,10 +272,10 @@ void beamasm_init() {
                 ArgVal(ArgVal::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Label, func_label),
+        args = {ArgVal(ArgVal::Word, func_label),
                 ArgVal(ArgVal::Immediate, mod_name),
                 ArgVal(ArgVal::Immediate, op.name),
-                ArgVal(ArgVal::Immediate, op.arity)};
+                ArgVal(ArgVal::Word, op.arity)};
         bma->emit(op_i_func_info_IaaI, args);
 
         args = {ArgVal(ArgVal::Label, entry_label),
@@ -421,10 +421,10 @@ extern "C"
         args = {ArgVal(ArgVal::Label, 1), ArgVal(ArgVal::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Label, 1),
+        args = {ArgVal(ArgVal::Word, 1),
                 ArgVal(ArgVal::Immediate, info->mfa.module),
                 ArgVal(ArgVal::Immediate, info->mfa.function),
-                ArgVal(ArgVal::Immediate, info->mfa.arity)};
+                ArgVal(ArgVal::Word, info->mfa.arity)};
         ba.emit(op_i_func_info_IaaI, args);
 
         args = {ArgVal(ArgVal::Label, 2), ArgVal(ArgVal::Word, sizeof(UWord))};
@@ -433,9 +433,9 @@ extern "C"
         args = {};
         ba.emit(op_i_breakpoint_trampoline, args);
 
-        args = {ArgVal(ArgVal::Immediate, (BeamInstr)normal_fptr),
-                ArgVal(ArgVal::Immediate, (BeamInstr)lib),
-                ArgVal(ArgVal::Immediate, (BeamInstr)dirty_fptr)};
+        args = {ArgVal(ArgVal::Word, (BeamInstr)normal_fptr),
+                ArgVal(ArgVal::Word, (BeamInstr)lib),
+                ArgVal(ArgVal::Word, (BeamInstr)dirty_fptr)};
         ba.emit(op_call_nif_WWW, args);
 
         ba.codegen(buff, buff_len);

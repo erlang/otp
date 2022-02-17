@@ -49,17 +49,17 @@ void BeamModuleAssembler::emit_return() {
     a.ret(a64::x30);
 }
 
-void BeamModuleAssembler::emit_i_call(const ArgVal &CallTarget) {
+void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
     erlang_call(resolve_beam_label(CallTarget, disp128MB));
 }
 
-void BeamModuleAssembler::emit_i_call_last(const ArgVal &CallTarget,
-                                           const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallTarget,
+                                           const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
     emit_i_call_only(CallTarget);
 }
 
-void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallTarget) {
+void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     emit_leave_erlang_frame();
     a.b(resolve_beam_label(CallTarget, disp128MB));
 }
@@ -91,14 +91,14 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
     branch(emit_setup_dispatchable_call(ARG1, TMP1));
 }
 
-void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
+void BeamModuleAssembler::emit_i_call_ext(const ArgExport &Exp) {
     mov_arg(ARG1, Exp);
 
     arm::Mem target = emit_setup_dispatchable_call(ARG1);
     erlang_call(target);
 }
 
-void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
+void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
     mov_arg(ARG1, Exp);
 
     arm::Mem target = emit_setup_dispatchable_call(ARG1);
@@ -106,8 +106,8 @@ void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
     branch(target);
 }
 
-void BeamModuleAssembler::emit_i_call_ext_last(const ArgVal &Exp,
-                                               const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
+                                               const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
     emit_i_call_ext_only(Exp);
 }
@@ -152,7 +152,7 @@ void BeamModuleAssembler::emit_i_apply() {
     erlang_call(target);
 }
 
-void BeamModuleAssembler::emit_i_apply_last(const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_apply_last(const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
     emit_i_apply_only();
 }
@@ -164,7 +164,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
     branch(target);
 }
 
-arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
+arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
                                                bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
@@ -173,7 +173,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
     mov_arg(ARG3, Arity);
 
     emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
-                       Update::eXRegs>(Arity.getValue() + 2);
+                       Update::eXRegs>(Arity.get() + 2);
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -201,13 +201,13 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
     return emit_setup_dispatchable_call(ARG1);
 }
 
-void BeamModuleAssembler::emit_apply(const ArgVal &Arity) {
+void BeamModuleAssembler::emit_apply(const ArgWord &Arity) {
     arm::Mem target = emit_fixed_apply(Arity, false);
     erlang_call(target);
 }
 
-void BeamModuleAssembler::emit_apply_last(const ArgVal &Arity,
-                                          const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
+                                          const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
 
     arm::Mem target = emit_fixed_apply(Arity, true);
