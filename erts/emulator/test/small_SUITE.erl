@@ -23,7 +23,8 @@
 
 -export([all/0, suite/0, groups/0]).
 -export([edge_cases/1, addition/1, subtraction/1, multiplication/1,
-         element/1]).
+         element/1,
+         range_optimization/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +38,8 @@ all() ->
 groups() ->
     [{p, [parallel],
       [edge_cases, addition, subtraction, multiplication,
-       element]}].
+       element,
+       range_optimization]}].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -480,6 +482,33 @@ element_8(N0, E) ->
             ok;
         true ->
             error
+    end.
+
+%% Test basic range optimization of arguments.
+range_optimization(_Config) ->
+    immed_reg_confusion(),
+
+    ok.
+
+%% The JIT confused x15/y15 with smalls when checking whether an argument fell
+%% within the range of a small, because `is_small(arg.getValue())` happened to
+%% be true.
+immed_reg_confusion() ->
+    M = any_integer(1),
+    N = any_integer(1 bsl 128),
+    Res = any_integer(M bor N),
+
+    Res = bor_x0_x15(M, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, N),
+
+    ok.
+
+bor_x0_x15(_x0, _x1, _x2, _x3, _x4, _x5, _x6, _x7, _x8, _x9,
+           _x10, _x11, _x12, _x13, _x14, _x15) ->
+    _x0 bor _x15.
+
+any_integer(I) ->
+    case id(I) of
+        N when is_integer(N) -> N
     end.
 
 %%%
