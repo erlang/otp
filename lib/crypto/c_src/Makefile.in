@@ -120,11 +120,17 @@ CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(T
 
 NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
-TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
-
 NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).@DED_EXT@
 CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).@DED_EXT@
+
+DISABLE_OTP_TEST_ENGINE = @DISABLE_OTP_TEST_ENGINE@
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+TEST_ENGINE_LIB =
+TEST_ENGINE_OBJS =
+else
 TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).@DED_EXT@
+TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
+endif
 
 DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
 # Weird that we compile as if dynamically linking when statically
@@ -183,6 +189,8 @@ debug opt valgrind asan: $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
 
 static_lib: $(NIF_ARCHIVE)
 
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+else
 $(OBJDIR)/otp_test_engine$(TYPEMARKER).o: otp_test_engine.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
 	$(V_CC) -c -o $@ $(filter-out -Wmissing-prototypes,$(ALL_CFLAGS)) $<
@@ -194,6 +202,7 @@ $(LIBDIR)/otp_test_engine$(TYPEMARKER).so: $(TEST_ENGINE_OBJS)
 $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll: $(TEST_ENGINE_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
 	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(TEST_ENGINE_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME) $(SSL_EXTRA_LIBS)
+endif
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
@@ -256,7 +265,10 @@ release_spec: opt
 ifeq ($(DYNAMIC_OR_WIN_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
 endif
+ifeq ($(DISABLE_OTP_TEST_ENGINE),yes)
+else
 	$(INSTALL_PROGRAM) $(TEST_ENGINE_LIB) "$(RELSYSDIR)/priv/lib"
+endif
 
 release_docs_spec:
 
