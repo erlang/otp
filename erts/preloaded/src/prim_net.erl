@@ -121,7 +121,7 @@ on_load(Extra) ->
     ok = erlang:load_nif(atom_to_list(net), Extra).
 
 
--spec info() -> list().
+-spec info() -> map().
 
 info() ->
     nif_info().
