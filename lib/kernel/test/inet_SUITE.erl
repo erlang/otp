@@ -48,7 +48,7 @@
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
-         simple_netns/1, simple_netns_open/1,
+         simple_netns/1, simple_netns_open/1, udp_multicast_ipv6/1,
          add_del_host/1, add_del_host_v6/1,
          simple_bind_to_device/1, simple_bind_to_device_open/1,
 	 socknames_sctp/1, socknames_tcp/1, socknames_udp/1
@@ -78,7 +78,7 @@ all() ->
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, ipv4_mapped_ipv6_address, ntoa,
-     simple_netns, simple_netns_open,
+     simple_netns, simple_netns_open, udp_multicast_ipv6,
      add_del_host, add_del_host_v6,
      simple_bind_to_device, simple_bind_to_device_open,
      {group, socknames}
@@ -1686,6 +1686,16 @@ jog_netns_opt(S) ->
     {ok,[{netns,"/proc/self/ns/net"}]} = inet:getopts(S, [netns]),
     ok.
 
+udp_multicast_ipv6(_Config) ->
+    % works:
+    {ok, _} = inet:udp_options([
+        {multicast_if, {192, 168, 0, 1}}
+    ], inet6_udp),
+    % fails with badarg:
+    {ok, _} = inet:udp_options([
+        {multicast_if, {65153, 0, 0, 0, 0, 0, 0, 1}}
+    ], inet6_udp),
+    ok.
 
 %% Smoke test netns support.
 simple_netns_open(Config) when is_list(Config) ->
