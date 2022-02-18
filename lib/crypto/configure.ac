@@ -36,6 +36,11 @@ AC_LANG(C)
 
 LM_PRECIOUS_VARS
 
+## Delete previous failed configure results
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
 else
