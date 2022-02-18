@@ -388,9 +388,9 @@ static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
 static unsigned int address_info_length(struct addrinfo* addrInfoP);
 
 static ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
-                                         int        family);
+                                               int        family);
 static ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
-                                       int        socktype);
+                                             int        socktype);
 
 static void make_address_info(ErlNifEnv*    env,
                               ERL_NIF_TERM  fam,
@@ -401,7 +401,9 @@ static void make_address_info(ErlNifEnv*    env,
 
 static BOOLEAN_T get_debug(ErlNifEnv*   env,
                            ERL_NIF_TERM map);
-static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
+static int on_load(ErlNifEnv*   env,
+                   void**       priv_data,
+                   ERL_NIF_TERM load_info);
 
 
 #if HAVE_IN6
@@ -2357,7 +2359,6 @@ ErlNifFunc net_funcs[] =
 };
 
 
-#if !defined(__WIN32__)
 static
 BOOLEAN_T get_debug(ErlNifEnv*   env,
                     ERL_NIF_TERM map)
@@ -2370,7 +2371,6 @@ BOOLEAN_T get_debug(ErlNifEnv*   env,
     
     return esock_get_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
 }
-#endif
 
 
 /* =======================================================================
