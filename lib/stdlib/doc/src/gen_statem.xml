@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2021</year>
+      <year>2016</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -636,6 +636,14 @@ handle_event(_, _, State, Data) ->
 	  to a process that has called the <c>gen_statem</c> server using
 	  <seemfa marker="#call/2"><c>call/2</c></seemfa>.
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="reply_tag"/>
+      <desc>
+        <p>
+          A handle that associates a reply to the corresponding request.
+        </p>
       </desc>
     </datatype>
     <datatype>
