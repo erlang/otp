@@ -1247,7 +1247,7 @@ dirty_schedulers_online_smp_test(SchedOnln) ->
     ok.
 
 get_sstate(Cmd) ->
-    {ok, Peer, Node} = ?CT_PEER(Cmd),
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
     [SState] = mcall(Node, [fun () ->
                                     erlang:system_info(schedulers_state)
                             end]),
@@ -1255,7 +1255,7 @@ get_sstate(Cmd) ->
     SState.
 
 get_dsstate(Cmd) ->
-    {ok, Peer, Node} = ?CT_PEER(Cmd),
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
     [DSCPU] = mcall(Node, [fun () ->
 				   erlang:system_info(dirty_cpu_schedulers)
 			   end]),
@@ -1578,7 +1578,8 @@ get_ionum(Cmd) ->
 
 get_iostate(Cmd)->
     try
-        {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd}),
+        {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd,
+                                      env => [{"ERL_LIBS", false}]}),
         [IOStates] = mcall(Node,[fun () -> erlang:system_info(check_io) end]),
         IO = [IOState || IOState <- IOStates,
             proplists:get_value(fallback, IOState) == false,
