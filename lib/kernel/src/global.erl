@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,9 +241,9 @@ register_name(Name, Pid, Method0) when is_pid(Pid) ->
     Fun = fun(Nodes) ->
         case (where(Name) =:= undefined) andalso check_dupname(Name, Pid) of
             true ->
-                gen_server:multi_call(Nodes,
-                                      global_name_server,
-                                      {register, Name, Pid, Method}),
+                _ = gen_server:multi_call(Nodes,
+                                          global_name_server,
+                                          {register, Name, Pid, Method}),
                 yes;
             _ ->
                 no
@@ -276,9 +276,9 @@ unregister_name(Name) ->
 	    ok;
 	_ ->
 	    Fun = fun(Nodes) ->
-			  gen_server:multi_call(Nodes,
-						global_name_server,
-						{unregister, Name}),
+			  _ = gen_server:multi_call(Nodes,
+                                                    global_name_server,
+                                                    {unregister, Name}),
 			  ok
 		  end,
             ?trace({unregister_name, self(), Name}),
@@ -298,9 +298,9 @@ re_register_name(Name, Pid) when is_pid(Pid) ->
 re_register_name(Name, Pid, Method0) when is_pid(Pid) ->
     Method = allow_tuple_fun(Method0),
     Fun = fun(Nodes) ->
-		  gen_server:multi_call(Nodes,
-					global_name_server,
-					{register, Name, Pid, Method}),
+		  _ = gen_server:multi_call(Nodes,
+                                            global_name_server,
+                                            {register, Name, Pid, Method}),
 		  yes
 	  end,
     ?trace({re_register_name, self(), Name, Pid, Method}),
@@ -334,10 +334,10 @@ register_name_external(Name, Pid, Method) when is_pid(Pid) ->
     Fun = fun(Nodes) ->
 		  case where(Name) of
 		      undefined ->
-			  gen_server:multi_call(Nodes,
-						global_name_server,
-						{register_ext, Name, Pid, 
-                                                 Method, node()}),
+			  _ = gen_server:multi_call(Nodes,
+                                                    global_name_server,
+                                                    {register_ext, Name, Pid,
+                                                     Method, node()}),
 			  yes;
 		      _Pid -> no
 		  end
@@ -398,7 +398,7 @@ del_lock(Id) ->
       Nodes :: [node()].
 del_lock({_ResourceId, _LockRequesterId} = Id, Nodes) ->
     ?trace({del_lock, {me,self()}, Id, {nodes,Nodes}}),
-    gen_server:multi_call(Nodes, global_name_server, {del_lock, Id}),
+    _ = gen_server:multi_call(Nodes, global_name_server, {del_lock, Id}),
     true.
 
 -type trans_fun() :: function() | {module(), atom()}.
@@ -1058,7 +1058,8 @@ check_replies([{_Node, false=Reply} | _T], _Id, [_]) ->
 check_replies([{_Node, false=Reply} | _T], Id, Replies) ->
     TrueReplyNodes = [N || {N, true} <- Replies],
     ?trace({check_replies, {true_reply_nodes, TrueReplyNodes}}),
-    gen_server:multi_call(TrueReplyNodes, global_name_server, {del_lock, Id}),
+    _ = gen_server:multi_call(
+          TrueReplyNodes, global_name_server, {del_lock, Id}),
     Reply;
 check_replies([], _Id, _Replies) ->
     true.
