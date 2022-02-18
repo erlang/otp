@@ -122,6 +122,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                              socket_options = SockOpts, 
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
+                                             erl_dist := ErlDist,
                                              log_level := LogLevel},
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
@@ -129,6 +130,7 @@ initialize_tls_sender(#state{static_env = #static_env{
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
+             erl_dist => ErlDist, 
              trackers => Trackers,
              transport_cb => Transport,
              negotiated_version => Version,
