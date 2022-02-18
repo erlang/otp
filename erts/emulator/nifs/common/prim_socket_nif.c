@@ -9077,7 +9077,7 @@ ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
     size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
     size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
     struct msghdr msgHdr;
-    struct iovec  iov[1];  // Shall we always use 1?
+    SysIOVec      iov[1];  // Shall we always use 1?
     ErlNifBinary  data[1]; // Shall we always use 1?
     ErlNifBinary  ctrl;
     ERL_NIF_TERM  readerCheck;

@@ -56,13 +56,13 @@ extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ERL_NIF_TERM  eIOV,
                            ErlNifBinary* bufs,
-                           struct iovec* iov,
+                           SysIOVec*     iov,
                            size_t        len,
                            ssize_t*      totSize);
 extern
 void esock_encode_iov(ErlNifEnv*    env,
                       ssize_t       read,
-                      struct iovec* iov,
+                      SysIOVec*     iov,
                       size_t        len,
                       ErlNifBinary* data,
                       ERL_NIF_TERM* eIOV);
