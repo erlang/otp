@@ -1070,17 +1070,10 @@ ESOCK_NIF_OBJS = \
 	$(OBJDIR)/prim_socket_nif.o \
 	$(OBJDIR)/prim_net_nif.o
 
-ifneq ($(TARGET), win32)
-# These are *currently* only needed for non-win32,
-# since the nif-functions for socket and net are basically
-# stubbed with notsup in the win32 case.
 ESOCK_RUN_OBJS = \
 	$(OBJDIR)/socket_dbg.o \
 	$(OBJDIR)/socket_tarray.o \
 	$(OBJDIR)/socket_util.o
-else
-ESOCK_RUN_OBJS =
-endif
 
 else
 
