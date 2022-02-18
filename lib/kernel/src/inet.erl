@@ -2309,4 +2309,8 @@ lock_socket(S,Val) ->
 
 
 ensure_sockaddr(SockAddr) ->
-    prim_socket:enc_sockaddr(SockAddr).
+    try prim_socket:enc_sockaddr(SockAddr)
+    catch
+        throw : {invalid, _} = Invalid : Stacktrace ->
+            erlang:raise(error, Invalid, Stacktrace)
+    end.
