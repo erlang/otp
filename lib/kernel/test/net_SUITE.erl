@@ -225,7 +225,9 @@ api_b_getifaddrs() ->
             ?FAIL(Reason)
     catch
         error : notsup = CReason ->
-            i("~w => skipping", [CReason]),
+            i("~w => skipping"
+              "~n   prim_net:getinterfaceinfo: ~p",
+              [CReason, (catch prim_net:getinterfaceinfo(#{}))]),
             skip(CReason)
     end.
 
