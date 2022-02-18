@@ -60,6 +60,7 @@
          role,
          socket,
          socket_options,
+         erl_dist,
          trackers,
          transport_cb,
          negotiated_version,
@@ -223,6 +224,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            role := Role,
                            socket := Socket,
                            socket_options := SockOpts,
+                           erl_dist := IsErlDist,
                            trackers := Trackers,
                            transport_cb := Transport,
                            negotiated_version := Version,
@@ -236,6 +238,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 role = Role,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
+                                                erl_dist = IsErlDist,
                                                 trackers = Trackers,
                                                 transport_cb = Transport,
                                                 negotiated_version = Version,
@@ -420,7 +423,7 @@ handle_common({call, From}, {set_opts, Opts},
     {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]};
 handle_common(info, {'EXIT', _Sup, shutdown},
-              #data{static = #static{dist_handle = Handle}} = StateData) when Handle =/= undefined ->
+              #data{static = #static{erl_dist = true}} = StateData) ->
     %% When the connection is on its way down operations
     %% begin to fail. We wait for 5 seconds to receive
     %% possible exit signals for one of our links to the other
@@ -428,7 +431,7 @@ handle_common(info, {'EXIT', _Sup, shutdown},
     %% their exit reason for the connection teardown.
     {next_state, death_row, StateData, [{state_timeout, 5000, shutdown}]};
 handle_common(info, {'EXIT', _Dist, Reason},
-              #data{static = #static{dist_handle = Handle}} = StateData) when Handle =/= undefined ->
+              #data{static = #static{erl_dist = true}} = StateData) ->
     {stop, {shutdown, Reason}, StateData};
 handle_common(info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
