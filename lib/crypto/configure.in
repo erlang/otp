@@ -25,6 +25,11 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 AC_INIT(vsn.mk)
 
+## Delete previous failed configure results
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
 AC_CONFIG_AUX_DIRS(${ERL_TOP}/erts/autoconf)
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
