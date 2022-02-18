@@ -308,7 +308,7 @@ getifaddrs(Filter) when is_atom(Filter) orelse is_map(Filter) ->
 getifaddrs(Filter) when is_function(Filter, 1) ->
     do_getifaddrs(Filter, fun() -> prim_net:getifaddrs(#{}) end);
 getifaddrs(Namespace) when is_list(Namespace) ->
-    prim_net:getifaddrs(#{netns => Namespace}).
+    getifaddrs(default, Namespace).
 -else.
 getifaddrs(Filter) when is_atom(Filter) orelse
                         is_map(Filter) orelse
@@ -338,7 +338,7 @@ getifaddrs(Filter, Namespace)
 -dialyzer({no_return, do_getifaddrs/2}).
 
 do_getifaddrs(Filter, GetIfAddrs) ->
-    case GetIfAddrs() of
+    try GetIfAddrs() of
         {ok, IfAddrs0} when is_function(Filter) ->
             {ok, lists:filtermap(Filter, IfAddrs0)};
         {ok, IfAddrs0} when is_map(Filter) ->
@@ -346,6 +346,15 @@ do_getifaddrs(Filter, GetIfAddrs) ->
             {ok, lists:filtermap(FilterFun, IfAddrs0)};
         {error, _} = ERROR ->
             ERROR
+    catch
+        C : E : S when (C =:= error) andalso (E =:= notsup) ->
+            %% This is just a placeholder for the future!
+            %% This means we are on windows, and should
+            %% call the windows specific functions:
+            %%    get_interface_info
+            %%    get_ip_addr_table
+            %%    get_adapters_addresses
+            erlang:raise(C, E, S)
     end.
 
 getifaddrs_filter_map(all) ->
