@@ -871,6 +871,13 @@ AS_IF([test "$enable_fips_support" = "yes"],
           LIBS="$saveLIBS"
       ])
 
+AS_IF([test "x$v3_include" = "xyes"],
+      [echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
+       AC_MSG_WARN(******************************************************************)
+       AC_MSG_WARN(* Using OpenSSL 3.0 is not yet recommended for production code.  *)
+       AC_MSG_WARN(******************************************************************)
+      ])
+
 AS_IF([test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""],
       [deprecated_warnings=no
       ])
