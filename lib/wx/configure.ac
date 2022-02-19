@@ -327,11 +327,6 @@ dnl
 dnl  Check for wxwidgets
 dnl 
 AS_IF(
-  [test "$cross_compiling" = "yes"],
-  [
-    WX_MSG_ERROR([Cross compilation of the wx driver is not supported yet, wx will NOT be usable])
-  ],
-
   [test  X"$MIXED_VC" = X"no"],
   [
     m4_include(wxwin-nothrow.m4)
