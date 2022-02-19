@@ -152,6 +152,8 @@
   {applications, []},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false},
+         {net_tickintensity, 4},
+         {net_ticktime, 60},
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
