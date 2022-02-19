@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,23 +25,17 @@
 
 -module(diameter_transport_SUITE).
 
+%% all tests, no common_test dependency
+-export([run/0]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([start/1,
-         tcp_accept/1,
-         tcp_connect/1,
-         sctp_accept/1,
-         sctp_connect/1,
-         reconnect/1, reconnect/0,
-         stop/1]).
+         parallel/1]).
 
 -export([accept/1,
          connect/1,
+         reconnect/1,
          init/2]).
 
 -include_lib("kernel/include/inet_sctp.hrl").
@@ -84,93 +78,63 @@
 -define(SCTP(Sock, Data), {sctp, Sock, _, _, Data}).
 
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 15}}].
+    [{timetrap, {seconds, 270}}].
 
 all() ->
-    [start,
-     {group, all},
-     {group, all, [parallel]},
-     stop].
+    [parallel].
 
-groups() ->
-    [{all, [], tc()}].
-
-tc() ->
-    [tcp_accept,
-     tcp_connect,
-     sctp_accept,
-     sctp_connect,
-     reconnect].
-
-init_per_suite(Config) ->
-    [{sctp, ?util:have_sctp()} | Config].
-
-end_per_suite(_Config) ->
-    ok.
+parallel(_) ->
+    run().
 
 %% ===========================================================================
 
-start(_Config) ->
-    ok = diameter:start().
+%% run/0
 
-stop(_Config) ->
-    ok = diameter:stop().
-
-%% ===========================================================================
-%% tcp_accept/1
-%% sctp_accept/1
-%%
-%% diameter transport accepting, test code connecting.
-
-tcp_accept(_) ->
-    accept(tcp).
-
-sctp_accept(Config) ->
-    case lists:member({sctp, true}, Config) of
-        true  -> accept(sctp);
-        false -> {skip, no_sctp}
+run() ->
+    ok = diameter:start(),
+    try
+        ?util:run([[fun run/1, {P,F}]
+                   || P <- [sctp || ?util:have_sctp()] ++ [tcp],
+                      F <- [connect, accept, reconnect]])
+    after
+        diameter:stop()
     end.
 
-%% Start multiple accepting transport processes that are connected to
-%% with an equal number of connecting processes using gen_tcp/sctp
-%% directly.
+%% run/1
 
--define(PEER_COUNT, 8).
+run({Prot, reconnect}) ->
+    reconnect(Prot);
+
+run({Prot, accept}) ->
+    accept(Prot);
+
+run({Prot, connect}) ->
+    connect(Prot).
+
+%% ===========================================================================
+%% accept/1
+%%
+%% diameter transport accepting, test code connecting.
 
 accept(Prot) ->
     Ref = make_ref(),
     true = diameter_reg:add_new({diameter_config, transport, Ref}), %% fake it
     T = {Prot, Ref},
-    [] = ?util:run(?util:scramble(acc(2*?PEER_COUNT, T, []))).
-
-acc(0, _, Acc) ->
-    Acc;
-acc(N, T, Acc) ->
-    acc(N-1, T, [{?MODULE, [init,
-                            element(1 + N rem 2, {accept, gen_connect}),
-                            T]}
-                 | Acc]).
+    ?util:run([{{?MODULE, [init, X, T]}, 15000}
+               || X <- [accept, gen_connect]]).
 
 %% ===========================================================================
-%% tcp_connect/1
-%% sctp_connect/1
+%% connect/1
 %%
 %% Test code accepting, diameter transport connecting.
 
-tcp_connect(_) ->
-    connect(tcp).
-
-sctp_connect(Config) ->
-    case lists:member({sctp, true}, Config) of
-        true  -> connect(sctp);
-        false -> {skip, no_sctp}
-    end.
-
 connect(Prot) ->
     T = {Prot, make_ref()},
-    [] = ?util:run([{?MODULE, [init, X, T]} || X <- [gen_accept, connect]]).
+    ?util:run([{{?MODULE, [init, X, T]}, 15000}
+               || X <- [gen_accept, connect]]).
 
 %% ===========================================================================
 %% reconnect/1
@@ -178,9 +142,6 @@ connect(Prot) ->
 %% Exercise reconnection behaviour: that a connecting transport
 %% doesn't try to establish a new connection until the old one is
 %% broken.
-
-reconnect() ->
-    [{timetrap, {minutes, 4}}].
 
 reconnect({listen, Ref}) ->
     SvcName = make_ref(),
@@ -222,10 +183,11 @@ reconnect({connect, Ref}) ->
     MRef = erlang:monitor(process, Pid),
     ?RECV({'DOWN', MRef, process, _, _});
 
-reconnect(_) ->
+reconnect(Prot) ->
     Ref = make_ref(),
-    [] = ?util:run([{?MODULE, [reconnect, {T, Ref}]}
-                    || T <- [listen, connect]]).
+    ?util:run([{{?MODULE, [reconnect, {T, Ref}]}, 240000}
+               || Prot == tcp,  %% ignore sctp
+                  T <- [listen, connect]]).
 
 start_service(SvcName) ->
     OH = diameter_util:unique_string(),
@@ -430,8 +392,9 @@ gen_send(tcp, Sock, Bin) ->
 gen_recv(sctp, Sock) ->
     {_OS, _IS, Id} = getr(assoc),
     receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = Id}], Bin})
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], Bin})
           when is_binary(Bin) ->
+            {Id, _} = {I, Id},  %% assert
             Bin
     end;
 gen_recv(tcp, Sock) ->
