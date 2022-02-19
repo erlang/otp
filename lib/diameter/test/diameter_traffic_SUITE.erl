@@ -127,14 +127,6 @@
 
 %% ===========================================================================
 
-%% Fraction of shuffle/parallel groups to randomly skip.
--define(SKIP, 0.90).
-
-%% Positive number of testcases from which to select (randomly) from
-%% tc(), the list of testcases to run, or [] to run all. The random
-%% selection is to limit the time it takes for the suite to run.
--define(LIMIT, #{tcp => 42, sctp => 5}).
-
 -define(util, diameter_util).
 
 -define(A, list_to_atom).
@@ -164,18 +156,8 @@
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
 
-%% Whether to decode stringish Diameter types to strings, or leave
-%% them as binary.
--define(STRING_DECODES, [false, true]).
-
 %% Which transport protocol to use.
 -define(TRANSPORTS, [tcp, sctp]).
-
-%% Send from a dedicated process?
--define(SENDERS, [true, false]).
-
-%% Message callbacks from diameter_{tcp,sctp}?
--define(CALLBACKS, [true, false]).
 
 -record(group,
         {transport,
@@ -281,40 +263,8 @@ all() ->
 -define(GROUPS, []).
 %-define(GROUPS, [[sctp,rfc6733,record,map,false,false,true,false]]).
 
-%% Issues with gen_sctp sporadically cause huge numbers of failed
-%% testcases when running testcases in parallel.
 groups() ->
-    Names = names([] == ?GROUPS orelse ?GROUPS),
-    [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
-        ++
-        [{?util:name(N), [], [{group, if T == sctp; S -> shuffle;
-                                         true         -> parallel end}]}
-         || [T,_,_,_,S|_] = N <- Names]
-        ++
-        [{T, [], [{group, ?util:name(N)} || N <- Names,
-                                            T == hd(N)]}
-         || T <- ?TRANSPORTS]
-        ++
-        [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
-
-names() ->
-    [[T,R,E,D,S,ST,SS,CS] || T  <- ?TRANSPORTS,
-                             R  <- ?RFCS,
-                             E  <- ?ENCODINGS,
-                             D  <- ?DECODINGS,
-                             S  <- ?STRING_DECODES,
-                             ST <- ?CALLBACKS,
-                             SS <- ?SENDERS,
-                             CS <- ?SENDERS,
-                             ?SKIP =< rand:uniform()].
-
-names(true) ->
-    names(names());
-
-names(Names) ->
-    [N || N <- Names,
-          [CS,SS|_] <- [lists:reverse(N)],
-          SS orelse CS].  %% avoid deadlock
+    [{traffic, [], tc()}].
 
 %% --------------------
 
@@ -334,58 +284,29 @@ end_per_suite(_Config) ->
 init_per_group(_) ->
     [{timetrap, {seconds, 30}}].
 
-init_per_group(Name, Config)
-  when Name == shuffle;
-       Name == parallel ->
+init_per_group(traffic, Config) ->
+    Svc = ?util:unique_string(),
+    Rec = #group{transport = choose([sctp || ?util:have_sctp()] ++ [tcp]),
+                 strings = bool(),
+                 encoding = choose(?ENCODINGS),
+                 client_service = [$C|Svc],
+                 client_dict = appdict(choose(?RFCS)),
+                 client_sender = bool(),
+                 server_service = [$S|Svc],
+                 server_decoding = choose(?DECODINGS),
+                 server_sender = true,
+                 server_throttle = bool()},
+    io:format("config: ~p~n", [Rec]),
+    init_per_group(config, [{group, Rec} | Config]);
+
+init_per_group(_, Config) ->
     start_services(Config),
     add_transports(Config),
-    replace({sleep, Name == parallel}, Config);
+    Config.
 
-init_per_group(sctp = Name, Config) ->
-    {_, Sctp} = lists:keyfind(Name, 1, Config),
-    if Sctp ->
-            Config;
-       true ->
-            {skip, Name}
-    end;
-
-init_per_group(Name, Config) ->
-    Nas = proplists:get_value(rfc4005, Config, false),
-    case ?util:name(Name) of
-        [_,R,_,_,_,_,_,_] when R == rfc4005, true /= Nas ->
-            {skip, rfc4005};
-        [T,R,E,D,S,ST,SS,CS] ->
-            G = #group{transport = T,
-                       strings = S,
-                       encoding = E,
-                       client_service = [$C|?util:unique_string()],
-                       client_dict = appdict(R),
-                       client_sender = CS,
-                       server_service = [$S|?util:unique_string()],
-                       server_decoding = D,
-                       server_sender = SS,
-                       server_throttle = ST},
-            replace([{group, G}, {runlist, select(T)}], Config);
-        _ ->
-            Config
-    end.
-
-end_per_group(Name, Config)
-  when Name == shuffle;
-       Name == parallel ->
+end_per_group(traffic, Config) ->
     remove_transports(Config),
-    stop_services(Config);
-
-end_per_group(_, _) ->
-    ok.
-
-select(T) ->
-    try maps:get(T, ?LIMIT) of
-        N ->
-            lists:sublist(?util:scramble(tc()), max(5, rand:uniform(N)))
-    catch
-        error:_ -> ?LIMIT
-    end.
+    stop_services(Config).
 
 %% --------------------
 
@@ -401,36 +322,18 @@ init_per_testcase(N, Config)
 
 %% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
-    TCs = proplists:get_value(runlist, Config, []),
-    Run = [] == TCs orelse lists:member(Name, TCs),
     case [G || #group{transport = sctp} = G
                    <- [proplists:get_value(group, Config)]]
     of
         [_] when Name == send_maxlen;
                  Name == send_long ->
             {skip, sctp};
-        _ when not Run ->
-            {skip, random};
         _ ->
-            proplists:get_value(sleep, Config, false)
-                andalso timer:sleep(rand:uniform(200)),
             [{testcase, Name} | Config]
     end.
 
 end_per_testcase(_, _) ->
     ok.
-
-%% replace/2
-%%
-%% Work around common_test running init functions inappropriately, and
-%% this accumulating more config than expected.
-
-replace(Pairs, Config)
-  when is_list(Pairs) ->
-    lists:foldl(fun replace/2, Config, Pairs);
-
-replace({Key, _} = T, Config) ->
-    [T | lists:keydelete(Key, 1, Config)].
 
 %% --------------------
 
@@ -516,6 +419,9 @@ start_services(Config) ->
 
 bool() ->
     0.5 =< rand:uniform().
+
+choose([_|_] = List) ->
+    hd(lists:nthtail(rand:uniform(length(List)) - 1, List)).
 
 add_transports(Config) ->
     #group{transport = T,
