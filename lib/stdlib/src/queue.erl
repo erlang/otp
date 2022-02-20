@@ -706,7 +706,7 @@ r2f([_]=R) ->
 r2f([X,Y]) ->
     {[X],[Y]};
 r2f(List) ->
-    {FF,RR} = lists:split(length(List) div 2 + 1, List),
+    {FF,RR} = lists:split(length(List) div 2, List),
     {FF,lists:reverse(RR, [])}.
 
 %% Move half of elements from F to R, if there are enough
@@ -717,5 +717,5 @@ f2r([_]=F) ->
 f2r([X,Y]) ->
     {[Y],[X]};
 f2r(List) ->
-    {FF,RR} = lists:split(length(List) div 2 + 1, List),
+    {FF,RR} = lists:split(length(List) div 2, List),
     {lists:reverse(RR, []),FF}.
