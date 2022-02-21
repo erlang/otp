@@ -1181,7 +1181,7 @@ protected:
     }
 
     auto getIntRange(const ArgVal &arg) const {
-        if (is_small(arg.getValue())) {
+        if (arg.isImmed() && is_small(arg.getValue())) {
             Sint value = signed_val(arg.getValue());
             return std::make_pair(value, value);
         } else {
@@ -1196,6 +1196,7 @@ protected:
         if (arg.isImmed() && is_small(arg.getValue())) {
             return true;
         }
+
         int type_union = getTypeUnion(arg);
         if (type_union == BEAM_TYPE_INTEGER) {
             auto [min, max] = getIntRange(arg);
@@ -1206,12 +1207,10 @@ protected:
     }
 
     bool always_immediate(const ArgVal &arg) const {
-        if (arg.isImmed()) {
+        if (arg.isImmed() || always_small(arg)) {
             return true;
         }
-        if (always_small(arg)) {
-            return true;
-        }
+
         int type_union = getTypeUnion(arg);
         return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
     }
