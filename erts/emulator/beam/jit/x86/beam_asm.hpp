@@ -957,6 +957,8 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(i_bxor_body_shared)                                                      \
     _(i_bxor_guard_shared)                                                     \
     _(i_func_info_shared)                                                      \
+    _(i_get_map_element_shared)                                                \
+    _(i_get_map_element_hash_shared)                                           \
     _(i_load_nif_shared)                                                       \
     _(i_length_guard_shared)                                                   \
     _(i_length_body_shared)                                                    \
@@ -966,6 +968,7 @@ class BeamGlobalAssembler : public BeamAssembler {
     _(increment_body_shared)                                                   \
     _(int_div_rem_body_shared)                                                 \
     _(int_div_rem_guard_shared)                                                \
+    _(internal_hash_helper)                                                    \
     _(minus_body_shared)                                                       \
     _(minus_guard_shared)                                                      \
     _(new_map_shared)                                                          \
@@ -1014,6 +1017,9 @@ class BeamGlobalAssembler : public BeamAssembler {
     void emit_bitwise_fallback_guard(T(*func_ptr));
 
     x86::Mem emit_i_length_common(Label fail, int state_size);
+
+    void emit_flatmap_get_element();
+    void emit_hashmap_get_element();
 
 public:
     BeamGlobalAssembler(JitAllocator *allocator);
@@ -1518,6 +1524,11 @@ protected:
         (void)spill;
 
         a.mov(getArgRef(to), from);
+    }
+
+    void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {
+        a.mov(spill, from);
+        a.mov(getArgRef(to), spill);
     }
 
     void mov_arg(const ArgVal &to, BeamInstr from, const x86::Gp &spill) {

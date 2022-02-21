@@ -641,7 +641,7 @@ void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail,
     const int bitNumber = 1;
 
     ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST == (1 << bitNumber));
-    a.tbnz(list_ptr.reg, bitNumber, resolve_beam_label(Fail, disp32K));
+    a.tbnz(list_ptr.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
 }
 
 void BeamModuleAssembler::emit_jump(const ArgVal &Fail) {
@@ -857,7 +857,7 @@ void BeamModuleAssembler::emit_is_list(const ArgVal &Fail, const ArgVal &Src) {
 
     a.tst(src.reg, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
     a.mov(TMP2, NIL);
-    a.ccmp(src.reg, TMP2, 4, arm::CondCode::kNE);
+    a.ccmp(src.reg, TMP2, imm(NZCV::kEqual), imm(arm::CondCode::kNE));
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
@@ -917,7 +917,7 @@ void BeamModuleAssembler::emit_is_number(const ArgVal &Fail,
         a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
 
         a.mov(TMP3, imm(HEADER_FLONUM));
-        a.ccmp(TMP1, TMP3, 4, arm::CondCode::kNE);
+        a.ccmp(TMP1, TMP3, imm(NZCV::kEqual), imm(arm::CondCode::kNE));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
@@ -995,7 +995,10 @@ void BeamModuleAssembler::emit_is_reference(const ArgVal &Fail,
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
         a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
         a.cmp(TMP1, imm(_TAG_HEADER_EXTERNAL_REF));
-        a.ccmp(TMP1, imm(_TAG_HEADER_REF), 4, arm::CondCode::kNE);
+        a.ccmp(TMP1,
+               imm(_TAG_HEADER_REF),
+               imm(NZCV::kEqual),
+               imm(arm::CondCode::kNE));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 }
@@ -1020,7 +1023,10 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgVal &Fail,
 
     if (Arity.getValue() < 32) {
         cmp_arg(TMP2, Tag);
-        a.ccmp(TMP1, imm(Arity.getValue()), imm(0), arm::CondCode::kEQ);
+        a.ccmp(TMP1,
+               imm(Arity.getValue()),
+               imm(NZCV::kNone),
+               imm(arm::CondCode::kEQ));
     } else {
         cmp_arg(TMP1, Arity);
         a.b_ne(resolve_beam_label(Fail, disp1MB));
@@ -1285,7 +1291,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
     mov_imm(TMP5, HEADER_FLONUM);
     a.cmp(TMP3, TMP5);
-    a.ccmp(TMP4, TMP5, 0, arm::CondCode::kEQ);
+    a.ccmp(TMP4, TMP5, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
     a.b_ne(generic_compare);
 
     a.ldur(a64::d0, emit_boxed_val(boxed_ptr1, sizeof(Eterm)));
@@ -1601,7 +1607,7 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, ftrace)));
     mov_imm(TMP3, NIL);
     a.cmp(TMP1, TMP3);
-    a.ccmp(TMP2, TMP3, 0, arm::CondCode::kEQ);
+    a.ccmp(TMP2, TMP3, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
     a.b_eq(ok);
 
     comment("Assertion c_p->fvalue == NIL && c_p->ftrace == NIL failed");

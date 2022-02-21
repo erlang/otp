@@ -84,12 +84,18 @@
 
          %% instruction-level tests
          t_has_map_fields/1,
+         t_get_map_elements/1,
          y_regs/1,
 
          %%Bugs
          t_large_unequal_bins_same_hash_bug/1]).
 
+%% Benchmarks
+-export([benchmarks/1]).
+
 -include_lib("stdlib/include/ms_transform.hrl").
+
+-include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -define(CHECK(Cond,Term),
@@ -102,7 +108,7 @@
 suite() -> [].
 
 all() ->
-    [{group,main}].
+    [{group,main}, benchmarks].
 
 groups() ->
     [{main,[],
@@ -157,10 +163,12 @@ groups() ->
 
        %% instruction-level tests
        t_has_map_fields,
+       t_get_map_elements,
        y_regs,
 
        %% Bugs
-       t_large_unequal_bins_same_hash_bug]}].
+       t_large_unequal_bins_same_hash_bug]},
+    {benchmarks, [{repeat,10}], [benchmarks]}].
 
 run_once() ->
     case ?MODULE of
@@ -3142,6 +3150,19 @@ has_map_fields_3(#{a:=_,b:=_}) -> true;
 has_map_fields_3(#{[]:=_,42.0:=_}) -> true;
 has_map_fields_3(#{}) -> false.
 
+t_get_map_elements(Config) when is_list(Config) ->
+    %% Tests that the JIT implementation of `get_map_elements` handles
+    %% collisions properly.
+    N = 500000,
+    Is = lists:seq(1, N),
+    Test = maps:from_list([{I,I}||I<-Is]),
+    [begin
+         #{ Key := Val } = Test,
+         Key = Val
+     end || Key <- Is],
+
+    ok.
+
 y_regs(Config) when is_list(Config) ->
     Val = [length(Config)],
     Map0 = y_regs_update(#{}, Val),
@@ -3494,3 +3515,142 @@ total_memory() ->
 	_ : _ ->
 	    undefined
     end.
+
+%%%
+%%% Benchmarks
+%%%
+
+-define(SMALL_MAP_SIZE, 32).
+-define(BIG_MAP_SIZE, 3333).
+
+benchmarks(_Config) ->
+    N = 5000000,
+
+    %% Looks up a known value in a flatmap and (relatively large) hashmap,
+    %% the value will be near the middle of the tested flatmap in an
+    %% attempt to make the test more representative.
+    lookup_literal_immed_small(N),
+    lookup_literal_immed_big(N),
+
+    %% Looks up a value that _COULD_ be an immediate (and always is in this
+    %% test), benchmarking the common case of looking up an unknown integer
+    %% or similar.
+    %%
+    %% Like literal_immed_small, we try to pick a value that will be in the
+    %% middle of the tested flatmap.
+    lookup_any_immed_small(N),
+    lookup_any_immed_big(N),
+
+    %% Looks up `[{}]`, looking for regressions in pre-hashed complex
+    %% lookups.
+    lookup_literal_complex_small(N),
+    lookup_literal_complex_big(N),
+
+    %% Looks up some unknown complex term, looking for regressions in complex
+    %% lookups that need to be hashed in runtime. 
+    lookup_any_complex_small(N),
+    lookup_any_complex_big(N),
+
+    %% Looks up a bunch of keys in parallel, benchmarking maps-as-structs.
+    lookup_literal_multi_small(N),
+    lookup_literal_multi_big(N),
+
+    ok.
+
+lookup_literal_immed_small(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?SMALL_MAP_SIZE), []),
+    F = fun(N) -> literal_immed(N, Map0, []) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+lookup_literal_immed_big(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?BIG_MAP_SIZE), []),
+    F = fun(N) -> literal_immed(N, Map0, []) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+literal_immed(0, _Map, Acc) ->
+    Acc;
+literal_immed(N, Map, _) ->
+    #{ (?SMALL_MAP_SIZE div 2) := Acc } = Map,
+    literal_immed(N - 1, Map, Acc).
+
+lookup_any_immed_small(Iterations) ->
+    Size = ?SMALL_MAP_SIZE div 2 - 1,
+    Map = maps:from_list([{V, -V} || V <- lists:seq(-Size, Size)]),
+    F = fun(N) -> any_immed(N, Map, Size div 2) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+lookup_any_immed_big(Iterations) ->
+    Size = ?BIG_MAP_SIZE div 2 - 1,
+    Map = maps:from_list([{V, -V} || V <- lists:seq(-Size, Size)]),
+    F = fun(N) -> any_immed(N, Map, Size div 2) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+any_immed(0, _Map, Acc) ->
+    Acc;
+any_immed(N, Map, Acc0) ->
+    #{ Acc0 := Acc } = Map,
+    any_immed(N - 1, Map, Acc).
+
+lookup_literal_complex_small(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?SMALL_MAP_SIZE), []),
+    F = fun(N) -> literal_complex(N, Map0#{ [{}] => [{}] }, [{}]) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+lookup_literal_complex_big(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?BIG_MAP_SIZE), []),
+    F = fun(N) -> literal_complex(N, Map0#{ [{}] => [{}] }, [{}]) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+literal_complex(0, Map, Acc) ->
+    {Map, Acc};
+literal_complex(N, Map, _) ->
+    #{ [{}] := Acc } = Map,
+    literal_complex(N - 1, Map, Acc).
+
+lookup_any_complex_small(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?SMALL_MAP_SIZE - 2), []),
+    F = fun(N) ->
+                any_complex(N, Map0#{ [{}] => {[]}, {[]} => [{}] }, [{}])
+        end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+lookup_any_complex_big(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?BIG_MAP_SIZE - 2), []),
+    F = fun(N) ->
+                any_complex(N, Map0#{ [{}] => {[]}, {[]} => [{}] }, [{}])
+        end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+any_complex(0, _Map, Acc) ->
+    Acc;
+any_complex(N, Map, Acc0) ->
+    #{ Acc0 := Acc } = Map,
+    any_complex(N - 1, Map, Acc).
+
+lookup_literal_multi_small(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?SMALL_MAP_SIZE), id([])),
+    F = fun(N) -> literal_multi(N, Map0, []) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+lookup_literal_multi_big(Iterations) ->
+    Map0 = maps:from_keys(lists:seq(1, ?BIG_MAP_SIZE), id([])),
+    F = fun(N) -> literal_multi(N, Map0, []) end,
+    time(?FUNCTION_NAME, F, Iterations).
+
+literal_multi(0, _Map, Acc) ->
+    Acc;
+literal_multi(N, Map, _) ->
+    #{ (?SMALL_MAP_SIZE div 2 + 0) := Same,
+       (?SMALL_MAP_SIZE div 2 + 1) := Same,
+       (?SMALL_MAP_SIZE div 2 - 1) := Same,
+       (?SMALL_MAP_SIZE div 2 + 2) := Same,
+       (?SMALL_MAP_SIZE div 2 - 2) := Same } = Map,
+    literal_multi(N - 1, Map, Same).
+
+time(Name, F, Iterations) ->
+    Time = element(1, timer:tc(F, [Iterations])),
+    ct_event:notify(#event{name=benchmark_data,
+                           data=[{value, Time},
+                                 {suite, ?MODULE_STRING},
+                                 {name, atom_to_list(Name)}]}),
+    Time.

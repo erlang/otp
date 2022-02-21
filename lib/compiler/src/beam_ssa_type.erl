@@ -642,6 +642,10 @@ benefits_from_type_anno({float,convert}, _Args) ->
     %% annotated by ssa_opt_float1 in beam_ssa_opt, and can also
     %% be annotated by opt_ranges/1.
     true;
+benefits_from_type_anno(get_map_element, _Args) ->
+    true;
+benefits_from_type_anno(has_map_field, _Args) ->
+    true;
 benefits_from_type_anno(_Op, _Args) ->
     false.
 

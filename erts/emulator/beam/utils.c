@@ -2078,6 +2078,17 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
     return make_hash2_helper(term, 1, state_mref_write_back, p);
 }
 
+/* Term hash function for maps, with a separate depth parameter */
+Uint32 make_map_hash(Eterm key, int depth) {
+    Uint32 hash = 0;
+
+    if (depth > 0) {
+        UINT32_HASH_2(depth, 1, HCONST_22);
+    }
+
+    return make_internal_hash(key, hash);
+}
+
 /* Term hash function for internal use.
  *
  * Limitation #1: Is not "portable" in any way between different VM instances.

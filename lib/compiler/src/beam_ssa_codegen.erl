@@ -1167,9 +1167,10 @@ cg_block([#cg_set{op=match_fail}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,_Fail}, St) ->
     %% A match_fail instruction in a try/catch block.
     cg_block([I], none, St);
-cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0},
+cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0,anno=Anno},
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
-    [Dst,Map,Key] = beam_args([Dst0|Args0], St),
+    [Map,Key] = typed_args(Args0, Anno, St),
+    Dst = beam_arg(Dst0, St),
     Fail = ensure_label(Fail0, St),
     {[{get_map_elements,Fail,Map,{list,[Key,Dst]}}],St};
 cg_block([#cg_set{op={float,convert},dst=Dst0,args=Args0,anno=Anno},

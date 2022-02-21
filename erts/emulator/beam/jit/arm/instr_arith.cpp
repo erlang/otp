@@ -116,7 +116,10 @@ void BeamModuleAssembler::emit_i_plus(const ArgVal &Fail,
     }
 
     /* Test for not overflow AND small operands. */
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
+    a.ccmp(TMP1,
+           imm(_TAG_IMMED1_SMALL),
+           imm(NZCV::kNone),
+           imm(arm::CondCode::kVC));
     a.b_eq(next);
 
     mov_var(ARG2, lhs);
@@ -200,7 +203,10 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgVal &Fail,
     a.subs(ARG1, TMP1, TMP2);
 
     /* Test for not overflow AND small operands. */
-    a.ccmp(TMP2, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
+    a.ccmp(TMP2,
+           imm(_TAG_IMMED1_SMALL),
+           imm(NZCV::kNone),
+           imm(arm::CondCode::kVC));
     a.b_eq(next);
 
     mov_var(ARG2, src);
@@ -310,7 +316,10 @@ void BeamModuleAssembler::emit_i_minus(const ArgVal &Fail,
     }
 
     /* Test for not overflow AND small operands. */
-    a.ccmp(TMP1, imm(_TAG_IMMED1_SMALL), 0, arm::CondCode::kVC);
+    a.ccmp(TMP1,
+           imm(_TAG_IMMED1_SMALL),
+           imm(NZCV::kNone),
+           imm(arm::CondCode::kVC));
     a.b_eq(next);
 
     mov_var(ARG2, lhs);
