@@ -96,7 +96,7 @@ static void esock_encode_sockaddr_native(ErlNifEnv*       env,
 
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* sa,
-                                         socklen_t        len,
+                                         SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr);
 
 static void make_sockaddr_in(ErlNifEnv*    env,

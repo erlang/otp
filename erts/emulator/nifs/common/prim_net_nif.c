@@ -259,16 +259,16 @@ extern char* erl_errno_id(int error);
  * These are the functions making up the "official" API.
  */
 
-#define ENET_NIF_FUNCS                   \
-    ENET_NIF_FUNC_DEF(info);             \
-    ENET_NIF_FUNC_DEF(command);          \
-    ENET_NIF_FUNC_DEF(gethostname);      \
-    ENET_NIF_FUNC_DEF(getnameinfo);      \
-    ENET_NIF_FUNC_DEF(getaddrinfo);      \
-    ENET_NIF_FUNC_DEF(getifaddrs);       \
-    ENET_NIF_FUNC_DEF(getinterfaceinfo); \
-    ENET_NIF_FUNC_DEF(if_name2index);    \
-    ENET_NIF_FUNC_DEF(if_index2name);    \
+#define ENET_NIF_FUNCS                     \
+    ENET_NIF_FUNC_DEF(info);               \
+    ENET_NIF_FUNC_DEF(command);            \
+    ENET_NIF_FUNC_DEF(gethostname);        \
+    ENET_NIF_FUNC_DEF(getnameinfo);        \
+    ENET_NIF_FUNC_DEF(getaddrinfo);        \
+    ENET_NIF_FUNC_DEF(getifaddrs);         \
+    ENET_NIF_FUNC_DEF(get_interface_info); \
+    ENET_NIF_FUNC_DEF(if_name2index);      \
+    ENET_NIF_FUNC_DEF(if_index2name);      \
     ENET_NIF_FUNC_DEF(if_names);
 
 #define ENET_NIF_FUNC_DEF(F)                              \
@@ -305,10 +305,22 @@ static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
 #endif
 
 #if defined(__WIN32__)
-static ERL_NIF_TERM enet_getinterfaceinfo(ErlNifEnv* env,
-                                          BOOLEAN_T  dbg);
-static BOOLEAN_T enet_getinterfaceinfo_extra_debug(ErlNifEnv*         env,
-                                                   const ERL_NIF_TERM eextra);
+static ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
+                                            BOOLEAN_T  dbg);
+static BOOLEAN_T enet_get_interface_info_extra_debug(ErlNifEnv*         env,
+                                                     const ERL_NIF_TERM eextra);
+static ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
+                                                   BOOLEAN_T          dbg,
+                                                   IP_INTERFACE_INFO* infoP);
+static void encode_adapter_index_map(ErlNifEnv*            env,
+                                     BOOLEAN_T             dbg,
+                                     IP_ADAPTER_INDEX_MAP* adapterP,
+                                     ERL_NIF_TERM*         eadapter);
+static ERL_NIF_TERM encode_adapter_index_map_name(ErlNifEnv* env, WCHAR* name);
+static void make_adapter_index_map(ErlNifEnv*    env,
+                                   ERL_NIF_TERM  eindex,
+                                   ERL_NIF_TERM  ename,
+                                   ERL_NIF_TERM* emap);
 #endif
 
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -447,6 +459,7 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(dynamic);                   \
     LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
+    LOCAL_ATOM_DECL(index);                     \
     LOCAL_ATOM_DECL(master);                    \
     LOCAL_ATOM_DECL(multicast);                 \
     LOCAL_ATOM_DECL(namereqd);                  \
@@ -479,7 +492,13 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(eoverflow);                \
     LOCAL_ATOM_DECL(eservice);                 \
     LOCAL_ATOM_DECL(esocktype);                \
-    LOCAL_ATOM_DECL(esystem);
+    LOCAL_ATOM_DECL(esystem);                  \
+    LOCAL_ATOM_DECL(insufficient_buffer);      \
+    LOCAL_ATOM_DECL(invalid_flags);            \
+    LOCAL_ATOM_DECL(invalid_parameter);        \
+    LOCAL_ATOM_DECL(not_supported);            \
+    LOCAL_ATOM_DECL(no_data);                  \
+    LOCAL_ATOM_DECL(no_uniconde_traslation);
 
 #define LOCAL_ATOM_DECL(A) static ERL_NIF_TERM atom_##A
 LOCAL_ATOMS
@@ -512,7 +531,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_getnameinfo/2
  * nif_getaddrinfo/3
  * nif_getifaddrs/1
- * nif_getinterfaceinfo/1
+ * nif_get_interface_info/1
  * nif_if_name2index/1
  * nif_if_index2name/1
  * nif_if_names/0
@@ -1521,7 +1540,7 @@ void make_ifaddrs(ErlNifEnv*    env,
 
 
 /* ----------------------------------------------------------------------
- * nif_getinterfaceinfo
+ * nif_get_interface_info
  *
  * Description:
  * Get interface info table (only IPv4 interfaces)
@@ -1533,9 +1552,9 @@ void make_ifaddrs(ErlNifEnv*    env,
  */
 
 static
-ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
-                                  int                argc,
-                                  const ERL_NIF_TERM argv[])
+ERL_NIF_TERM nif_get_interface_info(ErlNifEnv*         env,
+                                    int                argc,
+                                    const ERL_NIF_TERM argv[])
 {
 #if !defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
@@ -1543,7 +1562,7 @@ ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
     ERL_NIF_TERM result, eextra;
     BOOLEAN_T    dbg;
 
-    NDBG( ("NET", "nif_getinterfaceinfo -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_get_interface_info -> entry (%d)\r\n", argc) );
 
     if ((argc != 1) ||
         !IS_MAP(env, argv[0])) {
@@ -1551,13 +1570,13 @@ ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
     }
     eextra = argv[0];
 
-    dbg    = enet_getinterfaceinfo_extra_debug(env, eextra);
+    dbg    = enet_get_interface_info_extra_debug(env, eextra);
 
-    result = enet_getinterfaceinfo(env, dbg);
+    result = enet_get_interface_info(env, dbg);
 
     NDBG2( dbg,
            ("NET",
-            "nif_getinterfaceinfo -> done when result: "
+            "nif_get_interface_info -> done when result: "
             "\r\n   %T\r\n", result) );
 
     return result;
@@ -1567,8 +1586,8 @@ ERL_NIF_TERM nif_getinterfaceinfo(ErlNifEnv*         env,
 
 #if defined(__WIN32__)
 static
-BOOLEAN_T enet_getinterfaceinfo_extra_debug(ErlNifEnv*         env,
-                                            const ERL_NIF_TERM eextra)
+BOOLEAN_T enet_get_interface_info_extra_debug(ErlNifEnv*         env,
+                                              const ERL_NIF_TERM eextra)
 {
     return get_debug(env, eextra);
 }
@@ -1576,14 +1595,235 @@ BOOLEAN_T enet_getinterfaceinfo_extra_debug(ErlNifEnv*         env,
 
 
 #if defined(__WIN32__)
-// Placeholder function!!
 static
-ERL_NIF_TERM enet_getinterfaceinfo(ErlNifEnv* env,
-                                   BOOLEAN_T  dbg)
+ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
+                                     BOOLEAN_T  dbg)
 {
-    NDBG2( dbg, ("NET", "enet_getinterfaceinfo -> entry\r\n") );
+    int                i;
+    DWORD              ret;
+    unsigned long      infoSize = 4 * 1024;
+    IP_INTERFACE_INFO* infoP    = (IP_INTERFACE_INFO*) MALLOC(infoSize);
+    ERL_NIF_TERM       eret, result;
 
-    return MKEL(env);
+    for (i = 17;  i;  i--) {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_interface_info -> try get info with: "
+                "\r\n   infoSize: %d"
+                "\r\n", infoSize) );
+
+        ret   = GetInterfaceInfo(infoP, &infoSize);
+
+        NDBG2( dbg,
+               ("NET", "enet_get_interface_info -> "
+                "get info result: %d\r\n", infoSize) );
+
+        infoP = REALLOC(infoP, infoSize);
+        if (ret == NO_ERROR) break;
+        if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+        i = 0;
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_interface_info -> "
+            "done when get info counter: %d\r\n", i) );
+
+    if (! i) {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_interface_info -> try transform error\r\n") );
+
+        FREE(infoP);
+
+        switch (ret) {
+        case ERROR_INSUFFICIENT_BUFFER:
+            eret = atom_insufficient_buffer;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            eret = atom_invalid_parameter;
+            break;
+        case ERROR_NO_DATA:
+            eret = atom_no_data;
+            break;
+        case ERROR_NOT_SUPPORTED:
+            eret = atom_not_supported;
+            break;
+        default:
+            eret = MKI(env, ret);
+            break;
+        }
+
+        result = esock_make_error(env, eret);
+
+    } else {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_interface_info -> try transform info\r\n") );
+
+        result = esock_make_ok2(env,
+                                enet_get_interface_info_encode(env,
+                                                               dbg,
+                                                               infoP));
+        
+        FREE(infoP);
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_interface_info -> done with:"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+// Returns: [#{index := integer(), name := string()}]
+static
+ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
+                                            BOOLEAN_T          dbg,
+                                            IP_INTERFACE_INFO* infoP)
+{
+    ERL_NIF_TERM result;
+    LONG         num = infoP->NumAdapters;
+
+    NDBG2( dbg,
+           ("NET", "enet_get_interface_info_encode -> entry with"
+            "\r\n   num: %d"
+            "\r\n", num) );
+
+    if (num > 0) {
+        ERL_NIF_TERM* array = MALLOC(num * sizeof(ERL_NIF_TERM));
+        LONG          i     = 0;
+
+        while (i < num) {
+            ERL_NIF_TERM entry;
+
+            NDBG2( dbg,
+                   ("NET", "enet_get_interface_info_encode -> "
+                    "try encode adapter %d"
+                    "\r\n", i) );
+
+            encode_adapter_index_map(env, dbg, &infoP->Adapter[i], &entry);
+
+            array[i] = entry;
+            i++;
+        }
+
+        result = MKLA(env, array, num);
+        FREE(array);
+
+    } else {
+        result = MKEL(env);
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_interface_info -> done with:"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+void encode_adapter_index_map(ErlNifEnv*            env,
+                              BOOLEAN_T             dbg,
+                              IP_ADAPTER_INDEX_MAP* adapterP,
+                              ERL_NIF_TERM*         eadapter)
+{
+    ERL_NIF_TERM eindex = MKI(env, adapterP->Index);
+    ERL_NIF_TERM ename  = encode_adapter_index_map_name(env, adapterP->Name);
+    ERL_NIF_TERM map;
+
+    NDBG2( dbg,
+           ("NET", "encode_adapter_index_map -> map fields: "
+            "\r\n   index: %T"
+            "\r\n   name:  %T"
+            "\r\n", eindex, ename) );
+
+    make_adapter_index_map(env, eindex, ename, &map);
+
+    NDBG2( dbg,
+           ("NET", "encode_adapter_index_map -> encoded map: %T\r\n", map) );
+
+    *eadapter = map;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_index_map_name(ErlNifEnv* env, WCHAR* name)
+{
+    ERL_NIF_TERM result;
+    int          len = WideCharToMultiByte(CP_UTF8, 0,
+                                           name, -1,
+                                           NULL, 0, NULL, NULL);
+
+    if (!len) {
+        result = esock_atom_undefined;
+    } else {
+        char* buf = (char*) MALLOC(len+1);
+
+        if (0 == WideCharToMultiByte(CP_UTF8, 0,
+                                     name, -1,
+                                     buf, len, NULL, NULL)) {
+            DWORD error = GetLastError();
+
+            switch (error) {
+            case ERROR_INSUFFICIENT_BUFFER:
+                result = atom_insufficient_buffer;
+                break;
+            case ERROR_INVALID_FLAGS:
+                result = atom_invalid_flags;
+                break;
+            case ERROR_INVALID_PARAMETER:
+                result = atom_invalid_parameter;
+                break;
+            case ERROR_NO_UNICODE_TRANSLATION:
+                result = atom_no_uniconde_traslation;
+                break;
+            default:
+                result = MKI(env, error);
+                break;
+            }
+        } else {
+            result = MKS(env, buf);
+        }
+    }
+
+    return result;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+void make_adapter_index_map(ErlNifEnv*    env,
+                            ERL_NIF_TERM  eindex,
+                            ERL_NIF_TERM  ename,
+                            ERL_NIF_TERM* emap)
+{
+    ERL_NIF_TERM keys[2];
+    ERL_NIF_TERM vals[2];
+    size_t       len = NUM(keys); // Just in case...
+
+    /* Index */
+    NDBG( ("NET", "make_adapter_index_map -> index: %T\r\n", eindex) );
+    keys[0] = atom_index;
+    vals[0] = eindex;
+
+    /* Name */
+    NDBG( ("NET", "make_adapter_index_map -> name: %T\r\n", ename) );
+    keys[1] = esock_atom_name;
+    vals[1] = ename;
+    
+    ESOCK_ASSERT( MKMA(env, keys, vals, len, emap) );
 }
 #endif // __WIN32__
 
@@ -2350,7 +2590,7 @@ ErlNifFunc net_funcs[] =
     {"nif_getaddrinfo",      3, nif_getaddrinfo,   0},
     
     {"nif_getifaddrs",       1, nif_getifaddrs,       ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"nif_getinterfaceinfo", 1, nif_getinterfaceinfo, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Network interface (name and/or index) functions */
     {"nif_if_name2index",    1, nif_if_name2index, 0},
