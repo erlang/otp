@@ -1423,8 +1423,10 @@ void BeamGlobalAssembler::emit_bs_bit_size_shared() {
 
 struct BscSegment {
     BscSegment()
-            : src(ArgVal(ArgVal::Immediate, NIL)),
-              size(ArgVal(ArgVal::Immediate, NIL)), effectiveSize(-1){};
+            : type(am_false), unit(1), flags(0),
+              src(ArgVal(ArgVal::Immediate, NIL)),
+              size(ArgVal(ArgVal::Immediate, NIL)), error_info(0),
+              effectiveSize(-1){};
 
     Eterm type;
     Uint unit;
