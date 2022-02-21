@@ -1258,8 +1258,22 @@ is_function_2(Config) when is_list(Config) ->
 
     F = fun(_) -> ok end,
     if
-	is_function(F, 1) -> ok
-    end.
+        is_function(F, 1) -> ok
+    end,
+
+    variable_is_function_2(),
+
+    ok.
+
+variable_is_function_2() ->
+    F = fun() -> ok end,
+    [F] = vif_2([F], id(0), []),
+    ok.
+
+vif_2([F | Fs], Arity, Acc) when is_function(F, Arity) ->
+    vif_2(Fs, Arity, [F | Acc]);
+vif_2([], _Arity, Acc) ->
+    Acc.
 
 tricky(Config) when is_list(Config) ->
     not_ok = tricky_1(1, 2),

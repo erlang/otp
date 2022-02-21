@@ -2090,6 +2090,16 @@ infer_types_1(#value{op={bif,is_function},args=[Src,{integer,Arity}]},
               Val, Op, Vst)
   when Arity >= 0, Arity =< 255 ->
     infer_type_test_bif(#t_fun{arity=Arity}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_function},args=[Src,_Arity]}, Val, Op, Vst) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, #t_fun{}, Src, Vst);
+        _ ->
+            %% We cannot subtract the function type when the arity is unknown:
+            %% `Src` may still be a function if the arity is outside the
+            %% allowed range.
+            Vst
+    end;
 infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->

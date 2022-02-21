@@ -2360,13 +2360,18 @@ infer_type({bif,is_float}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_function}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_fun{}},
     {[T], [T]};
-infer_type({bif,is_function}, [#b_var{}=Arg, Arity0], _Ts, _Ds) ->
-    Arity = case Arity0 of
-                #b_literal{val=V} when is_integer(V), V >= 0, V =< 255 -> V;
-                _ -> any
-            end,
-    T = {Arg, #t_fun{arity=Arity}},
-    {[T], [T]};
+infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
+    case Arity of
+        #b_literal{val=V} when is_integer(V), V >= 0, V =< 255 ->
+            T = {Arg, #t_fun{arity=V}},
+            {[T], [T]};
+        _ ->
+            %% We cannot subtract the function type when the arity is unknown:
+            %% `Arg` may still be a function if the arity is outside the
+            %% allowed range.
+            T = {Arg, #t_fun{}},
+            {[T], []}
+    end;
 infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
