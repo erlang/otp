@@ -791,7 +791,9 @@ update_trans(Tab, Key, Acc) ->
 		Res = (catch mnesia:read({Tab, Key})),
 		case Res of 
 		    [{Tab, Key, Extra, Acc}] ->
-			mnesia:write({Tab,Key,Extra, Acc+1});
+                        Meta = {mnesia:table_info(Tab, where_to_commit),
+                                mnesia:table_info(Tab, commit_work)},
+			mnesia:write({Tab, Key, [Meta|Extra], Acc+1});
 		    Val ->
 			{read, Val, {acc, Acc}}
 		end
@@ -977,6 +979,10 @@ move_table(CallFrom, FromNode, ToNode, [Node1, Node2, Node3], Def) ->
 % Due to limitations in the current dirty_ops this can wrong from time to time!
 verify_oids(Tab, N1, N2, N3, R1, R2, R3) ->
     io:format("DEBUG 1=>~p 2=>~p 3=>~p~n", [R1,R2,R3]),
+    {info,_,_} = rpc:call(N1, mnesia_tm, get_info, [2000]),
+    {info,_,_} = rpc:call(N2, mnesia_tm, get_info, [2000]),
+    {info,_,_} = rpc:call(N3, mnesia_tm, get_info, [2000]),
+
     ?match([{_, _, _, R1}], rpc:call(N1, mnesia, dirty_read, [{Tab, 1}])),
     ?match([{_, _, _, R1}], rpc:call(N2, mnesia, dirty_read, [{Tab, 1}])),
     ?match([{_, _, _, R1}], rpc:call(N3, mnesia, dirty_read, [{Tab, 1}])),
@@ -989,7 +995,7 @@ verify_oids(Tab, N1, N2, N3, R1, R2, R3) ->
 
 insert(_Tab, 0) -> ok;
 insert(Tab, N) when N > 0 ->
-    ok = mnesia:sync_dirty(fun() -> false = mnesia:is_transaction(), mnesia:write({Tab, N, N, 0}) end),
+    ok = mnesia:sync_dirty(fun() -> false = mnesia:is_transaction(), mnesia:write({Tab, N, [], 0}) end),
     insert(Tab, N-1).
 
 

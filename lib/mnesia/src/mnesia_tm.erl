@@ -1728,11 +1728,7 @@ commit_participant(Protocol, Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			{'EXIT', _MnesiaTM, Reason} ->
 			    reply(Coord, {do_abort, Tid, self(), {bad_commit,Reason}}),
 			    mnesia_recover:log_decision(D#decision{outcome = aborted}),
-			    mnesia_schema:undo_prepare_commit(Tid, C0);
-
-			Msg ->
-			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
-				    [Tid, Msg])
+			    mnesia_schema:undo_prepare_commit(Tid, C0)
 		    end;
 		{Tid, {do_abort, Reason}} ->
 		    reply(Coord, {do_abort, Tid, self(), Reason}),
@@ -1743,12 +1739,7 @@ commit_participant(Protocol, Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 		{'EXIT', _, Reason} ->
 		    reply(Coord, {do_abort, Tid, self(), {bad_commit,Reason}}),
 		    mnesia_schema:undo_prepare_commit(Tid, C0),
-		    ?eval_debug_fun({?MODULE, commit_participant, pre_commit_undo_prepare}, [{tid, Tid}]);
-
-		Msg ->
-		    reply(Coord, {do_abort, Tid, self(), {bad_commit,internal}}),
-		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
-			    [Tid, Msg])
+		    ?eval_debug_fun({?MODULE, commit_participant, pre_commit_undo_prepare}, [{tid, Tid}])
 	    end
     catch _:Reason ->
 	    ?eval_debug_fun({?MODULE, commit_participant, vote_no},
