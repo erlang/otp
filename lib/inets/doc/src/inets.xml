@@ -71,11 +71,11 @@
       <name since="">services_info() -> [{Service, Pid, Info}]</name>
       <fsummary>Returns a list of currently running services where
       each service is described by an <c>[{Option, Value}]</c>
-      list.</fsummary>
+      list or Reason in case of an error.</fsummary>
       <type>
         <v>Service = service()</v>
         <v>Pid = pid()</v>
-        <v>Info = [{Option, Value}]</v>
+        <v>Info = [{Option, Value}] | Reason</v>
         <v>Option = property()</v>
         <v>Value = term()</v>
       </type>
@@ -84,7 +84,8 @@
 	service is described by an <c>[{Option, Value}]</c> list. The
 	information in the list is specific for each service
 	and each service has probably its own info
-	function that gives more details about the service.</p>
+	function that gives more details about the service. If specific service
+        info returns {error, Reason}, Info will contain Reason term.</p>
 
 	<marker id="service_names"></marker>
       </desc>
