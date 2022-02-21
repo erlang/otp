@@ -265,14 +265,6 @@
       </desc>
      </datatype>
 
-    <datatype>
-      <name name="ssh_file"/>
-      <desc>
-      </desc>
-    </datatype>
-
-
-
   </datatypes>
 
 

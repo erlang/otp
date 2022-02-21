@@ -90,7 +90,6 @@
               pem_entry/0,
 	      pki_asn1_type/0,
               asn1_type/0,
-              ssh_file/0,
               der_encoded/0,
               key_params/0,
               digest_type/0,
@@ -146,8 +145,6 @@
 
 -type salt()                 :: binary(). % crypto:strong_rand_bytes(8)
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
--type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
-				auth_keys.
 -type digest_type()          :: none % None is for backwards compatibility
                               | sha1 % Backwards compatibility
                               | crypto:rsa_digest_type()
