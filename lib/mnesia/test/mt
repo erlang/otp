@@ -61,12 +61,9 @@ case $MT_TERM in
 	exec="-e"
 esac
 
-$MT_TERM $geom1 $title a1 $exec $erlcmd1 &
-$MT_TERM $geom2 $title a2 $exec $erlcmd2 &
-
 rm "$latest" 2>/dev/null
-ln -s "$log" "$latest"
 touch "$log"
+ln -s "$log" "$latest"
 
 echo "$erlcmd1"
 echo ""
@@ -74,10 +71,14 @@ echo "$erlcmd2"
 echo ""
 echo "$erlcmd"
 echo ""
+
+$MT_TERM $geom0 $title a $exec script -c "$erlcmd" -f $log &
+
+$MT_TERM $geom1 $title a1 $exec $erlcmd1 &
+$MT_TERM $geom2 $title a2 $exec $erlcmd2 &
+
 echo "Give the following command in order to see the outcome from node a@$h"":"
 echo ""
-echo "	less test_log$$"
-
-$MT_TERM $geom0 $title a $exec script -f -c "$erlcmd" "$log"  &
-tail -f "$log" | egrep 'Eval|<>ERROR|NYI'
+echo "	less $log"
+echo "tail -f "$log" | egrep 'Eval|<>ERROR|NYI'"
 

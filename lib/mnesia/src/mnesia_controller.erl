@@ -81,7 +81,7 @@
 	 wait_for_tables/2,
 	 get_network_copy/3,
 	 merge_schema/0,
-	 start_remote_sender/4,
+	 start_remote_sender/5,
 	 schedule_late_disc_load/2
 	]).
 
@@ -154,7 +154,8 @@ max_loaders() ->
 
 -record(send_table, {table,
 		     receiver_pid,
-		     remote_storage
+		     remote_storage,
+                     reason
 		    }).
 
 -record(disc_load, {table,
@@ -800,7 +801,7 @@ handle_call({late_disc_load, Tabs, Reason, RemoteLoaders}, From, State) ->
 
 handle_call({unblock_table, Tab}, _Dummy, State) ->
     Var = {Tab, where_to_commit},
-    case val(Var) of
+    case ?catch_val(Var) of
 	{blocked, List} ->
 	    set(Var, List); % where_to_commit
 	_ ->
@@ -1031,6 +1032,12 @@ handle_cast({disc_load, Tab, Reason}, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
+handle_cast({send_table, Tab, Pid, Storage}, State) ->
+    %% {protocol, Node} = {8,5} or less
+    %% Let reason be undefined
+    Worker = #send_table{table=Tab, receiver_pid=Pid, remote_storage=Storage},
+    State2 = add_worker(Worker, State),
+    noreply(State2);
 handle_cast(Worker = #send_table{}, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
@@ -1236,12 +1243,16 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 handle_info(#sender_done{worker_pid=Pid, worker_res=Res}, State)  ->
     Senders = get_senders(State),
     {value, {Pid,_Worker}} = lists:keysearch(Pid, 1, Senders),
-    if
-	Res == ok ->
+    case Res of
+	ok ->
 	    State2 = State#state{sender_pid = lists:keydelete(Pid, 1, Senders)},
 	    State3 = opt_start_worker(State2),
 	    noreply(State3);
-	true ->
+        {error, {no_exists, _Tab}} ->
+            State2 = State#state{sender_pid = lists:keydelete(Pid, 1, Senders)},
+	    State3 = opt_start_worker(State2),
+	    noreply(State3);
+        _ ->
 	    %% No need to send any message to the table receiver
 	    %% since it will soon get a mnesia_down anyway
 	    fatal("Sender failed: ~p~n state: ~tp~n", [Res, State]),
@@ -1778,7 +1789,7 @@ update_where_to_wlock(Tab) ->
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
-    ?SAFE(del_active_replica(Tab, To)),
+    ?CATCH(del_active_replica(Tab, To)),
     try To = val({Tab , where_to_read}),
 	 mnesia_lib:set_remote_where_to_read(Tab)
     catch _:_ -> ignore
@@ -2104,10 +2115,17 @@ already_loading2(Tab, [{_,#disc_load{table=Tab}}|_]) -> true;
 already_loading2(Tab, [_|Rest]) -> already_loading2(Tab,Rest);
 already_loading2(_,[]) -> false.
 
-start_remote_sender(Node, Tab, Receiver, Storage) ->
-    Msg = #send_table{table = Tab,
-		      receiver_pid = Receiver,
-		      remote_storage = Storage},
+start_remote_sender(Node, Tab, Receiver, Storage, Why) ->
+    Msg = case ?catch_val({protocol, Node}) of
+              {Ver, _} when Ver < {8,6} ->
+                  {send_table, Tab, Receiver, Storage};
+              _ ->
+                  #send_table{table = Tab,
+                              receiver_pid = Receiver,
+                              remote_storage = Storage,
+                              reason = Why
+                             }
+          end,
     gen_server:cast({?SERVER_NAME, Node}, Msg).
 
 dump_and_reply(ReplyTo, Worker) ->
@@ -2123,13 +2141,15 @@ dump_and_reply(ReplyTo, Worker) ->
     unlink(ReplyTo),
     exit(normal).
 
-send_and_reply(ReplyTo, Worker) ->
+send_and_reply(ReplyTo, #send_table{table=Tab, remote_storage=Storage, receiver_pid=Pid, reason=Reason}) ->
     %% No trap_exit, die intentionally instead
-    Res = mnesia_loader:send_table(Worker#send_table.receiver_pid,
-				   Worker#send_table.table,
-				   Worker#send_table.remote_storage),
-    ReplyTo ! #sender_done{worker_pid = self(),
-			   worker_res = Res},
+    Res = mnesia_loader:send_table(Pid, Tab, Storage, Reason),
+    case Res of
+        {error, {no_exists, _}} ->
+            Pid ! {copier_done, node()};
+        _ -> ok
+    end,
+    ReplyTo ! #sender_done{worker_pid = self(), worker_res = Res},
     unlink(ReplyTo),
     exit(normal).
 
