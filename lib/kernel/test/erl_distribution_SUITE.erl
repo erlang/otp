@@ -582,8 +582,8 @@ dyn_node_name(Config) when is_list(Config) ->
 
 dyn_node_name(DCfg, _Config) ->
     NameDomain = case net_kernel:get_state() of
-                     #{name_domain := short} -> "short";
-                     #{name_domain := long} -> "long"
+                     #{name_domain := shortnames} -> "shortnames";
+                     #{name_domain := longnames} -> "longnames"
                  end,
     {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
                                           undefined, ?MODULE, run_remote_test,
@@ -606,8 +606,8 @@ dyn_node_name_do(TestNode, [NameDomainStr]) ->
     MyName = node(),
     false = (MyName =:= undefined),
     false = (MyName =:= nonode@nohost),
-    #{started := static, name_type := dynamic, name := MyName}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := MyName,
+      name_domain := NameDomain} = net_kernel:get_state(),
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
     {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
@@ -620,15 +620,15 @@ dyn_node_name_do(TestNode, [NameDomainStr]) ->
     {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
 
     nonode@nohost = node(),
-    #{started := static, name_type := dynamic, name := undefined}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := undefined,
+      name_domain := NameDomain} = net_kernel:get_state(),
 
     net_kernel:connect_node(TestNode),
     [] = nodes(),
     [TestNode] = nodes(hidden),
     MyName = node(),
-    #{started := static, name_type := dynamic, name := MyName}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := MyName,
+      name_domain := NameDomain} = net_kernel:get_state(),
 
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
@@ -641,8 +641,8 @@ dyn_node_name_do(TestNode, [NameDomainStr]) ->
     [] = nodes(hidden),
     {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
     nonode@nohost = node(),
-    #{started := static, name_type := dynamic, name := undefined}
-        = net_kernel:get_state(),
+    #{started := static, name_type := dynamic, name := undefined,
+      name_domain := NameDomain} = net_kernel:get_state(),
     ok.
 
 check(X, X) -> ok.

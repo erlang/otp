@@ -199,7 +199,7 @@ nodename() ->                  request(nodename).
 -spec get_state() -> #{started => no | static | dynamic,
                        name => atom(),
                        name_type => static | dynamic,
-                       name_domain => short | long}.
+                       name_domain => shortnames | longnames}.
 get_state() ->
     case whereis(net_kernel) of
         undefined ->
@@ -866,8 +866,8 @@ handle_call(get_state, From, State) ->
                               {dynamic, Node}
                       end,
     NameDomain = case get(longnames) of
-                     true -> long;
-                     false -> short
+                     true -> longnames;
+                     false -> shortnames
                  end,
     Return = #{started => Started,
                name_type => NameType,

@@ -154,7 +154,7 @@ $ <input>erl -sname foobar</input></pre>
       <fsummary>Get various distribution state.</fsummary>
       <desc>
         <p>Get the current state of the distribution for the local node.</p>
-        <p>Returns a map with (at least) the following key-vale pairs:</p>
+        <p>Returns a map with (at least) the following key-value pairs:</p>
         <taglist>
           <tag><c>started => Started</c></tag>
           <item>
@@ -210,12 +210,12 @@ $ <input>erl -sname foobar</input></pre>
           <item>
             <p>Valid values for <c>NameDomain</c>:</p>
             <taglist>
-              <tag><c>short</c></tag>
+              <tag><c>shortnames</c></tag>
               <item>
                 <p>The distribution was started to use node names with a short
                 host portion (not fully qualified).</p>
               </item>
-              <tag><c>long</c></tag>
+              <tag><c>longnames</c></tag>
               <item>
                 <p>The distribution was started to use node names with a long
                 fully qualified host portion.</p>
