@@ -217,6 +217,7 @@
 -define(SLEEP, 1000).
 -define(DEFAULT_CURVE, secp256r1).
 -define(PRINT_DEPTH, 100).
+-define(DTLS_RECBUF, 32768).
 
 %%====================================================================
 %% API
@@ -946,10 +947,11 @@ run_client(Opts) ->
     Port = proplists:get_value(port, Opts),
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
-    Options = proplists:get_value(options, Opts),
+    Options0 = proplists:get_value(options, Opts),
+    Options = patch_dtls_options(Options0),
     ContOpts = proplists:get_value(continue_options, Opts, []),
     ?LOG("~n~p:connect(~p, ~p)@~p~n", [Transport, Host, Port, Node]),
-    ?LOG("SSLOpts: ~p", [format_options(Options)]),
+    ?LOG("SSLOpts:~n ~0.p", [format_options(Options)]),
     case ContOpts of
         [] ->
             client_loop(Node, Host, Port, Pid, Transport, Options, Opts);
@@ -1293,6 +1295,16 @@ wait_for_result(Pid, Msg) ->
 	    wait_for_result(Pid,Msg)
 	%% Unexpected ->
 	%%     Unexpected
+    end.
+
+patch_dtls_options(Options0) ->
+    case proplists:get_value(protocol, Options0) of
+        dtls ->
+            case proplists:get_value(recbuf, Options0, undefined) of
+                undefined -> [{recbuf, ?DTLS_RECBUF}|Options0];
+                _ -> Options0
+            end;
+        _ ->    Options0
     end.
 
 format_options([{cacerts, Certs}|R]) ->
@@ -2665,11 +2677,10 @@ openssl_tls_version_support(Version, Config0) ->
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Exe = "openssl",
+    Opts0 = [{versions, [Version]}, {verify, verify_none}],
     {Proto, Opts} = case is_tls_version(Version) of
-                        true ->
-                            {tls, [{protocol,tls}, {versions, [Version]}]};
-                        false ->
-                            {dtls, [{protocol,dtls}, {versions, [Version]}]}
+                        true  -> {tls, [{protocol,tls}|Opts0]};
+                        false -> {dtls, patch_dtls_options([{protocol, dtls}|Opts0])}
                     end,
     Args0 = case Proto of
                 tls ->
@@ -2683,7 +2694,6 @@ openssl_tls_version_support(Version, Config0) ->
             end,
     Args = maybe_force_ipv4(Args0),
     OpensslPort = portable_open_port(Exe, Args),
-
     try wait_for_openssl_server(Port, Proto) of
         ok ->
             case  ssl:connect("localhost", Port, Opts, 5000) of
@@ -3247,7 +3257,7 @@ enough_openssl_crl_support(_) -> true.
 wait_for_openssl_server(Port, tls) ->
     do_wait_for_openssl_tls_server(Port, 10);
 wait_for_openssl_server(_Port, dtls) ->
-    ct:sleep(?SLEEP),
+    ct:sleep(?SLEEP div 2),
     ok. %% No need to wait for DTLS over UDP server
         %% client will retransmitt until it is up.
         %% But wait a little for openssl debug printing
@@ -3323,8 +3333,8 @@ portable_open_port("openssl" = Exe, Args0) ->
     case IsWindows andalso os:getenv("WSLENV") of
         false ->
             AbsPath = os:find_executable(Exe),
-            ?LOG("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
-                   [AbsPath, Args0]),
+            ?LOG("open_port({spawn_executable, ~p}, [stderr_to_stdout,~n {args, \"~s\"}]).",
+		 [AbsPath, lists:join($\s, Args0)]),
             open_port({spawn_executable, AbsPath},
                       [{args, Args0}, stderr_to_stdout]);
 	_ ->
@@ -3340,7 +3350,8 @@ portable_open_port("openssl" = Exe, Args0) ->
 	    Args1 = [Translate(Arg) || Arg <- Args0],
 	    Args = ["/C","wsl","openssl"| Args1] ++ ["2>&1"],
 	    Cmd =  os:find_executable("cmd"),
-	    ?LOG("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [Cmd,Args]),
+            ?LOG("open_port({spawn_executable, ~p}, [stderr_to_stdout,~n {args, \"~s\"}]).",
+		 [Cmd, lists:join($\s, Args0)]),
 	    open_port({spawn_executable, Cmd},
 		      [{args, Args}, stderr_to_stdout, hide])
     end;
@@ -3976,6 +3987,8 @@ openssl_dtls_maxfraglen_support() ->
             false;
         "OpenSSL 1.1" ++ _ ->
             false;
+	"OpenSSL 3.0.1" ++ _ ->
+	    false; %% OpenSSL sends internal error alert
         "OpenSSL" ++ _ ->
             true;
         _  ->

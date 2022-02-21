@@ -142,8 +142,9 @@ fragment_handshake(Bin, _) when is_binary(Bin)->
     %% This is the change_cipher_spec not a "real handshake" but part of the flight
     Bin;
 fragment_handshake([MsgType, Len, Seq, _, Len, Bin], Size) ->
-    Bins = bin_fragments(Bin, Size),
+    Bins = bin_fragments(Bin, Size-26),  %% Remove packet headers
     handshake_fragments(MsgType, Seq, Len, Bins, []).
+
 encode_handshake(Handshake, Version, Seq) ->
     {MsgType, Bin} = enc_handshake(Handshake, Version),
     Len = byte_size(Bin),
