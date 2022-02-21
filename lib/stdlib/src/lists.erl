@@ -962,17 +962,20 @@ keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
       List2 :: [{Index, T}],
       Index :: integer(),
       T :: term().
-enumerate(List1) ->
-    enumerate(1, List1).
+enumerate(List1) when is_list(List1) ->
+    enumerate_1(1, List1).
 
 -spec enumerate(Index, List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],
       Index :: integer(),
       T :: term().
-enumerate(Index, [H|T]) when is_integer(Index) ->
-    [{Index, H}|enumerate(Index + 1, T)];
-enumerate(Index, []) when is_integer(Index) ->
+enumerate(Index, List1) when is_integer(Index), is_list(List1) ->
+    enumerate_1(Index, List1).
+
+enumerate_1(Index, [H|T]) ->
+    [{Index, H}|enumerate_1(Index + 1, T)];
+enumerate_1(_Index, []) ->
     [].
 
 %%% Suggestion from OTP-2948: sort and merge with Fun.
