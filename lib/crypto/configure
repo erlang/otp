@@ -1423,7 +1423,9 @@ Optional Features:
   --disable-evp-dh        intentionally undocumented workaround
   --disable-evp-hmac      intentionally undocumented workaround
   --disable-otp-test-engine
-                          intentionally undocumented workaround
+                          Disable build of the otp_test_engine. (default is
+                          --enable-otp-test-engine, unless for LibreSSL >=
+                          3.5.0 where default is --disable-otp-test-engine)
   --disable-deprecated-warnings
                           disable warnings for deprecated functions in
                           cryptolib (default is to warn, except for OpenSSL
@@ -5126,7 +5128,7 @@ if test "${enable_otp_test_engine+set}" = set; then :
     *)    DISABLE_OTP_TEST_ENGINE=no;;
   esac
 else
-  DISABLE_OTP_TEST_ENGINE=no
+  DISABLE_OTP_TEST_ENGINE=default
 fi
 
 
@@ -5317,6 +5319,28 @@ else
   v3_include=no
 fi
 rm -f conftest*
+
+
+if test "x$DISABLE_OTP_TEST_ENGINE" = "xdefault"; then
+# Get default value for the --disable-otp-test-engine. Depends on cryptolib version
+          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1; then :
+  DISABLE_OTP_TEST_ENGINE=yes
+else
+  DISABLE_OTP_TEST_ENGINE=no
+fi
+rm -f conftest*
+
+    fi
 
     CPPFLAGS="$save_CPPFLAGS"
 
@@ -5722,6 +5746,28 @@ else
   v3_include=no
 fi
 rm -f conftest*
+
+
+if test "x$DISABLE_OTP_TEST_ENGINE" = "xdefault"; then
+# Get default value for the --disable-otp-test-engine. Depends on cryptolib version
+          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1; then :
+  DISABLE_OTP_TEST_ENGINE=yes
+else
+  DISABLE_OTP_TEST_ENGINE=no
+fi
+rm -f conftest*
+
+    fi
 
     CPPFLAGS="$save_CPPFLAGS"
 
