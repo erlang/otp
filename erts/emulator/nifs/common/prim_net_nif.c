@@ -91,7 +91,7 @@
 
 
 #ifdef __WIN32__
-#define STRNCASECMP               strncasecmp
+// #define STRNCASECMP               strncasecmp
 #define INCL_WINSOCK_API_TYPEDEFS 1
 
 #ifndef WINDOWS_H_INCLUDES_WINSOCK2_H
@@ -266,6 +266,7 @@ extern char* erl_errno_id(int error);
     ENET_NIF_FUNC_DEF(getnameinfo);          \
     ENET_NIF_FUNC_DEF(getaddrinfo);          \
     ENET_NIF_FUNC_DEF(getifaddrs);           \
+    ENET_NIF_FUNC_DEF(get_adapters_addresses);  \
     ENET_NIF_FUNC_DEF(get_if_entry);         \
     ENET_NIF_FUNC_DEF(get_interface_info);   \
     ENET_NIF_FUNC_DEF(get_ip_address_table); \
@@ -308,6 +309,80 @@ static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
 
 #if defined(__WIN32__)
 
+/* *** Get Adapters Addresses functions *** */
+static BOOLEAN_T enet_get_adapters_addresses_args_debug(ErlNifEnv*         env,
+                                                        const ERL_NIF_TERM eargs);
+static BOOLEAN_T enet_get_adapters_addresses_args_family(ErlNifEnv*         env,
+                                                         const ERL_NIF_TERM eargs,
+                                                         ULONG*             fam);
+static BOOLEAN_T enet_get_adapters_addresses_args_flags(ErlNifEnv*         env,
+                                                         const ERL_NIF_TERM eargs,
+                                                         ULONG*             flags);
+static ERL_NIF_TERM enet_get_adapters_addresses(ErlNifEnv* env,
+                                                BOOLEAN_T  dbg,
+                                                ULONG      fam,
+                                                ULONG      flags);
+static ERL_NIF_TERM enet_adapters_addresses_encode(ErlNifEnv*            env,
+                                                   BOOLEAN_T             dbg,
+                                                   IP_ADAPTER_ADDRESSES* ipAdAddrsP);
+static ERL_NIF_TERM enet_adapter_addresses_encode(ErlNifEnv*            env,
+                                                  BOOLEAN_T             dbg,
+                                                  IP_ADAPTER_ADDRESSES* ipAdAddrsP);
+static ERL_NIF_TERM enet_adapter_encode_name(ErlNifEnv* env,
+                                             WCHAR*     name);
+static ERL_NIF_TERM enet_adapter_encode_friendly_name(ErlNifEnv* env,
+                                                      WCHAR*     fname);
+static ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
+                                          DWORD      status);
+static ERL_NIF_TERM encode_adapter_flags(ErlNifEnv*            env,
+                                         IP_ADAPTER_ADDRESSES* ipAdAddrsP);
+static ERL_NIF_TERM encode_adapter_unicast_addrs(ErlNifEnv*                  env,
+                                                 IP_ADAPTER_UNICAST_ADDRESS* firstP);
+static ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
+                                                IP_ADAPTER_UNICAST_ADDRESS* addrP);
+static ERL_NIF_TERM encode_adapter_unicast_addr_flags(ErlNifEnv* env,
+                                                      DWORD      flags);
+static ERL_NIF_TERM encode_adapter_unicast_addr_sockaddr(ErlNifEnv*       env,
+                                                         struct sockaddr* addrP);
+static ERL_NIF_TERM encode_adapter_unicast_addr_porig(ErlNifEnv*       env,
+                                                      IP_PREFIX_ORIGIN porig);
+static ERL_NIF_TERM encode_adapter_unicast_addr_sorig(ErlNifEnv*       env,
+                                                      IP_SUFFIX_ORIGIN sorig);
+static ERL_NIF_TERM encode_adapter_unicast_addr_dad_state(ErlNifEnv*   env,
+                                                          IP_DAD_STATE dstate);
+static ERL_NIF_TERM encode_adapter_anycast_addrs(ErlNifEnv*                  env,
+                                                 IP_ADAPTER_ANYCAST_ADDRESS* firstP);
+static ERL_NIF_TERM encode_adapter_anycast_addr(ErlNifEnv*                  env,
+                                                IP_ADAPTER_ANYCAST_ADDRESS* addrP);
+static ERL_NIF_TERM encode_adapter_anycast_addr_flags(ErlNifEnv* env,
+                                                      DWORD      flags);
+static ERL_NIF_TERM encode_adapter_anycast_addr_sockaddr(ErlNifEnv*       env,
+                                                         struct sockaddr* addrP);
+static ERL_NIF_TERM encode_adapter_multicast_addrs(ErlNifEnv*                  env,
+                                                   IP_ADAPTER_MULTICAST_ADDRESS* firstP);
+static ERL_NIF_TERM encode_adapter_multicast_addr(ErlNifEnv*                    env,
+                                                  IP_ADAPTER_MULTICAST_ADDRESS* addrP);
+static ERL_NIF_TERM encode_adapter_multicast_addr_flags(ErlNifEnv* env,
+                                                        DWORD      flags);
+static ERL_NIF_TERM encode_adapter_multicast_addr_sockaddr(ErlNifEnv*       env,
+                                                           struct sockaddr* addrP);
+static ERL_NIF_TERM encode_adapter_dns_server_addrs(ErlNifEnv*                     env,
+                                                    IP_ADAPTER_DNS_SERVER_ADDRESS* firstP);
+static ERL_NIF_TERM encode_adapter_dns_server_addr(ErlNifEnv*                     env,
+                                                   IP_ADAPTER_DNS_SERVER_ADDRESS* addrP);
+static ERL_NIF_TERM encode_adapter_dns_server_addr_sockaddr(ErlNifEnv*       env,
+                                                            struct sockaddr* addrP);
+static ERL_NIF_TERM encode_adapter_zone_indices(ErlNifEnv* env,
+                                                DWORD*     zoneIndices,
+                                                DWORD      len);
+static ERL_NIF_TERM encode_adapter_prefixes(ErlNifEnv*         env,
+                                            IP_ADAPTER_PREFIX* firstP);
+static ERL_NIF_TERM encode_adapter_prefix(ErlNifEnv*         env,
+                                          IP_ADAPTER_PREFIX* prefP);
+static ERL_NIF_TERM encode_adapter_prefix_sockaddr(ErlNifEnv*       env,
+                                                   struct sockaddr* addrP);
+
+
 /* *** Get If Entry (MIB_IFROW) functions *** */
 static ERL_NIF_TERM enet_get_if_entry(ErlNifEnv* env,
                                       BOOLEAN_T  dbg,
@@ -325,8 +400,8 @@ static ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
 static ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
                                               DWORD      len,
                                               UCHAR*     buf);
-static ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
-                                          DWORD      status);
+static ERL_NIF_TERM encode_internal_if_oper_status(ErlNifEnv* env,
+                                                   DWORD      status);
 static ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
                                                DWORD      len,
                                                UCHAR*     buf);
@@ -348,17 +423,19 @@ static void make_adapter_index_map(ErlNifEnv*    env,
                                    ERL_NIF_TERM  eindex,
                                    ERL_NIF_TERM  ename,
                                    ERL_NIF_TERM* emap);
-
 /* *** Get IP Address Table functions *** */
 static ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
                                               BOOLEAN_T  dbg);
 static ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
                                                      BOOLEAN_T        dbg,
                                                      MIB_IPADDRTABLE* tabP);
-static void encode_ip_address_row_map(ErlNifEnv*     env,
-                                      BOOLEAN_T      dbg,
-                                      MIB_IPADDRROW* rowP,
-                                      ERL_NIF_TERM*  erow);
+static ERL_NIF_TERM encode_ip_address_row(ErlNifEnv*     env,
+                                          BOOLEAN_T      dbg,
+                                          MIB_IPADDRROW* rowP);
+static ERL_NIF_TERM encode_ip_address_row_addr(ErlNifEnv*  env,
+                                               BOOLEAN_T   dbg,
+                                               const char* descr,
+                                               DWORD       addr);
 static void make_ip_address_row(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eaddr,
                                 ERL_NIF_TERM  eindex,
@@ -366,6 +443,7 @@ static void make_ip_address_row(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eBCastAddr,
                                 ERL_NIF_TERM  eReasmSize,
                                 ERL_NIF_TERM* iar);
+
 #endif
 
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -425,6 +503,7 @@ static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, int* err);
 #endif
+static ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa);
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
                                        int*               flags);
@@ -504,44 +583,80 @@ static const struct in6_addr in6addr_loopback =
 #define LOCAL_ATOMS                             \
     LOCAL_ATOM_DECL(address_info);              \
     LOCAL_ATOM_DECL(admin_status);              \
+    LOCAL_ATOM_DECL(anycast_addrs);             \
     LOCAL_ATOM_DECL(atm);                       \
     LOCAL_ATOM_DECL(automedia);                 \
     LOCAL_ATOM_DECL(bcast_addr);                \
     LOCAL_ATOM_DECL(broadaddr);                 \
     LOCAL_ATOM_DECL(broadcast);                 \
+    LOCAL_ATOM_DECL(dad_state);                 \
     LOCAL_ATOM_DECL(debug);                     \
+    LOCAL_ATOM_DECL(deprecated);                \
     LOCAL_ATOM_DECL(description);               \
+    LOCAL_ATOM_DECL(dhcp);                      \
+    LOCAL_ATOM_DECL(dhcp_v4_enabled);           \
+    LOCAL_ATOM_DECL(ddns_enabled);              \
     LOCAL_ATOM_DECL(disconnected);              \
+    LOCAL_ATOM_DECL(dns_eligible);              \
+    LOCAL_ATOM_DECL(dns_server_addrs);          \
+    LOCAL_ATOM_DECL(dns_suffix);                \
+    LOCAL_ATOM_DECL(down);                      \
     LOCAL_ATOM_DECL(dstaddr);                   \
+    LOCAL_ATOM_DECL(duplicate);                 \
     LOCAL_ATOM_DECL(dynamic);                   \
     LOCAL_ATOM_DECL(ethernet_csmacd);           \
     LOCAL_ATOM_DECL(fddi);                      \
+    LOCAL_ATOM_DECL(friendly_name);             \
     LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
     LOCAL_ATOM_DECL(ieee1394);                  \
     LOCAL_ATOM_DECL(ieee80211);                 \
     LOCAL_ATOM_DECL(ieee80216_wman);            \
+    LOCAL_ATOM_DECL(include_prefix);              \
+    LOCAL_ATOM_DECL(include_wins_info);           \
+    LOCAL_ATOM_DECL(include_gateways);            \
+    LOCAL_ATOM_DECL(include_all_interfaces);      \
+    LOCAL_ATOM_DECL(include_all_compartments);    \
+    LOCAL_ATOM_DECL(include_tunnel_bindingorder); \
     LOCAL_ATOM_DECL(index);                     \
+    LOCAL_ATOM_DECL(internal_oper_status);      \
+    LOCAL_ATOM_DECL(invalid);                   \
     LOCAL_ATOM_DECL(in_octets);                 \
     LOCAL_ATOM_DECL(in_ucast_pkts);             \
     LOCAL_ATOM_DECL(in_nucast_pkts);            \
     LOCAL_ATOM_DECL(in_discards);               \
     LOCAL_ATOM_DECL(in_errors);                 \
     LOCAL_ATOM_DECL(in_unknown_protos);         \
+    LOCAL_ATOM_DECL(ipv4_enabled);                \
+    LOCAL_ATOM_DECL(ipv6_enabled);                \
+    LOCAL_ATOM_DECL(ipv6_index);                  \
+    LOCAL_ATOM_DECL(ipv6_managed_address_config_supported);  \
+    LOCAL_ATOM_DECL(ipv6_other_stateful_config);  \
     LOCAL_ATOM_DECL(iso88025_tokenring);        \
     LOCAL_ATOM_DECL(last_change);               \
+    LOCAL_ATOM_DECL(lease_lifetime);            \
+    LOCAL_ATOM_DECL(length);                    \
+    LOCAL_ATOM_DECL(link_layer_address);        \
+    LOCAL_ATOM_DECL(lower_layer_down);          \
+    LOCAL_ATOM_DECL(manual);                    \
     LOCAL_ATOM_DECL(mask);                      \
     LOCAL_ATOM_DECL(master);                    \
     LOCAL_ATOM_DECL(multicast);                 \
+    LOCAL_ATOM_DECL(multicast_addrs);           \
     LOCAL_ATOM_DECL(namereqd);                  \
     LOCAL_ATOM_DECL(name_info);                 \
+    LOCAL_ATOM_DECL(netbios_over_tcpip_enabled);  \
     LOCAL_ATOM_DECL(netmask);                   \
     LOCAL_ATOM_DECL(noarp);                     \
     LOCAL_ATOM_DECL(nofqdn);                    \
     LOCAL_ATOM_DECL(non_operational);           \
     LOCAL_ATOM_DECL(notrailers);                \
+    LOCAL_ATOM_DECL(not_present);               \
+    LOCAL_ATOM_DECL(no_multicast);              \
     LOCAL_ATOM_DECL(numerichost);               \
     LOCAL_ATOM_DECL(numericserv);               \
+    LOCAL_ATOM_DECL(on_link_prefix_length);     \
+    LOCAL_ATOM_DECL(operational);               \
     LOCAL_ATOM_DECL(oper_status);               \
     LOCAL_ATOM_DECL(other);                     \
     LOCAL_ATOM_DECL(out_octets);                \
@@ -554,20 +669,44 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(pointopoint);               \
     LOCAL_ATOM_DECL(portsel);                   \
     LOCAL_ATOM_DECL(ppp);                       \
+    LOCAL_ATOM_DECL(preferred);                 \
+    LOCAL_ATOM_DECL(preferred_lifetime);        \
+    LOCAL_ATOM_DECL(prefixes);                  \
+    LOCAL_ATOM_DECL(prefix_origin);             \
     LOCAL_ATOM_DECL(promisc);                   \
+    LOCAL_ATOM_DECL(random);                    \
     LOCAL_ATOM_DECL(reasm_size);                \
+    LOCAL_ATOM_DECL(receive_only);              \
+    LOCAL_ATOM_DECL(register_adapter_suffix);   \
+    LOCAL_ATOM_DECL(router_advertisement);      \
     LOCAL_ATOM_DECL(running);                   \
     LOCAL_ATOM_DECL(service);                   \
     LOCAL_ATOM_DECL(slave);                     \
+    LOCAL_ATOM_DECL(skip_unicast);              \
+    LOCAL_ATOM_DECL(skip_anycast);              \
+    LOCAL_ATOM_DECL(skip_multicast);            \
+    LOCAL_ATOM_DECL(skip_dns_server);           \
+    LOCAL_ATOM_DECL(skip_friendly_name);        \
     LOCAL_ATOM_DECL(software_loopback);         \
     LOCAL_ATOM_DECL(speed);                     \
+    LOCAL_ATOM_DECL(suffix_origin);             \
+    LOCAL_ATOM_DECL(tentative);                 \
+    LOCAL_ATOM_DECL(testing);                   \
+    LOCAL_ATOM_DECL(transient);                 \
     LOCAL_ATOM_DECL(tunnel);                    \
+    LOCAL_ATOM_DECL(unchanged);                 \
+    LOCAL_ATOM_DECL(unknown);                   \
+    LOCAL_ATOM_DECL(unicast_addrs);             \
     LOCAL_ATOM_DECL(unreachable);               \
     LOCAL_ATOM_DECL(up);                        \
+    LOCAL_ATOM_DECL(valid_lifetime);            \
+    LOCAL_ATOM_DECL(well_known);                \
     LOCAL_ATOM_DECL(wwanpp);                    \
-    LOCAL_ATOM_DECL(wwanpp2);
+    LOCAL_ATOM_DECL(wwanpp2);                   \
+    LOCAL_ATOM_DECL(zone_indices);
 
 #define LOCAL_ERROR_REASON_ATOMS               \
+    LOCAL_ATOM_DECL(address_not_associated);   \
     LOCAL_ATOM_DECL(can_not_complete);         \
     LOCAL_ATOM_DECL(eaddrfamily);              \
     LOCAL_ATOM_DECL(ebadflags);                \
@@ -588,8 +727,10 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(invalid_flags);            \
     LOCAL_ATOM_DECL(invalid_parameter);        \
     LOCAL_ATOM_DECL(not_found);                \
+    LOCAL_ATOM_DECL(not_enough_memory);        \
     LOCAL_ATOM_DECL(not_supported);            \
     LOCAL_ATOM_DECL(no_data);                  \
+    LOCAL_ATOM_DECL(no_function);              \
     LOCAL_ATOM_DECL(no_uniconde_traslation);
 
 #define LOCAL_ATOM_DECL(A) static ERL_NIF_TERM atom_##A
@@ -623,6 +764,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_getnameinfo/2
  * nif_getaddrinfo/3
  * nif_getifaddrs/1
+ * nif_get_adapters_addresses/1
  * nif_get_if_entry/1
  * nif_get_interface_info/1
  * nif_get_ip_address_table/1
@@ -1534,19 +1676,7 @@ ERL_NIF_TERM encode_ifaddrs_flags(ErlNifEnv* env, unsigned int flags)
 static
 ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv* env, struct sockaddr* sa)
 {
-    ERL_NIF_TERM esa;
-
-    if (sa != NULL) {
-        
-        unsigned int sz = sizeof(ESockAddress);
-
-        esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
-        
-    } else {
-        esa = esock_atom_undefined;
-    }
-
-    return esa;
+    return encode_sockaddr(env, sa);
 }
 
 
@@ -1634,6 +1764,1172 @@ void make_ifaddrs(ErlNifEnv*    env,
 
 
 /* ----------------------------------------------------------------------
+ * nif_get_adapters_addresses
+ *
+ * Description:
+ * Get adapters addresses.
+ * This is a windows only function!
+ *
+ * Arguments:
+ * Args - A way to pass 'extra' arguments.
+ *        #{family := unspec (default) | inet | inet6,
+ *          flags  := flags(),
+ *          debug  := boolean() (optional)}
+ *
+ * flags() :: #{skip_unicast                :: boolean() (default false),
+ *              skip_anycast                :: boolean() (default true),
+ *              skip_multicast              :: boolean() (default true),
+ *              skip_dns_server             :: boolean() (default true),
+ *              skip_friendly_name          :: boolean() (default true),
+ *              include_prefix              :: boolean() (default true),
+ *              include_wins_info           :: boolean() (default false),
+ *              include_gateways            :: boolean() (default false),
+ *              include_all_interfaces      :: boolean() (default false),
+ *              include_all_compartments    :: boolean() (default false),
+ *              include_tunnel_bindingorder :: boolean() (default false)}
+ * Suggested Help atoms:
+ *     no_skips_all_includes
+ *     all_skips_no_includes
+ *     no_skips_no_includes
+ *     all_skips_all_includes
+ */
+
+static
+ERL_NIF_TERM nif_get_adapters_addresses(ErlNifEnv*         env,
+                                        int                argc,
+                                        const ERL_NIF_TERM argv[])
+{
+#if !defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    ERL_NIF_TERM result, eargs;
+    ULONG        fam, flags;
+    BOOLEAN_T    dbg;
+
+    NDBG( ("NET", "nif_get_adapters_addresses -> entry (%d)\r\n", argc) );
+
+    if ((argc != 1) ||
+        !IS_MAP(env, argv[0])) {
+        return enif_make_badarg(env);
+    }
+    eargs = argv[0];
+
+    if (!enet_get_adapters_addresses_args_family(env, eargs, &fam))
+        return enif_make_badarg(env);
+
+    if (!enet_get_adapters_addresses_args_flags(env, eargs, &flags))
+        return enif_make_badarg(env);
+
+    dbg    = enet_get_adapters_addresses_args_debug(env, eargs);
+
+    result = enet_get_adapters_addresses(env, dbg, fam, flags);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_get_adapters_addresses -> done when result: "
+            "\r\n   %T\r\n", result) );
+    
+    return result;
+#endif
+}
+
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_adapters_addresses_args_debug(ErlNifEnv*         env,
+                                                 const ERL_NIF_TERM eargs)
+{
+    return get_debug(env, eargs);
+}
+#endif
+
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_adapters_addresses_args_family(ErlNifEnv*         env,
+                                                  const ERL_NIF_TERM eargs,
+                                                  ULONG*             fam)
+{
+    ERL_NIF_TERM key = esock_atom_family;
+    ERL_NIF_TERM eval;
+    DWORD        val;
+
+    if (!GET_MAP_VAL(env, eargs, key, &eval)) {
+        *fam = AF_UNSPEC; // Default
+        return TRUE;
+    } else {
+        if (!IS_ATOM(env, eval))
+            return FALSE;
+
+        if (COMPARE(eval, esock_atom_unspec))
+            val = AF_UNSPEC;
+        else if (COMPARE(eval, esock_atom_inet))
+            val = AF_INET;
+        else if (COMPARE(eval, esock_atom_inet6))
+            val = AF_INET6;
+        else
+            return FALSE;
+
+        *fam = val;
+        return TRUE;
+    }
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_adapters_addresses_args_flags(ErlNifEnv*         env,
+                                                  const ERL_NIF_TERM eargs,
+                                                  ULONG*             flags)
+{
+    ERL_NIF_TERM eflags;
+    ULONG        val = 0;
+
+    if (!GET_MAP_VAL(env, eargs, esock_atom_flags, &eflags)) {
+        // Default
+        *flags =
+            GAA_FLAG_INCLUDE_PREFIX |
+            GAA_FLAG_SKIP_ANYCAST |
+            GAA_FLAG_SKIP_DNS_SERVER |
+            GAA_FLAG_SKIP_FRIENDLY_NAME |
+            GAA_FLAG_SKIP_MULTICAST;
+        return TRUE;
+    } else {
+        if (!IS_MAP(env, eflags))
+            return FALSE;
+
+        /* skip unicast */
+        if (esock_get_bool_from_map(env, eflags, atom_skip_unicast, FALSE))
+            val |= GAA_FLAG_SKIP_UNICAST;
+        
+        /* skip anycast */
+        if (esock_get_bool_from_map(env, eflags, atom_skip_anycast, TRUE))
+            val |= GAA_FLAG_SKIP_ANYCAST;
+        
+        /* skip multicast */
+        if (esock_get_bool_from_map(env, eflags, atom_skip_multicast, TRUE))
+            val |= GAA_FLAG_SKIP_MULTICAST;
+        
+        /* skip dns-server */
+        if (esock_get_bool_from_map(env, eflags, atom_skip_dns_server, TRUE))
+            val |= GAA_FLAG_SKIP_DNS_SERVER;
+        
+        /* skip fiendly-name */
+        if (esock_get_bool_from_map(env, eflags, atom_skip_friendly_name, TRUE))
+            val |= GAA_FLAG_SKIP_FRIENDLY_NAME;
+        
+        /* include prefix */
+        if (esock_get_bool_from_map(env, eflags, atom_include_prefix, TRUE))
+            val |= GAA_FLAG_INCLUDE_PREFIX;
+        
+        /* include wins-info */
+        if (esock_get_bool_from_map(env, eflags, atom_include_wins_info, FALSE))
+            val |= GAA_FLAG_INCLUDE_WINS_INFO;
+        
+        /* include gateways */
+        if (esock_get_bool_from_map(env, eflags, atom_include_gateways, FALSE))
+            val |= GAA_FLAG_INCLUDE_GATEWAYS;
+        
+        /* include all-interfaces */
+        if (esock_get_bool_from_map(env, eflags,
+                                    atom_include_all_interfaces, FALSE))
+            val |= GAA_FLAG_INCLUDE_ALL_INTERFACES;
+        
+        /* include all-compartments */
+        if (esock_get_bool_from_map(env, eflags,
+                                    atom_include_all_compartments, FALSE))
+            val |= GAA_FLAG_INCLUDE_ALL_COMPARTMENTS;
+        
+        /* include tunnel-bindingorder */
+        if (esock_get_bool_from_map(env, eflags,
+                                    atom_include_tunnel_bindingorder, FALSE))
+            val |= GAA_FLAG_INCLUDE_TUNNEL_BINDINGORDER;
+
+        *flags = val;
+        return TRUE;
+    }
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_get_adapters_addresses(ErlNifEnv* env,
+                                         BOOLEAN_T  dbg,
+                                         ULONG      family,
+                                         ULONG      flags)
+{
+    int                   i;
+    DWORD                 ret;
+    unsigned long         ipAdAddrsSz = 16 * 1024;
+    IP_ADAPTER_ADDRESSES* ipAdAddrsP;
+    ERL_NIF_TERM          eret, addrs, result;
+    /*
+    ULONG (WINAPI*        fpGetAdaptersAddresses)
+        (ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
+    HMODULE               iphlpapi = GetModuleHandle("iphlpapi");
+
+    NDBG2( dbg,
+           ("NET", "enet_get_adapters_addresses -> "
+            "try get GetAdaptersAddresses\r\n") );
+
+    fpGetAdaptersAddresses =
+        (void *) (iphlpapi ?
+                  GetProcAddress(iphlpapi, "GetAdaptersAddresses") :
+                  NULL);
+
+    */
+    /* if (fpGetAdaptersAddresses) */ {
+        ipAdAddrsP = (IP_ADAPTER_ADDRESSES*) MALLOC(ipAdAddrsSz);
+        for (i = 17;  i;  i--) {
+            /* ret = fpGetAdaptersAddresses(family, */
+            ret = GetAdaptersAddresses(family,
+                                       flags,
+                                       NULL,
+                                       ipAdAddrsP,
+                                       &ipAdAddrsSz);
+            if (ret == NO_ERROR) {
+                /* We are done! */
+                break;
+            } else if (ret == ERROR_BUFFER_OVERFLOW) {
+                /* Not large enough */
+                ipAdAddrsP = REALLOC(ipAdAddrsP, ipAdAddrsSz);
+                continue;
+            } else {
+                /* Failure */
+                i = 0;
+            }
+            if (ret == NO_ERROR) break;
+            if (ret == ERROR_BUFFER_OVERFLOW) continue;
+            i = 0;
+        }
+
+        if (! i) {
+
+            NDBG2( dbg,
+                   ("NET", "enet_get_adapters_addresses -> "
+                    "try encode error (%d)\r\n", ret) );
+
+            FREE(ipAdAddrsP);
+
+            switch (ret) {
+            case ERROR_ADDRESS_NOT_ASSOCIATED:
+                eret = atom_address_not_associated;
+                break;
+            case ERROR_BUFFER_OVERFLOW:
+                eret = atom_insufficient_buffer;
+                break;
+            case ERROR_INVALID_PARAMETER:
+                eret = atom_invalid_parameter;
+                break;
+            case ERROR_NO_DATA:
+                eret = atom_no_data;
+                break;
+            case ERROR_NOT_ENOUGH_MEMORY:
+                eret = atom_not_enough_memory;
+                break;
+            default:
+                eret = MKI(env, ret);
+                break;
+            }
+
+            result = esock_make_error(env, eret);
+        } else {
+
+            NDBG2( dbg,
+                   ("NET", "enet_get_adapters_addresses -> "
+                    "try encode addresses\r\n") );
+
+            addrs  = enet_adapters_addresses_encode(env, dbg, ipAdAddrsP);
+            result = esock_make_ok2(env, addrs);
+
+        }
+    } /* else {
+        result = esock_make_error(env, atom_no_function);
+        } */
+    
+    NDBG2( dbg,
+           ("NET", "enet_get_adapters_addresses -> done with:"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+}
+#endif
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_adapters_addresses_encode(ErlNifEnv*            env,
+                                            BOOLEAN_T             dbg,
+                                            IP_ADAPTER_ADDRESSES* ipAdAddrsP)
+{
+    /* No idea how many we actually need, so just get some */
+    SocketTArray          adapterArray = TARRAY_CREATE(16);
+    IP_ADAPTER_ADDRESSES* addrsP       = ipAdAddrsP;
+    ERL_NIF_TERM          entry, result;
+
+    NDBG2( dbg, ("NET", "enet_get_adapters_addresses -> entry\r\n") );
+
+    while (addrsP != NULL) {
+        /* Process current adapter */
+        entry  = enet_adapter_addresses_encode(env, dbg, addrsP);
+
+        NDBG2( dbg, ("NET", "enet_get_adapters_addresses -> entry encoded:"
+                     "\r\n   Adapter Entry: %T"
+                     "\r\n", entry) );
+
+        TARRAY_ADD(adapterArray, entry);
+        
+        addrsP = addrsP->Next;
+     }
+
+     TARRAY_TOLIST(adapterArray, env, &result);
+
+     NDBG2( dbg, ("NET", "enet_get_adapters_addresses -> done:"
+                  "\r\n   %T"
+                  "\r\n", result) );
+
+     return result;
+
+    }
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_adapter_addresses_encode(ErlNifEnv*            env,
+                                           BOOLEAN_T             dbg,
+                                           IP_ADAPTER_ADDRESSES* ipAdAddrsP)
+{
+    ERL_NIF_TERM ifIdx, name;
+    ERL_NIF_TERM unicastAddrs, anycastAddrs, multicastAddrs, dnsServerAddrs;
+    ERL_NIF_TERM dnsSuffix, description, flags, physAddr, fName, mtu, ifType;
+    ERL_NIF_TERM operStatus, zoneIndices, ipv6IfIdx, prefixes;
+    ERL_NIF_TERM map;
+
+    ifIdx          = MKI(env, ipAdAddrsP->IfIndex);
+    name           = MKS(env, ipAdAddrsP->AdapterName);
+    unicastAddrs   = encode_adapter_unicast_addrs(env, ipAdAddrsP->FirstUnicastAddress);
+    anycastAddrs   = encode_adapter_anycast_addrs(env, ipAdAddrsP->FirstAnycastAddress);
+    multicastAddrs = encode_adapter_multicast_addrs(env, ipAdAddrsP->FirstMulticastAddress);
+    dnsServerAddrs = encode_adapter_dns_server_addrs(env, ipAdAddrsP->FirstDnsServerAddress);
+    dnsSuffix      = encode_wchar(env, ipAdAddrsP->DnsSuffix);
+    description    = encode_wchar(env, ipAdAddrsP->Description);
+    fName          = encode_wchar(env, ipAdAddrsP->FriendlyName);
+    physAddr       = encode_uchar(env,
+                                  ipAdAddrsP->PhysicalAddressLength,
+                                  ipAdAddrsP->PhysicalAddress);
+    flags          = encode_adapter_flags(env, ipAdAddrsP);
+    mtu            = MKUI(env, ipAdAddrsP->Mtu);
+    ifType         = encode_if_type(env, ipAdAddrsP->IfType);
+    operStatus     = encode_if_oper_status(env, ipAdAddrsP->OperStatus);
+    zoneIndices    = encode_adapter_zone_indices(env,
+                                                 ipAdAddrsP->ZoneIndices,
+                                                 NUM(ipAdAddrsP->ZoneIndices));
+    ipv6IfIdx      = MKI(env, ipAdAddrsP->Ipv6IfIndex);
+    prefixes       = encode_adapter_prefixes(env, ipAdAddrsP->FirstPrefix);
+
+    /* *** _LH *** */
+    // tLinkSpeed = MKUI64(env, ipAdAddrsP->TransmitLinkSpeed);
+    // rLinkSpeed = MKUI64(env, ipAdAddrsP->ReceiveLinkSpeed);
+    // winsServerAddr = ...
+    // gatewayAddr = ...
+    // ipv4Metric = ...
+    // ipv6Metric = ...
+    // luid = ...
+    // dhcpv4Server = ...
+    // compartmentId = ...
+    // networkDuid = ...
+    // connectionType = ...
+    // tunnelType = ...
+    // dhcpv6Server = ...
+    // dhcpv6ClientDuid = ...
+    // dhcpv6Iaid = ...
+    // dnsSuffix = ...
+
+    {
+        ERL_NIF_TERM keys[] = {atom_index,
+                               esock_atom_name,
+                               atom_unicast_addrs,
+                               atom_anycast_addrs,
+                               atom_multicast_addrs,
+                               atom_dns_server_addrs,
+                               atom_dns_suffix,
+                               atom_description,
+                               atom_friendly_name,
+                               atom_phys_addr,
+                               esock_atom_flags,
+                               esock_atom_mtu,
+                               esock_atom_type,
+                               atom_oper_status,
+                               atom_zone_indices,
+                               atom_ipv6_index,
+                               atom_prefixes/* , */
+                               /* atom_transmit_link_speed, */
+                               /* atom_receive_link_speed */
+        };
+        ERL_NIF_TERM vals[] = {ifIdx,
+                               name,
+                               unicastAddrs,
+                               anycastAddrs,
+                               multicastAddrs,
+                               dnsServerAddrs,
+                               dnsSuffix,
+                               description,
+                               fName,
+                               physAddr,
+                               flags,
+                               mtu,
+                               ifType,
+                               operStatus,
+                               zoneIndices,
+                               ipv6IfIdx,
+                               prefixes
+                               /* , */
+                               /* tLinkSpeed, */
+                               /* rLinkSpeed */
+        };
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &map) );
+    }
+    
+    return map;
+}
+#endif // __WIN32__
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_flags(ErlNifEnv*            env,
+                                  IP_ADAPTER_ADDRESSES* ipAdAddrsP)
+{
+    ERL_NIF_TERM ddnsEnabled, regAdSuffix, dhcpv4Enabled, recvOnly;
+    ERL_NIF_TERM noMulticast, ipv6OtherStatefulCfg, netbiosOverTcpipEnabled;
+    ERL_NIF_TERM ipv4Enabled, ipv6Enabled, ipv6ManagedAddrCfgSup;
+    ERL_NIF_TERM eflags;
+
+#if defined(ESOCK_WIN_XP)
+    /* This is just a dummy-ifdef ... there is no such flag (ESOCK_WIN_XP).
+     * But this is a way to keep the code...
+     */
+    ddnsEnabled             = BOOL2ATOM(ipAdAddrsP->DdnsEnabled);
+    regAdSuffix             = BOOL2ATOM(ipAdAddrsP->RegisterAdapterSuffix);
+    dhcpv4Enabled           = BOOL2ATOM(ipAdAddrsP->Dhcpv4Enabled);
+    recvOnly                = BOOL2ATOM(ipAdAddrsP->ReceiveOnly);
+    noMulticast             = BOOL2ATOM(ipAdAddrsP->NoMulticast);
+    ipv6OtherStatefulCfg    = BOOL2ATOM(ipAdAddrsP->Ipv6OtherStatefulConfig);
+    netbiosOverTcpipEnabled = BOOL2ATOM(ipAdAddrsP->NetbiosOverTcpipEnabled);
+    ipv4Enabled             = BOOL2ATOM(ipAdAddrsP->Ipv4Enabled);
+    ipv6Enabled             = BOOL2ATOM(ipAdAddrsP->Ipv6Enabled);
+    ipv6ManagedAddrCfgSup   = BOOL2ATOM(ipAdAddrsP->Ipv6ManagedAddressConfigurationSupported);
+#else
+    ddnsEnabled             = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_DDNS_ENABLED);
+    regAdSuffix             = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_REGISTER_ADAPTER_SUFFIX);
+    dhcpv4Enabled           = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_DHCP_ENABLED);
+    recvOnly                = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_RECEIVE_ONLY);
+    noMulticast             = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_NO_MULTICAST);
+    ipv6OtherStatefulCfg    = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_IPV6_OTHER_STATEFUL_CONFIG);
+    netbiosOverTcpipEnabled = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_NETBIOS_OVER_TCPIP_ENABLED);
+    ipv4Enabled             = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_IPV4_ENABLED);
+    ipv6Enabled             = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_IPV6_ENABLED);
+    ipv6ManagedAddrCfgSup   = BOOL2ATOM(ipAdAddrsP->Flags & IP_ADAPTER_IPV6_MANAGE_ADDRESS_CONFIG);
+#endif    
+
+    {
+        ERL_NIF_TERM keys[] = {atom_ddns_enabled,
+                               atom_register_adapter_suffix,
+                               atom_dhcp_v4_enabled,
+                               atom_receive_only,
+                               atom_no_multicast,
+                               atom_ipv6_other_stateful_config,
+                               atom_netbios_over_tcpip_enabled,
+                               atom_ipv4_enabled,
+                               atom_ipv6_enabled,
+                               atom_ipv6_managed_address_config_supported};
+        ERL_NIF_TERM vals[] = {ddnsEnabled,
+                               regAdSuffix,
+                               dhcpv4Enabled,
+                               recvOnly,
+                               noMulticast,
+                               ipv6OtherStatefulCfg,
+                               netbiosOverTcpipEnabled,
+                               ipv4Enabled,
+                               ipv6Enabled,
+                               ipv6ManagedAddrCfgSup};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &eflags) );
+    }
+    
+    return eflags;
+}
+#endif // __WIN32__
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addrs(ErlNifEnv*                  env,
+                                          IP_ADAPTER_UNICAST_ADDRESS* firstP)
+{
+    IP_ADAPTER_UNICAST_ADDRESS* tmp = firstP;
+    SocketTArray                ta  = TARRAY_CREATE(16);
+    ERL_NIF_TERM eaddrs;
+    
+
+    while (tmp != NULL) {
+        TARRAY_ADD(ta, encode_adapter_unicast_addr(env, tmp));
+        tmp = tmp->Next;
+    }
+
+    TARRAY_TOLIST(ta, env, &eaddrs);
+
+    return eaddrs;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * unicast_address() ::
+ * #{flags                 := #{dns_eligible := boolean(),
+ *                              transient    := boolean()},
+ *   addr                  := socket:address(),
+ *   prefix_origin         := ip_prefix_origin(),
+ *   suffix_origin         := ip_suffix_origin(),
+ *   dad_state             := ip_dad_state(),
+ *   valid_lifetime        := ulong(),
+ *   preferred_lifetime    := ulong(),
+ *   lease_lifetime        := ulong(),
+ *   on_link_prefix_length := uint8()}
+ */
+static
+ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
+                                         IP_ADAPTER_UNICAST_ADDRESS* addrP)
+{
+    ERL_NIF_TERM eflags, esa, eporig, esorig, edstate, evlt, eplt, ellt;
+    /* ERL_NIF_TERM eplen; - Not on XP */
+    ERL_NIF_TERM eua;
+
+    eflags  = encode_adapter_unicast_addr_flags(env, addrP->Flags);
+    esa   = encode_adapter_unicast_addr_sockaddr(env,
+                                                 addrP->Address.lpSockaddr);
+    eporig  = encode_adapter_unicast_addr_porig(env, addrP->PrefixOrigin);
+    esorig  = encode_adapter_unicast_addr_sorig(env, addrP->SuffixOrigin);
+    edstate = encode_adapter_unicast_addr_dad_state(env, addrP->DadState);
+    evlt    = MKUL(env, addrP->ValidLifetime);
+    eplt    = MKUL(env, addrP->PreferredLifetime);
+    ellt    = MKUL(env, addrP->LeaseLifetime);
+    /* eplen   = MKUI(env, addrP->OnLinkPrefixLength); - Not on XP */
+
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_flags,
+                               esock_atom_addr,
+                               atom_prefix_origin,
+                               atom_suffix_origin,
+                               atom_dad_state,
+                               atom_valid_lifetime,
+                               atom_preferred_lifetime,
+                               atom_lease_lifetime/* ,
+                                                     on_link_prefix_length
+                                                     Not on XP */
+        };
+        ERL_NIF_TERM vals[] = {eflags,
+                               esa,
+                               eporig,
+                               esorig,
+                               edstate,
+                               evlt,
+                               eplt,
+                               ellt/*,
+                                     eplen
+                                     Not pn XP   */
+        };
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &eua) );
+
+    }
+
+    return eua;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addr_flags(ErlNifEnv* env,
+                                               DWORD      flags)
+{
+    ERL_NIF_TERM map;
+    ERL_NIF_TERM dnsEl   = BOOL2ATOM(flags & IP_ADAPTER_ADDRESS_DNS_ELIGIBLE);
+    ERL_NIF_TERM trans   = BOOL2ATOM(flags & IP_ADAPTER_ADDRESS_TRANSIENT);
+    ERL_NIF_TERM keys[]  = {atom_dns_eligible, atom_transient};
+    ERL_NIF_TERM vals[]  = {dnsEl, trans};
+    size_t       numKeys = NUM(keys);
+    size_t       numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &map) );
+
+    return map;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addr_sockaddr(ErlNifEnv*       env,
+                                                  struct sockaddr* addrP)
+{
+    return encode_sockaddr(env, addrP);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addr_porig(ErlNifEnv*       env,
+                                               IP_PREFIX_ORIGIN porig)
+{
+    ERL_NIF_TERM eporig;
+
+    switch (porig) {
+    case IpPrefixOriginOther:
+        eporig = atom_other;
+        break;
+
+    case IpPrefixOriginManual:
+        eporig = atom_manual;
+        break;
+
+    case IpPrefixOriginWellKnown:
+        eporig = atom_well_known;
+        break;
+
+    case IpPrefixOriginDhcp:
+        eporig = atom_dhcp;
+        break;
+
+    case IpPrefixOriginRouterAdvertisement:
+        eporig = atom_router_advertisement;
+        break;
+
+    case IpPrefixOriginUnchanged:
+        eporig = atom_unchanged;
+        break;
+
+    default:
+        eporig = MKI(env, (int) porig);
+        break;
+    }
+
+    return eporig;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addr_sorig(ErlNifEnv*       env,
+                                               IP_SUFFIX_ORIGIN sorig)
+{
+    ERL_NIF_TERM esorig;
+
+    switch (sorig) {
+    case IpSuffixOriginOther:
+        esorig = atom_other;
+        break;
+
+    case IpSuffixOriginManual:
+        esorig = atom_manual;
+        break;
+
+    case IpSuffixOriginWellKnown:
+        esorig = atom_well_known;
+        break;
+
+    case IpSuffixOriginDhcp:
+        esorig = atom_dhcp;
+        break;
+
+    case IpSuffixOriginLinkLayerAddress:
+        esorig = atom_link_layer_address;
+        break;
+
+    case IpSuffixOriginRandom:
+        esorig = atom_random;
+        break;
+
+    case IpSuffixOriginUnchanged:
+        esorig = atom_unchanged;
+        break;
+
+    default:
+        esorig = MKI(env, (int) sorig);
+        break;
+    }
+
+    return esorig;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_unicast_addr_dad_state(ErlNifEnv*   env,
+                                                   IP_DAD_STATE dstate)
+{
+    ERL_NIF_TERM edstate;
+
+    switch (dstate) {
+    case IpDadStateInvalid:
+        edstate = atom_invalid;
+        break;
+
+    case IpDadStateTentative:
+        edstate = atom_tentative;
+        break;
+
+    case IpDadStateDuplicate:
+        edstate = atom_duplicate;
+        break;
+
+    case IpDadStateDeprecated:
+        edstate = atom_deprecated;
+        break;
+
+    case IpDadStatePreferred:
+        edstate = atom_preferred;
+        break;
+
+    default:
+        edstate = MKI(env, (int) dstate);
+        break;
+    }
+
+    return edstate;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_anycast_addrs(ErlNifEnv*                  env,
+                                          IP_ADAPTER_ANYCAST_ADDRESS* firstP)
+{
+    IP_ADAPTER_ANYCAST_ADDRESS* tmp = firstP;
+    SocketTArray                ta  = TARRAY_CREATE(16);
+    ERL_NIF_TERM eaddrs;
+    
+
+    while (tmp != NULL) {
+        TARRAY_ADD(ta, encode_adapter_anycast_addr(env, tmp));
+        tmp = tmp->Next;
+    }
+
+    TARRAY_TOLIST(ta, env, &eaddrs);
+
+    return eaddrs;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * anycast_address() ::
+ * #{flags := #{dns_eligible := boolean(),
+ *              transient    := boolean()},
+ *   addr  := socket:address()}
+ */
+static
+ERL_NIF_TERM encode_adapter_anycast_addr(ErlNifEnv*                  env,
+                                         IP_ADAPTER_ANYCAST_ADDRESS* addrP)
+{
+    ERL_NIF_TERM eflags, esa;
+    ERL_NIF_TERM eaa;
+
+    eflags = encode_adapter_anycast_addr_flags(env, addrP->Flags);
+    esa    = encode_adapter_anycast_addr_sockaddr(env,
+                                                  addrP->Address.lpSockaddr);
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_flags,
+                               esock_atom_addr};
+        ERL_NIF_TERM vals[] = {eflags,
+                               esa};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &eaa) );
+
+    }
+
+    return eaa;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_anycast_addr_flags(ErlNifEnv* env,
+                                               DWORD      flags)
+{
+    return encode_adapter_unicast_addr_flags(env, flags);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_anycast_addr_sockaddr(ErlNifEnv*       env,
+                                                  struct sockaddr* addrP)
+{
+    return encode_sockaddr(env, addrP);
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_multicast_addrs(ErlNifEnv*                    env,
+                                            IP_ADAPTER_MULTICAST_ADDRESS* firstP)
+{
+    IP_ADAPTER_MULTICAST_ADDRESS* tmp = firstP;
+    SocketTArray                  ta  = TARRAY_CREATE(16);
+    ERL_NIF_TERM eaddrs;
+
+    while (tmp != NULL) {
+        TARRAY_ADD(ta, encode_adapter_multicast_addr(env, tmp));
+        tmp = tmp->Next;
+    }
+
+    TARRAY_TOLIST(ta, env, &eaddrs);
+
+    return eaddrs;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * multicast_address() ::
+ * #{flags := #{dns_eligible := boolean(),
+ *              transient    := boolean()},
+ *   addr  := socket:address()}
+ */
+static
+ERL_NIF_TERM encode_adapter_multicast_addr(ErlNifEnv*                    env,
+                                           IP_ADAPTER_MULTICAST_ADDRESS* addrP)
+{
+    ERL_NIF_TERM eflags, esa;
+    ERL_NIF_TERM ema;
+
+    eflags = encode_adapter_multicast_addr_flags(env, addrP->Flags);
+    esa    = encode_adapter_multicast_addr_sockaddr(env,
+                                                    addrP->Address.lpSockaddr);
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_flags,
+                               esock_atom_addr};
+        ERL_NIF_TERM vals[] = {eflags,
+                               esa};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &ema) );
+
+    }
+
+    return ema;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_multicast_addr_flags(ErlNifEnv* env,
+                                                 DWORD      flags)
+{
+    return encode_adapter_unicast_addr_flags(env, flags);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_multicast_addr_sockaddr(ErlNifEnv*       env,
+                                                    struct sockaddr* addrP)
+{
+    return encode_sockaddr(env, addrP);
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_dns_server_addrs(ErlNifEnv*                     env,
+                                             IP_ADAPTER_DNS_SERVER_ADDRESS* firstP)
+{
+    IP_ADAPTER_DNS_SERVER_ADDRESS* tmp = firstP;
+    SocketTArray                   ta  = TARRAY_CREATE(16);
+    ERL_NIF_TERM eaddrs;
+
+    while (tmp != NULL) {
+        TARRAY_ADD(ta, encode_adapter_dns_server_addr(env, tmp));
+        tmp = tmp->Next;
+    }
+
+    TARRAY_TOLIST(ta, env, &eaddrs);
+
+    return eaddrs;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * dns_server_address() ::
+ * #{addr := socket:address()}
+ */
+static
+ERL_NIF_TERM encode_adapter_dns_server_addr(ErlNifEnv*                     env,
+                                            IP_ADAPTER_DNS_SERVER_ADDRESS* addrP)
+{
+    ERL_NIF_TERM esa;
+    ERL_NIF_TERM edsa;
+
+    esa = encode_adapter_dns_server_addr_sockaddr(env,
+                                                  addrP->Address.lpSockaddr);
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_addr};
+        ERL_NIF_TERM vals[] = {esa};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &edsa) );
+
+    }
+
+    return edsa;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_dns_server_addr_sockaddr(ErlNifEnv*       env,
+                                                     struct sockaddr* addrP)
+{
+    return encode_sockaddr(env, addrP);
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
+                                   DWORD      status)
+{
+    ERL_NIF_TERM estatus;
+
+    switch (status) {
+    case IfOperStatusUp:
+        estatus = esock_atom_up;
+        break;
+    case IfOperStatusDown:
+        estatus = atom_down;
+        break;
+    case IfOperStatusTesting:
+        estatus = atom_testing;
+        break;
+    case IfOperStatusUnknown:
+        estatus = atom_unknown;
+        break;
+    case IfOperStatusDormant:
+        estatus = esock_atom_dormant;
+        break;
+    case IfOperStatusNotPresent:
+        estatus = atom_not_present;
+        break;
+    case IfOperStatusLowerLayerDown:
+        estatus = atom_lower_layer_down;
+        break;
+    default:
+        estatus = MKUI(env, status);
+        break;
+    }
+
+    return estatus;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_zone_indices(ErlNifEnv* env,
+                                         DWORD*     zoneIndices,
+                                         DWORD      len)
+{
+    SocketTArray ta = TARRAY_CREATE(len);
+    DWORD        i;
+    ERL_NIF_TERM ezi;
+
+    for (i = 0; i < len; i++) {
+        TARRAY_ADD(ta, MKUI(env, zoneIndices[i]));
+    }
+
+    TARRAY_TOLIST(ta, env, &ezi);
+
+    return ezi;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_prefixes(ErlNifEnv*         env,
+                                     IP_ADAPTER_PREFIX* firstP)
+{
+    IP_ADAPTER_PREFIX* tmp = firstP;
+    SocketTArray       ta  = TARRAY_CREATE(16);
+    ERL_NIF_TERM       eprefs;
+
+    while (tmp != NULL) {
+        TARRAY_ADD(ta, encode_adapter_prefix(env, tmp));
+        tmp = tmp->Next;
+    }
+
+    TARRAY_TOLIST(ta, env, &eprefs);
+
+    return eprefs;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * prerix() ::
+ * #{addr   := socket:address(),
+ *   length := non_neg_integer()}
+ */
+static
+ERL_NIF_TERM encode_adapter_prefix(ErlNifEnv*         env,
+                                   IP_ADAPTER_PREFIX* prefP)
+{
+    ERL_NIF_TERM esa, eplen;
+    ERL_NIF_TERM epref;
+
+    esa   = encode_adapter_prefix_sockaddr(env, prefP->Address.lpSockaddr);
+    eplen = MKUI(env, prefP->PrefixLength);
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_addr, atom_length};
+        ERL_NIF_TERM vals[] = {esa,             eplen};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &epref) );
+
+    }
+
+    return epref;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_prefix_sockaddr(ErlNifEnv*       env,
+                                            struct sockaddr* addrP)
+{
+    return encode_sockaddr(env, addrP);
+}
+#endif // __WIN32__
+
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_adapter_encode_name(ErlNifEnv* env, WCHAR* name)
+{
+    return encode_wchar(env, name);
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_adapter_encode_friendly_name(ErlNifEnv* env, WCHAR* fname)
+{
+    return encode_wchar(env, fname);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_adapter_index_map_name(ErlNifEnv* env, WCHAR* name)
+{
+    return encode_wchar(env, name);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+void make_adapter_index_map(ErlNifEnv*    env,
+                            ERL_NIF_TERM  eindex,
+                            ERL_NIF_TERM  ename,
+                            ERL_NIF_TERM* emap)
+{
+    ERL_NIF_TERM keys[2];
+    ERL_NIF_TERM vals[2];
+    size_t       len = NUM(keys); // Just in case...
+
+    /* Index */
+    NDBG( ("NET", "make_adapter_index_map -> index: %T\r\n", eindex) );
+    keys[0] = atom_index;
+    vals[0] = eindex;
+
+    /* Name */
+    NDBG( ("NET", "make_adapter_index_map -> name: %T\r\n", ename) );
+    keys[1] = esock_atom_name;
+    vals[1] = ename;
+    
+    ESOCK_ASSERT( MKMA(env, keys, vals, len, emap) );
+}
+#endif // __WIN32__
+
+
+
+/* ----------------------------------------------------------------------
  * nif_get_if_entry
  *
  * Description:
@@ -1643,9 +2939,12 @@ void make_ifaddrs(ErlNifEnv*    env,
  * Arguments:
  * Args - A way to pass arguments.
  *        Currently only used for: index and debug:
- *        #{index := non_neg_integer(), debug := boolean() (optional)}
+ *        #{index := non_neg_integer(),
+ *          debug := boolean() (optional)}
+ *
+ * Results:
+ * {ok, mib_if_row()} | {error, Reason :: term()}
  */
-
 static
 ERL_NIF_TERM nif_get_if_entry(ErlNifEnv*         env,
                               int                argc,
@@ -1707,7 +3006,6 @@ BOOLEAN_T enet_get_if_entry_args_index(ErlNifEnv*         env,
     }
 }
 #endif // __WIN32__
-
 
 
 #if defined(__WIN32__)
@@ -1782,7 +3080,6 @@ ERL_NIF_TERM enet_get_if_entry(ErlNifEnv* env,
 #endif // __WIN32__
 
 
-
 #if defined(__WIN32__)
 // Returns: mib_if_row()
 static
@@ -1808,7 +3105,7 @@ ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
                                                   rowP->dwPhysAddrLen,
                                                   rowP->bPhysAddr);
     eAdminStatus     = MKUI(env, rowP->dwAdminStatus);
-    eOperStatus      = encode_if_oper_status(env, rowP->dwOperStatus);
+    eOperStatus      = encode_internal_if_oper_status(env, rowP->dwOperStatus);
     eLastChange      = MKUI(env, rowP->dwLastChange);
     eInOctets        = MKUI(env, rowP->dwInOctets);
     eInUcastPkts     = MKUI(env, rowP->dwInUcastPkts);
@@ -1833,7 +3130,7 @@ ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
                                atom_speed,
                                atom_phys_addr,
                                atom_admin_status,
-                               atom_oper_status,
+                               atom_internal_oper_status,
                                atom_last_change,
                                atom_in_octets,
                                atom_in_ucast_pkts,
@@ -1886,7 +3183,7 @@ ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
     return erow;
 
 }
-#endif // __WIN32__
+#endif
 
 
 
@@ -1943,6 +3240,7 @@ ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
     }
 
     return etype;
+
 }
 #endif // __WIN32__
 
@@ -1960,8 +3258,8 @@ ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
 
 #if defined(__WIN32__)
 static
-ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
-                                   DWORD      status)
+ERL_NIF_TERM encode_internal_if_oper_status(ErlNifEnv* env,
+                                            DWORD      status)
 {
     ERL_NIF_TERM estatus;
 
@@ -1980,6 +3278,9 @@ ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
         break;
     case IF_OPER_STATUS_CONNECTED:
         estatus = esock_atom_connected;
+        break;
+    case IF_OPER_STATUS_OPERATIONAL:
+        estatus = atom_operational;
         break;
     default:
         estatus = MKUI(env, status);
@@ -2002,6 +3303,7 @@ ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
 #endif // __WIN32__
 
 
+
 /* ----------------------------------------------------------------------
  * nif_get_interface_info
  *
@@ -2009,9 +3311,14 @@ ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
  * Get interface info table (only IPv4 interfaces)
  * This is a windows only function!
  *
+ * Physical Interfaces?
+ *
  * Arguments:
  * Args - A way to pass arguments.
  *        Currently only used for debug.
+ *
+ * Results:
+ * {ok, [ip_adapter_index_map()]} | {error, Reason :: term()}
  */
 
 static
@@ -2081,10 +3388,17 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
                ("NET", "enet_get_interface_info -> "
                 "get-info result: %d (%d)\r\n", ret, infoSize) );
 
-        infoP = REALLOC(infoP, infoSize);
-        if (ret == NO_ERROR) break;
-        if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
-        i = 0;
+        if (ret == NO_ERROR) {
+            /* We are done! */
+            break;
+        } else if (ret == ERROR_INSUFFICIENT_BUFFER) {
+            /* Not large enough */
+            infoP = REALLOC(infoP, infoSize);
+            continue;
+        } else {
+            /* Failure */
+            i = 0;
+        }
     }
 
     NDBG2( dbg,
@@ -2094,7 +3408,8 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
     if (! i) {
 
         NDBG2( dbg,
-               ("NET", "enet_get_interface_info -> try transform error\r\n") );
+               ("NET", "enet_get_interface_info -> "
+                "try encode error (%d)\r\n", ret) );
 
         FREE(infoP);
 
@@ -2121,7 +3436,7 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
     } else {
 
         NDBG2( dbg,
-               ("NET", "enet_get_interface_info -> try transform info\r\n") );
+               ("NET", "enet_get_interface_info -> try encode info\r\n") );
 
         einfo  = enet_interface_info_encode(env, dbg, infoP);
         result = esock_make_ok2(env, einfo);
@@ -2191,6 +3506,10 @@ ERL_NIF_TERM enet_interface_info_encode(ErlNifEnv*         env,
 
 
 #if defined(__WIN32__)
+/*
+ * ip_adapter_index_map() :: #{name  :: string(),
+ *                             index :: non_neg_integer()}
+ */
 static
 void encode_adapter_index_map(ErlNifEnv*            env,
                               BOOLEAN_T             dbg,
@@ -2217,41 +3536,6 @@ void encode_adapter_index_map(ErlNifEnv*            env,
 #endif // __WIN32__
 
 
-#if defined(__WIN32__)
-static
-ERL_NIF_TERM encode_adapter_index_map_name(ErlNifEnv* env, WCHAR* name)
-{
-    return encode_wchar(env, name);
-}
-#endif // __WIN32__
-
-
-#if defined(__WIN32__)
-static
-void make_adapter_index_map(ErlNifEnv*    env,
-                            ERL_NIF_TERM  eindex,
-                            ERL_NIF_TERM  ename,
-                            ERL_NIF_TERM* emap)
-{
-    ERL_NIF_TERM keys[2];
-    ERL_NIF_TERM vals[2];
-    size_t       len = NUM(keys); // Just in case...
-
-    /* Index */
-    NDBG( ("NET", "make_adapter_index_map -> index: %T\r\n", eindex) );
-    keys[0] = atom_index;
-    vals[0] = eindex;
-
-    /* Name */
-    NDBG( ("NET", "make_adapter_index_map -> name: %T\r\n", ename) );
-    keys[1] = esock_atom_name;
-    vals[1] = ename;
-    
-    ESOCK_ASSERT( MKMA(env, keys, vals, len, emap) );
-}
-#endif // __WIN32__
-
-
 
 /* ----------------------------------------------------------------------
  * nif_get_ip_address_table
@@ -2260,9 +3544,14 @@ void make_adapter_index_map(ErlNifEnv*    env,
  * Get ip address table table.
  * This is a windows only function!
  *
+ * Active Interfaces?
+ *
  * Arguments:
  * Args - A way to pass arguments.
  *        Currently only used for debug.
+ *
+ * Returns:
+ * {ok, [mib_ip_address_row()]} | {error, Reason :: term()}
  */
 
 static
@@ -2316,7 +3605,7 @@ ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
 {
     int                i;
     DWORD              ret;
-    /* The table is *not* just an array pf row,
+    /* The table is *not* just an array of 'row',
      * but that is the significant part, so...
      */
     unsigned long      tabSize    = 16*sizeof(MIB_IPADDRROW);
@@ -2349,7 +3638,8 @@ ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
     if (! i) {
 
         NDBG2( dbg,
-               ("NET", "enet_get_ip_address_table -> try transform error\r\n") );
+               ("NET",
+                "enet_get_ip_address_table -> try transform error\r\n") );
 
         FREE(ipAddrTabP);
 
@@ -2373,7 +3663,8 @@ ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
     } else {
 
         NDBG2( dbg,
-               ("NET", "enet_get_ip_address_table -> try transform table\r\n") );
+               ("NET",
+                "enet_get_ip_address_table -> try transform table\r\n") );
 
         etable = enet_get_ip_address_table_encode(env, dbg, ipAddrTabP);
         result = esock_make_ok2(env, etable);
@@ -2419,7 +3710,7 @@ ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
                     "try encode ip-address-row %d"
                     "\r\n", i) );
 
-            encode_ip_address_row_map(env, dbg, &tabP->table[i], &entry);
+            entry = encode_ip_address_row(env, dbg, &tabP->table[i]);
 
             array[i] = entry;
             i++;
@@ -2445,15 +3736,20 @@ ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
 
 #if defined(__WIN32__)
 static
-void encode_ip_address_row_map(ErlNifEnv*     env,
-                               BOOLEAN_T      dbg,
-                               MIB_IPADDRROW* rowP,
-                               ERL_NIF_TERM*  erow)
+ERL_NIF_TERM encode_ip_address_row(ErlNifEnv*     env,
+                                   BOOLEAN_T      dbg,
+                                   MIB_IPADDRROW* rowP)
 {
-    ERL_NIF_TERM eaddr      = MKUL(env, rowP->dwAddr);
+    ERL_NIF_TERM eaddr      = encode_ip_address_row_addr(env,
+                                                         dbg, "Addr",
+                                                         rowP->dwAddr);
     ERL_NIF_TERM eindex     = MKUL(env, rowP->dwIndex);
-    ERL_NIF_TERM emask      = MKUL(env, rowP->dwMask);
-    ERL_NIF_TERM eBCastAddr = MKUL(env, rowP->dwBCastAddr);
+    ERL_NIF_TERM emask      = encode_ip_address_row_addr(env,
+                                                         dbg, "Mask",
+                                                         rowP->dwMask);
+    ERL_NIF_TERM eBCastAddr = encode_ip_address_row_addr(env,
+                                                         dbg, "BCaseAddr",
+                                                         rowP->dwBCastAddr);
     ERL_NIF_TERM eReasmSize = MKUL(env, rowP->dwReasmSize);
     ERL_NIF_TERM map;
 
@@ -2469,12 +3765,37 @@ void encode_ip_address_row_map(ErlNifEnv*     env,
     make_ip_address_row(env, eaddr, eindex, emask, eBCastAddr, eReasmSize, &map);
 
     NDBG2( dbg,
-           ("NET", "encode_ip_address_row_map -> encoded map: %T\r\n", map) );
+           ("NET", "encode_ip_address_row -> encoded map: %T\r\n", map) );
 
-    *erow = map;
+    return map;
 }
 #endif // __WIN32__
 
+
+
+#if defined(__WIN32__)
+/* Converts an *IPv4* address to an erlang term (4-tuple) */
+static
+ERL_NIF_TERM encode_ip_address_row_addr(ErlNifEnv*  env,
+                                        BOOLEAN_T   dbg,
+                                        const char* descr,
+                                        DWORD       addr)
+{
+    struct in_addr a;
+    ERL_NIF_TERM   ea;
+
+    NDBG2( dbg,
+           ("NET",
+            "encode_ip_address_row_addr -> entry with: "
+            "\r\n   %s: %lu\r\n", descr, addr) );
+    
+    a.s_addr = ntohl(addr);
+
+    esock_encode_in_addr(env, &a, &ea);
+
+    return ea;
+}
+#endif // __WIN32__
 
 
 #if defined(__WIN32__)
@@ -2776,6 +4097,27 @@ unsigned int enet_if_names_length(struct if_nameindex* p)
  * A special case is when there is no flags, which is
  * represented by the atom undefined.
  */
+
+static
+ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
+{
+    ERL_NIF_TERM esa;
+
+    if (sa != NULL) {
+        
+        unsigned int sz = sizeof(ESockAddress);
+
+        esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
+        
+    } else {
+        esa = esock_atom_undefined;
+    }
+
+    return esa;
+}
+
+
+
 #if !defined(__WIN32__)
 static
 BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
@@ -3266,6 +4608,7 @@ ErlNifFunc net_funcs[] =
     {"nif_getaddrinfo",      3, nif_getaddrinfo,   0},
     
     {"nif_getifaddrs",       1, nif_getifaddrs,       ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_get_adapters_addresses", 1, nif_get_adapters_addresses, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_if_entry",       1, nif_get_if_entry,       ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_ip_address_table", 1, nif_get_ip_address_table, ERL_NIF_DIRTY_JOB_IO_BOUND},
