@@ -34,6 +34,7 @@
          getnameinfo/2,
          getaddrinfo/2,
          getifaddrs/1,
+         get_adapters_addresses/1,
          get_interface_info/1,
 
          if_name2index/1,
@@ -241,6 +242,21 @@ getifaddrs(Extra) when is_map(Extra) ->
 
 %% ===========================================================================
 %%
+%% get_adapters_addresses - Get adapters addresses
+%%
+
+-spec get_adapters_addresses(Extra) -> {ok, Addrs} | {error, Reason} when
+      Extra  :: map(),
+      Addrs  :: term(), % adapters_addresses(),
+      Reason :: term().
+
+get_adapters_addresses(Extra) when is_map(Extra) ->
+    nif_get_adapters_addresses(Extra).
+
+
+
+%% ===========================================================================
+%%
 %% get_interface_info - Get interface info
 %%
 
@@ -359,6 +375,9 @@ nif_getaddrinfo(_Host, _Service, _Hints) ->
     erlang:nif_error(undef).
 
 nif_getifaddrs(_Extra) ->
+    erlang:nif_error(undef).
+
+nif_get_adapters_addresses(_Extra) ->
     erlang:nif_error(undef).
 
 nif_get_interface_info(_Extra) ->
