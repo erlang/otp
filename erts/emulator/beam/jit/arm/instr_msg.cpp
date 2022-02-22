@@ -74,7 +74,7 @@ void BeamModuleAssembler::emit_i_recv_set() {
 
 #endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
-void BeamModuleAssembler::emit_recv_marker_reserve(const ArgVal &Dst) {
+void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
@@ -85,8 +85,8 @@ void BeamModuleAssembler::emit_recv_marker_reserve(const ArgVal &Dst) {
     mov_arg(Dst, ARG1);
 }
 
-void BeamModuleAssembler::emit_recv_marker_bind(const ArgVal &Marker,
-                                                const ArgVal &Reference) {
+void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
+                                                const ArgRegister &Reference) {
     mov_arg(ARG2, Marker);
     mov_arg(ARG3, Reference);
 
@@ -98,7 +98,7 @@ void BeamModuleAssembler::emit_recv_marker_bind(const ArgVal &Marker,
     emit_leave_runtime();
 }
 
-void BeamModuleAssembler::emit_recv_marker_clear(const ArgVal &Reference) {
+void BeamModuleAssembler::emit_recv_marker_clear(const ArgRegister &Reference) {
     mov_arg(ARG2, Reference);
 
     emit_enter_runtime();
@@ -109,7 +109,7 @@ void BeamModuleAssembler::emit_recv_marker_clear(const ArgVal &Reference) {
     emit_leave_runtime();
 }
 
-void BeamModuleAssembler::emit_recv_marker_use(const ArgVal &Reference) {
+void BeamModuleAssembler::emit_recv_marker_use(const ArgRegister &Reference) {
     mov_arg(ARG2, Reference);
 
     emit_enter_runtime();
@@ -265,7 +265,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
+void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
     Label entry = a.newLabel();
 
     a.bind(entry);
@@ -291,7 +291,7 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_leave_runtime();
 }
 
-void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
+void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, c_p);
@@ -303,7 +303,7 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
     a.b(resolve_beam_label(Dest, disp128MB));
 }
 
-void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
+void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, c_p);
@@ -315,7 +315,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
 }
 
-void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
+void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, c_p);
@@ -327,8 +327,8 @@ void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
 }
 
-void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgVal &Src,
-                                                     const ArgVal &Dest) {
+void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
+                                                     const ArgLabel &Dest) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, c_p);
@@ -339,8 +339,8 @@ void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgVal &Src,
     emit_wait_timeout_locked(Src, Dest);
 }
 
-void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
-                                                   const ArgVal &Dest) {
+void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
+                                                   const ArgLabel &Dest) {
     Label wait = a.newLabel(), next = a.newLabel();
 
     mov_arg(ARG2, Src);

@@ -125,9 +125,9 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &LHS,
-                                                        const ArgVal &RHS,
-                                                        const ArgVal &Dst,
+void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
+                                                        const ArgSource &RHS,
+                                                        const ArgRegister &Dst,
                                                         Eterm fail_value,
                                                         Eterm succ_value) {
     auto dst = init_destination(Dst, TMP2);
@@ -146,9 +146,9 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgVal &LHS,
     flush_var(dst);
 }
 
-void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgVal &LHS,
-                                               const ArgVal &RHS,
-                                               const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
+                                               const ArgSource &RHS,
+                                               const ArgRegister &Dst) {
     if (always_immediate(LHS) || always_immediate(RHS)) {
         if (!LHS.isImmed() && !RHS.isImmed()) {
             comment("simplified check since one argument is an immediate");
@@ -166,9 +166,9 @@ void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgVal &LHS,
     }
 }
 
-void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgVal &LHS,
-                                               const ArgVal &RHS,
-                                               const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
+                                               const ArgSource &RHS,
+                                               const ArgRegister &Dst) {
     if (always_immediate(LHS) || always_immediate(RHS)) {
         if (!LHS.isImmed() && !RHS.isImmed()) {
             comment("simplified check since one argument is an immediate");
@@ -196,10 +196,10 @@ void BeamGlobalAssembler::emit_handle_and_error() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_and(const ArgVal &Fail,
-                                       const ArgVal &Src1,
-                                       const ArgVal &Src2,
-                                       const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
+                                       const ArgSource &Src1,
+                                       const ArgSource &Src2,
+                                       const ArgRegister &Dst) {
     static const Uint diff_bit = am_true - am_false;
     Label next = a.newLabel();
 
@@ -214,7 +214,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgVal &Fail,
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
     a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
-    if (Fail.getValue()) {
+    if (Fail.get()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         a.b_eq(next);
@@ -292,15 +292,15 @@ void BeamGlobalAssembler::emit_bif_bit_size_guard() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_bit_size(const ArgVal &Fail,
-                                            const ArgVal &Src,
-                                            const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
+                                            const ArgSource &Src,
+                                            const ArgRegister &Dst) {
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
     mov_var(ARG1, src);
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         fragment_call(ga->get_bif_bit_size_body());
     } else {
         fragment_call(ga->get_bif_bit_size_guard());
@@ -374,15 +374,15 @@ void BeamGlobalAssembler::emit_bif_byte_size_guard() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_byte_size(const ArgVal &Fail,
-                                             const ArgVal &Src,
-                                             const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
+                                             const ArgSource &Src,
+                                             const ArgRegister &Dst) {
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
     mov_var(ARG1, src);
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         fragment_call(ga->get_bif_byte_size_body());
     } else {
         fragment_call(ga->get_bif_byte_size_guard());
@@ -463,15 +463,17 @@ void BeamGlobalAssembler::emit_handle_element_error_shared() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
-                                           const ArgVal &Pos,
-                                           const ArgVal &Tuple,
-                                           const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
+                                           const ArgSource &Pos,
+                                           const ArgSource &Tuple,
+                                           const ArgRegister &Dst) {
     /*
      * Try to optimize the use of a tuple as a lookup table.
      */
     if (exact_type(Pos, BEAM_TYPE_INTEGER) && Tuple.isLiteral()) {
-        Eterm tuple_literal = beamfile_get_literal(beam, Tuple.getValue());
+        Eterm tuple_literal =
+                beamfile_get_literal(beam, Tuple.as<ArgLiteral>().get());
+
         if (is_tuple(tuple_literal)) {
             Label next = a.newLabel(), fail = a.newLabel();
             Sint size = Sint(arityval(*tuple_val(tuple_literal)));
@@ -521,7 +523,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
 
             a.bind(fail);
             if (can_fail) {
-                if (Fail.getValue() != 0) {
+                if (Fail.get() != 0) {
                     a.b(resolve_beam_label(Fail, disp128MB));
                 } else {
                     a.mov(ARG1, pos.reg);
@@ -540,7 +542,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgVal &Fail,
     mov_arg(ARG1, Pos);
     mov_arg(ARG2, Tuple);
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         fragment_call(ga->get_bif_element_guard_shared());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -562,7 +564,8 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_hd(const ArgVal &Src, const ArgVal &Hd) {
+void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
+                                      const ArgRegister &Hd) {
     Label good_cons = a.newLabel();
     auto src = load_source(Src, TMP1);
     auto hd = init_destination(Hd, TMP2);
@@ -596,14 +599,14 @@ void BeamGlobalAssembler::emit_handle_map_size_error() {
     a.b(labels[raise_exception]);
 }
 
-void BeamModuleAssembler::emit_bif_map_size(const ArgVal &Fail,
-                                            const ArgVal &Src,
-                                            const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
+                                            const ArgSource &Src,
+                                            const ArgRegister &Dst) {
     Label error = a.newLabel(), good_map = a.newLabel();
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, TMP2);
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         emit_is_boxed(error, Src, src.reg);
     } else {
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
@@ -614,7 +617,7 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgVal &Fail,
     a.and_(TMP4, TMP4, imm(_TAG_HEADER_MASK));
     a.cmp(TMP4, imm(_TAG_HEADER_MAP));
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         a.b_eq(good_map);
         a.bind(error);
         {
@@ -646,9 +649,9 @@ void BeamGlobalAssembler::emit_handle_not_error() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_not(const ArgVal &Fail,
-                                       const ArgVal &Src,
-                                       const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
+                                       const ArgRegister &Src,
+                                       const ArgRegister &Dst) {
     Label next = a.newLabel();
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, TMP2);
@@ -659,7 +662,7 @@ void BeamModuleAssembler::emit_bif_not(const ArgVal &Fail,
     a.and_(TMP3, src.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         a.b_eq(next);
         mov_var(XREG0, src);
         fragment_call(ga->get_handle_not_error());
@@ -684,10 +687,10 @@ void BeamGlobalAssembler::emit_handle_or_error() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_or(const ArgVal &Fail,
-                                      const ArgVal &Src1,
-                                      const ArgVal &Src2,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
+                                      const ArgSource &Src1,
+                                      const ArgSource &Src2,
+                                      const ArgRegister &Dst) {
     static const Uint diff_bit = am_true - am_false;
     Label next = a.newLabel();
 
@@ -702,7 +705,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgVal &Fail,
     a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
     a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
 
-    if (Fail.getValue()) {
+    if (Fail.get()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         a.b_eq(next);
@@ -728,7 +731,8 @@ void BeamGlobalAssembler::emit_handle_tl_error() {
     emit_raise_badarg(&mfa);
 }
 
-void BeamModuleAssembler::emit_bif_tl(const ArgVal &Src, const ArgVal &Tl) {
+void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
+                                      const ArgRegister &Tl) {
     Label good_cons = a.newLabel();
     auto src = load_source(Src, TMP1);
     auto tl = init_destination(Tl, TMP2);
@@ -796,15 +800,15 @@ void BeamGlobalAssembler::emit_bif_tuple_size_guard() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_tuple_size(const ArgVal &Fail,
-                                              const ArgVal &Src,
-                                              const ArgVal &Dst) {
+void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
+                                              const ArgRegister &Src,
+                                              const ArgRegister &Dst) {
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
     mov_var(ARG1, src);
 
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         fragment_call(ga->get_bif_tuple_size_body());
     } else {
         fragment_call(ga->get_bif_tuple_size_guard());

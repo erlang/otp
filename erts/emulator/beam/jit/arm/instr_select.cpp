@@ -51,17 +51,17 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
     count = args.size() / 2;
 
     ASSERT(left->isImmed() && (args.begin() + count)->isLabel());
-    ASSERT(is_small(left->getValue()) || is_atom(right->getValue()));
+    ASSERT(left->isSmall() || right->isAtom());
 
-    shift = is_small(left->getValue()) ? _TAG_IMMED1_SIZE : _TAG_IMMED2_SIZE;
+    shift = left->isSmall() ? _TAG_IMMED1_SIZE : _TAG_IMMED2_SIZE;
 
     while (right < (args.begin() + count)) {
         auto distance = std::distance(left, right);
         UWord left_value, mid_value, right_value;
 
-        left_value = left->getValue() >> shift;
-        mid_value = (left + distance / 2)->getValue() >> shift;
-        right_value = right->getValue() >> shift;
+        left_value = left->as<ArgImmed>().get() >> shift;
+        mid_value = (left + distance / 2)->as<ArgImmed>().get() >> shift;
+        right_value = right->as<ArgImmed>().get() >> shift;
 
         if (isInt12(left_value - mid_value) &&
             isInt12(right_value - mid_value)) {
@@ -86,17 +86,18 @@ static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
 
     /* Apply neither shift nor base if the best run doesn't need it: we're more
      * likely to lose by rebasing/shifting. */
-    if (isInt12(best_left->getValue()) && isInt12(best_right->getValue())) {
+    if (isInt12(best_left->as<ArgImmed>().get()) &&
+        isInt12(best_right->as<ArgImmed>().get())) {
         return std::make_pair(0, 0);
     }
 
     /* Skip rebasing if the best run doesn't need it after shifting. */
-    if (isInt12(best_left->getValue() >> shift) &&
-        isInt12(best_right->getValue() >> shift)) {
+    if (isInt12(best_left->as<ArgImmed>().get() >> shift) &&
+        isInt12(best_right->as<ArgImmed>().get() >> shift)) {
         return std::make_pair(0, shift);
     }
 
-    auto mid_value = (best_left + distance / 2)->getValue();
+    auto mid_value = (best_left + distance / 2)->as<ArgImmed>().get();
     return std::make_pair(mid_value, shift);
 }
 
@@ -111,11 +112,11 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
     /* Emit code to test that the source value has the correct type and
      * untag it. */
     comment("(comparing untagged+rebased values)");
-    if (is_small(args.front().getValue())) {
+    if (args.front().isSmall()) {
         a.and_(TMP1, comparand, imm(_TAG_IMMED1_MASK));
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
     } else {
-        ASSERT(is_atom(args.front().getValue()));
+        ASSERT(args.front().isAtom());
         a.and_(TMP1, comparand, imm(_TAG_IMMED2_MASK));
         a.cmp(TMP1, imm(_TAG_IMMED2_ATOM));
     }
@@ -146,8 +147,10 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
         std::sort(sorted_indexes.begin(),
                   sorted_indexes.end(),
                   [&](int lhs, int rhs) {
-                      auto lhs_value = (args[lhs].getValue() >> shift) - base;
-                      auto rhs_value = (args[rhs].getValue() >> shift) - base;
+                      auto lhs_value =
+                              (args[lhs].as<ArgImmed>().get() >> shift) - base;
+                      auto rhs_value =
+                              (args[rhs].as<ArgImmed>().get() >> shift) - base;
                       return lhs_value < rhs_value;
                   });
 
@@ -157,8 +160,10 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
             auto &dst_value = result[i];
             auto &dst_label = result[i + count];
 
-            dst_value = ArgVal(ArgVal::Immediate,
-                               (src_value.getValue() >> shift) - base);
+            /* The value won't be a valid immediate after shifting, so we
+             * change it to a word. */
+            dst_value =
+                    ArgWord((src_value.as<ArgImmed>().get() >> shift) - base);
             dst_label = src_label;
         }
     } else {
@@ -168,15 +173,15 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
             auto &dst_value = result[i];
             auto &dst_label = result[i + count];
 
-            dst_value = ArgVal(ArgVal::Immediate, args[i].getValue() >> shift);
+            dst_value = ArgWord(args[i].as<ArgImmed>().get() >> shift);
             dst_label = args[i + count];
         }
     }
 
     ASSERT(std::is_sorted(result.begin(),
                           result.begin() + count,
-                          [](const ArgVal &lhs, const ArgVal &rhs) {
-                              return lhs.getValue() < rhs.getValue();
+                          [](const ArgWord &lhs, const ArgWord &rhs) {
+                              return lhs.get() < rhs.get();
                           }));
 
     return result;
@@ -206,9 +211,9 @@ void BeamModuleAssembler::emit_linear_search(arm::Gp comparand,
     }
 }
 
-void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
-                                                    const ArgVal &Fail,
-                                                    const ArgVal &Size,
+void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
+                                                    const ArgLabel &Fail,
+                                                    const ArgWord &Size,
                                                     const Span<ArgVal> &args) {
     auto src = load_source(Src, TMP1);
 
@@ -226,15 +231,15 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgVal &Src,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
-    Label fail = rawLabels[Fail.getValue()];
+    Label fail = rawLabels[Fail.get()];
     emit_linear_search(TMP1, fail, args);
 }
 
-void BeamModuleAssembler::emit_i_select_val_lins(const ArgVal &Src,
+void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
                                                  const ArgVal &Fail,
-                                                 const ArgVal &Size,
+                                                 const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
     Label fail, next;
 
     /*
@@ -244,8 +249,10 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgVal &Src,
      */
 
     if (Fail.isLabel()) {
-        next = fail = rawLabels[Fail.getValue()];
+        next = fail = rawLabels[Fail.as<ArgLabel>().get()];
     } else {
+        ASSERT(Fail.isNil());
+
         /* Fail is [], meaning that if none of the values match,
          * we should fall through to the next instruction.
          *
@@ -286,19 +293,21 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgVal &Src,
     }
 }
 
-void BeamModuleAssembler::emit_i_select_val_bins(const ArgVal &Src,
+void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
                                                  const ArgVal &Fail,
-                                                 const ArgVal &Size,
+                                                 const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
+
     int count = args.size() / 2;
     Label fail;
 
     /* See the comment in emit_i_select_val_lins() for an explanation
      * why we use raw labels. */
     if (Fail.isLabel()) {
-        fail = rawLabels[Fail.getValue()];
+        fail = rawLabels[Fail.as<ArgLabel>().get()];
     } else {
+        ASSERT(Fail.isNil());
         fail = a.newLabel();
     }
 
@@ -334,10 +343,9 @@ void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
     ASSERT(Left <= Right);
     ASSERT(Right < args.size() / 2);
 
-    size_t mid = (Left + Right) >> 1;
-    ArgVal midval(ArgVal::Immediate, args[mid].getValue());
-    int count = args.size() / 2;
-    size_t remaining = (Right - Left + 1);
+    const size_t remaining = (Right - Left + 1);
+    const size_t mid = (Left + Right) >> 1;
+    const size_t count = args.size() / 2;
 
     if (remaining <= 10) {
         /* Measurements on randomly generated select_val instructions
@@ -368,7 +376,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
 
     check_pending_stubs();
 
-    cmp_arg(reg, midval);
+    cmp_arg(reg, args[mid]);
 
     auto &lbl = args[mid + count];
 
@@ -389,15 +397,15 @@ void BeamModuleAssembler::emit_binsearch_nodes(arm::Gp reg,
     emit_binsearch_nodes(reg, mid + 1, Right, fail, args);
 }
 
-void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
+void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgVal &Fail,
-                                             const ArgVal &Base,
-                                             const ArgVal &Size,
+                                             const ArgWord &Base,
+                                             const ArgWord &Size,
                                              const Span<ArgVal> &args) {
     Label fail;
     auto src = load_source(Src, TMP1);
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
     a.and_(TMP3, src.reg, imm(_TAG_IMMED1_MASK));
     a.cmp(TMP3, imm(_TAG_IMMED1_SMALL));
@@ -406,18 +414,19 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.getType() == ArgVal::Immediate && Fail.getValue() == NIL);
+        ASSERT(Fail.isNil());
+
         fail = a.newLabel();
         a.b_ne(fail);
     }
 
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
 
-    if (Base.getValue() != 0) {
-        if (Support::isUInt12((Sint)Base.getValue())) {
-            a.sub(TMP1, TMP1, imm(Base.getValue()));
+    if (Base.get() != 0) {
+        if (Support::isUInt12((Sint)Base.get())) {
+            a.sub(TMP1, TMP1, imm(Base.get()));
         } else {
-            mov_imm(TMP3, Base.getValue());
+            mov_imm(TMP3, Base.get());
             a.sub(TMP1, TMP1, TMP3);
         }
     }
@@ -453,14 +462,18 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
         arm::Gp reg,
         Label fail,
         const Span<ArgVal> &args) {
-    if (args.size() != 4 || (args[2].getValue() != args[3].getValue()))
+    if (args.size() != 4 || (args[2] != args[3])) {
         return false;
+    }
 
-    uint64_t x = args[0].getValue();
-    uint64_t y = args[1].getValue();
+    uint64_t x = args[0].isImmed() ? args[0].as<ArgImmed>().get()
+                                   : args[0].as<ArgWord>().get();
+    uint64_t y = args[1].isImmed() ? args[1].as<ArgImmed>().get()
+                                   : args[1].as<ArgWord>().get();
     uint64_t combined = x | y;
     uint64_t diff = x ^ y;
-    ArgVal val(ArgVal::Immediate, combined);
+
+    ArgWord val(combined);
 
     if ((diff & (diff - 1)) != 0) {
         return false;
@@ -480,5 +493,6 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
     if (fail.isValid()) {
         a.b(resolve_label(fail, disp128MB));
     }
+
     return true;
 }

@@ -795,7 +795,7 @@ i_test_yield
 i_nif_padding
 
 # Landing pad for fun calls/apply where we set up arguments and check errors
-i_lambda_trampoline W f W W
+i_lambda_trampoline F f W W
 
 # Handles tracing, early NIF calls, and so on.
 i_breakpoint_trampoline
@@ -809,7 +809,7 @@ i_breakpoint_trampoline
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 
-i_bs_match_string S f W W
+i_bs_match_string S f W M
 
 # Fetching integers from binaries.
 bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
@@ -1053,7 +1053,7 @@ i_new_bs_put_binary_all s j? t
 # Don't change the instruction format unless you change the loader too.
 #
 
-bs_put_string W W
+bs_put_string W M
 
 #
 # New floating point instructions (R8).

@@ -236,15 +236,15 @@ void BeamGlobalAssembler::emit_new_map_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_new_map(const ArgVal &Dst,
-                                       const ArgVal &Live,
-                                       const ArgVal &Size,
+void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
+                                       const ArgWord &Live,
+                                       const ArgWord &Size,
                                        const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
-    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG3, Live.get());
     mov_imm(ARG4, args.size());
     a.lea(ARG5, x86::qword_ptr(data));
     fragment_call(ga->get_new_map_shared());
@@ -266,18 +266,18 @@ void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgVal &Dst,
-                                                   const ArgVal &Live,
-                                                   const ArgVal &Keys,
-                                                   const ArgVal &Size,
+void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
+                                                   const ArgWord &Live,
+                                                   const ArgLiteral &Keys,
+                                                   const ArgWord &Size,
                                                    const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
     ASSERT(Keys.isLiteral());
     mov_arg(ARG3, Keys);
-    mov_imm(ARG4, Live.getValue());
+    mov_imm(ARG4, Live.get());
     a.lea(ARG5, x86::qword_ptr(data));
 
     fragment_call(ga->get_i_new_small_map_lit_shared());
@@ -338,10 +338,10 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
-                                                 const ArgVal &Src,
-                                                 const ArgVal &Key,
-                                                 const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
+                                                 const ArgRegister &Src,
+                                                 const ArgRegister &Key,
+                                                 const ArgRegister &Dst) {
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
@@ -360,14 +360,14 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgVal &Fail,
 
     /* Don't store the result if the destination is the scratch X register.
      * (This instruction was originally a has_map_fields instruction.) */
-    if (!(Dst.getType() == ArgVal::XReg && Dst.getValue() == SCRATCH_X_REG)) {
+    if (!(Dst.isXRegister() && Dst.as<ArgXRegister>().get() == SCRATCH_X_REG)) {
         mov_arg(Dst, RET);
     }
 }
 
-void BeamModuleAssembler::emit_i_get_map_elements(const ArgVal &Fail,
-                                                  const ArgVal &Src,
-                                                  const ArgVal &Size,
+void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
+                                                  const ArgSource &Src,
+                                                  const ArgWord &Size,
                                                   const Span<ArgVal> &args) {
     Label generic = a.newLabel(), next = a.newLabel();
     Label data = embed_vararg_rodata(args, 0);
@@ -380,8 +380,8 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgVal &Fail,
      * `{Key, Dst, KeyHash}` */
     bool can_inline = args.size() < (8 * 3);
 
-    ASSERT(Size.getValue() == args.size());
-    ASSERT((Size.getValue() % 3) == 0);
+    ASSERT(Size.get() == args.size());
+    ASSERT((Size.get() % 3) == 0);
 
     for (size_t i = 0; i < args.size(); i += 3) {
         can_inline &= args[i].isImmed();
@@ -429,8 +429,8 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgVal &Fail,
              * register. (This instruction was originally a has_map_fields
              * instruction.) */
             const auto &Dst = args[i + 1];
-            if (!(Dst.getType() == ArgVal::XReg &&
-                  Dst.getValue() == SCRATCH_X_REG)) {
+            if (!(Dst.isXRegister() &&
+                  Dst.as<ArgXRegister>().get() == SCRATCH_X_REG)) {
                 const int value_offset = sizeof(flatmap_t) - TAG_PRIMARY_BOXED;
                 mov_arg(Dst, x86::qword_ptr(ARG1, RET, 3, value_offset), ARG3);
             }
@@ -480,11 +480,11 @@ void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
     emit_hashmap_get_element();
 }
 
-void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
-                                                      const ArgVal &Src,
-                                                      const ArgVal &Key,
-                                                      const ArgVal &Hx,
-                                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
+                                                      const ArgRegister &Src,
+                                                      const ArgConstant &Key,
+                                                      const ArgWord &Hx,
+                                                      const ArgRegister &Dst) {
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
     mov_arg(ARG3, Hx);
@@ -503,7 +503,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgVal &Fail,
 
     /* Don't store the result if the destination is the scratch X register.
      * (This instruction was originally a has_map_fields instruction.) */
-    if (!(Dst.getType() == ArgVal::XReg && Dst.getValue() == SCRATCH_X_REG)) {
+    if (!(Dst.isXRegister() && Dst.as<ArgXRegister>().get() == SCRATCH_X_REG)) {
         mov_arg(Dst, RET);
     }
 }
@@ -523,18 +523,18 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     a.ret();
 }
 
-void BeamModuleAssembler::emit_update_map_assoc(const ArgVal &Src,
-                                                const ArgVal &Dst,
-                                                const ArgVal &Live,
-                                                const ArgVal &Size,
+void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
+                                                const ArgRegister &Dst,
+                                                const ArgWord &Live,
+                                                const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
-    mov_arg(getXRef(Live.getValue()), Src);
+    mov_arg(getXRef(Live.get()), Src);
 
-    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG3, Live.get());
     mov_imm(ARG4, args.size());
     a.lea(ARG5, x86::qword_ptr(data));
     fragment_call(ga->get_update_map_assoc_shared());
@@ -588,24 +588,24 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_update_map_exact(const ArgVal &Src,
-                                                const ArgVal &Fail,
-                                                const ArgVal &Dst,
-                                                const ArgVal &Live,
-                                                const ArgVal &Size,
+void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
+                                                const ArgLabel &Fail,
+                                                const ArgRegister &Dst,
+                                                const ArgWord &Live,
+                                                const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, CP_SIZE);
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
     /* We _KNOW_ Src is a map */
-    mov_arg(getXRef(Live.getValue()), Src);
+    mov_arg(getXRef(Live.get()), Src);
 
-    mov_imm(ARG3, Live.getValue());
+    mov_imm(ARG3, Live.get());
     mov_imm(ARG4, args.size());
     a.lea(ARG5, x86::qword_ptr(data));
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         fragment_call(ga->get_update_map_exact_guard_shared());
         a.je(resolve_beam_label(Fail));
     } else {

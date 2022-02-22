@@ -129,7 +129,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
         case ArgVal::Literal: {
-            auto &patches = literals[arg.getValue()].patches;
+            auto &patches = literals[arg.as<ArgLiteral>().get()].patches;
             Label patch = a.newLabel();
 
             a.bind(patch);
@@ -138,19 +138,22 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
             break;
         }
         case ArgVal::XReg:
-            data.as_beam = make_loader_x_reg(arg.getValue());
+            data.as_beam = make_loader_x_reg(arg.as<ArgXRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         case ArgVal::YReg:
-            data.as_beam = make_loader_y_reg(arg.getValue());
+            data.as_beam = make_loader_y_reg(arg.as<ArgYRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         case ArgVal::Label:
-            a.embedLabel(rawLabels[arg.getValue()]);
+            a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
             break;
         case ArgVal::Immediate:
+            data.as_beam = arg.as<ArgImmed>().get();
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
         case ArgVal::Word:
-            data.as_beam = arg.getValue();
+            data.as_beam = arg.as<ArgWord>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
         default:
@@ -319,17 +322,20 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
     a.b(labels[raise_exception_shared]);
 }
 
-void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
-                                           const ArgVal &Module,
-                                           const ArgVal &Function,
-                                           const ArgVal &Arity) {
+void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
+                                           const ArgAtom &Module,
+                                           const ArgAtom &Function,
+                                           const ArgWord &Arity) {
     ErtsCodeInfo info;
 
-    functions.push_back(Label.getValue());
+    /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
+     * label is always encoded as a word, even though the signature ought to
+     * be `op_i_func_info_LaaI`. */
+    functions.push_back(Label.get());
 
-    info.mfa.module = Module.getValue();
-    info.mfa.function = Function.getValue();
-    info.mfa.arity = Arity.getValue();
+    info.mfa.module = Module.get();
+    info.mfa.function = Function.get();
+    info.mfa.arity = Arity.get();
     info.u.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
@@ -351,17 +357,16 @@ void BeamModuleAssembler::emit_i_func_info(const ArgVal &Label,
     a.embed(&info.mfa, sizeof(info.mfa));
 }
 
-void BeamModuleAssembler::emit_label(const ArgVal &Label) {
+void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     ASSERT(Label.isLabel());
 
-    currLabel = rawLabels[Label.getValue()];
+    currLabel = rawLabels[Label.get()];
     bind_veneer_target(currLabel);
 }
 
-void BeamModuleAssembler::emit_aligned_label(const ArgVal &Label,
-                                             const ArgVal &Alignment) {
-    ASSERT(Alignment.isWord());
-    a.align(AlignMode::kCode, Alignment.getValue());
+void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
+                                             const ArgWord &Alignment) {
+    a.align(AlignMode::kCode, Alignment.get());
     emit_label(Label);
 }
 
@@ -413,7 +418,7 @@ void BeamModuleAssembler::emit_int_code_end() {
     flush_pending_stubs(dispMax);
 }
 
-void BeamModuleAssembler::emit_line(const ArgVal &) {
+void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
     /*
      * There is no need to align the line instruction. In the loaded
      * code, the type of the pointer will be void* and that pointer
@@ -421,7 +426,7 @@ void BeamModuleAssembler::emit_line(const ArgVal &) {
      */
 }
 
-void BeamModuleAssembler::emit_func_line(const ArgVal &Loc) {
+void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
     emit_line(Loc);
 }
 
@@ -440,7 +445,7 @@ void BeamModuleAssembler::emit_i_generic_breakpoint() {
     emit_nyi("i_generic_breakpoint should never be called");
 }
 
-void BeamModuleAssembler::emit_trace_jump(const ArgVal &) {
+void BeamModuleAssembler::emit_trace_jump(const ArgWord &) {
     emit_nyi("trace_jump should never be called");
 }
 
@@ -522,19 +527,17 @@ void BeamModuleAssembler::patchStrings(char *rw_base,
     }
 }
 
-const Label &BeamModuleAssembler::resolve_beam_label(const ArgVal &Lbl,
+const Label &BeamModuleAssembler::resolve_beam_label(const ArgLabel &Lbl,
                                                      enum Displacement disp) {
     ASSERT(Lbl.isLabel());
 
-    const Label &beamLabel = rawLabels.at(Lbl.getValue());
+    const Label &beamLabel = rawLabels.at(Lbl.get());
     const auto &labelEntry = code.labelEntry(beamLabel);
 
     if (labelEntry->hasName()) {
-        return resolve_label(rawLabels.at(Lbl.getValue()),
-                             disp,
-                             labelEntry->name());
+        return resolve_label(rawLabels.at(Lbl.get()), disp, labelEntry->name());
     } else {
-        return resolve_label(rawLabels.at(Lbl.getValue()), disp);
+        return resolve_label(rawLabels.at(Lbl.get()), disp);
     }
 }
 
@@ -620,7 +623,7 @@ arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
     ssize_t maxOffset = currOffset + disp;
 
     ASSERT(disp >= dispMin && disp <= dispMax);
-    ASSERT(value.isConstant());
+    ASSERT(!value.isRegister());
 
     /* If a previously embedded constant is reachable from this point, we
      * can use it instead of creating a new one. */
@@ -767,37 +770,46 @@ void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
 void BeamModuleAssembler::emit_constant(const Constant &constant) {
     const Label &anchor = constant.anchor;
     const ArgVal &value = constant.value;
-    auto rawValue = value.getValue();
 
     ASSERT(!code.isLabelBound(anchor));
     a.align(AlignMode::kData, 8);
     a.bind(anchor);
 
-    if (value.isImmed() || value.isWord()) {
-        a.embedUInt64(rawValue);
+    ASSERT(!value.isRegister());
+
+    if (value.isImmed()) {
+        a.embedUInt64(value.as<ArgImmed>().get());
+    } else if (value.isWord()) {
+        a.embedUInt64(value.as<ArgWord>().get());
     } else if (value.isLabel()) {
-        a.embedLabel(rawLabels.at(rawValue));
+        a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
     } else {
         a.embedUInt64(LLONG_MAX);
 
         switch (value.getType()) {
         case ArgVal::BytePtr:
-            strings.push_back({anchor, rawValue});
+            strings.push_back({anchor, value.as<ArgBytePtr>().get()});
             break;
         case ArgVal::Catch: {
-            auto handler = rawLabels[rawValue];
+            auto handler = rawLabels[value.as<ArgCatch>().get()];
             catches.push_back({{anchor, 0}, handler});
             break;
         }
-        case ArgVal::Export:
-            imports[rawValue].patches.push_back({anchor, 0});
+        case ArgVal::Export: {
+            auto index = value.as<ArgExport>().get();
+            imports[index].patches.push_back({anchor, 0});
             break;
-        case ArgVal::FunEntry:
-            lambdas[rawValue].patches.push_back({anchor, 0});
+        }
+        case ArgVal::FunEntry: {
+            auto index = value.as<ArgLambda>().get();
+            lambdas[index].patches.push_back({anchor, 0});
             break;
-        case ArgVal::Literal:
-            literals[rawValue].patches.push_back({anchor, 0});
+        }
+        case ArgVal::Literal: {
+            auto index = value.as<ArgLiteral>().get();
+            literals[index].patches.push_back({anchor, 0});
             break;
+        }
         default:
             ASSERT(!"error");
         }

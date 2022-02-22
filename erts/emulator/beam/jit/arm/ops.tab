@@ -1380,4 +1380,4 @@ recv_marker_use S
 %unused gen.plus_from_minus
 
 # Landing pad for fun calls/apply where we set up arguments and check errors
-i_lambda_trampoline W f W W
+i_lambda_trampoline F f W W

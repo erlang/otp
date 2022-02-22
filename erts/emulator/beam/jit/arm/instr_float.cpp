@@ -51,9 +51,9 @@ void BeamGlobalAssembler::emit_check_float_error() {
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instId,
-                                           const ArgVal &LHS,
-                                           const ArgVal &RHS,
-                                           const ArgVal &Dst) {
+                                           const ArgFRegister &LHS,
+                                           const ArgFRegister &RHS,
+                                           const ArgFRegister &Dst) {
     auto lhs = load_source(LHS, a64::d0);
     auto rhs = load_source(RHS, a64::d1);
     auto dst = init_destination(Dst, a64::d2);
@@ -66,7 +66,8 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
 
 /* * * * */
 
-void BeamModuleAssembler::emit_fload(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fload(const ArgSource &Src,
+                                     const ArgFRegister &Dst) {
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, a64::d0);
     arm::Gp float_ptr = emit_ptr_val(TMP1, src.reg);
@@ -75,7 +76,8 @@ void BeamModuleAssembler::emit_fload(const ArgVal &Src, const ArgVal &Dst) {
     flush_var(dst);
 }
 
-void BeamModuleAssembler::emit_fstore(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
+                                      const ArgRegister &Dst) {
     auto src = load_source(Src, a64::d0);
     auto dst = init_destination(Dst, TMP1);
 
@@ -131,7 +133,8 @@ void BeamGlobalAssembler::emit_fconv_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
+                                     const ArgFRegister &Dst) {
     auto dst = init_destination(Dst, a64::d0);
     auto src = load_source(Src, ARG1);
 
@@ -190,31 +193,32 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
     flush_var(dst);
 }
 
-void BeamModuleAssembler::emit_i_fadd(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fadd(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(a64::Inst::kIdFadd_v, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fsub(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fsub(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(a64::Inst::kIdFsub_v, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fmul(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(a64::Inst::kIdFmul_v, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fdiv(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(a64::Inst::kIdFdiv_v, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fnegate(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
+                                         const ArgFRegister &Dst) {
     auto src = load_source(Src, a64::d0);
     auto dst = init_destination(Dst, a64::d1);
 

@@ -99,7 +99,7 @@ void BeamGlobalAssembler::emit_i_bif_body_shared() {
 }
 
 void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
-                                               const ArgVal &bif) {
+                                               const ArgWord &bif) {
     bool is_contiguous_mem = false;
 
     ASSERT(args.size() > 0 && args.size() <= 3);
@@ -109,10 +109,10 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
      * instead of filling in the argument vector. */
     is_contiguous_mem = args.size() && args[0].isRegister();
     for (size_t i = 1; i < args.size() && is_contiguous_mem; i++) {
-        const ArgVal &curr = args[i], &prev = args[i - 1];
+        const ArgSource &curr = args[i], &prev = args[i - 1];
 
-        is_contiguous_mem = curr.getType() == prev.getType() &&
-                            curr.getValue() == prev.getValue() + 1;
+        is_contiguous_mem =
+                ArgVal::memory_relation(prev, curr) == ArgVal::consecutive;
     }
 
     if (is_contiguous_mem) {
@@ -128,13 +128,13 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
     mov_arg(ARG4, bif);
 }
 
-void BeamModuleAssembler::emit_i_bif1(const ArgVal &Src1,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     emit_setup_guard_bif({Src1}, Bif);
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
         a.je(resolve_beam_label(Fail));
     } else {
@@ -144,14 +144,14 @@ void BeamModuleAssembler::emit_i_bif1(const ArgVal &Src1,
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_i_bif2(const ArgVal &Src1,
-                                      const ArgVal &Src2,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
+                                      const ArgSource &Src2,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     emit_setup_guard_bif({Src1, Src2}, Bif);
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
         a.je(resolve_beam_label(Fail));
     } else {
@@ -161,15 +161,15 @@ void BeamModuleAssembler::emit_i_bif2(const ArgVal &Src1,
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_i_bif3(const ArgVal &Src1,
-                                      const ArgVal &Src2,
-                                      const ArgVal &Src3,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
+                                      const ArgSource &Src2,
+                                      const ArgSource &Src3,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     emit_setup_guard_bif({Src1, Src2, Src3}, Bif);
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         safe_fragment_call(ga->get_i_bif_guard_shared());
         a.je(resolve_beam_label(Fail));
     } else {
@@ -185,34 +185,34 @@ void BeamModuleAssembler::emit_i_bif3(const ArgVal &Src1,
  * to align the call targeting the shared fragment.
  */
 
-void BeamModuleAssembler::emit_nofail_bif1(const ArgVal &Src1,
-                                           const ArgVal &Bif,
-                                           const ArgVal &Dst) {
+void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
+                                           const ArgWord &Bif,
+                                           const ArgRegister &Dst) {
     emit_setup_guard_bif({Src1}, Bif);
     safe_fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_nofail_bif2(const ArgVal &Src1,
-                                           const ArgVal &Src2,
-                                           const ArgVal &Bif,
-                                           const ArgVal &Dst) {
+void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
+                                           const ArgSource &Src2,
+                                           const ArgWord &Bif,
+                                           const ArgRegister &Dst) {
     emit_setup_guard_bif({Src1, Src2}, Bif);
     safe_fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_i_length_setup(const ArgVal &Fail,
-                                              const ArgVal &Live,
-                                              const ArgVal &Src) {
+void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
+                                              const ArgWord &Live,
+                                              const ArgSource &Src) {
     x86::Mem trap_state;
 
     /* Store trap state after the currently live registers. There's an extra 3
      * registers beyond the ordinary ones that we're free to use for whatever
      * purpose. */
     ERTS_CT_ASSERT(ERTS_X_REGS_ALLOCATED - MAX_REG >= 3);
-    ASSERT(Live.getValue() <= MAX_REG);
-    trap_state = getXRef(Live.getValue());
+    ASSERT(Live.get() <= MAX_REG);
+    trap_state = getXRef(Live.get());
 
     /* Remainder of the list. */
     mov_arg(trap_state, Src);
@@ -222,7 +222,7 @@ void BeamModuleAssembler::emit_i_length_setup(const ArgVal &Fail,
 
     /* Original argument. This is only needed for exceptions and can be safely
      * skipped in guards. */
-    if (Fail.getValue() == 0) {
+    if (Fail.get() == 0) {
         x86::Mem original_argument;
 
         original_argument = trap_state.cloneAdjusted(2 * sizeof(Eterm));
@@ -325,9 +325,9 @@ void BeamGlobalAssembler::emit_i_length_guard_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
-                                        const ArgVal &Live,
-                                        const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_length(const ArgLabel &Fail,
+                                        const ArgWord &Live,
+                                        const ArgRegister &Dst) {
     Label entry = a.newLabel();
 
     align_erlang_cp();
@@ -336,7 +336,7 @@ void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
     mov_arg(ARG2, Live);
     a.lea(ARG3, x86::qword_ptr(entry));
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         /* The return address is discarded when yielding, so it doesn't need to
          * be aligned. */
         safe_fragment_call(ga->get_i_length_guard_shared());
@@ -640,15 +640,15 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_call_light_bif(const ArgVal &Bif,
-                                              const ArgVal &Exp) {
+void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
+                                              const ArgExport &Exp) {
     Label entry = a.newLabel();
 
     align_erlang_cp();
     a.bind(entry);
 
-    make_move_patch(ARG4, imports[Exp.getValue()].patches);
-    a.mov(RET, imm(Bif.getValue()));
+    mov_arg(ARG4, Exp);
+    a.mov(RET, imm(Bif.get()));
     a.lea(ARG3, x86::qword_ptr(entry));
 
     fragment_call(ga->get_call_light_bif_shared());
@@ -838,7 +838,7 @@ void BeamGlobalAssembler::emit_dispatch_bif(void) {
     a.jmp(labels[call_bif_shared]);
 }
 
-void BeamModuleAssembler::emit_call_bif(const ArgVal &Func) {
+void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
     int mfa_offset = -(int)sizeof(ErtsCodeMFA);
 
     Label entry = a.newLabel();
@@ -859,17 +859,17 @@ void BeamModuleAssembler::emit_call_bif(const ArgVal &Func) {
     }
 }
 
-void BeamModuleAssembler::emit_call_bif_mfa(const ArgVal &M,
-                                            const ArgVal &F,
-                                            const ArgVal &A) {
+void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
+                                            const ArgAtom &F,
+                                            const ArgWord &A) {
     BeamInstr func;
     Export *e;
 
-    e = erts_active_export_entry(M.getValue(), F.getValue(), A.getValue());
+    e = erts_active_export_entry(M.get(), F.get(), A.get());
     ASSERT(e != NULL && e->bif_number != -1);
 
     func = (BeamInstr)bif_table[e->bif_number].f;
-    emit_call_bif(ArgVal(ArgVal::Immediate, func));
+    emit_call_bif(ArgWord(func));
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
@@ -990,9 +990,9 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
 
 /* WARNING: This stub is memcpy'd, so all code herein must be explicitly
  * position-independent. */
-void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
-                                        const ArgVal &NifMod,
-                                        const ArgVal &DirtyFunc) {
+void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
+                                        const ArgWord &NifMod,
+                                        const ArgWord &DirtyFunc) {
     Label entry = a.newLabel(), dispatch = a.newLabel();
 
 #ifdef DEBUG
@@ -1013,11 +1013,11 @@ void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
 
         a.align(AlignMode::kCode, 8);
         /* ErtsNativeFunc.dfunc */
-        a.embedUInt64(Func.getValue());
+        a.embedUInt64(Func.get());
         /* ErtsNativeFunc.m */
-        a.embedUInt64(NifMod.getValue());
+        a.embedUInt64(NifMod.get());
         /* ErtsNativeFunc.func */
-        a.embedUInt64(DirtyFunc.getValue());
+        a.embedUInt64(DirtyFunc.get());
     }
 
     /* `emit_call_nif_yield_helper` relies on this to compute the address of

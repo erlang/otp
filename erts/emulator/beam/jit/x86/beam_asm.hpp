@@ -491,19 +491,15 @@ protected:
         a.jmp(ARG6);
     }
 
-    constexpr x86::Mem getArgRef(const ArgVal &val,
+    constexpr x86::Mem getArgRef(const ArgRegister &arg,
                                  size_t size = sizeof(UWord)) const {
-        switch (val.getType()) {
-        case ArgVal::FReg:
-            return getFRef(val.getValue(), size);
-        case ArgVal::XReg:
-            return getXRef(val.getValue(), size);
-        case ArgVal::YReg:
-            return getYRef(val.getValue(), size);
-        default:
-            ERTS_ASSERT(!"NYI");
-            return x86::Mem();
+        if (arg.isXRegister()) {
+            return getXRef(arg.as<ArgXRegister>().get(), size);
+        } else if (arg.isYRegister()) {
+            return getYRef(arg.as<ArgYRegister>().get(), size);
         }
+
+        return getFRef(arg.as<ArgFRegister>().get(), size);
     }
 
     /* Returns the current code address for the `Export` or `ErlFunEntry` in
@@ -1170,25 +1166,31 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    int getTypeUnion(const ArgVal &arg) const {
-        ASSERT(arg.typeIndex() < beam->types.count);
-        return beam->types.entries[arg.typeIndex()].type_union;
+    int getTypeUnion(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+        ASSERT(typeIndex < beam->types.count);
+        return beam->types.entries[typeIndex].type_union;
     }
 
-    auto getIntRange(const ArgVal &arg) const {
-        if (arg.isImmed() && is_small(arg.getValue())) {
-            Sint value = signed_val(arg.getValue());
+    auto getIntRange(const ArgSource &arg) const {
+        if (arg.isSmall()) {
+            Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
         } else {
-            ASSERT(arg.typeIndex() < beam->types.count);
-            const auto &entry = beam->types.entries[arg.typeIndex()];
+            auto typeIndex =
+                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+            ASSERT(typeIndex < beam->types.count);
+            const auto &entry = beam->types.entries[typeIndex];
             ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
             return std::make_pair(entry.min, entry.max);
         }
     }
 
-    bool always_small(const ArgVal &arg) const {
-        if (arg.isImmed() && is_small(arg.getValue())) {
+    bool always_small(const ArgSource &arg) const {
+        if (arg.isSmall()) {
             return true;
         }
 
@@ -1201,7 +1203,7 @@ protected:
         }
     }
 
-    bool always_immediate(const ArgVal &arg) const {
+    bool always_immediate(const ArgSource &arg) const {
         if (arg.isImmed() || always_small(arg)) {
             return true;
         }
@@ -1210,7 +1212,7 @@ protected:
         return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
     }
 
-    bool always_same_types(const ArgVal &lhs, const ArgVal &rhs) const {
+    bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
         int lhs_types = getTypeUnion(lhs);
         int rhs_types = getTypeUnion(rhs);
 
@@ -1224,13 +1226,13 @@ protected:
         return false;
     }
 
-    bool always_one_of(const ArgVal &arg, int types) const {
+    bool always_one_of(const ArgSource &arg, int types) const {
         if (arg.isImmed()) {
-            if (is_small(arg.getValue())) {
+            if (arg.isSmall()) {
                 return !!(types & BEAM_TYPE_INTEGER);
-            } else if (is_atom(arg.getValue())) {
+            } else if (arg.isAtom()) {
                 return !!(types & BEAM_TYPE_ATOM);
-            } else if (is_nil(arg.getValue())) {
+            } else if (arg.isNil()) {
                 return !!(types & BEAM_TYPE_NIL);
             }
 
@@ -1241,13 +1243,13 @@ protected:
         }
     }
 
-    int masked_types(const ArgVal &arg, int mask) const {
+    int masked_types(const ArgSource &arg, int mask) const {
         if (arg.isImmed()) {
-            if (is_small(arg.getValue())) {
+            if (arg.isSmall()) {
                 return mask & BEAM_TYPE_INTEGER;
-            } else if (is_atom(arg.getValue())) {
+            } else if (arg.isAtom()) {
                 return mask & BEAM_TYPE_ATOM;
-            } else if (is_nil(arg.getValue())) {
+            } else if (arg.isNil()) {
                 return mask & BEAM_TYPE_NIL;
             }
 
@@ -1257,11 +1259,11 @@ protected:
         }
     }
 
-    bool exact_type(const ArgVal &arg, int type_id) const {
+    bool exact_type(const ArgSource &arg, int type_id) const {
         return always_one_of(arg, type_id);
     }
 
-    bool is_sum_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1274,7 +1276,7 @@ protected:
         }
     }
 
-    bool is_difference_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1287,7 +1289,7 @@ protected:
         }
     }
 
-    bool is_product_small(const ArgVal &LHS, const ArgVal &RHS) {
+    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
         if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
@@ -1306,22 +1308,22 @@ protected:
     }
 
     /* Helpers */
-    void emit_gc_test(const ArgVal &Stack,
-                      const ArgVal &Heap,
-                      const ArgVal &Live);
-    void emit_gc_test_preserve(const ArgVal &Need,
-                               const ArgVal &Live,
+    void emit_gc_test(const ArgWord &Stack,
+                      const ArgWord &Heap,
+                      const ArgWord &Live);
+    void emit_gc_test_preserve(const ArgWord &Need,
+                               const ArgWord &Live,
                                x86::Gp term);
 
     x86::Mem emit_variable_apply(bool includeI);
-    x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
+    x86::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
     x86::Gp emit_call_fun(bool skip_box_test = false,
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    x86::Gp emit_is_binary(const ArgVal &Fail,
-                           const ArgVal &Src,
+    x86::Gp emit_is_binary(const ArgLabel &Fail,
+                           const ArgSource &Src,
                            Label next,
                            Label subbin);
 
@@ -1342,18 +1344,18 @@ protected:
     }
 
     void emit_get_list(const x86::Gp boxed_ptr,
-                       const ArgVal &Hd,
-                       const ArgVal &Tl);
+                       const ArgRegister &Hd,
+                       const ArgRegister &Tl);
 
-    void emit_div_rem(const ArgVal &Fail,
-                      const ArgVal &LHS,
-                      const ArgVal &RHS,
+    void emit_div_rem(const ArgLabel &Fail,
+                      const ArgSource &LHS,
+                      const ArgSource &RHS,
                       const ErtsCodeMFA *error_mfa,
                       bool need_div = true,
                       bool need_rem = true);
 
     void emit_setup_guard_bif(const std::vector<ArgVal> &args,
-                              const ArgVal &bif);
+                              const ArgWord &bif);
 
     void emit_error(int code);
 
@@ -1362,46 +1364,46 @@ protected:
                                           int flags,
                                           int size);
 
-    int emit_bs_get_field_size(const ArgVal &Size,
+    int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
                                Label Fail,
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
-    void emit_bs_get_utf8(const ArgVal &Ctx, const ArgVal &Fail);
-    void emit_bs_get_utf16(const ArgVal &Ctx,
-                           const ArgVal &Fail,
-                           const ArgVal &Flags);
+    void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
+    void emit_bs_get_utf16(const ArgRegister &Ctx,
+                           const ArgLabel &Fail,
+                           const ArgWord &Flags);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
     void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
     void emit_raise_exception(x86::Gp I, const ErtsCodeMFA *exp);
 
-    void emit_validate(const ArgVal &arity);
-    void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
+    void emit_validate(const ArgWord &arity);
+    void emit_bs_skip_bits(const ArgLabel &Fail, const ArgRegister &Ctx);
 
     void emit_linear_search(x86::Gp val,
                             const ArgVal &Fail,
                             const Span<ArgVal> &args);
 
     void emit_float_instr(uint32_t instId,
-                          const ArgVal &LHS,
-                          const ArgVal &RHS,
-                          const ArgVal &Dst);
+                          const ArgFRegister &LHS,
+                          const ArgFRegister &RHS,
+                          const ArgFRegister &Dst);
 
-    void emit_is_small(Label fail, const ArgVal &Arg, x86::Gp Reg);
+    void emit_is_small(Label fail, const ArgSource &Arg, x86::Gp Reg);
     void emit_are_both_small(Label fail,
-                             const ArgVal &LHS,
+                             const ArgSource &LHS,
                              x86::Gp A,
-                             const ArgVal &RHS,
+                             const ArgSource &RHS,
                              x86::Gp B);
 
     void emit_validate_unicode(Label next, Label fail, x86::Gp value);
 
-    void emit_bif_is_eq_ne_exact(const ArgVal &LHS,
-                                 const ArgVal &RHS,
-                                 const ArgVal &Dst,
+    void emit_bif_is_eq_ne_exact(const ArgSource &LHS,
+                                 const ArgSource &RHS,
+                                 const ArgRegister &Dst,
                                  Eterm fail_value,
                                  Eterm succ_value);
 
@@ -1420,14 +1422,13 @@ protected:
                                          const Span<ArgVal> &args);
 
 #ifdef DEBUG
-    void emit_tuple_assertion(const ArgVal &Src, x86::Gp tuple_reg);
+    void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);
 #endif
 
 #include "beamasm_protos.h"
 
-    const Label &resolve_beam_label(const ArgVal &Lbl) const {
-        ASSERT(Lbl.isLabel());
-        return rawLabels.at(Lbl.getValue());
+    const Label &resolve_beam_label(const ArgLabel &Lbl) const {
+        return rawLabels.at(Lbl.get());
     }
 
     void make_move_patch(x86::Gp to,
@@ -1470,8 +1471,8 @@ protected:
     void cmp_arg(x86::Mem mem, const ArgVal &val, const x86::Gp &spill) {
         /* Note that the cast to Sint is necessary to handle negative numbers
          * such as NIL. */
-        if (val.isImmed() && Support::isInt32((Sint)val.getValue())) {
-            a.cmp(mem, imm(val.getValue()));
+        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+            a.cmp(mem, imm(val.as<ArgImmed>().get()));
         } else {
             mov_arg(spill, val);
             a.cmp(mem, spill);
@@ -1479,8 +1480,8 @@ protected:
     }
 
     void cmp_arg(x86::Gp gp, const ArgVal &val, const x86::Gp &spill) {
-        if (val.isImmed() && Support::isInt32((Sint)val.getValue())) {
-            a.cmp(gp, imm(val.getValue()));
+        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+            a.cmp(gp, imm(val.as<ArgImmed>().get()));
         } else {
             mov_arg(spill, val);
             a.cmp(gp, spill);
@@ -1489,12 +1490,22 @@ protected:
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isRegister()) {
-            a.mov(to, getArgRef(from));
+        if (from.isBytePtr()) {
+            make_move_patch(to, strings, from.as<ArgBytePtr>().get());
+        } else if (from.isExport()) {
+            make_move_patch(to, imports[from.as<ArgExport>().get()].patches);
+        } else if (from.isImmed()) {
+            mov_imm(to, from.as<ArgImmed>().get());
+        } else if (from.isLambda()) {
+            make_move_patch(to, lambdas[from.as<ArgLambda>().get()].patches);
         } else if (from.isLiteral()) {
-            make_move_patch(to, literals[from.getValue()].patches);
+            make_move_patch(to, literals[from.as<ArgLiteral>().get()].patches);
+        } else if (from.isRegister()) {
+            a.mov(to, getArgRef(from.as<ArgRegister>()));
+        } else if (from.isWord()) {
+            mov_imm(to, from.as<ArgWord>().get());
         } else {
-            mov_imm(to, from.getValue());
+            ASSERT(!"mov_arg with incompatible type");
         }
 
 #ifdef DEBUG
@@ -1507,10 +1518,12 @@ protected:
 
     void mov_arg(x86::Mem to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isImmed()) {
-            if (Support::isInt32((Sint)from.getValue())) {
-                a.mov(to, imm(from.getValue()));
+            auto val = from.as<ArgImmed>().get();
+
+            if (Support::isInt32((Sint)val)) {
+                a.mov(to, imm(val));
             } else {
-                a.mov(spill, imm(from.getValue()));
+                a.mov(spill, imm(val));
                 a.mov(to, spill);
             }
         } else {

@@ -96,10 +96,10 @@ void BeamGlobalAssembler::emit_i_bif_body_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_i_bif1(const ArgVal &Src1,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     auto src1 = load_source(Src1, TMP1);
 
     a.str(src1.reg, getXRef(0));
@@ -107,11 +107,11 @@ void BeamModuleAssembler::emit_i_bif1(const ArgVal &Src1,
     emit_i_bif(Fail, Bif, Dst);
 }
 
-void BeamModuleAssembler::emit_i_bif2(const ArgVal &Src1,
-                                      const ArgVal &Src2,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
+                                      const ArgSource &Src2,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
 
     a.stp(src1.reg, src2.reg, getXRef(0));
@@ -119,12 +119,12 @@ void BeamModuleAssembler::emit_i_bif2(const ArgVal &Src1,
     emit_i_bif(Fail, Bif, Dst);
 }
 
-void BeamModuleAssembler::emit_i_bif3(const ArgVal &Src1,
-                                      const ArgVal &Src2,
-                                      const ArgVal &Src3,
-                                      const ArgVal &Fail,
-                                      const ArgVal &Bif,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
+                                      const ArgSource &Src2,
+                                      const ArgSource &Src3,
+                                      const ArgLabel &Fail,
+                                      const ArgWord &Bif,
+                                      const ArgRegister &Dst) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
     auto src3 = load_source(Src3, TMP3);
 
@@ -134,12 +134,12 @@ void BeamModuleAssembler::emit_i_bif3(const ArgVal &Src1,
     emit_i_bif(Fail, Bif, Dst);
 }
 
-void BeamModuleAssembler::emit_i_bif(const ArgVal &Fail,
-                                     const ArgVal &Bif,
-                                     const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
+                                     const ArgWord &Bif,
+                                     const ArgRegister &Dst) {
     mov_arg(ARG4, Bif);
 
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         fragment_call(ga->get_i_bif_guard_shared());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -154,9 +154,9 @@ void BeamModuleAssembler::emit_i_bif(const ArgVal &Fail,
  * don't need to test for failure.
  */
 
-void BeamModuleAssembler::emit_nofail_bif1(const ArgVal &Src1,
-                                           const ArgVal &Bif,
-                                           const ArgVal &Dst) {
+void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
+                                           const ArgWord &Bif,
+                                           const ArgRegister &Dst) {
     auto src1 = load_source(Src1, TMP1);
 
     a.str(src1.reg, getXRef(0));
@@ -166,10 +166,10 @@ void BeamModuleAssembler::emit_nofail_bif1(const ArgVal &Src1,
     mov_arg(Dst, ARG1);
 }
 
-void BeamModuleAssembler::emit_nofail_bif2(const ArgVal &Src1,
-                                           const ArgVal &Src2,
-                                           const ArgVal &Bif,
-                                           const ArgVal &Dst) {
+void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
+                                           const ArgSource &Src2,
+                                           const ArgWord &Bif,
+                                           const ArgRegister &Dst) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
 
     a.stp(src1.reg, src2.reg, getXRef(0));
@@ -179,9 +179,9 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgVal &Src1,
     mov_arg(Dst, ARG1);
 }
 
-void BeamModuleAssembler::emit_i_length_setup(const ArgVal &Fail,
-                                              const ArgVal &Live,
-                                              const ArgVal &Src) {
+void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
+                                              const ArgWord &Live,
+                                              const ArgSource &Src) {
     mov_arg(TMP1, Src);
     mov_imm(TMP2, make_small(0));
 
@@ -189,13 +189,13 @@ void BeamModuleAssembler::emit_i_length_setup(const ArgVal &Fail,
      * 3 extra registers beyond the ordinary ones that we're free to
      * use for whatever purpose. */
     ERTS_CT_ASSERT(ERTS_X_REGS_ALLOCATED - MAX_REG >= 3);
-    mov_arg(ArgVal(ArgVal::XReg, Live.getValue() + 0), TMP1);
-    mov_arg(ArgVal(ArgVal::XReg, Live.getValue() + 1), TMP2);
+    mov_arg(ArgXRegister(Live.get() + 0), TMP1);
+    mov_arg(ArgXRegister(Live.get() + 1), TMP2);
 
     /* Store original argument. This is only needed for exceptions and can be
      * safely skipped in guards. */
-    if (Fail.getValue() == 0) {
-        mov_arg(ArgVal(ArgVal::XReg, Live.getValue() + 2), TMP1);
+    if (Fail.get() == 0) {
+        mov_arg(ArgXRegister(Live.get() + 2), TMP1);
     }
 }
 
@@ -292,16 +292,16 @@ void BeamGlobalAssembler::emit_i_length_guard_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_i_length(const ArgVal &Fail,
-                                        const ArgVal &Live,
-                                        const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_length(const ArgLabel &Fail,
+                                        const ArgWord &Live,
+                                        const ArgRegister &Dst) {
     Label entry = a.newLabel();
 
     a.bind(entry);
 
     mov_arg(ARG2, Live);
     a.adr(ARG3, entry);
-    if (Fail.getValue() != 0) {
+    if (Fail.get() != 0) {
         fragment_call(ga->get_i_length_guard_shared());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -550,8 +550,8 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_call_light_bif(const ArgVal &Bif,
-                                              const ArgVal &Exp) {
+void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
+                                              const ArgExport &Exp) {
     Label entry = a.newLabel();
 
     a.bind(entry);
@@ -754,19 +754,19 @@ void BeamGlobalAssembler::emit_dispatch_bif(void) {
 
 /* This is only used for opcode compatibility with the interpreter, it's never
  * actually called. */
-void BeamModuleAssembler::emit_call_bif(const ArgVal &Func) {
+void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
     (void)Func;
 
     emit_nyi("emit_call_bif");
 }
 
-void BeamModuleAssembler::emit_call_bif_mfa(const ArgVal &M,
-                                            const ArgVal &F,
-                                            const ArgVal &A) {
+void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
+                                            const ArgAtom &F,
+                                            const ArgWord &A) {
     BeamInstr func;
     Export *e;
 
-    e = erts_active_export_entry(M.getValue(), F.getValue(), A.getValue());
+    e = erts_active_export_entry(M.get(), F.get(), A.get());
     ASSERT(e != NULL && e->bif_number != -1);
 
     func = (BeamInstr)bif_table[e->bif_number].f;
@@ -880,9 +880,9 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
 
 /* WARNING: This stub is memcpy'd, so all code herein must be explicitly
  * position-independent. */
-void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
-                                        const ArgVal &NifMod,
-                                        const ArgVal &DirtyFunc) {
+void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
+                                        const ArgWord &NifMod,
+                                        const ArgWord &DirtyFunc) {
     Label entry = a.newLabel(), dispatch = a.newLabel();
 
 #ifdef DEBUG
@@ -902,13 +902,13 @@ void BeamModuleAssembler::emit_call_nif(const ArgVal &Func,
         a.align(AlignMode::kCode, 8);
 
         /* ErtsNativeFunc.func */
-        a.embedUInt64(Func.getValue());
+        a.embedUInt64(Func.get());
 
         /* ErtsNativeFunc.m */
-        a.embedUInt64(NifMod.getValue());
+        a.embedUInt64(NifMod.get());
 
         /* ErtsNativeFunc.dfunc */
-        a.embedUInt64(DirtyFunc.getValue());
+        a.embedUInt64(DirtyFunc.get());
     }
 
     /* `emit_call_nif_yield_helper` relies on this to compute the address of

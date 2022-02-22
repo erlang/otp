@@ -58,9 +58,9 @@ void BeamGlobalAssembler::emit_check_float_error() {
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instId,
-                                           const ArgVal &LHS,
-                                           const ArgVal &RHS,
-                                           const ArgVal &Dst) {
+                                           const ArgFRegister &LHS,
+                                           const ArgFRegister &RHS,
+                                           const ArgFRegister &Dst) {
     a.movsd(x86::xmm0, getArgRef(LHS));
     a.movsd(x86::xmm1, getArgRef(RHS));
 
@@ -69,7 +69,8 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
     a.movsd(getArgRef(Dst), x86::xmm0);
 }
 
-void BeamModuleAssembler::emit_fload(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fload(const ArgSource &Src,
+                                     const ArgFRegister &Dst) {
     /* {thing_word,double} */
     mov_arg(ARG1, Src);
 
@@ -79,7 +80,8 @@ void BeamModuleAssembler::emit_fload(const ArgVal &Src, const ArgVal &Dst) {
     a.movsd(getArgRef(Dst), x86::xmm0);
 }
 
-void BeamModuleAssembler::emit_fstore(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
+                                      const ArgRegister &Dst) {
     a.movsd(x86::xmm0, getArgRef(Src));
 
     /* {thing_word,double} */
@@ -132,7 +134,8 @@ void BeamGlobalAssembler::emit_fconv_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
+                                     const ArgFRegister &Dst) {
     if (always_small(Src)) {
         comment("simplified fconv since source is always small");
         mov_arg(ARG2, Src);
@@ -184,31 +187,32 @@ void BeamModuleAssembler::emit_fconv(const ArgVal &Src, const ArgVal &Dst) {
     a.movsd(getArgRef(Dst), x86::xmm0);
 }
 
-void BeamModuleAssembler::emit_i_fadd(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fadd(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(x86::Inst::kIdAddpd, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fsub(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fsub(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(x86::Inst::kIdSubpd, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fmul(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(x86::Inst::kIdMulpd, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fdiv(const ArgVal &LHS,
-                                      const ArgVal &RHS,
-                                      const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,
+                                      const ArgFRegister &RHS,
+                                      const ArgFRegister &Dst) {
     emit_float_instr(x86::Inst::kIdDivpd, LHS, RHS, Dst);
 }
 
-void BeamModuleAssembler::emit_i_fnegate(const ArgVal &Src, const ArgVal &Dst) {
+void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
+                                         const ArgFRegister &Dst) {
     /* xmm0 = 0.0 */
     a.pxor(x86::xmm0, x86::xmm0);
     a.movsd(x86::xmm1, getArgRef(Src));
