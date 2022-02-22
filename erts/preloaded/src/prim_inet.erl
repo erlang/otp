@@ -1884,6 +1884,8 @@ type_value_2(uint8, X)  when X band 16#ff =:= X       -> true;
 type_value_2(time, infinity)                          -> true;
 type_value_2(time, X) when is_integer(X), X >= 0      -> true;
 type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+type_value_2(ip,{A,B,C,D,E,F,G,H})
+  when ?ip6(A,B,C,D,E,F,G,H)                          -> true;
 %%
 type_value_2(addr, {any,Port}) ->
     type_value_2(uint16, Port);
