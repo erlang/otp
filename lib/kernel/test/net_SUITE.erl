@@ -36,7 +36,7 @@
 -module(net_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("common_test/include/ct_event.hrl").
+-include("kernel_test_lib.hrl").
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
@@ -57,23 +57,10 @@
         ]).
 
 
-%% -include("socket_test_evaluator.hrl").
-
-%% Internal exports
-%% -export([]).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
--define(SLEEP(T), receive after T -> ok end).
 
 -define(FAIL(R), exit(R)).
 -define(SKIP(R), throw({skip, R})).
-
--define(MINS(M), timer:minutes(M)).
--define(SECS(S), timer:seconds(S)).
-
--define(TT(T),   ct:timetrap(T)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -189,7 +176,7 @@ api_b_gethostname() ->
             i("hostname: ~s", [Hostname]),
             ok;
         {error, enotsup = Reason} ->
-            i("getifaddrs not supported - skipping"),
+            i("gethostname not supported - skipping"),
             skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
@@ -226,8 +213,20 @@ api_b_getifaddrs() ->
     catch
         error : notsup = CReason ->
             i("~w => skipping"
-              "~n   prim_net:getinterfaceinfo: ~p",
-              [CReason, (catch prim_net:getinterfaceinfo(#{}))]),
+              "~n   Interface Info:"
+              "~n      ~s",
+              [CReason,
+               %% Note that the prim_net module is *not* intended to 
+               %% be called directly. This is just a temporary thing.
+               try prim_net:get_interface_info(#{}) of
+                   {ok, Info} ->
+                       ?F("ok: ~p", [Info]);
+                   {error, NSReason} ->
+                       ?F("error: ~p", [NSReason])
+               catch
+                   C:E ->
+                       ?F("catched: ~w:~p", [C, E])
+               end]),
             skip(CReason)
     end.
 
