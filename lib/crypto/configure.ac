@@ -36,6 +36,11 @@ AC_LANG(C)
 
 LM_PRECIOUS_VARS
 
+## Delete previous failed configure results
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
 else
@@ -864,6 +869,17 @@ AS_IF([test "$enable_fips_support" = "yes"],
           CFLAGS="$saveCFLAGS"
           LDFLAGS="$saveLDFLAGS"
           LIBS="$saveLIBS"
+      ])
+
+AS_IF([test "x$v3_include" = "xyes"],
+      [echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
+       AC_MSG_WARN(******************************************************************)
+       AC_MSG_WARN(* Using OpenSSL 3.0 is not yet recommended for production code.  *)
+       AS_IF([test "x$SSL_DYNAMIC_ONLY" = "xno" ],
+             [echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+              AC_MSG_WARN(* Static linking *MAY* require re-configuring the 3.0 cryptolib. *)
+             ])
+       AC_MSG_WARN(******************************************************************)
       ])
 
 AS_IF([test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""],

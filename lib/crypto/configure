@@ -3243,6 +3243,11 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+## Delete previous failed configure results
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
 if test "$cross_compiling" = "yes"; then
     CROSS_COMPILING=yes
 else
@@ -7460,6 +7465,25 @@ fi
           CFLAGS="$saveCFLAGS"
           LDFLAGS="$saveLDFLAGS"
           LIBS="$saveLIBS"
+
+fi
+
+if test "x$v3_include" = "xyes"
+then :
+  echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
+       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
+printf "%s\n" "$as_me: WARNING: ******************************************************************" >&2;}
+       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: * Using OpenSSL 3.0 is not yet recommended for production code.  *" >&5
+printf "%s\n" "$as_me: WARNING: * Using OpenSSL 3.0 is not yet recommended for production code.  *" >&2;}
+       if test "x$SSL_DYNAMIC_ONLY" = "xno"
+then :
+  echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: * Static linking *MAY* require re-configuring the 3.0 cryptolib. *" >&5
+printf "%s\n" "$as_me: WARNING: * Static linking *MAY* require re-configuring the 3.0 cryptolib. *" >&2;}
+
+fi
+       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: ******************************************************************" >&5
+printf "%s\n" "$as_me: WARNING: ******************************************************************" >&2;}
 
 fi
 
