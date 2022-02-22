@@ -56,6 +56,20 @@ void init_load(void)
     erts_total_code_size = 0;
     beam_catches_init();
     erts_init_ranges();
+
+#ifdef DEBUG
+    {
+        int i;
+
+        for (i = 1; i < num_instructions; i++) {
+            const GenOpEntry *op = &gen_opc[i];
+
+            ASSERT(op->name && op->name[0] != '\0');
+            ASSERT(op->arity <= ERTS_BEAM_MAX_OPARGS);
+            ASSERT(op->num_specific <= 1 || op->arity <= 6);
+        }
+    }
+#endif
 }
 
 Binary *erts_alloc_loader_state(void) {
@@ -459,14 +473,10 @@ static int load_code(LoaderState* stp)
 	     * the possible specific instructions associated with this
 	     * specific instruction.
 	     */
+            int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
-            int specific, arity, arg, i;
-
             arity = gen_opc[tmp_op->op].arity;
-            if (arity > 6) {
-                BeamLoadError0(stp, "no specific operation found (arity > 6)");
-            }
 
             for (arg = 0; arg < arity; arg++) {
                 int type = tmp_op->a[arg].type;
@@ -530,17 +540,8 @@ static int load_code(LoaderState* stp)
             /*
              * No specific operation found.
              */
-            if (i == num_specific) {
+            if (ERTS_UNLIKELY(i == num_specific)) {
                 stp->specific_op = -1;
-                for (arg = 0; arg < tmp_op->arity; arg++) {
-                    /*
-                     * We'll give the error message here (instead of earlier)
-                     * to get a printout of the offending operation.
-                     */
-                    if (tmp_op->a[arg].type == TAG_h) {
-                        BeamLoadError0(stp, "the character data type is not supported");
-                    }
-                }
 
                 /*
                  * No specific operations and no transformations means that
