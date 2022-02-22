@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,15 +25,13 @@
 
 -module(diameter_dist_SUITE).
 
--export([
-    suite/0,
-    all/0,
-    init_per_suite/1,
-    end_per_suite/1
-]).
+%% all tests, no common_test dependency
+-export([run/0]).
 
-%% testcases
--export([send/1]).
+%% common_test wrapping
+-export([suite/0,
+         all/0,
+         traffic/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -45,61 +43,210 @@
          handle_error/4,
          handle_request/3]).
 
-%% Internal export for RPC
--export([start_server/5, start_client/6]).
+%% rpc calls
+-export([start/1,
+         call/1,
+         connect/1,
+         ping/1]).
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
 
--include_lib("common_test/include/ct.hrl").
-
 %% ===========================================================================
+
+-define(util, diameter_util).
 
 -define(CLIENT, 'CLIENT').
 -define(SERVER, 'SERVER').
 -define(REALM, "erlang.org").
 -define(DICT, diameter_gen_base_rfc6733).
 -define(ADDR, {127,0,0,1}).
+
+%% Config for diameter:start_service/2.
+-define(SERVICE(Host),
+        [{'Origin-Host', Host ++ [$.|?REALM]},
+         {'Origin-Realm', ?REALM},
+         {'Host-IP-Address', [?ADDR]},
+         {'Vendor-Id', 12345},
+         {'Product-Name', "OTP/diameter"},
+         {'Auth-Application-Id', [?DICT:id()]},
+         {'Origin-State-Id', origin()},
+         {spawn_opt, {diameter_dist, route_session, [#{id => []}]}},
+         {sequence, fun sequence/0},
+         {string_decode, false},
+         {application, [{dictionary, ?DICT},
+                        {module, ?MODULE},
+                        {request_errors, callback},
+                        {answer_errors, callback}]}]).
+
 -define(SUCCESS, 2001).
 -define(BUSY,    3004).
 -define(LOGOUT,  ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 -define(MOVED,   ?'DIAMETER_BASE_TERMINATION-CAUSE_USER_MOVED').
 -define(TIMEOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_SESSION_TIMEOUT').
 
+-define(L, atom_to_list).
+-define(A, list_to_atom).
+
+%% The order here is significant and causes the server to listen
+%% before the clients connect. The server listens on the first node,
+%% and distributes requests to the other two.
+-define(NODES, [{server0, ?SERVER},
+                {server1, ?SERVER},
+                {server2, ?SERVER},
+                {client, ?CLIENT}]).
+
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 30}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [send].
+    [traffic].
 
-init_per_suite(Config) ->
-    {ok, ServerPeer, ServerNode} = ?CT_PEER(),
-    ListenPort = erpc:call(ServerNode, ?MODULE, start_server, [?SERVER, "server0", 0, 0, 30]),
-    %% Distributed workers
-    Peer1 = start_worker(?SERVER),
-    Peer2 = start_worker(?SERVER),
-    %% Diameter client
-    {ok, ClientPeer, ClientNode} = ?CT_PEER(),
-    ok = erpc:call(ClientNode, ?MODULE, start_client, [?CLIENT, ListenPort, "client", 99, 0, 32]),
-    %% unlink peers, assuming end_per_suite is executed reliably
-    Peers = [ServerPeer, Peer1, Peer2, ClientPeer],
-    [unlink(P) || P <- Peers],
-    [{server, ServerNode}, {client, ClientNode}, {peers, Peers} | Config].
+traffic(_Config) ->
+    run().
 
-end_per_suite(Config) ->
-    [peer:stop(P) || P <- proplists:get_value(peers, Config)].
+%% ===========================================================================
 
-%% Basic test
-send(Config) when is_list(Config) ->
-    ServerNode = proplists:get_value(server, Config),
-    ClientNode = proplists:get_value(client, Config),
-    %% Send 100 requests and ensure the node name sent as User-Name isn't
-    %% the node terminating transport.
-    send(ServerNode, ClientNode, 100, dict:new()).
+%% run/0
 
-send(Server0, _Client, 0, Dict) ->
+run() ->
+    [] = ?util:run([{fun traffic/0, 60000}]).
+    %% process for linked peers to die with
+
+%% traffic/0
+
+traffic() ->
+    true = is_alive(),  %% need distribution for peer nodes
+    Nodes = enslave(),
+    [] = ping(lists:droplast(Nodes)),  %% drop client node
+    [] = start(Nodes),
+    ok = connect(Nodes),
+    ok = send(Nodes).
+
+%% enslave/1
+%%
+%% Start four slave nodes, three to implement a Diameter server,
+%% one to implement a client.
+
+enslave() ->
+    Here = filename:dirname(code:which(?MODULE)),
+    Ebin = filename:join([Here, "..", "ebin"]),
+    Dirs = [Here, Ebin],
+    Args =  [["-pa" | [lists:flatten(io_lib:format("~s", [D])) || D <- Dirs]],
+             ["-setcookie", ?L(erlang:get_cookie())]],
+    [{N,S} || A <- [lists:append(Args)],
+              {M,S} <- ?NODES,
+              N <- [start(M, A)]].
+
+start(Name, Args) ->
+    {ok, _, Node} = peer:start_link(#{name => Name, args => Args}),
+    Node.
+
+%% ping/1
+%%
+%% Ensure the server nodes are connected so that diameter_dist can attach.
+
+ping({S, Nodes}) ->
+    ?SERVER = S,  %% assert
+    [N || {N,_} <- Nodes,
+          node() /= N,
+          pang <- [net_adm:ping(N)]];
+
+ping(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, ping, [{S,Nodes}])],
+               RC /= []].
+
+%% start/1
+%%
+%% Start diameter services.
+
+%% There's no need to start diameter on a node that only services
+%% diameter_dist as a handler of incoming requests, but the
+%% diameter_dist server must be started since the servers communicate
+%% to determine who services what. The typical case is probably that
+%% handler nodes also want to be able to send Diameter requests, in
+%% which case the application needs to be started and diameter_dist is
+%% started as a part of this, but only start the server here to ensure
+%% everything still works as expected.
+start({_SvcName, [_, {S1, _}, {S2, _}, _]})
+  when node() == S1;    %% server1
+       node() == S2 ->  %% server2
+    Mod = diameter_dist,
+    {ok, _} = gen_server:start({local, Mod}, Mod, _Args = [], _Opts  = []),
+    ok;
+
+start({SvcName, [{S0, _}, _, _, {C, _}]})
+  when node() == S0;    %% server0
+       node() == C ->   %% client
+    ok = diameter:start(),
+    ok = diameter:start_service(SvcName, ?SERVICE((?L(SvcName))));
+
+start(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, start, [{S, Nodes}])],
+               RC /= ok].
+
+sequence() ->
+    sequence(sname()).
+
+sequence(client) ->
+    {0,32};
+sequence(Server) ->
+    "server" ++ N = ?L(Server),
+    {list_to_integer(N), 30}.
+
+origin() ->
+    origin(sname()).
+
+origin(client) ->
+    99;
+origin(Server) ->
+    "server" ++ N = ?L(Server),
+    list_to_integer(N).
+
+%% connect/1
+%%
+%% Establish one connection from the client, terminated on the first
+%% server node, the others handling requests.
+
+connect({?SERVER, [{Node, _} | _], []})
+  when Node == node() ->  %% server0
+    [_LRef = ?util:listen(?SERVER, tcp)];
+
+connect({?SERVER, _, [_] = Acc}) -> %% server[12]: register to receive requests
+    ok = diameter_dist:attach([?SERVER]),
+    Acc;
+
+connect({?CLIENT, [{Node, _} | _], [LRef]}) ->
+    ?util:connect(?CLIENT, tcp, {Node, LRef}),
+    ok;
+
+connect(Nodes) ->
+    lists:foldl(fun({N,S}, A) ->
+                        rpc:call(N, ?MODULE, connect, [{S, Nodes, A}])
+                end,
+                [],
+                Nodes).
+
+%% ===========================================================================
+%% traffic testcases
+
+%% send/1
+%%
+%% Send 100 requests and ensure the node name sent as User-Name isn't
+%% the node terminating transport.
+
+send(Nodes) ->
+    send(Nodes, 100, dict:new()).
+
+%% send/2
+
+send(Nodes, 0, Dict) ->
+    [{Server0, _} | _] = Nodes,
     Node = atom_to_binary(Server0, utf8),
     {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)},
     %% Check that counters have been incremented as expected on server0.
@@ -112,71 +259,38 @@ send(Server0, _Client, 0, Dict) ->
            Stats},
     {[{send, 0, 100, 2001}], _}
         = {[{D,R,N,C} || {{{0,275,R}, D, {'Result-Code', C}}, N} <- Stats],
-           Stats};
+           Stats},
+    ok;
 
-send(Server0, Client, N, Dict) ->
-    Req = #diameter_base_STR{'Destination-Realm'   = ?REALM,
-        'Auth-Application-Id' = ?DICT:id(),
-        'Termination-Cause'   = ?LOGOUT},
+send(Nodes, N, Dict) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS,
                        'User-Name' = [ServerNode]}
-        = rpc:call(Client, diameter, call, [?CLIENT, ?DICT, Req, []]),
+        = send(Nodes, str(?LOGOUT)),
     true = is_binary(ServerNode),
-    send(Server0, Client, N-1, dict:update_counter(ServerNode, 1, Dict)).
+    send(Nodes, N-1, dict:update_counter(ServerNode, 1, Dict)).
 
 %% ===========================================================================
-%% Utilities
 
-%% Starts a peer node with Diameter server running
-start_server(Server, Host, Origin, SeqFrom, SeqTo) ->
-    ok = diameter:start(),
-    ok = diameter:start_service(Server, service_opt(Host, Origin, SeqFrom, SeqTo)),
-    %% Listener config
-    ListenConfig = [{transport_module, diameter_tcp}, {transport_config, [{ip, ?ADDR},
-        {port, 0}, {accept, {256, 0, 0, 1}}, {accept, ["256.0.0.1", ["^.+$"]]}]}],
-    %% start listener on Server0, get the listener port number
-    {ok, ListenRef} = diameter:add_transport(Server, {listen, ListenConfig}),
-    %% wait for listener to be up
-    [_] = diameter_reg:wait({diameter_tcp, listener, {ListenRef, '_'}}),
-    [{listen, ListenPort, _}] = diameter_tcp:ports(),
-    ListenPort.
+str(Cause) ->
+    #diameter_base_STR{'Destination-Realm'   = ?REALM,
+                       'Auth-Application-Id' = ?DICT:id(),
+                       'Termination-Cause'   = Cause}.
 
-%% Starts Diameter client node connected to Server
-start_client(Client, ServerPort, Host, Origin, SeqFrom, SeqTo) ->
-    ok = diameter:start(),
-    ok = diameter:start_service(Client, service_opt(Host, Origin, SeqFrom, SeqTo)),
-    %% Establish connection to the server
-    ConnectConfig = [{transport_module, diameter_tcp},
-        {transport_config, [{raddr, ?ADDR}, {rport, ServerPort}]}],
-    true = diameter:subscribe(Client),
-    {ok, Ref} = diameter:add_transport(Client, {connect, ConnectConfig}),
-    receive
-        {diameter_event, Client, {up, Ref, _, _, _}} -> ok
-    end.
+%% send/2
 
-%% Returns config for diameter:start_service/2.
-service_opt(Host, Origin, SeqFrom, SeqTo) ->
-    [{'Origin-Host', Host ++ [$.|?REALM]},
-        {'Origin-Realm', ?REALM},
-        {'Host-IP-Address', [?ADDR]},
-        {'Vendor-Id', 12345},
-        {'Product-Name', "OTP/diameter"},
-        {'Auth-Application-Id', [?DICT:id()]},
-        {'Origin-State-Id', Origin},
-        {spawn_opt, {diameter_dist, route_session, [#{id => []}]}},
-        {sequence, fun () -> {SeqFrom, SeqTo} end}, %% use 'fun' for fun and piggy-back testing
-        {string_decode, false},
-        {application, [{dictionary, ?DICT},
-            {module, ?MODULE},
-            {request_errors, callback},
-            {answer_errors, callback}]}].
+send(Nodes, Req) ->
+    {Node, _} = lists:last(Nodes),
+    rpc:call(Node, ?MODULE, call, [Req]).
 
-%% Starts a distributed worker node
-start_worker(AttachTo) ->
-    {ok, Peer, Node} = ?CT_PEER(),
-    {ok, _} = erpc:call(Node, gen_server, start, [{local, diameter_dist}, diameter_dist, [], []]),
-    ok = erpc:call(Node, diameter_dist, attach, [[AttachTo]]),
-    Peer.
+%% call/1
+
+call(Req) ->
+    diameter:call(?CLIENT, ?DICT, Req, []).
+
+%% sname/0
+
+sname() ->
+    ?A(hd(string:tokens(?L(node()), "@"))).
 
 %% ===========================================================================
 %% diameter callbacks
