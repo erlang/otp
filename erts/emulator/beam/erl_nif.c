@@ -2610,7 +2610,8 @@ static int dtor_demonitor(ErtsMonitor* mon, void* context, Sint reds)
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(is_internal_pid(mon->other.item));
 
-    erts_proc_sig_send_demonitor(mon);
+    erts_proc_sig_send_demonitor(NULL, am_system, 1, mon);
+
     return 1;
 }
 
@@ -3629,7 +3630,8 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
     rmon_refc_inc(rm);
     erts_mtx_unlock(&rm->lock);
 
-    if (!erts_proc_sig_send_monitor(&mdp->u.target, target_pid->pid)) {
+    if (!erts_proc_sig_send_monitor(NULL, am_system, &mdp->u.target,
+                                    target_pid->pid)) {
         /* Failed to send monitor signal; cleanup... */
 #ifdef DEBUG
         ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);
@@ -3688,7 +3690,7 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(is_internal_pid(mon->other.item));
 
-    erts_proc_sig_send_demonitor(mon);
+    erts_proc_sig_send_demonitor(NULL, am_system, 1, mon);
 
     return 0;
 }

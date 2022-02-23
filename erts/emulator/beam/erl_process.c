@@ -8989,8 +8989,10 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
         }
         if (send_sig) {
-            if (erts_proc_sig_send_monitor(&mdp->u.target, BIF_ARG_1))
+            if (erts_proc_sig_send_monitor(&BIF_P->common, BIF_P->common.id,
+                                           &mdp->u.target, BIF_ARG_1)) {
                 sync = !async;
+            }
             else {
             noproc:
                 erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
@@ -9047,7 +9049,7 @@ resume_process_1(BIF_ALIST_1)
 
     if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == 0) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);
-        erts_proc_sig_send_demonitor(mon);
+        erts_proc_sig_send_demonitor(&BIF_P->common, BIF_P->common.id, 0, mon);
     }
 
     BIF_RET(am_true);
@@ -9497,8 +9499,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
 
             if (esdp->pending_signal.sig) {
-                ASSERT(esdp->pending_signal.dbg_from == p);
-                erts_proc_sig_send_pending(esdp);
+                erts_proc_sig_send_pending(p, esdp);
             }
 	}
 	else {
@@ -12592,8 +12593,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
                                             p->common.id, parent_id);
             erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->proc);
             if (!erts_link_dist_insert(&ldp->dist, so->mld)) {
-                erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &ldp->dist,
-                                             am_noconnection, NIL);
+                erts_proc_sig_send_link_exit_noconnection(&ldp->dist);
             }
         }
 
@@ -13316,7 +13316,9 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         switch (mon->type) {
         case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
-            erts_proc_sig_send_monitor_down(mon, reason);
+            erts_proc_sig_send_monitor_down(&c_p->common,
+                                            c_p->common.id,
+                                            mon, reason);
             mon = NULL;
             break;
         case ERTS_MON_TYPE_PORT: {
@@ -13393,7 +13395,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         switch (mon->type) {
         case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
-            erts_proc_sig_send_demonitor(mon);
+            erts_proc_sig_send_demonitor(&c_p->common, c_p->common.id, 0, mon);
             mon = NULL;
             break;
         case ERTS_MON_TYPE_TIME_OFFSET:
@@ -13564,7 +13566,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     switch (lnk->type) {
     case ERTS_LNK_TYPE_PROC:
         ASSERT(is_internal_pid(lnk->other.item));
-        erts_proc_sig_send_link_exit(c_p, c_p->common.id, lnk,
+        erts_proc_sig_send_link_exit(&c_p->common, c_p->common.id, lnk,
                                      reason, SEQ_TRACE_TOKEN(c_p));
         lnk = NULL;
         break;
