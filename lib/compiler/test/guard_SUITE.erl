@@ -1267,9 +1267,17 @@ is_function_2(Config) when is_list(Config) ->
 
 variable_is_function_2() ->
     F = fun() -> ok end,
-    [F] = vif_2([F], id(0), []),
+    [F] = vif_1([id(F)], id(0), []),
+    [F] = vif_2([id(F)], id(0) band 15, []),
     ok.
 
+%% Completely unknown arity
+vif_1([F | Fs], Arity, Acc) when is_function(F, Arity) ->
+    vif_1(Fs, Arity, [F | Acc]);
+vif_1([], _Arity, Acc) ->
+    Acc.
+
+%% Arity known to be between 0 and 15
 vif_2([F | Fs], Arity, Acc) when is_function(F, Arity) ->
     vif_2(Fs, Arity, [F | Acc]);
 vif_2([], _Arity, Acc) ->
