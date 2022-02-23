@@ -166,7 +166,7 @@ indent_maybe(1) ->
         line_with_break =
             foo(X+1),
         line_with_break ?=
-             foo(X+1)
+            foo(X+1)
     end,
     ok;
 indent_maybe(1) ->
