@@ -10,6 +10,9 @@ TAGS
 # vscode
 .vscode
 
+# IntelliJ IDEA
+.idea
+
 autom4te.cache
 *.beam
 *.asn1db
