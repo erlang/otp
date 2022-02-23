@@ -451,14 +451,13 @@ while (<>) {
     }
     chomp;
     if (s/\\$//) {
-	$_ .= <>;
-	redo unless eof(ARGV);
+        error("line continuation with `\\` is no longer allowed");
     } elsif (/([|]|=>)$/) {
         # Automatically continue a line that ends in '|' or '=>'.
         my $next_line = <>;
-	$_ .= $next_line;
+        $_ .= $next_line;
         chomp $next_line;
-	redo unless eof(ARGV) or $next_line eq '';
+        redo unless eof(ARGV) or $next_line eq '';
     }
     next if /^\s*$/;
     next if /^\#/;

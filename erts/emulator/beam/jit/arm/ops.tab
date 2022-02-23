@@ -92,15 +92,15 @@ return
 # BIF, so we can omit the line instruction for non-BIFs.
 #
 
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
-     move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif => \
-     move S X0 | call_ext_only Ar Func
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D =>
+    move S X0 | call_ext_last Ar Func D
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif =>
+    move S X0 | call_ext_only Ar Func
 
-move S X0=x==0 | line Loc | call_last Ar Func D => \
-     move S X0 | call_last Ar Func D
-move S X0=x==0 | line Loc | call_only Ar Func => \
-     move S X0 | call_only Ar Func
+move S X0=x==0 | line Loc | call_last Ar Func D =>
+    move S X0 | call_last Ar Func D
+move S X0=x==0 | line Loc | call_only Ar Func =>
+    move S X0 | call_only Ar Func
 
 # The line number in int_func_start/5 can be NIL.
 func_line n => empty_func_line
@@ -136,7 +136,7 @@ init_yregs I *
 # values.
 
 select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) =>
-  jump_tab(S, Fail, Size, Rest)
+    jump_tab(S, Fail, Size, Rest)
 
 is_integer Fail=f S=s | select_val S2 Fail2 Size=u Rest=* |
   equal(Fail, Fail2) | equal(S, S2) |
@@ -149,28 +149,30 @@ is_integer TypeFail=f S=s | select_val S2 Fail=fn Size=u Rest=* |
     split_values(S, TypeFail, Fail, Size, Rest)
 
 select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) =>
-  split_values(S, Fail, Fail, Size, Rest)
+    split_values(S, Fail, Fail, Size, Rest)
 
 is_integer Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
   equal(Fail, Fail2) | equal(S, S2) |
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
 
 is_atom Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
   equal(Fail, Fail2) | equal(S, S2) |
-  fixed_size_values(Size, Rest) => select_val(S, Fail, Size, Rest)
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
 
 select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) =>
-  select_literals(S, Fail, Size, Rest)
+    select_literals(S, Fail, Size, Rest)
 
 select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) =>
-  select_val(S, Fail, Size, Rest)
+    select_val(S, Fail, Size, Rest)
 
 is_tuple Fail=f S=d | select_tuple_arity S2 Fail2 Size=u Rest=* |
   equal(Fail, Fail2) | equal(S, S2) =>
-  select_tuple_arity(S, Fail, Size, Rest)
+    select_tuple_arity(S, Fail, Size, Rest)
 
 select_tuple_arity S=d Fail=f Size=u Rest=* =>
-  select_tuple_arity(S, Fail, Size, Rest)
+    select_tuple_arity(S, Fail, Size, Rest)
 
 i_select_val_bins s fn I *
 
@@ -185,8 +187,8 @@ is_number f s
 jump f
 
 #
-# List matching instructions. The combination of test for a nonempty list followed
-# by get_{list/hd/tl} are common, so we will optimize that.
+# List matching instructions. The combination of test for a nonempty list
+# followed by get_{list/hd/tl} are common, so we will optimize that.
 #
 is_nonempty_list Fail nqia => jump Fail
 
@@ -214,8 +216,8 @@ set_tuple_element s S P
 
 #
 # Get tuple element. Since this instruction is frequently used, we will try
-# to only fetch the pointer to the tuple once for a sequence of BEAM instructions
-# that fetch multiple elements from the same tuple.
+# to only fetch the pointer to the tuple once for a sequence of BEAM
+# instructions that fetch multiple elements from the same tuple.
 #
 
 current_tuple/1
@@ -234,7 +236,7 @@ is_tuple NotTupleFail Src |
     current_tuple Src
 
 is_tagged_tuple Fail Tuple Arity Atom =>
-   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
+    i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
 
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
 
@@ -250,19 +252,22 @@ i_is_tuple f s
 # that we have a current tuple pointer.
 
 get_tuple_element Tuple Pos Dst =>
-  load_tuple_ptr Tuple | i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
+    load_tuple_ptr Tuple |
+    i_get_tuple_element Tuple Pos Dst |
+    current_tuple Tuple
 
 current_tuple Tuple | get_tuple_element Tuple2 Pos Dst |
   equal(Tuple, Tuple2) =>
-  i_get_tuple_element Tuple Pos Dst | current_tuple Tuple
+    i_get_tuple_element Tuple Pos Dst |
+    current_tuple Tuple
 
 # Drop the current_tuple instruction if the tuple is overwritten.
 i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) =>
     i_get_tuple_element Tuple Pos Tuple
 
-# This is a current_tuple instruction instruction not followed by get_tuple_element.
-# Invalidate the current tuple pointer.
+# This is a current_tuple instruction instruction not followed by
+# get_tuple_element. Invalidate the current tuple pointer.
 
 current_tuple Tuple => _
 
@@ -275,7 +280,8 @@ i_get_tuple_element Tuple Pos1 Dst1 |
   get_tuple_element Tuple3 Pos2 Dst2 |
   equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
   consecutive_words(Pos1, Pos2) =>
-    get_two_tuple_elements Tuple Pos1 Dst1 Dst2 | current_tuple Tuple Dst2
+    get_two_tuple_elements Tuple Pos1 Dst1 Dst2 |
+    current_tuple Tuple Dst2
 
 # Drop the current_tuple instruction if the tuple is overwritten.
 current_tuple Tuple Tuple2 | equal(Tuple, Tuple2) => _
@@ -302,7 +308,8 @@ badrecord s
 
 raise s s
 
-# Workaround the limitation that generators must always return at least one instruction.
+# Workaround the limitation that generators must always return at least one
+# instruction.
 delete_me/0
 delete_me => _
 
@@ -326,9 +333,9 @@ move Src SrcDst | move SrcDst2 Dst |
 # Y registers are consecutive.
 
 move S1=x D1=y | move S2=x D2=y | consecutive_words(D1, D2) =>
-  store_two_xregs S1 D1 S2 D2
+    store_two_xregs S1 D1 S2 D2
 move S1=x D1=y | move S2=x D2=y | consecutive_words(D2, D1) =>
-  store_two_xregs S2 D2 S1 D1
+    store_two_xregs S2 D2 S1 D1
 
 # Optimize two moves from Y registers to X registers when source Y
 # registers are consecutive.
@@ -396,26 +403,26 @@ swap4 d d d d d
 # pointers.
 #
 
-label L | loop_rec Fail Reg => \
+label L | loop_rec Fail Reg =>
     aligned_label L u=4 | loop_rec Fail Reg
-label L | wait_timeout Fail Src => \
+label L | wait_timeout Fail Src =>
     aligned_label L u=4 | wait_timeout Fail Src
-label L | wait Fail => \
+label L | wait Fail =>
     aligned_label L u=4 | wait Fail
-label L | timeout => \
+label L | timeout =>
     aligned_label L u=4 | timeout
 
 loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
 
-aligned_label L A | wait_timeout Fail Src | smp_already_locked(L) => \
+aligned_label L A | wait_timeout Fail Src | smp_already_locked(L) =>
     aligned_label L A | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-aligned_label L A | wait Fail | smp_already_locked(L) => \
+aligned_label L A | wait Fail | smp_already_locked(L) =>
     aligned_label L A | wait_locked Fail
 wait Fail => wait_unlocked Fail
 
-aligned_label L A | timeout | smp_already_locked(L) => \
+aligned_label L A | timeout | smp_already_locked(L) =>
     aligned_label L A | timeout_locked
 
 remove_message
@@ -534,11 +541,11 @@ call_light_bif/1
 # The load_nif/2 BIF is an instruction.
 #
 
-call_ext u==2 u$func:erlang:load_nif/2 => \
+call_ext u==2 u$func:erlang:load_nif/2 =>
     i_load_nif
-call_ext_last u==2 u$func:erlang:load_nif/2 D => \
+call_ext_last u==2 u$func:erlang:load_nif/2 D =>
     i_load_nif | deallocate D | return
-call_ext_only u==2 u$func:erlang:load_nif/2 => \
+call_ext_only u==2 u$func:erlang:load_nif/2 =>
     i_load_nif | return
 
 %cold
@@ -549,11 +556,11 @@ i_load_nif
 # The call_on_load_function/1 BIF is an instruction.
 #
 
-call_ext u==1 u$func:erlang:call_on_load_function/1 => \
+call_ext u==1 u$func:erlang:call_on_load_function/1 =>
     i_call_on_load_function
-call_ext_last u==1 u$func:erlang:call_on_load_function/1 D => \
+call_ext_last u==1 u$func:erlang:call_on_load_function/1 D =>
     i_call_on_load_function | deallocate D | return
-call_ext_only u==1 u$func:erlang:call_on_load_function/1 => \
+call_ext_only u==1 u$func:erlang:call_on_load_function/1 =>
     i_call_on_load_function | return
 
 %cold
@@ -591,11 +598,11 @@ call_ext u==3 u$func:erlang:hibernate/3 => i_hibernate
 call_ext_last u==3 u$func:erlang:hibernate/3 D => i_hibernate
 call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
 
-call_ext u==0 u$func:os:perf_counter/0 => \
+call_ext u==0 u$func:os:perf_counter/0 =>
     i_perf_counter
-call_ext_last u==0 u$func:os:perf_counter/0 D => \
+call_ext_last u==0 u$func:os:perf_counter/0 D =>
     i_perf_counter | deallocate D | return
-call_ext_only u==0 u$func:os:perf_counter/0 => \
+call_ext_only u==0 u$func:os:perf_counter/0 =>
     i_perf_counter | return
 
 #
@@ -603,22 +610,22 @@ call_ext_only u==0 u$func:os:perf_counter/0 => \
 # emulator state, which the ordinary call_light_bif instruction doesn't save.
 #
 
-call_ext u Bif=u$is_bif | is_heavy_bif(Bif) => \
+call_ext u Bif=u$is_bif | is_heavy_bif(Bif) =>
     i_call_ext Bif
-call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) => \
+call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) =>
     i_call_ext Bif | deallocate D | return
-call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) => \
+call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
     allocate u Ar | i_call_ext Bif | deallocate u | return
 
 #
 # The general case for BIFs that have no special requirements.
 #
 
-call_ext u Bif=u$is_bif => \
+call_ext u Bif=u$is_bif =>
     call_light_bif Bif
-call_ext_last u Bif=u$is_bif D => \
+call_ext_last u Bif=u$is_bif D =>
     call_light_bif Bif | deallocate D | return
-call_ext_only Ar=u Bif=u$is_bif => \
+call_ext_only Ar=u Bif=u$is_bif =>
     allocate u Ar | call_light_bif Bif | deallocate u | return
 
 #
@@ -659,20 +666,20 @@ i_perf_counter
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=n Dst => \
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=n Dst =>
     jump Fail
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src Dst => \
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src Dst =>
     is_nonempty_list Fail Src | get_hd Src Dst
-bif1 Fail=p Bif=u$bif:erlang:hd/1 Src Dst => \
+bif1 Fail=p Bif=u$bif:erlang:hd/1 Src Dst =>
     bif_hd Src Dst
 
 bif_hd s d
 
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=n Dst => \
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=n Dst =>
     jump Fail
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst => \
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst =>
     is_nonempty_list Fail Src | get_tl Src Dst
-bif1 Fail=p Bif=u$bif:erlang:tl/1 Src Dst => \
+bif1 Fail=p Bif=u$bif:erlang:tl/1 Src Dst =>
     bif_tl Src Dst
 
 bif_tl s d
@@ -691,15 +698,16 @@ bif_or j s s d
 bif1 Fail Bif=u$bif:erlang:not/1 Src=d Dst=d => bif_not Fail Src Dst
 bif_not j S d
 
-gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d => \
+gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d =>
     bif_bit_size Fail Src Dst
 bif_bit_size j s d
 
-gc_bif1 Fail Live Bif=u$bif:erlang:byte_size/1 Src Dst=d => \
+gc_bif1 Fail Live Bif=u$bif:erlang:byte_size/1 Src Dst=d =>
     bif_byte_size Fail Src Dst
 bif_byte_size j s d
 
-bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d => bif_tuple_size Fail Src Dst
+bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
+    bif_tuple_size Fail Src Dst
 bif_tuple_size j S d
 
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
@@ -752,9 +760,9 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t t
 
-call_fun2 Safe Arity Func | deallocate D | return => \
+call_fun2 Safe Arity Func | deallocate D | return =>
     i_call_fun2_last Safe Arity Func D
-call_fun2 Safe Arity Func => \
+call_fun2 Safe Arity Func =>
     i_call_fun2 Safe Arity Func
 
 i_call_fun2 aF t S
@@ -765,8 +773,10 @@ i_call_fun2_last aF t S t
 # As a further optimization, the we try to move the fun to its
 # final destination directly.
 
-make_fun2 OldIndex=u => make_fun2(OldIndex)
-make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, Env)
+make_fun2 OldIndex=u =>
+    make_fun2(OldIndex)
+make_fun3 OldIndex=u Dst=d NumFree=u Env=* =>
+    make_fun3(OldIndex, Dst, NumFree, Env)
 
 %cold
 
@@ -786,40 +796,40 @@ int_func_end/2
 
 func_prologue/2
 
-int_func_start Func_Label Func_Line M F A | \
-  label Entry_Label | line Entry_Line => \
-    int_func_start Func_Label Func_Line M F A | \
+int_func_start Func_Label Func_Line M F A |
+  label Entry_Label | line Entry_Line =>
+    int_func_start Func_Label Func_Line M F A |
     func_prologue Entry_Label Entry_Line
 
-int_func_start Func_Label Func_Line M F A | \
-  label Entry_Label => \
-    int_func_start Func_Label Func_Line M F A | \
+int_func_start Func_Label Func_Line M F A |
+  label Entry_Label =>
+    int_func_start Func_Label Func_Line M F A |
     func_prologue Entry_Label n
 
-int_func_start Func_Label Func_Line M F A | \
-  func_prologue Entry_Label Entry_Line | \
-  is_mfa_bif(M, F, A) => \
-    i_flush_stubs | \
-    aligned_label Func_Label u=8 | \
-    func_line Func_Line | \
-    i_func_info Func_Label M F A | \
-      aligned_label Entry_Label u=8 | \
-      i_breakpoint_trampoline | \
-      line Entry_Line | \
+int_func_start Func_Label Func_Line M F A |
+  func_prologue Entry_Label Entry_Line |
+  is_mfa_bif(M, F, A) =>
+    i_flush_stubs |
+    aligned_label Func_Label u=8 |
+    func_line Func_Line |
+    i_func_info Func_Label M F A |
+      aligned_label Entry_Label u=8 |
+      i_breakpoint_trampoline |
+      line Entry_Line |
       call_bif_mfa M F A
 
-int_func_start Func_Label Func_Line M F A | \
-  func_prologue Entry_Label Entry_Line => \
-    i_flush_stubs | \
-    aligned_label Func_Label u=8 | \
-    func_line Func_Line | \
-    i_func_info Func_Label M F A | \
-      aligned_label Entry_Label u=8 | \
-      i_breakpoint_trampoline | \
-      line Entry_Line | \
+int_func_start Func_Label Func_Line M F A |
+  func_prologue Entry_Label Entry_Line =>
+    i_flush_stubs |
+    aligned_label Func_Label u=8 |
+    func_line Func_Line |
+    i_func_info Func_Label M F A |
+      aligned_label Entry_Label u=8 |
+      i_breakpoint_trampoline |
+      line Entry_Line |
       i_test_yield
 
-int_func_end Func_Label Entry_Label => \
+int_func_end Func_Label Entry_Label =>
     func_end(Func_Label, Entry_Label)
 
 # Handles yielding on function ingress (rather than on each call).
@@ -847,22 +857,22 @@ bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 i_bs_match_string S f W M
 
 # Fetching integers from binaries.
-bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
+bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
     get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_integer S f t t s d
 i_bs_get_fixed_integer S f t t t d
 
 # Fetching binaries from binaries.
-bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
-			get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
+    get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_binary2 S f t s t d
 i_bs_get_binary_all2 S f t t d
 
 # Fetching float from binaries.
-bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
-		get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d =>
+    get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
@@ -870,8 +880,8 @@ i_bs_get_float2 S f t s t d
 
 # Miscellaneous
 
-bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
-			skip_bits2(Fail, Ms, Sz, Unit, Flags)
+bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
+    skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
 i_bs_skip_bits_imm2 f S W
 i_bs_skip_bits2 S S f t
@@ -889,9 +899,9 @@ bs_get_tail S d t
 # "slots" in the context itself, which lets us continue matching even after
 # we've passed it off to another function.
 
-bs_start_match4 a==am_no_fail Live=u Src=xy Ctx=d => \
+bs_start_match4 a==am_no_fail Live=u Src=xy Ctx=d =>
     bs_start_match3 p Src Live Ctx
-bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
+bs_start_match4 Fail=f Live=u Src=xy Ctx=d =>
     bs_start_match3 Fail Src Live Ctx
 
 %if ARCH_64
@@ -902,7 +912,7 @@ bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
 
 %else
 
-bs_start_match4 a==am_resume Live Ctx Dst => \
+bs_start_match4 a==am_resume Live Ctx Dst =>
     bs_start_match4 a=am_no_fail Live Ctx Dst
 
 %endif
@@ -939,12 +949,12 @@ bs_skip_utf16 Fail=f Ms=xy u Flags=u => skip_utf16(Fail, Ms, Flags)
 i_bs_get_utf16 S f t d
 i_bs_skip_utf16 S f t
 
-bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d => \
-	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
-	i_bs_validate_unicode_retract Fail Dst Ms
-bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u => \
-	bs_get_integer2 Fail Ms Live i=32 u=1 Flags x | \
-	i_bs_validate_unicode_retract Fail x Ms
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst |
+    i_bs_validate_unicode_retract Fail Dst Ms
+bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags x |
+    i_bs_validate_unicode_retract Fail x Ms
 
 i_bs_validate_unicode_retract j s S
 %hot
@@ -953,7 +963,7 @@ i_bs_validate_unicode_retract j s S
 # New binary construction (OTP 25).
 # ================================================================
 
-bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* => \
+bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* =>
     create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments)
 
 i_bs_create_bin j I t d *
@@ -968,13 +978,13 @@ bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
 
 bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
 
-bs_init2 Fail Sz=u Words Regs Flags Dst => \
-   i_bs_init_heap Sz Words Regs Dst
+bs_init2 Fail Sz=u Words Regs Flags Dst =>
+    i_bs_init_heap Sz Words Regs Dst
 
-bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
-  i_bs_init_fail Sz Fail Regs Dst
-bs_init2 Fail Sz Words Regs Flags Dst => \
-  i_bs_init_fail_heap Sz Words Fail Regs Dst
+bs_init2 Fail Sz Words=u==0 Regs Flags Dst =>
+    i_bs_init_fail Sz Fail Regs Dst
+bs_init2 Fail Sz Words Regs Flags Dst =>
+    i_bs_init_fail_heap Sz Words Fail Regs Dst
 
 i_bs_init_fail S j t S
 
@@ -987,15 +997,15 @@ i_bs_init_heap W I t S
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
 
-bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => \
+bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst =>
     i_bs_init_bits Sz Regs Dst
-bs_init_bits Fail Sz=u Words Regs Flags Dst => \
+bs_init_bits Fail Sz=u Words Regs Flags Dst =>
     i_bs_init_bits_heap Sz Words Regs Dst
 
-bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
-  i_bs_init_bits_fail Sz Fail Regs Dst
-bs_init_bits Fail Sz Words Regs Flags Dst => \
-  i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
+bs_init_bits Fail Sz Words=u==0 Regs Flags Dst =>
+    i_bs_init_bits_fail Sz Fail Regs Dst
+bs_init_bits Fail Sz Words Regs Flags Dst =>
+    i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
 i_bs_init_bits_fail S j t S
 
@@ -1008,14 +1018,14 @@ bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 
 bs_add j s s t x
 
-bs_append Fail Size Extra Live Unit Bin Flags Dst => \
-  i_bs_append Fail Extra Live Unit Size Bin Dst
+bs_append Fail Size Extra Live Unit Bin Flags Dst =>
+    i_bs_append Fail Extra Live Unit Size Bin Dst
 
-bs_private_append Fail Size Unit Bin Flags Dst => \
-  i_bs_private_append Fail Unit Size Bin Dst
+bs_private_append Fail Size Unit Bin Flags Dst =>
+    i_bs_private_append Fail Unit Size Bin Dst
 
-i_bs_private_append Fail Unit Size Bin Dst=y => \
-  i_bs_private_append Fail Unit Size Bin x | move x Dst
+i_bs_private_append Fail Unit Size Bin Dst=y =>
+    i_bs_private_append Fail Unit Size Bin x | move x Dst
 
 bs_init_writable
 
@@ -1026,8 +1036,8 @@ i_bs_private_append j t s S x
 # Storing integers into binaries.
 #
 
-bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
-			put_integer(Fail, Sz, Unit, Flags, Src)
+bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s =>
+    put_integer(Fail, Sz, Unit, Flags, Src)
 
 i_new_bs_put_integer j S t s
 i_new_bs_put_integer_imm s j W t
@@ -1042,8 +1052,8 @@ bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
 bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
 bs_put_utf16 Fail Flags Src => put_utf16(Fail, Flags, Src)
 
-bs_put_utf32 Fail=j Flags=u Src=s => \
-   i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
+bs_put_utf32 Fail=j Flags=u Src=s =>
+    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
 i_bs_utf8_size s x
 i_bs_utf16_size s x
@@ -1061,8 +1071,8 @@ i_bs_validate_unicode j s
 # bs_init* would already have raised an exception.
 bs_put_float Fail Sz=q Unit Flags Val => _
 
-bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
-			put_float(Fail, Sz, Unit, Flags, Src)
+bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s =>
+    put_float(Fail, Sz, Unit, Flags, Src)
 
 i_new_bs_put_float j S t s
 i_new_bs_put_float_imm j W t s
@@ -1071,8 +1081,8 @@ i_new_bs_put_float_imm j W t s
 # Storing binaries into binaries.
 #
 
-bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
-			put_binary(Fail, Sz, Unit, Flags, Src)
+bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s =>
+    put_binary(Fail, Sz, Unit, Flags, Src)
 
 i_new_bs_put_binary j s t s
 i_new_bs_put_binary_imm j W s
@@ -1130,28 +1140,28 @@ apply_last t t
 # always preceded by an is_map test. That means that put_map_assoc can
 # never fail and does not need any failure label.
 
-put_map_assoc Fail Map Dst Live Size Rest=* => \
-	      i_put_map_assoc Map Dst Live Size Rest
+put_map_assoc Fail Map Dst Live Size Rest=* =>
+    i_put_map_assoc Map Dst Live Size Rest
 i_put_map_assoc/4
 
 sorted_put_map_assoc/4
-i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
-  sorted_put_map_assoc Map Dst Live Size Rest
+i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) =>
+    sorted_put_map_assoc Map Dst Live Size Rest
 
 sorted_put_map_exact/5
-put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
-  sorted_put_map_exact F Map Dst Live Size Rest
+put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) =>
+    sorted_put_map_exact F Map Dst Live Size Rest
 
-sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) => \
-   new_map Dst Live Size Rest
-sorted_put_map_assoc Src=s Dst Live Size Rest=* => \
-   update_map_assoc Src Dst Live Size Rest
+sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) =>
+    new_map Dst Live Size Rest
+sorted_put_map_assoc Src=s Dst Live Size Rest=* =>
+    update_map_assoc Src Dst Live Size Rest
 
-sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
-   update_map_exact Src Fail Dst Live Size Rest
+sorted_put_map_exact Fail Src Dst Live Size Rest=* =>
+    update_map_exact Src Fail Dst Live Size Rest
 
-new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
-  new_small_map_lit(Dst, Live, Size, Rest)
+new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) =>
+    new_small_map_lit(Dst, Live, Size, Rest)
 
 new_map d t I *
 i_new_small_map_lit d t q I *
@@ -1162,23 +1172,23 @@ is_map f s
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
-has_map_fields Fail Src Size Rest=* => \
-   has_map_fields(Fail, Src, Size, Rest)
+has_map_fields Fail Src Size Rest=* =>
+    has_map_fields(Fail, Src, Size, Rest)
 
 ## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
 
-get_map_elements Fail Src Size=u==2 Rest=* => \
+get_map_elements Fail Src Size=u==2 Rest=* =>
     get_map_element(Fail, Src, Size, Rest)
-get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
-   get_map_elements(Fail, Src, Size, Rest)
+get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) =>
+    get_map_elements(Fail, Src, Size, Rest)
 
 i_get_map_elements f s I *
 
-i_get_map_element_hash Fail Src=c Key Hash Dst => \
+i_get_map_element_hash Fail Src=c Key Hash Dst =>
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
 i_get_map_element_hash f S c I S
 
-i_get_map_element Fail Src=c Key Dst => \
+i_get_map_element Fail Src=c Key Dst =>
     move Src x | i_get_map_element Fail x Key Dst
 i_get_map_element f S S S
 
@@ -1186,81 +1196,81 @@ i_get_map_element f S S S
 # Arithmetic instructions.
 #
 
-gc_bif2 Fail Live u$bif:erlang:splus/2 Src1 Src2 Dst => \
-   i_plus Fail Live Src1 Src2 Dst
+gc_bif2 Fail Live u$bif:erlang:splus/2 Src1 Src2 Dst =>
+    i_plus Fail Live Src1 Src2 Dst
 
-gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst => \
-   i_unary_minus Fail Live Src Dst
+gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst =>
+    i_unary_minus Fail Live Src Dst
 
-gc_bif2 Fail Live u$bif:erlang:sminus/2 Src1 Src2 Dst => \
-   i_minus Fail Live Src1 Src2 Dst
+gc_bif2 Fail Live u$bif:erlang:sminus/2 Src1 Src2 Dst =>
+    i_minus Fail Live Src1 Src2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
-  i_times Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
+    i_times Fail Live S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
-  i_m_div Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst =>
+    i_m_div Fail Live S1 S2 Dst
 
 # Fused 'rem'/'div' pair.
-gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder | \
-    gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient | \
-    equal(LHS1, LHS2) | \
-    equal(RHS1, RHS2) | \
-    distinct(LHS1, Remainder) | \
-    distinct(RHS1, Remainder) => \
-      i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder |
+  gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Remainder) |
+  distinct(RHS1, Remainder) =>
+    i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
 
 # As above but with a `line` in between
-gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder | \
-    line Loc | \
-    gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient | \
-    equal(LHS1, LHS2) | \
-    equal(RHS1, RHS2) | \
-    distinct(LHS1, Remainder) | \
-    distinct(RHS1, Remainder) => \
-      i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder |
+  line Loc |
+  gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Remainder) |
+  distinct(RHS1, Remainder) =>
+    i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
 
 # Fused 'div'/'rem' pair
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient | \
-    gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder | \
-    equal(LHS1, LHS2) | \
-    equal(RHS1, RHS2) | \
-    distinct(LHS1, Quotient) | \
-    distinct(RHS1, Quotient) => \
-      i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient |
+  gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Quotient) |
+  distinct(RHS1, Quotient) =>
+    i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
 
 # As above but with a `line` in between
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient | \
-    line Loc | \
-    gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder | \
-    equal(LHS1, LHS2) | \
-    equal(RHS1, RHS2) | \
-    distinct(LHS1, Quotient) | \
-    distinct(RHS1, Quotient) => \
-      i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient |
+  line Loc |
+  gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Quotient) |
+  distinct(RHS1, Quotient) =>
+    i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
 
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
-  i_int_div Fail Live S1 S2 Dst
-gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
-  i_rem Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst =>
+    i_int_div Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst =>
+    i_rem Fail Live S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
-  i_band Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst =>
+    i_band Fail Live S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
-  i_bor Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst =>
+    i_bor Fail Live S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
-  i_bxor Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst =>
+    i_bxor Fail Live S1 S2 Dst
 
-gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst => \
-  i_bnot Fail Live Src Dst
+gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst =>
+    i_bnot Fail Live Src Dst
 
-gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
-  i_bsr Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst =>
+    i_bsr Fail Live S1 S2 Dst
 
-gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
-  i_bsl Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst =>
+    i_bsl Fail Live S1 S2 Dst
 
 i_plus j I s s d
 i_unary_minus j I s d
@@ -1297,8 +1307,8 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 # Handle the length/1 guard BIF specially to make it trappable.
 #
 
-gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
-   i_length_setup Fail Live Src | i_length Fail Live Dst
+gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst =>
+    i_length_setup Fail Live Src | i_length Fail Live Dst
 
 i_length_setup j t s
 i_length j t d
@@ -1339,8 +1349,8 @@ on_load
 recv_mark f => i_recv_mark
 i_recv_mark
 
-recv_set Fail | label Lbl | loop_rec Lf Reg => \
-   i_recv_set | label Lbl | loop_rec Lf Reg
+recv_set Fail | label Lbl | loop_rec Lf Reg =>
+    i_recv_set | label Lbl | loop_rec Lf Reg
 i_recv_set
 
 #

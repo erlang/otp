@@ -426,11 +426,9 @@ use this style of comments in files that define implementations of
 instructions.
 
 A long transformation line can be broken after the `=>` operator and
-after `|` operators. This is the recommended way to break transformation
-lines. (This way to break transformation lines was introduced in OTP 25.)
-
-A long line can also be broken into shorter lines by a placing a `\` before
-the newline.
+after `|` operators. Since OTP 25, this is the only way to break transformation
+lines. When reading older source you may see that `\` was used for this
+purpose, but we removed it since it was only seen together with `=>` and `|`.
 
 ### Variable definitions ###
 
@@ -974,7 +972,7 @@ result.
 The `u$is_not_bif` constraint matches if the operand does not refer to
 a BIF (not listed in `bif.tab`).  For example:
 
-    move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
+    move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D =>
          move S X0 | call_ext_last Ar Func D
 
 The `u$bif:Module:Name/Arity` constraint tests whether the given
@@ -983,7 +981,7 @@ operand refers to a specific BIF.  Note that `Module:Name/Arity`
 be a compilation error.  It is useful when a call to a specific BIF
 should be replaced with an instruction as in this example:
 
-    gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst => \
+    gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst =>
          gen_plus Fail Live S1 S2 Dst
 
 Here the call to the GC BIF `'+'/2` will be replaced with the instruction
