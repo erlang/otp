@@ -259,16 +259,17 @@ extern char* erl_errno_id(int error);
  * These are the functions making up the "official" API.
  */
 
-#define ENET_NIF_FUNCS                     \
-    ENET_NIF_FUNC_DEF(info);               \
-    ENET_NIF_FUNC_DEF(command);            \
-    ENET_NIF_FUNC_DEF(gethostname);        \
-    ENET_NIF_FUNC_DEF(getnameinfo);        \
-    ENET_NIF_FUNC_DEF(getaddrinfo);        \
-    ENET_NIF_FUNC_DEF(getifaddrs);         \
-    ENET_NIF_FUNC_DEF(get_interface_info); \
-    ENET_NIF_FUNC_DEF(if_name2index);      \
-    ENET_NIF_FUNC_DEF(if_index2name);      \
+#define ENET_NIF_FUNCS                       \
+    ENET_NIF_FUNC_DEF(info);                 \
+    ENET_NIF_FUNC_DEF(command);              \
+    ENET_NIF_FUNC_DEF(gethostname);          \
+    ENET_NIF_FUNC_DEF(getnameinfo);          \
+    ENET_NIF_FUNC_DEF(getaddrinfo);          \
+    ENET_NIF_FUNC_DEF(getifaddrs);           \
+    ENET_NIF_FUNC_DEF(get_interface_info);   \
+    ENET_NIF_FUNC_DEF(get_ip_address_table); \
+    ENET_NIF_FUNC_DEF(if_name2index);        \
+    ENET_NIF_FUNC_DEF(if_index2name);        \
     ENET_NIF_FUNC_DEF(if_names);
 
 #define ENET_NIF_FUNC_DEF(F)                              \
@@ -305,10 +306,12 @@ static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
 #endif
 
 #if defined(__WIN32__)
+
+/* *** Get Interface Info functions *** */
 static ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
                                             BOOLEAN_T  dbg);
-static BOOLEAN_T enet_get_interface_info_extra_debug(ErlNifEnv*         env,
-                                                     const ERL_NIF_TERM eextra);
+static BOOLEAN_T enet_get_interface_info_args_debug(ErlNifEnv*         env,
+                                                    const ERL_NIF_TERM eextra);
 static ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
                                                    BOOLEAN_T          dbg,
                                                    IP_INTERFACE_INFO* infoP);
@@ -321,6 +324,24 @@ static void make_adapter_index_map(ErlNifEnv*    env,
                                    ERL_NIF_TERM  eindex,
                                    ERL_NIF_TERM  ename,
                                    ERL_NIF_TERM* emap);
+
+/* *** Get IP Address Table functions *** */
+static ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
+                                              BOOLEAN_T  dbg);
+static ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
+                                                     BOOLEAN_T        dbg,
+                                                     MIB_IPADDRTABLE* tabP);
+static void encode_ip_address_row_map(ErlNifEnv*     env,
+                                      BOOLEAN_T      dbg,
+                                      MIB_IPADDRROW* rowP,
+                                      ERL_NIF_TERM*  erow);
+static void make_ip_address_row(ErlNifEnv*    env,
+                                ERL_NIF_TERM  eaddr,
+                                ERL_NIF_TERM  eindex,
+                                ERL_NIF_TERM  emask,
+                                ERL_NIF_TERM  eBCastAddr,
+                                ERL_NIF_TERM  eReasmSize,
+                                ERL_NIF_TERM* iar);
 #endif
 
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -452,6 +473,7 @@ static const struct in6_addr in6addr_loopback =
 #define LOCAL_ATOMS                             \
     LOCAL_ATOM_DECL(address_info);              \
     LOCAL_ATOM_DECL(automedia);                 \
+    LOCAL_ATOM_DECL(bcast_addr);                \
     LOCAL_ATOM_DECL(broadaddr);                 \
     LOCAL_ATOM_DECL(broadcast);                 \
     LOCAL_ATOM_DECL(debug);                     \
@@ -460,6 +482,7 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
     LOCAL_ATOM_DECL(index);                     \
+    LOCAL_ATOM_DECL(mask);                      \
     LOCAL_ATOM_DECL(master);                    \
     LOCAL_ATOM_DECL(multicast);                 \
     LOCAL_ATOM_DECL(namereqd);                  \
@@ -473,6 +496,7 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(pointopoint);               \
     LOCAL_ATOM_DECL(portsel);                   \
     LOCAL_ATOM_DECL(promisc);                   \
+    LOCAL_ATOM_DECL(reasm_size);                \
     LOCAL_ATOM_DECL(running);                   \
     LOCAL_ATOM_DECL(service);                   \
     LOCAL_ATOM_DECL(slave);                     \
@@ -532,6 +556,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_getaddrinfo/3
  * nif_getifaddrs/1
  * nif_get_interface_info/1
+ * nif_get_ip_address_table/1
  * nif_if_name2index/1
  * nif_if_index2name/1
  * nif_if_names/0
@@ -1547,8 +1572,8 @@ void make_ifaddrs(ErlNifEnv*    env,
  * This is a windows only function!
  *
  * Arguments:
- * Extra - A way to pass 'extra' arguments.
- *         Currently not used.
+ * Args - A way to pass arguments.
+ *        Currently only used for debug.
  */
 
 static
@@ -1559,7 +1584,7 @@ ERL_NIF_TERM nif_get_interface_info(ErlNifEnv*         env,
 #if !defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ERL_NIF_TERM result, eextra;
+    ERL_NIF_TERM result, eargs;
     BOOLEAN_T    dbg;
 
     NDBG( ("NET", "nif_get_interface_info -> entry (%d)\r\n", argc) );
@@ -1568,9 +1593,9 @@ ERL_NIF_TERM nif_get_interface_info(ErlNifEnv*         env,
         !IS_MAP(env, argv[0])) {
         return enif_make_badarg(env);
     }
-    eextra = argv[0];
+    eargs = argv[0];
 
-    dbg    = enet_get_interface_info_extra_debug(env, eextra);
+    dbg    = enet_get_interface_info_args_debug(env, eargs);
 
     result = enet_get_interface_info(env, dbg);
 
@@ -1586,10 +1611,10 @@ ERL_NIF_TERM nif_get_interface_info(ErlNifEnv*         env,
 
 #if defined(__WIN32__)
 static
-BOOLEAN_T enet_get_interface_info_extra_debug(ErlNifEnv*         env,
-                                              const ERL_NIF_TERM eextra)
+BOOLEAN_T enet_get_interface_info_args_debug(ErlNifEnv*         env,
+                                             const ERL_NIF_TERM eargs)
 {
-    return get_debug(env, eextra);
+    return get_debug(env, eargs);
 }
 #endif // __WIN32__
 
@@ -1603,7 +1628,7 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
     DWORD              ret;
     unsigned long      infoSize = 4 * 1024;
     IP_INTERFACE_INFO* infoP    = (IP_INTERFACE_INFO*) MALLOC(infoSize);
-    ERL_NIF_TERM       eret, result;
+    ERL_NIF_TERM       eret, einfo, result;
 
     for (i = 17;  i;  i--) {
 
@@ -1616,7 +1641,7 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
 
         NDBG2( dbg,
                ("NET", "enet_get_interface_info -> "
-                "get info result: %d\r\n", infoSize) );
+                "get-info result: %d (%d)\r\n", ret, infoSize) );
 
         infoP = REALLOC(infoP, infoSize);
         if (ret == NO_ERROR) break;
@@ -1660,10 +1685,8 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
         NDBG2( dbg,
                ("NET", "enet_get_interface_info -> try transform info\r\n") );
 
-        result = esock_make_ok2(env,
-                                enet_get_interface_info_encode(env,
-                                                               dbg,
-                                                               infoP));
+        einfo  = enet_get_interface_info_encode(env, dbg, infoP);
+        result = esock_make_ok2(env, einfo);
         
         FREE(infoP);
     }
@@ -1826,6 +1849,258 @@ void make_adapter_index_map(ErlNifEnv*    env,
     ESOCK_ASSERT( MKMA(env, keys, vals, len, emap) );
 }
 #endif // __WIN32__
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_get_ip_address_table
+ *
+ * Description:
+ * Get ip address table table.
+ * This is a windows only function!
+ *
+ * Arguments:
+ * Args - A way to pass arguments.
+ *        Currently only used for debug.
+ */
+
+static
+ERL_NIF_TERM nif_get_ip_address_table(ErlNifEnv*         env,
+                                      int                argc,
+                                      const ERL_NIF_TERM argv[])
+{
+#if !defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    ERL_NIF_TERM result, eargs;
+    BOOLEAN_T    dbg;
+
+    NDBG( ("NET", "nif_get_ip_address_table -> entry (%d)\r\n", argc) );
+
+    if ((argc != 1) ||
+        !IS_MAP(env, argv[0])) {
+        return enif_make_badarg(env);
+    }
+    eargs = argv[0];
+
+    dbg    = enet_get_ip_address_table_args_debug(env, eargs);
+
+    result = enet_get_ip_address_table(env, dbg);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_get_ip_address_table -> done when result: "
+            "\r\n   %T\r\n", result) );
+
+    return result;
+#endif
+}
+
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_ip_address_table_args_debug(ErlNifEnv*         env,
+                                               const ERL_NIF_TERM eargs)
+{
+    return get_debug(env, eargs);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
+                                       BOOLEAN_T  dbg)
+{
+    int                i;
+    DWORD              ret;
+    /* The table is *not* just an array pf row,
+     * but that is the significant part, so...
+     */
+    unsigned long      tabSize    = 16*sizeof(MIB_IPADDRROW);
+    MIB_IPADDRTABLE*   ipAddrTabP = (MIB_IPADDRTABLE*) MALLOC(tabSize);
+    ERL_NIF_TERM       eret, etable, result;
+
+    for (i = 17;  i;  i--) {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_ip_address_table -> try get table with: "
+                "\r\n   tabSize: %d"
+                "\r\n", tabSize) );
+
+        ret = GetIpAddrTable(ipAddrTabP, &tabSize, FALSE);
+
+        NDBG2( dbg,
+               ("NET", "enet_get_ip_address_table -> "
+                "get-tab result: %d (%d)\r\n", ret, tabSize) );
+
+        ipAddrTabP = REALLOC(ipAddrTabP, tabSize);
+        if (ret == NO_ERROR) break;
+        if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+        i = 0;
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_ip_address_table -> "
+            "done when get-tab counter: %d\r\n", i) );
+
+    if (! i) {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_ip_address_table -> try transform error\r\n") );
+
+        FREE(ipAddrTabP);
+
+        switch (ret) {
+        case ERROR_INSUFFICIENT_BUFFER:
+            eret = atom_insufficient_buffer;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            eret = atom_invalid_parameter;
+            break;
+        case ERROR_NOT_SUPPORTED:
+            eret = atom_not_supported;
+            break;
+        default:
+            eret = MKI(env, ret);
+            break;
+        }
+
+        result = esock_make_error(env, eret);
+
+    } else {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_ip_address_table -> try transform table\r\n") );
+
+        etable = enet_get_ip_address_table_encode(env, dbg, ipAddrTabP);
+        result = esock_make_ok2(env, etable);
+        
+        FREE(ipAddrTabP);
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_ip_address_table -> done with:"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+// Returns: [row()]
+static
+ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
+                                              BOOLEAN_T        dbg,
+                                              MIB_IPADDRTABLE* tabP)
+{
+    ERL_NIF_TERM result;
+    LONG         num = tabP->dwNumEntries;
+
+    NDBG2( dbg,
+           ("NET", "enet_get_ip_address_table_encode -> entry with"
+            "\r\n   num: %d"
+            "\r\n", num) );
+
+    if (num > 0) {
+        ERL_NIF_TERM* array = MALLOC(num * sizeof(ERL_NIF_TERM));
+        LONG          i     = 0;
+
+        while (i < num) {
+            ERL_NIF_TERM entry;
+
+            NDBG2( dbg,
+                   ("NET", "enet_get_interface_info_encode -> "
+                    "try encode ip-address-row %d"
+                    "\r\n", i) );
+
+            encode_ip_address_row_map(env, dbg, &tabP->table[i], &entry);
+
+            array[i] = entry;
+            i++;
+        }
+
+        result = MKLA(env, array, num);
+        FREE(array);
+
+    } else {
+        result = MKEL(env);
+    }
+
+    NDBG2( dbg,
+           ("NET", "enet_get_ip_address_table -> done with:"
+            "\r\n   result: %T"
+            "\r\n", result) );
+
+    return result;
+
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+void encode_ip_address_row_map(ErlNifEnv*     env,
+                               BOOLEAN_T      dbg,
+                               MIB_IPADDRROW* rowP,
+                               ERL_NIF_TERM*  erow)
+{
+    ERL_NIF_TERM eaddr      = MKUL(env, rowP->dwAddr);
+    ERL_NIF_TERM eindex     = MKUL(env, rowP->dwIndex);
+    ERL_NIF_TERM emask      = MKUL(env, rowP->dwMask);
+    ERL_NIF_TERM eBCastAddr = MKUL(env, rowP->dwBCastAddr);
+    ERL_NIF_TERM eReasmSize = MKUL(env, rowP->dwReasmSize);
+    ERL_NIF_TERM map;
+
+    NDBG2( dbg,
+           ("NET", "encode_ipAddress_row_map -> map fields: "
+            "\r\n   address:    %T"
+            "\r\n   index:      %T"
+            "\r\n   mask:       %T"
+            "\r\n   bcas-addr:  %T"
+            "\r\n   reasm-size: %T"
+            "\r\n", eaddr, eindex, emask, eBCastAddr, eReasmSize) );
+
+    make_ip_address_row(env, eaddr, eindex, emask, eBCastAddr, eReasmSize, &map);
+
+    NDBG2( dbg,
+           ("NET", "encode_ip_address_row_map -> encoded map: %T\r\n", map) );
+
+    *erow = map;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+void make_ip_address_row(ErlNifEnv*    env,
+                         ERL_NIF_TERM  eaddr,
+                         ERL_NIF_TERM  eindex,
+                         ERL_NIF_TERM  emask,
+                         ERL_NIF_TERM  eBCastAddr,
+                         ERL_NIF_TERM  eReasmSize,
+                         ERL_NIF_TERM* iar)
+{
+    ERL_NIF_TERM keys[]  = {esock_atom_addr,
+                            atom_index,
+                            atom_mask,
+                            atom_bcast_addr,
+                            atom_reasm_size};
+    ERL_NIF_TERM vals[]  = {eaddr, eindex, emask, eBCastAddr, eReasmSize};
+    size_t       numKeys = NUM(keys);
+
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, iar) );
+
+}
+#endif // __WIN32__
+
 
 
 
@@ -2591,6 +2866,7 @@ ErlNifFunc net_funcs[] =
     
     {"nif_getifaddrs",       1, nif_getifaddrs,       ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_get_ip_address_table", 1, nif_get_ip_address_table, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Network interface (name and/or index) functions */
     {"nif_if_name2index",    1, nif_if_name2index, 0},
