@@ -36,6 +36,7 @@
          getifaddrs/1,
          get_adapters_addresses/1,
          get_interface_info/1,
+         get_ip_address_table/1,
 
          if_name2index/1,
          if_index2name/1,
@@ -49,6 +50,9 @@
 
               ip_adapter_index_map/0,
               ip_interface_info/0,
+
+              mib_ip_address_row/0,
+              mib_ip_address_table/0,
 
               ifaddrs_flag/0,
               ifaddrs_flags/0,
@@ -82,6 +86,23 @@
                                   name  := string()}.
 
 -type ip_interface_info()    :: [ip_adapter_index_map()].
+
+%% addr:           The IPv4 address in network byte order.
+%% index:          The index of the interface associated with this
+%%                 IPv4 address.
+%% mask:           The subnet mask for the IPv4 address in network
+%%                 byte order.
+%% broadcast_addr: The broadcast address in network byte order.
+%%                 A broadcast address is typically the IPv4 address
+%%                 with the host portion set to either all zeros or
+%%                 all ones.
+%% reasm_size:     The maximum re-assembly size for received datagrams.
+-type mib_ip_address_row()   :: #{addr           := non_neg_integer(),
+                                  index          := non_neg_integer(),
+                                  mask           := non_neg_integer(),
+                                  broadcast_addr := non_neg_integer(),
+                                  reasm_size     := non_neg_integer()}.
+-type mib_ip_address_table() :: [mib_ip_address_row()].
 
 -type name_info_flag()          :: namereqd |
                                    dgram |
@@ -245,8 +266,9 @@ getifaddrs(Extra) when is_map(Extra) ->
 %% get_adapters_addresses - Get adapters addresses
 %%
 
--spec get_adapters_addresses(Extra) -> {ok, Addrs} | {error, Reason} when
-      Extra  :: map(),
+-spec get_adapters_addresses(Args) -> {ok, Addrs} | {error, Reason} when
+      %% #{family := unspec (default) | inet | inet6, debug := boolean()}
+      Args   :: map(),
       Addrs  :: term(), % adapters_addresses(),
       Reason :: term().
 
@@ -260,13 +282,28 @@ get_adapters_addresses(Extra) when is_map(Extra) ->
 %% get_interface_info - Get interface info
 %%
 
--spec get_interface_info(Extra) -> {ok, IfInfo} | {error, Reason} when
-      Extra   :: map(),
-      IfInfo  :: ip_interface_info(),
-      Reason  :: term().
+-spec get_interface_info(Args) -> {ok, IfInfo} | {error, Reason} when
+      Args   :: map(),
+      IfInfo :: ip_interface_info(),
+      Reason :: term().
 
 get_interface_info(Extra) when is_map(Extra) ->
     nif_get_interface_info(Extra).
+
+
+
+%% ===========================================================================
+%%
+%% get_ip_address_table - Get (mib) address table
+%%
+
+-spec get_ip_address_table(Args) -> {ok, Info} | {error, Reason} when
+      Args   :: map(),
+      Info   :: term(),
+      Reason :: term().
+
+get_ip_address_table(Args) when is_map(Args) ->
+    nif_get_ip_address_table(Args).
 
 
 
@@ -377,10 +414,13 @@ nif_getaddrinfo(_Host, _Service, _Hints) ->
 nif_getifaddrs(_Extra) ->
     erlang:nif_error(undef).
 
-nif_get_adapters_addresses(_Extra) ->
+nif_get_adapters_addresses(_Args) ->
     erlang:nif_error(undef).
 
-nif_get_interface_info(_Extra) ->
+nif_get_interface_info(_Args) ->
+    erlang:nif_error(undef).
+
+nif_get_ip_address_table(_Args) ->
     erlang:nif_error(undef).
 
 nif_if_name2index(_Name) ->
