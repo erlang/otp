@@ -34,6 +34,9 @@
 #include <time.h>
 #include <stddef.h>
 #include <sys/types.h>
+#if !defined(__WIN32__)
+#include <sys/socket.h>
+#endif
 
 #if !defined(__IOS__) && !defined(__WIN32__)
 #include <net/if_arp.h>
