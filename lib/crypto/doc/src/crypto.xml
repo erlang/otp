@@ -184,6 +184,11 @@
       </p>
     </note>
 
+    <note><p>Compiling, linking and running with OpenSSL 3.0 works although the
+    crypto app calls deprecated functions. We do not recommend it for other than
+    experimental purposes or alpha testing, since it is not extensively tested yet.</p>
+    </note>
+
     <p>The <seeguide marker="index">CRYPTO User's Guide</seeguide> has more information on
     FIPS, Engines and Algorithm Details like key lengths.
     </p>
