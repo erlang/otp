@@ -159,13 +159,18 @@ param_type(system_memory_high_watermark, Val) when is_number(Val),
 param_type(process_memory_high_watermark, Val) when is_number(Val),
 						    0=<Val,
 						    Val=<1 -> true;
+
+param_type(meminfo_src, Val) when Val =:= collect_sys;
+                                  Val =:= collect_ext_sys ->
+    true;
 param_type(_Param, _Val) -> false.
 
 param_default(memsup_system_only) -> false;
 param_default(memory_check_interval) -> 1;
 param_default(memsup_helper_timeout) -> 30;
 param_default(system_memory_high_watermark) -> 0.80;
-param_default(process_memory_high_watermark) -> 0.05.
+param_default(process_memory_high_watermark) -> 0.05;
+param_default(meminfo_src) -> collect_sys.
 
 %%----------------------------------------------------------------------
 %% gen_server callbacks
@@ -222,7 +227,7 @@ init([]) ->
                           ?SWAP_FREE => free_swap}),
 
     %% Initiate first data collection
-    self() ! time_to_collect,
+    self() ! {time_to_collect, os_mon:get_env(?MODULE, meminfo_src)},
 
     {ok, #state{os=OS, port_mode=PortMode,
 
@@ -343,7 +348,7 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% It's time to check memory
-handle_info(time_to_collect, State) ->
+handle_info({time_to_collect, collect_sys}, State) ->
     case State#state.wd_timer of
 	undefined ->
 	    WDTimer = erlang:send_after(State#state.helper_timeout,
@@ -367,6 +372,18 @@ handle_info(time_to_collect, State) ->
 	_TimerRef ->
 	    {noreply, State#state{pending=[reg|State#state.pending]}}
     end;
+handle_info({time_to_collect, collect_ext_sys},
+            #state{ port_mode = true, ext_wd_timer = undefined } = State) ->
+    Timer = erlang:send_after(State#state.helper_timeout,
+                              self(), ext_collection_timeout),
+    State#state.pid ! {self(), collect_ext_sys},
+    {noreply, State#state{ext_wd_timer=Timer, ext_pending=[reg]}};
+handle_info({time_to_collect, collect_ext_sys},
+            #state{ port_mode = true, ext_wd_timer = Timer, ext_pending = Pending} = State)
+    when Timer =/= undefined ->
+    {noreply, State#state{ext_pending = [reg | Pending]}};
+handle_info({time_to_collect, collect_ext_sys}, #state{ port_mode = false } = State) ->
+    {noreply, State};
 
 %% Memory data collected
 handle_info({collected_sys, {Alloc,Total}}, State) ->
@@ -394,27 +411,8 @@ handle_info({collected_sys, {Alloc,Total}}, State) ->
 		    true ->
 			clear_alarm(system_memory_high_watermark)
 		end,
-
 		%% Check if process data should be collected
-		case State#state.sys_only of
-		    false ->
-			{Pid, Bytes} = get_worst_memory_user(),
-			Threshold= State#state.proc_mem_watermark*Total,
-
-			%% Check if process alarm should be set/cleared
-			if
-			    Bytes > Threshold ->
-				set_alarm(process_memory_high_watermark,
-					  Pid);
-			    true ->
-				clear_alarm(process_memory_high_watermark)
-			end,
-			
-			State#state{mem_usage={Alloc, Total},
-				    worst_mem_user={Pid, Bytes}};
-		    true ->
-			State#state{mem_usage={Alloc, Total}}
-		end;
+        maybe_check_process_mem(State#state{mem_usage = {Alloc, Total}}, Total);
 	    false ->
 		State
 	end,
@@ -434,7 +432,7 @@ handle_info({collected_sys, {Alloc,Total}}, State) ->
                            MS ->
                                MS
                        end,
-                erlang:send_after(Time, self(), time_to_collect);
+                erlang:send_after(Time, self(), {time_to_collect, collect_sys});
             false ->
                 ignore
         end,
@@ -473,7 +471,7 @@ handle_info(reg_collection_timeout, State) ->
                     MS when MS<0 -> 0;
                     MS -> MS
                 end,
-                erlang:send_after(Time, self(), time_to_collect);
+                erlang:send_after(Time, self(), {time_to_collect, collect_sys});
             false ->
                 ignore
         end,
@@ -492,8 +490,25 @@ handle_info({collected_ext_sys, SysMemUsage}, State) ->
 
     %% Send the reply to all waiting clients, preserving time order
     reply(State#state.ext_pending, undef, SysMemUsage),
-
-    {noreply, State#state{ext_wd_timer=undefined, ext_pending=[]}};
+    Total = proplists:get_value(system_total_memory, SysMemUsage),
+    Alloc = Total - proplists:get_value(available_memory, SysMemUsage),
+    case lists:member(reg, State#state.ext_pending) of
+        true ->
+            if
+                Alloc > State#state.sys_mem_watermark*Total ->
+                    set_alarm(system_memory_high_watermark, []);
+                true ->
+                    clear_alarm(system_memory_high_watermark)
+            end,
+            collected_ext_sys =:= os_mon:get_env(?MODULE, meminfo_src) andalso
+                erlang:send_after(State#state.timeout, self(),
+                                  {time_to_collect, collected_ext_sys}),
+            ok;
+        false ->
+            skip
+    end,
+    NewState = maybe_check_process_mem(State, Total),
+    {noreply, NewState#state{ext_wd_timer=undefined, ext_pending=[]}};
 
 %% Timeout during ext memory data collection (port_mode==true only)
 handle_info(ext_collection_timeout, State) ->
@@ -843,6 +858,21 @@ clear_alarms() ->
 		  end,
 		  get()).
 
+maybe_check_process_mem(#state{ sys_only = false } = State, Total) ->
+    {Pid, Bytes} = get_worst_memory_user(),
+    Threshold = State#state.proc_mem_watermark*Total,
+    if
+        Bytes > Threshold ->
+            set_alarm(process_memory_high_watermark, Pid);
+
+        true ->
+            clear_alarm(process_memory_high_watermark)
+    end,
+    State#state{worst_mem_user={Pid, Bytes}};
+
+maybe_check_process_mem(State, _Total) ->
+    State.
+
 %%--Auxiliary-----------------------------------------------------------
 
 %% Type conversions
@@ -857,3 +887,4 @@ flush(Msg) ->
     after 0 ->
 	    true
     end.
+

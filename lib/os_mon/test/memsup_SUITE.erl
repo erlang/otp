@@ -21,8 +21,9 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0]).
+-export([all/0, groups/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
+-export([init_per_group/2, end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
@@ -52,7 +53,19 @@ end_per_suite(Config) when is_list(Config) ->
     ok = application:stop(os_mon),
     Config.
 
+init_per_group(mem_src_ext_sys, Config) ->
+    application:set_env(os_mon, meminfo_src, collect_ext_sys),
+    Config;
+init_per_group(_, Config) ->
+    Config.
+
+end_per_group(mem_src_ext_sys, _Config) ->
+    application:unset_env(os_mon, meminfo_src);
+end_per_group(_, _Config) ->
+    ok.
+
 init_per_testcase(_Case, Config) ->
+    force_collection(),
     Config.
 
 end_per_testcase(_Case, _Config) ->
@@ -62,7 +75,17 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+groups() ->
+    [{mem_src_sys, [], all_tcs()},
+     {mem_src_ext_sys, [], all_tcs()}
+    ].
+
+all() ->
+    [{group, mem_src_ext_sys},
+     {group, mem_src_sys}
+    ].
+
+all_tcs() ->
     All = case os:type() of
               {unix, sunos} ->
                   [api, alarm1, alarm2, process, config, timeout,
@@ -165,12 +188,9 @@ api(Config) when is_list(Config) ->
 
 %% Test alarms when memsup_system_only==false
 alarm1(Config) when is_list(Config) ->
-
     %% If system memory usage is too high, the testcase cannot
     %% be run correctly
-    {Total, Alloc, {_Pid,_PidAlloc}} = memsup:get_memory_data(),
-    io:format("alarm1: Total: ~p, Alloc: ~p~n", [Total, Alloc]),
-    SysUsage = Alloc/Total,
+    SysUsage = get_sys_mem_util(),
     if
         SysUsage > 0.99 ->
             {skip, sys_mem_too_high};
@@ -205,14 +225,11 @@ alarm1(_Config, SysUsage) ->
     end,
 
     %% Lower/raise the threshold to clear/set the alarm
-    NewSysThreshold = if
-                          SysP ->
-                              Value = 1.1*SysUsage,
-                              if
-                                  Value > 0.99 -> 0.99;
-                                  true -> Value
-                              end;
-                          not SysP -> 0.9*SysUsage
+    NewSysThreshold = case SysP of
+                          true ->
+                              1.0;
+                          false ->
+                              0.0
                       end,
 
     ok = memsup:set_sysmem_high_watermark(NewSysThreshold),
@@ -268,8 +285,8 @@ alarm1(_Config, SysUsage) ->
 
     %% Lower/raise the threshold to clear/set the alarm
     NewProcThreshold = if
-                           ProcP -> 1.1*PidUsage;
-                           not ProcP -> 0.9*PidUsage
+                           ProcP -> 1.0;
+                           not ProcP -> 0.0
                        end,
     ok = memsup:set_procmem_high_watermark(NewProcThreshold),
     ok = force_collection(),
@@ -309,8 +326,7 @@ alarm2(Config) when is_list(Config) ->
 
     %% If system memory usage is too high, the testcase cannot
     %% be run correctly
-    {Total, Alloc, {_Pid,_PidAlloc}} = memsup:get_memory_data(),
-    SysUsage = Alloc/Total,
+    SysUsage = get_sys_mem_util(),
     if
         SysUsage>0.99 ->
             {skip, sys_mem_too_high};
@@ -330,12 +346,12 @@ alarm2(_Config, _SysUsage) ->
     ok = memsup:set_check_interval(60),
 
     %% Check data and thresholds
-    {Total, Alloc, undefined} = memsup:get_memory_data(),
+    {_Total, _Alloc, undefined} = memsup:get_memory_data(),
     SysThreshold = (memsup:get_sysmem_high_watermark()/100),
     true = is_integer(memsup:get_procmem_high_watermark()),
 
     %% Check if a system alarm already should be set or not
-    SysUsage = Alloc/Total,
+    SysUsage = get_sys_mem_util(),
     SysP = if
                SysUsage>SysThreshold -> true;
                SysUsage=<SysThreshold -> false
@@ -354,13 +370,8 @@ alarm2(_Config, _SysUsage) ->
 
     %% Lower/raise the threshold to clear/set the alarm
     NewSysThreshold = if
-                          SysP ->
-                              Value = 1.1*SysUsage,
-                              if
-                                  Value > 0.99 -> 0.99;
-                                  true -> Value
-                              end;
-                          not SysP -> 0.9*SysUsage
+                          SysP -> 1.0;
+                          not SysP -> 0.0
                       end,
 
     ok = memsup:set_sysmem_high_watermark(NewSysThreshold),
@@ -539,7 +550,7 @@ timeout(Config) when is_list(Config) ->
     ok = memsup:set_helper_timeout(3600),
 
     %% Provoke a timeout during memory collection
-    memsup ! time_to_collect,
+    memsup ! {time_to_collect, collect_sys},
     memsup ! reg_collection_timeout,
 
     %% Not much we can check though, except that memsup is still running
@@ -576,7 +587,7 @@ timeout(Config) when is_list(Config) ->
     %% Reset memory check interval and memsup_helper timeout
     ok = memsup:set_check_interval(1),
     ok = memsup:set_helper_timeout(30),
-    memsup ! time_to_collect,
+    memsup ! {time_to_collect, collect_ext_sys},
 
     [_|_] = memsup:get_system_memory_data(),
 
@@ -638,7 +649,7 @@ otp_5910(Config) when is_list(Config) ->
     MemData = memsup:get_memory_data(),
 
     io:format("otp_5910: memsup:get_memory_data() = ~p~n", [MemData]),
-    {Total, Alloc, {_Pid, _Bytes}} = MemData,
+    {Total, _Alloc, {_Pid, _Bytes}} = MemData,
     Pid = spawn_opt(fun() ->
                             receive
                                 die -> ok
@@ -647,7 +658,7 @@ otp_5910(Config) when is_list(Config) ->
     %% Create a process guaranteed to live, be constant and
     %% break memsup process limit
     {memory, Bytes} = erlang:process_info(Pid,memory),
-    SysUsage = Alloc/Total,
+    SysUsage = get_sys_mem_util(),
     ProcUsage = Bytes/Total,
 
     if
@@ -769,13 +780,14 @@ improved_system_memory_data(Config) when is_list(Config) ->
 
 force_collection() ->
     erlang:trace(whereis(memsup), true, ['receive']),
-    memsup ! time_to_collect,
+    memsup ! {time_to_collect, os_mon:get_env(memsup, meminfo_src)},
     TimerRef = erlang:send_after(5000, self(), timeout),
     force_collection(TimerRef).
 
 force_collection(TimerRef) ->
     receive
-        {trace, _Pid, 'receive', {collected_sys, _Sys}} ->
+        {trace, _Pid, 'receive', {Tag, _Sys}}
+          when Tag=:=collected_sys orelse Tag=:=collected_ext_sys ->
             erlang:cancel_timer(TimerRef),
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
@@ -801,4 +813,16 @@ flush() ->
             flush()
     after 0 ->
               ok
+    end.
+
+get_sys_mem_util()->
+    case application:get_env(os_mon, meminfo_src, collect_sys) of
+        collect_ext_sys ->
+            MData = memsup:get_system_memory_data(),
+            Total = proplists:get_value(system_total_memory, MData),
+            Alloc = Total - proplists:get_value(available_memory, MData),
+            Alloc/Total;
+        collect_sys ->
+            {Total, Alloc, _} = memsup:get_memory_data(),
+            Alloc/Total
     end.
