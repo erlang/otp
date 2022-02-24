@@ -218,6 +218,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
+    GLOBAL_ATOM_DEF(connected);                \
+    GLOBAL_ATOM_DEF(connecting);               \
     GLOBAL_ATOM_DEF(context);                  \
     GLOBAL_ATOM_DEF(cork);                     \
     GLOBAL_ATOM_DEF(credentials);              \

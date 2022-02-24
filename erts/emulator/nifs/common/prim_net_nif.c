@@ -254,7 +254,7 @@ extern char* erl_errno_id(int error);
  *                int                argc,
  *                const ERL_NIF_TERM argv[]);
  *
- * So, to simplify, use some macro magic to define those.
+ * So, to simplify, we use some macro magic to define those.
  *
  * These are the functions making up the "official" API.
  */
@@ -266,6 +266,7 @@ extern char* erl_errno_id(int error);
     ENET_NIF_FUNC_DEF(getnameinfo);          \
     ENET_NIF_FUNC_DEF(getaddrinfo);          \
     ENET_NIF_FUNC_DEF(getifaddrs);           \
+    ENET_NIF_FUNC_DEF(get_if_entry);         \
     ENET_NIF_FUNC_DEF(get_interface_info);   \
     ENET_NIF_FUNC_DEF(get_ip_address_table); \
     ENET_NIF_FUNC_DEF(if_name2index);        \
@@ -307,14 +308,37 @@ static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
 
 #if defined(__WIN32__)
 
+/* *** Get If Entry (MIB_IFROW) functions *** */
+static ERL_NIF_TERM enet_get_if_entry(ErlNifEnv* env,
+                                      BOOLEAN_T  dbg,
+                                      DWORD      index);
+static BOOLEAN_T enet_get_if_entry_args_index(ErlNifEnv*         env,
+                                              const ERL_NIF_TERM eargs,
+                                              DWORD*             index);
+static BOOLEAN_T enet_get_if_entry_args_debug(ErlNifEnv*         env,
+                                              const ERL_NIF_TERM eargs);
+static ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
+                                       BOOLEAN_T  dbg,
+                                       MIB_IFROW* rowP);
+static ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
+                                   DWORD      type);
+static ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
+                                              DWORD      len,
+                                              UCHAR*     buf);
+static ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
+                                          DWORD      status);
+static ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
+                                               DWORD      len,
+                                               UCHAR*     buf);
+
 /* *** Get Interface Info functions *** */
 static ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
                                             BOOLEAN_T  dbg);
 static BOOLEAN_T enet_get_interface_info_args_debug(ErlNifEnv*         env,
                                                     const ERL_NIF_TERM eextra);
-static ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
-                                                   BOOLEAN_T          dbg,
-                                                   IP_INTERFACE_INFO* infoP);
+static ERL_NIF_TERM enet_interface_info_encode(ErlNifEnv*         env,
+                                               BOOLEAN_T          dbg,
+                                               IP_INTERFACE_INFO* infoP);
 static void encode_adapter_index_map(ErlNifEnv*            env,
                                      BOOLEAN_T             dbg,
                                      IP_ADAPTER_INDEX_MAP* adapterP,
@@ -432,6 +456,13 @@ static void make_address_info(ErlNifEnv*    env,
                               ERL_NIF_TERM  addr,
                               ERL_NIF_TERM* ai);
 
+#if defined(__WIN32__)
+static ERL_NIF_TERM encode_uchar(ErlNifEnv* env,
+                                 DWORD      len,
+                                 UCHAR*     buf);
+static ERL_NIF_TERM encode_wchar(ErlNifEnv* env,
+                                 WCHAR* name);
+#endif
 static BOOLEAN_T get_debug(ErlNifEnv*   env,
                            ERL_NIF_TERM map);
 static int on_load(ErlNifEnv*   env,
@@ -472,16 +503,33 @@ static const struct in6_addr in6addr_loopback =
 
 #define LOCAL_ATOMS                             \
     LOCAL_ATOM_DECL(address_info);              \
+    LOCAL_ATOM_DECL(admin_status);              \
+    LOCAL_ATOM_DECL(atm);                       \
     LOCAL_ATOM_DECL(automedia);                 \
     LOCAL_ATOM_DECL(bcast_addr);                \
     LOCAL_ATOM_DECL(broadaddr);                 \
     LOCAL_ATOM_DECL(broadcast);                 \
     LOCAL_ATOM_DECL(debug);                     \
+    LOCAL_ATOM_DECL(description);               \
+    LOCAL_ATOM_DECL(disconnected);              \
     LOCAL_ATOM_DECL(dstaddr);                   \
     LOCAL_ATOM_DECL(dynamic);                   \
+    LOCAL_ATOM_DECL(ethernet_csmacd);           \
+    LOCAL_ATOM_DECL(fddi);                      \
     LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
+    LOCAL_ATOM_DECL(ieee1394);                  \
+    LOCAL_ATOM_DECL(ieee80211);                 \
+    LOCAL_ATOM_DECL(ieee80216_wman);            \
     LOCAL_ATOM_DECL(index);                     \
+    LOCAL_ATOM_DECL(in_octets);                 \
+    LOCAL_ATOM_DECL(in_ucast_pkts);             \
+    LOCAL_ATOM_DECL(in_nucast_pkts);            \
+    LOCAL_ATOM_DECL(in_discards);               \
+    LOCAL_ATOM_DECL(in_errors);                 \
+    LOCAL_ATOM_DECL(in_unknown_protos);         \
+    LOCAL_ATOM_DECL(iso88025_tokenring);        \
+    LOCAL_ATOM_DECL(last_change);               \
     LOCAL_ATOM_DECL(mask);                      \
     LOCAL_ATOM_DECL(master);                    \
     LOCAL_ATOM_DECL(multicast);                 \
@@ -490,19 +538,37 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(netmask);                   \
     LOCAL_ATOM_DECL(noarp);                     \
     LOCAL_ATOM_DECL(nofqdn);                    \
+    LOCAL_ATOM_DECL(non_operational);           \
     LOCAL_ATOM_DECL(notrailers);                \
     LOCAL_ATOM_DECL(numerichost);               \
     LOCAL_ATOM_DECL(numericserv);               \
+    LOCAL_ATOM_DECL(oper_status);               \
+    LOCAL_ATOM_DECL(other);                     \
+    LOCAL_ATOM_DECL(out_octets);                \
+    LOCAL_ATOM_DECL(out_ucast_pkts);            \
+    LOCAL_ATOM_DECL(out_nucast_pkts);           \
+    LOCAL_ATOM_DECL(out_discards);              \
+    LOCAL_ATOM_DECL(out_errors);                \
+    LOCAL_ATOM_DECL(out_qlen);                  \
+    LOCAL_ATOM_DECL(phys_addr);                 \
     LOCAL_ATOM_DECL(pointopoint);               \
     LOCAL_ATOM_DECL(portsel);                   \
+    LOCAL_ATOM_DECL(ppp);                       \
     LOCAL_ATOM_DECL(promisc);                   \
     LOCAL_ATOM_DECL(reasm_size);                \
     LOCAL_ATOM_DECL(running);                   \
     LOCAL_ATOM_DECL(service);                   \
     LOCAL_ATOM_DECL(slave);                     \
-    LOCAL_ATOM_DECL(up);
+    LOCAL_ATOM_DECL(software_loopback);         \
+    LOCAL_ATOM_DECL(speed);                     \
+    LOCAL_ATOM_DECL(tunnel);                    \
+    LOCAL_ATOM_DECL(unreachable);               \
+    LOCAL_ATOM_DECL(up);                        \
+    LOCAL_ATOM_DECL(wwanpp);                    \
+    LOCAL_ATOM_DECL(wwanpp2);
 
 #define LOCAL_ERROR_REASON_ATOMS               \
+    LOCAL_ATOM_DECL(can_not_complete);         \
     LOCAL_ATOM_DECL(eaddrfamily);              \
     LOCAL_ATOM_DECL(ebadflags);                \
     LOCAL_ATOM_DECL(efail);                    \
@@ -518,8 +584,10 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(esocktype);                \
     LOCAL_ATOM_DECL(esystem);                  \
     LOCAL_ATOM_DECL(insufficient_buffer);      \
+    LOCAL_ATOM_DECL(invalid_data);             \
     LOCAL_ATOM_DECL(invalid_flags);            \
     LOCAL_ATOM_DECL(invalid_parameter);        \
+    LOCAL_ATOM_DECL(not_found);                \
     LOCAL_ATOM_DECL(not_supported);            \
     LOCAL_ATOM_DECL(no_data);                  \
     LOCAL_ATOM_DECL(no_uniconde_traslation);
@@ -555,6 +623,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_getnameinfo/2
  * nif_getaddrinfo/3
  * nif_getifaddrs/1
+ * nif_get_if_entry/1
  * nif_get_interface_info/1
  * nif_get_ip_address_table/1
  * nif_if_name2index/1
@@ -1565,6 +1634,375 @@ void make_ifaddrs(ErlNifEnv*    env,
 
 
 /* ----------------------------------------------------------------------
+ * nif_get_if_entry
+ *
+ * Description:
+ * Get If Entry
+ * This is a windows only function!
+ *
+ * Arguments:
+ * Args - A way to pass arguments.
+ *        Currently only used for: index and debug:
+ *        #{index := non_neg_integer(), debug := boolean() (optional)}
+ */
+
+static
+ERL_NIF_TERM nif_get_if_entry(ErlNifEnv*         env,
+                              int                argc,
+                              const ERL_NIF_TERM argv[])
+{
+#if !defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    ERL_NIF_TERM result, eargs;
+    DWORD        index;
+    BOOLEAN_T    dbg;
+
+    NDBG( ("NET", "nif_get_if_entry -> entry (%d)\r\n", argc) );
+
+    if ((argc != 1) ||
+        !IS_MAP(env, argv[0])) {
+        return enif_make_badarg(env);
+    }
+    eargs = argv[0];
+
+    if (!enet_get_if_entry_args_index(env, eargs, &index))
+        return enif_make_badarg(env);
+
+    dbg    = enet_get_if_entry_args_debug(env, eargs);
+
+    result = enet_get_if_entry(env, dbg, index);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_get_if_entry -> done when result: "
+            "\r\n   %T\r\n", result) );
+
+    return result;
+#endif
+}
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_if_entry_args_index(ErlNifEnv*         env,
+                                       const ERL_NIF_TERM eargs,
+                                       DWORD*             index)
+{
+    ERL_NIF_TERM key = atom_index;
+    ERL_NIF_TERM eval;
+    DWORD        val;
+    
+    if (!GET_MAP_VAL(env, eargs, key, &eval)) {
+        return FALSE;
+    } else {
+        if (!IS_NUM(env, eval))
+            return FALSE;
+
+        if (!GET_UINT(env, eval, &val))
+            return FALSE;
+
+        *index = val;
+        return TRUE;
+    }
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+BOOLEAN_T enet_get_if_entry_args_debug(ErlNifEnv*         env,
+                                       const ERL_NIF_TERM eargs)
+{
+    return get_debug(env, eargs);
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM enet_get_if_entry(ErlNifEnv* env,
+                               BOOLEAN_T  dbg,
+                               DWORD      index)
+{
+    DWORD        ret;
+    MIB_IFROW    ifRow;
+    ERL_NIF_TERM eifRow, result;
+
+    NDBG2( dbg,
+           ("NET", "nif_get_if_entry -> entry with"
+            "\r\n   index: %d\r\n", index) );
+
+    sys_memzero(&ifRow, sizeof(ifRow));
+    ifRow.dwIndex = index;
+    ret = GetIfEntry(&ifRow);
+
+    NDBG2( dbg,
+           ("NET", "nif_get_if_entry -> get-if-entru result:"
+            "\r\n   %d\r\n", ret) );
+
+    switch (ret) {
+        /* Success */
+    case NO_ERROR:
+        eifRow = enet_if_row_encode(env, dbg, &ifRow);
+        result = esock_make_ok2(env, eifRow);
+        break;
+
+        /* Known errors */
+    case ERROR_CAN_NOT_COMPLETE:
+        result = esock_make_error(env, atom_can_not_complete);
+        break;
+    case ERROR_INVALID_DATA:
+        result = esock_make_error(env, atom_invalid_data);
+        break;
+    case ERROR_INVALID_PARAMETER:
+        result = esock_make_error(env, atom_invalid_parameter);
+        break;
+    case ERROR_NOT_FOUND:
+        result = esock_make_error(env, esock_atom_not_found);
+        break;
+    case ERROR_NOT_SUPPORTED:
+        result = esock_make_error(env, atom_not_supported);
+        break;
+
+        /* Other errors */
+    default:
+        result = esock_make_error(env, MKI(env, ret));
+        break;
+    }
+
+    NDBG2( dbg,
+           ("NET", "nif_get_if_entry -> done when:"
+            "\r\n   result: %T\r\n", result) );
+
+    return result;
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+// Returns: mib_if_row()
+static
+ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
+                                BOOLEAN_T  dbg,
+                                MIB_IFROW* rowP)
+{
+    ERL_NIF_TERM eName, eIndex, eType, eMtu, eSpeed, ePhuysAddr, eAdminStatus;
+    ERL_NIF_TERM eOperStatus, eLastChange, eInOctets, eInUcastPkts;
+    ERL_NIF_TERM eInNUcastPkts, eInDiscards, eInError, eInUnknownProtos;
+    ERL_NIF_TERM eOutOcts, eOutUcastPkts, eOutNUcastPkts, eOutDiscards;
+    ERL_NIF_TERM eOutErrors, eOutQLen, eDescr;
+    ERL_NIF_TERM erow;
+
+    NDBG2( dbg, ("NET", "enet_if_row_encode -> entry\r\n") );
+
+    eName            = encode_wchar(env, rowP->wszName);
+    eIndex           = MKUI(env, rowP->dwIndex);
+    eType            = encode_if_type(env, rowP->dwType);
+    eMtu             = MKUI(env, rowP->dwMtu);
+    eSpeed           = MKUI(env, rowP->dwSpeed);
+    ePhuysAddr       = encode_if_row_phys_address(env,
+                                                  rowP->dwPhysAddrLen,
+                                                  rowP->bPhysAddr);
+    eAdminStatus     = MKUI(env, rowP->dwAdminStatus);
+    eOperStatus      = encode_if_oper_status(env, rowP->dwOperStatus);
+    eLastChange      = MKUI(env, rowP->dwLastChange);
+    eInOctets        = MKUI(env, rowP->dwInOctets);
+    eInUcastPkts     = MKUI(env, rowP->dwInUcastPkts);
+    eInNUcastPkts    = MKUI(env, rowP->dwInNUcastPkts);
+    eInDiscards      = MKUI(env, rowP->dwInDiscards);
+    eInError         = MKUI(env, rowP->dwInErrors);
+    eInUnknownProtos = MKUI(env, rowP->dwInUnknownProtos);
+    eOutOcts         = MKUI(env, rowP->dwOutOctets);
+    eOutUcastPkts    = MKUI(env, rowP->dwOutUcastPkts);
+    eOutNUcastPkts   = MKUI(env, rowP->dwOutNUcastPkts);
+    eOutDiscards     = MKUI(env, rowP->dwOutDiscards);
+    eOutErrors       = MKUI(env, rowP->dwOutErrors);
+    eOutQLen         = MKUI(env, rowP->dwOutQLen);
+    eDescr           = encode_if_row_description(env,
+                                                 rowP->dwDescrLen,
+                                                 rowP->bDescr);
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_name,
+                               atom_index,
+                               esock_atom_type,
+                               esock_atom_mtu,
+                               atom_speed,
+                               atom_phys_addr,
+                               atom_admin_status,
+                               atom_oper_status,
+                               atom_last_change,
+                               atom_in_octets,
+                               atom_in_ucast_pkts,
+                               atom_in_nucast_pkts,
+                               atom_in_discards,
+                               atom_in_errors,
+                               atom_in_unknown_protos,
+                               atom_out_octets,
+                               atom_out_ucast_pkts,
+                               atom_out_nucast_pkts,
+                               atom_out_discards,
+                               atom_out_errors,
+                               atom_out_qlen,
+                               atom_description};
+        ERL_NIF_TERM vals[] = {eName,
+                               eIndex,
+                               eType,
+                               eMtu,
+                               eSpeed,
+                               ePhuysAddr,
+                               eAdminStatus,
+                               eOperStatus,
+                               eLastChange,
+                               eInOctets,
+                               eInUcastPkts,
+                               eInNUcastPkts,
+                               eInDiscards,
+                               eInError,
+                               eInUnknownProtos,
+                               eOutOcts,
+                               eOutUcastPkts,
+                               eOutNUcastPkts,
+                               eOutDiscards,
+                               eOutErrors,
+                               eOutQLen,
+                               eDescr};
+        size_t       numKeys = NUM(keys);
+        size_t       numVals = NUM(vals);
+
+        ESOCK_ASSERT( numKeys == numVals );
+    
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &erow) );
+    }
+    
+    NDBG2( dbg,
+           ("NET", "enet_if_row_encode -> done with:"
+            "\r\n   result: %T"
+            "\r\n", erow) );
+
+    return erow;
+
+}
+#endif // __WIN32__
+
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
+                            DWORD      type)
+{
+    ERL_NIF_TERM   etype;
+
+    switch (type) {
+    case IF_TYPE_OTHER:
+        etype = atom_other;
+        break;
+    case IF_TYPE_ETHERNET_CSMACD:
+        etype = atom_ethernet_csmacd;
+        break;
+    case IF_TYPE_ISO88025_TOKENRING:
+        etype = atom_iso88025_tokenring;
+        break;
+    case IF_TYPE_FDDI:
+        etype = atom_fddi;
+        break;
+    case IF_TYPE_PPP:
+        etype = atom_ppp;
+        break;
+    case IF_TYPE_SOFTWARE_LOOPBACK:
+        etype = atom_software_loopback;
+        break;
+    case IF_TYPE_ATM:
+        etype = atom_atm;
+        break;
+    case IF_TYPE_IEEE80211:
+        etype = atom_ieee80211;
+        break;
+    case IF_TYPE_TUNNEL:
+        etype = atom_tunnel;
+        break;
+    case IF_TYPE_IEEE1394:
+        etype = atom_ieee1394;
+        break;
+    case IF_TYPE_IEEE80216_WMAN:
+        etype = atom_ieee80216_wman;
+        break;
+    case IF_TYPE_WWANPP:
+        etype = atom_wwanpp;
+        break;
+    case IF_TYPE_WWANPP2:
+        etype = atom_wwanpp2;
+        break;
+    default:
+        etype = MKUI(env, type);
+        break;
+    }
+
+    return etype;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
+                                       DWORD      len,
+                                       UCHAR*     buf)
+{
+    return encode_uchar(env, len, buf);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_oper_status(ErlNifEnv* env,
+                                   DWORD      status)
+{
+    ERL_NIF_TERM estatus;
+
+    switch (status) {
+    case IF_OPER_STATUS_NON_OPERATIONAL:
+        estatus = atom_non_operational;
+        break;
+    case IF_OPER_STATUS_UNREACHABLE:
+        estatus = atom_unreachable;
+        break;
+    case IF_OPER_STATUS_DISCONNECTED:
+        estatus = atom_disconnected;
+        break;
+    case IF_OPER_STATUS_CONNECTING:
+        estatus = esock_atom_connecting;
+        break;
+    case IF_OPER_STATUS_CONNECTED:
+        estatus = esock_atom_connected;
+        break;
+    default:
+        estatus = MKUI(env, status);
+        break;
+    }
+
+    return estatus;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
+                                        DWORD      len,
+                                        UCHAR*     buf)
+{
+    return encode_uchar(env, len, buf);
+}
+#endif // __WIN32__
+
+
+/* ----------------------------------------------------------------------
  * nif_get_interface_info
  *
  * Description:
@@ -1685,7 +2123,7 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
         NDBG2( dbg,
                ("NET", "enet_get_interface_info -> try transform info\r\n") );
 
-        einfo  = enet_get_interface_info_encode(env, dbg, infoP);
+        einfo  = enet_interface_info_encode(env, dbg, infoP);
         result = esock_make_ok2(env, einfo);
         
         FREE(infoP);
@@ -1704,15 +2142,15 @@ ERL_NIF_TERM enet_get_interface_info(ErlNifEnv* env,
 #if defined(__WIN32__)
 // Returns: [#{index := integer(), name := string()}]
 static
-ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
-                                            BOOLEAN_T          dbg,
-                                            IP_INTERFACE_INFO* infoP)
+ERL_NIF_TERM enet_interface_info_encode(ErlNifEnv*         env,
+                                        BOOLEAN_T          dbg,
+                                        IP_INTERFACE_INFO* infoP)
 {
     ERL_NIF_TERM result;
     LONG         num = infoP->NumAdapters;
 
     NDBG2( dbg,
-           ("NET", "enet_get_interface_info_encode -> entry with"
+           ("NET", "enet_interface_info_encode -> entry with"
             "\r\n   num: %d"
             "\r\n", num) );
 
@@ -1724,7 +2162,7 @@ ERL_NIF_TERM enet_get_interface_info_encode(ErlNifEnv*         env,
             ERL_NIF_TERM entry;
 
             NDBG2( dbg,
-                   ("NET", "enet_get_interface_info_encode -> "
+                   ("NET", "enet_interface_info_encode -> "
                     "try encode adapter %d"
                     "\r\n", i) );
 
@@ -1783,44 +2221,7 @@ void encode_adapter_index_map(ErlNifEnv*            env,
 static
 ERL_NIF_TERM encode_adapter_index_map_name(ErlNifEnv* env, WCHAR* name)
 {
-    ERL_NIF_TERM result;
-    int          len = WideCharToMultiByte(CP_UTF8, 0,
-                                           name, -1,
-                                           NULL, 0, NULL, NULL);
-
-    if (!len) {
-        result = esock_atom_undefined;
-    } else {
-        char* buf = (char*) MALLOC(len+1);
-
-        if (0 == WideCharToMultiByte(CP_UTF8, 0,
-                                     name, -1,
-                                     buf, len, NULL, NULL)) {
-            DWORD error = GetLastError();
-
-            switch (error) {
-            case ERROR_INSUFFICIENT_BUFFER:
-                result = atom_insufficient_buffer;
-                break;
-            case ERROR_INVALID_FLAGS:
-                result = atom_invalid_flags;
-                break;
-            case ERROR_INVALID_PARAMETER:
-                result = atom_invalid_parameter;
-                break;
-            case ERROR_NO_UNICODE_TRANSLATION:
-                result = atom_no_uniconde_traslation;
-                break;
-            default:
-                result = MKI(env, error);
-                break;
-            }
-        } else {
-            result = MKS(env, buf);
-        }
-    }
-
-    return result;
+    return encode_wchar(env, name);
 }
 #endif // __WIN32__
 
@@ -2014,7 +2415,7 @@ ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
             ERL_NIF_TERM entry;
 
             NDBG2( dbg,
-                   ("NET", "enet_get_interface_info_encode -> "
+                   ("NET", "enet_interface_info_encode -> "
                     "try encode ip-address-row %d"
                     "\r\n", i) );
 
@@ -2865,6 +3266,7 @@ ErlNifFunc net_funcs[] =
     {"nif_getaddrinfo",      3, nif_getaddrinfo,   0},
     
     {"nif_getifaddrs",       1, nif_getifaddrs,       ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_get_if_entry",       1, nif_get_if_entry,       ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_ip_address_table", 1, nif_get_ip_address_table, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
@@ -2873,6 +3275,78 @@ ErlNifFunc net_funcs[] =
     {"nif_if_index2name",    1, nif_if_index2name, 0},
     {"nif_if_names",         0, nif_if_names,      0}
 };
+
+
+#if defined(__WIN32__)
+/*
+ * The assumption is that the 'name' string is NULL terminated
+ */
+static
+ERL_NIF_TERM encode_wchar(ErlNifEnv* env, WCHAR* name)
+{
+    ERL_NIF_TERM result;
+    int          len = WideCharToMultiByte(CP_UTF8, 0,
+                                           name, -1,
+                                           NULL, 0, NULL, NULL);
+
+    if (!len) {
+        result = esock_atom_undefined;
+    } else {
+        char* buf = (char*) MALLOC(len+1);
+
+        if (0 == WideCharToMultiByte(CP_UTF8, 0,
+                                     name, -1,
+                                     buf, len, NULL, NULL)) {
+            DWORD error = GetLastError();
+
+            switch (error) {
+            case ERROR_INSUFFICIENT_BUFFER:
+                result = atom_insufficient_buffer;
+                break;
+            case ERROR_INVALID_FLAGS:
+                result = atom_invalid_flags;
+                break;
+            case ERROR_INVALID_PARAMETER:
+                result = atom_invalid_parameter;
+                break;
+            case ERROR_NO_UNICODE_TRANSLATION:
+                result = atom_no_uniconde_traslation;
+                break;
+            default:
+                result = MKI(env, error);
+                break;
+            }
+        } else {
+            result = MKS(env, buf);
+        }
+
+        FREE(buf);
+    }
+
+    return result;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+/*
+ * This builds a binary term from an array of uchar
+ */
+static
+ERL_NIF_TERM encode_uchar(ErlNifEnv* env,
+                          DWORD      len,
+                          UCHAR*     buf)
+{
+    ERL_NIF_TERM   ebuf;
+    unsigned char* p;
+
+    p = enif_make_new_binary(env, len, &ebuf);
+    ESOCK_ASSERT( p != NULL );
+    sys_memcpy(p, buf, len);
+
+    return ebuf;
+}
+#endif // __WIN32__
 
 
 static
