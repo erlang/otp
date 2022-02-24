@@ -454,6 +454,19 @@ vi({test,is_function,{f,Lbl},[Src]}, Vst) ->
 vi({test,is_function2,{f,Lbl},[Src,{integer,Arity}]}, Vst)
   when Arity >= 0, Arity =< 255 ->
     type_test(Lbl, #t_fun{arity=Arity}, Src, Vst);
+vi({test,is_function2,{f,Lbl},[Src0,_Arity]}, Vst) ->
+    Src = unpack_typed_arg(Src0),
+    assert_term(Src, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   %% We cannot subtract the function type when the arity is
+                   %% unknown: `Src` may still be a function if the arity is
+                   %% outside the allowed range.
+                   FailVst
+           end,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_fun{}, Src, SuccVst)
+           end);
 vi({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
