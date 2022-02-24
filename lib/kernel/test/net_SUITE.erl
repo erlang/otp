@@ -36,6 +36,7 @@
 -module(net_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 -include("kernel_test_lib.hrl").
 
 %% Suite exports
@@ -212,23 +213,39 @@ api_b_getifaddrs() ->
             ?FAIL(Reason)
     catch
         error : notsup = CReason ->
+            Fun = fun(F) when is_function(F, 0) ->
+                          try F() of
+                              {ok, Info} ->
+                                  ?F("ok: ~p", [Info]);
+                              {error, R1} ->
+                                  ?F("error: ~p", [R1])
+                          catch
+                              C:E ->
+                                  ?F("catched: ~w, ~p", [C, E])
+                          end
+                  end,
+            %% Note that the prim_net module is *not* intended to 
+            %% be called directly. This is just a temporary thing.
             i("~w => skipping"
-              "~n   Interface Info:"
+              "~n   Interface Info: "
+              "~n      ~s"
+              "~n   IP Address Table: "
               "~n      ~s",
               [CReason,
-               %% Note that the prim_net module is *not* intended to 
-               %% be called directly. This is just a temporary thing.
-               try prim_net:get_interface_info(#{}) of
-                   {ok, Info} ->
-                       ?F("ok: ~p", [Info]);
-                   {error, NSReason} ->
-                       ?F("error: ~p", [NSReason])
-               catch
-                   C:E ->
-                       ?F("catched: ~w:~p", [C, E])
-               end]),
+               Fun(fun() -> prim_net:get_interface_info(#{}) end),
+               Fun(fun() -> prim_net:get_ip_address_table(#{}) end)]),
             skip(CReason)
     end.
+
+%% merge([], L) ->
+%%     lists:sort(L);
+%% merge([H|T], L) ->
+%%     case lists:member(H, L) of
+%%         true ->
+%%             merge(T, L);
+%%         false ->
+%%             merge(T, [H|L])
+%%     end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
