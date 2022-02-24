@@ -122,7 +122,14 @@
 # endif
 #endif
 
-#if defined(HAS_EVP_PKEY_CTX) \
+#ifdef HAS_LIBRESSL
+# if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+#  define HAS_EVP_PKEY_CTX
+#  define HAVE_EVP_CIPHER_CTX_COPY
+# endif
+#endif
+
+#if defined(HAS_EVP_PKEY_CTX)                                           \
     && OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
      /* EVP is slow on antique crypto libs.
       * DISABLE_EVP_* is 0 or 1 from the configure script
