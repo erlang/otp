@@ -31,6 +31,9 @@
 
 -module(erts_alloc_config).
 
+-deprecated({'_','_', "this module will be removed in OTP 26.0. See the "
+                      "documentation for details"}).
+
 -record(state, {have_scenario = false,
 		alloc}).
 

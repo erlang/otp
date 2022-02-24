@@ -32,11 +32,11 @@
   <module since="">erts_alloc_config</module>
   <modulesummary>Configuration tool for erts_alloc</modulesummary>
   <description>
-    <note>
-      <p><c>erts_alloc_config</c> is currently an experimental
-        tool and might be subject to backward incompatible
-        changes.</p>
-    </note>
+    <warning>
+      <p>This (experimental) tool no longer produces good configurations and
+        cannot be fixed in a reasonably backwards compatible manner. It has
+        therefore been scheduled for removal in <c>OTP 26.0</c>.</p>
+    </warning>
     <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref> is an
       Erlang Run-Time System internal memory allocator library.
       <c>erts_alloc_config</c> is intended to be used to aid creation
