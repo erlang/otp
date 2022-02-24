@@ -35,6 +35,7 @@
          getaddrinfo/2,
          getifaddrs/1,
          get_adapters_addresses/1,
+         get_if_entry/1,
          get_interface_info/1,
          get_ip_address_table/1,
 
@@ -47,6 +48,11 @@
               address_info/0,
               ifaddrs/0,
               name_info/0,
+
+              if_entry_args/0,
+              if_type/0,
+              internal_if_oper_status/0,
+              mib_if_row/0,
 
               ip_adapter_index_map/0,
               ip_interface_info/0,
@@ -81,6 +87,36 @@
                      netmask   := socket:sockaddr(),
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
+
+-type if_entry_args() :: #{index := non_neg_integer(),
+                           debug := boolean()}.
+-type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
+                         fddi | ppp | software_loopback | atm | ieee80211 |
+                         tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
+-type internal_if_oper_status() :: non_operational | unreachable |
+                                   disconnected | connected | operational.
+-type mib_if_row()    :: #{name              := string(),
+                           index             := non_neg_integer(),
+                           type              := if_type(),
+                           mtu               := non_neg_integer(),
+                           speed             := non_neg_integer(),
+                           phys_addr         := binary(),
+                           admin_status      := non_neg_integer(),
+                           oper_status       := internal_if_oper_status(),
+                           last_change       := non_neg_integer(),
+                           in_octets         := non_neg_integer(),
+                           in_ucast_pkts     := non_neg_integer(),
+                           in_nucast_pkts    := non_neg_integer(),
+                           in_discards       := non_neg_integer(),
+                           in_errors         := non_neg_integer(),
+                           in_unknown_protos := non_neg_integer(),
+                           out_octets        := non_neg_integer(),
+                           out_ucast_pkts    := non_neg_integer(),
+                           out_nucast_pkts   := non_neg_integer(),
+                           out_discards      := non_neg_integer(),
+                           out_errors        := non_neg_integer(),
+                           out_qlen          := non_neg_integer(),
+                           descr             := binary()}.
 
 -type ip_adapter_index_map() :: #{index := integer(),
                                   name  := string()}.
@@ -294,6 +330,21 @@ get_interface_info(Extra) when is_map(Extra) ->
 
 %% ===========================================================================
 %%
+%% get_if_entry - Get interface info
+%%
+
+-spec get_if_entry(Args) -> {ok, Info} | {error, Reason} when
+      Args   :: if_entry_args(),
+      Info   :: mib_if_row(),
+      Reason :: term().
+
+get_if_entry(Args) when is_map(Args) ->
+    nif_get_if_entry(Args).
+
+
+
+%% ===========================================================================
+%%
 %% get_ip_address_table - Get (mib) address table
 %%
 
@@ -415,6 +466,9 @@ nif_getifaddrs(_Extra) ->
     erlang:nif_error(undef).
 
 nif_get_adapters_addresses(_Args) ->
+    erlang:nif_error(undef).
+
+nif_get_if_entry(_Args) ->
     erlang:nif_error(undef).
 
 nif_get_interface_info(_Args) ->
