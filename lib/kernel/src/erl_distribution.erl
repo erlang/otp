@@ -23,7 +23,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--export([start_link/0,start_link/3,init/1,start/1,stop/0]).
+-export([start_link/0,start_link/1,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -35,9 +35,10 @@ start_link() ->
 %% Called from net_kernel:start/1 to start distribution after the
 %% system has already started.
 
-start(Args) ->
+start(Opts) ->
     C = #{id => net_sup_dynamic,
-          start => {?MODULE,start_link,[Args,false,net_sup_dynamic]},
+          start => {?MODULE,start_link,[Opts#{clean_halt => false,
+                                              supervisor => net_sup_dynamic}]},
           restart => permanent,
           shutdown => 1000,
           type => supervisor,
@@ -66,8 +67,8 @@ stop() ->
 
 %% Helper start function.
 
-start_link(Args, CleanHalt, NetSup) ->
-    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt,NetSup]).
+start_link(Opts) ->
+    supervisor:start_link({local,net_sup}, ?MODULE, [Opts]).
 
 init(NetArgs) ->
     Epmd = 
@@ -104,11 +105,17 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
+	    start_link(#{name => list_to_atom(Name),
+                         name_domain => Flag,
+                         clean_halt => true,
+                         supervisor => net_sup});
         {ok,[[Name]|_Rest]} ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
-	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
+	    start_link(#{name => list_to_atom(Name),
+                         name_domain => Flag,
+                         clean_halt => true,
+                         supervisor => net_sup});
         {ok,[Invalid|_]} ->
             ?LOG_ERROR("Invalid -~p given to erl, ~ts",
                        [Arg, lists:join(" ",Invalid)]),
@@ -118,15 +125,3 @@ do_start_link([{Arg,Flag}|T]) ->
     end;
 do_start_link([]) ->
     ignore.
-
-ticktime() ->
-    %% catch, in case the system was started with boot file start_old,
-    %% i.e. running without the application_controller.
-    %% Time is given in seconds. The net_kernel tick time is
-    %% Time/4 milliseconds.
-    case catch application:get_env(net_ticktime) of
-	{ok, Value} when is_integer(Value), Value > 0 ->
-	    [Value * 250]; %% i.e. 1000 / 4 = 250 ms.
-	_ ->
-	    []
-    end.
