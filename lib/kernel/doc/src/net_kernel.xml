@@ -40,10 +40,11 @@
       <c>-name</c> or <c>-sname</c>:</p>
      <pre>
 $ <input>erl -sname foobar</input></pre>
-    <p>It is also possible to call <c>net_kernel:start([foobar])</c>
+    <p>It is also possible to call
+      <seemfa marker="#start/2"><c>net_kernel:start(foobar, #{})</c></seemfa>
       directly from the normal Erlang shell prompt:</p>
     <pre>
-1> <input>net_kernel:start([foobar, shortnames]).</input>
+1> <input>net_kernel:start(foobar, #{name_domain => shortnames}).</input>
 {ok,&lt;0.64.0>}
 (foobar@gringotts)2></pre>
     <p>If the node is started with command-line flag <c>-sname</c>,
@@ -113,8 +114,11 @@ $ <input>erl -sname foobar</input></pre>
       <name name="get_net_ticktime" arity="0" since=""/>
       <fsummary>Get <c>net_ticktime</c>.</fsummary>
       <desc>
-        <p>Gets <c>net_ticktime</c> (see
-          <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>).</p>
+        <p>Returns currently used net tick time in seconds. For more information
+        see the
+        <seeapp marker="kernel_app#net_ticktime"><c>net_ticktime</c></seeapp>
+        <c>kernel(6)</c> parameter.</p>
+
         <p>Defined return values (<c><anno>Res</anno></c>):</p>
         <taglist>
           <tag><c><anno>NetTicktime</anno></c></tag>
@@ -345,28 +349,103 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name since="">start([Name]) -> {ok, pid()} | {error, Reason}</name>
-      <name since="">start([Name, NameType]) -> {ok, pid()} | {error, Reason}</name>
-      <name since="">start([Name, NameType, Ticktime]) -> {ok, pid()} | {error, Reason}</name>
+      <name name="start" arity="2" since="OTP @OTP-17905@"/>
       <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>NameType = shortnames | longnames</v>
-        <v>Reason = {already_started, pid()} | term()</v>
-      </type>
       <desc>
-        <p>Turns a non-distributed node into a distributed node by
-          starting <c>net_kernel</c> and other necessary processes.</p>
-        <p>Notice that the argument is a list with exactly one, two, or
-          three arguments. <c>NameType</c> defaults to <c>longnames</c>
-          and <c>Ticktime</c> to <c>15000</c>.
+        <p>
+          Turns a non-distributed node into a distributed node by
+          starting <c>net_kernel</c> and other necessary processes.
         </p>
+
         <p>
           If <c>Name</c> is set to <em><c>undefined</c></em> the distribution
           will be started to request a dynamic node name from the first node it
           connects to. See <seeguide marker="system/reference_manual:distributed#dyn_node_name">
           Dynamic Node Name</seeguide>.
         </p>
+
+        <p>Currently supported options:</p>
+        <taglist>
+          <tag><c>name_domain => <anno>NameDomain</anno></c></tag>
+          <item><p>
+            Determines the host name part of the node name. If
+            <c><anno>NameDomain</anno></c> equals <c>longnames</c>, fully
+            qualified domain names will be used which also is the default.
+            If <c><anno>NameDomain</anno></c> equals <c>shortnames</c>, only the
+            short name of the host will be used.
+          </p></item>
+          <tag><c>net_ticktime => <anno>NetTickTime</anno></c></tag>
+          <item><p>
+            <i>Net tick time</i> to use in seconds. Defaults to the value of the
+            <seeapp marker="kernel_app#net_ticktime"><c>net_ticktime</c></seeapp>
+            <c>kernel(6)</c> parameter. For more information about <i>net tick
+            time</i>, see the <c>kernel</c> parameter. However, note that if the
+            value of the <c>kernel</c> parameter is invalid, it will silently be
+            replaced by a valid value, but if an invalid
+            <c><anno>NetTickTime</anno></c> value is passed as option value to
+            this function, the call will fail.
+          </p></item>
+          <tag><c>net_tickintensity => <anno>NetTickIntensity</anno></c></tag>
+          <item><p>
+            <i>Net tick intensity</i> to use. Defaults to the value of the
+            <seeapp marker="kernel_app#net_tickintensity"><c>net_tickintensity</c></seeapp>
+            <c>kernel(6)</c> parameter. For more information about <i>net tick
+            intensity</i>, see the <c>kernel</c> parameter. However, note that if
+            the value of the <c>kernel</c> parameter is invalid, it will silently
+            be replaced by a valid value, but if an invalid
+            <c><anno>NetTickIntensity</anno></c> value is passed as option value
+            to this function, the call will fail.
+          </p></item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="start" arity="1" since=""/>
+      <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
+      <desc>
+        <warning><p>
+          <c>start/1</c> is deprecated. Use
+          <seemfa marker="#start/2"><c>start/2</c></seemfa> instead.
+        </p></warning>
+        <p>
+          Turns a non-distributed node into a distributed node by
+          starting <c>net_kernel</c> and other necessary processes.
+        </p>
+        <p>
+          <c><anno>Options</anno></c> list can only be exactly one of
+          the following lists (order is imporant):
+        </p>
+        <taglist>
+          <tag><c>[<anno>Name</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <c>net_kernel:start([<anno>Name</anno>,
+              longnames, 15000])</c>.
+            </p>
+          </item>
+          <tag><c>[<anno>Name</anno>, <anno>NameDomain</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <c>net_kernel:start([<anno>Name</anno>,
+              <anno>NameDomain</anno>, 15000])</c>.
+            </p>
+          </item>
+          <tag><c>[<anno>Name</anno>, <anno>NameDomain</anno>,
+                   <anno>TickTime</anno>]</c></tag>
+          <item>
+            <p>
+              The same as <seemfa marker="#start/2">
+              <c>net_kernel:start(<anno>Name</anno>, #{name_domain =>
+              <anno>NameDomain</anno>, net_ticktime =>
+              ((<anno>TickTime</anno>*4-1) div 1000) + 1,
+              net_tickintensity => 4})</c></seemfa>.
+              Note that <c><anno>TickTime</anno></c> is <i>not</i> the same
+              as net tick time expressed in milliseconds.
+              <c><anno>TickTime</anno></c> is the time between ticks when
+              net tick intensity equals <c>4</c>.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
@@ -377,7 +456,7 @@ $ <input>erl -sname foobar</input></pre>
         <p>Turns a distributed node into a non-distributed node. For
           other nodes in the network, this is the same as the node
           going down. Only possible when the net kernel was started using
-          <seemfa marker="#start/1"><c>start/1</c></seemfa>,
+          <seemfa marker="#start/2"><c>start/2</c></seemfa>,
           otherwise <c>{error, not_allowed}</c> is returned. Returns
           <c>{error, not_found}</c> if the local node is not alive.</p>
       </desc>
