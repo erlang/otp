@@ -213,41 +213,67 @@ api_b_getifaddrs() ->
             ?FAIL(Reason)
     catch
         error : notsup = CReason ->
-            Fun = fun(F) when is_function(F, 0) ->
-                          try F() of
-                              {ok, Info} ->
-                                  ?F("ok: ~p", [Info]);
-                              {error, R1} ->
-                                  ?F("error: ~p", [R1])
-                          catch
-                              C:E ->
-                                  ?F("catched: ~w, ~p", [C, E])
-                          end
-                  end,
+            Fun     = fun(F) when is_function(F, 0) ->
+                              try F()
+                              catch C:E -> {catched, {C, E}}
+                              end
+                      end,
+            Res2Str = fun({ok, Res})         -> ?F("ok: ~p", [Res]);
+                         ({error, Reason})   -> ?F("error: ~p", [Reason]);
+                         ({catched, {C, E}}) -> ?F("catched: ~w, ~p", [C, E])
+                      end,
+            IIRes    = Fun(fun() -> prim_net:get_interface_info(#{}) end),
+            ATRes    = Fun(fun() -> prim_net:get_ip_address_table(#{}) end),
+            IIResStr = Res2Str(IIRes),
+            ATResStr = Res2Str(ATRes),
+            IFERes   = win_getifaddrs_ife(IIRes, ATRes),
             %% Note that the prim_net module is *not* intended to 
             %% be called directly. This is just a temporary thing.
             i("~w => skipping"
               "~n   Interface Info: "
               "~n      ~s"
               "~n   IP Address Table: "
-              "~n      ~s",
-              [CReason,
-               Fun(fun() -> prim_net:get_interface_info(#{}) end),
-               Fun(fun() -> prim_net:get_ip_address_table(#{}) end)]),
+              "~n      ~s"
+              "~n   MIB If Table: "
+              "~n      ~p",
+              [CReason, IIResStr, ATResStr, IFERes]),
             skip(CReason)
     end.
 
-%% merge([], L) ->
-%%     lists:sort(L);
-%% merge([H|T], L) ->
-%%     case lists:member(H, L) of
-%%         true ->
-%%             merge(T, L);
-%%         false ->
-%%             merge(T, [H|L])
-%%     end.
+win_getifaddrs_ife({ok, II}, {ok, AT}) ->
+    IDX1 = [IDX || #{index := IDX} <- II],
+    IDX2 = [IDX || #{index := IDX} <- AT],
+    MergedIDX = merge(IDX1, IDX2),
+    MibIfTable =
+        [try prim_net:get_if_entry(#{index => IDX}) of
+             {ok, Entry} ->
+                 Entry;
+             {error, _} = ERROR ->
+                 {IDX, ERROR}
+         catch
+             %% This is *very* unlikely since we got here because of
+             %% a previous 'notsup'. But just in case...
+             error : notsup = CReason ->
+                 {IDX, CReason};
+             C:E ->
+                 {IDX, {C, E}}
+         end || IDX <- MergedIDX],
+    MibIfTable;
+win_getifaddrs_ife(_, _) ->
+    undefined.
 
+    
+merge([], L) ->
+    lists:sort(L);
+merge([H|T], L) ->
+    case lists:member(H, L) of
+        true ->
+            merge(T, L);
+        false ->
+            merge(T, [H|L])
+    end.
 
+            
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Get name and address info.
