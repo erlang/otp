@@ -480,6 +480,17 @@ flags_to_version(Flags) ->
 %% The connection has been established.
 %% --------------------------------------------------------------
 
+-record(state, {kernel          :: pid(),
+                node            :: node(),
+                tick_intensity  :: 4..1000,
+                socket          :: term(),
+                publish_type    :: 'hidden' | 'normal',
+                handle          :: erlang:dist_handle(),
+                f_tick          :: function(),
+                f_getstat       :: function() | 'undefined',
+                f_setopts       :: function() | 'undefined',
+                f_getopts       :: function() | 'undefined'}).
+
 connection(#hs_data{other_node = Node,
 		    socket = Socket,
 		    f_address = FAddress,
@@ -491,22 +502,23 @@ connection(#hs_data{other_node = Node,
 	ok -> 
 	    {DHandle,NamedMe} = do_setnode(HSData), % Succeeds or exits the process.
 	    Address = FAddress(Socket,Node),
-	    mark_nodeup(HSData,Address,NamedMe),
+	    TickIntensity = mark_nodeup(HSData,Address,NamedMe),
 	    case FPostNodeup(Socket) of
 		ok ->
                     case HSData#hs_data.f_handshake_complete of
                         undefined -> ok;
                         HsComplete -> HsComplete(Socket, Node, DHandle)
                     end,
-		    con_loop({HSData#hs_data.kernel_pid,
-			      Node,
-			      Socket,
-			      PType,
-                              DHandle,
-			      HSData#hs_data.mf_tick,
-			      HSData#hs_data.mf_getstat,
-			      HSData#hs_data.mf_setopts,
-			      HSData#hs_data.mf_getopts},
+		    con_loop(#state{kernel = HSData#hs_data.kernel_pid,
+                                    node = Node,
+                                    socket = Socket,
+                                    tick_intensity = TickIntensity,
+                                    publish_type = PType,
+                                    handle = DHandle,
+                                    f_tick = HSData#hs_data.mf_tick,
+                                    f_getstat = HSData#hs_data.mf_getstat,
+                                    f_setopts = HSData#hs_data.mf_setopts,
+                                    f_getopts = HSData#hs_data.mf_getopts},
 			     #tick{});
 		_ ->
 		    ?shutdown2(Node, connection_setup_failed)
@@ -583,8 +595,8 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    Address, NamedMe) ->
     Kernel ! {self(), {nodeup,Node,Address,publish_type(Flags),NamedMe}},
     receive
-	{Kernel, inserted} ->
-	    ok;
+	{Kernel, inserted, TickIntensity} ->
+	    TickIntensity;
 	{Kernel, bad_request} ->
 	    TypeT = case OtherStarted of
 		       true ->
@@ -603,8 +615,10 @@ getstat(DHandle, _Socket, undefined) ->
 getstat(_DHandle, Socket, MFGetstat) ->
     MFGetstat(Socket).
 
-con_loop({Kernel, Node, Socket, Type, DHandle, MFTick, MFGetstat,
-          MFSetOpts, MFGetOpts}=ConData,
+con_loop(#state{kernel = Kernel, node = Node,
+                socket = Socket, handle = DHandle,
+                f_getstat = MFGetstat, f_setopts = MFSetOpts,
+                f_getopts = MFGetOpts} = ConData,
 	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
@@ -614,14 +628,13 @@ con_loop({Kernel, Node, Socket, Type, DHandle, MFTick, MFGetstat,
 	{Kernel, aux_tick} ->
 	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, _, _, PendWrite} ->
-		    send_aux_tick(Type, Socket, PendWrite, MFTick);
+		    send_aux_tick(ConData, PendWrite);
 		_ ->
 		    ignore_it
 	    end,
 	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
-	    case send_tick(DHandle, Socket, Tick, Type, 
-			   MFTick, MFGetstat) of
+	    case send_tick(ConData, Tick) of
 		{ok, NewTick} ->
 		    con_loop(ConData, NewTick);
 		{error, not_responding} ->
@@ -1193,13 +1206,16 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 %% A HIDDEN node is always ticked if we haven't read anything
 %% as a (primitive) hidden node only ticks when it receives a TICK !!
 	
-send_tick(DHandle, Socket, Tick, Type, MFTick, MFGetstat) ->
+send_tick(#state{handle = DHandle, socket = Socket,
+                 tick_intensity = TickIntensity,
+                 publish_type = Type, f_tick = MFTick,
+                 f_getstat = MFGetstat}, Tick) ->
     #tick{tick = T0,
 	  read = Read,
 	  write = Write,
 	  ticked = Ticked0} = Tick,
     T = T0 + 1,
-    T1 = T rem 4,
+    T1 = T rem TickIntensity,
     case getstat(DHandle, Socket, MFGetstat) of
 	{ok, Read, _, _} when Ticked0 =:= T ->
 	    {error, not_responding};
@@ -1237,9 +1253,10 @@ need_to_tick(hidden, 0, _, _) ->  % nothing read from hidden
 need_to_tick(_, _, _, _) ->
     false.
 
-send_aux_tick(normal, _, Pend, _) when Pend /= false, Pend /= 0 ->
+send_aux_tick(#state{publish_type = normal}, Pend) when Pend /= false,
+                                                        Pend /= 0 ->
     ok; %% Dont send tick if pending write.
-send_aux_tick(_Type, Socket, _Pend, MFTick) ->
+send_aux_tick(#state{socket = Socket, f_tick = MFTick}, _Pend) ->
     MFTick(Socket).
 
 %% ------------------------------------------------------------

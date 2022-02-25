@@ -345,32 +345,67 @@
           do, however, behave as described above.
         </p>
       </item>
-      <tag><c>net_ticktime = TickTime</c></tag>
+      <tag><marker id="net_tickintensity"/><c>net_tickintensity = NetTickIntensity</c></tag>
       <item>
-        <marker id="net_ticktime"></marker>
-        <p>Specifies the <c>net_kernel</c> tick time in seconds. This is the
+        <p><i>Net tick intensity</i> specifies how many ticks to send during a
+        <seeapp marker="#net_ticktime">net tick time</seeapp> period when
+        no other data is sent over a connection to another node. This also
+        determines how often to check for data from the other node. The
+        higher net tick intensity, the closer to the chosen net tick time period
+        the node will detect an unresponsive node. The net tick intensity
+        defaults to <c>4</c>. The value of <c>NetTickIntensity</c> should be
+        an integer in the range <c>4..1000</c>. If the <c>NetTickIntensity</c>
+        is not an integer or an integer less than <c>4</c>, <c>4</c> will
+        silently be used. If <c>NetTickIntensity</c> is an integer larger than
+        <c>1000</c>, <c>1000</c> will silently be used.
+        </p>
+        <note>
+          <p>Note that all communicating nodes are expected to use the same
+          <i>net tick intensity</i> as well as the same <i>net tick time</i>.</p>
+        </note>
+        <warning>
+          <p>Be careful not to set a too high net tick intensity, since you
+          can overwhelm the node with work if it is set too high.</p>
+        </warning>
+      </item>
+      <tag><marker id="net_ticktime"/><c>net_ticktime = NetTickTime</c></tag>
+      <item>
+        <p>Specifies the <i>net tick time</i> in seconds. This is the
 	approximate time a connected node may be unresponsive until it is
 	considered down and thereby disconnected.</p>
-	<p>Once every <c>TickTime/4</c> seconds, each connected node is ticked
-	if nothing has been sent to it during that last <c>TickTime/4</c>
-	interval. A tick is a small package sent on the connection. A connected
-	node is considered to be down if no ticks or payload packages have been
-	received during the last four <c>TickTime/4</c> intervals. This ensures
-	that nodes that are not responding, for reasons such as hardware errors,
-	are considered to be down.</p>
-        <p>As the availability is only checked every <c>TickTime/4</c> seconds,
+        <p>Net tick time together with <seeapp marker="#net_tickintensity">net
+        tick intensity</seeapp> determines an interval <c>TickInterval =
+        NetTickTime/NetTickIntensity</c>. Once every <c>TickInterval</c> seconds,
+        each connected node is ticked if nothing has been sent to it during that
+        last <c>TickInterval</c> seconds. A tick is a small package sent on the
+        connection.
+        A connected node is considered to be down if no ticks or payload packages
+        have been received during the last <c>NetTickIntensity</c> number of
+        <c>TickInterval</c> seconds intervals. This ensures that nodes that
+        are not responding, for reasons such as hardware errors, are considered
+        to be down.</p>
+        <p>As the availability is only checked every <c>TickInterval</c> seconds,
 	the actual time <c>T</c> a node have been unresponsive when
 	detected may vary between <c>MinT</c> and <c>MaxT</c>,
 	where:</p>
         <code type="none">
-MinT = TickTime - TickTime / 4
-MaxT = TickTime + TickTime / 4</code>
-        <p><c>TickTime</c> defaults to <c>60</c> seconds. Thus,
+MinT = NetTickTime - NetTickTime / NetTickIntensity
+MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
+        <p><c>NetTickTime</c> defaults to <c>60</c> seconds and
+        <c>NetTickIntensity</c> defaults to <c>4</c>. Thus,
         <c><![CDATA[45 < T < 75]]></c> seconds.</p>
+        <note>
         <p>Notice that <em>all</em> communicating nodes are to have the
-	<em>same</em> <c>TickTime</c> value specified, as it determines both the
-	frequency of outgoing ticks and the expected frequency of incominging
-	ticks.</p>
+	<em>same</em> <c>NetTickTime</c> and <c>NetTickIntensity</c> values
+        specified, as it determines both the frequency of outgoing ticks and
+        the expected frequency of incominging ticks.</p>
+        </note>
+        <p><c>NetTickTime</c> needs to be a multiple of <c>NetTickIntensity</c>.
+        If the configured values are not, <c>NetTickTime</c> will internally be
+        rounded up to the nearest millisecond.
+        <seemfa marker="net_kernel#get_net_ticktime/0"><c>net_kernel:get_net_ticktime()</c></seemfa>
+        will, however, report net tick time truncated to the nearest second.
+        </p>
         <p>Normally, a terminating node is detected immediately by the transport
 	protocol (like TCP/IP).</p>
       </item>

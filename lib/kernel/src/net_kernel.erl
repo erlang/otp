@@ -59,12 +59,13 @@
 	 monitor_nodes/2,
 	 setopts/2,
 	 getopts/2,
+	 start/2,
 	 start/1,
 	 stop/0]).
 
 %% Exports for internal use.
 
--export([start_link/3,
+-export([start_link/1,
 	 kernel_apply/3,
 	 longnames/0,
          nodename/0,
@@ -152,14 +153,18 @@
 	  node %% remote node name
 	 }).
 
--record(tick, {ticker,        %% ticker                     : pid()
-	       time           %% Ticktime in milli seconds  : integer()
-	      }).
+-record(tick,
+        {ticker     :: pid(),                 %% ticker
+         time       :: pos_integer(),         %% net tick time (ms)
+         intensity  :: 4..1000                %% ticks until timout
+        }).
 
--record(tick_change, {ticker, %% Ticker                     : pid()
-		      time,   %% Ticktime in milli seconds  : integer()
-		      how     %% What type of change        : atom()
-		     }).
+-record(tick_change,
+        {ticker     :: pid(),                 %% ticker
+         time       :: pos_integer(),         %% net tick time (ms)
+         intensity  :: 4..1000,               %% ticks until timout
+         how        :: 'longer' | 'shorter'   %% What type of change
+        }).
 
 %% Default connection setup timeout in milliseconds.
 %% This timeout is set for every distributed action during
@@ -248,7 +253,7 @@ verbose(Level) when is_integer(Level) ->
            | {ongoing_change_to, NewNetTicktime},
       NewNetTicktime :: pos_integer().
 set_net_ticktime(T, TP) when is_integer(T), T > 0, is_integer(TP), TP >= 0 ->
-    ticktime_res(request({new_ticktime, T*250, TP*1000})).
+    ticktime_res(request({new_ticktime, T*1000, TP*1000})).
 
 -spec set_net_ticktime(NetTicktime) -> Res when
       NetTicktime :: pos_integer(),
@@ -293,8 +298,8 @@ monitor_nodes(Flag, Opts) ->
     end.
 
 %% ...
-ticktime_res({A, I}) when is_atom(A), is_integer(I) -> {A, I div 250};
-ticktime_res(I)      when is_integer(I)          -> I div 250;
+ticktime_res({A, I}) when is_atom(A), is_integer(I) -> {A, I div 1000};
+ticktime_res(I)      when is_integer(I)          -> I div 1000;
 ticktime_res(A)      when is_atom(A)             -> A.
 
 %% Called though BIF's
@@ -376,21 +381,69 @@ retry_request_maybe(Req) ->
 %% This function is used to dynamically start the
 %% distribution.
 
-start(Args) ->
-    erl_distribution:start(Args).
+-spec start(Name, Options) -> {ok, pid()} | {error, Reason} when
+      Options :: #{name_domain => NameDomain,
+                   net_ticktime => NetTickTime,
+                   net_tickintensity => NetTickIntensity},
+      Name :: atom(),
+      NameDomain :: shortnames | longnames,
+      NetTickTime :: pos_integer(),
+      NetTickIntensity :: 4..1000,
+      Reason :: {already_started, pid()} | term().
+
+start(Name, Options) when is_atom(Name), is_map(Options) ->
+    try
+        maps:foreach(fun (name_domain, Val) when Val == shortnames;
+                                                 Val == longnames ->
+                             ok;
+                         (net_ticktime, Val) when is_integer(Val),
+                                                  Val > 0 ->
+                             ok;
+                         (net_tickintensity, Val) when is_integer(Val),
+                                                       4 =< Val,
+                                                       Val =< 1000 ->
+                             ok;
+                         (Opt, Val) ->
+                             error({invalid_option, Opt, Val})
+                     end, Options)
+    catch error:Reason ->
+            error(Reason, [Name, Options])
+    end,
+    erl_distribution:start(Options#{name => Name});
+start(Name, Options) when is_map(Options) ->
+    error(invalid_name, [Name, Options]);
+start(Name, Options) ->
+    error(invalid_options, [Name, Options]).
+
+-spec start(Options) -> {ok, pid()} | {error, Reason} when
+      Options :: nonempty_list(Name | NameDomain | TickTime),
+      Name :: atom(),
+      NameDomain :: shortnames | longnames,
+      TickTime :: pos_integer(),
+      Reason :: {already_started, pid()} | term().
+
+start([Name]) when is_atom(Name) ->
+    start([Name, longnames, 15000]);
+start([Name, NameDomain]) when is_atom(Name),
+                               is_atom(NameDomain) ->
+    start([Name, NameDomain, 15000]);
+start([Name, NameDomain, TickTime]) when is_atom(Name),
+                                         is_atom(NameDomain),
+                                         is_integer(TickTime),
+                                         TickTime > 0 ->
+    %% NetTickTime is in seconds. TickTime is time in milliseconds
+    %% between ticks when net tick intensity is 4. We round upwards...
+    NetTickTime = ((TickTime*4-1) div 1000)+1,
+    start(Name, #{name_domain => NameDomain,
+                  net_ticktime => NetTickTime,
+                  net_tickintensity => 4}).
 
 %% This is the main startup routine for net_kernel (only for internal
-%% use by the Kernel application.
+%% use) by the Kernel application.
 
-start_link([Name], CleanHalt, NetSup) ->
-    start_link([Name, longnames], CleanHalt, NetSup);
-start_link([Name, LongOrShortNames], CleanHalt, NetSup) ->
-    start_link([Name, LongOrShortNames, 15000], CleanHalt, NetSup);
-
-start_link([Name, LongOrShortNames, Ticktime], CleanHalt, NetSup) ->
-    Args = {Name, LongOrShortNames, Ticktime, CleanHalt, NetSup},
+start_link(StartOpts) ->
     case gen_server:start_link({local, net_kernel}, ?MODULE,
-			       Args, []) of
+			       make_init_opts(StartOpts), []) of
 	{ok, Pid} ->
 	    {ok, Pid};
 	{error, {already_started, Pid}} ->
@@ -399,16 +452,70 @@ start_link([Name, LongOrShortNames, Ticktime], CleanHalt, NetSup) ->
 	    exit(nodistribution)
     end.
 
-init({Name, LongOrShortNames, TickT, CleanHalt, NetSup}) ->
+make_init_opts(Opts) ->
+    %% Net tick time given in seconds, but kept in milliseconds...
+    NTT1 = case maps:find(net_ticktime, Opts) of
+               {ok, NTT0} ->
+                   NTT0*1000;
+               error ->
+                   case application:get_env(kernel, net_ticktime) of
+                       {ok, NTT0} when is_integer(NTT0), NTT0 < 1 ->
+                           1000;
+                       {ok, NTT0} when is_integer(NTT0) ->
+                           NTT0*1000;
+                       _ ->
+                           60000
+                   end
+           end,
+
+    NTI = case maps:find(net_tickintensity, Opts) of
+              {ok, NTI0} ->
+                  NTI0;
+              error ->
+                  case application:get_env(kernel, net_tickintensity) of
+                      {ok, NTI0} when is_integer(NTI0), NTI0 < 4 ->
+                          4;
+                      {ok, NTI0} when is_integer(NTI0), NTI0 > 1000 ->
+                          1000;
+                      {ok, NTI0} when is_integer(NTI0) ->
+                          NTI0;
+                      _ ->
+                          4
+                  end
+          end,
+
+    %% Net tick time needs to be a multiple of net tick intensity;
+    %% round net tick time upwards if not...
+    NTT = if NTT1 rem NTI =:= 0 -> NTT1;
+             true -> ((NTT1 div NTI) + 1) * NTI
+          end,
+    
+    ND = case maps:find(name_domain, Opts) of
+             {ok, ND0} ->
+                 ND0;
+             error ->
+                 longnames
+         end,
+
+    Opts#{net_ticktime => NTT, net_tickintensity => NTI, name_domain => ND}.
+
+init(#{name := Name,
+       name_domain := NameDomain,
+       net_ticktime := NetTicktime,
+       net_tickintensity := NetTickIntensity,
+       clean_halt := CleanHalt,
+       supervisor := Supervisor}) ->
     process_flag(trap_exit,true),
-    case init_node(Name, LongOrShortNames, CleanHalt) of
+    case init_node(Name, NameDomain, CleanHalt) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
-	    Ticktime = to_integer(TickT),
-	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
+            TickInterval = NetTicktime div NetTickIntensity,
+	    Ticker = spawn_link(net_kernel, ticker, [self(), TickInterval]),
 	    {ok, #state{node = Node,
-			type = LongOrShortNames,
-			tick = #tick{ticker = Ticker, time = Ticktime},
+			type = NameDomain,
+			tick = #tick{ticker = Ticker,
+                                     time = NetTicktime,
+                                     intensity = NetTickIntensity},
 			connecttime = connecttime(),
 			connections =
 			ets:new(sys_dist,[named_table,
@@ -417,7 +524,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt, NetSup}) ->
 			listen = Listeners,
 			allowed = [],
 			verbose = 0,
-                        supervisor = NetSup
+                        supervisor = Supervisor
 		       }};
 	Error ->
 	    {stop, Error}
@@ -650,8 +757,7 @@ handle_call({verbose, Level}, From, State) ->
 %%
 
 %% The tick field of the state contains either a #tick{} or a
-%% #tick_change{} record if the ticker process has been upgraded;
-%% otherwise, an integer or an atom.
+%% #tick_change{} record.
 
 handle_call(ticktime, From, #state{tick = #tick{time = T}} = State) ->
     async_reply({reply, T, State}, From);
@@ -663,22 +769,46 @@ handle_call({new_ticktime,T,_TP}, From, #state{tick = #tick{time = T}} = State) 
     async_reply({reply, unchanged, State}, From);
 
 handle_call({new_ticktime,T,TP}, From, #state{tick = #tick{ticker = Tckr,
-							time = OT}} = State) ->
+                                                           time = OT,
+                                                           intensity = I}} = State) ->
     ?tckr_dbg(initiating_tick_change),
-    start_aux_ticker(T, OT, TP),
-    How = case T > OT of
-	      true ->
-		  ?tckr_dbg(longer_ticktime),
-		  Tckr ! {new_ticktime,T},
-		  longer;
-	      false ->
-		  ?tckr_dbg(shorter_ticktime),
-		  shorter
-	  end,
-    async_reply({reply, change_initiated,
-                 State#state{tick = #tick_change{ticker = Tckr,
-                                                 time = T,
-                                                 how = How}}}, From);
+    %% We need to preserve tick intensity and net tick time needs to be a
+    %% multiple of tick intensity...
+    {NT, NIntrvl} = case T < I of
+                        true ->
+                            %% Max 1 tick per millisecond implies that
+                            %% minimum net tick time equals intensity...
+                            {I, 1};
+                        _ ->
+                            NIntrvl0 = T div I,
+                            case T rem I of
+                                0 ->
+                                    {T, NIntrvl0};
+                                _ ->
+                                    %% Round net tick time upwards...
+                                    {(NIntrvl0+1)*I, NIntrvl0+1}
+                            end
+                    end,
+    case NT == OT of
+        true ->
+                async_reply({reply, unchanged, State}, From);
+        false ->
+            start_aux_ticker(NIntrvl, OT div I, TP),
+            How = case NT > OT of
+                      true ->
+                          ?tckr_dbg(longer_ticktime),
+                          Tckr ! {new_ticktime, NIntrvl},
+                          longer;
+                      false ->
+                          ?tckr_dbg(shorter_ticktime),
+                          shorter
+                  end,
+            async_reply({reply, change_initiated,
+                         State#state{tick = #tick_change{ticker = Tckr,
+                                                         time = NT,
+                                                         intensity = I,
+                                                         how = How}}}, From)
+    end;
 
 handle_call({new_ticktime,_T,_TP},
 	    From,
@@ -851,7 +981,8 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
 %%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}}, State) ->
+handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}},
+            #state{tick = Tick} = State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when (Conn#connection.state =:= pending)
                     andalso (Conn#connection.owner =:= SetupPid)
@@ -861,7 +992,11 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}}, State) ->
                                                  waiting = [],
                                                  type = Type,
                                                  named_me = NamedMe}),
-            SetupPid ! {self(), inserted},
+            TickIntensity = case Tick of
+                              #tick{intensity = TI} -> TI;
+                              #tick_change{intensity = TI} ->  TI
+                         end,
+            SetupPid ! {self(), inserted, TickIntensity},
             reply_waiting(Node,Conn#connection.waiting, true),
             State1 = case NamedMe of
                          true -> State#state{node = node()};
@@ -994,13 +1129,20 @@ handle_info(aux_tick, State) ->
 handle_info(transition_period_end,
 	    #state{tick = #tick_change{ticker = Tckr,
 				       time = T,
+                                       intensity = I,
 				       how = How}} = State) ->
     ?tckr_dbg(transition_period_ended),
     case How of
-	shorter -> Tckr ! {new_ticktime, T}, done;
-	_       -> done
+	shorter ->
+            Interval = T div I,
+            Tckr ! {new_ticktime, Interval},
+            ok;
+	_ ->
+            ok
     end,
-    {noreply,State#state{tick = #tick{ticker = Tckr, time = T}}};
+    {noreply,State#state{tick = #tick{ticker = Tckr,
+                                      time = T,
+                                      intensity = I}}};
 
 handle_info(X, State) ->
     error_msg("Net kernel got ~tw~n",[X]),
@@ -1424,12 +1566,6 @@ ticker(Kernel, Tick) when is_integer(Tick) ->
     process_flag(priority, max),
     ?tckr_dbg(ticker_started),
     ticker_loop(Kernel, Tick).
-
-to_integer(T) when is_integer(T) -> T;
-to_integer(T) when is_atom(T) ->
-    list_to_integer(atom_to_list(T));
-to_integer(T) when is_list(T) ->
-    list_to_integer(T).
 
 ticker_loop(Kernel, Tick) ->
     receive

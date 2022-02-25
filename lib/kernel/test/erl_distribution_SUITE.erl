@@ -27,7 +27,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([tick/1, tick_change/1,
+-export([tick/1, tick_intensity/1, tick_change/1,
          connect_node/1,
          nodenames/1, hostnames/1,
          illegal_nodenames/1, hidden_node/1,
@@ -51,7 +51,7 @@
          dist_ctrl_proc_smoke/1,
          dist_ctrl_proc_reject/1,
          erl_uds_dist_smoke_test/1,
-         erl_1424/1, differing_cookies/1,
+         erl_1424/1, net_kernel_start/1, differing_cookies/1,
          cmdline_setcookie_2/1, connection_cookie/1,
          dyn_differing_cookies/1,
          xdg_cookie/1]).
@@ -59,7 +59,7 @@
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
          get_net_ticker_fullsweep_option/1,
-	 tick_cli_test/1, tick_cli_test1/1,
+	 tick_cli_test/3, tick_cli_test1/3,
 	 tick_serv_test/2, tick_serv_test1/1,
 	 run_remote_test/1,
          dyn_node_name_do/2,
@@ -67,6 +67,8 @@
 	 setopts_do/2,
 	 keep_conn/1, time_ping/1,
          ddc_remote_run/2]).
+
+-export([net_kernel_start_do_test/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -94,8 +96,8 @@ suite() ->
 all() -> 
     [dist_ctrl_proc_smoke,
      dist_ctrl_proc_reject,
-     tick, tick_change, nodenames, hostnames, illegal_nodenames,
-     connect_node,
+     tick, tick_intensity, tick_change, nodenames, hostnames,
+     illegal_nodenames, connect_node,
      dyn_node_name,
      epmd_reconnect,
      hidden_node, setopts,
@@ -103,7 +105,7 @@ all() ->
      net_ticker_spawn_options,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
-     erl_1424,
+     erl_1424, net_kernel_start,
      {group, differing_cookies}].
 
 groups() -> 
@@ -163,25 +165,44 @@ connect_node(Config) when is_list(Config) ->
 tick(Config) when is_list(Config) ->
     run_dist_configs(fun tick/2, Config).
 
-tick(DCfg, _Config) ->
+tick(DCfg, Config) ->
+    tick_test(DCfg, Config, false).
+
+tick_intensity(Config) when is_list(Config) ->
+    run_dist_configs(fun tick_intensity/2, Config).
+
+tick_intensity(DCfg, Config) ->
+    tick_test(DCfg, Config, true).
+
+tick_test(DCfg, _Config, CheckIntensityArg) ->
     %%
     %% This test case use disabled "connect all" so that
     %% global wont interfere...
     %%
 
-    %% First check that the normal case is OK!
     [Name1, Name2] = get_nodenames(2, dist_test),
-    {ok, Node} = start_node(DCfg, Name1),
-    rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [node()]),
 
-    erlang:monitor_node(Node, true),
-    receive
-	{nodedown, Node} ->
-	    ct:fail("nodedown from other node")
-    after 30000 ->
-	    erlang:monitor_node(Node, false),
-	    stop_node(Node)
+    {ok, Node} = start_node(DCfg, Name1),
+
+    case CheckIntensityArg of
+        true ->
+            %% Not for intensity test...
+            ok;
+        false ->
+            %% First check that the normal case is OK!
+            rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [node(), 8000, 16000]),
+
+            erlang:monitor_node(Node, true),
+            receive
+                {nodedown, Node} ->
+                    ct:fail("nodedown from other node")
+            after 30000 ->
+                    erlang:monitor_node(Node, false)
+            end,
+            ok
     end,
+
+    stop_node(Node),
 
     %% Now, set the net_ticktime for the other node to 12 secs.
     %% After the sleep(2sec) and cast the other node shall destroy
@@ -199,9 +220,20 @@ tick(DCfg, _Config) ->
 				"-kernel net_ticktime 100 -connect_all false"),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
+    %% We set min/max half a second lower/higher than expected since it
+    %% takes time for termination dist controller, delivery of messages
+    %% scheduling of process receiving nodedown, etc...
+    {IArg, Min, Max} = case CheckIntensityArg of
+                           false ->
+                               {"", 7500, 16500};
+                           true ->
+                               {" -kernel net_tickintensity 24", 11000, 13000}
+                       end,
+    
     {ok, Node} = start_node(DCfg, Name1,
-			 "-kernel net_ticktime 12 -connect_all false"),
-    rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [ServNode]),
+                            "-kernel net_ticktime 12 -connect_all false" ++ IArg),
+
+    rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [ServNode, Min, Max]),
 
     spawn_link(erl_distribution_SUITE, keep_conn, [Node]),
 
@@ -214,6 +246,7 @@ tick(DCfg, _Config) ->
 	{tick_test, T} when is_integer(T) ->
 	    stop_node(ServNode),
 	    stop_node(Node),
+            io:format("Result: ~p~n", [T]),
 	    T;
 	{tick_test, Error} ->
 	    stop_node(ServNode),
@@ -436,10 +469,10 @@ tick_serv_test1(Node) ->
 	    end
     end.
 
-tick_cli_test(Node) ->
-    spawn(erl_distribution_SUITE, tick_cli_test1, [Node]).
+tick_cli_test(Node, Min, Max) ->
+    spawn(erl_distribution_SUITE, tick_cli_test1, [Node, Min, Max]).
 
-tick_cli_test1(Node) ->
+tick_cli_test1(Node, Min, Max) ->
     register(tick_test, self()),
     erlang:monitor_node(Node, true),
     sleep(2),
@@ -453,11 +486,14 @@ tick_cli_test1(Node) ->
 		    Diff = erlang:convert_time_unit(T2-T1, native,
 						    millisecond),
 		    case Diff of
-			T when T > 8000, T < 16000 ->
+			T when Min =< T, T =< Max ->
 			    From ! {tick_test, T};
 			T ->
 			    From ! {tick_test,
-				    {"T not in interval 8000 < T < 16000",
+				    {"T not in interval "
+                                     ++ integer_to_list(Min)
+                                     ++ " =< T =< "
+                                     ++ integer_to_list(Max),
 				     T}}
 		    end
 	    end
@@ -2094,6 +2130,89 @@ start_uds_node(NodeName, LPort) ->
 erl_1424(Config) when is_list(Config) ->
     {error, Reason} = erl_epmd:names("."),
     {comment, lists:flatten(io_lib:format("Reason: ~p", [Reason]))}.
+
+net_kernel_start(Config) when is_list(Config) ->
+    MyName = net_kernel_start_tester,
+    register(MyName, self()),
+    net_kernel_start_test(MyName, 120, 8),
+    net_kernel_start_test(MyName, undefined, undefined).
+
+net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
+    TestNameStr = "net_kernel_start_test_node-"
+        ++ integer_to_list(erlang:system_time(seconds))
+        ++ "-" ++ integer_to_list(erlang:unique_integer([monotonic,positive])),
+    TestNode = list_to_atom(TestNameStr ++ "@" ++ atom_to_list(gethostname())),
+    CmdLine = net_kernel_start_cmdline(MyName, list_to_atom(TestNameStr),
+                                       NetTickTime, NetTickIntesity),
+    io:format("Starting test node ~p: ~s~n", [TestNode, CmdLine]),
+    case open_port({spawn, CmdLine}, []) of
+	Port when is_port(Port) ->
+            receive
+                {i_am_alive, Pid, Node, NTT} = Msg ->
+                    io:format("Response from ~p: ~p~n", [Node, Msg]),
+                    rpc:cast(Node, erlang, halt, []),
+                    catch erlang:port_close(Port),
+                    TestNode = node(Pid),
+                    TestNode = Node,
+                    case NetTickTime == undefined of
+                        true ->
+                            {ok, DefNTT} = application:get_env(kernel, net_ticktime),
+                            DefNTT = NTT;
+                        false ->
+                            NetTickTime = NTT
+                    end
+            end,
+            ok;
+	Error ->
+	    error({open_port_failed, TestNode, Error})
+    end.
+
+net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok, [[Prg]]} -> Prg;
+	       _ -> error(missing_progname)
+	   end,
+    NameDomain = case net_kernel:longnames() of
+                     false -> "shortnames";
+                     true -> "longnames"
+                 end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(Name),
+    Prog ++ " -noinput -noshell -detached -pa " ++ Pa
+	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
+	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+	++ " -run " ++ atom_to_list(?MODULE) ++ " net_kernel_start_do_test "
+	++ atom_to_list(TestName) ++ " " ++ atom_to_list(node()) ++ " "
+        ++ NameStr ++ " " ++ NameDomain
+        ++ case NetTickTime == undefined of
+               true ->
+                   "";
+               false ->
+                   " " ++ integer_to_list(NetTickTime) ++
+                       " " ++ integer_to_list(NetTickIntensity)
+           end.
+
+net_kernel_start_do_test([TestName, TestNode, Name, NameDomain]) ->
+    net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
+                             #{name_domain => list_to_atom(NameDomain)});
+
+net_kernel_start_do_test([TestName, TestNode, Name, NameDomain, NetTickTime, NetTickIntensity]) ->
+    net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
+                             #{net_ticktime => list_to_integer(NetTickTime),
+                               name_domain => list_to_atom(NameDomain),
+                               net_tickintensity => list_to_integer(NetTickIntensity)}).
+
+net_kernel_start_do_test(TestName, TestNode, Name, Options) ->
+    case net_kernel:start(Name, Options) of
+        {ok, _Pid} ->
+            Tester = {list_to_atom(TestName), list_to_atom(TestNode)},
+            Tester ! {i_am_alive, self(), node(), net_kernel:get_net_ticktime()},
+            receive after 60000 -> ok end,
+            erlang:halt();
+        Error ->
+            erlang:halt(lists:flatten(io_lib:format("~p", [Error])))
+    end.
 
 differing_cookies(Config) when is_list(Config) ->
     test_server:timetrap({minutes, 1}),
