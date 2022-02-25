@@ -2325,7 +2325,7 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
     %% It is not safe to move get_tuple_element instructions to blocks
     %% that begin with certain instructions. It is also unsafe to move
     %% the instructions into any part of a receive.
-    Unsuitable = unsuitable(Linear, Blocks0),
+    Unsuitable = unsuitable(Linear, Blocks0, Preds),
 
     %% Calculate new positions for get_tuple_element instructions. The new
     %% position is a block that dominates all uses of the variable.
@@ -2538,12 +2538,11 @@ gc_update_successors(Blk, GC, WillGC) ->
                   end
           end, WillGC, beam_ssa:successors(Blk)).
 
-%% unsuitable(Linear, Blocks) -> Unsuitable.
-%%  Return an ordset of block labels for the blocks that are not
+%% unsuitable(Linear, Blocks, Predecessors) -> Unsuitable.
+%%  Return an gbset of block labels for the blocks that are not
 %%  suitable for sinking of get_tuple_element instructions.
 
-unsuitable(Linear, Blocks) ->
-    Predecessors = beam_ssa:predecessors(Blocks),
+unsuitable(Linear, Blocks, Predecessors) ->
     Unsuitable0 = unsuitable_1(Linear),
     Unsuitable1 = unsuitable_recv(Linear, Blocks, Predecessors),
     gb_sets:from_list(Unsuitable0 ++ Unsuitable1).
