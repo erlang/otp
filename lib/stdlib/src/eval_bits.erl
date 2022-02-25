@@ -64,13 +64,13 @@ expr_grp(FS, Bs0, EvalFun, ErrorFun, Acc) ->
     %% Separate the evaluation of values, sizes, and TLS:s from the
     %% creation of the binary in order to mimic compiled code when it
     %% comes to loops and failures.
-    {ListOfEvalField,Bs1} = expr_grp1(FS, Bs0, EvalFun, ErrorFun, []),
+    {ListOfEvalField,Bs1} = expr_grp1(FS, Bs0, EvalFun, ErrorFun, [], 1),
     {value,create_binary(ListOfEvalField, Acc),Bs1}.
 
-expr_grp1([Field | FS], Bs0, EvalFun, ErrorFun, ListOfEvalField) ->
-    {EvalField,Bs} = eval_field(Field, Bs0, EvalFun, ErrorFun),
-    expr_grp1(FS, Bs, EvalFun, ErrorFun, [EvalField|ListOfEvalField]);
-expr_grp1([], Bs, _EvalFun, _ErrorFun, ListOfFieldData) ->
+expr_grp1([Field | FS], Bs0, EvalFun, ErrorFun, ListOfEvalField, Pos) ->
+    {EvalField,Bs} = eval_field(Field, Bs0, EvalFun, ErrorFun, Pos),
+    expr_grp1(FS, Bs, EvalFun, ErrorFun, [EvalField|ListOfEvalField], Pos + 1);
+expr_grp1([], Bs, _EvalFun, _ErrorFun, ListOfFieldData, _Pos) ->
     {lists:reverse(ListOfFieldData),Bs}.
 
 create_binary([EvalField|ListOfEvalField], Acc) ->
@@ -79,44 +79,54 @@ create_binary([EvalField|ListOfEvalField], Acc) ->
 create_binary([], Acc) ->
     Acc.
 
-eval_field({bin_element, _, {string, _, S}, {integer,_,8}, [integer,{unit,1},unsigned,big]}, Bs0, _Fun, _ErrorFun) ->
+eval_field({bin_element, _, {string, _, S}, {integer,_,8}, [integer,{unit,1},unsigned,big]}, Bs0, _Fun, _ErrorFun, _Pos) ->
     Latin1 = [C band 16#FF || C <- S],
     {fun() -> list_to_binary(Latin1) end,Bs0};
-eval_field({bin_element, _, {string, _, S}, default, default}, Bs0, _Fun, _ErrorFun) ->
+eval_field({bin_element, _, {string, _, S}, default, default}, Bs0, _Fun, _ErrorFun, _Pos) ->
     Latin1 = [C band 16#FF || C <- S],
     {fun() ->list_to_binary(Latin1) end,Bs0};
-eval_field({bin_element, Anno, {string, _, S}, Size0, Options0}, Bs0, Fun, ErrorFun) ->
+eval_field({bin_element, Anno, {string, _, S}, Size0, Options0}, Bs0, Fun, ErrorFun, Pos) ->
     {Size1,[Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Anno, Size0, Options0, ErrorFun),
     {value,Size,Bs1} = Fun(Size1, Bs0),
     {fun() ->
              Res = << <<(eval_exp_field1(Anno, C, Size, Unit,
-                                         Type, Endian, Sign, ErrorFun))/bitstring>> ||
+                                         Type, Endian, Sign, ErrorFun, Pos))/bitstring>> ||
                        C <- S >>,
              case S of
                  "" -> % find errors also when the string is empty
-                     _ = eval_exp_field1(Anno, 0, Size, Unit, Type, Endian, Sign, ErrorFun),
+                     _ = eval_exp_field1(Anno, 0, Size, Unit, Type, Endian, Sign, ErrorFun, Pos),
                      ok;
                  _ ->
                      ok
              end,
              Res
      end,Bs1};
-eval_field({bin_element,Anno,E,Size0,Options0}, Bs0, Fun, ErrorFun) ->
+eval_field({bin_element,Anno,E,Size0,Options0}, Bs0, Fun, ErrorFun, Pos) ->
     {value,V,Bs1} = Fun(E, Bs0),
     {Size1,[Type,{unit,Unit},Sign,Endian]} = 
         make_bit_type(Anno, Size0, Options0, ErrorFun),
     {value,Size,Bs} = Fun(Size1, Bs1),
-    {fun() -> eval_exp_field1(Anno, V, Size, Unit, Type, Endian, Sign, ErrorFun) end,Bs}.
+    {fun() -> eval_exp_field1(Anno, V, Size, Unit, Type, Endian, Sign, ErrorFun, Pos) end,Bs}.
 
-eval_exp_field1(Anno, V, Size, Unit, Type, Endian, Sign, ErrorFun) ->
+eval_exp_field1(Anno, V, Size, Unit, Type, Endian, Sign, ErrorFun, Pos) ->
     try
-	eval_exp_field(V, Size, Unit, Type, Endian, Sign)
+        eval_exp_field(V, Size, Unit, Type, Endian, Sign)
     catch
-	error:system_limit ->
-        ErrorFun(Anno, system_limit, ?STACKTRACE);
-	error:_ ->
-        ErrorFun(Anno, badarg, ?STACKTRACE)
+        error:system_limit:Stacktrace ->
+            ErrorFun(Anno, system_limit, add_eval_pos_to_error_info(Stacktrace, Pos));
+        error:_:Stacktrace ->
+            ErrorFun(Anno, badarg, add_eval_pos_to_error_info(Stacktrace, Pos))
+    end.
+
+add_eval_pos_to_error_info([{Mod, Fun, Arity, Meta0} = Head, _Skip | Rest], Pos) ->
+    case lists:keytake(error_info, 1, Meta0) of
+        {value, {error_info, #{} = Info}, Meta1} ->
+            Meta2 = Meta1 ++ [{error_info, Info#{override_segment_position => Pos}}],
+            [{Mod, Fun, Arity, Meta2} | Rest];
+
+        _ ->
+            [Head | Rest]
     end.
 
 eval_exp_field(Val, Size, Unit, integer, little, signed) ->

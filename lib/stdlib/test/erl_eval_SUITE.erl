@@ -1144,7 +1144,7 @@ otp_14826(_Config) ->
     %% eval_bits
     backtrace_check("<<100:8/bitstring>>.",
                     badarg,
-                    [{eval_bits,eval_exp_field1,8},
+                    [{eval_bits,eval_exp_field,6},
                      eval_bits,eval_bits,erl_eval]),
     backtrace_check("<<100:8/foo>>.",
                     {undefined_bittype,foo},
@@ -1153,9 +1153,17 @@ otp_14826(_Config) ->
                     none, none),
     backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
                     badarg,
-                    [{eval_bits,eval_exp_field1,8},
+                    [{eval_bits,eval_exp_field,6},
                      eval_bits,eval_bits,erl_eval],
                     none, none),
+
+    %% eval_bits with error info
+    {error_info, #{cause := _, override_segment_position := 1}} =
+        error_info_catch("<<100:8/bitstring>>.", badarg),
+
+    {error_info, #{cause := _, override_segment_position := 2}} =
+        error_info_catch("<<0:8, 100:8/bitstring>>.", badarg),
+
     ok.
 
 simple() ->
@@ -1256,7 +1264,7 @@ custom_stacktrace(Config) when is_list(Config) ->
     %% eval_bits
     backtrace_check("<<100:8/bitstring>>.",
                     badarg,
-                    [{eval_bits,eval_exp_field1,8}, mystack(1)],
+                    [{eval_bits,eval_exp_field,6}, mystack(1)],
                     none, EFH),
     backtrace_check("<<100:8/foo>>.",
                     {undefined_bittype,foo},
@@ -1264,7 +1272,7 @@ custom_stacktrace(Config) when is_list(Config) ->
                     none, EFH),
     backtrace_check("B = <<\"foo\">>, <<B/binary-unit:7>>.",
                     badarg,
-                    [{eval_bits,eval_exp_field1,8}, mystack(1)],
+                    [{eval_bits,eval_exp_field,6}, mystack(1)],
                     none, EFH),
 
     ok.
@@ -2071,6 +2079,14 @@ backtrace_catch(String, Result, Backtrace) ->
     case parse_and_run(String) of
         {value, {'EXIT', {Result, BT}}, _Bindings} ->
             check_backtrace(Backtrace, remove_error_info(BT));
+        Other ->
+            ct:fail({eval, Other, Result})
+    end.
+
+error_info_catch(String, Result) ->
+    case catch parse_and_run(String) of
+        {'EXIT', {Result, [{_, _, _, Info}|_]}} ->
+            lists:keyfind(error_info, 1, Info);
         Other ->
             ct:fail({eval, Other, Result})
     end.

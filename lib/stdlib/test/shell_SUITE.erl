@@ -590,11 +590,11 @@ otp_5327(Config) when is_list(Config) ->
                                       default,default}]}),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>):3/binary>>.">>),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>)/binary>>.">>),
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<(<<\"abc\">>):4/binary>>.">>),
     true = byte_size(hd(scan("<<3.14:64/float>>."))) =:= 8,
     true = byte_size(hd(scan("<<3.14:32/float>>."))) =:= 4,
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<3.14:128/float>>.">>),
     "exception error: bad argument" =
         comm_err(<<"<<10:default>>.">>),
