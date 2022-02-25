@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,17 +25,16 @@
 
 -module(diameter_pool_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         init_per_testcase/2,
-         end_per_testcase/2,
-         init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([tcp_connect/1,
-         sctp_connect/1,
-         any_connect/1]).
+         tcp/1,
+         sctp/1,
+         any/1]).
 
 %% ===========================================================================
 
@@ -62,44 +61,53 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 30}}].
+    [{timetrap, {seconds, 45}}].
 
 all() ->
-    [tcp_connect,
-     sctp_connect,
-     any_connect].
+    [tcp, sctp, any].
 
-init_per_testcase(_Name, Config) ->
-    Config.
+tcp(_Config) ->
+    run([tcp]).
 
-end_per_testcase(_Name, _Config) ->
-    diameter:stop().
+sctp(_Config) ->
+    case ?util:have_sctp() of
+        true  -> run([sctp]);
+        false -> {skip, no_sctp}
+    end.
 
-init_per_suite(Config) ->
-    [{sctp, ?util:have_sctp()} | Config].
-
-end_per_suite(_Config) ->
-    ok.
+any(_Config) ->
+    run([any]).
 
 %% ===========================================================================
 
-tcp_connect(_Config) ->
-    connect(tcp, tcp).
+%% run/0
 
-sctp_connect(Config) ->
-    case lists:member({sctp, true}, Config) of
-       true  -> connect(sctp, sctp);
-       false -> {skip, no_sctp}
+run() ->
+    run(all()).
+
+%% run/1
+
+run(tcp = T) ->
+    connect(T, T);
+
+run(sctp = T) ->
+    connect(T, T);
+
+run(any = T) ->
+    connect(T, tcp);
+
+run(List) ->
+    ok = diameter:start(),
+    try
+        ?util:run([[{[fun run/1, T], 30000}  || T <- List]])
+    after
+        ok = diameter:stop()
     end.
-
-any_connect(_Config) ->
-    connect(any, tcp).
 
 %% connect/2
 
 %% Establish multiple connections between a client and server.
 connect(ClientProt, ServerProt) ->
-    ok = diameter:start(),
     [] = [{S,T} || S <- ["server", "client"],
                    T <- [diameter:start_service(S, ?SERVICE(S))],
                    T /= ok],
@@ -108,20 +116,24 @@ connect(ClientProt, ServerProt) ->
     LRef = ?util:listen("server", ServerProt, [{pool_size, 4}]),
     {4,0} = count("server", LRef, accept), %% 4 transports, no connections
     %% Establish 5 connections.
-    Ref = ?util:connect("client", ClientProt, LRef, [{pool_size, 5}]),
-    {5,5} = count("client", Ref, pool),    %% 5 connections
+    N = pool_size(5),  %% connections to establish
+    Ref = ?util:connect("client", ClientProt, LRef, [{pool_size, N}]),
+    {N,N} = count("client", Ref, pool),    %% N connections
     %% Ensure the server has started replacement transports within a
     %% reasonable time. Sleepsince there's no guarantee the
     %% replacements have been started before the client has received
     %% 'up' events. (Although it's likely.)
-    sleep(),
-    {9,5} = count("server", LRef, accept), %% 5 connections + 4 accepting
+    timer:sleep(1000),
+    N4 = N + 4,
+    {N4,N} = count("server", LRef, accept), %% N connections + 4 accepting
     %% Ensure there are still the expected number of accepting transports
     %% after stopping the client service.
     ok = diameter:stop_service("client"),
-    sleep(),
+    timer:sleep(1000),
     {4,0} = count("server", LRef, accept), %% 4 transports, no connections
     %% Done.
+    ok = diameter:remove_transport("client", true),
+    ok = diameter:remove_transport("server", true),
     ok = diameter:stop_service("server").
 
 count(Name, Ref, Key) ->
@@ -131,5 +143,10 @@ count(Name, Ref, Key) ->
     {Key, Ps} = lists:keyfind(Key, 1, T),
     {length(Ps), length(Cs)}.  %% number of processes, connections
 
-sleep() ->
-    receive after 1000 -> ok end.
+%% Simultaneous connections are often refused on Darwin: don't try to
+%% establish more than one.
+pool_size(N) ->
+    case os:type() of
+        {_, 'darwin'} -> 1;
+        _             -> rand:uniform(N)
+    end.

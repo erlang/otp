@@ -91,8 +91,6 @@ info:
 	@echo ========================================
 	@$(call list,MODULES)
 	@echo
-	@$(call list,HRL_FILES)
-	@echo
 	@$(call list,SUITES)
 	@echo
 	@echo erl = $(shell which erl)
@@ -116,6 +114,7 @@ help:
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
+	@echo "        Prefix with _ to run without common_test."
 	@echo
 	@echo "    clean | realclean:"
 	@echo "        Remove generated files."
@@ -141,6 +140,14 @@ $(SUITES): log opt
 	       -s init stop \
 	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
+
+# Run suites without common_test.
+$(SUITES:%=_%): opt
+	$(ERL) -noinput \
+	       -pa ../ebin \
+	       -sname diameter_test_$@ \
+	       -s diameter$@_SUITE run \
+	       -s init stop
 
 cover: log opt coverspec
 	$(ERL) -noinput \
@@ -173,7 +180,6 @@ release_tests_spec:
 	$(INSTALL_DIR)  "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
-	                $(HRL_FILES) \
 	                "$(RELSYSDIR)"
 	$(MAKE) $(DATA_DIRS:%/=release_data_%)
 	$(MAKE) $(ERL_FILES:%=/%)

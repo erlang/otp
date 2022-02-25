@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,26 +34,13 @@
 
 -module(diameter_relay_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0]).
-
-%% testcases
--export([start/1,
-         start_services/1,
-         connect/1,
-         send1/1,
-         send2/1,
-         send3/1,
-         send4/1,
-         send_loop/1,
-         send_timeout_1/1,
-         send_timeout_2/1,
-         info/1,
-         counters/1,
-         disconnect/1,
-         stop_services/1,
-         stop/1]).
+         parallel/1]).
 
 %% diameter callbacks
 -export([pick_peer/4,
@@ -115,41 +102,37 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 30}}].
 
 all() ->
-    [start,
-     start_services,
-     connect,
-     {group, all},
-     counters,
-     {group, all, [parallel]},
-     disconnect,
-     stop_services,
-     stop].
+    [parallel].
 
-groups() ->
-    [{all, [], tc()}].
-
-%% Traffic cases run when services are started and connections
-%% established.
-tc() ->
-    [send1,
-     send2,
-     send3,
-     send4,
-     send_loop,
-     send_timeout_1,
-     send_timeout_2,
-     info].
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
-%% start/stop testcases
 
-start(_Config) ->
-    ok = diameter:start().
+%% run/0
 
-start_services(_Config) ->
+run() ->
+    ok = diameter:start(),
+    try
+        ?util:run([{fun traffic/0, 20000}])
+    after
+        ok = diameter:stop()
+    end.
+
+%% traffic/0
+
+traffic() ->
+    Servers = start_services(),
+    Conns = connect(Servers),
+    [] = send(),
+    [] = counters(),
+    [] = disconnect(Conns),
+    [] = stop_services().
+
+start_services() ->
     [S1,S2,S3,S4] = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
                                                       ?SERVER2,
                                                       ?SERVER3,
@@ -158,30 +141,32 @@ start_services(_Config) ->
 
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
 
-    {save_config, [{?RELAY1, [S1,S2,R2]},
-                   {?RELAY2, [S3,S4]},
-                   {?CLIENT, [R1,R2]}]}.
+    [{?RELAY1, [S1,S2,R2]}, {?RELAY2, [S3,S4]}, {?CLIENT, [R1,R2]}].
 
-connect(Config) ->
-    {_, Conns} = proplists:get_value(saved_config, Config),
+connect(Servers) ->
+    lists:flatmap(fun({CN,Ss}) -> connect(CN, Ss) end, Servers).
 
-    ?util:write_priv(Config,
-                     "cfg",
-                     lists:flatmap(fun({CN,Ss}) -> connect(CN, Ss) end,
-                                   Conns)).
+disconnect(Conns) ->
+    [{T,C} || C <- Conns,
+              T <- [break(C)],
+              T /= ok].
 
-disconnect(Config) ->
-    [] = [{T,C} || C <- ?util:read_priv(Config, "cfg"),
-                   T <- [break(C)],
-                   T /= ok].
+stop_services() ->
+    [{H,T} || H <- ?SERVICES,
+              T <- [diameter:stop_service(H)],
+              T /= ok].
 
-stop_services(_Config) ->
-    [] = [{H,T} || H <- ?SERVICES,
-                   T <- [diameter:stop_service(H)],
-                   T /= ok].
-
-stop(_Config) ->
-    ok = diameter:stop().
+%% Traffic cases run when services are started and connections
+%% established.
+send() ->
+    ?util:run([[fun traffic/1, T] || T <- [send1,
+                                           send2,
+                                           send3,
+                                           send4,
+                                           send_loop,
+                                           send_timeout_1,
+                                           send_timeout_2,
+                                           info]]).
 
 %% ----------------------------------------
 
@@ -203,50 +188,50 @@ connect(Name, Refs) ->
 %% traffic testcases
 
 %% Send an STR intended for a specific server and expect success.
-send1(_Config) ->
-    call(?SERVER1).
-send2(_Config) ->
-    call(?SERVER2).
-send3(_Config) ->
-    call(?SERVER3).
-send4(_Config) ->
-    call(?SERVER4).
+traffic(send1) ->
+    call(?SERVER1);
+traffic(send2) ->
+    call(?SERVER2);
+traffic(send3) ->
+    call(?SERVER3);
+traffic(send4) ->
+    call(?SERVER4);
 
 %% Send an ASR that loops between the relays (RELAY1 -> RELAY2 ->
 %% RELAY1) and expect the loop to be detected.
-send_loop(_Config) ->
+traffic(send_loop) ->
     Req = ['ASR', {'Destination-Realm', realm(?SERVER1)},
                   {'Destination-Host', ?SERVER1},
                   {'Auth-Application-Id', ?APP_ID}],
     #'diameter_base_answer-message'{'Result-Code' = ?LOOP_DETECTED}
-        = call(Req, [{filter, realm}]).
+        = call(Req, [{filter, realm}]);
 
 %% Send a RAR that is incorrectly routed and then discarded and expect
 %% different results depending on whether or not we or the relay
 %% timeout first.
-send_timeout_1(_Config) ->
+traffic(send_timeout_1) ->
     #'diameter_base_answer-message'{'Result-Code' = ?UNABLE_TO_DELIVER}
-        = send_timeout(7000).
-send_timeout_2(_Config) ->
-    {error, timeout} = send_timeout(3000).
+        = traffic({timeout, 7000});
+traffic(send_timeout_2) ->
+    {error, timeout} = traffic({timeout, 3000});
 
-send_timeout(Tmo) ->
+traffic({timeout, Tmo}) ->
     Req = ['RAR', {'Destination-Realm', realm(?SERVER1)},
                   {'Destination-Host', ?SERVER1},
                   {'Auth-Application-Id', ?APP_ID},
                   {'Re-Auth-Request-Type', ?AUTHORIZE_ONLY}],
-    call(Req, [{filter, realm}, {timeout, Tmo}]).
+    call(Req, [{filter, realm}, {timeout, Tmo}]);
 
-info(_Config) ->
+traffic(info) ->
     %% Wait for RELAY1 to have answered all requests, so that the
     %% suite doesn't end before all answers are sent and counted.
     receive after 6000 -> ok end,
     [] = ?util:info().
 
-counters(_Config) ->
-    [] = ?util:run([[fun counters/2, K, S]
-                    || K <- [statistics, transport, connections],
-                       S <- ?SERVICES]).
+counters() ->
+    ?util:run([[fun counters/2, K, S]
+               || K <- [statistics, transport, connections],
+                  S <- ?SERVICES]).
 
 counters(Key, Svc) ->
     counters(Key, Svc, [_|_] = diameter:service_info(Svc, Key)).

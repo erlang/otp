@@ -45,11 +45,6 @@
          disconnect/4,
          info/0]).
 
-%% common_test-specific
--export([write_priv/3,
-         read_priv/2,
-         map_priv/3]).
-
 -define(L, atom_to_list).
 
 %% ---------------------------------------------------------------------------
@@ -273,48 +268,6 @@ eval(L)
 eval(F)
   when is_function(F,0) ->
     F().
-
-%% ---------------------------------------------------------------------------
-%% write_priv/3
-%%
-%% Write an arbitrary term to a named file.
-
-write_priv(Config, Name, Term) ->
-    write(path(Config, Name), Term).
-
-write(Path, Term) ->
-    ok = file:write_file(Path, term_to_binary(Term)).
-
-%% read_priv/2
-%%
-%% Read a term from a file.
-
-read_priv(Config, Name) ->
-    read(path(Config, Name)).
-
-read(Path) ->
-    {ok, Bin} = file:read_file(Path),
-    binary_to_term(Bin).
-
-%% map_priv/3
-%%
-%% Modify a term in a file and return both old and new values.
-
-map_priv(Config, Name, Fun1) ->
-    map(path(Config, Name), Fun1).
-
-map(Path, Fun1) ->
-    T0 = read(Path),
-    T1 = Fun1(T0),
-    write(Path, T1),
-    {T0, T1}.
-
-path(Config, Name)
-  when is_atom(Name) ->
-    path(Config, ?L(Name));
-path(Config, Name) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    filename:join([Dir, Name]).
 
 %% ---------------------------------------------------------------------------
 %% lport/2

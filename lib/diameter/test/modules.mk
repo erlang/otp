@@ -50,9 +50,6 @@ MODULES = \
 	diameter_transport_SUITE \
 	diameter_watchdog_SUITE
 
-HRL_FILES = \
-	diameter_ct.hrl
-
 DATA = \
 	diameter_codec_SUITE_data/avps.dia \
 	diameter_codec_SUITE_data/send.dia \
