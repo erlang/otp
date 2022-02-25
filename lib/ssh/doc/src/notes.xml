@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssh sever <c>parallel_login</c> option was missing in
+	    OTP-24</p>
+          <p>
+	    Own Id: OTP-17850 Aux Id: ERIERL-764 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.5</title>
+  <section><title>Inets 7.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid intermediate ungraceful shutdown of the HTTP
+	    server.</p>
+          <p>
+	    Own Id: OTP-17922 Aux Id: ERIERL-743 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
