@@ -682,6 +682,8 @@ DEBUG_CFLAGS
 GL_LIBS
 OBJC_CFLAGS
 OBJC_CC
+GLIB_LIBS
+GLIB_CFLAGS
 MIXED_MINGW
 MIXED_VC
 CPP
@@ -5271,10 +5273,18 @@ printf "%s\n" "$as_me: WARNING: Reverting to 32-bit time_t" >&2;}
      ;; #(
   *) :
 
-	CFLAGS="$CFLAGS -Wno-deprecated-declarations"
-	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
+        GLIB_CFLAGS=`pkg-config --silence-errors --cflags glib-2.0`
+        GLIB_LIBS=`pkg-config --silence-errors --libs glib-2.0`
+        if test X"$GLIB_CFLAGS" != X ; then
+            HAVE_GLIB="-DHAVE_GLIB=1"
+        fi
+        CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+       	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS $HAVE_GLIB"
      ;;
 esac
+
+
+
 
 
 

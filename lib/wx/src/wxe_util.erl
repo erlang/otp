@@ -190,6 +190,6 @@ strip([H|R], Src) ->
     [H| strip(R, Src)].
 
 opt_error_log(false, Format, Args) ->
-    error_logger:format(Format, Args);
+    logger:log(error, Format, Args, #{domain => [wx]});
 opt_error_log(true, _Format, _Args) ->
     ok.
