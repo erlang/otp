@@ -2507,13 +2507,12 @@ is_on_stack(From, Var, Blocks) ->
 is_on_stack([L|Ls], Var, Blocks, WillGC0) ->
     #b_blk{is=Is} = Blk = map_get(L, Blocks),
     GC0 = map_get(L, WillGC0),
-    try is_on_stack_is(Is, Var, GC0) of
+    case is_on_stack_is(Is, Var, GC0) of
+        {done,GC} ->
+            GC;
         GC ->
             WillGC = gc_update_successors(Blk, GC, WillGC0),
             is_on_stack(Ls, Var, Blocks, WillGC)
-    catch
-        throw:{done,GC} ->
-            GC
     end;
 is_on_stack([], _Var, _, _) -> false.
 
@@ -2522,7 +2521,7 @@ is_on_stack_is([#b_set{op=get_tuple_element}|Is], Var, GC) ->
 is_on_stack_is([I|Is], Var, GC0) ->
     case GC0 andalso member(Var, beam_ssa:used(I)) of
         true ->
-            throw({done,GC0});
+            {done,GC0};
         false ->
             GC = GC0 orelse beam_ssa:clobbers_xregs(I),
             is_on_stack_is(Is, Var, GC)
