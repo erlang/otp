@@ -2995,7 +2995,7 @@ select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] =
     end.
 
 select_client_cert_key_pair(Session0,
-                            [#{private_key := undefined = NoKey, certs := undefined = NoCerts}],
+                            [#{private_key := NoKey, certs := [[]] = NoCerts}],
                             _,_,_,_,_,_) ->
     %% No certificate supplied : send empty certificate
     Session0#session{own_certificates = NoCerts,

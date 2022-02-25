@@ -408,11 +408,14 @@ certify(internal, #certificate_request{},
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection},
-               connection_env = #connection_env{cert_key_pairs = undefined}} = State) ->
+               session = Session0,
+               connection_env = #connection_env{cert_key_pairs = [#{certs := [[]]}]}} = State) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail 
     %% or accept the connection by its own preference. No signature algorithms needed as there is
     %% no certificate to verify.
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_requested = true});
+    Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_requested = true,
+                                                                 session = Session0#session{own_certificates = [[]],
+                                                                                            private_key = #{}}});
 certify(internal, #certificate_request{} = CertRequest,
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection,
@@ -1639,7 +1642,7 @@ ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
      }.
 
 select_client_cert_key_pair(Session0,_,
-                              [#{private_key := undefined = NoKey, certs := undefined = NoCerts}],
+                            [#{private_key := NoKey, certs := [[]] = NoCerts}],
                             _,_,_,_) ->
     %% No certificate supplied : empty certificate will be sent
     Session0#session{own_certificates = NoCerts,
@@ -1647,10 +1650,10 @@ select_client_cert_key_pair(Session0,_,
 select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef) ->
     select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, undefined).
 
-select_client_cert_key_pair(Session0,_,[], _, _,_,_, undefined = Default) ->
-    %% No certificate compliant signing algorithms found: empty certificate will be sent
-     Session0#session{own_certificates = Default,
-                      private_key = Default};
+select_client_cert_key_pair(Session0,_,[], _, _,_,_, undefined) ->
+    %% No certificate compliant with signing algorithms found: empty certificate will be sent
+    Session0#session{own_certificates = [[]],
+                     private_key = #{}};
 select_client_cert_key_pair(_,_,[], _, _,_,_,#session{}=Session) ->
     %% No certificate compliant with guide lines send default
     Session;

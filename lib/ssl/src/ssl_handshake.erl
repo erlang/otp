@@ -129,30 +129,30 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec certificate([der_cert()] | undefined, db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
+-spec certificate([der_cert()], db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
-certificate(undefined, _, _, client) ->
+certificate([[]], _, _, client) ->
     %% If no suitable certificate is available, the client
     %% SHOULD send a certificate message containing no
     %% certificates. (chapter 7.4.6. RFC 4346)
     #certificate{asn1_certificates = []};
 certificate([OwnCert], CertDbHandle, CertDbRef, _) ->
-    {ok, _,  CertChain} = ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
+    {ok, _,  CertChain} =  ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
     #certificate{asn1_certificates = CertChain};
 certificate([_, _ |_] = Chain, _, _, _) ->
     #certificate{asn1_certificates = Chain}.
 
 %%--------------------------------------------------------------------
--spec client_certificate_verify(undefined | der_cert(), binary(),
+-spec client_certificate_verify([der_cert()], binary(),
 				ssl_record:ssl_version(), term(), public_key:private_key(),
 				ssl_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
-client_certificate_verify(undefined, _, _, _, _, _) ->
+client_certificate_verify([[]], _, _, _, _, _) ->
     ignore;
 client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
@@ -1073,13 +1073,15 @@ new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSui
                     cipher_suite = CipherSuite,
                     compression_method = Compression}.
 
-%% Possibly support part of "trusted_ca_keys" that corresponds to TLS-1.3 certificate_authorities?!
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := undefined, certs := undefined}], HashSigns, ECCCurve0,
+%% Possibly support part of "trusted_ca_keys" extension that corresponds to TLS-1.3 certificate_authorities?!
+
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
               #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
+    %% This can happen if anonymous cipher suites are enabled
     Suites = available_suites(undefined, UserSuites, Version, HashSigns, ECCCurve0),
     CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
     CurveAndSuite = cert_curve(undefined, ECCCurve0, CipherSuite0),
-    {[undefined], undefined, CurveAndSuite};
+    {NoCerts, NoKey, CurveAndSuite};
 select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
                                 #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
     Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),

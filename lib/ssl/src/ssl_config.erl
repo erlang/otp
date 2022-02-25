@@ -141,7 +141,7 @@ init_certificates(#{cacerts := CaCerts,
     init_certificates(OwnCerts, Config, CertFile, Role).
 
 init_certificates(undefined, Config, <<>>, _) ->
-    {ok, Config, undefined};
+    {ok, Config, [[]]};
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, client) ->
     try 
@@ -149,7 +149,7 @@ init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, client
 	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
 	{ok, Config, OwnCerts}
     catch _Error:_Reason  ->
-	    {ok, Config, undefined}
+	    {ok, Config, [[]]}
     end; 
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server) ->
@@ -173,7 +173,7 @@ init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg =
             throw({key, {invalid_key_id, Key}})
     end;
 init_private_key(_, undefined, <<>>, _Password, _Client) ->
-    undefined;
+    #{};
 init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
     try
 	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),

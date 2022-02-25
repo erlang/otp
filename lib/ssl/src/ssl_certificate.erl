@@ -128,13 +128,13 @@ trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                       end
               end, Paths).
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(),
+-spec certificate_chain([] | binary() | #'OTPCertificate'{} , db_handle(),
                         certdb_ref() | {extracted, list()}) ->
           {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
-certificate_chain(undefined, _, _) ->
+certificate_chain([], _, _) ->
     {error, no_cert};
 certificate_chain(DerCert, CertDbHandle, CertsDbRef) when is_binary(DerCert) ->
     ErlCert = public_key:pkix_decode_cert(DerCert, otp),
