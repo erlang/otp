@@ -2325,7 +2325,7 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
     %% It is not safe to move get_tuple_element instructions to blocks
     %% that begin with certain instructions. It is also unsafe to move
     %% the instructions into any part of a receive.
-    Unsuitable = unsuitable(Linear, Blocks0),
+    Unsuitable = unsuitable(Linear, Blocks0, Preds),
 
     %% Calculate new positions for get_tuple_element instructions. The new
     %% position is a block that dominates all uses of the variable.
@@ -2507,13 +2507,12 @@ is_on_stack(From, Var, Blocks) ->
 is_on_stack([L|Ls], Var, Blocks, WillGC0) ->
     #b_blk{is=Is} = Blk = map_get(L, Blocks),
     GC0 = map_get(L, WillGC0),
-    try is_on_stack_is(Is, Var, GC0) of
+    case is_on_stack_is(Is, Var, GC0) of
+        {done,GC} ->
+            GC;
         GC ->
             WillGC = gc_update_successors(Blk, GC, WillGC0),
             is_on_stack(Ls, Var, Blocks, WillGC)
-    catch
-        throw:{done,GC} ->
-            GC
     end;
 is_on_stack([], _Var, _, _) -> false.
 
@@ -2522,7 +2521,7 @@ is_on_stack_is([#b_set{op=get_tuple_element}|Is], Var, GC) ->
 is_on_stack_is([I|Is], Var, GC0) ->
     case GC0 andalso member(Var, beam_ssa:used(I)) of
         true ->
-            throw({done,GC0});
+            {done,GC0};
         false ->
             GC = GC0 orelse beam_ssa:clobbers_xregs(I),
             is_on_stack_is(Is, Var, GC)
@@ -2538,12 +2537,11 @@ gc_update_successors(Blk, GC, WillGC) ->
                   end
           end, WillGC, beam_ssa:successors(Blk)).
 
-%% unsuitable(Linear, Blocks) -> Unsuitable.
-%%  Return an ordset of block labels for the blocks that are not
+%% unsuitable(Linear, Blocks, Predecessors) -> Unsuitable.
+%%  Return an gbset of block labels for the blocks that are not
 %%  suitable for sinking of get_tuple_element instructions.
 
-unsuitable(Linear, Blocks) ->
-    Predecessors = beam_ssa:predecessors(Blocks),
+unsuitable(Linear, Blocks, Predecessors) ->
     Unsuitable0 = unsuitable_1(Linear),
     Unsuitable1 = unsuitable_recv(Linear, Blocks, Predecessors),
     gb_sets:from_list(Unsuitable0 ++ Unsuitable1).
