@@ -92,8 +92,8 @@
 -type integer() :: integer().
 -type iodata() :: iolist() | binary().
 -type iolist() :: maybe_improper_list(byte() | binary() | iolist(), binary() | []).
--type list() :: list().
--type list(ContentType) :: list(ContentType).
+-type list() :: [any()].
+-type list(ContentType) :: [ContentType].
 -type map() :: #{ any() => any() }.
 -type maybe_improper_list() :: maybe_improper_list(any(), any()).
 -type maybe_improper_list(ContentType, TerminationType) :: maybe_improper_list(ContentType, TerminationType).
