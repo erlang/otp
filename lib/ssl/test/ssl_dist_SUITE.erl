@@ -37,6 +37,7 @@
 %% Test cases
 -export([basic/0,
          basic/1,
+         monitor_nodes/1,
          payload/0,
          payload/1,
          dist_port_overload/0,
@@ -67,6 +68,7 @@
 
 %% Apply export
 -export([basic_test/3,
+         monitor_nodes_test/3,
          payload_test/3,
          plain_options_test/3,
          plain_verify_options_test/3,
@@ -103,6 +105,7 @@ start_ssl_node_name(Name, Args) ->
 %%--------------------------------------------------------------------
 all() ->
     [basic,
+     monitor_nodes,
      payload,
      dist_port_overload,
      plain_options,
@@ -173,6 +176,11 @@ basic() ->
     [{doc,"Test that two nodes can connect via ssl distribution"}].
 basic(Config) when is_list(Config) ->
     gen_dist_test(basic_test, Config).
+
+%%--------------------------------------------------------------------
+%% Test net_kernel:monitor_nodes with nodedown_reason (OTP-17838)
+monitor_nodes(Config) when is_list(Config) ->
+    gen_dist_test(monitor_nodes_test, Config).
 
 %%--------------------------------------------------------------------
 payload() ->
@@ -549,6 +557,41 @@ basic_test(NH1, NH2, _) ->
 			    end
 		    end)
      end.
+
+monitor_nodes_test(NH1, NH2, _) ->
+    Node2 = NH2#node_handle.nodename,
+
+    Ref = make_ref(),
+    MonitorNodesFun =
+        fun() ->
+                tstsrvr_format("Hi from ~p!~n", [node()]),
+                ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+                send_to_tstcntrl({self(), ready, Ref}),
+                NodeUp = receive_any(),
+                send_to_tstcntrl({self(), got, NodeUp}),
+                NodeDown = receive_any(),
+                send_to_tstcntrl({self(), got, NodeDown}),
+                ok = net_kernel:monitor_nodes(false, [nodedown_reason])
+        end,
+    spawn_link(fun () ->
+                       ok = apply_on_ssl_node(NH1, MonitorNodesFun)
+               end),
+    {SslPid, ready, Ref} = receive_any(),
+
+    %% Setup connection and expect 'nodeup'
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+    {SslPid, got, {nodeup, Node2, []}} = receive_any(),
+
+    %% Disconnect and expect 'nodedown' with correct reason
+    true = apply_on_ssl_node(NH1, fun () ->
+                                          net_kernel:disconnect(Node2)
+                                  end),
+    {SslPid, got, {nodedown, Node2, [{nodedown_reason, disconnect}]}} = receive_any(),
+    ok.
+
+
+receive_any() ->
+    receive M -> M end.
 
 payload_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
