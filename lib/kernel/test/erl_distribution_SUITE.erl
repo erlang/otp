@@ -2541,7 +2541,10 @@ xdg_cookie(Config) when is_list(Config) ->
     peer:stop(Peer),
 
     %% Check that XDG cookie works after we delete the $HOME cookie
-    ok = file:delete(filename:join(TestHome, ".erlang.cookie")),
+    HomeCookie = filename:join(TestHome, ".erlang.cookie"),
+    {ok, HomeFI} = file:read_file_info(HomeCookie),
+    ok = file:write_file_info(HomeCookie, HomeFI#file_info{ mode = 8#777 }),
+    ok = file:delete(HomeCookie),
     {ok, Peer2, _} = peer:start_link(NodeOpts#{ name => peer:random_name(?FUNCTION_NAME) }),
     ?assertEqual('Me want cookie!', peer:call(Peer2, erlang, get_cookie, [])),
 
