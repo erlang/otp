@@ -209,21 +209,23 @@ config_error(Type, Event, State) ->
 %%--------------------------------------------------------------------
 hello(internal, #client_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #{handshake := hello},
+             static_env = #static_env{role = server},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{
-                             handshake := hello},
+      #state{ssl_options = #{handshake := hello},
+             static_env = #static_env{role = client},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->   
     {next_state, user_hello,
      State#state{start_or_recv_from = undefined,
                  handshake_env = HsEnv#handshake_env{
                                    hello = Hello}}, [{reply, From, {ok, Extensions}}]};
-hello(internal, #client_hello{client_version = ClientVersion} = Hello, #state{connection_env = CEnv} = State0) ->
+hello(internal, #client_hello{client_version = ClientVersion} = Hello,
+      #state{static_env = #static_env{role = server}, connection_env = CEnv} = State0) ->
     try
         #state{ssl_options = SslOpts} = State1 = tls_dtls_connection:handle_sni_extension(State0, Hello),
         case choose_tls_fsm(SslOpts, Hello) of
