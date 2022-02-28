@@ -160,15 +160,13 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
            fileref_db_handle := FileRefHandle,
            session_cache := CacheHandle,
            crl_db_info := CRLDbHandle,
-           private_key := Key,
-           dh_params := DHParams,
-           own_certificates := OwnCerts}} =
+           cert_key_pairs := CertKeyPairs,
+           dh_params := DHParams}} =
 	ssl_config:init(Opts, Role),
     TimeStamp = erlang:monotonic_time(),
     Session = State0#state.session,
 
-    State0#state{session = Session#session{own_certificates = OwnCerts,
-                                           time_stamp = TimeStamp},
+    State0#state{session = Session#session{time_stamp = TimeStamp},
                  static_env = InitStatEnv0#static_env{
                                 file_ref_db = FileRefHandle,
                                 cert_db_ref = Ref,
@@ -177,7 +175,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                                 session_cache = CacheHandle
                                },
                  handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams},
-                 connection_env = CEnv#connection_env{private_key = Key},
+                 connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
                  ssl_options = Opts}.
 
 %%--------------------------------------------------------------------
@@ -443,6 +441,8 @@ initial_hello({call, From}, {start, Timeout},
               #state{static_env = #static_env{role = client = Role,
                                               host = Host,
                                               port = Port,
+                                              cert_db = CertDbHandle,
+                                              cert_db_ref = CertDbRef,
                                               protocol_cb = Connection},
                      handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
                                                     ocsp_stapling_state = OcspState0},
@@ -468,10 +468,12 @@ initial_hello({call, From}, {start, Timeout},
     Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                         Session#session.session_id,
                                         Renegotiation,
-                                        Session#session.own_certificates,
                                         KeyShare,
                                         TicketData,
-                                        OcspNonce),
+                                        OcspNonce,
+                                        CertDbHandle,
+                                        CertDbRef
+                                       ),
 
     %% Early Data Indication
     Hello1 = tls_handshake_1_3:maybe_add_early_data_indication(Hello0,
@@ -1280,20 +1282,18 @@ handle_sni_hostname(Hostname,
                    fileref_db_handle := FileRefHandle,
                    session_cache := CacheHandle,
                    crl_db_info := CRLDbHandle,
-                   private_key := Key,
-                   dh_params := DHParams,
-                   own_certificates := OwnCerts}} =
+                   cert_key_pairs := CertKeyPairs,
+                   dh_params := DHParams}} =
                  ssl_config:init(NewOptions, Role),
              State0#state{
-               session = State0#state.session#session{own_certificates = OwnCerts},
                static_env = InitStatEnv0#static_env{
-                                        file_ref_db = FileRefHandle,
-                                        cert_db_ref = Ref,
-                                        cert_db = CertDbHandle,
-                                        crl_db = CRLDbHandle,
-                                        session_cache = CacheHandle
+                              file_ref_db = FileRefHandle,
+                              cert_db_ref = Ref,
+                              cert_db = CertDbHandle,
+                              crl_db = CRLDbHandle,
+                              session_cache = CacheHandle
                              },
-               connection_env = CEnv#connection_env{private_key = Key},
+               connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
                ssl_options = NewOptions,
                handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
                                                    diffie_hellman_params = DHParams}

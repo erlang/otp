@@ -980,6 +980,16 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     </datatype>
 
     <datatype>
+      <name name="certificate_authorities"/>
+      <desc>
+	<p>If set to true, sends the certificate authorities extension in TLS-1.3 client hello.
+	The default is false. Note that setting it to true may result in a big overhead if you
+	have many trusted CA certificates. 
+	Since OTP-24.3</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="client_cacerts"/>
       <desc>
 	<p>The DER-encoded trusted certificates. If this option

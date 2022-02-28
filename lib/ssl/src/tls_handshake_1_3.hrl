@@ -179,7 +179,7 @@
 
 %%  RFC 8446 B.3.2 Server Parameters Messages
 %%  opaque DistinguishedName<1..2^16-1>;XS
--record(certificate_authoritie_sextension, {
+-record(certificate_authorities, {
           authorities  %DistinguishedName authorities<3..2^16-1>;
          }).
 

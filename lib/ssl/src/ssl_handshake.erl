@@ -47,8 +47,9 @@
 
 %% Create handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
-	 certificate/4,  client_certificate_verify/6,  certificate_request/5, key_exchange/3,
-	 finished/5,  next_protocol/1, digitally_signed/5]).
+	 certificate/4,  client_certificate_verify/6,  certificate_request/4, key_exchange/3,
+	 finished/5,  next_protocol/1, digitally_signed/5,
+         certificate_authorities/2]).
 
 %% Handle handshake messages
 -export([certify/9, certificate_verify/6, verify_signature/5,
@@ -67,12 +68,12 @@
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_signature_algs/2,  available_signature_algs/4, 
+-export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
          cipher_suites/3, prf/6, select_session/9, supported_ecc/1,
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
--export([client_hello_extensions/8,
+-export([client_hello_extensions/10,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
 	 handle_server_hello_extensions/10, select_curve/3, select_curve/4,
          select_hashsign/4, select_hashsign/5,
@@ -128,30 +129,30 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec certificate([der_cert()] | undefined, db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
+-spec certificate([der_cert()], db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
-certificate(undefined, _, _, client) ->
+certificate([[]], _, _, client) ->
     %% If no suitable certificate is available, the client
     %% SHOULD send a certificate message containing no
     %% certificates. (chapter 7.4.6. RFC 4346)
     #certificate{asn1_certificates = []};
 certificate([OwnCert], CertDbHandle, CertDbRef, _) ->
-    {ok, _,  CertChain} = ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
+    {ok, _,  CertChain} =  ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef),
     #certificate{asn1_certificates = CertChain};
 certificate([_, _ |_] = Chain, _, _, _) ->
     #certificate{asn1_certificates = Chain}.
 
 %%--------------------------------------------------------------------
--spec client_certificate_verify(undefined | der_cert(), binary(),
+-spec client_certificate_verify([der_cert()], binary(),
 				ssl_record:ssl_version(), term(), public_key:private_key(),
 				ssl_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
-client_certificate_verify(undefined, _, _, _, _, _) ->
+client_certificate_verify([[]], _, _, _, _, _) ->
     ignore;
 client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
@@ -169,14 +170,14 @@ client_certificate_verify([OwnCert|_], MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(ssl_cipher_format:cipher_suite(), db_handle(), 
+-spec certificate_request(db_handle(), 
 			  certdb_ref(),  #hash_sign_algos{}, ssl_record:ssl_version()) ->
 				 #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
-certificate_request(CipherSuite, CertDbHandle, CertDbRef, HashSigns, Version) ->
-    Types = certificate_types(ssl_cipher_format:suite_bin_to_map(CipherSuite), Version),
+certificate_request(CertDbHandle, CertDbRef, HashSigns, Version) ->
+    Types = certificate_types(Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -558,11 +559,9 @@ encode_handshake(#server_key_params{params_bin = Keys, hashsign = HashSign,
     EncSign = enc_sign(HashSign, Signature, Version),
     {?SERVER_KEY_EXCHANGE, <<Keys/binary, EncSign/binary>>};
 encode_handshake(#certificate_request{certificate_types = CertTypes,
-			    hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
-			    certificate_authorities = CertAuths},
-       {Major, Minor})
-  when Major == 3, Minor >= 3 ->
-
+                                      hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
+                                      certificate_authorities = CertAuths},
+                 {Major, Minor}) when Major == 3, Minor >= 3 ->
     HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- HashSignAlgos >>,
     CertTypesLen = byte_size(CertTypes),
@@ -574,7 +573,7 @@ encode_handshake(#certificate_request{certificate_types = CertTypes,
 	?UINT16(CertAuthsLen), CertAuths/binary>>
     };
 encode_handshake(#certificate_request{certificate_types = CertTypes,
-			    certificate_authorities = CertAuths},
+                                      certificate_authorities = CertAuths},
        _Version) ->
     CertTypesLen = byte_size(CertTypes),
     CertAuthsLen = byte_size(CertAuths),
@@ -763,7 +762,12 @@ encode_extensions([#early_data_indication{} | Rest], Acc) ->
                               ?UINT16(0), Acc/binary>>);
 encode_extensions([#early_data_indication_nst{indication = MaxSize} | Rest], Acc) ->
     encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
-                              ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>).
+                              ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>);
+encode_extensions([#certificate_authorities{authorities = CertAuths}| Rest], Acc) ->
+    CertAuthsLen = byte_size(CertAuths),
+    Len = CertAuthsLen + 2,
+    encode_extensions(Rest, <<?UINT16(?CERTIFICATE_AUTHORITIES_EXT), ?UINT16(Len),
+                              ?UINT16(CertAuthsLen), CertAuths/binary, Acc/binary>>).
 
 encode_cert_status_req(
     StatusType,
@@ -862,7 +866,7 @@ decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
 decode_handshake({Major, Minor} = Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
-	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
+         ?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
   when Major >= 3, Minor >= 3 ->
     HashSignAlgos = decode_sign_alg(Version, HashSigns),
     #certificate_request{certificate_types = CertTypes,
@@ -1000,11 +1004,11 @@ available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
 available_signature_algs(_, _) ->
     undefined.
 
-available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
+available_signature_algs(undefined, SupportedHashSigns, Version) when
       Version >= {3,3} ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns0, 
-                         _, Version) when Version >= {3,3} ->
+                         Version) when Version >= {3,3} ->
     SupportedHashSigns =
         case (Version == {3,3}) andalso contains_scheme(SupportedHashSigns0) of
             true ->
@@ -1014,7 +1018,7 @@ available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, Su
         end,
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
-available_signature_algs(_, _, _, _) -> 
+available_signature_algs(_, _, _) ->
     undefined.
 
 contains_scheme([]) ->
@@ -1042,23 +1046,57 @@ cipher_suites(Suites, true) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, #session{ecc = ECCCurve0} =
-		   Session, Version,
-	       #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = SslOpts,Cert) ->
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyPairs) ->
     {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
-                                                             SslOpts, Cert),
+                                                             SslOpts, CertKeyPairs),
     case Resumed of
         undefined ->
-	    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
-	    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
-            {ECCCurve, CipherSuite} = cert_curve(Cert, ECCCurve0, CipherSuite0),
-	    Compression = select_compression(Compressions),
-	    {new, Session#session{session_id = SessionId,
-                                  ecc = ECCCurve,
-				  cipher_suite = CipherSuite,
-				  compression_method = Compression}};
+            %% Select Cert
+            Session = new_session_parameters(SessionId, Session0, CipherSuites,
+                                             SslOpts, Version, Compressions,
+                                             HashSigns, CertKeyPairs),
+	    {new, Session};
 	_ ->
 	    {resumed, Resumed}
+    end.
+
+
+new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSuites, SslOpts,
+                       Version, Compressions, HashSigns, CertKeyPairs) ->
+    Compression = select_compression(Compressions),
+    {Certs, Key, {ECCCurve, CipherSuite}} = select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
+                                                                            ECCCurve0, SslOpts, Version),
+    Session#session{session_id = SessionId,
+                    ecc = ECCCurve,
+                    own_certificates = Certs,
+                    private_key = Key,
+                    cipher_suite = CipherSuite,
+                    compression_method = Compression}.
+
+%% Possibly support part of "trusted_ca_keys" extension that corresponds to TLS-1.3 certificate_authorities?!
+
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
+              #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
+    %% This can happen if anonymous cipher suites are enabled
+    Suites = available_suites(undefined, UserSuites, Version, HashSigns, ECCCurve0),
+    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+    CurveAndSuite = cert_curve(undefined, ECCCurve0, CipherSuite0),
+    {NoCerts, NoKey, CurveAndSuite};
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
+                                #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
+    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
+    CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
+    CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+    {Certs, Key, CurveAndSuite};
+select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
+                 #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = Opts, Version) ->
+    Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
+    case select_cipher_suite(CipherSuites, Suites, HonorCipherOrder) of
+        no_suite ->
+            select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
+        CipherSuite0 ->
+            CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+            {Certs, Key, CurveAndSuite}
     end.
 
 supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
@@ -1162,11 +1200,11 @@ premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
 %% Extensions handling
 %%====================================================================
 client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation, KeyShare,
-                        TicketData, OcspNonce) ->
+                        TicketData, OcspNonce, CertDbHandle, CertDbRef) ->
     HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
     HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
     HelloExtensions2 = maybe_add_certificate_status_request(Version, SslOpts, OcspNonce, HelloExtensions1),
-    maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData).
+    maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData, CertDbHandle, CertDbRef).
 
 
 add_tls12_extensions(_Version,
@@ -1228,15 +1266,18 @@ add_common_extensions(Version,
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #{versions := SupportedVersions},
+                           #{versions := SupportedVersions,
+                             certificate_authorities := Bool},
                            KeyShare,
-                           TicketData) ->
+                           TicketData, CertDbHandle, CertDbRef) ->
     HelloExtensions1 =
         HelloExtensions0#{client_hello_versions =>
                               #client_hello_versions{versions = SupportedVersions}},
-    HelloExtensions = maybe_add_key_share(HelloExtensions1, KeyShare),
-    maybe_add_pre_shared_key(HelloExtensions, TicketData);
-maybe_add_tls13_extensions(_, HelloExtensions, _, _, _) ->
+    HelloExtensions2 = maybe_add_key_share(HelloExtensions1, KeyShare),
+    HelloExtensions = maybe_add_pre_shared_key(HelloExtensions2, TicketData),
+    maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, Bool);
+
+maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
     HelloExtensions.
 
 maybe_add_certificate_status_request(
@@ -1324,6 +1365,11 @@ maybe_add_pre_shared_key(HelloExtensions, TicketData) ->
                          #psk_key_exchange_modes{
                             ke_modes = [psk_ke, psk_dhe_ke]}}.
 
+maybe_add_certificate_auths(HelloExtensions,_,_,false) ->
+    HelloExtensions;
+maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, true) ->
+    Auths = certificate_authorities(CertDbHandle, CertDbRef),
+    HelloExtensions#{certificate_authorities => #certificate_authorities{authorities = Auths}}.
 
 get_identities_binders(TicketData) ->
     get_identities_binders(TicketData, {[], []}, 0).
@@ -1606,7 +1652,7 @@ select_hashsign(#certificate_request{
                    certificate_types = Types},
                 Cert,
                 SupportedHashSigns,
-		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
+		{3, 3}) ->
     {SignAlgo0, Param, PublicKeyAlgo0, _, _} = get_cert_params(Cert),
     SignAlgo = {_, KeyType} = sign_algo(SignAlgo0, Param),
     PublicKeyAlgo = ssl_certificate:public_key_type(PublicKeyAlgo0),
@@ -1632,10 +1678,12 @@ select_hashsign(#certificate_request{certificate_types = Types}, Cert, _, Versio
 
 
 do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
-    case lists:filter(fun({H, rsa_pss_pss = S}) when S == PublicKeyAlgo ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
-                         ({H, rsa_pss_rsae = S}) when PublicKeyAlgo == rsa ->
-                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns);
+    case lists:filter(fun({H, rsa_pss_pss = S} = Algos) when S == PublicKeyAlgo ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
+                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
+                         ({H, rsa_pss_rsae = S} = Algos) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign(list_to_existing_atom(atom_to_list(S) ++ "_" ++ atom_to_list(H)), SupportedHashSigns) orelse
+                                  is_acceptable_hash_sign(Algos, SupportedHashSigns);
                          ({_, S} = Algos) when S == PublicKeyAlgo ->
                               is_acceptable_hash_sign(Algos, SupportedHashSigns);
                          (_A)  ->
@@ -1875,6 +1923,16 @@ handle_ocsp_extension(false = Stapling, Extensions) ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
     end.
 
+certificate_authorities(CertDbHandle, CertDbRef) ->
+    Authorities = [ Cert || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)],
+    Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
+		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
+		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
+		  DNEncodedLen = byte_size(DNEncodedBin),
+		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
+	  end,
+    list_to_binary([Enc(Cert) || Cert <- Authorities]).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1884,19 +1942,13 @@ int_to_bin(I) ->
     L = (length(integer_to_list(I, 16)) + 1) div 2,
     <<I:(L*8)>>.
 
-%% TLS 1.0+
 %% The end-entity certificate provided by the client MUST contain a
 %% key that is compatible with certificate_types.
-certificate_types(_, {N, M}) when N >= 3 andalso M >= 1 ->
+certificate_types(Version) when Version =< {3,3} ->
     ECDSA = supported_cert_type_or_empty(ecdsa, ?ECDSA_SIGN),
     RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
     DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
-    <<ECDSA/binary,RSA/binary,DSS/binary>>;
-%% SSL 3.0
-certificate_types(_, _) ->
-    RSA = supported_cert_type_or_empty(rsa, ?RSA_SIGN),
-    DSS = supported_cert_type_or_empty(dss, ?DSS_SIGN),
-    <<RSA/binary,DSS/binary>>.
+    <<ECDSA/binary,RSA/binary,DSS/binary>>.
 
 %% Returns encoded certificate_type if algorithm is supported
 supported_cert_type_or_empty(Algo, Type) ->
@@ -1908,16 +1960,6 @@ supported_cert_type_or_empty(Algo, Type) ->
         false ->
             <<>>
     end.
-
-certificate_authorities(CertDbHandle, CertDbRef) ->
-    Authorities = [ Cert || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)],
-    Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
-		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
-		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
-		  DNEncodedLen = byte_size(DNEncodedBin),
-		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
-	  end,
-    list_to_binary([Enc(Cert) || Cert <- Authorities]).
 
 certificate_authorities_from_db(CertDbHandle, CertDbRef) when is_reference(CertDbRef) ->
     ConnectionCerts = fun({{Ref, _, _}, Cert}, Acc) when Ref  == CertDbRef ->
@@ -3018,7 +3060,14 @@ decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(MaxSize),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{early_data =>
                                #early_data_indication_nst{indication = MaxSize}});
-
+decode_extensions(<<?UINT16(?CERTIFICATE_AUTHORITIES_EXT), ?UINT16(Len), 
+                    CertAuts0:Len/binary, Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    CertAutsLen = Len - 2,
+    <<?UINT16(CertAutsLen), CertAuts/binary>> = CertAuts0,
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{certificate_authorities =>
+                               #certificate_authorities{authorities = CertAuts}});
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -3157,7 +3206,6 @@ decode_psk_identities(<<?UINT16(Len), Identity:Len/binary, ?UINT32(Age), Rest/bi
                                     identity = Identity,
                                     obfuscated_ticket_age = Age}|Acc]).
 
-
 decode_psk_binders(Binders) ->
     decode_psk_binders(Binders, []).
 %%
@@ -3165,7 +3213,6 @@ decode_psk_binders(<<>>, Acc) ->
     lists:reverse(Acc);
 decode_psk_binders(<<?BYTE(Len), Binder:Len/binary, Rest/binary>>, Acc) ->
     decode_psk_binders(Rest, [Binder|Acc]).
-
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
@@ -3492,6 +3539,8 @@ sign_algo(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
 sign_algo(Alg, _) ->
     public_key:pkix_sign_types(Alg).
 
+sign_type(rsa_pss_pss) ->
+    ?RSA_SIGN;
 sign_type(rsa) ->
     ?RSA_SIGN;
 sign_type(dsa) ->
@@ -3716,7 +3765,7 @@ empty_extensions({3,4}, client_hello) ->
       %% early_data => undefined,
       cookie => undefined,
       client_hello_versions => undefined,
-      %% cert_authorities => undefined,
+      certificate_authorities => undefined,
       %% post_handshake_auth => undefined,
       signature_algs_cert => undefined
      };

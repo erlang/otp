@@ -36,7 +36,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handshake handling
--export([client_hello/10, hello/5, hello/4]).
+-export([client_hello/11, hello/5, hello/4]).
 
 %% Handshake encoding
 -export([encode_handshake/2]).
@@ -54,9 +54,9 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
-		   ssl_options(), binary(), boolean(), der_cert(),
+		   ssl_options(), binary(), boolean(),
                    #key_share_client_hello{} | undefined, tuple() | undefined,
-                   binary() | undefined) ->
+                   binary() | undefined, db_handle() | undefined, certdb_ref() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -66,7 +66,7 @@ client_hello(_Host, _Port, ConnectionStates,
                ciphers := UserSuites,
                fallback := Fallback
               } = SslOpts,
-	     Id, Renegotiation, _OwnCert, KeyShare, TicketData, OcspNonce) ->
+	     Id, Renegotiation, KeyShare, TicketData, OcspNonce, CertDbHandle, CertDbRef) ->
     Version = tls_record:highest_protocol_version(Versions),
 
     %% In TLS 1.3, the client indicates its version preferences in the
@@ -90,7 +90,7 @@ client_hello(_Host, _Port, ConnectionStates,
                                                        Renegotiation,
                                                        KeyShare,
                                                        TicketData,
-                                                       OcspNonce),
+                                                       OcspNonce, CertDbHandle, CertDbRef),
     CipherSuites = ssl_handshake:cipher_suites(AvailableCipherSuites, Renegotiation, Fallback),
     #client_hello{session_id = Id,
 		  client_version = LegacyVersion,
@@ -212,7 +212,7 @@ hello(#server_hello{server_version = Version,
 %%--------------------------------------------------------------------
 -spec hello(#client_hello{}, ssl_options(),
 	    {pid(), #session{}, ssl_record:connection_states(),
-             binary() | undefined, ssl:kex_algo()},
+             list(), ssl:kex_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), ssl:session_id(), 
 		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
@@ -324,23 +324,23 @@ handle_client_hello(Version,
 		    #{versions := Versions,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {SessIdTracker, Session0, ConnectionStates0, OwnCerts, _},
+		    {SessIdTracker, Session0, ConnectionStates0, CertKeyPairs, _},
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-            OwnCert = ssl_handshake:select_own_cert(OwnCerts),
             SupportedHashSigns = maps:get(signature_algs, SslOpts, undefined),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
             ClientSignatureSchemes = maps:get(signature_algs_cert, HelloExt, undefined),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, OwnCert, Version),
+				   ClientHashSigns, SupportedHashSigns, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, Version, ECCOrder),
-	    {Type, #session{cipher_suite = CipherSuite} = Session1}
+	    {Type, #session{cipher_suite = CipherSuite,
+                            own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
                                                AvailableHashSigns, Compressions,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
-                                               Version, SslOpts, OwnCert),
+                                               Version, SslOpts, CertKeyPairs),
 	    case CipherSuite of
 		no_suite ->
                     throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers));

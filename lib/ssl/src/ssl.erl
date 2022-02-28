@@ -410,6 +410,7 @@
                                 {max_fragment_length, max_fragment_length()} |
                                 {customize_hostname_check, customize_hostname_check()} |
                                 {fallback, fallback()} |
+                                {certificate_authorities, certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
                                 {early_data, client_early_data()}.
@@ -420,6 +421,7 @@
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id() | {session_id(), SessionData::binary()}.
 -type client_reuse_sessions()    :: boolean() | save.
+-type certificate_authorities()  :: boolean().
 -type client_cacerts()           :: [public_key:der_encoded()].
 -type client_cafile()            :: file:filename().
 -type app_level_protocol()       :: binary().
@@ -1680,6 +1682,14 @@ handle_option(fallback = Option, Value0, OptionsMap, #{role := Role}) ->
     assert_role(client_only, Role, Option, Value0),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(certificate_authorities = Option, unbound, OptionsMap, #{role := Role}) ->
+    Value = default_option_role(client, false, Role),
+    OptionsMap#{Option => Value};
+handle_option(certificate_authorities = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
+    assert_role(client_only, Role, Option, Value0),
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(cookie = Option, unbound, OptionsMap, #{role := Role}) ->
     Value = default_option_role(server, true, Role),
     OptionsMap#{Option => Value};
@@ -2112,6 +2122,8 @@ validate_option(cert, Value, _) when Value == undefined;
 validate_option(cert, Value, _) when Value == undefined;
                                      is_binary(Value)->
     [Value];
+validate_option(certificate_authorities, Value, _) when is_boolean(Value)->
+    Value;
 validate_option(certfile, undefined = Value, _) ->
     Value;
 validate_option(certfile, Value, _)

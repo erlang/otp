@@ -405,8 +405,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">24.3</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -540,12 +540,6 @@
         <cell align="left" valign="middle">supported_versions (RFC8446)</cell>
 	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1386,8 +1380,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">24.3</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1429,8 +1423,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">certificate_authorities (RFC8446)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">24.3</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1534,8 +1528,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>24.3</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1567,8 +1561,8 @@
 	extensions are used to guide certificate selection.  As servers
 	MAY require the presence of the "server_name" extension, clients
 	SHOULD send this extension, when applicable.</cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>23.2</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>24.3</em></cell>
       </row>
 
       <row>
@@ -1594,8 +1588,8 @@
 	CertificateRequest message was present, at least one of the
 	certificates in the certificate chain SHOULD be issued by one of
 	the listed CAs.</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>24.3</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

@@ -79,7 +79,8 @@
          extensions_list/1,
          public_key_type/1,
          foldl_db/3,
-         find_cross_sign_root_paths/4
+         find_cross_sign_root_paths/4,
+         handle_cert_auths/4
 	]).
 
 %%====================================================================
@@ -127,13 +128,13 @@ trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                       end
               end, Paths).
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(),
+-spec certificate_chain([] | binary() | #'OTPCertificate'{} , db_handle(),
                         certdb_ref() | {extracted, list()}) ->
           {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
-certificate_chain(undefined, _, _) ->
+certificate_chain([], _, _) ->
     {error, no_cert};
 certificate_chain(DerCert, CertDbHandle, CertsDbRef) when is_binary(DerCert) ->
     ErlCert = public_key:pkix_decode_cert(DerCert, otp),
@@ -150,8 +151,14 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef) ->
     chain_result(Root, Chain, encoded).
 %%--------------------------------------------------------------------
 -spec certificate_chain(binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | 
-                        {extracted, list()}, [der_cert()], encoded | decoded) ->
-          {ok, der_cert() | #'OTPCertificate'{}  | undefined, [der_cert() |  #'OTPCertificate'{}]}.
+                        {extracted, list()}, [der_cert()], encoded | decoded | both) ->
+          {ok,
+           der_cert() | #'OTPCertificate'{} | undefined,
+           [der_cert() |  #'OTPCertificate'{}]} |
+          {ok,
+           {der_cert() | undefined,  [der_cert()]},
+           {#'OTPCertificate'{} | undefined, [#'OTPCertificate'{}]}
+          }.
 %%
 %% Description: Create certificate chain with certs from Candidates
 %%--------------------------------------------------------------------
@@ -299,6 +306,26 @@ find_cross_sign_root_paths([_ | Rest] = Path, CertDbHandle, CertDbRef, Invalidat
             [{Root, Path}]
     end.
 
+handle_cert_auths(Chain, [], _, _) ->
+    %% If we have no authorities extension to check we just accept 
+    %% first choice
+    {ok, Chain};
+handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
+    {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}} = certificate_chain(Cert, CertDbHandle, CertDbRef, [], both),
+    case cert_auth_member(cert_subjects(DCerts), CertAuths) of
+        true ->
+            {ok, EChain};
+        false ->
+            {error, EChain, not_in_auth_domain}
+    end;
+handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
+    case cert_auth_member(cert_subjects(Certs), CertAuths) of
+        true ->
+            {ok, EChain};
+        false ->
+            {error, EChain, not_in_auth_domain}
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -317,7 +344,11 @@ chain_result(Root0, Chain0, encoded) ->
     {ok, Root, Chain};
 chain_result(Root0, Chain0, decoded) ->
     {Root, Chain} = decoded_chain(Root0, Chain0),
-    {ok, Root, Chain}.
+    {ok, Root, Chain};
+chain_result(Root0, Chain0, both) ->
+    {ERoot, EChain} = encoded_chain(Root0, Chain0),
+    {DRoot, DChain} = decoded_chain(Root0, Chain0),
+    {ok, {ERoot, EChain}, {DRoot, DChain}}.
 
 build_certificate_chain(#cert{otp=OtpCert}=Cert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
     IssuerAndSelfSigned = 
@@ -351,7 +382,7 @@ do_certificate_chain(_, _, [RootCert | _] = Chain, _, _, true, _) ->
 
 do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListDb) ->
     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
-						SerialNr, Issuer) of
+                                         SerialNr, Issuer) of
 	{ok, Cert} ->
 	    build_certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert | Chain], ListDb);
 	_ ->
@@ -530,8 +561,8 @@ verify_sign(Cert, #{version := {3, 3},
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
 verify_sign(Cert, #{version := {3, 4},
-                     signature_algs := SignAlgs,
-                     signature_algs_cert := undefined}) ->
+                    signature_algs := SignAlgs,
+                    signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
 verify_sign(Cert, #{version := {3, 4},
                     signature_algs_cert := SignAlgs}) ->
@@ -698,7 +729,7 @@ build_candidates([H|T], Map, Duplicates, Combinations, Max, Acc0) ->
 		_Else ->
 		    Acc = [[Cert|L] || Cert <- Certs, L <- Acc0],
 		    build_candidates(T, Map, Duplicates - 1, Combinations * Counter, Max, Acc)
-		end;
+            end;
 	{[Cert|_Throw], _Counter} ->
 	    case Acc0 of
 		[] ->
@@ -727,3 +758,21 @@ subject(Cert) ->
     {_Serial,Subject} = public_key:pkix_subject_id(Cert),
     Subject.
 
+cert_subjects([], Acc) ->
+    Acc;
+cert_subjects([Cert | Rest], Acc) ->
+    cert_subjects(Rest, [subject(Cert) | Acc]).
+
+cert_subjects(OTPCerts) ->
+    cert_subjects(OTPCerts, []).
+
+decode_cert_auths(<<>>, Acc) ->
+    Acc;
+decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
+     NormAut = public_key:pkix_normalize_name(Auth),
+    decode_cert_auths(Rest, [NormAut | Acc]).
+
+cert_auth_member(ChainSubjects, EncCertAuths) ->
+    CertAuths = decode_cert_auths(EncCertAuths, []),
+    CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),
+    not sets:is_empty(CommonAuthorities).

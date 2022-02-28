@@ -133,6 +133,7 @@
           cacerts                    => {undefined, [versions]},
           cert                       => {undefined, [versions]},
           certfile                   => {<<>>,      [versions]},
+          certificate_authorities    => {false,     [versions]},
           ciphers                    => {[],        [versions]},
           client_renegotiation       => {undefined, [versions]},
           cookie                     => {true,      [versions]},

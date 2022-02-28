@@ -244,12 +244,12 @@ validate_extensions(OtpCert, ValidationState, UserState, VerifyFun) ->
 	    {ValidationState, UserState}
     end.
 %%--------------------------------------------------------------------
--spec normalize_general_name({rdnSequence, term()}) -> {rdnSequence, term()}. 
+-spec normalize_general_name({rdnSequence, term()}| binary()) -> {rdnSequence, term()}. 
 %%
 %% Description: Normalizes a general name so that it can be easily
 %%              compared to another general name. 
 %%--------------------------------------------------------------------	
-normalize_general_name({rdnSequence, Issuer}) ->
+normalize_general_name({rdnSequence, Issuer}) ->    
     NormIssuer = do_normalize_general_name(Issuer),
     {rdnSequence, NormIssuer}.
 

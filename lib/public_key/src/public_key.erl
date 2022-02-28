@@ -750,7 +750,7 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
                                  when AlgorithmId :: oid(),
                                       %% Relevant dsa digest type is a subset of rsa_digest_type()
                                       DigestType :: crypto:rsa_digest_type() | none,
-                                      SignatureType :: rsa | dsa | ecdsa .
+                                      SignatureType :: rsa | dsa | ecdsa | eddsa.
 %% Description:
 %%--------------------------------------------------------------------
 pkix_sign_types(?sha1WithRSAEncryption) ->
@@ -1104,12 +1104,16 @@ pkix_crl_issuer(#'CertificateList'{} = CRL) ->
 
 %%--------------------------------------------------------------------
 -spec pkix_normalize_name(Issuer) -> Normalized 
-                                         when Issuer :: issuer_name(),
+                                         when Issuer :: issuer_name() | der_encoded(),
                                               Normalized :: issuer_name() .
 %%
 %% Description: Normalizes a issuer name so that it can be easily
 %%              compared to another issuer name. 
 %%--------------------------------------------------------------------
+pkix_normalize_name(Issuer) when is_binary(Issuer) -> 
+    PlainGenName = der_decode('Name', Issuer),
+    GenName = pubkey_cert_records:transform(PlainGenName, decode),
+    pkix_normalize_name(GenName);
 pkix_normalize_name(Issuer) -> 
     pubkey_cert:normalize_general_name(Issuer).
 
