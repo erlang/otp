@@ -49,12 +49,12 @@ init(#{erl_dist := ErlDist,
     
     init_manager_name(ErlDist),
 
-    {ok, #{pem_cache := PemCache} = Config} 
+    {ok, #{pem_cache := PemCache} = Config, Certs}
 	= init_certificates(SslOpts, Role),
     PrivateKey =
 	init_private_key(PemCache, Key, KeyFile, Password, Role),
     DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
-    {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
+    {ok, Config#{cert_key_pairs => [#{private_key => PrivateKey, certs => Certs}], dh_params => DHParams}}.
 
 pre_1_3_session_opts(Role) ->
     {Cb, InitArgs} = session_cb_opts(Role),
@@ -141,28 +141,28 @@ init_certificates(#{cacerts := CaCerts,
     init_certificates(OwnCerts, Config, CertFile, Role).
 
 init_certificates(undefined, Config, <<>>, _) ->
-    {ok, Config#{own_certificates => undefined}};
+    {ok, Config, [[]]};
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, client) ->
     try 
         %% OwnCert | [OwnCert | Chain]
 	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, Config#{own_certificates => OwnCerts}}
+	{ok, Config, OwnCerts}
     catch _Error:_Reason  ->
-	    {ok, Config#{own_certificates => undefined}}
+	    {ok, Config, [[]]}
     end; 
 
 init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server) ->
     try
         %% OwnCert | [OwnCert | Chain]
 	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, Config#{own_certificates => OwnCerts}}
+	{ok, Config, OwnCerts}
     catch
 	_:Reason ->
 	    file_error(CertFile, {certfile, Reason})	    
     end;
 init_certificates(OwnCerts, Config, _, _) ->
-    {ok, Config#{own_certificates => OwnCerts}}.
+    {ok, Config, OwnCerts}.
 init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg == ecdsa;
                                                                            Alg == rsa;
                                                                            Alg == dss ->
@@ -173,7 +173,7 @@ init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg =
             throw({key, {invalid_key_id, Key}})
     end;
 init_private_key(_, undefined, <<>>, _Password, _Client) ->
-    undefined;
+    #{};
 init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
     try
 	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),

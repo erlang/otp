@@ -97,7 +97,9 @@
                           socket_tls_closed = false                          ::boolean(),
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                           erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
-                          private_key          :: public_key:private_key() | secret_printout() | 'undefined'
+                          cert_key_pairs  = undefined :: [#{private_key =>  public_key:private_key(),
+                                                            certs => [public_key:der_encoded()]}]
+                                                       | secret_printout() | 'undefined'
                         }).
 
 -record(state, {

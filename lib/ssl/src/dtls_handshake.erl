@@ -30,7 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Handshake handling
--export([client_hello/7, client_hello/9, cookie/4, hello/5, hello/4,
+-export([client_hello/6, client_hello/8, cookie/4, hello/5, hello/4,
 	 hello_verify_request/2]).
 
 %% Handshake encoding
@@ -47,20 +47,20 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
-		   ssl_options(), binary(), boolean(), [der_cert()]) ->
-			  #client_hello{}.
+		   ssl_options(), binary(), boolean()) ->
+          #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, SslOpts,
-	     Id, Renegotiation, OwnCerts) ->
+	     Id, Renegotiation) ->
     %% First client hello (two sent in DTLS ) uses empty Cookie
     client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
-		 Id, Renegotiation, OwnCerts, undefined).
+		 Id, Renegotiation,  undefined).
 
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   ssl_options(), binary(),boolean(), [der_cert()], binary() | undefined) ->
+		   ssl_options(), binary(),boolean(), binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -69,7 +69,7 @@ client_hello(_Host, _Port, Cookie, ConnectionStates,
 	     #{versions := Versions,
                ciphers := UserSuites,
                fallback := Fallback} = SslOpts,
-	     Id, Renegotiation, _OwnCert, OcspNonce) ->
+	     Id, Renegotiation, OcspNonce) ->
     Version =  dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = maps:get(security_parameters, Pending),
@@ -83,7 +83,9 @@ client_hello(_Host, _Port, Cookie, ConnectionStates,
                                                        Renegotiation,
                                                        undefined,
                                                        undefined,
-                                                       OcspNonce),
+                                                       OcspNonce,
+                                                       undefined,
+                                                       undefined),
     #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = 
@@ -178,22 +180,22 @@ handle_client_hello(Version,
                       signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
-		    {SessIdTracker, Session0, ConnectionStates0, OwnCerts, _},
+		    {SessIdTracker, Session0, ConnectionStates0, CertKeyPairs, _},
                     Renegotiation) ->
-    OwnCert = ssl_handshake:select_own_cert(OwnCerts),
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
 	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
-				   ClientHashSigns, SupportedHashSigns, OwnCert,TLSVersion),
+				   ClientHashSigns, SupportedHashSigns, TLSVersion),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, TLSVersion, ECCOrder),
-	    {Type, #session{cipher_suite = CipherSuite} = Session1}
+	    {Type, #session{cipher_suite = CipherSuite,
+                            own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, 
                                                AvailableHashSigns, Compressions,
 					       SessIdTracker, Session0#session{ecc = ECCCurve}, TLSVersion,
-					       SslOpts, OwnCert),
+					       SslOpts, CertKeyPairs),
 	    case CipherSuite of
 		no_suite ->
 		    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY));
