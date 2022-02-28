@@ -92,7 +92,7 @@
   </section>
 
   <section>
-    <title>Test Suite Organisation</title>
+    <title>Test Suite Organization</title>
     <p>
       Test suites are organized in test directories and each test suite
       can have a separate data directory. Typically, these files and directories
