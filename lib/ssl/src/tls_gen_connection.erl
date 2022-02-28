@@ -354,7 +354,11 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
                        #state{static_env = #static_env{role = server},
                               handshake_env = #handshake_env{renegotiation = {false, first}}
                              } = State) when StateName == initial_hello;
-                                             StateName == hello ->
+                                             StateName == hello;
+                                             StateName == certify;
+                                             StateName == abbreviated;
+                                             StateName == cipher
+                                             ->
     %% Application data can not be sent before initial handshake pre TLS-1.3.
     Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
     ssl_gen_statem:handle_own_alert(Alert, StateName, State);
