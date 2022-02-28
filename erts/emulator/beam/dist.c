@@ -965,6 +965,19 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
             if (erts_port_task_is_scheduled(&dep->dist_cmd))
                 erts_port_task_abort(&dep->dist_cmd);
         }
+        else {
+            ASSERT(is_internal_pid(dep->cid));
+            /*
+             * Supervised distribution controllers may exit "normally" with
+             * {shutdown,Reason}. Unwrap such shutdown tuple to get a correct
+             * documented 'nodedown_reason' from net_kernel:montitor_nodes.
+             */
+            if (is_tuple_arity(reason, 2)) {
+                Eterm* tpl = tuple_val(reason);
+                if (tpl[1] == am_shutdown)
+                    reason = tpl[2];
+            }
+        }
 
 	if (dep->state == ERTS_DE_STATE_EXITING) {
 	    ASSERT(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT);
