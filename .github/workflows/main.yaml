@@ -192,7 +192,7 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.1.4
     name: Build Erlang/OTP (Windows)
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: pack
     steps:
       - uses: Vampire/setup-wsl@v1
@@ -245,7 +245,7 @@ jobs:
         shell: cmd
         run: |
           cd wxWidgets\\build\\msw
-          call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
+          call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\Auxiliary\\Build\\vcvars64.bat"
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive

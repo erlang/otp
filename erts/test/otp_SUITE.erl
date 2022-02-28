@@ -156,18 +156,11 @@ diameter_filter(Undef) ->
            end, Undef).
 
 erts_filter(Undef) ->
-    %% Filter away prim_socket calls if that module is not available
-    %% prim_socket is not available if system is compiled with --disable-esock
-    case code:is_loaded(prim_socket) of
-        {file,preloaded} ->
-            Undef;
-        _ ->
-            filter(fun({_,{prim_socket,_,_}}) ->
-                           false;
-                      (_) ->
-                           true
-                   end, Undef)
-    end.
+    filter(fun({_,{prim_socket,_,_}}) -> lists:member(prim_socket, erlang:pre_loaded());
+              ({_,{prim_net,_,_}}) -> lists:member(prim_net, erlang:pre_loaded());
+              ({_,{socket_registry,_,_}}) -> lists:member(socket_registry, erlang:pre_loaded());
+              (_) -> true
+           end, Undef).
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     Server = proplists:get_value(xref_server, Config),
