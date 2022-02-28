@@ -180,7 +180,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(_Case, Config) ->
+init_per_testcase(api_connectx_init=Case, Config) ->
+    check_sctp_connectx(Case, Config);
+init_per_testcase(t_simple_local_sockaddr_in_connectx_init=Case, Config) ->
+    check_sctp_connectx(Case, Config);
+init_per_testcase(Case, Config) ->
+    init_per_testcase_common(Case, Config).
+    
+init_per_testcase_common(_Case, Config) ->
 
     ?P("init_per_testcase -> entry with"
        "~n   Config:   ~p"
@@ -217,6 +224,21 @@ end_per_testcase(_Case, Config) ->
 
 
 -define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).
+-define(no_return(Expr), error({unexpected, Expr})).
+
+check_sctp_connectx(Case, Config) ->
+    {ok,S} = gen_sctp:open([]),
+    try
+        {ok,Pb} = inet:port(S),
+        case gen_sctp:connectx_init(S, [{127,0,0,1}], Pb, []) of
+            {error, enotsup} ->
+                {skip, "sctp_connectx unsupported"};
+            _ ->
+                init_per_testcase_common(Case, Config)
+        end
+    after
+        gen_sctp:close(S)
+    end.
 
 is_old_solaris() ->
     os:type() =:= {unix,sunos} andalso os:version() < {5,12,0}.
@@ -806,13 +828,14 @@ api_connectx_init(Config) when is_list(Config) ->
 
     {ok,S} = gen_sctp:open(),
     {ok,Pb} = inet:port(S),
-    try gen_sctp:connectx_init(S, Localhost, 12345, [])
+    try ?no_return(gen_sctp:connectx_init(S, Localhost, 12345, []))
     catch error:badarg -> ok
     end,
-    try gen_sctp:connectx_init(S, [Localhost], not_allowed_for_port, [])
-    catch error:badarg -> ok
-    end,
-    try gen_sctp:connectx_init(S, [Localhost], 12345, not_allowed_for_opts)
+    {error, einval} = gen_sctp:connectx_init(S, [Localhost], not_allowed_for_port, []),
+    %% try ?no_return(gen_sctp:connectx_init(S, [Localhost], not_allowed_for_port, []))
+    %% catch error:badarg -> ok
+    %% end,
+    try ?no_return(gen_sctp:connectx_init(S, [Localhost], 12345, not_allowed_for_opts))
     catch error:badarg -> ok
     end,
     ok = gen_sctp:close(S),
@@ -2381,15 +2404,19 @@ t_simple_local_sockaddr_in_connectx_init(Config) when is_list(Config) ->
     SockAddr = #{family   => inet,
                  addr     => Localhost,
                  port     => Pb},
-    {ok, A1} = gen_sctp:connectx_init(Sa, [SockAddr], []),
-    {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
-	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
-    ok = gen_sctp:listen(Sb, true),
-    {ok, A2} = gen_sctp:connectx_init(Sa, [SockAddr], []),
-    {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
-	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
-    ok = gen_sctp:close(Sa),
-    ok = gen_sctp:close(Sb),
+    case gen_sctp:connectx_init(Sa, [SockAddr], []) of
+        {ok, A1} ->
+            {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
+                recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+            ok = gen_sctp:listen(Sb, true),
+            {ok, A2} = gen_sctp:connectx_init(Sa, [SockAddr], []),
+            {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
+                recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+            ok = gen_sctp:close(Sa),
+            ok = gen_sctp:close(Sb);
+        {error, enotsup} ->
+            ok
+    end,
     ok.
 
 
