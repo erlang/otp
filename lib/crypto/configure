@@ -648,6 +648,7 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+DISABLE_OTP_TEST_ENGINE
 DISABLE_EVP_HMAC
 DISABLE_EVP_DH
 SSL_DYNAMIC_ONLY
@@ -778,6 +779,7 @@ with_ssl_rpath
 enable_dynamic_ssl_lib
 enable_evp_dh
 enable_evp_hmac
+enable_otp_test_engine
 enable_deprecated_warnings
 enable_fips
 '
@@ -1450,6 +1452,10 @@ Optional Features:
                           the crypto NIF
   --disable-evp-dh        intentionally undocumented workaround
   --disable-evp-hmac      intentionally undocumented workaround
+  --disable-otp-test-engine
+                          Disable build of the otp_test_engine. (default is
+                          --enable-otp-test-engine, unless for LibreSSL >=
+                          3.5.0 where default is --disable-otp-test-engine)
   --disable-deprecated-warnings
                           disable warnings for deprecated functions in
                           cryptolib (default is to warn, except for OpenSSL
@@ -5710,6 +5716,18 @@ else $as_nop
 fi
 
 
+# Check whether --enable-otp-test-engine was given.
+if test ${enable_otp_test_engine+y}
+then :
+  enableval=$enable_otp_test_engine;  case "$enableval" in
+    no)   DISABLE_OTP_TEST_ENGINE=yes;;
+    *)    DISABLE_OTP_TEST_ENGINE=no;;
+  esac
+else $as_nop
+  DISABLE_OTP_TEST_ENGINE=default
+fi
+
+
 # Check whether --enable-deprecated_warnings was given.
 if test ${enable_deprecated_warnings+y}
 then :
@@ -6190,6 +6208,30 @@ else $as_nop
 fi
 rm -rf conftest*
 
+
+
+    if test "x$DISABLE_OTP_TEST_ENGINE" = "xdefault"; then
+# Get default value for the --disable-otp-test-engine. Depends on cryptolib version
+          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1
+then :
+  DISABLE_OTP_TEST_ENGINE=yes
+else $as_nop
+  DISABLE_OTP_TEST_ENGINE=no
+fi
+rm -rf conftest*
+
+    fi
+
     CPPFLAGS="$save_CPPFLAGS"
 
     if test $valid_include != yes
@@ -6669,6 +6711,30 @@ else $as_nop
   v3_include=no
 fi
 rm -rf conftest*
+
+
+
+    if test "x$DISABLE_OTP_TEST_ENGINE" = "xdefault"; then
+# Get default value for the --disable-otp-test-engine. Depends on cryptolib version
+          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <openssl/opensslv.h>
+#if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "^yes.?$" >/dev/null 2>&1
+then :
+  DISABLE_OTP_TEST_ENGINE=yes
+else $as_nop
+  DISABLE_OTP_TEST_ENGINE=no
+fi
+rm -rf conftest*
+
+    fi
 
     CPPFLAGS="$save_CPPFLAGS"
 
@@ -7648,6 +7714,7 @@ fi
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
 
 
 

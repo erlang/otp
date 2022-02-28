@@ -174,6 +174,14 @@ AS_HELP_STRING([--disable-evp-hmac],
     *)    DISABLE_EVP_HMAC=0;;
   esac ], DISABLE_EVP_HMAC=0)
 
+AC_ARG_ENABLE(otp-test-engine,
+AS_HELP_STRING([--disable-otp-test-engine],
+       [Disable build of the otp_test_engine. (default is --enable-otp-test-engine, unless for LibreSSL >= 3.5.0 where default is --disable-otp-test-engine)]),
+[ case "$enableval" in
+    no)   DISABLE_OTP_TEST_ENGINE=yes;;
+    *)    DISABLE_OTP_TEST_ENGINE=no;;
+  esac ], DISABLE_OTP_TEST_ENGINE=default)
+
 AC_ARG_ENABLE(deprecated_warnings,
 AS_HELP_STRING([--disable-deprecated-warnings],
 	       [disable warnings for deprecated functions in cryptolib (default is to warn, except for OpenSSL 3.x where the default is not to warn)]),
@@ -254,6 +262,20 @@ yes
 		 ],
 		 [v3_include=yes],
 		 [v3_include=no])
+
+
+    if test "x$DISABLE_OTP_TEST_ENGINE" = "xdefault"; then
+# Get default value for the --disable-otp-test-engine. Depends on cryptolib version
+          AC_EGREP_CPP(^yes.?$,[
+#include <openssl/opensslv.h>
+#if LIBRESSL_VERSION_NUMBER >= 0x3050000fL
+yes
+#endif
+        		 ],
+	                 [DISABLE_OTP_TEST_ENGINE=yes],
+                         [DISABLE_OTP_TEST_ENGINE=no])
+    fi
+
     CPPFLAGS="$save_CPPFLAGS"
 
     AS_IF([test $valid_include != yes],
@@ -942,6 +964,7 @@ AC_SUBST(SSL_DED_LD_RUNTIME_LIBRARY_PATH)
 AC_SUBST(SSL_DYNAMIC_ONLY)
 AC_SUBST(DISABLE_EVP_DH)
 AC_SUBST(DISABLE_EVP_HMAC)
+AC_SUBST(DISABLE_OTP_TEST_ENGINE)
 
 AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
 AC_OUTPUT
