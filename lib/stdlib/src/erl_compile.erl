@@ -55,7 +55,8 @@ compile_cmdline() ->
     compile_cmdline1(List).
 
 %% Run a compilation. Meant to be used by the compilation server.
--spec compile(list(), file:filename()) -> 'ok' | {'error', binary()}.
+-spec compile(list(), file:filename()) ->
+          'ok' | {'error', binary()} | {'crash', {atom(), term(), term()}}.
 compile(Args, Cwd) ->
     try compile1(Args, #options{outdir=Cwd,cwd=Cwd}) of
         ok ->
