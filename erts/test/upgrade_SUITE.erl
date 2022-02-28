@@ -32,7 +32,7 @@
 -define(start_exclude,
 	[cosEvent,cosEventDomain,cosFileTransfer,cosNotification,
 	 cosProperty,cosTime,cosTransactions,erts,ic,netconf,orber,
-	 safe]).
+	 safe,wx,observer,et,debugger,dialyzer]).
 
 %% Applications that are excluded from this test because their appup
 %% file don't support the upgrade.
@@ -518,7 +518,7 @@ subst_var([], Vars, Result, VarAcc) ->
 %%%-----------------------------------------------------------------
 %%% 
 start_node(Start,ExpStatus,ExpVsn,ExpApps) ->
-    case open_port({spawn_executable, Start}, []) of
+    case open_port({spawn_executable, Start}, [{env,[{"ERL_AFLAGS",false}]}]) of
         Port when is_port(Port) ->
             unlink(Port),
             erlang:port_close(Port),
@@ -533,7 +533,22 @@ wait_node_up(ExpStatus, ExpVsn, ExpApps0) ->
     wait_node_up(Node, ExpStatus, ExpVsn, lists:keysort(1,ExpApps), 60).
 
 wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, 0) ->
-    p("wait_node_up -> fail"),
+    LogTxt =
+        try erpc:call(Node, code, root_dir, []) of
+            Root ->
+                LogGlob = filename:join([Root,"log","erlang.*"]),
+                {ok, Log} = case filelib:wildcard(LogGlob) of
+                                [Logfile|_] ->
+                                    file:read_file(Logfile);
+                                [] ->
+                                    {ok, "No log file found"}
+                            end,
+                Log
+        catch C:E ->
+                {"erpc:call",C,E}
+        end,
+    p("wait_node_up -> fail~n"
+      "Logs: ~n~ts~n", [LogTxt]),
     ct:fail({app_check_failed,ExpVsn,ExpApps,
 	     rpc:call(Node, release_handler, which_releases,     [ExpStatus]),
 	     rpc:call(Node, application,     which_applications, [])});
@@ -549,8 +564,11 @@ wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N) ->
                     p("wait_node_up -> [~w] expected apps", [N]),
                     {ok, Node};
                 UnexpApps ->
-                    p("wait_node_up -> [~w] still wrong apps:"
-                      "~n      ~p", [N, UnexpApps]),
+                    p("wait_node_up -> [~w] still wrong apps:~n"
+                      "Missing:~p~n"
+                      "Extra:  ~p~n"
+                      "All:    ~p~n"
+                      , [N, ExpApps -- UnexpApps, UnexpApps -- ExpApps, UnexpApps]),
                     wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N-1)
             end;
         {[{_,Vsn,_,_}],_} ->
