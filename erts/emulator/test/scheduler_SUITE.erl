@@ -104,6 +104,12 @@ init_per_testcase(update_cpu_info, Config) ->
 	_ ->
 	    init_per_tc(update_cpu_info, Config)
     end;
+init_per_testcase(ThreadCase, Config) when ThreadCase =:= poll_threads;
+                                           ThreadCase =:= scheduler_threads ->
+    case erlang:system_info(schedulers_online) of
+        1 -> {skip,"Needs more than one scheduler online"};
+        _ -> init_per_tc(ThreadCase, Config)
+    end;
 init_per_testcase(Case, Config) when is_list(Config) ->
     init_per_tc(Case, Config).
 
