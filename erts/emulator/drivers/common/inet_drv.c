@@ -4352,10 +4352,6 @@ static int inet_init()
 		    p_sctp_freepaddrs = NULL;
 		    p_sctp_getpaddrs = NULL;
 		}
-		if (erts_sys_ddll_sym(h_libsctp, "sctp_connectx", &ptr) == 0) {
-		    p_sctp_connectx = ptr;
-		}
-		else p_sctp_connectx = NULL;
 		inet_init_sctp();
 		add_driver_entry(&sctp_inet_driver_entry);
 	    }
