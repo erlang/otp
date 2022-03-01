@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -389,34 +389,58 @@ restart_port(#state{port = Port, requests = Requests}) ->
 	    Requests),
     NewPort.
 
-
+-dialyzer({no_improper_lists, do_open_port/2}).
 do_open_port(Poolsize, ExtraArgs) ->
-    try 
-	open_port({spawn, 
-		   ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++" "++
-		   ExtraArgs},
-		  [{packet,4},eof,binary,overlapped_io])
+    Args = [integer_to_list(Poolsize)] ++ ExtraArgs,
+    %% open_executable/2 below assumes overlapped_io is at the head
+    Opts = [overlapped_io, {args, Args}, {packet,4}, eof, binary],
+    RootDir = code:root_dir(),
+    Prog =
+        filename:join(
+          [RootDir,
+           "erts-"++erlang:system_info(version),
+           "bin",
+           ?PORT_PROGRAM]),
+    Cont =
+        fun () ->
+                [filename:join(
+                   [RootDir,
+                    "bin",
+                    erlang:system_info(system_architecture),
+                    ?PORT_PROGRAM])]
+        end,
+    open_executable([Prog|Cont], Opts, []).
+
+open_executable([Prog|Tail] = Progs, Opts, Acc) ->
+    Try = {Prog,Opts},
+    try open_port({spawn_executable, Prog}, Opts)
     catch
-	error:_ ->
-	    open_port({spawn, 
-		       ?PORT_PROGRAM++" "++integer_to_list(Poolsize)++
-		       " "++ExtraArgs},
-		      [{packet,4},eof,binary])
-    end.
+        error : badarg when hd(Opts) =:= overlapped_io ->
+            open_executable(Progs, tl(Opts), [Try|Acc]);
+        error : enoent ->
+            open_executable(Tail, Opts, [Try|Acc]);
+        error : Reason ->
+            error({Reason, Try})
+    end;
+open_executable([], _Opts, Acc) ->
+    error({not_found, lists:reverse(Acc)});
+open_executable(Cont, Opts, Acc) ->
+    open_executable(Cont(), Opts, Acc).
+
 
 get_extra_args() ->
-    FirstPart = case application:get_env(kernel, gethost_prioritize) of
-		    {ok, false} ->
-			" -ng";
-		    _ ->
-			""
-		end,
-    case application:get_env(kernel, gethost_extra_args) of
-	{ok, L} when is_list(L) ->
-	    FirstPart++" "++L;
-	_ ->
-	    FirstPart++""
-    end.
+    case application:get_env(kernel, gethost_prioritize) of
+        {ok, false} ->
+            ["-ng"];
+        _ ->
+            []
+    end ++
+        case application:get_env(kernel, gethost_extra_args) of
+            {ok, L} when is_list(L) ->
+                string:tokens(L, " ");
+            _ ->
+                []
+        end.
 
 get_poolsize() ->
     case application:get_env(kernel, gethost_poolsize) of
