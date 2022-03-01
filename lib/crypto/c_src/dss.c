@@ -23,6 +23,117 @@
 
 #ifdef HAVE_DSA
 
+# ifdef HAS_3_0_API
+
+int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+// HAS_3_0_API
+{
+    /* key=[P,Q,G,PRIV_KEY] */
+    ERL_NIF_TERM head, tail;
+    OSSL_PARAM params[5];
+    EVP_PKEY_CTX *ctx = NULL;
+    int i = 0;
+    
+    head = key;
+
+    // https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-FFC.html
+    if (!get_ossl_param_from_bin_in_list(env, "p",    &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "q",    &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "g",    &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "priv", &head, &params[i++]))
+        goto bad_arg;
+
+    params[i++] = OSSL_PARAM_construct_end();
+
+    tail = head;
+    if (!enif_is_empty_list(env,tail))
+        goto err;
+
+    if ((ctx = EVP_PKEY_CTX_new_from_name(NULL, "DSA", NULL)) == NULL)
+        goto err;
+    if (EVP_PKEY_fromdata_init(ctx) <= 0)
+        goto err;
+    if (EVP_PKEY_fromdata(ctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+        goto bad_arg;
+
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    return 1;
+
+bad_arg:
+err:
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    return 0;
+}
+
+int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+// HAS_3_0_API
+{
+    /* key=[P, Q, G, PUB_KEY (=Y)] */
+    ERL_NIF_TERM head, tail;
+    OSSL_PARAM params[5];
+    EVP_PKEY_CTX *ctx = NULL;
+    int i = 0;
+    
+    head = key;
+
+    // https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-FFC.html
+    if (!get_ossl_param_from_bin_in_list(env, "p",   &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "q",   &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "g",   &head, &params[i++]) ||
+        !get_ossl_param_from_bin_in_list(env, "pub", &head, &params[i++]))
+        goto bad_arg;
+
+    params[i++] = OSSL_PARAM_construct_end();
+
+    tail = head;
+    if (!enif_is_empty_list(env,tail))
+        goto err;
+
+    if ((ctx = EVP_PKEY_CTX_new_from_name(NULL, "DSA", NULL)) == NULL)
+        goto err;
+    if (EVP_PKEY_fromdata_init(ctx) <= 0)
+        goto err;
+    if (EVP_PKEY_fromdata(ctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+        goto bad_arg;
+
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    return 1;
+
+bad_arg:
+err:
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    return 0;
+}
+
+
+int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
+// HAS_3_0_API
+{
+    ERL_NIF_TERM result[5];
+    BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub = NULL;
+
+    if (
+        !EVP_PKEY_get_bn_param(pkey, "p", &p)
+        || !EVP_PKEY_get_bn_param(pkey, "q", &q)
+        || !EVP_PKEY_get_bn_param(pkey, "g", &g)
+        || !EVP_PKEY_get_bn_param(pkey, "pub", &pub)
+        || ((result[0] = bin_from_bn(env, p)) == atom_error)
+        || ((result[1] = bin_from_bn(env, q)) == atom_error)
+        || ((result[1] = bin_from_bn(env, g)) == atom_error)
+        || ((result[1] = bin_from_bn(env, pub)) == atom_error)
+        )
+        goto err;
+
+    *ret =  enif_make_list_from_array(env, result, 4);
+    return 1;
+
+ err:
+    return 0;
+}
+
+# else
+/* Has NOT 3.0 API */
+
 int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     /* key=[P,Q,G,KEY] */
@@ -197,4 +308,6 @@ int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
     return 0;
 }
 
-#endif
+# endif /* HAS_3_0_API */
+
+#endif /* HAVE_DSA */
