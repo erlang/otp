@@ -33,8 +33,6 @@
 	 start_subagent/3, stop_subagent/1, 
 	 start_sub_sup/1,  start_sub_sup/2, 
 
-	 start_node/1, stop_node/1,
-
 	 load_master/1, load_master_std/1, unload_master/1, 
 	 loaded_mibs/0, unload_mibs/1,
 
@@ -131,11 +129,16 @@ init_all(Config) when is_list(Config) ->
     %%
 
     ?IPRINT("init_all -> start sub-agent node"),
-    ?line {ok, SaNode}  = start_node(snmp_sa),
+    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+
+    {ok, SaPeer, SaNode}  = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_sa), args => Args}),
+    unlink(SaPeer), %% must unlink, otherwise peer will exit before test case
 
     ?IPRINT("init_all -> start manager node"),
-    ?line {ok, MgrNode} = start_node(snmp_mgr),
+    {ok, MgrPeer, MgrNode} = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_mgr), args => Args}),
+    unlink(MgrPeer), %% must unlink, otherwise peer will exit before test case
 
+    global:sync(),
 
     %% -- 
     %% Create necessary files ( and dirs ) 
@@ -216,8 +219,10 @@ init_all(Config) when is_list(Config) ->
 
     ?IPRINT("init_all -> done when"
             "~n   Nodes: ~p", [nodes()]),
-    [{snmp_sa,        SaNode}, 
-     {snmp_mgr,       MgrNode}, 
+    [{snmp_sa,        SaNode},
+     {snmp_sa_peer,   SaPeer},
+     {snmp_mgr,       MgrNode},
+     {snmp_mgr_peer,  MgrPeer},
      {snmp_master,    node()}, 
      {agent_dir,      AgentDir ++ "/"},
      {agent_db_dir,   AgentDbDir ++ "/"},
@@ -237,14 +242,12 @@ finish_all(Config) when is_list(Config) ->
             "~n   Config: ~p"
             "~n   Nodes:  ~p", [Config, nodes()]),
 
-    SaNode  = ?config(snmp_sa, Config),
-    MgrNode = ?config(snmp_mgr, Config),
+    SaPeer  = ?config(snmp_sa_peer, Config),
+    MgrPeer = ?config(snmp_mgr_peer, Config),
 
-    ?IPRINT("finish_all -> stop sub-agent node ~p", [SaNode]),
-    stop_node(SaNode),
+    peer:stop(SaPeer),
 
-    ?IPRINT("finish_all -> stop manager node ~p", [MgrNode]),
-    stop_node(MgrNode),
+    peer:stop(MgrPeer),
 
     ?IPRINT("finish_all -> stop mnesia application"),
     application:stop(mnesia),
@@ -1638,41 +1641,6 @@ get_next_req(Vars) ->
     ?DBG("get_next_req -> response: ~p",[Response]),
     Response.
 
-
-%% --- start and stop nodes ---
-
-start_node(Name) ->
-    ?IPRINT("start_node -> entry with"
-            "~n   Name: ~p"
-            "~n when"
-            "~n   hostname of this node: ~p",
-            [Name, list_to_atom(?HOSTNAME(node()))]),
-
-    Pa = filename:dirname(code:which(?MODULE)),
-    ?DBG("start_node -> Pa: ~p", [Pa]),
-
-    A = " -pa " ++ Pa ++ 
-        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
-        " -s global sync",
-    case ?START_NODE(Name, A) of
-	{ok, Node} ->
-	    ?DBG("start_node -> Node: ~p", [Node]),
-            global:sync(),
-	    {ok, Node};
-	{error, Reason}  -> 
-	    ?WPRINT("start_node -> failed starting node ~p:"
-                    "~n      Reason: ~p", [Name, Reason]),
-	    ?line ?SKIP({failed_start_node, Reason});
-	Else  -> 
-	    ?EPRINT("start_node -> failed starting node ~p:"
-                    "~n      ~p", [Name, Else]),
-	    ?line ?FAIL(Else)
-    end.
-
-
-stop_node(Node) ->
-    ?IPRINT("stop_node -> Node: ~p", [Node]),
-    ?STOP_NODE(Node).
 
 
 %%%-----------------------------------------------------------------

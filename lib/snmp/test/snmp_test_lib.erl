@@ -41,8 +41,7 @@
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
 -export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
 -export([ping/1, local_nodes/0, nodes_on/1]).
--export([start_node/2, stop_node/1]).
--export([is_app_running/1, 
+-export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
          ensure_not_running/3]).
 -export([crypto_start/0, crypto_support/0]).
@@ -2456,15 +2455,6 @@ local_nodes() ->
 
 nodes_on(Host) when is_list(Host) ->
     net_adm:world_list([list_to_atom(Host)]).
-
-
-start_node(Name, Args) ->
-    Opts = [{cleanup, false}, {args, Args}],
-    test_server:start_node(Name, peer, Opts).
-
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 
 %% ----------------------------------------------------------------

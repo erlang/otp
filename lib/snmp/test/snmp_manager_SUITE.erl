@@ -62,9 +62,9 @@
 
 	 register_user1/1,
 	
-	 register_agent_old/1,
-	 register_agent2/1,
-	 register_agent3/1,
+	 register_agent_old/0, register_agent_old/1,
+	 register_agent2/0, register_agent2/1,
+	 register_agent3/0, register_agent3/1,
 
 	 info/1,
          usm_priv_aes/1,
@@ -73,30 +73,30 @@
          usm_sha384_priv_aes/1,
          usm_sha512_priv_aes/1,
 	 
-	 simple_sync_get3/1, 
-	 simple_async_get3/1, 
+	 simple_sync_get3/0, simple_sync_get3/1,
+	 simple_async_get3/0, simple_async_get3/1,
 	
-  	 simple_sync_get_next3/1, 
-         simple_async_get_next3_cbp_def/1,
-         simple_async_get_next3_cbp_temp/1,
-         simple_async_get_next3_cbp_perm/1,
+         simple_sync_get_next3/0, simple_sync_get_next3/1,
+         simple_async_get_next3_cbp_def/0, simple_async_get_next3_cbp_def/1,
+         simple_async_get_next3_cbp_temp/0, simple_async_get_next3_cbp_temp/1,
+         simple_async_get_next3_cbp_perm/0, simple_async_get_next3_cbp_perm/1,
 	 
-	 simple_sync_set3/1, 
-         simple_async_set3_cbp_def/1,
-         simple_async_set3_cbp_temp/1,
-         simple_async_set3_cbp_perm/1,
+         simple_sync_set3/0, simple_sync_set3/1,
+         simple_async_set3_cbp_def/0, simple_async_set3_cbp_def/1,
+         simple_async_set3_cbp_temp/0, simple_async_set3_cbp_temp/1,
+         simple_async_set3_cbp_perm/0, simple_async_set3_cbp_perm/1,
 	 
-  	 simple_sync_get_bulk3/1, 
-         simple_async_get_bulk3_cbp_def/1,
-         simple_async_get_bulk3_cbp_temp/1,
-         simple_async_get_bulk3_cbp_perm/1,
-	 
-	 simple_v3_exchange_md5/1,
-	 simple_v3_exchange_sha/1,
-	 simple_v3_exchange_sha224/1,
-	 simple_v3_exchange_sha256/1,
-	 simple_v3_exchange_sha384/1,
-	 simple_v3_exchange_sha512/1,
+  	 simple_sync_get_bulk3/0, simple_sync_get_bulk3/1,
+         simple_async_get_bulk3_cbp_def/0, simple_async_get_bulk3_cbp_def/1,
+         simple_async_get_bulk3_cbp_temp/0, simple_async_get_bulk3_cbp_temp/1,
+         simple_async_get_bulk3_cbp_perm/0, simple_async_get_bulk3_cbp_perm/1,
+
+	 simple_v3_exchange_md5/0, simple_v3_exchange_md5/1,
+	 simple_v3_exchange_sha/0, simple_v3_exchange_sha/1,
+	 simple_v3_exchange_sha224/0, simple_v3_exchange_sha224/1,
+	 simple_v3_exchange_sha256/0, simple_v3_exchange_sha256/1,
+	 simple_v3_exchange_sha384/0, simple_v3_exchange_sha384/1,
+	 simple_v3_exchange_sha512/0, simple_v3_exchange_sha512/1,
 
 	 discovery/1,
 	 
@@ -113,9 +113,9 @@
 
 	 report/1,
 
-	 otp8015_1/1, 
+	 otp8015_1/0, otp8015_1/1,
 	
-	 otp8395_1/1
+	 otp8395_1/0, otp8395_1/1
 
 	]).
 
@@ -654,18 +654,18 @@ init_per_testcase2(Case, Config) ->
     ?DBG("init [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     Conf2.
 
-init_per_testcase3(simple_v3_exchange_md5 = _Case, Config) ->
-    init_v3_testcase([{auth_alg, md5} | Config]);
-init_per_testcase3(simple_v3_exchange_sha = _Case, Config) ->
-    init_v3_testcase([{auth_alg, sha} | Config]);
-init_per_testcase3(simple_v3_exchange_sha224 = _Case, Config) ->
-    init_v3_testcase([{auth_alg, sha224} | Config]);
-init_per_testcase3(simple_v3_exchange_sha256 = _Case, Config) ->
-    init_v3_testcase([{auth_alg, sha256} | Config]);
-init_per_testcase3(simple_v3_exchange_sha384 = _Case, Config) ->
-    init_v3_testcase([{auth_alg, sha384} | Config]);
-init_per_testcase3(simple_v3_exchange_sha512 = _Case, Config) ->
-    init_v3_testcase([{auth_alg, sha512} | Config]);
+init_per_testcase3(simple_v3_exchange_md5 = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, md5} | Config]);
+init_per_testcase3(simple_v3_exchange_sha = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, sha} | Config]);
+init_per_testcase3(simple_v3_exchange_sha224 = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, sha224} | Config]);
+init_per_testcase3(simple_v3_exchange_sha256 = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, sha256} | Config]);
+init_per_testcase3(simple_v3_exchange_sha384 = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, sha384} | Config]);
+init_per_testcase3(simple_v3_exchange_sha512 = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, sha512} | Config]);
 init_per_testcase3(Case, Config) ->
     ApiCases02 = 
 	[
@@ -744,8 +744,8 @@ init_per_testcase3(Case, Config) ->
                     end,
             %% We don't need to try catch this (init_agent)
             %% since we have a try catch "higher up"...
-	    Conf3 = init_agent(Conf2),
-	    Conf4 = try init_manager(AutoInform, Conf3)
+	    Conf3 = init_agent(Case, Conf2),
+	    Conf4 = try init_manager(Case, AutoInform, Conf3)
                     catch AC:AE:_ ->
                             %% Ouch we need to clean up: 
                             %% The init_agent starts an agent node!
@@ -771,9 +771,9 @@ init_per_testcase3(Case, Config) ->
 	    Config
     end.
 
-init_v3_testcase(Conf) ->
-    Conf2 = init_v3_agent(Conf),
-    Conf3 = try init_v3_manager(Conf2)
+init_v3_testcase(Case, Conf) ->
+    Conf2 = init_v3_agent(Case, Conf),
+    Conf3 = try init_v3_manager(Case, Conf2)
             catch AC:AE:AS ->
                     %% Ouch we need to clean up:
                     %% The init_agent starts an agent node!
@@ -896,7 +896,6 @@ end_per_testcase2(Case, Config) ->
 %% Test functions
 %%======================================================================
 
-simple_start_and_stop1(suite) -> [];
 simple_start_and_stop1(Config) when is_list(Config) ->
     ?TC_TRY(simple_start_and_stop1,
             fun() -> do_simple_start_and_stop1(Config) end).
@@ -930,17 +929,16 @@ do_simple_start_and_stop1(Config) ->
 
 %%======================================================================
 
-simple_start_and_stop2(suite) -> [];
 simple_start_and_stop2(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   ManagerNode = start_manager_node(), 
+                   ManagerNode = start_node(simple_start_and_stop2),
                    [ManagerNode]
            end,
     Case = fun(State) -> do_simple_start_and_stop2(State, Config) end,
-    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    Post = fun([{ManagerPeer, _ManagerNode}]) -> peer:stop(ManagerPeer) end,
     ?TC_TRY(simple_start_and_stop2, Pre, Case, Post).
 
-do_simple_start_and_stop2([ManagerNode], Config) ->
+do_simple_start_and_stop2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p"
             "~n", [Config]),
@@ -981,7 +979,6 @@ do_simple_start_and_stop2([ManagerNode], Config) ->
 
 %%======================================================================
 
-simple_start_and_stop3(suite) -> [];
 simple_start_and_stop3(Config) when is_list(Config) ->
     ?TC_TRY(simple_start_and_stop3,
             fun() -> do_simple_start_and_stop3(Config) end).
@@ -1021,7 +1018,6 @@ do_simple_start_and_stop3(Config) ->
 
 %%======================================================================
 
-simple_start_and_monitor_crash1(suite) -> [];
 simple_start_and_monitor_crash1(Config) when is_list(Config) ->
     ?TC_TRY(simple_start_and_monitor_crash1,
             fun() -> do_simple_start_and_monitor_crash1(Config) end).
@@ -1085,7 +1081,6 @@ do_simple_start_and_monitor_crash1(Config) ->
 
 %%======================================================================
 
-simple_start_and_monitor_crash2(suite) -> [];
 simple_start_and_monitor_crash2(Config) when is_list(Config) ->
     Cond = fun() -> case os:type() of
 			{unix, netbsd} ->
@@ -1191,7 +1186,6 @@ simulate_crash(NumKills, _) ->
 
 %%======================================================================
 
-notify_started01(suite) -> [];
 notify_started01(Config) when is_list(Config) ->
     ?TC_TRY(notify_started01,
             fun() -> do_notify_started01(Config) end).
@@ -1283,7 +1277,6 @@ snmpm_starter(Opts, To) ->
 
 %%======================================================================
 
-notify_started02(suite) -> [];
 notify_started02(Config) when is_list(Config) ->
     ?TC_TRY(notify_started02,
             fun() -> notify_started02_cond(Config) end,
@@ -1509,7 +1502,6 @@ ns02_ctrl_loop(Opts, N) ->
 
 %%======================================================================
 
-info(suite) -> [];
 info(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1612,7 +1604,6 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 %% USM privacy fails with AES in OTP 22.2.3. Test to prevent
 %% regression in future releases.
 %%
-usm_priv_aes(suite) -> [];
 usm_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1645,7 +1636,6 @@ usm_priv_aes(Config) when is_list(Config) ->
 
 %%======================================================================
 
-usm_sha224_priv_aes(suite) -> [];
 usm_sha224_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1678,7 +1668,6 @@ usm_sha224_priv_aes(Config) when is_list(Config) ->
 
 %%======================================================================
 
-usm_sha256_priv_aes(suite) -> [];
 usm_sha256_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1711,7 +1700,6 @@ usm_sha256_priv_aes(Config) when is_list(Config) ->
 
 %%======================================================================
 
-usm_sha384_priv_aes(suite) -> [];
 usm_sha384_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1744,7 +1732,6 @@ usm_sha384_priv_aes(Config) when is_list(Config) ->
 
 %%======================================================================
 
-usm_sha512_priv_aes(suite) -> [];
 usm_sha512_priv_aes(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -1921,17 +1908,16 @@ do_usm_priv_aes(AuthAlg, Config) ->
 
 %%======================================================================
 
-register_user1(suite) -> [];
 register_user1(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   ManagerNode = start_manager_node(), 
+                   ManagerNode = start_node(register_user1),
                    [ManagerNode]
            end,
     Case = fun(State) -> do_register_user1(State, Config) end,
-    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    Post = fun([{ManagerPeer, _ManagerNode}]) -> peer:stop(ManagerPeer) end,
     ?TC_TRY(register_user1, Pre, Case, Post).
 
-do_register_user1([ManagerNode], Config) ->
+do_register_user1([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("starting with Config: "
             "~n   ~p"
             "~n", [Config]),
@@ -2019,20 +2005,19 @@ verify_users(ActualUsers0, [User|RegUsers]) ->
 
 %%======================================================================
 
-register_agent_old(doc) -> 
-    ["Test registration of agents with the OLD interface functions"];
-register_agent_old(suite) -> 
-    [];
+register_agent_old() ->
+    [{doc, "Test registration of agents with the OLD interface functions"}].
+
 register_agent_old(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   ManagerNode = start_manager_node(), 
+                   ManagerNode = start_node(register_agent_old),
                    [ManagerNode]
            end,
     Case = fun(State) -> do_register_agent_old(State, Config) end,
-    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    Post = fun([{ManagerPeer, _ManagerNode}]) -> peer:stop(ManagerPeer) end,
     ?TC_TRY(register_agent_old, Pre, Case, Post).
 
-do_register_agent_old([ManagerNode], Config) ->
+do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p"
             "~n", [Config]),
@@ -2154,20 +2139,19 @@ do_register_agent_old([ManagerNode], Config) ->
 
 %%======================================================================
 
-register_agent2(doc) -> 
-    ["Test registration of agents with the NEW interface functions"];
-register_agent2(suite) -> 
-    [];
+register_agent2() ->
+    [{doc, "Test registration of agents with the NEW interface functions"}].
+
 register_agent2(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   ManagerNode = start_manager_node(), 
+                   ManagerNode = start_node(register_agent2),
                    [ManagerNode]
            end,
     Case = fun(State) -> do_register_agent2(State, Config) end,
-    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    Post = fun([{ManagerPeer, _ManagerNode}]) -> peer:stop(ManagerPeer) end,
     ?TC_TRY(register_agent2, Pre, Case, Post).
 
-do_register_agent2([ManagerNode], Config) ->
+do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
@@ -2299,21 +2283,20 @@ do_register_agent2([ManagerNode], Config) ->
 
 %%======================================================================
 
-register_agent3(doc) -> 
-    ["Test registration of agents with the NEW interface functions "
-     "and specifying transport domain"];
-register_agent3(suite) -> 
-    [];
+register_agent3() ->
+    [{doc, "Test registration of agents with the NEW interface functions "
+     "and specifying transport domain"}].
+
 register_agent3(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   ManagerNode = start_manager_node(), 
+                   ManagerNode = start_node(register_agent3),
                    [ManagerNode]
            end,
     Case = fun(State) -> do_register_agent3(State, Config) end,
-    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    Post = fun([{ManagerPeer, _ManagerNode}]) -> peer:stop(ManagerPeer) end,
     ?TC_TRY(register_agent3, Pre, Case, Post).
 
-do_register_agent3([ManagerNode], Config) ->
+do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
@@ -2451,9 +2434,9 @@ do_register_agent3([ManagerNode], Config) ->
 
 %%======================================================================
 
-simple_sync_get3(doc) -> 
-    ["Simple sync get-request - Version 3 API (TargetName and send-opts)"];
-simple_sync_get3(suite) -> [];
+simple_sync_get3() ->
+    [{doc, "Simple sync get-request - Version 3 API (TargetName and send-opts)"}].
+
 simple_sync_get3(Config) when is_list(Config) ->
     ?TC_TRY(simple_sync_get3,
             fun() -> do_simple_sync_get3(Config) end).
@@ -2582,9 +2565,9 @@ sag_verify_vbs([Vb|_], [E|_]) ->
 
 %%======================================================================
 
-simple_async_get3(doc) -> 
-    ["Simple (async) get-request - Version 3 API (TargetName and send-opts)"];
-simple_async_get3(suite) -> [];
+simple_async_get3() ->
+    [{doc, "Simple (async) get-request - Version 3 API (TargetName and send-opts)"}].
+
 simple_async_get3(Config) when is_list(Config) ->
     ?TC_TRY(simple_async_get3,
             fun() -> do_simple_async_get3(Config) end).
@@ -2715,10 +2698,10 @@ check_ssgn_vbs([Vb|_], [E|_]) ->
 
 %%======================================================================
 
-simple_sync_get_next3(doc) -> 
-    ["Simple (sync) get_next-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_sync_get_next3(suite) -> [];
+simple_sync_get_next3() ->
+    [{doc, "Simple (sync) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_sync_get_next3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssgn3),
@@ -2850,24 +2833,24 @@ do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
 
 %%======================================================================
 
-simple_async_get_next3_cbp_def(doc) -> 
-    ["Simple (async) get_next-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_next3_cbp_def(suite) -> [];
+simple_async_get_next3_cbp_def() ->
+    [{doc, "Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_next3_cbp_def(Config) when is_list(Config) ->
     simple_async_get_next3(ssgn2_cbp_def, Config).
 
-simple_async_get_next3_cbp_temp(doc) -> 
-    ["Simple (async) get_next-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_next3_cbp_temp(suite) -> [];
+simple_async_get_next3_cbp_temp() ->
+    [{doc, "Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_next3_cbp_temp(Config) when is_list(Config) ->
     simple_async_get_next3(ssgn2_cbp_temp, Config).
 
-simple_async_get_next3_cbp_perm(doc) -> 
-    ["Simple (async) get_next-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_next3_cbp_perm(suite) -> [];
+simple_async_get_next3_cbp_perm() ->
+    [{doc, "Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_next3_cbp_perm(Config) when is_list(Config) ->
     simple_async_get_next3(ssgn2_cbp_perm, Config).
 
@@ -3012,9 +2995,9 @@ value_of_vavs([{_Oid, Val}|VAVs], Acc) ->
 			       
 %%======================================================================
 
-simple_sync_set3(doc) -> 
-    ["Simple (sync) set-request - Version 3 API (TargetName with send-opts)"];
-simple_sync_set3(suite) -> [];
+simple_sync_set3() ->
+    [{doc, "Simple (sync) set-request - Version 3 API (TargetName with send-opts)"}].
+
 simple_sync_set3(Config) when is_list(Config) ->
     ?TC_TRY(simple_sync_set3,
             fun() -> do_simple_sync_set3(Config) end).
@@ -3127,21 +3110,21 @@ sas_verify_vbs([Vb|_], [E|_]) ->
     
 %%======================================================================
 
-simple_async_set3_cbp_def(doc) -> 
-    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
-simple_async_set3_cbp_def(suite) -> [];
+simple_async_set3_cbp_def() ->
+    [{doc, "Simple (async) set-request - Version 3 API (TargetName with send-opts)"}].
+
 simple_async_set3_cbp_def(Config) when is_list(Config) ->
     simple_async_set3(sas3_cbp_def, Config).
 
-simple_async_set3_cbp_temp(doc) -> 
-    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
-simple_async_set3_cbp_temp(suite) -> [];
+simple_async_set3_cbp_temp() ->
+    [{doc, "Simple (async) set-request - Version 3 API (TargetName with send-opts)"}].
+
 simple_async_set3_cbp_temp(Config) when is_list(Config) ->
     simple_async_set3(sas3_cbp_temp, Config).
 
-simple_async_set3_cbp_perm(doc) -> 
-    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
-simple_async_set3_cbp_perm(suite) -> [];
+simple_async_set3_cbp_perm() ->
+    [{doc, "Simple (async) set-request - Version 3 API (TargetName with send-opts)"}].
+
 simple_async_set3_cbp_perm(Config) when is_list(Config) ->
     simple_async_set3(sas3_cbp_perm, Config).
 
@@ -3270,10 +3253,10 @@ check_ssgb_vbs([R|_], [E|_]) ->
 
 %%======================================================================
 
-simple_sync_get_bulk3(doc) -> 
-    ["Simple (sync) get_bulk-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_sync_get_bulk3(suite) -> [];
+simple_sync_get_bulk3() ->
+    [{doc, "Simple (sync) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_sync_get_bulk3(Config) when is_list(Config) ->
     ?TC_TRY(simple_sync_get_bulk3,
             fun() -> do_simple_sync_get_bulk3(Config) end).
@@ -3440,10 +3423,10 @@ do_simple_get_bulk3(N,
 
 %%======================================================================
 
-simple_async_get_bulk3_cbp_def(doc) -> 
-    ["Simple (async) get_bulk-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_bulk3_cbp_def(suite) -> [];
+simple_async_get_bulk3_cbp_def() ->
+    [{doc, "Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_bulk3_cbp_def(Config) when is_list(Config) ->
     simple_async_get_bulk3(sagb3_cbp_def, Config).
 
@@ -3618,59 +3601,59 @@ async_gb_exec3(Node, TargetName, {NR, MR, Oids}, SendOpts) ->
 
 %%======================================================================
 
-simple_async_get_bulk3_cbp_temp(doc) -> 
-    ["Simple (async) get_bulk-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_bulk3_cbp_temp(suite) -> [];
+simple_async_get_bulk3_cbp_temp() ->
+    [{doc, "Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_bulk3_cbp_temp(Config) when is_list(Config) ->
     simple_async_get_bulk3(sagb3_cbp_temp, Config).
 
 
 %%======================================================================
 
-simple_async_get_bulk3_cbp_perm(doc) -> 
-    ["Simple (async) get_bulk-request - "
-     "Version 3 API (TargetName with send-opts)"];
-simple_async_get_bulk3_cbp_perm(suite) -> [];
+simple_async_get_bulk3_cbp_perm() ->
+    [{doc, "Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"}].
+
 simple_async_get_bulk3_cbp_perm(Config) when is_list(Config) ->
     simple_async_get_bulk3(sagb3_cbp_perm, Config).
 
 
 %%======================================================================
 
-simple_v3_exchange_md5(doc) ->
-    ["Simple message exchange using v3 (MD5) messages"];
-simple_v3_exchange_md5(suite) -> [];
+simple_v3_exchange_md5() ->
+    [{doc, "Simple message exchange using v3 (MD5) messages"}].
+
 simple_v3_exchange_md5(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
-simple_v3_exchange_sha(doc) ->
-    ["Simple message exchange using v3 (SHA) messages"];
-simple_v3_exchange_sha(suite) -> [];
+simple_v3_exchange_sha() ->
+    [{doc, "Simple message exchange using v3 (SHA) messages"}].
+
 simple_v3_exchange_sha(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
-simple_v3_exchange_sha224(doc) ->
-    ["Simple message exchange using v3 (SHA224) messages"];
-simple_v3_exchange_sha224(suite) -> [];
+simple_v3_exchange_sha224() ->
+    [{doc, "Simple message exchange using v3 (SHA224) messages"}].
+
 simple_v3_exchange_sha224(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
-simple_v3_exchange_sha256(doc) ->
-    ["Simple message exchange using v3 (SHA256) messages"];
-simple_v3_exchange_sha256(suite) -> [];
+simple_v3_exchange_sha256() ->
+    [{doc, "Simple message exchange using v3 (SHA256) messages"}].
+
 simple_v3_exchange_sha256(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
-simple_v3_exchange_sha384(doc) ->
-    ["Simple message exchange using v3 (SHA384) messages"];
-simple_v3_exchange_sha384(suite) -> [];
+simple_v3_exchange_sha384() ->
+    [{doc, "Simple message exchange using v3 (SHA384) messages"}].
+
 simple_v3_exchange_sha384(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
-simple_v3_exchange_sha512(doc) ->
-    ["Simple message exchange using v3 (SHA512) messages"];
-simple_v3_exchange_sha512(suite) -> [];
+simple_v3_exchange_sha512() ->
+    [{doc, "Simple message exchange using v3 (SHA512) messages"}].
+
 simple_v3_exchange_sha512(Config) when is_list(Config) ->
     simple_v3_exchange(Config).
 
@@ -3707,7 +3690,6 @@ simple_v3_exchange(Config) when is_list(Config) ->
 
 %%======================================================================
 
-discovery(suite) -> [];
 discovery(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
@@ -3772,7 +3754,6 @@ verify_trap(Trap, [{Id, Verifier}|Verifiers]) ->
 
 %%======================================================================
 
-trap1(suite) -> [];
 trap1(Config) when is_list(Config) ->
     ?TC_TRY(trap1,
             fun() -> do_trap1(Config) end).
@@ -3933,7 +3914,6 @@ do_trap1(Config) ->
     
 %%======================================================================
 
-trap2(suite) -> [];
 trap2(Config) when is_list(Config) ->
     ?TC_TRY(trap2,
             fun() -> do_trap2(Config) end).
@@ -4132,7 +4112,6 @@ do_trap2(Config) ->
     
 %%======================================================================
 
-inform1(suite) -> [];
 inform1(Config) when is_list(Config) ->
     ?TC_TRY(inform1,
             fun() -> do_inform1(Config) end).
@@ -4266,7 +4245,6 @@ do_inform1(Config) ->
 
 %%======================================================================
 
-inform2(suite) -> [];
 inform2(Config) when is_list(Config) ->
     ?TC_TRY(inform2,
             fun() -> do_inform2(Config) end).
@@ -4444,7 +4422,6 @@ do_inform2(Config) ->
     
 %%======================================================================
 
-inform3(suite) -> [];
 inform3(Config) when is_list(Config) ->
     ?TC_TRY(inform3,
             fun() -> do_inform3(Config) end).
@@ -4584,7 +4561,6 @@ do_inform3(Config) ->
     
 %%======================================================================
 
-inform4(suite) -> [];
 inform4(Config) when is_list(Config) ->
     ?TC_TRY(inform4,
             fun() -> do_inform4(Config) end).
@@ -4709,15 +4685,12 @@ do_inform4(Config) ->
 %% 
 %% Test: ts:run(snmp, snmp_manager_test, inform_swarm_cbp_def, [batch]).
 
-inform_swarm_cbp_def(suite) -> [];
 inform_swarm_cbp_def(Config) when is_list(Config) ->
     inform_swarm(is_cbp_def, 1500, Config).
 
-inform_swarm_cbp_temp(suite) -> [];
 inform_swarm_cbp_temp(Config) when is_list(Config) ->
     inform_swarm(is_cbp_temp, 1500, Config).
 
-inform_swarm_cbp_perm(suite) -> [];
 inform_swarm_cbp_perm(Config) when is_list(Config) ->
     inform_swarm(is_cbp_perm, 1800, Config).
 
@@ -4900,7 +4873,6 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 
 %%======================================================================
 
-report(suite) -> [];
 report(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
@@ -4908,8 +4880,9 @@ report(Config) when is_list(Config) ->
 
 %%======================================================================
 
-otp8015_1(doc) -> ["OTP-8015:1 - testing the new api-function."];
-otp8015_1(suite) -> [];
+otp8015_1() ->
+    [{doc, "OTP-8015:1 - testing the new api-function."}].
+
 otp8015_1(Config) when is_list(Config) ->
     Pre = fun() ->
                   SCO     = ?config(socket_create_opts, Config),
@@ -4965,8 +4938,9 @@ do_otp8015_1(Config) ->
 
 %%======================================================================
 
-otp8395_1(doc) -> ["OTP-8395:1 - simple get with ATL sequence numbering."];
-otp8395_1(suite) -> [];
+otp8395_1() ->
+    [{doc, "OTP-8395:1 - simple get with ATL sequence numbering."}].
+
 otp8395_1(Config) when is_list(Config) ->
     ?TC_TRY(otp8395_1,
             fun() -> do_otp8395_1(Config) end).
@@ -5089,7 +5063,7 @@ command_handler([{No, Desc, Cmd}|Cmds]) ->
 
 %% -- Misc manager functions --
 
-init_manager(AutoInform, Config) ->
+init_manager(Case, AutoInform, Config) ->
 
     ?IPRINT("init_manager -> entry with"
             "~n   AutoInform: ~p"
@@ -5099,7 +5073,7 @@ init_manager(AutoInform, Config) ->
     %% Start node
     %% 
 
-    ?line Node = start_manager_node(),
+    {Peer, Node} = start_node(lists:concat([Case, "-mgr"])),
 
     %% The point with this (try catch block) is to be 
     %% able to do some cleanup in case we fail to 
@@ -5128,7 +5102,7 @@ init_manager(AutoInform, Config) ->
 		       _ ->
 			   user
 		   end,
-	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Conf = [{manager_node, Node}, {manager_peer, Peer}, {irb, IRB} | Config],
 	    Vsns = [v1,v2,v3], 
 	    start_manager(Node, Vsns, Conf)
 	end
@@ -5138,7 +5112,7 @@ init_manager(AutoInform, Config) ->
                     "~n      Reason:      ~p"
                     "~n      StackTrace:  ~p", [Reason, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)),
+	    (catch peer:stop(Peer)),
 	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during manager start: "
@@ -5146,11 +5120,11 @@ init_manager(AutoInform, Config) ->
                     "~n      Error:       ~p"
                     "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch peer:stop(Peer)),
 	    ?FAIL({failed_starting_manager, C, E, S})
     end.
 
-init_v3_manager(Config) ->
+init_v3_manager(Case, Config) ->
 
     ?IPRINT("init_v3_manager -> entry with"
             "~n   Config: ~p", [Config]),
@@ -5159,8 +5133,7 @@ init_v3_manager(Config) ->
     %% Start node
     %% 
 
-    %% ?line Node = self(),
-    ?line Node = start_unique_manager_node(),
+    {Peer, Node} = start_node(lists:concat([Case, "-v3mgr"])),
 
     %% The point with this (try catch block) is to be 
     %% able to do some cleanup in case we fail to 
@@ -5186,7 +5159,7 @@ init_v3_manager(Config) ->
 	    ?line ok = write_manager_config(transport, Config),
 
 	    IRB  = auto,
-	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Conf = [{manager_node, Node}, {manager_peer, Peer}, {irb, IRB} | Config],
 	    Vsns = [v3], 
 	    start_manager(Node, Vsns, Conf)
 	end
@@ -5196,7 +5169,7 @@ init_v3_manager(Config) ->
                     "~n      Reason:      ~p"
                     "~n      StackTrace:  ~p", [Reason, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)),
+	    (catch peer:stop(Peer)),
 	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during manager start: "
@@ -5204,7 +5177,7 @@ init_v3_manager(Config) ->
                     "~n      Error:       ~p"
                     "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch peer:stop(Peer)),
 	    ?FAIL({failed_starting_manager, C, E, S})
     end.
 
@@ -5215,7 +5188,7 @@ fin_manager(Config) ->
     Node = ?config(manager_node, Config),
     StopMgrRes    = stop_manager(Node),
     StopCryptoRes = fin_crypto(Node),
-    StopNode      = stop_node(Node),
+    StopNode      = peer:stop(?config(manager_peer, Config)),
     ?IPRINT("fin_manager -> stop apps and (mgr node ~p) node results: "
             "~n      SNMP Mgr: ~p"
             "~n      Crypto:   ~p"
@@ -5226,7 +5199,7 @@ fin_manager(Config) ->
 
 %% -- Misc agent functions --
 
-init_agent(Config) ->
+init_agent(Case, Config) ->
     ?IPRINT("init_agent -> entry with"
             "~n   Config: ~p", [Config]),
 
@@ -5240,7 +5213,7 @@ init_agent(Config) ->
     %% Start node
     %% 
 
-    ?line Node = start_agent_node(),
+    {Peer, Node} = start_node(lists:concat([Case, "-agent"])),
 
     %% The point with this (try catch block) is to be 
     %% able to do some cleanup in case we fail to 
@@ -5272,7 +5245,7 @@ init_agent(Config) ->
 	    Vsns = [v1,v2], 
 	    ?line ok = write_agent_config(Vsns, Config),
 
-	    Conf = [{agent_node, Node},
+	    Conf = [{agent_node, Node},  {agent_peer, Peer},
 		    {mib_dir,    MibDir} | Config],
 
 	    %% 
@@ -5287,7 +5260,7 @@ init_agent(Config) ->
                     "~n   Reason:     ~p"
                     "~n   StackTrace: ~p", [Reason, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)),
+	    (catch peer:stop(Peer)),
 	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during agent start: "
@@ -5295,12 +5268,12 @@ init_agent(Config) ->
                     "~n   Error:       ~p"
                     "~n   StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch peer:stop(Peer)),
 	    ?FAIL({failed_starting_agent, C, E, S})
     end.
 
 
-init_v3_agent(Config) ->
+init_v3_agent(Case, Config) ->
     ?IPRINT("init_v3_agent -> entry with"
             "~n   Config: ~p", [Config]),
 
@@ -5315,7 +5288,7 @@ init_v3_agent(Config) ->
     %% 
 
     %% ?line Node = self(),
-    ?line Node = start_unique_agent_node(),
+    ?line {Peer, Node} = start_node(lists:concat([Case, "-v3agent"])),
 
     %% The point with this (try catch block) is to be 
     %% able to do some cleanup in case we fail to 
@@ -5340,7 +5313,7 @@ init_v3_agent(Config) ->
 	    Vsns = [v3], 
 	    ?line ok = write_agent_config(Vsns, Config),
 
-	    Conf = [{agent_node, Node},
+	    Conf = [{agent_node, Node}, {agent_peer, Peer},
 		    {mib_dir,    MibDir} | Config],
 
 	    %% 
@@ -5355,7 +5328,7 @@ init_v3_agent(Config) ->
                     "~n   Reason:     ~p"
                     "~n   StackTrace: ~p", [Reason, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)),
+	    (catch peer:stop(Peer)),
 	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during agent start: "
@@ -5363,7 +5336,7 @@ init_v3_agent(Config) ->
                     "~n   Error:       ~p"
                     "~n   StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
-	    (catch stop_node(Node)), 
+	    (catch peer:stop(Peer)),
 	    ?FAIL({failed_starting_agent, C, E, S})
     end.
 
@@ -5373,7 +5346,7 @@ fin_agent(Config) ->
     StopAgentRes  = stop_agent(Node),
     StopCryptoRes = fin_crypto(Node),
     StopMnesiaRes = fin_mnesia(Node),
-    StopNode      = stop_node(Node),
+    StopNode      = peer:stop(?config(agent_peer, Config)),
     ?IPRINT("fin_agent -> stop apps and (agent node ~p) node results: "
             "~n   SNMP Agent: ~p"
             "~n   Crypto:     ~p"
@@ -5386,7 +5359,7 @@ fin_v3_agent(Config) ->
     Node          = ?config(agent_node, Config),
     StopAgentRes  = stop_agent(Node),
     StopCryptoRes = fin_crypto(Node),
-    StopNode      = stop_node(Node),
+    StopNode      = peer:stop(?config(agent_peer, Config)),
     ?IPRINT("fin_agent -> stop apps and (agent node ~p) node results: "
             "~n   SNMP Agent: ~p"
             "~n   Crypto:     ~p"
@@ -6100,87 +6073,12 @@ agent_info(Node) ->
 
 %% -- Misc node operation wrapper functions --
 
-unique(PreName) ->
-    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
-
-start_agent_node() ->
-    start_node(snmp_agent).
-
-start_unique_agent_node() ->
-    start_unique_node(snmp_agent).
-
-start_manager_node() ->
-    start_node(snmp_manager).
-
-start_unique_manager_node() ->
-    start_unique_node(snmp_manager).
-
-%% Generate a "unique" (node-) name and start a node with this name.
-start_unique_node(BaseName) when is_atom(BaseName) ->
-    start_node(unique(BaseName), false).
-
-start_node(Name) ->
-    start_node(Name, true).
-start_node(Name, Retry) ->
-
-    ?IPRINT("start_node -> entry with"
-            "~n   Name: ~p"
-            "~n when"
-            "~n   hostname of this node: ~p",
-            [Name, list_to_atom(?HOSTNAME(node()))]),
-
-    Pa   = filename:dirname(code:which(?MODULE)),
-
-    A = " -pa " ++ Pa ++ 
-        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
-        " -s global sync",
-    try ?START_NODE(Name, A) of
-	{ok, Node} ->
-            global:sync(),
-	    Node;
-	{error, timeout} ->
-            ?EPRINT("Failed starting node ~p: timeout", [Name]),
-	    ?line ?FAIL({error_starting_node, Name, timeout});
-	{error, {already_running, Node}} when (Retry =:= true) ->
-            %% Ouch
-            %% Either we previously failed to (properly) stop the node
-            %% or it was a failed start, that reported failure (for instance
-            %% timeout) but actually succeeded. Regardless, we don't know
-            %% the state of this node, so (try) stop it and then (re-) try
-            %% start again.
-            ?WPRINT("Failed starting node ~p: Already Running - try stop", [Node]),
-            case ?STOP_NODE(Node) of
-                true ->
-                    ?IPRINT("Successfully stopped old node ~p", [Node]),
-                    start_node(Name, false);
-                false ->
-                    ?EPRINT("Failed stop old node ~p", [Node]),
-                    ?line ?FAIL({error_starting_node, Node, Retry, already_running})
-            end;
-	{error, {already_running, Node}} ->
-            ?EPRINT("Failed starting node ~p: Already Running", [Node]),
-            ?line ?FAIL({error_starting_node, Node, Retry, already_running});
-	{error, Reason} ->
-            ?EPRINT("Failed starting node ~p: ~p", [Name, Reason]),
-	    ?line ?FAIL({error_starting_node, Name, Reason})
-    catch
-        exit:{suite_failed, Reason} ->
-            ?EPRINT("(suite) Failed starting node ~p: ~p", [Name, Reason]),
-            ?line ?FAIL({failed_starting_node, Name, Reason})
-    end.
-
-
-stop_node(Node) when (Node =:= self()) ->
-    ok;%?line ?FAIL({stop_own_node, Node});
-stop_node(Node) ->
-    case ?STOP_NODE(Node) of
-        true ->
-            ok;
-        false ->
-            ?line ?FAIL({failed_stop_node, Node})
-    end.
-    
- 
+start_node(Case) ->
+    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    Name = peer:random_name(lists:concat([?MODULE, "-", Case])),
+    {ok, Peer, Node}  = ?CT_PEER(#{name => Name, args => Args}),
+    global:sync(),
+    {Peer, Node}.
 
 %% -- Misc config wrapper functions --
 

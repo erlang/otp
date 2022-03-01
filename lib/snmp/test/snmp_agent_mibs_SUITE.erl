@@ -215,7 +215,6 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
 %% Test functions
 %%======================================================================
 
-start_and_stop(suite) -> [];
 start_and_stop(Config) when is_list(Config) ->
     tc_try(start_and_start,
            fun() -> do_start_and_stop(Config) end).
@@ -237,7 +236,6 @@ do_start_and_stop(_Config) ->
 
 %% ---------------------------------------------------------------------
 
-load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
     tc_try(load_unload,
            fun() -> do_load_unload(Config) end).
@@ -296,15 +294,11 @@ do_load_unload(Config) ->
 %% ---------------------------------------------------------------------
 
 
-size_check_ets1(suite) ->
-    [];
 size_check_ets1(Config) when is_list(Config) ->
     MibStorage = [{module, snmpa_mib_storage_ets}], 
     do_size_check(size_check_ets1,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_ets2(suite) ->
-    [];
 size_check_ets2(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
@@ -312,8 +306,6 @@ size_check_ets2(Config) when is_list(Config) ->
     do_size_check(size_check_ets2,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_ets2_bad_file1(suite) ->
-    [];
 size_check_ets2_bad_file1(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     %% Ensure that the bad file does not cause any problems (action = clear)
@@ -323,8 +315,6 @@ size_check_ets2_bad_file1(Config) when is_list(Config) ->
     do_size_check(size_check_ets2_bad_file1,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_ets3(suite) ->
-    [];
 size_check_ets3(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
@@ -333,8 +323,6 @@ size_check_ets3(Config) when is_list(Config) ->
     do_size_check(size_check_ets3,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_ets3_bad_file1(suite) ->
-    [];
 size_check_ets3_bad_file1(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     %% Ensure that the bad file does not cause any problems (action = clear)
@@ -345,8 +333,6 @@ size_check_ets3_bad_file1(Config) when is_list(Config) ->
     do_size_check(size_check_ets3_bad_file1,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_dets(suite) ->
-    [];
 size_check_dets(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),
     MibStorage = [{module,  snmpa_mib_storage_dets}, 
@@ -354,8 +340,6 @@ size_check_dets(Config) when is_list(Config) ->
     do_size_check(size_check_dets,
                   [{mib_storage, MibStorage}|Config]).
 
-size_check_mnesia(suite) ->
-    [];
 size_check_mnesia(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_mnesia}, 
                   {options, [{nodes, []}]}],
@@ -427,7 +411,6 @@ do_size_check(Config) ->
 
 %% ---------------------------------------------------------------------
 
-me_lookup(suite) -> [];
 me_lookup(Config) when is_list(Config) ->
     tc_try(me_lookup,
            fun() -> do_me_lookup(Config) end).
@@ -484,7 +467,6 @@ do_me_lookup(Config) ->
 
 %% ---------------------------------------------------------------------
 
-which_mib(suite) -> [];
 which_mib(Config) when is_list(Config) ->
     tc_try(which_mib,
            fun() -> do_which_mib(Config) end).
@@ -544,7 +526,6 @@ do_which_mib(Config) ->
 
 %% ---------------------------------------------------------------------
 
-cache_test(suite) -> [];
 cache_test(Config) when is_list(Config) ->
     tc_try(cache_test,
            fun() -> do_cache_test(Config) end).
@@ -1093,11 +1074,11 @@ tc_try(Name, TC) ->
 tc_try(Name, Init, TC)
   when is_atom(Name) andalso is_function(Init, 0) andalso is_function(TC, 0) ->
     Pre = fun() ->
-                  {ok, Node} = ?ALIB:start_node(unique(Name)),
+                  {ok, Peer, Node} = ?START_PEER(atom_to_list(Name)),
                   ok = run_on(Node, Init),
-                  Node
+                  {Peer, Node}
           end,
-    Case = fun(Node) ->
+    Case = fun({_Peer, Node}) ->
                    monitor_node(Node, true),
                    Pid = spawn_link(Node, TC),
                    receive
@@ -1125,7 +1106,7 @@ tc_try(Name, Init, TC)
                            exit(Reason)
                    end
            end,
-    Post = fun(Node) ->
+    Post = fun({Peer, Node}) ->
                    receive
                        {nodedown, Node} ->
                            ?NPRINT("node ~p (already) stopped", [Node]),
@@ -1133,7 +1114,7 @@ tc_try(Name, Init, TC)
                    after 0 ->
                            monitor_node(Node, true),
                            ?NPRINT("try stop node ~p", [Node]),
-                           ?STOP_NODE(Node),
+                           peer:stop(Peer),
                            receive
                                {nodedown, Node} ->
                                    ?NPRINT("node ~p stopped", [Node]),
@@ -1156,9 +1137,6 @@ run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
             monitor_node(Node, false),                           
             Reason
     end.
-    
-unique(PreName) ->
-    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 
 %% -- 
