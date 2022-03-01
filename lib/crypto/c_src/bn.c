@@ -192,3 +192,42 @@ ERL_NIF_TERM bn2term(ErlNifEnv* env, size_t size, const BIGNUM *bn)
     return enif_make_badarg(env);
 }
 #endif
+
+
+#ifdef HAS_3_0_API
+
+int get_ossl_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
+{
+    BIGNUM *bn = NULL;
+    ErlNifBinary tmp;
+
+    if (!get_bn_from_bin(env, bin, &bn) ||
+        !enif_inspect_binary(env, bin_from_bn(env,bn), &tmp) || // Allocate buf
+        BN_bn2nativepad(bn, tmp.data, tmp.size) < 0) {// Fill with BN in right endianity
+        if (bn) BN_free(bn);
+        return 0;
+    }
+    
+    *dest = OSSL_PARAM_construct_BN(key, tmp.data, tmp.size);
+    if (bn) BN_free(bn);
+    return 1;
+}
+
+int get_ossl_param_from_bin_in_list(ErlNifEnv* env, char* key, ERL_NIF_TERM *listcell, OSSL_PARAM *dest)
+{
+    ERL_NIF_TERM head;
+    
+    return
+        enif_get_list_cell(env, *listcell, &head, listcell) &&
+        get_ossl_param_from_bin(env, key, head, dest);
+}
+
+#endif
+
+
+
+
+
+
+
+
