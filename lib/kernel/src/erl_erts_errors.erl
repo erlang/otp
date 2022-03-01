@@ -51,10 +51,12 @@ format_error(Reason, [{M,F,As,Info}|_]) ->
 format_bs_fail(Reason, [{_,_,_,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     case ErrorInfoMap of
-        #{cause := {Segment,Type,Error,Value}} ->
-            Str0 = do_format_bs_fail(Reason, Type, Error, Value),
+        #{cause := {Segment0,Type,Error,Value}} ->
+            Segment1 = maps:get(override_segment_position, ErrorInfoMap, Segment0),
+            PrettyPrinter = maps:get(pretty_printer, ErrorInfoMap, fun possibly_truncated/1),
+            Str0 = do_format_bs_fail(Reason, Type, Error, Value, PrettyPrinter),
             Str1 = io_lib:format("segment ~p of type '~ts': ~ts",
-                                 [Segment,Type,Str0]),
+                                 [Segment1,Type,Str0]),
             Str = iolist_to_binary(Str1),
             #{general => Str, reason => <<"construction of binary failed">>};
         #{} ->
@@ -1052,7 +1054,7 @@ format_erlang_error(whereis, [_], _) ->
 format_erlang_error(_, _, _) ->
     [].
 
-do_format_bs_fail(system_limit, binary, binary, size) ->
+do_format_bs_fail(system_limit, binary, binary, size, _PrettyPrinter) ->
     %% On a 32-bit system, the size of the binary is 256 MiB or
     %% more, which is not supported because the size in bits does not
     %% fit in a 32-bit signed integer. In practice, an application
@@ -1060,27 +1062,27 @@ do_format_bs_fail(system_limit, binary, binary, size) ->
     %% out of memory.
     io_lib:format(<<"the size of the binary/bitstring is too large (exceeding ~p bits)">>,
                   [(1 bsl 31) - 1]);
-do_format_bs_fail(system_limit, _Type, size, Value) ->
+do_format_bs_fail(system_limit, _Type, size, Value, _PrettyPrinter) ->
     io_lib:format(<<"the size ~p is too large">>, [Value]);
-do_format_bs_fail(badarg, Type, Info, Value) ->
-    do_format_bs_fail(Type, Info, Value).
+do_format_bs_fail(badarg, Type, Info, Value, PrettyPrinter) ->
+    do_format_bs_fail(Type, Info, Value, PrettyPrinter).
 
-do_format_bs_fail(float, invalid, Value) ->
+do_format_bs_fail(float, invalid, Value, _PrettyPrinter) ->
     io_lib:format(<<"expected one of the supported sizes 16, 32, or 64 but got: ~p">>,
                   [Value]);
-do_format_bs_fail(float, no_float, Value) ->
+do_format_bs_fail(float, no_float, Value, PrettyPrinter) ->
     io_lib:format(<<"the value ~ts is outside the range expressible as a float">>,
-                  [possibly_truncated(Value)]);
-do_format_bs_fail(binary, unit, Value) ->
+                  [PrettyPrinter(Value)]);
+do_format_bs_fail(binary, unit, Value, PrettyPrinter) ->
     io_lib:format(<<"the size of the value ~ts is not a multiple of the unit for the segment">>,
-                  [possibly_truncated(Value)]);
-do_format_bs_fail(_Type, short, Value) ->
+                  [PrettyPrinter(Value)]);
+do_format_bs_fail(_Type, short, Value, PrettyPrinter) ->
     io_lib:format(<<"the value ~ts is shorter than the size of the segment">>,
-                  [possibly_truncated(Value)]);
-do_format_bs_fail(_Type, size, Value) ->
+                  [PrettyPrinter(Value)]);
+do_format_bs_fail(_Type, size, Value, PrettyPrinter) ->
     io_lib:format(<<"expected a non-negative integer as size but got: ~ts">>,
-                  [possibly_truncated(Value)]);
-do_format_bs_fail(Type, type, Value) ->
+                  [PrettyPrinter(Value)]);
+do_format_bs_fail(Type, type, Value, PrettyPrinter) ->
     F = <<"expected a",
           (case Type of
                binary ->
@@ -1092,7 +1094,7 @@ do_format_bs_fail(Type, type, Value) ->
                _ ->
                    <<" non-negative integer encodable as ", (atom_to_binary(Type))/binary>>
            end)/binary, " but got: ~ts">>,
-    io_lib:format(F, [possibly_truncated(Value)]).
+    io_lib:format(F, [PrettyPrinter(Value)]).
 
 possibly_truncated(Int) when is_integer(Int) ->
     Bin = integer_to_binary(Int),
