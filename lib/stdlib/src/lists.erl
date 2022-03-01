@@ -22,28 +22,56 @@
 -compile({no_auto_import,[max/2]}).
 -compile({no_auto_import,[min/2]}).
 
--export([append/2, append/1, subtract/2, reverse/1,
-	 nth/2, nthtail/2, prefix/2, suffix/2, droplast/1, last/1,
-	 seq/2, seq/3, sum/1, duplicate/2, min/1, max/1, sublist/2, sublist/3,
-	 delete/2,
-	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
-	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
-	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
-	 concat/1, flatten/1, flatten/2, flatlength/1,
-	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
-	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
-	 ukeysort/2, ukeymerge/3, keymap/3, enumerate/1, enumerate/2]).
-
--export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
-
--export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
-	 partition/2,zf/2,filtermap/2,
-	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,
-         search/2, splitwith/2,split/2,
-	 join/2]).
-
-%%% BIFs
+%% BIFs (implemented in the runtime system).
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
+
+%% Miscellaneous list functions that don't take funs as
+%% arguments. Please keep in alphabetical order.
+-export([append/1, append/2, concat/1,
+         delete/2, droplast/1, duplicate/2,
+         enumerate/1, enumerate/2,
+         flatlength/1, flatten/1, flatten/2,
+         join/2, last/1, min/1, max/1,
+         nth/2, nthtail/2,
+         prefix/2, reverse/1, seq/2, seq/3,
+         split/2, sublist/2, sublist/3,
+         subtract/2, suffix/2, sum/1,
+         unzip/1, unzip3/1,
+         zip/2, zip3/3]).
+
+%% Functions taking a list of tuples and a position within the tuple.
+-export([keydelete/3, keyreplace/4, keymap/3,
+         keytake/3, keystore/4]).
+
+%% Sort functions that operate on list of tuples.
+-export([keymerge/3, keysort/2, ukeymerge/3, ukeysort/2]).
+
+%% Sort and merge functions.
+-export([merge/1, merge/2, merge/3, merge3/3,
+         sort/1, sort/2,
+         umerge/1, umerge/2, umerge/3, umerge3/3,
+         usort/1, usort/2]).
+
+%% Functions that take fun arguments (high-order functions). Please
+%% keep in alphabetical order.
+-export([all/2, any/2, dropwhile/2,
+         filter/2, filtermap/2, flatmap/2,
+         foldl/3, foldr/3, foreach/2,
+         map/2, mapfoldl/3, mapfoldr/3,
+         partition/2, search/2,
+         splitwith/2, takewhile/2,
+         zipwith/3, zipwith3/4]).
+
+%% Undocumented, but used within Erlang/OTP.
+-export([zf/2]).
+
+%% Undocumented and unused merge functions for lists sorted in reverse
+%% order. They are exported so that the fundamental building blocks
+%% for the sort functions can be tested. (Removing them would save
+%% very little because they are thin wrappers calling helper functions
+%% used by the documented sort functions.)
+-export([rkeymerge/3, rmerge/2, rmerge/3, rmerge3/3,
+         rukeymerge/3, rumerge/2, rumerge/3, rumerge3/3]).
 
 %% Shadowed by erl_bif_types: lists:keyfind/3
 -spec keyfind(Key, N, TupleList) -> Tuple | false when
