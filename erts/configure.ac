@@ -990,6 +990,7 @@ dnl ----------------------------------------------------------------------
 
 AC_CHECK_LIB(m, sin)
 AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_LIB(dl, dlvsym)
 AC_CHECK_LIB(inet, main)
 AC_CHECK_LIB(util, openpty)
 
@@ -2154,7 +2155,7 @@ fi
 AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
-		pread pwrite memmove strerror strerror_r strncasecmp \
+		dlvsym pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \

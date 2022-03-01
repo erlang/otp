@@ -767,6 +767,8 @@ extern void *erts_sys_ddll_call_init(void *function);
 extern void *erts_sys_ddll_call_nif_init(void *function);
 extern int erts_sys_ddll_sym2(void *handle, const char *name, void **function, ErtsSysDdllError*);
 #define erts_sys_ddll_sym(H,N,F) erts_sys_ddll_sym2(H,N,F,NULL)
+extern int erts_sys_ddll_vsym2(void *handle, const char *name, const char *vers, void **function, ErtsSysDdllError*);
+#define erts_sys_ddll_vsym(H,N,V,F) erts_sys_ddll_vsym2(H,N,V,F,NULL)
 extern char *erts_sys_ddll_error(int code);
 
 
