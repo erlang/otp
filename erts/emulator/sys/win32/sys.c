@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1593,7 +1593,7 @@ create_child_process
 	wcscat(newcmdline, execPath);
 	wcscat(newcmdline, origcmd+cmdlength);
 	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
-	ok = CreateProcessW(appname,
+	ok = CreateProcessW(execPath,
 			    newcmdline,
 			    NULL,
 			    NULL,
@@ -1944,14 +1944,6 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 	 */
 
 	GetShortPathNameW(wfullpath, wfullpath, MAX_PATH);
-    }
-    if (is_quoted) {
-	/* restore quotes on quoted program name */
-	len = wcslen(wfullpath);
-	memmove(wfullpath+1,wfullpath,len*sizeof(wchar_t));
-	wfullpath[0]=L'"';
-	wfullpath[len+1]=L'"';
-	wfullpath[len+2]=L'\0';
     }
     return applType;
 }
