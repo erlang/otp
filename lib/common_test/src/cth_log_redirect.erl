@@ -171,8 +171,6 @@ log(#{msg:={report,Msg},meta:=#{domain:=[otp,sasl]}}=Log,Config) ->
     end;
 log(#{meta:=#{domain:=[otp]}}=Log,Config) ->
     do_log(add_log_category(Log,error_logger),Config);
-log(#{meta:=#{domain:=_}},_) ->
-    ok;
 log(Log,Config) ->
     do_log(add_log_category(Log,error_logger),Config).
 
