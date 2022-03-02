@@ -440,8 +440,20 @@ getifaddrs_filter_flags(FilterFlags, Flags) ->
       Reason :: term().
 
 -ifdef(USE_ESOCK).
-if_name2index(If) when is_list(If) ->
-    prim_net:if_name2index(If).
+if_name2index(Name) when is_list(Name) ->
+    try prim_net:if_name2index(Name) of
+        Result ->
+            Result
+    catch
+        error : notsup : Stack ->
+            %% This is *most likely* Windows, so try that.
+            %% If not (another catch), raise the original catched error.
+            try win_gaa_name2index(Name)
+            catch
+                _:_:_ ->
+                    erlang:raise(error, notsup, Stack)
+            end
+    end.
 -else.
 if_name2index(If) when is_list(If) ->
     erlang:error(notsup).
@@ -463,7 +475,19 @@ if_name2index(If) when is_list(If) ->
 
 -ifdef(USE_ESOCK).
 if_index2name(Idx) when is_integer(Idx) ->
-    prim_net:if_index2name(Idx).
+    try prim_net:if_index2name(Idx) of
+        Result ->
+            Result
+    catch
+        error : notsup : Stack ->
+            %% This is *most likely* Windows, so try that.
+            %% If not (another catch), raise the original catched error.
+            try win_gaa_index2name(Idx)
+            catch
+                _:_:_ ->
+                    erlang:raise(error, notsup, Stack)
+            end
+    end.
 -else.
 if_index2name(Idx) when is_integer(Idx) ->
     erlang:error(notsup).
@@ -504,6 +528,8 @@ if_names() ->
 -endif.
 
 
+%% -- Windows specific functions:
+
 win_gaa_names() ->
     %% Flags  = prim_net:get_adapters_addresses_flags_default(),
     %% Flags2 = Flags#{skip_unicast       => true,
@@ -517,3 +543,38 @@ win_gaa_names() ->
         {error, _} = ERROR ->
             ERROR
     end.
+
+
+win_gaa_index2name(Idx) ->
+    case win_gaa_names() of
+        {ok, Names} ->
+            win_gaa_index2name(Idx, Names);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+win_gaa_index2name(Idx, Names) ->
+    case lists:keysearch(Idx, 1, Names) of
+        {value, {Idx, Name}} ->
+            {ok, Name};
+        false ->
+            {error, enxio}
+    end.
+
+
+win_gaa_name2index(Name) ->
+    case win_gaa_names() of
+        {ok, Names} ->
+            win_gaa_name2index(Name, Names);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+win_gaa_name2index(Name, Names) ->
+    case lists:keysearch(Name, 2, Names) of
+        {value, {Idx, Name}} ->
+            {ok, Idx};
+        false ->
+            {error, enodev}
+    end.
+
