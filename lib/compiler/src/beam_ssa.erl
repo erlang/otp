@@ -132,9 +132,10 @@
 
 -import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
--spec add_anno(Key, Value, Construct) -> Construct when
+-spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
       Value :: any(),
+      Construct0 :: construct(),
       Construct :: construct().
 
 add_anno(Key, Val, #b_function{anno=Anno}=Bl) ->
@@ -155,7 +156,7 @@ add_anno(Key, Val, #b_switch{anno=Anno}=Bl) ->
 get_anno(Key, Construct) ->
     map_get(Key, get_anno(Construct)).
 
--spec get_anno(atom(), construct(),any()) -> any().
+-spec get_anno(atom(), construct(), any()) -> any().
 
 get_anno(Key, Construct, Default) ->
     maps:get(Key, get_anno(Construct), Default).
@@ -369,7 +370,7 @@ successors(#b_blk{last=Terminator}) ->
 %%  switch list to a #b_br{}.
 
 -spec normalize(b_set() | terminator()) ->
-                       b_set() | terminator().
+          b_set() | terminator().
 
 normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
@@ -487,7 +488,7 @@ common_dominators(Ls, Dom, Numbering) ->
     dom_intersection(Doms, Numbering).
 
 -spec fold_instrs(Fun, Labels, Acc0, Blocks) -> any() when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Blocks :: block_map().
@@ -517,7 +518,7 @@ mapfold_blocks_1(Fun, Lbl, {Blocks0, Acc0}) ->
     {Blocks, Acc}.
 
 -spec mapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
@@ -528,7 +529,7 @@ mapfold_instrs(Fun, Labels, Acc0, Blocks) ->
     mapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 -spec flatmapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
