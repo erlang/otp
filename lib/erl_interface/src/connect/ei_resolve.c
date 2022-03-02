@@ -48,8 +48,11 @@
  * thread-safe according to curl - but bizarrely, since AIX 4.3, libc
  * is thread-safe in a manner that makes the normal gethostbyname OK
  * for re-entrant use.
+ *
+ * gethostbyaddr_r was added in Android 6.0 Marshmallow so check if
+ * the build is targeting at least the corresponding API level 23.
  */
-#if defined(_AIX) || defined(__NetBSD__)
+#if defined(_AIX) || defined(__NetBSD__) || (defined(__ANDROID__) && (__ANDROID_API__ < 23))
 #undef HAVE_GETHOSTBYNAME_R
 #endif
 
@@ -73,7 +76,7 @@ int ei_init_resolve(void)
 static ei_mutex_t *ei_gethost_sem = NULL;
 #endif /* _REENTRANT */
 static int ei_resolve_initialized = 0;
-#if !defined(__WIN32__) && !defined(_AIX) && !defined(__NetBSD__)
+#if !defined(__WIN32__) && !defined(_AIX) && !defined(__NetBSD__) && !(defined(__ANDROID__) && (__ANDROID_API__ < 23))
 int h_errno;
 #endif
 
