@@ -118,6 +118,13 @@
 -type network_interface_index() :: non_neg_integer().
 
 
+-define(GAA_NAMES_FLAGS(),
+        #{skip_unicast       => true,
+          skip_friendly_name => false,
+          include_prefix     => false}).
+
+
+
 %% ===========================================================================
 %%
 %% D E P R E C A T E D   F U N C T I O N S
@@ -470,7 +477,7 @@ if_index2name(Idx) when is_integer(Idx) ->
 %%
 %%
 
--spec if_names() -> Names | {error, Reason} when
+-spec if_names() -> {ok, Names} | {error, Reason} when
       Names  :: [{Idx, If}],
       Idx    :: network_interface_index(),
       If     :: network_interface_name(),
@@ -478,10 +485,35 @@ if_index2name(Idx) when is_integer(Idx) ->
 
 -ifdef(USE_ESOCK).
 if_names() ->
-    prim_net:if_names().
+    try prim_net:if_names() of
+        Result ->
+            Result
+    catch
+        error : notsup : Stack ->
+            %% This is *most likely* Windows, so try that.
+            %% If not (another catch), raise the original catched error.
+            try win_gaa_names()
+            catch
+                _:_:_ ->
+                    erlang:raise(error, notsup, Stack)
+            end
+    end.
 -else.
 if_names() ->
     erlang:error(notsup).
 -endif.
 
 
+win_gaa_names() ->
+    %% Flags  = prim_net:get_adapters_addresses_flags_default(),
+    %% Flags2 = Flags#{skip_unicast       => true,
+    %%                 skip_friendly_name => false,
+    %%                 include_prefix     => false},
+    case prim_net:get_adapters_addresses(#{flags => ?GAA_NAMES_FLAGS()}) of
+        {ok, GAA} ->
+            Names = [{Idx, FName} ||
+                        #{index := Idx, friendly_name := FName} <- GAA],
+            {ok, lists:keysort(1, Names)};
+        {error, _} = ERROR ->
+            ERROR
+    end.
