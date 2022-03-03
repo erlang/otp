@@ -8240,23 +8240,28 @@ erts_proc_sig_queue_flush_get_buffers(Process* proc, int *need_unget_buffers)
 void
 erts_proc_sig_queue_flush_buffers(Process* proc)
 {
+    ErtsSignalInQueueBufferArray* buffers;
     int need_undread_buffers;
-    ErtsSignalInQueueBufferArray* buffers =
+
+    ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc) ||
+                   (erts_proc_lc_my_proc_locks(proc) & ERTS_PROC_LOCK_MSGQ));
+
+    buffers =
         erts_proc_sig_queue_flush_get_buffers(proc, &need_undread_buffers);
     erts_proc_sig_queue_unget_buffers(buffers, need_undread_buffers);
 }
 
-static void do_sigq_buffer_array_refc_dec(void *buffers_p)
+static void sigq_buffer_array_refc_dec(void *buffers_p)
 {
     ErtsSignalInQueueBufferArray* buffers = buffers_p;
     erts_proc_sig_queue_unget_buffers(buffers, 1);
 }
 
 
-static void do_schedule_sigq_buffer_array_refc_dec(void *buffers_p)
+static void schedule_sigq_buffer_array_refc_dec(void *buffers_p)
 {
     ErtsSignalInQueueBufferArray* buffers = buffers_p;
-    erts_schedule_thr_prgr_later_cleanup_op(do_sigq_buffer_array_refc_dec,
+    erts_schedule_thr_prgr_later_cleanup_op(sigq_buffer_array_refc_dec,
                                             buffers,
                                             &buffers->free_item,
                                             sizeof(ErtsSignalInQueueBufferArray));
@@ -8268,52 +8273,53 @@ void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc)
     ErtsSignalInQueueBufferArray* buffers;
     int need_unget_buffers;
     ErtsSchedulerData *esdp;
+
     ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc) ||
                    (erts_proc_lc_my_proc_locks(proc) & ERTS_PROC_LOCK_MSGQ));
     buffers = erts_proc_sig_queue_get_buffers(proc, &need_unget_buffers);
+
     if (buffers == NULL) {
         return;
     }
+
     if (!buffers->alive) {
         erts_proc_sig_queue_unget_buffers(buffers, need_unget_buffers);;
         return;
     }
+
     buffers->alive = 0;
     proc->sig_inq_contention_counter = 0;
+
     for (i = 0; i < ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS; i++) {
         proc_sig_queue_lock_buffer(&buffers->slots[i]);
+
         if (buffers->slots[i].b.queue.first != NULL) {
             sig_inq_concat(&proc->sig_inq, &buffers->slots[i].b.queue);
         }
+
         buffers->slots[i].b.alive = 0;
+
         proc_sig_queue_unlock_buffer(&buffers->slots[i]);
     }
-    /*
-     * Nothing can be enqueued to the buffer array any more
-     */
+
+    /* Nothing can be enqueued to the buffer array beyond this point. */
+
+    erts_atomic64_set_nob(&buffers->nonempty_slots, (erts_aint64_t)0);
+    erts_atomic64_set_nob(&buffers->nonmsg_slots, (erts_aint64_t)0);
     erts_atomic_set_mb(&proc->sig_inq_buffers, (erts_aint_t)NULL);
+
     erts_proc_sig_queue_unget_buffers(buffers, need_unget_buffers);
-    /*
-     * We should now do an additional reference count decrement to
-     * force an eventiuall free of buffer array but we need to do that
-     * after a thread progress period because an unmanaged thread
-     * might be sleeping just before it will increment the reference
-     * count.
-     */
+
+    /* Release the buffer array through thread progress, as a managed thread
+     * may be holding a reference to it. */
     esdp = erts_get_scheduler_data();
     if (esdp != NULL && esdp->type == ERTS_SCHED_NORMAL) {
-        erts_schedule_thr_prgr_later_cleanup_op(do_sigq_buffer_array_refc_dec,
-                                                buffers,
-                                                &buffers->free_item,
-                                                sizeof(ErtsSignalInQueueBufferArray));
+        schedule_sigq_buffer_array_refc_dec((void*)buffers);
     } else {
-        /*
-         * We cannot schedule a thread progress later cleanup
-         * operation from an unmanaged thread so we schedule
-         * that task to be run on a managed thread.
-         */
+        /* We can't issue cleanup jobs on anything other than normal
+         * schedulers, so we move to the first scheduler if required. */
         erts_schedule_misc_aux_work(1,
-                                    do_schedule_sigq_buffer_array_refc_dec,
+                                    schedule_sigq_buffer_array_refc_dec,
                                     buffers);
     }
 }
