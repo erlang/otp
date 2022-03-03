@@ -60,7 +60,15 @@
 
 %% Specification about currently known features.
 feature_specs() ->
-    #{}.
+    #{maybe_expr =>
+          #{short => "Value based error handling (EEP49)",
+            description =>
+                "Implementation of the maybe expression proposed in EEP49 -- "
+            "Value based error handling.",
+            status => experimental,
+            experimental => 25,
+            keywords => ['maybe', 'else'],
+            type => extension}}.
 
 %% Currently known features
 -spec features() -> [atom()].
