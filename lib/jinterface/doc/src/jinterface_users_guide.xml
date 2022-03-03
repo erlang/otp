@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>The Jinterface Package</title>
@@ -140,17 +140,29 @@
       unique name in the form of an identifier composed partly of the
       hostname on which the node is running, e.g "gurka@sallad.com". Several
       such nodes can run on the same host as long as their names are unique.
-      The class <seefile marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seefile> 
-      represents an Erlang node. It is created with a name
-      and optionally a port number on which it listens for incoming
-      connections. Before creating an instance of 
-      <seefile marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seefile>, 
-      ensure that Epmd is running on the host machine. See the Erlang documentation 
-      for more information about Epmd. In this example, the host name is appended
+      The class <seefile marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seefile>
+      represents an Erlang node.</p>
+    <p>It is created with a name
+      and optionally a TCP/IP socket port number on which it listens for incoming
+      connections. By default before creating an instance of
+      <seefile marker="java/com/ericsson/otp/erlang/OtpNode">OtpNode</seefile>,
+      ensure that Epmd is running on the host machine. See the Erlang documentation
+      for more information about Epmd.</p>
+    <p>In this example, the host name is appended
       automatically to the identifier, and the port number is chosen by the
       underlying system:</p>
     <code type="none">
 OtpNode node = new OtpNode("gurka");    </code>
+    <p>It is also possible to use alternative communication (or distribution)
+      protocols without Epmd by switching to a custom transport factory extending
+      the OtpGenericTransportFactory abstract class, for example based on
+      Unix Domain Sockets instead of the default TCP/IP sockets.</p>
+    <p>In this example, the host name is appended automatically to the identifier
+      and a custom transport factory is used:</p>
+    <code type="none">
+OtpGenericTransportFactory customFactory = new MyCustomFactory();
+OtpNode node = new OtpNode("gurka", customFactory);
+    </code>
   </section>
 
   <section>
@@ -227,8 +239,11 @@ OtpNode node = new OtpNode("gurka");    </code>
     <title>Transport Factory</title>
     <p>All necessary connections are made using methods of
     <seefile marker="java/com/ericsson/otp/erlang/OtpTransportFactory">OtpTransportFactory</seefile>
-    interface. Default OtpTransportFactory implementation is based on standard Socket class.
-    User may provide custom transport factory as needed. See java doc for details.</p>
+    interface. The default OtpTransportFactory implementation is based on standard TCP/IP Socket class
+    and relies on epmd. User may provide custom transport factory as needed. See java doc for details.</p>
+    <p>For alternative distribution protocols working without epmd, using a transport factory extending the
+    <seefile marker="java/com/ericsson/otp/erlang/OtpGenericTransportFactory">OtpGenericTransportFactory</seefile>
+    abstract class will disable the automatic epmd registration and lookup in Jinterface.</p>
   </section>
 
   <section>
@@ -356,18 +371,19 @@ OtpNode node = new OtpNode("gurka");    </code>
 
   <section>
     <title>Using EPMD</title>
-    <p>Epmd is the Erlang Port Mapper Daemon. Distributed Erlang nodes
-      register with epmd on the localhost to indicate to other nodes that
-      they exist and can accept connections. Epmd maintains a register of
-      node and port number information, and when a node wishes to connect to
+    <p>Epmd is the Erlang Port Mapper Daemon. By default distributed Erlang
+      nodes register with epmd on the localhost to indicate to other nodes that
+      they exist and can accept connections. Epmd maintains a register of node
+      and socket port number information, and when a node wishes to connect to
       another node, it first contacts epmd in order to find out the correct
-      port number to connect to.</p>
-    <p>The basic interaction with EPMD is done through instances of 
+      socket port number to connect to. It is also possible to use alternative
+      distribution protocols which don't need epmd at all.</p>
+    <p>The basic interaction with EPMD is done through instances of
       <seefile marker="java/com/ericsson/otp/erlang/OtpEpmd">OtpEpmd</seefile> class.
-      Nodes wishing to contact other nodes must first request information 
-      from Epmd before a connection can be set up, however this is done automatically 
+      Nodes wishing to contact other nodes must first request information
+      from Epmd before a connection can be set up, however this is done automatically
       by <seefile marker="java/com/ericsson/otp/erlang/OtpSelf#connect(com.ericsson.otp.erlang.OtpPeer)">OtpSelf.connect()</seefile> when necessary. </p>
-    <p>When you use <seefile marker="java/com/ericsson/otp/erlang/OtpSelf#connect(com.ericsson.otp.erlang.OtpPeer)">OtpSelf.connect()</seefile> to connect to an Erlang node, 
+    <p>When you use <seefile marker="java/com/ericsson/otp/erlang/OtpSelf#connect(com.ericsson.otp.erlang.OtpPeer)">OtpSelf.connect()</seefile> to connect to an Erlang node,
       a connection is first made to epmd and, if the node is known, a
       connection is then made to the Erlang node.</p>
     <p>Java nodes can also register themselves with epmd if they want other

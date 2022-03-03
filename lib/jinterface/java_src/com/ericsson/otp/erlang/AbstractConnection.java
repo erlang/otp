@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -166,18 +166,12 @@ public abstract class AbstractConnection extends Thread {
             throws IOException, OtpAuthException {
         peer = other;
         localNode = self;
-        socket = null;
         int port;
 
         traceLevel = defaultLevel;
         setDaemon(true);
 
-        // now get a connection between the two...
-        port = OtpEpmd.lookupPort(peer);
-        if (port == 0)
-            throw new IOException("No remote node found - cannot connect");
-
-        // now find highest common dist value
+        // Find highest common dist value
         if (peer.proto != self.proto || self.distHigh < peer.distLow
                 || self.distLow > peer.distHigh) {
             throw new IOException("No common protocol found - cannot connect");
@@ -187,7 +181,21 @@ public abstract class AbstractConnection extends Thread {
         peer.distChoose = peer.distHigh > self.distHigh ? self.distHigh
                 : peer.distHigh;
 
-        doConnect(port);
+        // Now get a connection between the two nodes
+        if (self.transportFactory instanceof OtpGenericTransportFactory) {
+            // For alternative distribution protocols using a transport factory
+            // extending the OtpGenericTransportFactory class, the notion of
+            // socket port is not used so the remote node is not registered
+            // with Epmd.
+            doGenericConnect();
+
+        } else {
+            // Get the listening port of the remote node registered with Epmd
+            port = OtpEpmd.lookupPort(peer);
+            if (port == 0)
+                throw new IOException("No remote node found - cannot connect");
+            doPortConnect(port);
+        }
 
         name = peer.node();
         connected = true;
@@ -1052,15 +1060,29 @@ public abstract class AbstractConnection extends Thread {
         }
     }
 
-    protected void doConnect(final int port) throws IOException,
+    protected void doPortConnect(final int port) throws IOException,
             OtpAuthException {
         try {
             socket = peer.createTransport(peer.host(), port);
-
             if (traceLevel >= handshakeThreshold) {
                 System.out.println("-> MD5 CONNECT TO " + peer.host() + ":"
                         + port);
             }
+            doConnect();
+
+        } catch (final OtpAuthException ae) {
+            close();
+            throw ae;
+        } catch (final Exception e) {
+            close();
+            final IOException ioe = new IOException(
+                    "Cannot connect to peer node");
+            ioe.initCause(e);
+            throw ioe;
+        }
+    }
+
+    protected void doConnect() throws IOException, OtpAuthException {
             final int send_name_tag = sendName(peer.distChoose, localNode.flags,
                                                localNode.creation());
             recvStatus();
@@ -1073,6 +1095,17 @@ public abstract class AbstractConnection extends Thread {
             recvChallengeAck(our_challenge);
             cookieOk = true;
             sendCookie = false;
+    }
+
+    protected void doGenericConnect() throws IOException,
+            OtpAuthException {
+        try {
+            socket = peer.createTransport(peer);
+            if (traceLevel >= handshakeThreshold) {
+                System.out.println("-> MD5 CONNECT TO " + peer.node());
+            }
+            doConnect();
+
         } catch (final OtpAuthException ae) {
             close();
             throw ae;
@@ -1296,7 +1329,7 @@ public abstract class AbstractConnection extends Thread {
             throw new IOException("Handshake failed - not enough data");
         }
 
-        final int i = hisname.indexOf('@', 0);
+        final int i = hisname.indexOf('@');
         apeer.node = hisname;
         apeer.alive = hisname.substring(0, i);
         apeer.host = hisname.substring(i + 1, hisname.length());
