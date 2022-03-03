@@ -36,11 +36,12 @@
   <modulesummary>Analysis and Utility Functions for Instrumentation</modulesummary>
   <description>
     <p>The module <c>instrument</c> contains support for studying the resource
-      usage in an Erlang runtime system. Currently, only the allocation of memory can
-      be studied.</p>
+      usage in an Erlang runtime system. Currently, only the allocation of
+      memory can be studied.</p>
     <note>
-      <p>Note that this whole module is experimental, and the representations
-        used as well as the functionality is likely to change in the future.</p>
+      <p>Since this module inspects internal details of the runtime system it
+      may differ greatly from one version to another. We make no compatibility
+      guarantees in this module.</p>
     </note>
   </description>
   <datatypes>
@@ -52,6 +53,13 @@
         <p>The upper bound of the first interval is provided by the function
            that returned the histogram, and the last interval has no upper
            bound.</p>
+        <p>For example, the histogram below has 40 (<c>message</c>) blocks
+           between 256-512 bytes in size, 78 blocks between 512-1024 bytes,2
+           blocks between 1-2KB, and 2 blocks between 2-4KB.</p>
+        <code type="none"><![CDATA[
+> instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
+{ok, {128, 0, #{ message => {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0}, ... } }}
+        ]]></code>
       </desc>
     </datatype>
     <datatype>
@@ -62,7 +70,10 @@
         <p><c><anno>Origin</anno></c> is generally which NIF or driver that
           allocated the blocks, or 'system' if it could not be determined.</p>
         <p><c><anno>Type</anno></c> is the allocation category that the blocks
-          belong to, e.g. <c>db_term</c>, <c>message</c> or <c>binary</c>.</p>
+          belong to, e.g. <c>db_term</c>, <c>message</c> or <c>binary</c>. The
+          categories correspond to those in
+          <url href="https://github.com/erlang/otp/blob/master/erts/emulator/beam/erl_alloc.types">
+          erl_alloc.types</url>.</p>
         <p>If one or more carriers could not be scanned in full without harming
           the responsiveness of the system, <c><anno>UnscannedSize</anno></c>
           is the number of bytes that had to be skipped.</p>
@@ -78,7 +89,10 @@
         <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
           including its header.</p>
         <p><c><anno>Allocations</anno></c> is a summary of the allocated blocks
-          in the carrier.</p>
+          in the carrier. Note that carriers may contain multiple different
+          block types when carrier pools are shared between different allocator
+          types (see the <seecref marker="erts:erts_alloc#M_cp"><c>erts_alloc</c>
+          </seecref> documentation for more details).</p>
         <p><c><anno>FreeBlocks</anno></c> is a histogram of the free block
           sizes in the carrier.</p>
         <p>If the carrier could not be scanned in full without harming the
@@ -115,11 +129,13 @@
         <taglist>
           <tag><c>allocator_types</c></tag>
           <item>
-            <p>The allocator types that will be searched. Note that blocks can
-              move freely between allocator types, so restricting the search to
-              certain allocators may return unexpected types (e.g. process
-              heaps when searching binary_alloc), or hide blocks that were
-              migrated out.</p>
+            <p>The allocator types that will be searched.</p>
+            <p>Specifying a specific allocator type may lead to strange results
+              when carrier migration between different allocator types has been
+              enabled: you may see unexpected types (e.g. process heaps when
+              searching binary_alloc), or fewer blocks than expected if the
+              carriers the blocks are on have been migrated out to an allocator
+              of a different type.</p>
             <p>Defaults to all <c>alloc_util</c> allocators.</p>
           </item>
           <tag><c>scheduler_ids</c></tag>
@@ -217,10 +233,12 @@
         <code type="none"><![CDATA[
 > instrument:carriers(#{ histogram_start => 512, histogram_width => 8 }).
 {ok,{512,
-     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
-      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
-      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
-      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+     [{driver_alloc,false,262144,0,
+                    [{driver_alloc,1,32784}],
+                    {0,0,0,0,0,0,0,1}},
+      {binary_alloc,false,32768,0,
+                    [{binary_alloc,15,4304}],
+                    {3,0,0,0,1,0,0,0}},
       {...}|...]}}
      ]]></code>
       </desc>
