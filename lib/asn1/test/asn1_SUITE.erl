@@ -198,10 +198,16 @@ end_per_testcase(_Func, Config) ->
 %% Test runners
 %%------------------------------------------------------------------------------
 
+have_jsonlib() ->
+    case code:which(jsx) of
+        non_existing -> false;
+    _ -> true
+    end.
+
 test(Config, TestF) ->
-    TestJer = case code:which(jsx) of
-                  non_existing -> [];
-                  _ -> [jer]
+    TestJer = case have_jsonlib() of
+                  true -> [jer];
+                  false -> []
               end,
     test(Config, TestF, [per,
                          uper,
@@ -424,11 +430,21 @@ testExtensionDefault(Config, Rule, Opts) ->
     testExtensionDefault:main(Rule).
 
 testMaps(Config) ->
-    test(Config, fun testMaps/3,
+    Jer = case have_jsonlib() of
+        true -> [{jer,[maps,no_ok_wrapper]}];
+        false -> []
+    end,
+    RulesAndOptions = 
          [{ber,[maps,no_ok_wrapper]},
           {ber,[maps,der,no_ok_wrapper]},
           {per,[maps,no_ok_wrapper]},
-          {uper,[maps,no_ok_wrapper]}]).
+          {uper,[maps,no_ok_wrapper]}] ++ Jer,
+    test(Config, fun testMaps/3, RulesAndOptions),
+    case Jer of
+        [] -> {comment,"skipped JER"};
+        _ -> ok
+    end.
+
 testMaps(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
     testMaps:main(Rule).
