@@ -36,7 +36,7 @@
          prefix/2, reverse/1, seq/2, seq/3,
          split/2, sublist/2, sublist/3,
          subtract/2, suffix/2, sum/1,
-         unzip/1, unzip3/1,
+         uniq/1, unzip/1, unzip3/1,
          zip/2, zip3/3]).
 
 %% Functions taking a list of tuples and a position within the tuple.
@@ -59,7 +59,7 @@
          foldl/3, foldr/3, foreach/2,
          map/2, mapfoldl/3, mapfoldr/3,
          partition/2, search/2,
-         splitwith/2, takewhile/2,
+         splitwith/2, takewhile/2, uniq/2,
          zipwith/3, zipwith3/4]).
 
 %% Undocumented, but used within Erlang/OTP.
@@ -2975,3 +2975,44 @@ rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
             lists:reverse(T1, [H1, H2M | M])
     end.
 
+%% uniq/1: return a new list with the unique elements of the given list
+
+-spec uniq(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(L) ->
+    uniq_1(L, #{}).
+
+uniq_1([X | Xs], M) ->
+    case is_map_key(X, M) of
+        true ->
+            uniq_1(Xs, M);
+        false ->
+            [X | uniq_1(Xs, M#{X => true})]
+    end;
+uniq_1([], _) ->
+    [].
+
+%% uniq/2: return a new list with the unique elements of the given list using a function key
+
+-spec uniq(Fun, List1) -> List2 when
+      Fun :: fun((T) -> any()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(F, L) when is_function(F, 1) ->
+    uniq_2(L, F, #{}).
+
+uniq_2([X | Xs], F, M) ->
+    Key = F(X),
+    case is_map_key(Key, M) of
+        true ->
+            uniq_2(Xs, F, M);
+        false ->
+            [X | uniq_2(Xs, F, M#{Key => true})]
+    end;
+uniq_2([], _, _) ->
+    [].
