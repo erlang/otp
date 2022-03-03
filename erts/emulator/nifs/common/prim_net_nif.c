@@ -3789,7 +3789,7 @@ ERL_NIF_TERM encode_ip_address_row_addr(ErlNifEnv*  env,
             "encode_ip_address_row_addr -> entry with: "
             "\r\n   %s: %lu\r\n", descr, addr) );
     
-    a.s_addr = ntohl(addr);
+    a.s_addr = addr;
 
     esock_encode_in_addr(env, &a, &ea);
 
