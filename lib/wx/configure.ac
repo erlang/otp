@@ -262,14 +262,14 @@ AS_IF([test X"$host_os" != X"win32"],
     AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes && test X"$ac_cv_header_OpenGL_gl_h" != Xyes],
       [
        	saved_CPPFLAGS="$CPPFLAGS"
-	AC_MSG_NOTICE(Checking for OpenGL headers in /usr/X11R6)
-       	CPPFLAGS="-isystem /usr/X11R6/include $CPPFLAGS"
+        AC_MSG_NOTICE(Checking for OpenGL headers in $erl_xcomp_sysroot/usr/X11R6)
+        CPPFLAGS="-isystem $erl_xcomp_sysroot/usr/X11R6/include $CPPFLAGS"
        	$as_unset ac_cv_header_GL_gl_h
        	AC_CHECK_HEADERS([GL/gl.h])
        	AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes],
           [
-	    AC_MSG_NOTICE(Checking for OpenGL headers in /usr/local)
-	    CPPFLAGS="-isystem /usr/local/include $saved_CPPFLAGS"
+	    AC_MSG_NOTICE(Checking for OpenGL headers in $erl_xcomp_sysroot/usr/local)
+	    CPPFLAGS="-isystem $erl_xcomp_sysroot/usr/local/include $saved_CPPFLAGS"
 	    $as_unset ac_cv_header_GL_gl_h
 	    AC_CHECK_HEADERS([GL/gl.h])
 	    AS_IF([test X"$ac_cv_header_GL_gl_h" != Xyes],
@@ -278,11 +278,11 @@ AS_IF([test X"$host_os" != X"win32"],
 		CPPFLAGS="$saved_CPPFLAGS"
               ],
               [
-	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
+                GL_LIBS="-L$erl_xcomp_sysroot/usr/local/lib $GL_LIBS"
               ])
 	  ],
           [
-    	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
+            GL_LIBS="-L$erl_xcomp_sysroot/usr/X11R6/lib $GL_LIBS"
        	  ])
       ])
   ],
