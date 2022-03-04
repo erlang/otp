@@ -112,6 +112,22 @@ typedef struct {
 } ErtsIoTask;
 
 
+ERTS_GLB_INLINE int erts_sched_poll_enabled(void);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int erts_sched_poll_enabled(void)
+{
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    extern ErtsPollSet *sched_pollset;
+    return (sched_pollset != NULL);
+#else
+    return 0;
+#endif
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 #endif /*  ERL_CHECK_IO_H__ */
 
 #if !defined(ERL_CHECK_IO_C__) && !defined(ERTS_ALLOC_C__)
@@ -133,6 +149,7 @@ extern int erts_no_poll_threads;
 #include "erl_poll.h"
 #include "erl_port_task.h"
 
+
 typedef struct {
     Eterm inport;
     Eterm outport;
@@ -152,3 +169,4 @@ typedef struct {
 } ErtsNifSelectDataState;
 
 #endif /* #ifndef ERL_CHECK_IO_INTERNAL__ */
+

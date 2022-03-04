@@ -58,6 +58,7 @@
 	 scheduler_suspend_basic/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
+         sched_poll/1,
          poll_threads/1,
 	 reader_groups/1,
          otp_16446/1,
@@ -77,6 +78,7 @@ all() ->
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads,
+     sched_poll,
      poll_threads,
      reader_groups,
      otp_16446,
@@ -1527,6 +1529,55 @@ sst5_loop(N) ->
     erlang:system_flag(multi_scheduling, block_normal),
     erlang:system_flag(multi_scheduling, unblock_normal),
     sst5_loop(N-1).
+
+%% Test scheduler polling: +IOs true|false
+sched_poll(Config) when is_list(Config) ->
+
+    Env = case os:getenv("ERL_AFLAGS") of
+              false ->
+                  [];
+              AFLAGS1 ->
+                  %% Remove any +IOs
+                  AFLAGS2 = list_to_binary(re:replace(AFLAGS1,
+                                                      "\\+IOs (true|false)",
+                                                      "", [global])),
+                  [{"ERL_AFLAGS", binary_to_list(AFLAGS2)}]
+          end,
+
+    [PS | _] = get_iostate(""),
+    HaveSchedPoll = proplists:get_value(concurrent_updates, PS),
+
+    0 = get_sched_pollsets(["+IOs", "false"]),
+    if
+        HaveSchedPoll ->
+            1 = get_sched_pollsets(["+IOs", "true"]),
+            1 = get_sched_pollsets([], Env);
+
+        not HaveSchedPoll ->
+            fail = get_sched_pollsets(["+IOs", "true"]),
+            0 = get_sched_pollsets([], Env)
+    end,
+    fail = get_sched_pollsets(["+IOs", "bad"]),
+    ok.
+
+get_sched_pollsets(Cmd) ->
+    get_sched_pollsets(Cmd, []).
+
+get_sched_pollsets(Cmd, Env)->
+    try
+        {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd,
+                                      env => [{"ERL_LIBS", false} | Env]}),
+        [IOStates] = mcall(Node,[fun () -> erlang:system_info(check_io) end]),
+        IO = [IOState || IOState <- IOStates,
+            %% We assume non-fallbacks without threads are scheduler pollsets
+            proplists:get_value(fallback, IOState) == false,
+            proplists:get_value(poll_threads, IOState) == 0],
+        peer:stop(Peer),
+        length(IO) % number of scheduler pollsets
+    catch
+        exit:{boot_failed, _} ->
+            fail
+    end.
 
 poll_threads(Config) when is_list(Config) ->
     [PS | _] = get_iostate(""),

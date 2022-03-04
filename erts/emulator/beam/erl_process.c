@@ -3194,11 +3194,11 @@ aux_thread(void *vix)
 
 #if ERTS_POLL_USE_FALLBACK
     if (ix == 0) {
-#if ERTS_POLL_USE_SCHEDULER_POLLING
-	ssi->psi = erts_create_pollset_thread(-2, tpd);
-#else
-	ssi->psi = erts_create_pollset_thread(-1, tpd);
-#endif
+        if (erts_sched_poll_enabled()) {
+            ssi->psi = erts_create_pollset_thread(-2, tpd);
+        } else {
+            ssi->psi = erts_create_pollset_thread(-1, tpd);
+        }
     }
 #endif
 
@@ -3365,11 +3365,13 @@ try_set_sys_scheduling(void)
 static ERTS_INLINE int
 prepare_for_sys_schedule(void)
 {
-    while (!erts_port_task_have_outstanding_io_tasks()
-           && try_set_sys_scheduling()) {
-        if (!erts_port_task_have_outstanding_io_tasks())
-            return 1;
-        clear_sys_scheduling();
+    if (erts_sched_poll_enabled()) {
+        while (!erts_port_task_have_outstanding_io_tasks()
+               && try_set_sys_scheduling()) {
+            if (!erts_port_task_have_outstanding_io_tasks())
+                return 1;
+            clear_sys_scheduling();
+        }
     }
     return 0;
 }
@@ -8620,9 +8622,9 @@ sched_thread_func(void *vesdp)
 
     erts_thr_progress_register_managed_thread(esdp, &callbacks, 0, 0);
 
-#if ERTS_POLL_USE_SCHEDULER_POLLING
-    esdp->ssi->psi = erts_create_pollset_thread(-1, NULL);
-#endif
+    if (erts_sched_poll_enabled()) {
+        esdp->ssi->psi = erts_create_pollset_thread(-1, NULL);
+    }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
@@ -9522,7 +9524,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	esdp->virtual_reds = 0;
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-        fcalls = (int) erts_atomic32_add_read_acqb(&function_calls, reds);
+        if (erts_sched_poll_enabled()) {
+            fcalls = (int)erts_atomic32_add_read_acqb(&function_calls, reds);
+        }
 #endif
 
 	ASSERT(esdp && esdp == erts_get_scheduler_data());

@@ -875,6 +875,16 @@ int main(int argc, char **argv)
                           i++;
                           break;
                       }
+                      if (argv[i][2] == 'O' && argv[i][3] == 's') {
+                          if (argv[i][4] != '\0')
+                              goto the_default;
+                          NEXT_ARG_CHECK();
+                          argv[i][0] = '-';
+                          add_Eargs(argv[i]);
+                          add_Eargs(argv[i+1]);
+                          i++;
+                          break;
+                      }
                       usage(argv[i]);
                       break;
                   case 'J':
