@@ -93,7 +93,7 @@ typedef enum {
 #endif
     ERTS_EV_FLAG_WANT_ERROR    = 0x10,  /* ERL_NIF_SELECT_ERROR turned on */
 
-    /* Combinations */
+    /* Combinations, defined only to be displayed by debugger (gdb) */
     ERTS_EV_FLAG_USED_FALLBACK = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_FALLBACK,
     ERTS_EV_FLAG_USED_SCHEDULER = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_SCHEDULER,
     ERTS_EV_FLAG_USED_IN_SCHEDULER = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER,
@@ -101,16 +101,25 @@ typedef enum {
     ERTS_EV_FLAG_UNUSED_IN_SCHEDULER = ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER
 } EventStateFlags;
 
-#define flag2str(flags)                                                 \
-    ((flags) == ERTS_EV_FLAG_CLEAR ? "CLEAR" :                          \
-     ((flags) == ERTS_EV_FLAG_USED ? "USED" :                           \
-      ((flags) == ERTS_EV_FLAG_FALLBACK ? "FLBK" :                      \
-       ((flags) == ERTS_EV_FLAG_USED_FALLBACK ? "USED|FLBK" :           \
-        ((flags) == ERTS_EV_FLAG_USED_SCHEDULER ? "USED|SCHD" :         \
-         ((flags) == ERTS_EV_FLAG_UNUSED_SCHEDULER ? "SCHD" :           \
-          ((flags) == ERTS_EV_FLAG_USED_IN_SCHEDULER ? "USED|IN_SCHD" : \
-           ((flags) == ERTS_EV_FLAG_UNUSED_IN_SCHEDULER ? "IN_SCHD" :   \
-            "ERROR"))))))))
+
+static const char* event_state_flag_to_str(EventStateFlags f)
+{
+    switch ((int)f) {
+    case ERTS_EV_FLAG_CLEAR: return "CLEAR";
+    case ERTS_EV_FLAG_USED: return "USED";
+    case ERTS_EV_FLAG_FALLBACK: return "FLBK";
+    case ERTS_EV_FLAG_FALLBACK | ERTS_EV_FLAG_USED: return "USED|FLBK";
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    case ERTS_EV_FLAG_SCHEDULER: return "SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_USED: return "USED|SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER: return "IN_SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER
+        | ERTS_EV_FLAG_USED: return "USED|IN_SCHD";
+#endif
+    default: return "ERROR";
+    }
+}
 
 /* How many events that can be handled at once by one erts_poll_wait call */
 #define ERTS_CHECK_IO_POLL_RES_LEN 512
@@ -2534,7 +2543,11 @@ print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 static ERTS_INLINE void
 print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
-    erts_dsprintf(dsbufp, "%s", flag2str(f));
+    if (f & ERTS_EV_FLAG_WANT_ERROR) {
+        erts_dsprintf(dsbufp, "WANTERR|");
+        f &= ~ERTS_EV_FLAG_WANT_ERROR;
+    }
+    erts_dsprintf(dsbufp, "%s", event_state_flag_to_str(f));
 }
 
 #ifdef DEBUG_PRINT_MODE
