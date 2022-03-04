@@ -3246,12 +3246,28 @@ ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
 
 
 #if defined(__WIN32__)
+/*
+ * The description is defined as a UCHAR array with a *max* length
+ * of MAXLEN_IFDESCR. But the actual length is defined by the 
+ * dwDescrLen field.
+ * The documentation does not specify that its a NULL terminated
+ * string, but in practice that is what it is. But, if the string
+ * *is* MAXLEN_IFDESCR there is no room for a NULL terminator...
+ * So, just to be on the safe side we copy the text into a buffer
+ * of length = len + 1 and add an extra NULL character at the last
+ * position. Then we can handle the it as any NULL terminated string.
+ */
 static
 ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
                                        DWORD      len,
                                        UCHAR*     buf)
 {
-    return encode_uchar(env, len, buf);
+    UCHAR* tmp = MALLOC(len + 1);
+
+    sys_memcpy(tmp, buf, len);
+    tmp[len] = 0;
+
+    return MKS(env, tmp);
 }
 #endif // __WIN32__
 

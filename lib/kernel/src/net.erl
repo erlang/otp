@@ -122,6 +122,10 @@
         #{skip_unicast       => true,
           skip_friendly_name => false,
           include_prefix     => false}).
+-define(GAA_INDEXES_FLAGS(),
+        #{skip_unicast       => true,
+          skip_friendly_name => true,
+          include_prefix     => false}).
 
 
 
@@ -448,7 +452,7 @@ if_name2index(Name) when is_list(Name) ->
         error : notsup : Stack ->
             %% This is *most likely* Windows, so try that.
             %% If not (another catch), raise the original catched error.
-            try win_gaa_name2index(Name)
+            try win_name2index(Name)
             catch
                 _:_:_ ->
                     erlang:raise(error, notsup, Stack)
@@ -482,7 +486,7 @@ if_index2name(Idx) when is_integer(Idx) ->
         error : notsup : Stack ->
             %% This is *most likely* Windows, so try that.
             %% If not (another catch), raise the original catched error.
-            try win_gaa_index2name(Idx)
+            try win_index2name(Idx)
             catch
                 _:_:_ ->
                     erlang:raise(error, notsup, Stack)
@@ -516,7 +520,7 @@ if_names() ->
         error : notsup : Stack ->
             %% This is *most likely* Windows, so try that.
             %% If not (another catch), raise the original catched error.
-            try win_gaa_names()
+            try win_names()
             catch
                 _:_:_ ->
                     erlang:raise(error, notsup, Stack)
@@ -530,51 +534,58 @@ if_names() ->
 
 %% -- Windows specific functions:
 
-win_gaa_names() ->
-    %% Flags  = prim_net:get_adapters_addresses_flags_default(),
-    %% Flags2 = Flags#{skip_unicast       => true,
-    %%                 skip_friendly_name => false,
-    %%                 include_prefix     => false},
-    case prim_net:get_adapters_addresses(#{flags => ?GAA_NAMES_FLAGS()}) of
-        {ok, GAA} ->
-            Names = [{Idx, FName} ||
-                        #{index := Idx, friendly_name := FName} <- GAA],
-            {ok, lists:keysort(1, Names)};
-        {error, _} = ERROR ->
-            ERROR
+%% win_gaa_names() ->
+%%     case prim_net:get_adapters_addresses(#{flags => ?GAA_NAMES_FLAGS()}) of
+%%         {ok, GAA} ->
+%%             Names = [{Idx, FName} ||
+%%                         #{index := Idx, friendly_name := FName} <- GAA],
+%%             {ok, lists:keysort(1, Names)};
+%%         {error, _} = ERROR ->
+%%             ERROR
+%%     end.
+
+
+win_names() ->
+    [{Idx, win_name(Idx)} || Idx <- win_indexes()].
+
+
+win_indexes() ->
+    case prim_net:get_adapters_addresses(#{flags => ?GAA_INDEXES_FLAGS()}) of
+        {ok, AA} ->
+            Indexes = [Idx || #{index := Idx} <- AA],
+            lists:sort(Indexes);
+        {error, _} ->
+            case prim_net:get_ip_address_table(#{}) of
+                {ok, Tab} ->
+                    Indexes = [Idx || #{index := Idx} <- Tab],
+                    lists:sort(Indexes);
+                {error, _} ->
+                    throw({error, no_index})
+            end
     end.
 
-
-win_gaa_index2name(Idx) ->
-    case win_gaa_names() of
-        {ok, Names} ->
-            win_gaa_index2name(Idx, Names);
-        {error, _} = ERROR ->
-            ERROR
+win_name(Idx) ->
+    case prim_net:get_if_entry(#{index => Idx}) of
+        {ok, #{name := Name}} ->
+            Name;
+        {error, _} ->
+            throw({error, no_entry})
     end.
+    
 
-win_gaa_index2name(Idx, Names) ->
-    case lists:keysearch(Idx, 1, Names) of
+win_index2name(Idx) ->
+    case lists:keysearch(Idx, 1, win_names()) of
         {value, {Idx, Name}} ->
             {ok, Name};
         false ->
-            {error, enxio}
+            {error, enxio} % This is to be "compatible" with unix
     end.
 
-
-win_gaa_name2index(Name) ->
-    case win_gaa_names() of
-        {ok, Names} ->
-            win_gaa_name2index(Name, Names);
-        {error, _} = ERROR ->
-            ERROR
-    end.
-
-win_gaa_name2index(Name, Names) ->
-    case lists:keysearch(Name, 2, Names) of
+win_name2index(Name) ->
+    case lists:keysearch(Name, 2, win_names()) of
         {value, {Idx, Name}} ->
             {ok, Idx};
         false ->
-            {error, enodev}
+            {error, enodev} % This is to be "compatible" with unix
     end.
 
