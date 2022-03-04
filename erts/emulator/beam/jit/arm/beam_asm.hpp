@@ -1710,7 +1710,7 @@ protected:
             if (Support::isUInt12(val)) {
                 a.cmp(gp, imm(val));
             } else if (Support::isUInt12(-val)) {
-                a.adds(ZERO, gp, imm(-val));
+                a.cmn(gp, imm(-val));
             } else {
                 mov_arg(SUPER_TMP, arg);
                 a.cmp(gp, SUPER_TMP);
