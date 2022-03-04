@@ -1380,8 +1380,7 @@ static ERTS_INLINE
 void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
 {
     if (new_size > pb->size) {
-        if (ErtsInArea(pb, OLD_HEAP(p), ((OLD_HTOP(p) - OLD_HEAP(p))
-                                         * sizeof(Eterm)))) {
+        if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
             BIN_OLD_VHEAP(p) += (new_size / sizeof(Eterm) -
                                  pb->size / sizeof(Eterm));
         }
@@ -1734,8 +1733,8 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
             sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 
             /* If the subbinary is on the mature or old heap, we need to also move it */
-            if (ErtsInArea(sb, OLD_HEAP(p), ((char *)OLD_HTOP(p)) - ((char *)OLD_HEAP(p))) ||
-                ErtsInArea(sb, HEAP_START(p), ((char *)HIGH_WATER(p)) - ((char *)HEAP_START(p)))) {
+            if (ErtsInBetween(sb, OLD_HEAP(p), OLD_HTOP(p)) ||
+                ErtsInBetween(sb, HEAP_START(p), HIGH_WATER(p))) {
                 sz += ERL_SUB_BIN_SIZE;
             }
 
