@@ -2478,6 +2478,7 @@ process_flag(_Flag, _Value) ->
       monitored_by |
       monitors |
       message_queue_data |
+      parent |
       priority |
       reductions |
       registered_name |
@@ -2522,6 +2523,7 @@ process_flag(_Flag, _Value) ->
        Monitors :: [{process | port, Pid :: pid() | port() |
                                      {RegName :: atom(), Node :: node()}}]} |
       {message_queue_data, MQD :: message_queue_data()} |
+      {parent, pid() | undefined} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, [] | (Atom :: atom())} |
