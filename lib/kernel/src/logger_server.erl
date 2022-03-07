@@ -623,7 +623,7 @@ do_internal_log(Level,Location,Log,[Report] = Data) ->
 do_internal_log(Level,Location,Log,[Fmt,Args] = Data) ->
     do_internal_log(Level,Location,Log,Data,{Fmt,Args}).
 do_internal_log(Level,Location,Log,Data,Msg) ->
-    Meta = logger:add_default_metadata(maps:merge(Location,maps:get(meta,Log,#{}))),
+    Meta = logger:add_default_metadata(Location),
     %% Spawn these to avoid deadlocks
     case Log of
         #{ meta := #{ internal_log_event := true } } ->

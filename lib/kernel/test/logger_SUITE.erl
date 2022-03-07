@@ -103,7 +103,8 @@ all() ->
      app_config,
      kernel_config,
      pretty_print,
-     pathological].
+     pathological,
+     internal_log].
 
 start_stop(_Config) ->
     S = whereis(logger),
@@ -1220,6 +1221,30 @@ pathological(_Config) ->
     check_logged(notice,"string",[],#{}),
     logger:notice(report, []),
     check_logged(notice,"report",[],#{}),
+    ok.
+
+internal_log(_Config) ->
+    register(callback_receiver, self()),
+    {error, {not_found, h1}} = logger:get_handler_config(h1),
+    ok = logger:add_handler(h1, ?MODULE, #{tc_proc => self()}),
+    OriginalMeta = #{
+        mfa => {orig_mod, orig_func, 0},
+        line => 0,
+        file => "path/to/orig_mod.beam",
+        pid => self(),
+        time => logger:timestamp(),
+        gl => group_leader()
+    },
+    OriginalLog = #{
+        level => notice,
+        msg => "Original log",
+        meta => OriginalMeta
+    },
+    Report = [{testing, internal_log}],
+
+    ?LOG_INTERNAL(notice, OriginalLog, Report),
+    ok = check_logged(notice, Report, ?MY_LOC(1)),
+
     ok.
 
 %%%-----------------------------------------------------------------
