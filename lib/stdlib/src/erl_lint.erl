@@ -900,10 +900,18 @@ function_state({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
     type_def(opaque, A, TypeName, TypeDef, Args, St);
 function_state({attribute,A,spec,{Fun,Types}}, St) ->
     spec_decl(A, Fun, Types, St);
-function_state({attribute,_A,dialyzer,_Val}, St) ->
-    St;
-function_state({attribute,Aa,Attr,_Val}, St) ->
+function_state({attribute,Aa,Attr,_Val}, St) when Attr =:= module;
+                                                  Attr =:= export;
+                                                  Attr =:= export_type;
+                                                  Attr =:= import;
+                                                  Attr =:= behaviour;
+                                                  Attr =:= behavior;
+                                                  Attr =:= callback;
+                                                  Attr =:= optional_callbacks;
+                                                  Attr =:= on_load ->
     add_error(Aa, {attribute,Attr}, St);
+function_state({attribute,_A,_Attr,_Val}, St) ->
+    St;
 function_state({function,Anno,N,A,Cs}, St) ->
     function(Anno, N, A, Cs, St);
 function_state({eof,Location}, St) -> eof(Location, St).

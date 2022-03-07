@@ -3645,7 +3645,7 @@ basic_errors(Config) ->
 	   <<"f() -> ok.
                -attr(x).">>,
 	   [],
-	   {errors,[{{2,17},erl_lint,{attribute,attr}}],[]}},
+	   []},
 
 	  {redefine_function,
 	   <<"f() -> ok.
@@ -4282,12 +4282,9 @@ stacktrace_syntax(Config) ->
 otp_14285(Config) ->
     %% A small sample of all the errors and warnings in module erl_lint.
     E1 = {redefine_function,{'кирилли́ческий атом',0}},
-    E2 = {attribute,'кирилли́ческий атом'},
     E3 = {undefined_record,'кирилли́ческий атом'},
     E4 = {undefined_bittype,'кирилли́ческий атом'},
     "function 'кирилли́ческий атом'/0 already defined" = format_error(E1),
-    "attribute 'кирилли́ческий атом' after function definitions" =
-        format_error(E2),
     "record 'кирилли́ческий атом' undefined" = format_error(E3),
     "bit type 'кирилли́ческий атом' undefined" = format_error(E4),
     Ts = [{otp_14285_1,
@@ -4303,9 +4300,7 @@ otp_14285(Config) ->
               -'кирилли́ческий атом'(a).
              "/utf8>>,
            [],
-           {errors,
-            [{{2,16},erl_lint,E2}],
-            []}},
+           []},
          {otp_14285_3,
            <<"'кирилли́ческий атом'() -> #'кирилли́ческий атом'{}.
              "/utf8>>,
