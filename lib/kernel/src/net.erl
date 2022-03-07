@@ -577,14 +577,14 @@ win_getifaddrs_aa3(Name,
                      unicast_addrs := UCastAddrs,
                      prefixes      := Prefixes} = _AdAddrs,
                    #{type                 := Type,
-                     admin_status         := _AStatus,
-                     internal_oper_status := OStatus} = _IfEntry) ->
+                     admin_status         := AStatus,
+                     internal_oper_status := _OStatus} = _IfEntry) ->
     d("win_getifaddrs_aa3-> entry with"
       "~n   Name:      ~p"
       "~n   NoMC:      ~p"
       "~n   Type:      ~p"
       "~n   (A)Status: ~p"
-      "~n   (O)Status: ~p", [Name, NoMC, Type, _AStatus, OStatus]),
+      "~n   (O)Status: ~p", [Name, NoMC, Type, AStatus, _OStatus]),
     Flags1 =
         if (NoMC =:= false) ->
                 [multicast];
@@ -593,13 +593,15 @@ win_getifaddrs_aa3(Name,
         end,                          
     Flags2 = case Type of
                  ethernet_csmacd ->
-                     [broadcast,multicast];
+                     [broadcast];
                  software_loopback ->
                      [loopback];
                  _ ->
                      []
              end,
-    Flags3 = case OStatus of
+    Flags3 = case AStatus of
+                 non_operational ->
+                     [];
                  connecting ->
                      [up, pointtopoint];
                  connected ->
@@ -607,7 +609,7 @@ win_getifaddrs_aa3(Name,
                  operational ->
                      [up, running];
                  _ ->
-                     []
+                     [up]
              end,
     [win_getifaddrs_aa4(Name,
                         Flags1 ++ Flags2 ++ Flags3,

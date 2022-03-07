@@ -400,6 +400,8 @@ static ERL_NIF_TERM encode_if_type(ErlNifEnv* env,
 static ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
                                               DWORD      len,
                                               UCHAR*     buf);
+static ERL_NIF_TERM encode_if_admin_status(ErlNifEnv* env,
+                                           DWORD      status);
 static ERL_NIF_TERM encode_internal_if_oper_status(ErlNifEnv* env,
                                                    DWORD      status);
 static ERL_NIF_TERM encode_if_row_phys_address(ErlNifEnv* env,
@@ -3104,7 +3106,7 @@ ERL_NIF_TERM enet_if_row_encode(ErlNifEnv* env,
     ePhuysAddr       = encode_if_row_phys_address(env,
                                                   rowP->dwPhysAddrLen,
                                                   rowP->bPhysAddr);
-    eAdminStatus     = MKUI(env, rowP->dwAdminStatus);
+    eAdminStatus     = encode_if_admin_status(env, rowP->dwAdminStatus);
     eOperStatus      = encode_internal_if_oper_status(env, rowP->dwOperStatus);
     eLastChange      = MKUI(env, rowP->dwLastChange);
     eInOctets        = MKUI(env, rowP->dwInOctets);
@@ -3275,6 +3277,42 @@ ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
     FREE(tmp);
 
     return edesc;
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
+ERL_NIF_TERM encode_if_admin_status(ErlNifEnv* env,
+                                    DWORD      status)
+{
+    ERL_NIF_TERM estatus;
+
+    switch (status) {
+    case IF_OPER_STATUS_NON_OPERATIONAL:
+        estatus = atom_non_operational;
+        break;
+    case IF_OPER_STATUS_UNREACHABLE:
+        estatus = atom_unreachable;
+        break;
+    case IF_OPER_STATUS_DISCONNECTED:
+        estatus = atom_disconnected;
+        break;
+    case IF_OPER_STATUS_CONNECTING:
+        estatus = esock_atom_connecting;
+        break;
+    case IF_OPER_STATUS_CONNECTED:
+        estatus = esock_atom_connected;
+        break;
+    case IF_OPER_STATUS_OPERATIONAL:
+        estatus = atom_operational;
+        break;
+    default:
+        estatus = MKUI(env, status);
+        break;
+    }
+
+    return estatus;
 }
 #endif // __WIN32__
 
