@@ -2337,6 +2337,14 @@ static int async_ok_assoc_id(inet_descriptor* desc, sctp_assoc_t assoc_id)
 
     return erl_drv_send_term(desc->dport, caller, spec, i);
 }
+
+static int async_ok_maybe_assoc_id(inet_descriptor* desc, sctp_assoc_t *p_assoc_id)
+{
+  if (p_assoc_id)
+    return async_ok_assoc_id(desc, *p_assoc_id);
+  else
+    return async_ok(desc);
+}
 #endif
 
 static int async_ok_port(inet_descriptor* desc, ErlDrvTermData Port2)
@@ -12643,6 +12651,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 #ifdef HAVE_SCTP
 	unsigned timeout;
 	sctp_assoc_t assoc_id = 0;
+	sctp_assoc_t *p_assoc_id = NULL;
 #endif
 	DEBUGF(("packet_inet_ctl(%p): CONNECT\r\n",
                 desc->port)); 
@@ -12691,7 +12700,8 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		  memcpy(rabuf, &remote, remote_size);
 		  rabuf += remote_size;
 		}
-		code = p_sctp_connectx(desc->s, addrs, addrcnt, &assoc_id);
+		p_assoc_id = &assoc_id;
+		code = p_sctp_connectx(desc->s, addrs, addrcnt, p_assoc_id);
                 FREE((char *)addrs);
 	      } else {
 		return ctl_error(EINVAL, rbuf, rsize);
@@ -12710,15 +12720,11 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		if (assoc_id) {
-		  async_ok_assoc_id(desc, assoc_id);
-		} else {
-		  async_ok(desc);
-		}
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else if (code == 0) { /* OK we are connected */
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		async_ok(desc);
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else {
 		return ctl_error(sock_errno(), rbuf, rsize);

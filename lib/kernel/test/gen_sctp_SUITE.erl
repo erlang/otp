@@ -844,10 +844,12 @@ api_connectx_init(Config) when is_list(Config) ->
     {ok,Sb} = gen_sctp:open(Pb),
     {ok,Sa} = gen_sctp:open(),
     {ok, A1} = gen_sctp:connectx_init(Sa, [localhost], Pb, []),
+    true = (A1 =/= 0),
     {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
 	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
     ok = gen_sctp:listen(Sb, true),
     {ok, A2} = gen_sctp:connectx_init(Sa, [localhost], Pb, []),
+    true = (A2 =/= 0),
     {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
 	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
     ok = gen_sctp:close(Sa),
@@ -2406,10 +2408,12 @@ t_simple_local_sockaddr_in_connectx_init(Config) when is_list(Config) ->
                  port     => Pb},
     case gen_sctp:connectx_init(Sa, [SockAddr], []) of
         {ok, A1} ->
+	    true = (A1 =/= 0),
             {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
                 recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
             ok = gen_sctp:listen(Sb, true),
             {ok, A2} = gen_sctp:connectx_init(Sa, [SockAddr], []),
+	    true = (A2 =/= 0),
             {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
                 recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
             ok = gen_sctp:close(Sa),
