@@ -130,9 +130,26 @@ local_to_univ_utc(Config) when is_list(Config) ->
 
 
 %% Tests conversion from universal to local time.
+%% These cases are currently implemented only for MET and fail in
+%%  all other timezones
+is_stockholm_time() ->
+    case os:type() of
+        {win32, _} -> case os:cmd("tzutil /g") of
+                          "W. Europe Standard Time"++_ -> true;
+                          _ -> false
+                      end;
+        {unix, _} -> case os:cmd("date '+%Z'") of
+                          "ME"++_ -> true; %% covers MET/MEST
+                          "CE"++_ -> true; %% covers CET/CEST
+                          _ -> false
+                      end
+    end.
 
 univ_to_local(Config) when is_list(Config) ->
-    test_univ_to_local(test_data()).
+    case is_stockholm_time() of
+        true -> test_univ_to_local(test_data());
+        false -> {skip, "This test is only valid for Stockholm timezone"}
+    end.
 
 test_univ_to_local([{Utc, Local}|Rest]) ->
     io:format("Testing ~p => ~p~n", [Local, Utc]),
@@ -144,7 +161,10 @@ test_univ_to_local([]) ->
 %% Tests conversion from local to universal time.
 
 local_to_univ(Config) when is_list(Config) ->
-    test_local_to_univ(test_data()).
+    case is_stockholm_time() of
+        true -> test_local_to_univ(test_data());
+        false -> {skip, "This test is only valid for Stockholm timezone"}
+    end.
 
 test_local_to_univ([{Utc, Local}|Rest]) ->
     io:format("Testing ~p => ~p~n", [Utc, Local]),
