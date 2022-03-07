@@ -1948,11 +1948,19 @@ update_switch([], V, FailType, Ts, Ds, Ls, IsTempVar, Acc) ->
                      %% we can infer types as if we matched it directly.
                      Lit = #b_literal{val=Value},
                      infer_types_switch(V, Lit, Ts, IsTempVar, Ds);
-                 error when IsTempVar ->
-                     ts_remove_var(V, Ts);
                  error ->
-                     Ts#{ V := FailType }
+                     %% There's more than one possible value, try a weaker
+                     %% variant of the inference for case labels.
+                     #{ V := Def } = Ds,
+                     PosTypes = [{V, FailType} | infer_eq_type(Def, FailType)],
+
+                     case meet_types(PosTypes, Ts) of
+                         none -> none;
+                         FailTs0 when IsTempVar -> ts_remove_var(V, FailTs0);
+                         FailTs0 -> FailTs0
+                     end
              end,
+
     {reverse(Acc), FailTs, Ls}.
 
 update_successor(?EXCEPTION_BLOCK, _Ts, Ls) ->
@@ -2432,7 +2440,7 @@ infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->
 infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
     Def = maps:get(Src, Ds),
     LitType = concrete_type(Lit, Ts),
-    PosTypes = [{Src, LitType} | infer_eq_lit(Def, LitType)],
+    PosTypes = [{Src, LitType} | infer_eq_type(Def, LitType)],
 
     %% Subtraction is only safe if LitType is single-valued.
     NegTypes = case beam_types:is_singleton_type(LitType) of
@@ -2472,21 +2480,21 @@ infer_success_type(bs_match, [#b_literal{val=binary},
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
-infer_eq_lit(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
-             #t_integer{elements={Size,Size}}) ->
+infer_eq_type(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
+              #t_integer{elements={Size,Size}}) ->
     [{Tuple,#t_tuple{exact=true,size=Size}}];
-infer_eq_lit(#b_set{op=get_tuple_element,
-                    args=[#b_var{}=Tuple,#b_literal{val=N}]},
-             LitType) ->
+infer_eq_type(#b_set{op=get_tuple_element,
+                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
+              ElementType) ->
     Index = N + 1,
-    case beam_types:set_tuple_element(Index, LitType, #{}) of
+    case beam_types:set_tuple_element(Index, ElementType, #{}) of
         #{ Index := _ }=Es ->
             [{Tuple,#t_tuple{size=Index,elements=Es}}];
         #{} ->
             %% Index was above the element limit; subtraction is not safe.
             []
     end;
-infer_eq_lit(_, _) ->
+infer_eq_type(_, _) ->
     [].
 
 join_types(Ts, Ts) ->
