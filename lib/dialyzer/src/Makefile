@@ -73,7 +73,8 @@ MODULES = \
 	dialyzer_utils \
 	erl_bif_types \
 	erl_types \
-	typer
+	typer \
+	typer_core
 
 HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
 ERL_FILES= $(MODULES:%=%.erl)
