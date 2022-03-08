@@ -579,7 +579,7 @@ win_getifaddrs_aa3(Name,
                    #{type                 := Type,
                      admin_status         := AStatus,
                      internal_oper_status := _OStatus} = _IfEntry) ->
-    d("win_getifaddrs_aa3-> entry with"
+    d("win_getifaddrs_aa3 -> entry with"
       "~n   Name:      ~p"
       "~n   NoMC:      ~p"
       "~n   Type:      ~p"
@@ -612,13 +612,13 @@ win_getifaddrs_aa3(Name,
                      [up]
              end,
     [win_getifaddrs_aa4(Name,
-                        Flags1 ++ Flags2 ++ Flags3,
+                        lists:sort(Flags1 ++ Flags2 ++ Flags3),
                         Prefixes,
                         UCastAddr) || UCastAddr <- UCastAddrs].
 
 win_getifaddrs_aa4(Name, Flags, Prefixes,
-                   #{addr := #{family := Fam} = Addr}) ->
-    SPrefix = shortest_matching_prefix(Addr, Prefixes),
+                   #{addr := #{family := Fam} = Addr} = UCAddr) ->
+    SPrefix = shortest_matching_prefix(UCAddr, Prefixes),
     Mask    = win_getifaddrs_mask(SPrefix),
     case lists:member(broadcast, Flags) of
         true when (Fam =:= inet) ->
@@ -635,16 +635,16 @@ win_getifaddrs_aa4(Name, Flags, Prefixes,
               netmask   => Mask}
     end.
 
-shortest_matching_prefix(Addr, Prefixes) ->
+shortest_matching_prefix(#{addr := Addr} = UCAddr, Prefixes) ->
     d("shortest_matching_prefix -> entry with"
-      "~n   Addr:     ~p"
-      "~n   Prefixes: ~p", [Addr, Prefixes]),
+      "~n   UCAddr:   ~p"
+      "~n   Prefixes: ~p", [UCAddr, Prefixes]),
     SPrefix = #{addr => Addr, length => undefined},
-    shortest_matching_prefix(Addr, Prefixes, SPrefix).
+    shortest_matching_prefix(UCAddr, Prefixes, SPrefix).
 
-shortest_matching_prefix(#{family := inet,
-                           addr   := {A, _, _, _}} = Addr, [],
-                         #{length := undefined}) ->
+shortest_matching_prefix(#{addr := #{family := inet,
+                                     addr   := {A, _, _, _}} = Addr}, [],
+                           #{length := undefined}) ->
     d("shortest_matching_prefix(inet) -> entry when falling back on classful:"
       "~n   A: ~p", [A]),
     %% Fall back to old classfull network addresses
@@ -663,51 +663,56 @@ shortest_matching_prefix(#{family := inet,
                 %% Class D: 224-239
                 32
         end,
+    d("shortest_matching_prefix(inet) -> Shortest: ~p", [Shortest]),
     #{addr => Addr, length => Shortest};
-shortest_matching_prefix(#{family := inet6} = Addr, [],
+shortest_matching_prefix(#{addr := #{family := inet6} = Addr}, [],
                          #{length := undefined}) ->
     %% Just play it safe
     d("shortest_matching_prefix(inet6) -> entry when play it safe"),
     #{addr => Addr, length => 128};
-shortest_matching_prefix(_Addr, [], SPrefix) ->
+shortest_matching_prefix(_UCAddr, [], SPrefix) ->
     d("shortest_matching_prefix -> entry when done:"
       "~n   SPrefix: ~p", [SPrefix]),
     SPrefix;
 shortest_matching_prefix(
-  #{family  := Fam, addr := Addr} = SockAddr,
+  #{addr := #{family  := Fam, addr := Addr},
+    raw_addr := UCRawAddr, raw_addr_ntohl := UCRawAddrNTOHL} = UCAddr,
   [#{addr   := #{family := Fam, addr := PAddr},
+     raw_addr := PRawAddr, raw_addr_ntohl := PRawAddrNTOHL,
      length := PLen} = Prefix|Prefixes],
   #{length := SPLen} = SPrefix)
   when (Fam =:= inet) ->
     d("shortest_matching_prefix(inet) -> entry with"
-      "~n   Addr:   ~p"
-      "~n   PAddr:  ~p"
+      "~n   Addr:   ~p (0x~.16B, 0x~.16B)"
+      "~n   PAddr:  ~p (0x~.16B, 0x~.16B)"
       "~n   PLen:   ~p"
-      "~n   SPLen:  ~p", [Addr, PAddr, PLen, SPLen]),
+      "~n   SPLen:  ~p", [Addr,  UCRawAddr, UCRawAddrNTOHL,
+                          PAddr, PRawAddr,  PRawAddrNTOHL,
+                          PLen, SPLen]),
     Mask = <<(16#FFFFFFFF bsl (32 - PLen)):32>>,
     d("shortest_matching_prefix(~w) -> entry with"
       "~n   Mask: ~w", [Fam, Mask]),
     case masked_eq(Mask, ipv4_to_bin(Addr), ipv4_to_bin(PAddr)) of
         true ->
-            d("shortest_matching_prefix(~w) -> matched equal", [Fam]),
+            d("shortest_matching_prefix(~w) -> equal", [Fam]),
             if
                 (SPLen =:= undefined) ->
                     d("shortest_matching_prefix(~w) -> "
                       "initial shortest (prefix) found", [Fam]),
-                    shortest_matching_prefix(SockAddr, Prefixes, Prefix);
+                    shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 (PLen < SPLen) ->
                     d("shortest_matching_prefix(~w) -> "
                       "new shortest (prefix) found", [Fam]),
-                    shortest_matching_prefix(SockAddr, Prefixes, Prefix);
+                    shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 true ->
-                    shortest_matching_prefix(SockAddr, Prefixes, SPrefix)
+                    shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
             end;
         false ->
-            d("shortest_matching_prefix(~w) -> matched not equal", [Fam]),
-            shortest_matching_prefix(SockAddr, Prefixes, SPrefix)
+            d("shortest_matching_prefix(~w) -> not equal", [Fam]),
+            shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
     end;
 shortest_matching_prefix(
-  #{family  := Fam, addr := Addr} = SockAddr,
+  #{addr := #{family  := Fam, addr := Addr}} = UCAddr,
   [#{addr   := #{family := Fam, addr := PAddr},
      length := PLen} = Prefix|Prefixes],
   #{length := SPLen} = SPrefix) when (Fam =:= inet6) ->
@@ -721,50 +726,60 @@ shortest_matching_prefix(
       "~n   Mask: ~w", [Mask]),
     case masked_eq(Mask, ipv6_to_bin(Addr), ipv6_to_bin(PAddr)) of
         true ->
-            d("shortest_matching_prefix(~w) -> matched equal", [Fam]),
+            d("shortest_matching_prefix(~w) -> equal", [Fam]),
             if
                 (SPLen =:= undefined) ->
                     d("shortest_matching_prefix(~w) -> "
                       "initial shortest (prefix) found", [Fam]),
-                    shortest_matching_prefix(SockAddr, Prefixes, Prefix);
+                    shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 (PLen < SPLen) ->
                     d("shortest_matching_prefix(~w) -> "
                       "new shortest (prefix) found", [Fam]),
-                    shortest_matching_prefix(SockAddr, Prefixes, Prefix);
+                    shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                true ->
-                    shortest_matching_prefix(SockAddr, Prefixes, SPrefix)
+                    shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
             end;
         false ->
-            d("shortest_matching_prefix(~w) -> matched not equal", [Fam]),
-            shortest_matching_prefix(SockAddr, Prefixes, SPrefix)
+            d("shortest_matching_prefix(~w) -> not equal", [Fam]),
+            shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
     end;
-shortest_matching_prefix(Addr, [_Prefix|Prefixes], SPrefix) ->
+shortest_matching_prefix(UCAddr, [_Prefix|Prefixes], SPrefix) ->
     d("shortest_matching_prefix -> entry when skipping: "
-      "~n   Prefix: ~p", [_Prefix]),
-    shortest_matching_prefix(Addr, Prefixes, SPrefix).
+      "~n   UCAddr:  ~p"
+      "~n   Prefix:  ~p"
+      "~n   SPrefix: ~p", [UCAddr, _Prefix, SPrefix]),
+    shortest_matching_prefix(UCAddr, Prefixes, SPrefix).
 
-masked_eq(<<M1:8,  M2:8,  M3:8,  M4:8>>,
-          <<A1:8,  A2:8,  A3:8,  A4:8>>,
-          <<PA1:8, PA2:8, PA3:8, PA4:8>>) ->
+masked_eq(<<M:32>>,
+          <<A:32>>,
+          <<PA:32>>) ->
     d("masked_eq -> entry with"
-      "~n   M1:  ~w"
-      "~n   M2:  ~w"
-      "~n   M3:  ~w"
-      "~n   M4:  ~w"
-      "~n   A1:  ~w"
-      "~n   A2:  ~w"
-      "~n   A3:  ~w"
-      "~n   A4:  ~w"
-      "~n   PA1: ~w"
-      "~n   PA2: ~w"
-      "~n   PA3: ~w"
-      "~n   PA4: ~w", [M1,  M2,  M3,  M4,
-                       A1,  A2,  A3,  A4,
-                       PA1, PA2, PA3, PA4]),
-    ((A1 band M1) =:= (PA1 band M1)) andalso
-    ((A2 band M2) =:= (PA2 band M2)) andalso
-    ((A3 band M3) =:= (PA3 band M3)) andalso
-    ((A4 band M4) =:= (PA4 band M4));
+      "~n   M:  ~w"
+      "~n   A:  ~w"
+      "~n   PA: ~w", [M, A, PA]),
+    (A band M) =:= (PA band M);
+%% masked_eq(<<M1:8,  M2:8,  M3:8,  M4:8>>,
+%%           <<A1:8,  A2:8,  A3:8,  A4:8>>,
+%%           <<PA1:8, PA2:8, PA3:8, PA4:8>>) ->
+%%     %% d("masked_eq -> entry with"
+%%     %%   "~n   M1:  ~w"
+%%     %%   "~n   M2:  ~w"
+%%     %%   "~n   M3:  ~w"
+%%     %%   "~n   M4:  ~w"
+%%     %%   "~n   A1:  ~w"
+%%     %%   "~n   A2:  ~w"
+%%     %%   "~n   A3:  ~w"
+%%     %%   "~n   A4:  ~w"
+%%     %%   "~n   PA1: ~w"
+%%     %%   "~n   PA2: ~w"
+%%     %%   "~n   PA3: ~w"
+%%     %%   "~n   PA4: ~w", [M1,  M2,  M3,  M4,
+%%     %%                    A1,  A2,  A3,  A4,
+%%     %%                    PA1, PA2, PA3, PA4]),
+%%     ((A1 band M1) =:= (PA1 band M1)) andalso
+%%                                        ((A2 band M2) =:= (PA2 band M2)) andalso
+%%                                                                           ((A3 band M3) =:= (PA3 band M3)) andalso
+%%                                                                                                              ((A4 band M4) =:= (PA4 band M4));
 masked_eq(<<M01:8,  M02:8,  M03:8,  M04:8,
             M05:8,  M06:8,  M07:8,  M08:8,
             M09:8,  M10:8,  M11:8,  M12:8,
@@ -777,91 +792,91 @@ masked_eq(<<M01:8,  M02:8,  M03:8,  M04:8,
             PA05:8, PA06:8, PA07:8, PA08:8,
             PA09:8, PA10:8, PA11:8, PA12:8,
             PA13:8, PA14:8, PA15:8, PA16:8>>) ->
-    d("masked_eq -> entry with"
-      "~n   M01:  ~w"
-      "~n   M02:  ~w"
-      "~n   M03:  ~w"
-      "~n   M04:  ~w"
-      "~n   M05:  ~w"
-      "~n   M06:  ~w"
-      "~n   M07:  ~w"
-      "~n   M08:  ~w"
-      "~n   M09:  ~w"
-      "~n   M10:  ~w"
-      "~n   M11:  ~w"
-      "~n   M12:  ~w"
-      "~n   M13:  ~w"
-      "~n   M14:  ~w"
-      "~n   M15:  ~w"
-      "~n   M16:  ~w"
-      "~n   A01:  ~w (~w)"
-      "~n   A02:  ~w (~w)"
-      "~n   A03:  ~w (~w)"
-      "~n   A04:  ~w (~w)"
-      "~n   A05:  ~w (~w)"
-      "~n   A06:  ~w (~w)"
-      "~n   A07:  ~w (~w)"
-      "~n   A08:  ~w (~w)"
-      "~n   A09:  ~w (~w)"
-      "~n   A10:  ~w (~w)"
-      "~n   A11:  ~w (~w)"
-      "~n   A12:  ~w (~w)"
-      "~n   A13:  ~w (~w)"
-      "~n   A14:  ~w (~w)"
-      "~n   A15:  ~w (~w)"
-      "~n   A16:  ~w (~w)"
-      "~n   PA01: ~w (~w)"
-      "~n   PA02: ~w (~w)"
-      "~n   PA03: ~w (~w)"
-      "~n   PA04: ~w (~w)"
-      "~n   PA05: ~w (~w)"
-      "~n   PA06: ~w (~w)"
-      "~n   PA07: ~w (~w)"
-      "~n   PA08: ~w (~w)"
-      "~n   PA09: ~w (~w)"
-      "~n   PA10: ~w (~w)"
-      "~n   PA11: ~w (~w)"
-      "~n   PA12: ~w (~w)"
-      "~n   PA13: ~w (~w)"
-      "~n   PA14: ~w (~w)"
-      "~n   PA15: ~w (~w)"
-      "~n   PA16: ~w (~w)",
-      [M01,  M02,  M03,  M04,
-       M05,  M06,  M07,  M08,
-       M09,  M10,  M11,  M12,
-       M13,  M14,  M15,  M16,
-       A01,  (A01 band M01),
-       A02,  (A02 band M02),
-       A03,  (A03 band M03), 
-       A04,  (A04 band M04),
-       A05,  (A05 band M05), 
-       A06,  (A06 band M06), 
-       A07,  (A07 band M07), 
-       A08,  (A08 band M08),
-       A09,  (A09 band M09), 
-       A10,  (A10 band M10), 
-       A11,  (A11 band M11), 
-       A12,  (A12 band M12),
-       A13,  (A13 band M13), 
-       A14,  (A14 band M14), 
-       A15,  (A15 band M15), 
-       A16,  (A16 band M16),
-       PA01, (PA01 band M01),
-       PA02, (PA02 band M02),
-       PA03, (PA03 band M03),
-       PA04, (PA04 band M04),
-       PA05, (PA05 band M05),
-       PA06, (PA06 band M06),
-       PA07, (PA07 band M07),
-       PA08, (PA08 band M08),
-       PA09, (PA09 band M09),
-       PA10, (PA10 band M10),
-       PA11, (PA11 band M11),
-       PA12, (PA12 band M12),
-       PA13, (PA13 band M13),
-       PA14, (PA14 band M14),
-       PA15, (PA15 band M15),
-       PA16, (PA16 band M16)]),
+    %% d("masked_eq -> entry with"
+    %%   "~n   M01:  ~w"
+    %%   "~n   M02:  ~w"
+    %%   "~n   M03:  ~w"
+    %%   "~n   M04:  ~w"
+    %%   "~n   M05:  ~w"
+    %%   "~n   M06:  ~w"
+    %%   "~n   M07:  ~w"
+    %%   "~n   M08:  ~w"
+    %%   "~n   M09:  ~w"
+    %%   "~n   M10:  ~w"
+    %%   "~n   M11:  ~w"
+    %%   "~n   M12:  ~w"
+    %%   "~n   M13:  ~w"
+    %%   "~n   M14:  ~w"
+    %%   "~n   M15:  ~w"
+    %%   "~n   M16:  ~w"
+    %%   "~n   A01:  ~w (~w)"
+    %%   "~n   A02:  ~w (~w)"
+    %%   "~n   A03:  ~w (~w)"
+    %%   "~n   A04:  ~w (~w)"
+    %%   "~n   A05:  ~w (~w)"
+    %%   "~n   A06:  ~w (~w)"
+    %%   "~n   A07:  ~w (~w)"
+    %%   "~n   A08:  ~w (~w)"
+    %%   "~n   A09:  ~w (~w)"
+    %%   "~n   A10:  ~w (~w)"
+    %%   "~n   A11:  ~w (~w)"
+    %%   "~n   A12:  ~w (~w)"
+    %%   "~n   A13:  ~w (~w)"
+    %%   "~n   A14:  ~w (~w)"
+    %%   "~n   A15:  ~w (~w)"
+    %%   "~n   A16:  ~w (~w)"
+    %%   "~n   PA01: ~w (~w)"
+    %%   "~n   PA02: ~w (~w)"
+    %%   "~n   PA03: ~w (~w)"
+    %%   "~n   PA04: ~w (~w)"
+    %%   "~n   PA05: ~w (~w)"
+    %%   "~n   PA06: ~w (~w)"
+    %%   "~n   PA07: ~w (~w)"
+    %%   "~n   PA08: ~w (~w)"
+    %%   "~n   PA09: ~w (~w)"
+    %%   "~n   PA10: ~w (~w)"
+    %%   "~n   PA11: ~w (~w)"
+    %%   "~n   PA12: ~w (~w)"
+    %%   "~n   PA13: ~w (~w)"
+    %%   "~n   PA14: ~w (~w)"
+    %%   "~n   PA15: ~w (~w)"
+    %%   "~n   PA16: ~w (~w)",
+    %%   [M01,  M02,  M03,  M04,
+    %%    M05,  M06,  M07,  M08,
+    %%    M09,  M10,  M11,  M12,
+    %%    M13,  M14,  M15,  M16,
+    %%    A01,  (A01 band M01),
+    %%    A02,  (A02 band M02),
+    %%    A03,  (A03 band M03), 
+    %%    A04,  (A04 band M04),
+    %%    A05,  (A05 band M05), 
+    %%    A06,  (A06 band M06), 
+    %%    A07,  (A07 band M07), 
+    %%    A08,  (A08 band M08),
+    %%    A09,  (A09 band M09), 
+    %%    A10,  (A10 band M10), 
+    %%    A11,  (A11 band M11), 
+    %%    A12,  (A12 band M12),
+    %%    A13,  (A13 band M13), 
+    %%    A14,  (A14 band M14), 
+    %%    A15,  (A15 band M15), 
+    %%    A16,  (A16 band M16),
+    %%    PA01, (PA01 band M01),
+    %%    PA02, (PA02 band M02),
+    %%    PA03, (PA03 band M03),
+    %%    PA04, (PA04 band M04),
+    %%    PA05, (PA05 band M05),
+    %%    PA06, (PA06 band M06),
+    %%    PA07, (PA07 band M07),
+    %%    PA08, (PA08 band M08),
+    %%    PA09, (PA09 band M09),
+    %%    PA10, (PA10 band M10),
+    %%    PA11, (PA11 band M11),
+    %%    PA12, (PA12 band M12),
+    %%    PA13, (PA13 band M13),
+    %%    PA14, (PA14 band M14),
+    %%    PA15, (PA15 band M15),
+    %%    PA16, (PA16 band M16)]),
     ((A01 band M01) =:= (PA01 band M01)) andalso
     ((A02 band M02) =:= (PA02 band M02)) andalso
     ((A03 band M03) =:= (PA03 band M03)) andalso
