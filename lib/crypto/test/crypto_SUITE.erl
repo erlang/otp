@@ -4345,7 +4345,7 @@ bad_generate_key_name(_Config) ->
 
 bad_hash_name(_Config) ->
     ?chk_api_name(crypto:hash_init(foobar),
-                  error:badarg).
+                  error:{badarg,{"hash.c",_},"Bad digest type"}).
 
 bad_mac_name(_Config) ->
     ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),

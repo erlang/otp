@@ -614,7 +614,7 @@ hash(Type, Data) ->
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
 hash_init(Type) ->
-    notsup_to_error(hash_init_nif(Type)).
+    ?nif_call(hash_init_nif(Type)).
 
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
@@ -627,7 +627,7 @@ hash_update(Context, Data) ->
 -spec hash_final(State) -> Digest when  State :: hash_state(),
                                         Digest :: binary().
 hash_final(Context) ->
-    notsup_to_error(hash_final_nif(Context)).
+    ?nif_call(hash_final_nif(Context)).
 
 %%%================================================================
 %%%
@@ -2170,17 +2170,17 @@ notsup_to_error(Other) ->
 
 %% HASH --------------------------------------------------------------------
 hash(Hash, Data, Size, Max) when Size =< Max ->
-    notsup_to_error(hash_nif(Hash, Data));
+    ?nif_call(hash_nif(Hash, Data));
 hash(Hash, Data, Size, Max) ->
     State0 = hash_init(Hash),
     State1 = hash_update(State0, Data, Size, Max),
     hash_final(State1).
 
 hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
-    notsup_to_error(hash_update_nif(State, Data));
+    ?nif_call(hash_update_nif(State, Data), {1,2});
 hash_update(State0, Data, _, MaxBytes) ->
     <<Increment:MaxBytes/binary, Rest/binary>> = Data,
-    State = notsup_to_error(hash_update_nif(State0, Increment)),
+    State = ?nif_call(hash_update_nif(State0, Increment), {1,2}),
     hash_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
 hash_info_nif(_Hash) -> ?nif_stub.

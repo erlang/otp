@@ -1078,9 +1078,8 @@ end
       <name name="hash" arity="2" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
-	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
-	is not supported by the underlying libcrypto implementation.</p>
       </desc>
     </func>
 
@@ -1088,11 +1087,10 @@ end
       <name name="hash_init" arity="1" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
         which digest to use. The returned context should be used as argument
 	to <seemfa marker="#hash_update/2">hash_update</seemfa>.</p>
-	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
-	is not supported by the underlying libcrypto implementation.</p>
       </desc>
     </func>
 
@@ -1100,6 +1098,7 @@ end
       <name name="hash_update" arity="2" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
         must have been generated using <seemfa marker="#hash_init/1">hash_init</seemfa>
 	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
@@ -1112,6 +1111,7 @@ end
       <name name="hash_final" arity="1" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>Finalizes the hash operation referenced by <c>Context</c> returned
 	from a previous call to <seemfa marker="#hash_update/2">hash_update</seemfa>.
 	The size of <c>Digest</c> is determined by the type of hash
