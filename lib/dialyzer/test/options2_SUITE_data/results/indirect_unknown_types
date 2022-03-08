@@ -1,0 +1,3 @@
+
+epgsql.erl:3:25: Unknown type foo:bar/0
+type_defs.hrl:1:25: Unknown type foo:bar/0
