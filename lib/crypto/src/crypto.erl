@@ -666,7 +666,7 @@ mac(Type, SubType, Key0, Data) ->
     mac_nif(Type, alias(SubType,Key), Key, Data).
 
 
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -676,7 +676,7 @@ macN(Type, Key, Data, MacLength) ->
     macN(Type, undefined, Key, Data, MacLength).
 
 
--spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                           Key :: iodata(),
