@@ -665,7 +665,7 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 mac(Type, SubType, Key0, Data) ->
     Key = iolist_to_binary(Key0),
-    mac_nif(Type, alias(SubType,Key), Key, Data).
+    ?nif_call(mac_nif(Type, alias(SubType,Key), Key, Data)).
 
 
 -spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
@@ -699,7 +699,7 @@ macN(Type, SubType, Key, Data, MacLength) ->
                           when Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
-    mac_init_nif(poly1305, undefined, Key).
+    ?nif_call(mac_init_nif(poly1305, undefined, Key)).
 
 
 -spec mac_init(Type, SubType, Key) -> State
@@ -709,7 +709,7 @@ mac_init(poly1305, Key) ->
                                State :: mac_state() .
 mac_init(Type, SubType, Key0) ->
     Key = iolist_to_binary(Key0),
-    mac_init_nif(Type, alias(SubType,Key), Key).
+    ?nif_call(mac_init_nif(Type, alias(SubType,Key), Key)).
 
 
 -spec mac_update(State0, Data) -> State
@@ -717,7 +717,7 @@ mac_init(Type, SubType, Key0) ->
                           State0 :: mac_state(),
                           State :: mac_state().
 mac_update(Ref, Data) ->
-    mac_update_nif(Ref, Data).
+    ?nif_call(mac_update_nif(Ref, Data)).
 
 
 
@@ -725,7 +725,7 @@ mac_update(Ref, Data) ->
                               when State :: mac_state(),
                                    Mac :: binary().
 mac_final(Ref) ->
-    mac_final_nif(Ref).
+    ?nif_call(mac_final_nif(Ref)).
 
 
 -spec mac_finalN(State, MacLength) -> Mac
