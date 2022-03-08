@@ -289,7 +289,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	</p>
 	<taglist>
-	  <tag><c>{hibernate_after,<anno>HibernateAfterTimeout</anno></c></tag>
+	  <tag><c>{hibernate_after,<anno>HibernateAfterTimeout</anno>}</c></tag>
 	  <item>
             <p>
 	      Specifies that the <c>gen_server</c> process awaits
@@ -473,25 +473,109 @@ gen_server:abcast     -----> Module:handle_cast/2
           first argument to <c>Module:handle_call/3</c>.
         </p>
         <p>
-          <c><anno>Timeout</anno></c> is an integer greater than zero that
+          <c><anno>Timeout</anno></c> is an integer that
           specifies how many milliseconds to wait for a reply, or
-          the atom <c>infinity</c> to wait indefinitely. Defaults to
-          5000. If no reply is received within the specified time,
-          the function call fails. If the caller catches the failure
-          and continues running, and the server is just late with the reply,
-          it can arrive at any time later into the message queue of the caller.
-          The caller must in this case be prepared for this
-          and discard any such garbage messages that are two element
-          tuples with a reference as the first element.
+          the atom <c>infinity</c> to wait indefinitely.
+          Defaults to 5000.
+          If no reply is received within the specified time,
+          this function exits the calling process with an exit term
+          containing <c>Reason&nbsp;=&nbsp;timeout</c> as described below.
         </p>
+        <note>
+          <p>
+            If the caller uses (<c>try</c>...)<c>catch</c>
+            to avoid process exit,
+            and the server happens to just be late with the reply,
+            it may arrive to the process message queue any time later.
+            The calling process must therefore after catching a time-out exit
+            be prepared to receive garbage message(s)
+            on the form <c>{reference(),&nbsp;_}</c>
+            and deal with them appropriately (discard them)
+            so they do not clog the process message queue
+            or gets mistaken for other messages.
+          </p>
+        </note>
         <p>
           The return value <c><anno>Reply</anno></c>
           is passed from the return value of <c>Module:handle_call/3</c>.
         </p>
         <p>
-          The call can fail for many reasons, including time-out and the
-          called <c>gen_server</c> process dying before or during the call.
+          This call may exit the callling process
+          with an exit term on the form
+          <c>{Reason,&nbsp;Location}</c> where
+          <c>Location&nbsp;=&nbsp;{gen_server,call,ArgList}</c>
+          and <c>Reason</c> can be (at least) one of:
         </p>
+        <taglist>
+          <tag><c>timeout</c></tag>
+          <item>
+            <p>
+              The call was aborted after waiting
+              <c><anno>Timeout</anno></c> milliseconds for a reply,
+              as described above.
+            </p>
+          </item>
+          <tag><c>noproc</c></tag>
+          <item>
+            <p>
+              The <c><anno>ServerRef</anno></c> refers to
+              a server by name (it is not a <c>pid()</c>)
+              and looking up the server process failed,
+              or the <c>pid()</c> was already terminated.
+            </p>
+          </item>
+          <tag><c>{nodedown,Node}</c></tag>
+          <item>
+            <p>
+              The <c><anno>ServerRef</anno></c> refers to a server
+              on the remote node <c>Node</c> and the connection
+              to that node failed.
+            </p>
+          </item>
+          <tag><c>calling_self</c></tag>
+          <item>
+            <p>A call to <c>self()</c> would hang indefinitely.</p>
+          </item>
+          <tag>
+            <c>shutdown</c><br/>
+          </tag>
+          <item>
+            <p>
+              The server was stopped during the call
+              by its supervisor.  See also
+              <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
+            </p>
+          </item>
+          <tag>
+            <c>normal</c><br/>
+            <c>{shutdown,Term}</c><br/>
+          </tag>
+          <item>
+            <p>
+              The server stopped during the call by returning
+              <c>{stop,Reason,_}</c> from its
+              <seemfa marker="#Module:handle_call/3">
+                <c>Module:handle_call/3</c>
+              </seemfa>
+              callback, without replying.  See also
+              <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>_OtherTerm</c></tag>
+          <item>
+            <p>
+              The server process exited during the call,
+              with reason <c>Reason</c>.  Either by returning
+              <c>{stop,Reason,_}</c> from its
+              <seemfa marker="#Module:handle_call/3">
+                <c>Module:handle_call/3</c>
+              </seemfa>
+              callback (without replying),
+              by raising an exception,
+              or due to getting an exit signal it did not trap.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
@@ -660,7 +744,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           as the first argument to <c>Module:handle_call/3</c>.
         </p>
         <p>
-          <c><anno>Timeout</anno></c> is an integer greater than zero that
+          <c><anno>Timeout</anno></c> is an integer that
           specifies how many milliseconds to wait for all replies,
           or the atom <c>infinity</c> to wait indefinitely,
           which is the default.
@@ -707,8 +791,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>.
 	</p>
 	<p>
-	  <c><anno>Timeout</anno></c> is an integer greater than
-          or equal to zero that specifies how many milliseconds
+	  <c><anno>Timeout</anno></c> is an integer
+          that specifies how many milliseconds
           to wait for a reply, or the atom <c>infinity</c>
           to wait indefinitely.
 	  If no reply is received within the specified time,
@@ -924,16 +1008,20 @@ gen_server:abcast     -----> Module:handle_cast/2
           is sent to linked processes and ports.
         </p>
         <p>
-          <c><anno>Timeout</anno></c> is an integer greater than zero that
+          <c><anno>Timeout</anno></c> is an integer that
           specifies how many milliseconds to wait for the server to
           terminate, or the atom <c>infinity</c> to wait
           indefinitely, which is the default.  If the
-          server has not terminated within the specified time, a
-          <c>timeout</c> exception is raised.
+          server has not terminated within the specified time,
+          the call exits the calling process
+          with reason <c>timeout</c>.
         </p>
         <p>
-          If the process does not exist, a <c>noproc</c> exception
-          is raised.
+          If the process does not exist, the call exits
+          the calling process with reason <c>noproc</c>,
+          and with reason <c>{nodedown,Node}</c>
+          if the connection fails to the remote <c>Node</c>
+          where the server runs.
         </p>
       </desc>
     </func>
@@ -951,7 +1039,6 @@ gen_server:abcast     -----> Module:handle_cast/2
 	</p>
 	<p>
 	  <c><anno>Timeout</anno></c> is an integer
-          greater than or equal to zero
 	  that specifies how many milliseconds to wait for a reply,
           or the atom <c>infinity</c> to wait indefinitely.
 	  If no reply is received within the specified time,
@@ -1529,11 +1616,14 @@ format_status(Status) ->
           <c>'EXIT'</c> message from its parent. <c>Reason</c> is the same
           as in the <c>'EXIT'</c> message.</p>
         <p>Otherwise, the <c>gen_server</c> process terminates immediately.</p>
-        <p>Notice that for any other reason than <c>normal</c>,
-          <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
-          process is assumed to terminate because of an error and
-          an error report is issued using
-          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
+        <p>
+          Notice that for any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c>, see
+          <seemfa marker="#stop/3"><c>stop/3</c></seemfa>,
+          the <c>gen_server</c> process is assumed to terminate
+          because of an error, and an error report is issued using
+          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+        </p>
         <p>When the gen_server process exits, an exit signal with the same
           reason is sent to linked processes and ports.</p>
       </desc>

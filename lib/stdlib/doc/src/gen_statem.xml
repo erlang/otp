@@ -1869,7 +1869,7 @@ handle_event(_, _, State, Data) ->
 	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
+	  <c>Timeout</c> is an integer
 	  that specifies how many milliseconds to wait for an reply, or
 	  the atom <c>infinity</c> to wait indefinitely. Defaults to
 	  <c>infinity</c>.
@@ -2217,7 +2217,7 @@ handle_event(_, _, State, Data) ->
 	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
+	  <c>Timeout</c> is an integer
 	  that specifies how many milliseconds to wait for an reply, or
 	  the atom <c>infinity</c> to wait indefinitely. Defaults to
 	  <c>infinity</c>.
