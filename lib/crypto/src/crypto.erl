@@ -580,7 +580,7 @@ enable_fips_mode_nif(_) -> ?nif_stub.
                KeyLen :: pos_integer(),
                Result :: binary().
 pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) ->
-  pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen).
+    ?nif_call(pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen)).
 
 pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 

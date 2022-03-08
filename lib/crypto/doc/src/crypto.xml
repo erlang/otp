@@ -1982,11 +1982,9 @@ FloatValue = rand:uniform().     % again
       <name name="pbkdf2_hmac" arity="5" since="OTP 24.2"/>
       <fsummary>PBKDF2 in combination with HMAC</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
         <p>
           PKCS #5 PBKDF2 (Password-Based Key Derivation Function 2) in combination with HMAC.
-        </p>
-        <p>
-          The function raises a <c>error:badarg</c> if the parameters are in wrong format.
         </p>
       </desc>
     </func>
