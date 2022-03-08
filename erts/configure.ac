@@ -2933,6 +2933,11 @@ AS_IF([test ${enable_jit} != no],
                   [Define if we can use the native stack for Erlang code])
       fi
       ;;
+    arm)
+      # ARM JIT doesn't support native stack due to its 16-byte alignment
+      # requirement.
+      enable_native_stack=no
+      ;;
     *)
       ;;
   esac

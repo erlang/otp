@@ -24154,6 +24154,11 @@ printf "%s\n" "#define NATIVE_ERLANG_STACK /**/" >>confdefs.h
 
       fi
       ;;
+    arm)
+      # ARM JIT doesn't support native stack due to its 16-byte alignment
+      # requirement.
+      enable_native_stack=no
+      ;;
     *)
       ;;
   esac
