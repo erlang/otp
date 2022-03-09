@@ -109,7 +109,7 @@ static ErlNifFunc nif_funcs[] = {
     {"srp_user_secret_nif", 7, srp_user_secret_nif, 0},
     {"srp_host_secret_nif", 5, srp_host_secret_nif, 0},
 
-    {"ec_key_generate", 2, ec_key_generate, 0},
+    {"ec_generate_key_nif", 2, ec_generate_key_nif, 0},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif, 0},
 
     {"rand_seed_nif", 1, rand_seed_nif, 0},

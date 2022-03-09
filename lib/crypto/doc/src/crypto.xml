@@ -1050,6 +1050,7 @@ end
       <name name="compute_key" arity="4" since="OTP R16B01"/>
       <fsummary>Computes the shared secret</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Computes the shared secret from the private key and the other party's public key.
 	 See also <seemfa marker="public_key:public_key#compute_key/2">public_key:compute_key/2</seemfa>
 	</p>

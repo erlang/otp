@@ -33,6 +33,6 @@ int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pp
 ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env);
 #endif
 
-ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 #endif /* E_EC_H__ */

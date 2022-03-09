@@ -1602,9 +1602,11 @@ generate_key(dh, DHParameters0, PrivateKey) ->
             [P,G,L] -> {[P,G], L};
             [P,G] -> {[P,G], 0}
         end,
-    dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
-			map_ensure_int_as_bin(DHParameters),
-                        0, Len);
+    ?nif_call(dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
+                                  map_ensure_int_as_bin(DHParameters),
+                                  0, Len),
+              {3, 2, -1, 2},
+              [dh, DHParameters0, PrivateKey]);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
@@ -1648,14 +1650,20 @@ generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
     generate_key(eddh, Curve, PrivKey);
 generate_key(eddh, Curve, PrivKey) when Curve == x448 ;
                                         Curve == x25519 ->
-    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
+    ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
+              {2, 3},
+              [eddh, Curve, PrivKey]
+             );
 
 generate_key(ecdh, Curve, PrivKey) ->
-    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
+    ?nif_call(ec_generate_key_nif(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)));
 
 generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
                                          Curve == ed25519 ->
-    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)).
+    ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
+              {2, 3},
+              [eddsa, Curve, PrivKey]
+             ).
 
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
@@ -1670,13 +1678,11 @@ evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
                                        .
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
-			    ensure_int_as_bin(MyPrivateKey),
-			    map_ensure_int_as_bin(DHParameters)) of
-	error -> erlang:error(computation_failed,
-			      [dh,OthersPublicKey,MyPrivateKey,DHParameters]);
-	Ret -> Ret
-    end;
+    ?nif_call(dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
+                                 ensure_int_as_bin(MyPrivateKey),
+                                 map_ensure_int_as_bin(DHParameters)),
+              {2, 3, 4},
+              [dh, OthersPublicKey, MyPrivateKey, DHParameters]);
 
 compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
@@ -1715,12 +1721,16 @@ compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
 
 compute_key(eddh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->
-    evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
+    ?nif_call(evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My)),
+              {2, 3, 4},
+              [eddh, Others, My, Curve]);
 
 compute_key(ecdh, Others, My, Curve) ->
-    ecdh_compute_key_nif(ensure_int_as_bin(Others),
-			 nif_curve_params(Curve),
-			 ensure_int_as_bin(My)).
+    ?nif_call(ecdh_compute_key_nif(ensure_int_as_bin(Others),
+                                   nif_curve_params(Curve),
+                                   ensure_int_as_bin(My)),
+              {2, 4, 3},
+              [ecdh, Others, My, Curve]).
 
 
 evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
@@ -2274,7 +2284,7 @@ dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint, _Length) -> ?nif_stub.
 %% MyPrivKey, OthersPublicKey = mpint()
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
-ec_key_generate(_Curve, _Key) -> ?nif_stub.
+ec_generate_key_nif(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
