@@ -719,9 +719,11 @@ call_dirty(ServerRef, Request, Timeout, T) ->
         {ok,Reply} ->
             Reply
     catch
-        Class:Reason:Stacktrace ->
+        %% 'gen' raises 'exit' for problems
+        Class:Reason:Stacktrace when Class =:= exit ->
             erlang:raise(
               Class,
+              %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace)
     end.
@@ -763,12 +765,19 @@ call_clean(ServerRef, Request, Timeout, T) ->
                 {ok,Reply} ->
                     Reply
             end;
-        {Ref,Class,Reason,Stacktrace} ->
+        {Ref,Class,Reason,Stacktrace} when Class =:= exit ->
+            %% 'gen' raises 'exit' for problems
             demonitor(Mref, [flush]),
+            %% Pretend it happened in this process
             erlang:raise(
               Class,
+              %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace);
+        {Ref,Class,Reason,Stacktrace} ->
+            demonitor(Mref, [flush]),
+            %% Pretend it happened in this process
+            erlang:raise(Class, Reason, Stacktrace);
         {'DOWN',Mref,_,_,Reason} ->
             %% There is a theoretical possibility that the
             %% proxy process gets killed between try--of and !
