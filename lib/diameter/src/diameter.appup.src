@@ -74,7 +74,8 @@
                {update, diameter_sctp}]},
  {"2.2.2",    [{load_module, diameter},            %% 22.2.8
                {update, diameter_sctp}]},
- {"2.2.3",    [{update, diameter_sctp}]}           %% 22.3
+ {"2.2.3",    [{update, diameter_sctp}]},          %% 22.3
+ {"2.2.4",    []}                                  %% 23.3.4
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -130,6 +131,7 @@
                {update, diameter_sctp}]},
   {"2.2.2",   [{load_module, diameter},
                {update, diameter_sctp}]},
-  {"2.2.3",   [{update, diameter_sctp}]}
+  {"2.2.3",   [{update, diameter_sctp}]},
+  {"2.2.4",   []}
  ]
 }.
