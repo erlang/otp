@@ -310,6 +310,7 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!get_ec_key_sz(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec, NULL))
         goto err;
 
+    *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
         goto err;
             /* On success, result owns ec */
@@ -339,6 +340,7 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     if (!get_ec_key_sz(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec, NULL))
         goto err;
 
+    *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_EC_KEY(*pkey, ec) != 1)
         goto err;
             /* On success, result owns ec */

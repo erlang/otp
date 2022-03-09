@@ -78,6 +78,7 @@ int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     dummy_pub_key = NULL;
     priv_key = NULL;
 
+    *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_DSA(*pkey, dsa) != 1)
         goto err;
     /* On success, result owns dsa */
@@ -144,6 +145,7 @@ int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     /* dsa takes ownership on success */
     dsa_y = NULL;
 
+    *pkey = EVP_PKEY_new();
     if (EVP_PKEY_assign_DSA(*pkey, dsa) != 1)
         goto err;
     /* On success, result owns dsa */
