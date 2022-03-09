@@ -40,7 +40,7 @@
 
 -export([run/2]).
 
--import(edoc_report, [report/2]).
+-import(edoc_report, [report/2, report/4]).
 
 %% @headerfile "../include/edoc_doclet.hrl"
 -include("../include/edoc_doclet.hrl").
@@ -49,9 +49,6 @@
 -define(CHUNKS_DIR, "chunks").
 
 -include_lib("xmerl/include/xmerl.hrl").
-
--define(debug(Format, Args), ok).
-%-define(debug(Format, Args), io:format(Format, Args)).
 
 %% @doc Main doclet entry point.
 %%
@@ -116,9 +113,8 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
 	WriteOptions = [{encoding, utf8}],
 	ok = write_file(Chunk, Dir, chunk_file_name(Name, Suffix), WriteOptions),
 	{sets:add_element(Name, OkSet), ErrorFlag}
-    catch _:_R:_St ->
-	?debug("error: ~p\n"
-	       "stacktrace:\n~p\n\n", [_R, _St]),
+    catch throw:{error, Line, {Fmt, Args}}:_St ->
+	report(Line, File, Fmt, Args),
 	{OkSet, true}
     end.
 
