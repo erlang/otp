@@ -26,7 +26,8 @@
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
-         container_subtraction/1,is_list_opt/1,connected_tuple_elements/1]).
+         container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
+         switch_fail_inference/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -60,7 +61,8 @@ groups() ->
        type_subtraction,
        container_subtraction,
        is_list_opt,
-       connected_tuple_elements
+       connected_tuple_elements,
+       switch_fail_inference
       ]}].
 
 init_per_suite(Config) ->
@@ -749,6 +751,52 @@ cte_generate(1) ->
     {b, id(1), id(2)};
 cte_generate(2) ->
     {c, id(1), {{id(2)}, {id(3)}}}.
+
+%% ERIERL-799: Type inference for the fail label on switch terminators was
+%% weaker than that of the case labels, sometimes causing the compiler to crash
+%% when they were inverted.
+switch_fail_inference(_Config) ->
+    ok = sfi(id([])),
+    ok = sfi(id([{twiddle,frobnitz}, eof])),
+    {error, gaffel, gurka} = sfi(id([{twiddle, frobnitz}, {error, gurka}])),
+    {error, gaffel, gurka} = sfi(id([{ok, frobnitz}, {error, gurka}])),
+    ok.
+
+sfi(Things) ->
+    case sfi_1(Things) of
+        {ok, _} -> ok;
+        {error, {Left, Right}} -> {error, Left, Right}
+    end.
+
+sfi_1(Things) ->
+    case sfi_2(Things) of
+        {ok, Value} -> {ok, Value};
+        {error, Reason} -> {error, Reason}
+    end.
+
+sfi_2([Thing | Rest]) ->
+    case sfi_3(Thing) of
+        {ok, _} -> sfi_2(Rest);
+        {error, Reason} -> {error, Reason}
+    end;
+sfi_2([]) ->
+    {ok, done}.
+
+sfi_3({twiddle, _}) ->
+    {ok, twiddle};
+sfi_3(Thing) ->
+    case sfi_4(Thing) of
+        {twiddle, _}=More -> sfi_3(More);
+        {ok, Value} -> {ok, Value};
+        {error, Reason} -> {error, Reason}
+    end.
+
+sfi_4(eof) ->
+    {ok, eof};
+sfi_4({ok, IgnoredLater}) ->
+    {twiddle, IgnoredLater};
+sfi_4({error, Reason}) ->
+    {error, {gaffel, Reason}}.
 
 id(I) ->
     I.
