@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add support for the <c>maps</c> option in combination
+	    with the <c>jer</c> backend.</p>
+          <p>
+	    Own Id: OTP-17959 Aux Id: GH-5757 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

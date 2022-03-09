@@ -39,7 +39,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.20.1</title>
+  <section><title>Mnesia 4.20.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Reduce the number of locks taken during table copying,
+	    should reduce the startup time on large systems.</p>
+          <p>
+	    Own Id: OTP-17656 Aux Id: ERIERL-688 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.20.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

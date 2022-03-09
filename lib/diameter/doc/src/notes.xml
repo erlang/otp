@@ -43,6 +43,23 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compilation time is no longer recorded in BEAM
+	    files. There remained several undocumented functions that
+	    attempted to retrieve compilation times. Those have now
+	    been removed.</p>
+          <p>
+	    Own Id: OTP-17962</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

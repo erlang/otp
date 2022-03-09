@@ -33,6 +33,21 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.22.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    OTP internal test fix.</p>
+          <p>
+	    Own Id: OTP-17888</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.22</title>
 
     <section><title>Improvements and New Features</title>

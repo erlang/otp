@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed the <c>static_data</c> option from
+	    <c>wxImage</c> creation functions, as it was broken and
+	    could lead to crashes. Now image data is always copied to
+	    wxWidgets as was the default behavior. </p> <p> Removed
+	    some non working <c>wxGridEvent</c> event types, which
+	    have there own events in newer <c>wxWidgets</c> versions,
+	    and added a couple of event types that where missing in
+	    <c>wx</c>. </p>
+          <p>
+	    Own Id: OTP-17947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

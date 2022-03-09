@@ -31,6 +31,121 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the x86 JIT that might cause floating
+	    point instructions to wrongly throw an exception.</p>
+          <p>
+	    Own Id: OTP-17822</p>
+        </item>
+        <item>
+          <p>
+	    Preserve correct <c>nodedown_reason</c> if supervised
+	    distribution controller processes exit with <c>{shutdown,
+	    Reason}</c>.</p>
+          <p>
+	    Own Id: OTP-17838 Aux Id: PR-5748 </p>
+        </item>
+        <item>
+          <p>
+	    Handling of <c>send_timeout</c> for <c>gen_tcp</c> has
+	    been corrected so that the timeout is honored also when
+	    sending 0 bytes.</p>
+          <p>
+	    Own Id: OTP-17840</p>
+        </item>
+        <item>
+	    <p> By default <c>global</c> does <i>not</i> take any
+	    actions to restore a fully connected network when
+	    connections are lost due to network issues. This is
+	    problematic for all applications expecting a fully
+	    connected network to be provided, such as for example
+	    <c>mnesia</c>, but also for <c>global</c> itself. A
+	    network of overlapping partitions might cause the
+	    internal state of <c>global</c> to become inconsistent.
+	    Such an inconsistency can remain even after such
+	    partitions have been brought together to form a fully
+	    connected network again. The effect on other applications
+	    that expects that a fully connected network is maintained
+	    may vary, but they might misbehave in very subtle hard to
+	    detect ways during such a partitioning. </p> <p> In order
+	    to prevent such issues, we have introduced a <i>prevent
+	    overlapping partitions</i> fix which can be enabled using
+	    the <seeapp
+	    marker="kernel:kernel_app#prevent_overlapping_partitions"><c>prevent_overlapping_partitions</c></seeapp>
+	    <c>kernel(6)</c> parameter. When this fix has been
+	    enabled, <c>global</c> will actively disconnect from
+	    nodes that reports that they have lost connections to
+	    other nodes. This will cause fully connected partitions
+	    to form instead of leaving the network in a state with
+	    overlapping partitions. Note that this fix <i>has</i> to
+	    be enabled on <i>all</i> nodes in the network in order to
+	    work properly. Since this quite substantially changes the
+	    behavior, this fix is currently disabled by default.
+	    Since you might get hard to detect issues without this
+	    fix you are, however, <i>strongly</i> advised to enable
+	    this fix in order to avoid issues such as the ones
+	    described above. As of OTP 25 this fix will become
+	    enabled by default. </p>
+          <p>
+	    Own Id: OTP-17843 Aux Id: ERIERL-732, PR-5611 </p>
+        </item>
+        <item>
+	    <p>Corrected the type specification of
+	    <c>erlang:seq_trace/2</c>.</p>
+          <p>
+	    Own Id: OTP-17900 Aux Id: GH-5667 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when tracing on running on a process that
+	    only handle system tasks or non-message signals (for
+	    example process_info requests).</p>
+          <p>
+	    Own Id: OTP-17904 Aux Id: ERIERL-757 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for using socket:sockaddr_in() and
+	    socket:sockaddr_in6() when using gen_sctp, gen_tcp and
+	    gen_udp. This will make it possible to use Link Local
+	    IPv6 addresses.</p>
+          <p>
+	    Own Id: OTP-17455 Aux Id: GH-4852 </p>
+        </item>
+        <item>
+          <p>
+	    Show <c>on_load</c> failure reasons in embedded mode.</p>
+          <p>
+	    Own Id: OTP-17718 Aux Id: PR-5199 </p>
+        </item>
+        <item>
+          <p>
+	    Compile date saved in the Erlang VM executable has been
+	    removed.</p>
+          <p>
+	    Own Id: OTP-17891 Aux Id: PR-5589 </p>
+        </item>
+        <item>
+          <p>
+	    Improve documentation for the dynamic node name feature.</p>
+          <p>
+	    Own Id: OTP-17918</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
