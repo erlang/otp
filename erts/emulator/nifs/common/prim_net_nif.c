@@ -2333,6 +2333,7 @@ ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
     ellt    = MKUL(env, addrP->LeaseLifetime);
     /* eplen   = MKUI(env, addrP->OnLinkPrefixLength); - Not on XP */
 
+    /*
     if (addrP->Address.lpSockaddr->sa_family == AF_INET)
         {
             struct sockaddr* sinP = addrP->Address.lpSockaddr;
@@ -2345,9 +2346,7 @@ ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
                                    atom_dad_state,
                                    atom_valid_lifetime,
                                    atom_preferred_lifetime,
-                                   atom_lease_lifetime/* ,
-                                                         on_link_prefix_length
-                                                         Not on XP */
+                                   atom_lease_lifetime
             };
             ERL_NIF_TERM vals[] = {eflags,
                                    esa,
@@ -2358,9 +2357,7 @@ ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
                                    edstate,
                                    evlt,
                                    eplt,
-                                   ellt/*,
-                                         eplen
-                                         Not pn XP   */
+                                   ellt
             };
             size_t       numKeys = NUM(keys);
             size_t       numVals = NUM(vals);
@@ -2370,6 +2367,7 @@ ERL_NIF_TERM encode_adapter_unicast_addr(ErlNifEnv*                  env,
             ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &eua) );
 
     } else
+    */
     {
         ERL_NIF_TERM keys[] = {esock_atom_flags,
                                esock_atom_addr,
@@ -2884,9 +2882,10 @@ ERL_NIF_TERM encode_adapter_prefix(ErlNifEnv*         env,
 
     esa   = encode_adapter_prefix_sockaddr(env, prefP->Address.lpSockaddr);
     eplen = MKUI(env, prefP->PrefixLength);
-    if (prefP->Address.lpSockaddr->sa_family == AF_INET)
-        {
-            struct sockaddr* sinP = prefP->Address.lpSockaddr;
+    /*
+      if (prefP->Address.lpSockaddr->sa_family == AF_INET)
+      {
+      struct sockaddr* sinP = prefP->Address.lpSockaddr;
             ERL_NIF_TERM keys[] = {esock_atom_addr,
                                    atom_length,
                                    MKA(env, "raw_addr"),
@@ -2902,6 +2901,7 @@ ERL_NIF_TERM encode_adapter_prefix(ErlNifEnv*         env,
 
             ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &epref) );
         } else
+    */
         {
             ERL_NIF_TERM keys[] = {esock_atom_addr, atom_length};
             ERL_NIF_TERM vals[] = {esa,             eplen};
