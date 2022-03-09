@@ -3262,12 +3262,19 @@ ERL_NIF_TERM encode_if_row_description(ErlNifEnv* env,
                                        DWORD      len,
                                        UCHAR*     buf)
 {
-    UCHAR* tmp = MALLOC(len + 1);
+    ERL_NIF_TERM edesc;
+    UCHAR*       tmp = MALLOC(len + 1);
+
+    ESOCK_ASSERT( tmp != NULL );
 
     sys_memcpy(tmp, buf, len);
     tmp[len] = 0;
 
-    return MKS(env, tmp);
+    edesc = MKS(env, tmp);
+
+    FREE(tmp);
+
+    return edesc;
 }
 #endif // __WIN32__
 
