@@ -224,9 +224,11 @@ api_b_getifaddrs() ->
                       end,
             IIRes    = Fun(fun() -> prim_net:get_interface_info(#{}) end),
             ATRes    = Fun(fun() -> prim_net:get_ip_address_table(#{}) end),
+            AARes    = Fun(fun() -> prim_net:get_adapters_addresses(#{}) end),
             IIResStr = Res2Str(IIRes),
             ATResStr = Res2Str(ATRes),
             IFERes   = win_getifaddrs_ife(IIRes, ATRes),
+            AAResStr = Res2Str(AARes),
             %% Note that the prim_net module is *not* intended to 
             %% be called directly. This is just a temporary thing.
             i("~w => skipping"
@@ -235,8 +237,10 @@ api_b_getifaddrs() ->
               "~n   IP Address Table: "
               "~n      ~s"
               "~n   MIB If Table: "
+              "~n      ~p"
+              "~n   Adapters Addresses: "
               "~n      ~p",
-              [CReason, IIResStr, ATResStr, IFERes]),
+              [CReason, IIResStr, ATResStr, IFERes, AAResStr]),
             skip(CReason)
     end.
 
