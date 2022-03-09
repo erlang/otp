@@ -9112,6 +9112,49 @@ then :
 
 fi
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dlvsym in -ldl" >&5
+printf %s "checking for dlvsym in -ldl... " >&6; }
+if test ${ac_cv_lib_dl_dlvsym+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldl  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+char dlvsym ();
+int
+main (void)
+{
+return dlvsym ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_dl_dlvsym=yes
+else $as_nop
+  ac_cv_lib_dl_dlvsym=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_dl_dlvsym" >&5
+printf "%s\n" "$ac_cv_lib_dl_dlvsym" >&6; }
+if test "x$ac_cv_lib_dl_dlvsym" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBDL 1" >>confdefs.h
+
+  LIBS="-ldl $LIBS"
+
+fi
+
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for main in -linet" >&5
 printf %s "checking for main in -linet... " >&6; }
 if test ${ac_cv_lib_inet_main+y}
@@ -17195,6 +17238,12 @@ then :
   printf "%s\n" "#define HAVE_SCTP_FREEPADDRS 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "sctp_connectx" "ac_cv_func_sctp_connectx"
+if test "x$ac_cv_func_sctp_connectx" = xyes
+then :
+  printf "%s\n" "#define HAVE_SCTP_CONNECTX 1" >>confdefs.h
+
+fi
 
         ac_fn_c_check_member "$LINENO" "struct sctp_accoc_value" "assoc_id" "ac_cv_member_struct_sctp_accoc_value_assoc_id" "#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
@@ -19476,6 +19525,12 @@ ac_fn_c_check_func "$LINENO" "dlopen" "ac_cv_func_dlopen"
 if test "x$ac_cv_func_dlopen" = xyes
 then :
   printf "%s\n" "#define HAVE_DLOPEN 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "dlvsym" "ac_cv_func_dlvsym"
+if test "x$ac_cv_func_dlvsym" = xyes
+then :
+  printf "%s\n" "#define HAVE_DLVSYM 1" >>confdefs.h
 
 fi
 ac_fn_c_check_func "$LINENO" "pread" "ac_cv_func_pread"

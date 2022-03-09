@@ -595,6 +595,9 @@
 /* Define to 1 if you have the `dlopen' function. */
 #undef HAVE_DLOPEN
 
+/* Define to 1 if you have the `dlvsym' function. */
+#undef HAVE_DLVSYM
+
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT
 
@@ -901,6 +904,9 @@
 
 /* Define to 1 if you have the `sctp_bindx' function. */
 #undef HAVE_SCTP_BINDX
+
+/* Define to 1 if you have the `sctp_connectx' function. */
+#undef HAVE_SCTP_CONNECTX
 
 /* Define to 1 if you have the `sctp_freeladdrs' function. */
 #undef HAVE_SCTP_FREELADDRS
