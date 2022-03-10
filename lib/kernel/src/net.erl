@@ -367,10 +367,6 @@ do_getifaddrs(Filter, GetIfAddrs) ->
             try win_getifaddrs(Filter)
             catch
                 _WC:_WE:_WS ->
-                    %% d("do_getifaddrs -> catched: "
-                    %%   "~n   WC: ~p"
-                    %%   "~n   WE: ~p"
-                    %%   "~n   WS: ~p", [_WC, _WE, _WS]),
                     erlang:raise(C, E, S)
             end
     end.
@@ -438,33 +434,45 @@ getifaddrs_filter_flags(FilterFlags, Flags) ->
 
 
 win_getifaddrs(Filter) ->
-    AdsAddrs =
-        case prim_net:get_adapters_addresses(#{}) of
-            {ok, GAA} ->
-                GAA;
-            {error, _} ->
-                []
-        end,
-    IpAddrTab =
-        if
-            (AdsAddrs =:= []) ->
-                case prim_net:get_ip_address_table(#{}) of
-                    {ok, IAT} ->
-                        IAT;
-                    {error, _} ->
-                        []
-                end;
-            true ->
-                []
-        end,
-    IpIfInfo =
-        case prim_net:get_interface_info(#{}) of
-            {ok, III} ->
-                III;
-            {error, _} ->
-                []
-        end,
+    AdsAddrs  = get_adapters_addresses(),
+    IpAddrTab = get_ip_address_table(AdsAddrs),
+    IpIfInfo  = get_interface_info(),
     win_getifaddrs(Filter, AdsAddrs, IpAddrTab, IpIfInfo).
+
+get_adapters_addresses() ->
+    case prim_net:get_adapters_addresses(#{}) of
+        {ok, AdaptersAddresses} ->
+            d("get_adapters_addresses -> "
+              "~n   ~p", [AdaptersAddresses]),
+            AdaptersAddresses;
+        {error, _} ->
+            []
+    end.
+
+%% get_ip_address_table([]) ->
+get_ip_address_table(_) ->
+    case prim_net:get_ip_address_table(#{}) of
+        {ok, IpAddressTable} ->
+            d("get_ip_address_table -> "
+              "~n   ~p", [IpAddressTable]),
+            IpAddressTable;
+        {error, _} ->
+            []
+    end%% ;
+%% get_ip_address_table(_) ->
+%%     []
+        .
+
+get_interface_info() ->
+    case prim_net:get_interface_info(#{}) of
+        {ok, InterfaceInfo} ->
+            d("get_interface_info -> "
+              "~n   ~p", [InterfaceInfo]),
+            InterfaceInfo;
+        {error, _} ->
+            []
+    end.
+    
 
 win_getifaddrs(Filter, [], IpAddrTab, IpIfInfo) when (IpAddrTab =/= []) ->
     win_getifaddrs_iat(Filter, IpAddrTab, IpIfInfo);
@@ -498,7 +506,7 @@ win_getifaddrs_iat2([#{index := Idx} = IpAddr|IpAddrTab], IpIfInfos, Acc) ->
                     IfAddrs = win_getifaddrs_iat3(Name2, IpAddr, IfEntry),
                     win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddrs|Acc]);
                 false ->
-                        %% Use description
+                    %% Use description
                     IfAddrs = win_getifaddrs_iat3(Desc, IpAddr, IfEntry),
                     win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddrs|Acc])
                 end;
@@ -512,7 +520,10 @@ win_getifaddrs_iat3(Name,
                      %% Why do we skip this and "make" our own?
                      bcast_addr           := _BCastAddr} = _IpAddr,
                    #{type                 := Type,
-                     internal_oper_status := Status} = _IfEntry) ->
+                     admin_status         := AStatus,
+                     internal_oper_status := _OStatus} = _IfEntry) ->
+    d("win_getifaddrs_iat3 -> entry with"
+      "~n   If Entry: ~p", [_IfEntry]),
     Flags1 = case Type of
                  ethernet_csmacd ->
                      [broadcast,multicast];
@@ -521,23 +532,27 @@ win_getifaddrs_iat3(Name,
                  _ ->
                      []
              end,
-    Flags2 = case Status of
-                 connecting ->
+    Flags2 = case AStatus of
+                  non_operational ->
+                     [];
+                connecting ->
                      [up, pointtopoint];
                  connected ->
                      [up, runnning, pointtopoint];
                  operational ->
                      [up, running];
                  _ ->
-                     []
+                     [up]
              end,
     #{name      => Name,
-      flags     => Flags1 ++ Flags2,
-      addr      => Addr,
-      netmask   => Mask,
+      flags     => lists:sort(Flags1 ++ Flags2),
+      addr      => mk_sockaddr_in(Addr),
+      netmask   => mk_sockaddr_in(Mask),
       %% And fake the broadcast address...
-      broadaddr => iat_broadaddr(Addr, Mask)}.
+      broadaddr => mk_sockaddr_in(iat_broadaddr(Addr, Mask))}.
 
+mk_sockaddr_in(Addr) ->
+    #{addr => Addr, family => inet, port => 0}.
 
 win_getifaddrs_aa(Filter, AdsAddrs, IpIfInfo) when is_function(Filter) ->
     IfAddrs = win_getifaddrs_aa2(AdsAddrs, IpIfInfo),
@@ -579,12 +594,8 @@ win_getifaddrs_aa3(Name,
                    #{type                 := Type,
                      admin_status         := AStatus,
                      internal_oper_status := _OStatus} = _IfEntry) ->
-    %% d("win_getifaddrs_aa3 -> entry with"
-    %%   "~n   Name:      ~p"
-    %%   "~n   NoMC:      ~p"
-    %%   "~n   Type:      ~p"
-    %%   "~n   (A)Status: ~p"
-    %%   "~n   (O)Status: ~p", [Name, NoMC, Type, AStatus, _OStatus]),
+    d("win_getifaddrs_aa3 -> entry with"
+      "~n   If Entry: ~p", [_IfEntry]),
     Flags1 =
         if (NoMC =:= false) ->
                 [multicast];
@@ -636,17 +647,12 @@ win_getifaddrs_aa4(Name, Flags, Prefixes,
     end.
 
 shortest_matching_prefix(#{addr := Addr} = UCAddr, Prefixes) ->
-    %% d("shortest_matching_prefix -> entry with"
-    %%   "~n   UCAddr:   ~p"
-    %%   "~n   Prefixes: ~p", [UCAddr, Prefixes]),
     SPrefix = #{addr => Addr, length => undefined},
     shortest_matching_prefix(UCAddr, Prefixes, SPrefix).
 
 shortest_matching_prefix(#{addr := #{family := inet,
                                      addr   := {A, _, _, _}} = Addr}, [],
                            #{length := undefined}) ->
-    %% d("shortest_matching_prefix(inet) -> entry when falling back on classful:"
-    %%   "~n   A: ~p", [A]),
     %% Fall back to old classfull network addresses
     Shortest =
         if
@@ -663,16 +669,12 @@ shortest_matching_prefix(#{addr := #{family := inet,
                 %% Class D: 224-239
                 32
         end,
-    %% d("shortest_matching_prefix(inet) -> Shortest: ~p", [Shortest]),
     #{addr => Addr, length => Shortest};
 shortest_matching_prefix(#{addr := #{family := inet6} = Addr}, [],
                          #{length := undefined}) ->
     %% Just play it safe
-    %% d("shortest_matching_prefix(inet6) -> entry when play it safe"),
     #{addr => Addr, length => 128};
 shortest_matching_prefix(_UCAddr, [], SPrefix) ->
-    %% d("shortest_matching_prefix -> entry when done:"
-    %%   "~n   SPrefix: ~p", [SPrefix]),
     SPrefix;
 shortest_matching_prefix(
   #{addr := #{family  := Fam, addr := Addr}} = UCAddr,
@@ -680,33 +682,18 @@ shortest_matching_prefix(
      length := PLen} = Prefix|Prefixes],
   #{length := SPLen} = SPrefix)
   when (Fam =:= inet) ->
-    %% d("shortest_matching_prefix(inet) -> entry with"
-    %%   "~n   Addr:   ~p (0x~.16B, 0x~.16B)"
-    %%   "~n   PAddr:  ~p (0x~.16B, 0x~.16B)"
-    %%   "~n   PLen:   ~p"
-    %%   "~n   SPLen:  ~p", [Addr,  UCRawAddr, UCRawAddrNTOHL,
-    %%                       PAddr, PRawAddr,  PRawAddrNTOHL,
-    %%                       PLen, SPLen]),
     Mask = <<(16#FFFFFFFF bsl (32 - PLen)):32>>,
-    %% d("shortest_matching_prefix(~w) -> entry with"
-    %%   "~n   Mask: ~w", [Fam, Mask]),
     case masked_eq(Mask, ipv4_to_bin(Addr), ipv4_to_bin(PAddr)) of
         true ->
-            %% d("shortest_matching_prefix(~w) -> equal", [Fam]),
             if
                 (SPLen =:= undefined) ->
-                    %% d("shortest_matching_prefix(~w) -> "
-                    %%   "initial shortest (prefix) found", [Fam]),
                     shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 (PLen < SPLen) ->
-                    %% d("shortest_matching_prefix(~w) -> "
-                    %%   "new shortest (prefix) found", [Fam]),
                     shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 true ->
                     shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
             end;
         false ->
-            %% d("shortest_matching_prefix(~w) -> not equal", [Fam]),
             shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
     end;
 shortest_matching_prefix(
@@ -714,66 +701,30 @@ shortest_matching_prefix(
   [#{addr   := #{family := Fam, addr := PAddr},
      length := PLen} = Prefix|Prefixes],
   #{length := SPLen} = SPrefix) when (Fam =:= inet6) ->
-    %% d("shortest_matching_prefix(~w) -> entry with"
-    %%   "~n   Addr:   ~p"
-    %%   "~n   PAddr:  ~p"
-    %%   "~n   PLen:   ~p"
-    %%   "~n   SPLen:  ~p", [Fam, Addr, PAddr, PLen, SPLen]),
     Mask = <<(16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF bsl (128 - PLen)):128>>,
-    %% d("shortest_matching_prefix(inet) -> entry with"
-    %%   "~n   Mask: ~w", [Mask]),
     case masked_eq(Mask, ipv6_to_bin(Addr), ipv6_to_bin(PAddr)) of
         true ->
-            %% d("shortest_matching_prefix(~w) -> equal", [Fam]),
             if
                 (SPLen =:= undefined) ->
-                    %% d("shortest_matching_prefix(~w) -> "
-                    %%   "initial shortest (prefix) found", [Fam]),
                     shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                 (PLen < SPLen) ->
-                    %% d("shortest_matching_prefix(~w) -> "
-                    %%   "new shortest (prefix) found", [Fam]),
                     shortest_matching_prefix(UCAddr, Prefixes, Prefix);
                true ->
                     shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
             end;
         false ->
-            %% d("shortest_matching_prefix(~w) -> not equal", [Fam]),
             shortest_matching_prefix(UCAddr, Prefixes, SPrefix)
     end;
 shortest_matching_prefix(UCAddr, [_Prefix|Prefixes], SPrefix) ->
-    %% d("shortest_matching_prefix -> entry when skipping: "
-    %%   "~n   UCAddr:  ~p"
-    %%   "~n   Prefix:  ~p"
-    %%   "~n   SPrefix: ~p", [UCAddr, _Prefix, SPrefix]),
     shortest_matching_prefix(UCAddr, Prefixes, SPrefix).
 
 masked_eq(<<M:32>>,
           <<A:32>>,
           <<PA:32>>) ->
-    %% d("masked_eq -> entry with"
-    %%   "~n   M:  ~w"
-    %%   "~n   A:  ~w"
-    %%   "~n   PA: ~w", [M, A, PA]),
     (A band M) =:= (PA band M);
 %% masked_eq(<<M1:8,  M2:8,  M3:8,  M4:8>>,
 %%           <<A1:8,  A2:8,  A3:8,  A4:8>>,
 %%           <<PA1:8, PA2:8, PA3:8, PA4:8>>) ->
-%%     %% d("masked_eq -> entry with"
-%%     %%   "~n   M1:  ~w"
-%%     %%   "~n   M2:  ~w"
-%%     %%   "~n   M3:  ~w"
-%%     %%   "~n   M4:  ~w"
-%%     %%   "~n   A1:  ~w"
-%%     %%   "~n   A2:  ~w"
-%%     %%   "~n   A3:  ~w"
-%%     %%   "~n   A4:  ~w"
-%%     %%   "~n   PA1: ~w"
-%%     %%   "~n   PA2: ~w"
-%%     %%   "~n   PA3: ~w"
-%%     %%   "~n   PA4: ~w", [M1,  M2,  M3,  M4,
-%%     %%                    A1,  A2,  A3,  A4,
-%%     %%                    PA1, PA2, PA3, PA4]),
 %%     ((A1 band M1) =:= (PA1 band M1)) andalso
 %%                                        ((A2 band M2) =:= (PA2 band M2)) andalso
 %%                                                                           ((A3 band M3) =:= (PA3 band M3)) andalso
@@ -790,91 +741,6 @@ masked_eq(<<M01:8,  M02:8,  M03:8,  M04:8,
             PA05:8, PA06:8, PA07:8, PA08:8,
             PA09:8, PA10:8, PA11:8, PA12:8,
             PA13:8, PA14:8, PA15:8, PA16:8>>) ->
-    %% d("masked_eq -> entry with"
-    %%   "~n   M01:  ~w"
-    %%   "~n   M02:  ~w"
-    %%   "~n   M03:  ~w"
-    %%   "~n   M04:  ~w"
-    %%   "~n   M05:  ~w"
-    %%   "~n   M06:  ~w"
-    %%   "~n   M07:  ~w"
-    %%   "~n   M08:  ~w"
-    %%   "~n   M09:  ~w"
-    %%   "~n   M10:  ~w"
-    %%   "~n   M11:  ~w"
-    %%   "~n   M12:  ~w"
-    %%   "~n   M13:  ~w"
-    %%   "~n   M14:  ~w"
-    %%   "~n   M15:  ~w"
-    %%   "~n   M16:  ~w"
-    %%   "~n   A01:  ~w (~w)"
-    %%   "~n   A02:  ~w (~w)"
-    %%   "~n   A03:  ~w (~w)"
-    %%   "~n   A04:  ~w (~w)"
-    %%   "~n   A05:  ~w (~w)"
-    %%   "~n   A06:  ~w (~w)"
-    %%   "~n   A07:  ~w (~w)"
-    %%   "~n   A08:  ~w (~w)"
-    %%   "~n   A09:  ~w (~w)"
-    %%   "~n   A10:  ~w (~w)"
-    %%   "~n   A11:  ~w (~w)"
-    %%   "~n   A12:  ~w (~w)"
-    %%   "~n   A13:  ~w (~w)"
-    %%   "~n   A14:  ~w (~w)"
-    %%   "~n   A15:  ~w (~w)"
-    %%   "~n   A16:  ~w (~w)"
-    %%   "~n   PA01: ~w (~w)"
-    %%   "~n   PA02: ~w (~w)"
-    %%   "~n   PA03: ~w (~w)"
-    %%   "~n   PA04: ~w (~w)"
-    %%   "~n   PA05: ~w (~w)"
-    %%   "~n   PA06: ~w (~w)"
-    %%   "~n   PA07: ~w (~w)"
-    %%   "~n   PA08: ~w (~w)"
-    %%   "~n   PA09: ~w (~w)"
-    %%   "~n   PA10: ~w (~w)"
-    %%   "~n   PA11: ~w (~w)"
-    %%   "~n   PA12: ~w (~w)"
-    %%   "~n   PA13: ~w (~w)"
-    %%   "~n   PA14: ~w (~w)"
-    %%   "~n   PA15: ~w (~w)"
-    %%   "~n   PA16: ~w (~w)",
-    %%   [M01,  M02,  M03,  M04,
-    %%    M05,  M06,  M07,  M08,
-    %%    M09,  M10,  M11,  M12,
-    %%    M13,  M14,  M15,  M16,
-    %%    A01,  (A01 band M01),
-    %%    A02,  (A02 band M02),
-    %%    A03,  (A03 band M03), 
-    %%    A04,  (A04 band M04),
-    %%    A05,  (A05 band M05), 
-    %%    A06,  (A06 band M06), 
-    %%    A07,  (A07 band M07), 
-    %%    A08,  (A08 band M08),
-    %%    A09,  (A09 band M09), 
-    %%    A10,  (A10 band M10), 
-    %%    A11,  (A11 band M11), 
-    %%    A12,  (A12 band M12),
-    %%    A13,  (A13 band M13), 
-    %%    A14,  (A14 band M14), 
-    %%    A15,  (A15 band M15), 
-    %%    A16,  (A16 band M16),
-    %%    PA01, (PA01 band M01),
-    %%    PA02, (PA02 band M02),
-    %%    PA03, (PA03 band M03),
-    %%    PA04, (PA04 band M04),
-    %%    PA05, (PA05 band M05),
-    %%    PA06, (PA06 band M06),
-    %%    PA07, (PA07 band M07),
-    %%    PA08, (PA08 band M08),
-    %%    PA09, (PA09 band M09),
-    %%    PA10, (PA10 band M10),
-    %%    PA11, (PA11 band M11),
-    %%    PA12, (PA12 band M12),
-    %%    PA13, (PA13 band M13),
-    %%    PA14, (PA14 band M14),
-    %%    PA15, (PA15 band M15),
-    %%    PA16, (PA16 band M16)]),
     ((A01 band M01) =:= (PA01 band M01)) andalso
     ((A02 band M02) =:= (PA02 band M02)) andalso
     ((A03 band M03) =:= (PA03 band M03)) andalso
@@ -908,33 +774,14 @@ if_info_search(Idx, [_|IfInfos]) ->
 
 win_getifaddrs_mask(#{addr   := #{addr := _Addr, family := inet = Fam},
                       length := Len}) ->
-    %% d("win_getifaddrs_mask(~w) -> entry with"
-    %%   "~n   Len: ~w", [Fam, Len]),
     <<M1:8, M2:8, M3:8, M4:8>> = <<(16#FFFFFFFF bsl (32 - Len)):32>>,
-    %% d("win_getifaddrs_mask(~w) -> "
-    %%   "~n   M1: ~w"
-    %%   "~n   M2: ~w"
-    %%   "~n   M3: ~w"
-    %%   "~n   M4: ~w", [Fam, M1, M2, M3, M4]),
     #{addr   => {M1, M2, M3, M4},
       family => Fam,
       port   => 0};
 win_getifaddrs_mask(#{addr   := #{addr := _Addr, family := inet6 = Fam},
                       length := Len}) ->
-    %% d("win_getifaddrs_mask(~w) -> entry with"
-    %%   "~n   Len: ~w", [Fam, Len]),
     <<M1:16, M2:16, M3:16, M4:16, M5:16, M6:16, M7:16, M8:16>> =
         <<(16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF bsl (128 - Len)):128>>,
-    %% d("win_getifaddrs_mask(~w) -> "
-    %%   "~n   M1:  ~w"
-    %%   "~n   M2:  ~w"
-    %%   "~n   M3:  ~w"
-    %%   "~n   M4:  ~w"
-    %%   "~n   M5:  ~w"
-    %%   "~n   M6:  ~w"
-    %%   "~n   M7:  ~w"
-    %%   "~n   M8:  ~w", [Fam,
-    %%                    M1, M2, M3, M4, M5, M6, M7, M8]),
     #{addr     => {M1, M2, M3, M4, M5, M6, M7, M8},
       family   => Fam,
       flowinfo => 0,
@@ -944,36 +791,23 @@ win_getifaddrs_mask(#{addr   := #{addr := _Addr, family := inet6 = Fam},
 win_getifaddrs_broadaddr(
   #{addr := {M1, M2, M3, M4}, family := Fam} = _Mask,
   #{addr := #{addr := {PA1, PA2, PA3, PA4}}} = _Prefix) ->
-    %% d("win_getifaddrs_broadaddr(~w) -> entry with"
-    %%   "~n   M1:  ~w"
-    %%   "~n   M2:  ~w"
-    %%   "~n   M3:  ~w"
-    %%   "~n   M4:  ~w"
-    %%   "~n   PA1: ~w"
-    %%   "~n   PA2: ~w"
-    %%   "~n   PA3: ~w"
-    %%   "~n   PA4: ~w", [Fam,
-    %%                    M1,  M2,  M3,  M4,
-    %%                    PA1, PA2, PA3, PA4]),
     BA1 = 16#FF band (PA1 bor (bnot M1)),
     BA2 = 16#FF band (PA2 bor (bnot M2)),
     BA3 = 16#FF band (PA3 bor (bnot M3)),
     BA4 = 16#FF band (PA4 bor (bnot M4)),
-    %% d("win_getifaddrs_broadaddr(~w) -> "
-    %%   "~n   BA1: ~w"
-    %%   "~n   BA2: ~w"
-    %%   "~n   BA3: ~w"
-    %%   "~n   BA4: ~w", [Fam, BA1, BA2, BA3, BA4]),
     #{family => Fam,
       addr   => {BA1, BA2, BA3, BA4},
       port   => 0}.
     
 
 iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
-    {16#FF band (A1 bor (bnot M1)),
-     16#FF band (A2 bor (bnot M2)),
-     16#FF band (A3 bor (bnot M3)),
-     16#FF band (A4 bor (bnot M4))}.
+    BA1 = 16#FF band (A1 bor (bnot M1)),
+    BA2 = 16#FF band (A2 bor (bnot M2)),
+    BA3 = 16#FF band (A3 bor (bnot M3)),
+    BA4 = 16#FF band (A4 bor (bnot M4)),
+    #{family => inet,
+      addr   => {BA1, BA2, BA3, BA4},
+      port   => 0}.
     
 %% decode_hwaddr(<<>>) ->
 %%     [0,0,0,0,0,0];
@@ -1137,5 +971,5 @@ win_name2index(Name) ->
 %% d(F) ->
 %%     d(F, []).
 
-%% d(F, A) ->
-%%     io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
+d(F, A) ->
+    io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
