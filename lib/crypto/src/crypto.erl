@@ -399,18 +399,20 @@
 
 -type crypto_integer() :: binary() | integer().
 
-%%%
-%% Exceptions
-%%   error:badarg
-%%   error:notsup
--type run_time_error() :: any().
+%% %%%--------------------------------------------------------------------
+%% %%% Exceptions
+%% %%%
+%% %% Exceptions
+%% %%   error:badarg
+%% %%   error:notsup
+%% -type run_time_error() :: badarg | notsup.
 
-%% Exceptions
-%%   error:{badarg,Reason::term()}
-%%   error:{notsup,Reason::term()}
-%%   error:{error,Reason::term()}
--type descriptive_error() :: any() .
 
+%% %% Exceptions
+%% %%   error:{badarg, file_line_info, Reason::term()}
+%% %%   error:{notsup,Reason::term()}
+%% %%   error:{error,Reason::term()}
+%% -type descriptive_error() :: {badarg | notsup | error, FileLineInfo::any, Reason::string()}.
 
 %%--------------------------------------------------------------------
 %% Compilation and loading
@@ -590,7 +592,7 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 
 -type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
 
--spec hash_info(Type) -> Result | run_time_error()
+-spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
                                   Result :: #{size := integer(),
                                               block_size := integer(),
@@ -646,7 +648,7 @@ hash_final(Context) ->
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
--spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error()
+-spec mac(Type :: poly1305, Key, Data) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
@@ -654,7 +656,7 @@ hash_final(Context) ->
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 
--spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error()
+-spec mac(Type, SubType, Key, Data) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                           Key :: iodata(),
@@ -666,7 +668,7 @@ mac(Type, SubType, Key0, Data) ->
     mac_nif(Type, alias(SubType,Key), Key, Data).
 
 
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -676,7 +678,7 @@ macN(Type, Key, Data, MacLength) ->
     macN(Type, undefined, Key, Data, MacLength).
 
 
--spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                           Key :: iodata(),
@@ -693,14 +695,14 @@ macN(Type, SubType, Key, Data, MacLength) ->
 
 -opaque mac_state() :: reference() .
 
--spec mac_init(Type :: poly1305, Key) -> State | descriptive_error()
+-spec mac_init(Type :: poly1305, Key) -> State
                           when Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
     mac_init_nif(poly1305, undefined, Key).
 
 
--spec mac_init(Type, SubType, Key) -> State | descriptive_error()
+-spec mac_init(Type, SubType, Key) -> State
                           when Type :: hmac | cmac | poly1305,
                                SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                                Key :: iodata(),
@@ -710,7 +712,7 @@ mac_init(Type, SubType, Key0) ->
     mac_init_nif(Type, alias(SubType,Key), Key).
 
 
--spec mac_update(State0, Data) -> State | descriptive_error()
+-spec mac_update(State0, Data) -> State
                      when Data :: iodata(),
                           State0 :: mac_state(),
                           State :: mac_state().
@@ -719,14 +721,14 @@ mac_update(Ref, Data) ->
 
 
 
--spec mac_final(State) -> Mac | descriptive_error()
+-spec mac_final(State) -> Mac
                               when State :: mac_state(),
                                    Mac :: binary().
 mac_final(Ref) ->
     mac_final_nif(Ref).
 
 
--spec mac_finalN(State, MacLength) -> Mac | descriptive_error()
+-spec mac_finalN(State, MacLength) -> Mac
                               when State :: mac_state(),
                                    MacLength :: pos_integer(),
                                    Mac :: binary().
@@ -754,7 +756,7 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 
 %%%---- Cipher info
--spec cipher_info(Type) -> Result | run_time_error()
+-spec cipher_info(Type) -> Result
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
                                                 iv_length := integer(),
@@ -823,7 +825,7 @@ cipher_info(Type) ->
 %%% Create and initialize a new state for encryption or decryption
 %%%
 
--spec crypto_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, FlagOrOptions) -> State
                                                    when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
                                                         FlagOrOptions :: crypto_opts() | boolean(),
@@ -833,7 +835,7 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
               {1,2,-1,3}
              ).
 
--spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State
                                                        when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
                                                             IV :: iodata(),
@@ -843,7 +845,7 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, IV, FlagOrOptions)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
                                                                FlagOrOptions :: crypto_opts() | boolean(),
@@ -862,7 +864,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
 %%% blocksize.
 %%%
 
--spec crypto_update(State, Data) -> Result | descriptive_error()
+-spec crypto_update(State, Data) -> Result
                             when State :: crypto_state(),
                                  Data :: iodata(),
                                  Result :: binary() .
@@ -870,7 +872,7 @@ crypto_update(State, Data) ->
     ?nif_call(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
+-spec crypto_dyn_iv_update(State, Data, IV) -> Result
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
                                                         IV :: iodata(),
@@ -884,7 +886,7 @@ crypto_dyn_iv_update(State, Data, IV) ->
 %%% to crypto_uptate was not an integer number of blocks, the rest
 %%% is returned from this function.
 
--spec crypto_final(State) -> FinalResult | descriptive_error()
+-spec crypto_final(State) -> FinalResult
                             when State :: crypto_state(),
                                  FinalResult :: binary() .
 crypto_final(State) ->
@@ -907,7 +909,7 @@ crypto_get_data(State) ->
 %%%
 
 -spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_no_iv(),
                                       Key :: iodata(),
                                       Data :: iodata(),
@@ -922,7 +924,7 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
 
 
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_iv(),
                                       Key :: iodata(),
                                       IV :: iodata(),
@@ -937,7 +939,7 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
 
 %%%----------------------------------------------------------------
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
                                       IV :: iodata(),
@@ -955,7 +957,7 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
 
 
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
                                       IV :: iodata(),
