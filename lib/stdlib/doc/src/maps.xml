@@ -606,7 +606,7 @@ error</code>
   maps:update_with("new counter",Fun,42,Map).
 #{"counter" => 1,"new counter" => 42}</code>
             </desc>
-        </func>
+    </func>
 
     <func>
       <name name="values" arity="1" since="OTP 17.0"/>
@@ -657,5 +657,39 @@ error</code>
 #{1337 => "value two"}</code>
       </desc>
     </func>
+
+    <func>
+      <name name="groups_from_list" arity="2" since="OTP 26.0"/>
+      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <desc>
+        <p>The result is a map where each key is given by <anno>Fun</anno>
+        and each value is a list of elements. The order of elements within
+        each list is preserved from the list.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>maps:groups_from_list(fun(X) -> X rem 2 end, [1,2,3]).</input>
+#{0 => [2], 1 => [1, 3]}
+> <input>maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).</input>
+#{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="groups_from_list" arity="3" since="OTP 26.0"/>
+      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <desc>
+        <p>The result is a map where each key is given by
+        <anno>Fun</anno> and each value is a list of elements given by
+        the <anno>ValueFun</anno>. The order of elements within each
+        list is preserved from the list.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>maps:groups_from_list(fun(X) -> X rem 2 end, fun(X) -> X*X end, [1,2,3]).</input>
+#{0 => [4], 1 => [1, 9]}
+> <input>maps:groups_from_list(fun erlang:length/1, fun lists:reverse/1, ["ant", "buffalo", "cat", "dingo"]).</input>
+#{3 => ["tna","tac"],5 => ["ognid"],7 => ["olaffub"]}</pre>
+      </desc>
+    </func>
+
   </funcs>
 </erlref>

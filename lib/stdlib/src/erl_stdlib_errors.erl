@@ -225,6 +225,10 @@ format_maps_error(get, [_Key,Map]) ->
         true ->
             [[],not_map]
     end;
+format_maps_error(groups_from_list, [Fun, List]) ->
+    [must_be_fun(Fun, 1), must_be_list(List)];
+format_maps_error(groups_from_list, [Fun1, Fun2, List]) ->
+    [must_be_fun(Fun1, 1), must_be_fun(Fun2, 1), must_be_list(List)];
 format_maps_error(get, [_,_,_]) ->
     [[],not_map];
 format_maps_error(intersect, [Map1, Map2]) ->
