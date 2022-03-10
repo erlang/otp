@@ -207,8 +207,9 @@ abstr() ->
 
 form_to_type(Form) ->
     Types = [SiteType | _] = types(),
+    Anno = erl_anno:new(0),
     TableTypes = [{{type, Type, 0},
-                   {{m, "file", {type, 0, any, []}, []}, any}} ||
+                   {{m, {"file", Anno}, {type, 0, any, []}, []}, any}} ||
                      Type <- Types],
     TypeTable = maps:from_list(TableTypes),
     CodeTable = ets:new(table, [set]),
