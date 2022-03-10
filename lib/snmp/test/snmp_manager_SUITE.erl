@@ -598,29 +598,29 @@ init_per_testcase2(Case, Config) ->
     MgrTopDir  = filename:join(CaseTopDir, "manager/"), 
     ?DBG("init_per_testcase2 -> try create manager top dir: ~n~p", 
 	 [MgrTopDir]),
-    ?line ok   = file:make_dir(MgrTopDir),
+    ok   = file:make_dir(MgrTopDir),
 
     MgrConfDir = filename:join(MgrTopDir,  "conf/"),
-    ?line ok   = file:make_dir(MgrConfDir),
+    ok   = file:make_dir(MgrConfDir),
 
     MgrDbDir   = filename:join(MgrTopDir,  "db/"),
-    ?line ok   = file:make_dir(MgrDbDir),
+    ok   = file:make_dir(MgrDbDir),
 
     MgrLogDir  = filename:join(MgrTopDir,  "log/"),
-    ?line ok   = file:make_dir(MgrLogDir),
+    ok   = file:make_dir(MgrLogDir),
 
     %% -- Agent dirs --
     AgTopDir  = filename:join(CaseTopDir, "agent/"),
-    ?line ok  = file:make_dir(AgTopDir),
+    ok  = file:make_dir(AgTopDir),
 
     AgConfDir = filename:join(AgTopDir,   "conf/"),
-    ?line ok  = file:make_dir(AgConfDir),
+    ok  = file:make_dir(AgConfDir),
 
     AgDbDir   = filename:join(AgTopDir,   "db/"),
-    ?line ok  = file:make_dir(AgDbDir),
+    ok  = file:make_dir(AgDbDir),
 
     AgLogDir  = filename:join(AgTopDir,   "log/"),
-    ?line ok  = file:make_dir(AgLogDir),
+    ok  = file:make_dir(AgLogDir),
 
     Family = proplists:get_value(ipfamily, Config, inet),
 
@@ -956,20 +956,20 @@ do_simple_start_and_stop2([{_ManagerPeer, ManagerNode}], Config) ->
 
 
     ?IPRINT("try load snmp application"),
-    ?line ok = load_snmp(ManagerNode),
+    ok = load_snmp(ManagerNode),
 
     ?IPRINT("try set manager env for the snmp application"),
-    ?line ok = set_mgr_env(ManagerNode, Opts),
+    ok = set_mgr_env(ManagerNode, Opts),
 
     ?IPRINT("try starting snmp application (with only manager)"),
-    ?line ok = start_snmp(ManagerNode),
+    ok = start_snmp(ManagerNode),
 
     ?IPRINT("started"),
 
     ?SLEEP(1000),
 
     ?IPRINT("try stopping snmp application (with only manager)"),
-    ?line ok = stop_snmp(ManagerNode),
+    ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
     ?IPRINT("end"),
@@ -1935,13 +1935,13 @@ do_register_user1([{_ManagerPeer, ManagerNode}], Config) ->
 
 
     ?IPRINT("load snmp application"),
-    ?line ok = load_snmp(ManagerNode),
+    ok = load_snmp(ManagerNode),
 
     ?IPRINT("set manager env for the snmp application"),
-    ?line ok = set_mgr_env(ManagerNode, Opts),
+    ok = set_mgr_env(ManagerNode, Opts),
 
     ?IPRINT("starting snmp application (with only manager)"),
-    ?line ok = start_snmp(ManagerNode),
+    ok = start_snmp(ManagerNode),
 
     ?IPRINT("started"),
 
@@ -1950,41 +1950,41 @@ do_register_user1([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("try register user(s)"),
-    ?line ok = mgr_register_user(ManagerNode, calvin, snmpm_user_default, 
+    ok = mgr_register_user(ManagerNode, calvin, snmpm_user_default,
 				 [self(), "various misc info"]),
 
     Users1 = mgr_which_users(ManagerNode),
     ?IPRINT("users: ~p~n", [Users1]),
-    ?line ok = verify_users(Users1, [calvin]),
+    ok = verify_users(Users1, [calvin]),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    ?line ok = mgr_register_user(ManagerNode, hobbe, snmpm_user_default, 
+    ok = mgr_register_user(ManagerNode, hobbe, snmpm_user_default,
 				 {"misc info", self()}),
 
     Users2 = mgr_which_users(ManagerNode),
     ?IPRINT("users: ~p~n", [Users2]),
-    ?line ok = verify_users(Users2, [calvin, hobbe]),
+    ok = verify_users(Users2, [calvin, hobbe]),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("try unregister user(s)"),
-    ?line ok = mgr_unregister_user(ManagerNode, calvin),
+    ok = mgr_unregister_user(ManagerNode, calvin),
 
     Users3 = mgr_which_users(ManagerNode),
     ?IPRINT("users: ~p~n", [Users3]),
-    ?line ok = verify_users(Users3, [hobbe]),
+    ok = verify_users(Users3, [hobbe]),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    ?line ok = mgr_unregister_user(ManagerNode, hobbe),
+    ok = mgr_unregister_user(ManagerNode, hobbe),
 
     Users4 = mgr_which_users(ManagerNode),
     ?IPRINT("users: ~p~n", [Users4]),
-    ?line ok = verify_users(Users4, []),
+    ok = verify_users(Users4, []),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
     ?IPRINT("stop snmp application (with only manager)"),
-    ?line ok = stop_snmp(ManagerNode),
+    ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
 
@@ -2035,13 +2035,13 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
 
 
     ?IPRINT("load snmp application"),
-    ?line ok = load_snmp(ManagerNode),
+    ok = load_snmp(ManagerNode),
 
     ?IPRINT("set manager env for the snmp application"),
-    ?line ok = set_mgr_env(ManagerNode, Opts),
+    ok = set_mgr_env(ManagerNode, Opts),
 
     ?IPRINT("starting snmp application (with only manager)"),
-    ?line ok = start_snmp(ManagerNode),
+    ok = start_snmp(ManagerNode),
 
     ?IPRINT("started"),
 
@@ -2050,15 +2050,15 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register user(s) user_alfa & user_beta"),
-    ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
-    ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register agent(s)"),
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, 5000, []),
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, 5001, []),
-    ?line ok = mgr_register_agent(ManagerNode, user_beta, 5002, []),
-    ?line ok = mgr_register_agent(ManagerNode, user_beta, 5003, []),
+    ok = mgr_register_agent(ManagerNode, user_alfa, 5000, []),
+    ok = mgr_register_agent(ManagerNode, user_alfa, 5001, []),
+    ok = mgr_register_agent(ManagerNode, user_beta, 5002, []),
+    ok = mgr_register_agent(ManagerNode, user_beta, 5003, []),
 
     ?IPRINT("verify all agent(s): expect 4"),
     case mgr_which_agents(ManagerNode) of
@@ -2091,7 +2091,7 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
             "~n      ~p", [mgr_info(ManagerNode)]),
     
     ?IPRINT("unregister user user_alfa"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
+    ok = mgr_unregister_user(ManagerNode, user_alfa),
 
     ?IPRINT("verify all agent(s): expect 2"),
     case mgr_which_agents(ManagerNode) of
@@ -2105,8 +2105,8 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
             "~n      ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user_beta agents"),
-    ?line ok = mgr_unregister_agent(ManagerNode, user_beta, 5002),
-    ?line ok = mgr_unregister_agent(ManagerNode, user_beta, 5003),
+    ok = mgr_unregister_agent(ManagerNode, user_beta, 5002),
+    ok = mgr_unregister_agent(ManagerNode, user_beta, 5003),
 
     ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
@@ -2121,7 +2121,7 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
             "~n      ~p", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user hobbe"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_beta),
+    ok = mgr_unregister_user(ManagerNode, user_beta),
 
     ?IPRINT("manager info: "
             "~n      ~p", [mgr_info(ManagerNode)]),
@@ -2129,7 +2129,7 @@ do_register_agent_old([{_ManagerPeer, ManagerNode}], Config) ->
     ?SLEEP(1000),
 
     ?IPRINT("stop snmp application (with only manager)"),
-    ?line ok = stop_snmp(ManagerNode),
+    ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
     ?IPRINT("end"),
@@ -2168,13 +2168,13 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("load snmp application"),
-    ?line ok = load_snmp(ManagerNode),
+    ok = load_snmp(ManagerNode),
 
     ?IPRINT("set manager env for the snmp application"),
-    ?line ok = set_mgr_env(ManagerNode, Opts),
+    ok = set_mgr_env(ManagerNode, Opts),
 
     ?IPRINT("starting snmp application (with only manager)"),
-    ?line ok = start_snmp(ManagerNode),
+    ok = start_snmp(ManagerNode),
 
     ?IPRINT("started"),
 
@@ -2183,28 +2183,28 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register user(s) user_alfa & user_beta"),
-    ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
-    ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register agent(s)"),
     TargetName1 = "agent1", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
+    ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1,
 				  [{address,   LocalHost},
 				   {port,      5001},
 				   {engine_id, "agentEngineId-1"}]),
     TargetName2 = "agent2", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
+    ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{address,   LocalHost},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
     TargetName3 = "agent3", 
-    ?line ok = mgr_register_agent(ManagerNode, user_beta, TargetName3,
+    ok = mgr_register_agent(ManagerNode, user_beta, TargetName3,
 				  [{address,   LocalHost},
 				   {port,      5003},
 				   {engine_id, "agentEngineId-3"}]),
     TargetName4 = "agent4", 
-    ?line ok = mgr_register_agent(ManagerNode, user_beta, TargetName4,
+    ok = mgr_register_agent(ManagerNode, user_beta, TargetName4,
 				  [{address,   LocalHost},
 				   {port,      5004},
 				   {engine_id, "agentEngineId-4"}]),
@@ -2239,7 +2239,7 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user user_alfa"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
+    ok = mgr_unregister_user(ManagerNode, user_alfa),
 
     ?IPRINT("verify all agent(s): expect 2"),
     case mgr_which_agents(ManagerNode) of
@@ -2252,8 +2252,8 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user_beta agents"),
-    ?line ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName3),
-    ?line ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName4),
+    ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName3),
+    ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName4),
 
     ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
@@ -2267,14 +2267,14 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user user_beta"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_beta),
+    ok = mgr_unregister_user(ManagerNode, user_beta),
 
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
     ?IPRINT("stop snmp application (with only manager)"),
-    ?line ok = stop_snmp(ManagerNode),
+    ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
 
@@ -2315,13 +2315,13 @@ do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
 
 
     ?IPRINT("load snmp application"),
-    ?line ok = load_snmp(ManagerNode),
+    ok = load_snmp(ManagerNode),
 
     ?IPRINT("set manager env for the snmp application"),
-    ?line ok = set_mgr_env(ManagerNode, Opts),
+    ok = set_mgr_env(ManagerNode, Opts),
 
     ?IPRINT("starting snmp application (with only manager)"),
-    ?line ok = start_snmp(ManagerNode),
+    ok = start_snmp(ManagerNode),
 
     ?IPRINT("started"),
 
@@ -2330,25 +2330,25 @@ do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register user(s) user_alfa & user_beta"),
-    ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
-    ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
+    ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register agent(s)"),
     TargetName1 = "agent2", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
+    ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1,
 				  [{tdomain,   transportDomainUdpIpv4},
 				   {address,   LocalHost},
 				   {port,      5001},
 				   {engine_id, "agentEngineId-1"}]),
     TargetName2 = "agent3", 
-    ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
+    ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{tdomain,   transportDomainUdpIpv6},
 				   {address,   {0,0,0,0,0,0,0,1}},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
     TargetName3 = "agent4", 
-    ?line {error, {unsupported_domain, _} = Reason4} = 
+    {error, {unsupported_domain, _} = Reason4} =
 	mgr_register_agent(ManagerNode, user_beta, TargetName3,
 			   [{tdomain,   transportDomainTcpIpv4},
 			    {address,   LocalHost},
@@ -2356,7 +2356,7 @@ do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
 			    {engine_id, "agentEngineId-3"}]),
     ?IPRINT("Expected registration failure: ~p", [Reason4]),
     TargetName4 = "agent5", 
-    ?line {error, {unknown_domain, _} = Reason5} = 
+    {error, {unknown_domain, _} = Reason5} =
 	mgr_register_agent(ManagerNode, user_beta, TargetName4,
 			   [{tdomain,   transportDomainUdpIpv4_bad},
 			    {address,   LocalHost},
@@ -2394,7 +2394,7 @@ do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user user_alfa"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
+    ok = mgr_unregister_user(ManagerNode, user_alfa),
 
     ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
@@ -2418,14 +2418,14 @@ do_register_agent3([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("unregister user user_beta"),
-    ?line ok = mgr_unregister_user(ManagerNode, user_beta),
+    ok = mgr_unregister_user(ManagerNode, user_beta),
 
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
     ?IPRINT("stop snmp application (with only manager)"),
-    ?line ok = stop_snmp(ManagerNode),
+    ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
 
@@ -2476,12 +2476,12 @@ do_simple_sync_get3(Config, Get, PostVerify) ->
 
     ?IPRINT("issue get-request without loading the mib"),
     Oids1 = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
-    ?line ok = do_simple_sync_get3(Node, TargetName, Oids1, Get, PostVerify),
+    ok = do_simple_sync_get3(Node, TargetName, Oids1, Get, PostVerify),
 
     ?IPRINT("issue get-request after first loading the mibs"),
-    ?line ok = mgr_user_load_mib(Node, std_mib()),
+    ok = mgr_user_load_mib(Node, std_mib()),
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-    ?line ok = do_simple_sync_get3(Node, TargetName, Oids2, Get, PostVerify),
+    ok = do_simple_sync_get3(Node, TargetName, Oids2, Get, PostVerify),
     ok.
 
 do_simple_sync_get3(Node, TargetName, Oids, Get, PostVerify) 
@@ -2489,7 +2489,7 @@ do_simple_sync_get3(Node, TargetName, Oids, Get, PostVerify)
 
     ?IPRINT("try get for ~p (on ~p):"
             "~n      Oids: ~p", [TargetName, Node, Oids]),
-    ?line Reply =
+    Reply =
         case Get(Node, TargetName, Oids) of
             {ok, R, _Rem} ->
                 ?IPRINT("get reply: "
@@ -2505,7 +2505,7 @@ do_simple_sync_get3(Node, TargetName, Oids, Get, PostVerify)
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to search
-    ?line ok = case Reply of
+    ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysObjectID_instance,
 					  value = SysObjectID}, 
 				 #varbind{oid   = ?sysDescr_instance,
@@ -2596,10 +2596,10 @@ do_simple_async_get3(Config) ->
     Res.
 
 do_simple_async_sync_get3(Config, MgrNode, AgentNode, Get, PostVerify) ->
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
     do_simple_async_sync_get3(fun() -> mgr_info(MgrNode) end,
 			      fun() -> agent_info(AgentNode) end,
 			      Get, PostVerify).
@@ -2649,7 +2649,7 @@ do_simple_async_sync_get3(MgrInfo, AgentInfo, Get, PostVerify)
     ?IPRINT("agent info when starting test: "
             "~n      ~p",   [AgentInfo()]),
 
-    ?line ok = async_exec(Requests, []),
+    ok = async_exec(Requests, []),
 
     ?IPRINT("manager info when ending test: "
             "~n      ~p", [MgrInfo()]),
@@ -2736,32 +2736,32 @@ do_simple_sync_get_next3(Config, GetNext, PostVerify)
     %% -- 1 --
     Oids01 = [[1,3,7,1]],
     VF01   = fun(X) -> verify_ssgn_reply1(X, [{[1,3,7,1],endOfMibView}]) end,
-    ?line ok = do_simple_get_next(1, 
+    ok = do_simple_get_next(1,
 				  MgrNode, TargetName, Oids01, VF01, 
 				  GetNext, PostVerify),
     
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
 
     %% -- 2 --
     Oids02 = [[sysDescr], [1,3,7,1]], 
     VF02   = fun(X) -> 
 		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]) 
 	     end,
-    ?line ok = do_simple_get_next(2, 
+    ok = do_simple_get_next(2,
 				  MgrNode, TargetName, Oids02, VF02, 
 				  GetNext, PostVerify),
     
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 3 --
-    ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
+    {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     Oids03 = [[TCnt2, 1]], 
     VF03   = fun(X) -> 
 		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]) 
 	     end,
-    ?line ok = do_simple_get_next(3, 
+    ok = do_simple_get_next(3,
 				  MgrNode, TargetName, Oids03, VF03, 
 				  GetNext, PostVerify),
     
@@ -2770,48 +2770,48 @@ do_simple_sync_get_next3(Config, GetNext, PostVerify)
     VF04   = fun(X) -> 
 		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]) 
 	     end,
-    ?line ok = do_simple_get_next(4, 
+    ok = do_simple_get_next(4,
 				  MgrNode, TargetName, Oids04, VF04, 
 				  GetNext, PostVerify),
     
     %% -- 5 --
-    ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
+    {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
     Oids05 = [TGenErr1], 
     VF05   = fun(X) -> 
 		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
 	     end,
-    ?line ok = do_simple_get_next(5, 
+    ok = do_simple_get_next(5,
 				  MgrNode, TargetName, Oids05, VF05, 
 				  GetNext, PostVerify),
     
     %% -- 6 --
-    ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
+    {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
     Oids06 = [TGenErr2], 
     VF06   = fun(X) -> 
 		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
 	     end,
-    ?line ok = do_simple_get_next(6, 
+    ok = do_simple_get_next(6,
 				  MgrNode, TargetName, Oids06, VF06, 
 				  GetNext, PostVerify),
     
     %% -- 7 --
-    ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
+    {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
     Oids07 = [[sysDescr], TGenErr3], 
     VF07   = fun(X) -> 
 		     verify_ssgn_reply2(X, {genErr, 2, 
 					   [?sysDescr, TGenErr3]}) 
 	     end,
-    ?line ok = do_simple_get_next(7, 
+    ok = do_simple_get_next(7,
 				  MgrNode, TargetName, Oids07, VF07, 
 				  GetNext, PostVerify),
     
     %% -- 8 --
-    ?line {ok, [TTooBig|_]} = mgr_user_name_to_oid(MgrNode, tTooBig),
+    {ok, [TTooBig|_]} = mgr_user_name_to_oid(MgrNode, tTooBig),
     Oids08 = [TTooBig], 
     VF08   = fun(X) -> 
 		     verify_ssgn_reply2(X, {tooBig, 0, []}) 
 	     end,
-    ?line ok = do_simple_get_next(8, 
+    ok = do_simple_get_next(8,
 				  MgrNode, TargetName, Oids08, VF08, 
 				  GetNext, PostVerify),
     ok.
@@ -2867,10 +2867,10 @@ do_simple_async_get_next3(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
 
     Self  = self(), 
     Msg   = simple_async_get_next3, 
@@ -2894,11 +2894,11 @@ do_simple_async_get_next3(Config) ->
 
 do_simple_async_get_next3(MgrNode, AgentNode, GetNext, PostVerify) 
   when is_function(GetNext, 1) andalso is_function(PostVerify, 1) ->
-    ?line {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
-    ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
-    ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
-    ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
-    ?line {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
+    {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
+    {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
+    {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
+    {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
+    {ok, [TTooBig|_]}  = mgr_user_name_to_oid(MgrNode, tTooBig),
 
     Requests = 
 	[
@@ -2966,7 +2966,7 @@ do_simple_async_get_next3(MgrNode, AgentNode, GetNext, PostVerify)
     ?IPRINT("agent info when starting test: "
             "~n      ~p", [agent_info(AgentNode)]),
 
-    ?line ok = async_exec(Requests, []),
+    ok = async_exec(Requests, []),
 
     ?IPRINT("manager info when ending test: "
             "~n      ~p", [mgr_info(MgrNode)]),
@@ -3037,22 +3037,22 @@ do_simple_sync_set3(Config, Set, PostVerify)
 	     {?sysName_instance,     s, Val11},
 	     {?sysLocation_instance, s, Val12}
 	    ],
-    ?line ok = do_simple_set3(Node, TargetName, VAVs1, Set, PostVerify),
+    ok = do_simple_set3(Node, TargetName, VAVs1, Set, PostVerify),
 
     ?IPRINT("issue set-request after first loading the mibs"),
-    ?line ok = mgr_user_load_mib(Node, std_mib()),
+    ok = mgr_user_load_mib(Node, std_mib()),
     Val21 = "Sune Anka",
     Val22 = "Gothenburg",
     VAVs2 = [
 	     {[sysName, 0],     Val21},
 	     {[sysLocation, 0], Val22}
 	    ],
-    ?line ok = do_simple_set3(Node, TargetName, VAVs2, Set, PostVerify),
+    ok = do_simple_set3(Node, TargetName, VAVs2, Set, PostVerify),
     ok.
 
 do_simple_set3(Node, TargetName, VAVs, Set, PostVerify) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, _Rem} = Set(Node, TargetName, VAVs),
+    {ok, Reply, _Rem} = Set(Node, TargetName, VAVs),
 
     ?DBG("~n   Reply: ~p"
 	 "~n   Rem:   ~w", [Reply, _Rem]),
@@ -3060,7 +3060,7 @@ do_simple_set3(Node, TargetName, VAVs, Set, PostVerify) ->
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to search
     %% The value we get should be exactly the same as we sent
-    ?line ok = case Reply of
+    ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysName_instance,
 					  value = SysName},
 				 #varbind{oid   = ?sysLocation_instance,
@@ -3140,10 +3140,10 @@ do_simple_async_set3(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
 
     Self  = self(), 
     Msg   = simple_async_set3, 
@@ -3200,7 +3200,7 @@ do_simple_async_set3(MgrNode, AgentNode, Set, PostVerify) ->
     ?IPRINT("agent info when starting test: "
             "~n      ~p", [agent_info(AgentNode)]),
 
-    ?line ok = async_exec(Requests, []),
+    ok = async_exec(Requests, []),
 
     ?IPRINT("manager info when ending test: "
             "~n      ~p", [mgr_info(MgrNode)]),
@@ -3293,34 +3293,34 @@ do_simple_sync_get_bulk3(Config) ->
 
 do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% -- 1 --
-    ?line ok = do_simple_get_bulk3(1,
+    ok = do_simple_get_bulk3(1,
 				   1,  1, [], 
 				   fun verify_ssgb_reply1/1, 
 				   GetBulk, PostVerify), 
     
     %% -- 2 --
-    ?line ok = do_simple_get_bulk3(2, 
+    ok = do_simple_get_bulk3(2,
 				   -1,  1, [], 
 				   fun verify_ssgb_reply1/1, 
 				   GetBulk, PostVerify), 
 
     %% -- 3 --
-    ?line ok = do_simple_get_bulk3(3, 
+    ok = do_simple_get_bulk3(3,
 				   -1, -1, [], 
 				   fun verify_ssgb_reply1/1, 
 				   GetBulk, PostVerify), 
 
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
     %% -- 4 --
     VF04 = fun(X) -> 
 		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(4,
+    ok = do_simple_get_bulk3(4,
 				   2, 0, [[sysDescr],[1,3,7,1]], VF04, 
 				   GetBulk, PostVerify),
 
     %% -- 5 --
-    ?line ok = do_simple_get_bulk3(5,
+    ok = do_simple_get_bulk3(5,
 				   1, 2, [[sysDescr],[1,3,7,1]], VF04, 
 				   GetBulk, PostVerify),
 
@@ -3330,7 +3330,7 @@ do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 				      [?sysDescr_instance,    endOfMibView,
 				       ?sysObjectID_instance, endOfMibView]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(6,
+    ok = do_simple_get_bulk3(6,
 				   0, 2, [[sysDescr],[1,3,7,1]], VF06, 
 				   GetBulk, PostVerify), 
 
@@ -3341,15 +3341,15 @@ do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 				       ?sysDescr_instance,    endOfMibView,
 				       ?sysObjectID_instance, endOfMibView]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(7,
+    ok = do_simple_get_bulk3(7,
 				   2, 2, 
 				   [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]],
 				   VF07, 
 				   GetBulk, PostVerify), 
 
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
 
     %% -- 8 --
     VF08 = fun(X) -> 
@@ -3357,14 +3357,14 @@ do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 				      [?sysDescr_instance, 
 				       ?sysDescr_instance]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(8,
+    ok = do_simple_get_bulk3(8,
 				   1, 2, 
 				   [[sysDescr],[sysDescr],[tTooBig]],
 				   VF08, 
 				   GetBulk, PostVerify), 
 
     %% -- 9 --
-    ?line ok = do_simple_get_bulk3(9,
+    ok = do_simple_get_bulk3(9,
 				   1, 12, 
 				   [[tDescr2], [sysDescr]], 
 				   fun verify_ssgb_reply1/1, 
@@ -3378,7 +3378,7 @@ do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 				       {?tGenErr1,    'NULL'},
 				       {?sysDescr,    'NULL'}]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(10,
+    ok = do_simple_get_bulk3(10,
 				   2, 2, 
 				   [[sysDescr], 
 				    [sysObjectID], 
@@ -3388,14 +3388,14 @@ do_simple_sync_get_bulk3(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 				   GetBulk, PostVerify), 
 
     %% -- 11 --
-    ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
+    {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     ?IPRINT("TCnt2: ~p", [TCnt2]),
     VF11 = fun(X) -> 
 		   verify_ssgb_reply2(X, 
 				      [{fl([TCnt2,2]), 100}, 
 				       {fl([TCnt2,2]), endOfMibView}]) 
 	   end,
-    ?line ok = do_simple_get_bulk3(11,
+    ok = do_simple_get_bulk3(11,
 				   0, 2, 
 				   [[TCnt2, 1]], VF11, 
 				   GetBulk, PostVerify),
@@ -3443,10 +3443,10 @@ do_simple_async_get_bulk3(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    ok = mgr_user_load_mib(MgrNode, std_mib()),
     Test2Mib = test2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = agent_load_mib(AgentNode, Test2Mib),
 
     Self  = self(), 
     Msg   = simple_async_get_bulk3, 
@@ -3502,7 +3502,7 @@ do_simple_async_get_bulk3(MgrNode, AgentNode, GetBulk, PostVerify) ->
 					 {?tGenErr1,    'NULL'},
 					 {?sysDescr,    'NULL'}])) 
 	   end,
-    ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
+    {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     VF11 = fun(X) -> 
 		   PostVerify(
 		     verify_ssgb_reply2(X, 
@@ -3585,7 +3585,7 @@ do_simple_async_get_bulk3(MgrNode, AgentNode, GetBulk, PostVerify) ->
     ?IPRINT("agent info when starting test: "
             "~n      ~p", [agent_info(AgentNode)]),
 
-    ?line ok = async_exec(Requests, []),
+    ok = async_exec(Requests, []),
 
     ?IPRINT("manager info when ending test: "
             "~n      ~p", [mgr_info(MgrNode)]),
@@ -3766,16 +3766,16 @@ do_trap1(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     %% Version 1 trap verification function:
     VerifyTrap_v1 = 
@@ -3926,16 +3926,16 @@ do_trap2(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     %% Version 1 trap verification function:
     VerifyTrap_v1 = 
@@ -4124,16 +4124,16 @@ do_inform1(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     
     Cmd1 = 
@@ -4259,16 +4259,16 @@ do_inform2(Config) ->
     %% Addr = ?config(ip, Config),
     %% Port = ?AGENT_PORT,
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     Cmd1 = 
 	fun() ->
@@ -4433,16 +4433,16 @@ do_inform3(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     Cmd1 = 
 	fun() ->
@@ -4572,16 +4572,16 @@ do_inform4(Config) ->
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
 
     Cmd1 = 
 	fun() ->
@@ -4709,16 +4709,16 @@ do_inform_swarm(NumI, Config) ->
     AgentNode = ?config(agent_node,   Config),
     Factor    = ?config(snmp_factor,  Config),
 
-    ?line ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
+    ok = mgr_user_load_mib(MgrNode, snmpv2_mib()),
     Test2Mib      = test2_mib(Config), 
     TestTrapMib   = test_trap_mib(Config), 
     TestTrapv2Mib = test_trap_v2_mib(Config), 
-    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapMib),
-    ?line ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
-    ?line ok = agent_load_mib(AgentNode,  Test2Mib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
-    ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
+    ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapMib),
+    ok = mgr_user_load_mib(MgrNode, TestTrapv2Mib),
+    ok = agent_load_mib(AgentNode,  Test2Mib),
+    ok = agent_load_mib(AgentNode,  TestTrapMib),
+    ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
     NumInforms = NumI div Factor,
 
     Collector = self(),
@@ -4958,7 +4958,7 @@ async_exec([], Acc) ->
     async_verify(async_collector(Acc, []));
 async_exec([{Id, Data, Exec, Ver}|Reqs], Acc) ->
     ?IPRINT("issue async request ~w", [Id]),
-    ?line {ok, ReqId} = Exec(Data),
+    {ok, ReqId} = Exec(Data),
     async_exec(Reqs, [{ReqId, Id, Ver}|Acc]).
 
 async_collector([], Acc) ->
@@ -5053,11 +5053,11 @@ command_handler([{No, Desc, Cmd}|Cmds]) ->
         {error, Reason} ->
             ?EPRINT("Command_handler -> ~w error: "
                     "~n      ~p", [No, Reason]),
-            ?line ?FAIL({command_failed, No, Reason});
+            ?FAIL({command_failed, No, Reason});
         Error ->
             ?EPRINT("Command_handler -> ~w unexpected: "
                     "~n      ~p", [No, Error]),
-            ?line ?FAIL({unexpected_command_result, No, Error})
+            ?FAIL({unexpected_command_result, No, Error})
     end.
 
 
@@ -5088,13 +5088,13 @@ init_manager(Case, AutoInform, Config) ->
 	    %% Start and initiate crypto on manager node
 	    %% 
 
-	    ?line ok = init_crypto(Node),
+	    ok = init_crypto(Node),
 
 	    %% 
 	    %% Write manager config
 	    %% 
 
-	    ?line ok = write_manager_config(Config),
+	    ok = write_manager_config(Config),
 
 	    IRB  = case AutoInform of
 		       true ->
@@ -5148,7 +5148,7 @@ init_v3_manager(Case, Config) ->
 	    %% Start and initiate crypto on manager node
 	    %% 
 
-	    ?line ok = init_crypto(Node),
+	    ok = init_crypto(Node),
 
 	    %% 
 	    %% Write manager config
@@ -5156,7 +5156,7 @@ init_v3_manager(Case, Config) ->
 
             %% DomainType is just a "dummy" arg to make the 
             %% function choose transportDomainUdpIpv4 as transport domain.
-	    ?line ok = write_manager_config(transport, Config),
+	    ok = write_manager_config(transport, Config),
 
 	    IRB  = auto,
 	    Conf = [{manager_node, Node}, {manager_peer, Peer}, {irb, IRB} | Config],
@@ -5228,14 +5228,14 @@ init_agent(Case, Config) ->
 	    %% Start and initiate mnesia on agent node
 	    %% 
 
-	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
+	    ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
 
 
 	    %% -- 
 	    %% Start and initiate crypto on agent node
 	    %% 
 
-	    ?line ok = init_crypto(Node),
+	    ok = init_crypto(Node),
 
 
 	    %% 
@@ -5243,7 +5243,7 @@ init_agent(Case, Config) ->
 	    %% 
 
 	    Vsns = [v1,v2], 
-	    ?line ok = write_agent_config(Vsns, Config),
+	    ok = write_agent_config(Vsns, Config),
 
 	    Conf = [{agent_node, Node},  {agent_peer, Peer},
 		    {mib_dir,    MibDir} | Config],
@@ -5303,7 +5303,7 @@ init_v3_agent(Case, Config) ->
 	    %% Start and initiate crypto on agent node
 	    %% 
 
-	    ?line ok = init_crypto(Node),
+	    ok = init_crypto(Node),
 
 
 	    %% 
@@ -5311,7 +5311,7 @@ init_v3_agent(Case, Config) ->
 	    %% 
 
 	    Vsns = [v3], 
-	    ?line ok = write_agent_config(Vsns, Config),
+	    ok = write_agent_config(Vsns, Config),
 
 	    Conf = [{agent_node, Node}, {agent_peer, Peer},
 		    {mib_dir,    MibDir} | Config],
@@ -5373,52 +5373,52 @@ init_mnesia(Node, Dir, MnesiaDebug)
     init_mnesia(Node, Dir, ?DEFAULT_MNESIA_DEBUG);
 init_mnesia(Node, Dir, MnesiaDebug) ->
     ?DBG("init_mnesia -> load application mnesia", []),
-    ?line ok = load_mnesia(Node),
+    ok = load_mnesia(Node),
 
     ?DBG("init_mnesia -> application mnesia: set_env dir: ~n~p",[Dir]),
-    ?line ok = set_mnesia_env(Node, dir, filename:join(Dir, "mnesia")),
+    ok = set_mnesia_env(Node, dir, filename:join(Dir, "mnesia")),
 
     %% Just in case, only set (known to be) valid values for debug
     if
 	((MnesiaDebug =:= debug) orelse (MnesiaDebug =:= trace)) ->
 	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w", 
 		 [MnesiaDebug]),
-	    ?line ok = set_mnesia_env(Node, debug, MnesiaDebug);
+	    ok = set_mnesia_env(Node, debug, MnesiaDebug);
 	true ->
 	    ok
     end,
 
     ?DBG("init_mnesia -> create mnesia schema",[]),
-    ?line case create_schema(Node) of
+    case create_schema(Node) of
 	      ok ->
 		  ok;
 	      {error, {Node, {already_exists, Node}}} ->
-		  ?line ok = delete_schema(Node),
-		  ?line ok = create_schema(Node);
+		  ok = delete_schema(Node),
+		  ok = create_schema(Node);
 	      Error ->
 		  ?FAIL({failed_creating_mnesia_schema, Error})
 	  end,
     
     ?DBG("init_mnesia -> start application mnesia",[]),
-    ?line ok = start_mnesia(Node),
+    ok = start_mnesia(Node),
 
     ?DBG("init_mnesia -> create tables",[]),
-    ?line ok = create_tables(Node),
+    ok = create_tables(Node),
     ok.
 
 fin_mnesia(Node) ->
-    ?line ok = delete_tables(Node),
-    ?line ok = stop_mnesia(Node),
+    ok = delete_tables(Node),
+    ok = stop_mnesia(Node),
     ok.
 
 
 init_crypto(Node) ->
-    ?line ok = load_crypto(Node),
-    ?line ok = start_crypto(Node),
+    ok = load_crypto(Node),
+    ok = start_crypto(Node),
     ok.
 
 fin_crypto(Node) ->
-    ?line ok = stop_crypto(Node),
+    ok = stop_crypto(Node),
     ok.
 
 
@@ -5635,7 +5635,7 @@ init_mgr_user(Conf) ->
     Node   = ?config(manager_node, Conf),
     %% UserId = ?config(user_id, Conf),
 
-    ?line {ok, User} = mgr_user_start(Node),
+    {ok, User} = mgr_user_start(Node),
     ?DBG("start_mgr_user -> User: ~p", [User]),
     link(User),
     
@@ -5648,7 +5648,7 @@ init_mgr_v3_user(Conf) ->
     Node   = ?config(manager_node, Conf),
     %% UserId = ?config(user_id, Conf),
 
-    ?line {ok, User} = mgr_user_start(Node),
+    {ok, User} = mgr_user_start(Node),
     ?IPRINT("start_mgr_v3_user -> User: ~p", [User]),
     link(User),
 
@@ -5660,7 +5660,7 @@ init_mgr_v3_user(Conf) ->
       [ {auth,     select_auth_proto(AuthAlg)},
         {auth_key, AuthKey}
       ],
-    ?line ok = mgr_register_usm_user(Node, EngineID, SecName, Credentials),
+    ok = mgr_register_usm_user(Node, EngineID, SecName, Credentials),
     
     ?IPRINT("start_mgr_v3_user -> done"),
     [{user_pid, User} | Conf].
@@ -5696,7 +5696,7 @@ fin_mgr_user(Conf) ->
     User = ?config(user_pid, Conf),
     unlink(User),
     Node = ?config(manager_node, Conf),
-    ?line ok = mgr_user_stop(Node),
+    ok = mgr_user_stop(Node),
     Conf.
 
 init_mgr_user_data1(Conf) ->
@@ -5705,7 +5705,7 @@ init_mgr_user_data1(Conf) ->
     IpFamily   = ?config(ipfamily, Conf),
     Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok =
+    ok =
 	case IpFamily of
 	    inet ->
 		mgr_user_register_agent(
@@ -5723,19 +5723,19 @@ init_mgr_user_data1(Conf) ->
     _Agents = mgr_user_which_own_agents(Node),
     ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  community, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_name, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  engine_id, "agentEngine"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  max_message_size, 1024),
 
-    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
@@ -5747,7 +5747,7 @@ init_mgr_user_data2(Conf) ->
     IpFamily   = ?config(ipfamily, Conf),
     Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok =
+    ok =
 	case IpFamily of
 	    inet ->
 		mgr_user_register_agent(
@@ -5765,17 +5765,17 @@ init_mgr_user_data2(Conf) ->
     _Agents = mgr_user_which_own_agents(Node),
     ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  community, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_name, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  max_message_size, 1024),
 
-    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
@@ -5787,7 +5787,7 @@ init_mgr_v3_user_data(Conf) ->
     IpFamily   = ?config(ipfamily, Conf),
     Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok =
+    ok =
 	case IpFamily of
 	    inet ->
 		mgr_user_register_agent(
@@ -5807,22 +5807,22 @@ init_mgr_v3_user_data(Conf) ->
     _Agents = mgr_user_which_own_agents(Node),
     ?IPRINT("Own agents: ~p", [_Agents]),
 
-    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?IPRINT("Default agent config: ~n~p", [_DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  community, "all-rights"),
     SecName = select_secname_from_authalg(?config(auth_alg, Conf)),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_name, SecName),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_level, authNoPriv),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName,
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  sec_model, usm),
-    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
+    ok = mgr_user_update_agent_info(Node, TargetName,
 					  max_message_size, 1024),
 
-    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?IPRINT("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
@@ -5965,9 +5965,9 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
                                        {cbproxy,   CBP},
                                        {netif_sup, NIS}]},
 	   {net_if,                   NetIfConf}],
-    ?line ok = set_mgr_env(Node, Env),
+    ok = set_mgr_env(Node, Env),
 
-    ?line ok = try start_snmp(Node) of
+    ok = try start_snmp(Node) of
 		   ok ->
 		       ok;
 		   {error, Reason} ->
@@ -6032,9 +6032,9 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
                               %% (which will cause problems for some test cases).
                               {options, [{bind_to, true}]}]},
 	   {multi_threaded,  true}],
-    ?line ok = set_agent_env(Node, Env),
+    ok = set_agent_env(Node, Env),
 
-    ?line try start_snmp(Node) of
+    try start_snmp(Node) of
 	      ok ->
 		  ok;
 	      {error, Reason} ->
@@ -6122,21 +6122,21 @@ write_manager_conf(Dir, Str) ->
 
 write_agent_config(Vsns, Conf) ->
     Dir = ?config(agent_conf_dir, Conf),
-    ?line Ip  = tuple_to_list(?config(ip, Conf)),
-    ?line Domain =
+    Ip  = tuple_to_list(?config(ip, Conf)),
+    Domain =
 	case ?config(ipfamily, Conf) of
 	    inet ->
 		transportDomainUdpIpv4;
 	    inet6 ->
 		transportDomainUdpIpv6
 	end,
-    ?line ok = write_agent_config_files(Dir, Vsns, Domain, Ip),
-    ?line ok = update_agent_usm(Vsns, Dir),
-    ?line ok = update_agent_community(Vsns, Dir),
-    ?line ok = update_agent_vacm(Vsns, Dir),
-    ?line ok = write_agent_target_addr_conf(Dir, Domain, Ip, Vsns),
-    ?line ok = write_agent_target_params_conf(Dir, Vsns),
-    ?line ok = write_agent_notify_conf(Dir),
+    ok = write_agent_config_files(Dir, Vsns, Domain, Ip),
+    ok = update_agent_usm(Vsns, Dir),
+    ok = update_agent_community(Vsns, Dir),
+    ok = update_agent_vacm(Vsns, Dir),
+    ok = write_agent_target_addr_conf(Dir, Domain, Ip, Vsns),
+    ok = write_agent_target_params_conf(Dir, Vsns),
+    ok = write_agent_notify_conf(Dir),
     ok.
     
 write_agent_config_files(Dir, Vsns, Domain, Ip) ->
@@ -6279,8 +6279,8 @@ write_agent_notify_conf(Dir) ->
 
 
 write_conf_file(Dir, File, Str) ->
-    ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
-    ?line ok = io:format(Fd, "~s", [Str]),
+    {ok, Fd} = file:open(filename:join(Dir, File), write),
+    ok = io:format(Fd, "~s", [Str]),
     file:close(Fd).
  
 

@@ -347,8 +347,7 @@ stick_all_sticky(Node,Sticky) ->
 %% Returns a tuple with the time spent (in seconds) in the test case,
 %% the return value from the test case or an {'EXIT',Reason} if the case
 %% failed, Loc points out where the test case crashed (if it did). Loc
-%% is either the name of the function, or {<Module>,<Line>} of the last
-%% line executed that had a ?line macro. If the test case did execute
+%% is the name of the function. If the test case did execute
 %% erase/0 or similar, it may be empty. Comment is the last comment added
 %% by test_server:comment/1, the reason if test_server:fail has been
 %% called or the comment given by the return value {comment,Comment} from

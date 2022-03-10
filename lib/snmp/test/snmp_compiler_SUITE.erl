@@ -197,14 +197,14 @@ description(Config) when is_list(Config) ->
     Desctext   = "This is a test description",
     Oid = [1,3,6,1,2,1,15,1],
     write_mib(MibSrcName,Desctext),
-    ?line {ok,_} = snmpc:compile(MibSrcName, [{outdir,      Dir},
+    {ok,_} = snmpc:compile(MibSrcName, [{outdir,      Dir},
 					      {group_check, false},
 					      {warnings,    false},
 					      {description, false}]),
     MIB1 = read_mib(MibBinName),
     %% ?IPRINT("description -> MIB1: ~n~p~n", [MIB1]),
     check_mib(MIB1#mib.mes, Oid,  undefined),
-    ?line {ok,_} = snmpc:compile(MibSrcName, [{outdir,      Dir},
+    {ok,_} = snmpc:compile(MibSrcName, [{outdir,      Dir},
 					      {group_check, false},
 					      {warnings,    false},
 					      {description, true}]),
@@ -228,8 +228,8 @@ oid_conflicts(Config) when is_list(Config) ->
 
     Dir = ?config(case_top_dir, Config),
     Mib = join(Dir,"TESTv2.mib"),
-    ?line ok = write_oid_conflict_mib(Mib),
-    ?line {error,compilation_failed} = 
+    ok = write_oid_conflict_mib(Mib),
+    {error,compilation_failed} =
 	snmpc:compile(Mib,[{outdir, Dir},{verbosity,trace}]),
     ok.
 
@@ -263,19 +263,19 @@ agent_capabilities(Config) when is_list(Config) ->
     SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
     Dir   = ?config(mib_dir, Config),
     AcMib = join(Dir,"AC-TEST-MIB.mib"),
-    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+    {ok, MibFile1} = snmpc:compile(AcMib, [options,
 						 version,
 						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
-    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
-    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+    {ok, Mib1} = snmp_misc:read_mib(MibFile1),
+    {ok, MibFile2} = snmpc:compile(AcMib, [options,
 						 version,
 						 agent_capabilities,
 						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
-    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    {ok, Mib2} = snmp_misc:read_mib(MibFile2),
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is something...
     ?IPRINT("agent_capabilities -> "
@@ -304,19 +304,19 @@ module_compliance(Config) when is_list(Config) ->
     SnmpMibsDir = join(SnmpPrivDir, "mibs"), 
     Dir         = ?config(mib_dir, Config),
     AcMib       = join(Dir,"MC-TEST-MIB.mib"),
-    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+    {ok, MibFile1} = snmpc:compile(AcMib, [options,
 						 version,
 						 {i,           [SnmpMibsDir]}, 
 						 {outdir,      Dir}, 
 						 {verbosity,   trace}]),
-    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
-    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+    {ok, Mib1} = snmp_misc:read_mib(MibFile1),
+    {ok, MibFile2} = snmpc:compile(AcMib, [options,
 						 version,
 						 module_compliance,
 						 {i,           [SnmpMibsDir]}, 
 						 {outdir,      Dir}, 
 						 {verbosity,   trace}]),
-    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    {ok, Mib2} = snmp_misc:read_mib(MibFile2),
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is something...
     ?IPRINT("module_compliance -> "
@@ -369,7 +369,7 @@ otp_6150(Config) when is_list(Config) ->
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
-    ?line {ok, Mib} = 
+    {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     ?IPRINT("otp_6150 -> Mib: "
             "~n   ~p", [Mib]),
@@ -422,7 +422,7 @@ otp_8595(Config) when is_list(Config) ->
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8595-MIB.mib"),
-    ?line {ok, Mib} = 
+    {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir,      Dir}, 
 				{verbosity,   trace}, 
 				{group_check, false}]),
@@ -442,7 +442,7 @@ otp_10799(Config) when is_list(Config) ->
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
     MibFile = join(MibDir, "OTP10799-MIB.mib"),
-    ?line {ok, Mib} = 
+    {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     ?IPRINT("Mib: "
             "~n   ~p", [Mib]),
@@ -461,7 +461,7 @@ otp_10808(Config) when is_list(Config) ->
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
     MibFile = join(MibDir, "OTP10808-MIB.mib"),
-    ?line {ok, Mib} = 
+    {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir,      Dir}, 
 				{verbosity,   trace}, 
 				{group_check, false}]),
@@ -483,7 +483,7 @@ otp_14145(Config) when is_list(Config) ->
     MibDir  = ?config(mib_dir,      Config),
     MibName = "OTP14145-MIB",
     MibFile = join(MibDir, MibName++".mib"),
-    ?line {ok, MibBin} =
+    {ok, MibBin} =
 	snmpc:compile(MibFile, [{outdir, Dir},
 				{verbosity, trace},
 				{group_check, false},
@@ -509,7 +509,7 @@ otp_13014(Config) when is_list(Config) ->
     MibDir  = ?config(mib_dir,      Config),
     MibName = "Test-LLDP-MIB",
     MibFile = join(MibDir, MibName++".mib"),
-    ?line {ok, MibBin} =
+    {ok, MibBin} =
 	snmpc:compile(MibFile, [{outdir, Dir},
 				{verbosity, log},
 				{group_check, false},
@@ -544,7 +544,7 @@ otp_14196(Config) when is_list(Config) ->
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
     MibFile = join(MibDir, "OTP14196-MIB.mib"),
-    ?line {ok, Mib} =
+    {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     ?IPRINT("Mib: "
             "~n   ~p", [Mib]),
@@ -564,13 +564,13 @@ augments_extra_info(Config) when is_list(Config) ->
     MibDir    = ?config(mib_dir,      Config),
     Test2File = join(MibDir, "Test2.mib"),
     Test3File = join(MibDir, "Test3.mib"),
-    ?line {ok, Test2BinFile} = 
+    {ok, Test2BinFile} =
 	snmpc:compile(Test2File, [{outdir,      Dir}, 
 				  {verbosity,   silence}, 
 				  {group_check, false}]),
     ?IPRINT("Test2BinFile: "
             "~n   ~p", [Test2BinFile]),
-    ?line {ok, Test3BinFile} = 
+    {ok, Test3BinFile} =
 	snmpc:compile(Test3File, [{i,           [MibDir]}, 
 				  {outdir,      Dir}, 
 				  {verbosity,   silence}, 

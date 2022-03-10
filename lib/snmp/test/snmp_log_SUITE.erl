@@ -169,7 +169,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 	Error ->
 	    ?FAIL({failed_creating_subsuite_top_dir, Error})
     end,
-    ?line ok = file:make_dir(CaseDir),
+    ok = file:make_dir(CaseDir),
     Dog = ?WD_START(?MINS(5)),
     [{log_dir, CaseDir}, {watchdog, Dog}|Config].
 
@@ -199,11 +199,11 @@ open_and_close(Config) when is_list(Config) ->
     File   = join(Dir, "snmp_test.log"),
     Size   = {1024, 10},
     Repair = true,
-    ?line {ok, Log} = snmp_log:create(Name, File, Size, Repair),
-    ?line ok = snmp_log:sync(Log),
-    ?line {ok, Info} = snmp_log:info(Log),
+    {ok, Log} = snmp_log:create(Name, File, Size, Repair),
+    ok = snmp_log:sync(Log),
+    {ok, Info} = snmp_log:info(Log),
     display_info(Info),
-    ?line ok = snmp_log:close(Log).
+    ok = snmp_log:close(Log).
     
 
 %%======================================================================
@@ -219,7 +219,7 @@ open_write_and_close1(Config) when is_list(Config) ->
     ?DBG("open_write_and_close1 -> start", []),
 
     SeqNoGen = none, 
-    ?line ok = open_write_and_close(SeqNoGen, Config),
+    ok = open_write_and_close(SeqNoGen, Config),
 
     ?DBG("open_write_and_close1 -> done", []),
     ok.
@@ -238,7 +238,7 @@ open_write_and_close2(Config) when is_list(Config) ->
     ?DBG("open_write_and_close2 -> start", []),
 
     SeqNoGen = disabled, 
-    ?line ok = open_write_and_close(SeqNoGen, Config),
+    ok = open_write_and_close(SeqNoGen, Config),
 
     ?DBG("open_write_and_close2 -> done", []),
     ok.
@@ -258,7 +258,7 @@ open_write_and_close3(Config) when is_list(Config) ->
 
     seqno_init(), 
     SeqNoGen = {?MODULE, next_seqno, [10, 100]}, 
-    ?line ok = open_write_and_close(SeqNoGen, Config),
+    ok = open_write_and_close(SeqNoGen, Config),
     seqno_finish(),
 
     ?DBG("open_write_and_close2 -> done", []),
@@ -279,7 +279,7 @@ open_write_and_close4(Config) when is_list(Config) ->
 
     seqno_init(), 
     SeqNoGen = fun() -> next_seqno(10, 100) end, 
-    ?line ok = open_write_and_close(SeqNoGen, Config),
+    ok = open_write_and_close(SeqNoGen, Config),
     seqno_finish(),
 
     ?DBG("open_write_and_close2 -> done", []),
@@ -319,7 +319,7 @@ open_write_and_close(SeqNoGen, Config) ->
     Repair = true,
     ?DBG("open_write_and_close -> create log", []),
     
-    ?line {ok, Log} = 
+    {ok, Log} =
 	case SeqNoGen of
 	    none -> 
 		snmp_log:create(Name, File, Size, Repair);
@@ -332,10 +332,10 @@ open_write_and_close(SeqNoGen, Config) ->
 
     ?DBG("open_write_and_close1 -> create messages to log", []),
     %% A request
-    ?line Req = get_next_request(Vsn, Community, [1,1], 1, 235779012),
+    Req = get_next_request(Vsn, Community, [1,1], 1, 235779012),
 
     %% A reply
-    ?line Rep = get_response(Vsn, Community, 
+    Rep = get_response(Vsn, Community,
 			     [1,3,6,1,2,1,1,1,0], 'OCTET STRING',
 			     "Erlang SNMP agent", 1, 235779012),
     
@@ -348,17 +348,17 @@ open_write_and_close(SeqNoGen, Config) ->
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
-		     ?line ok = snmp_log:log(Log, Packet, Addr, Port)
+		     ok = snmp_log:log(Log, Packet, Addr, Port)
 	     end,
     lists:foreach(Logger, Msgs),
     check_notify(),
     
     ?DBG("open_write_and_close1 -> display info", []),
-    ?line {ok, Info} = snmp_log:info(Log),
+    {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
     ?DBG("open_write_and_close1 -> close log", []),
-    ?line ok = snmp_log:close(Log),
+    ok = snmp_log:close(Log),
 
     ?DBG("open_write_and_close -> done", []),
     ok.
@@ -381,7 +381,7 @@ log_to_io1(Config) when is_list(Config) ->
     Size   = {1024, 10},
     Repair = true,
     ?DBG("log_to_io1 -> create log", []),
-    ?line {ok, Log} = snmp_log:create(Name, File, Size, Repair),
+    {ok, Log} = snmp_log:create(Name, File, Size, Repair),
 
     ?DBG("log_to_io1 -> create messages to log", []),
     Msgs = messages(),
@@ -390,7 +390,7 @@ log_to_io1(Config) when is_list(Config) ->
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
-		     ?line ok = snmp_log:log(Log, Packet, Addr, Port)
+		     ok = snmp_log:log(Log, Packet, Addr, Port)
 	     end,
     BatchLogger = fun(Time) ->
 			  lists:foreach(Logger, Msgs),
@@ -403,14 +403,14 @@ log_to_io1(Config) when is_list(Config) ->
     lists:foreach(BatchLogger, To),
 
     ?DBG("log_to_io1 -> display info", []),
-    ?line {ok, Info} = snmp_log:info(Log),
+    {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
     ?DBG("log_to_io1 -> do the convert to io (stdout)", []),
     ? line ok = snmp:log_to_io(Dir, [], Name, File, false),
 
     ?DBG("log_to_io1 -> close log", []),
-    ?line ok = snmp_log:close(Log),
+    ok = snmp_log:close(Log),
 
     ?DBG("log_to_io1 -> done", []),
     ok.
@@ -438,20 +438,20 @@ log_to_io2(Config) when is_list(Config) ->
     Repair = true,
     
     ?DBG("log_to_io2 -> create log writer process", []),
-    ?line {ok, Log, Logger} =
+    {ok, Log, Logger} =
         log_writer_start(Name, File, Size, Repair, Factor),
 
     ?DBG("log_to_io2 -> create log reader process", []),
-    ?line {ok, Reader} = log_reader_start(),
+    {ok, Reader} = log_reader_start(),
 
     ?DBG("log_to_io2 -> wait some time", []),
     ?SLEEP(5000),
 
     ?DBG("log_to_io2 -> display log info", []),
-    ?line log_writer_info(Logger),
+    log_writer_info(Logger),
 
     ?DBG("log_to_io2 -> instruct the log writer to sleep some", []),
-    ?line ok = log_writer_sleep(Logger, 5000),
+    ok = log_writer_sleep(Logger, 5000),
 
     ?DBG("log_to_io2 -> instruct the log reader to log to io", []),
     Res = 
@@ -470,14 +470,14 @@ log_to_io2(Config) when is_list(Config) ->
 	    ?DBG("log_to_io2 -> log to io failed: "
 		 "~n   Error: ~p"
 		 "~n   Info:  ~p", [Error, Info]),
-	    ?line ?FAIL({log_lo_io_failed, Error, Info})
+	    ?FAIL({log_lo_io_failed, Error, Info})
     end,
 
     ?DBG("log_to_io2 -> instruct the log writer to stop", []),
-    ?line log_writer_stop(Logger),
+    log_writer_stop(Logger),
 
     ?DBG("log_to_io2 -> instruct the log reader to stop", []),
-    ?line log_reader_stop(Reader),
+    log_reader_stop(Reader),
 
     ?DBG("log_to_io2 -> done", []),
     ok.
@@ -494,7 +494,7 @@ log_to_txt1(Config) when is_list(Config) ->
 
     Name     = "snmp_test_l2t1",
     SeqNoGen = disabled, 
-    ?line ok = log_to_txt(Name, SeqNoGen, Config), 
+    ok = log_to_txt(Name, SeqNoGen, Config),
 
     ?DBG("log_to_txt1 -> done", []),
     ok.
@@ -513,7 +513,7 @@ log_to_txt2(Config) when is_list(Config) ->
     Name     = "snmp_test_l2t2",
     seqno_init(), 
     SeqNoGen = {?MODULE, next_seqno, [1, 100]}, 
-    ?line ok = log_to_txt(Name, SeqNoGen, Config), 
+    ok = log_to_txt(Name, SeqNoGen, Config),
     seqno_finish(),
 
     ?DBG("log_to_txt2 -> done", []),
@@ -531,7 +531,7 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
     Repair = true,
 
     ?DBG("log_to_txt -> create log", []),
-    ?line {ok, Log} = 
+    {ok, Log} =
 	case SeqNoGen of
 	    none -> 
 		snmp_log:create(Name, File, Size, Repair);
@@ -546,7 +546,7 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
-		     ?line ok = snmp_log:log(Log, Packet, Addr, Port)
+		     ok = snmp_log:log(Log, Packet, Addr, Port)
 	     end,
     BatchLogger = fun(Time) ->
 			  lists:foreach(Logger, Msgs),
@@ -561,22 +561,22 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
     Stop  = calendar:local_time(),
 
     ?DBG("log_to_txt -> display info", []),
-    ?line {ok, Info} = snmp_log:info(Log),
+    {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
     Out1a = join(Dir, "snmp_text-1-unblocked.txt"),
     ?DBG("log_to_txt -> do the convert to a text file (~s) unblocked", [Out1a]),
-    ?line ok = snmp:log_to_txt(Dir, [], Out1a, Log, File, false),
+    ok = snmp:log_to_txt(Dir, [], Out1a, Log, File, false),
 
-    ?line {ok, #file_info{size = Size1a}} = file:read_file_info(Out1a),
+    {ok, #file_info{size = Size1a}} = file:read_file_info(Out1a),
     ?DBG("log_to_txt -> text file size: ~p", [Size1a]),
     validate_size(Size1a),
 
     Out1b = join(Dir, "snmp_text-1-blocked.txt"),
     ?DBG("log_to_txt -> do the convert to a text file (~s) blocked", [Out1b]),
-    ?line ok = snmp:log_to_txt(Dir, [], Out1b, Log, File, true),
+    ok = snmp:log_to_txt(Dir, [], Out1b, Log, File, true),
 
-    ?line {ok, #file_info{size = Size1b}} = file:read_file_info(Out1b),
+    {ok, #file_info{size = Size1b}} = file:read_file_info(Out1b),
     ?DBG("log_to_txt -> text file size: ~p", [Size1b]),
     validate_size(Size1b, {eq, Size1a}),
 
@@ -585,9 +585,9 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 	"~n   Start: ~p"
 	"~n   Stop:  ~p"
 	"~n   Out2:  ~p", [Start, Stop, Out2]),
-    ?line ok = snmp:log_to_txt(Dir, [], Out2, Log, File, Start, Stop),
+    ok = snmp:log_to_txt(Dir, [], Out2, Log, File, Start, Stop),
 
-    ?line {ok, #file_info{size = Size2}} = file:read_file_info(Out2),
+    {ok, #file_info{size = Size2}} = file:read_file_info(Out2),
     ?DBG("log_to_txt -> text file size: ~p", [Size2]),
     validate_size(Size2, {le, Size1a}),
 
@@ -615,14 +615,14 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 	"~n   Start2: ~p"
 	"~n   Stop2:  ~p"
 	"~n   Out3:   ~p", [Start2, Stop2, Out3]),
-    ?line ok = snmp:log_to_txt(Dir, [], Out3, Log, File, Start2, Stop2),
+    ok = snmp:log_to_txt(Dir, [], Out3, Log, File, Start2, Stop2),
 
-    ?line {ok, #file_info{size = Size3}} = file:read_file_info(Out3),
+    {ok, #file_info{size = Size3}} = file:read_file_info(Out3),
     ?DBG("log_to_txt -> text file size: ~p", [Size3]),
     validate_size(Size3, {l, Size1a}),    
 
     ?DBG("log_to_txt -> close log", []),
-    ?line ok = snmp_log:close(Log),
+    ok = snmp_log:close(Log),
 
     ?DBG("log_to_txt -> done", []),
     ok.
@@ -659,20 +659,20 @@ log_to_txt3(Config) when is_list(Config) ->
     Mibs = [join(StdMibDir, "SNMPv2-MIB")],
 
     ?DBG("log_to_txt3 -> create log writer process", []),
-    ?line {ok, Log, Logger} =
+    {ok, Log, Logger} =
         log_writer_start(Name, LogFile, Size, Repair, Factor),
 
     ?DBG("log_to_txt3 -> create log reader process", []),
-    ?line {ok, Reader} = log_reader_start(),
+    {ok, Reader} = log_reader_start(),
 
     ?DBG("log_to_txt3 -> wait some time", []),
     ?SLEEP(5000),
 
     ?DBG("log_to_txt3 -> display log info", []),
-    ?line log_writer_info(Logger),
+    log_writer_info(Logger),
 
     ?DBG("log_to_txt3 -> instruct the log writer to sleep some", []),
-    ?line ok = log_writer_sleep(Logger, 5000),
+    ok = log_writer_sleep(Logger, 5000),
 
     ?DBG("log_to_txt3 -> instruct the log reader to log to txt", []),
     Res = 
@@ -690,7 +690,7 @@ log_to_txt3(Config) when is_list(Config) ->
     case Res of
 	{ok, _Info} ->
 	    ?DBG("log_to_txt3 -> ~n   Info: ~p", [_Info]),
-	    ?line {ok, #file_info{size = FileSize}} = 
+	    {ok, #file_info{size = FileSize}} =
 		file:read_file_info(TxtFile),
 	    ?DBG("log_to_txt3 -> text file size: ~p", [FileSize]),
 	    validate_size(FileSize);
@@ -698,14 +698,14 @@ log_to_txt3(Config) when is_list(Config) ->
 	    ?EPRINT("log to txt failed: "
                     "~n   Error: ~p"
                     "~n   Info:  ~p", [Error, Info]),
-	    ?line ?FAIL({log_lo_txt_failed, Error, Info})
+	    ?FAIL({log_lo_txt_failed, Error, Info})
     end,
 
     ?DBG("log_to_txt3 -> instruct the log writer to stop", []),
-    ?line log_writer_stop(Logger),
+    log_writer_stop(Logger),
 
     ?DBG("log_to_txt3 -> instruct the log reader to stop", []),
-    ?line log_reader_stop(Reader),
+    log_reader_stop(Reader),
 
     ?IPRINT("log_to_txt3 -> done", []),
     ok.
@@ -801,7 +801,7 @@ log_writer_main(Name, File, Size, Repair, P, Factor) ->
     Addr   = ?LOCALHOST(),
     Port   = 162,
     Logger =  fun(Packet) ->
-		     ?line ok = snmp_log:log(Log, Packet, Addr, Port)
+		     ok = snmp_log:log(Log, Packet, Addr, Port)
 	      end,
     BatchLogger = fun(Time) ->
 			  lists:foreach(Logger, Msgs),
