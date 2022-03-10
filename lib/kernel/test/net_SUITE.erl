@@ -215,7 +215,7 @@ api_b_getifaddrs() ->
         error : notsup = CReason ->
             Fun     = fun(F) when is_function(F, 0) ->
                               try F()
-                              catch C:E -> {catched, {C, E}}
+                              catch C:E:S -> {catched, {C, E, S}}
                               end
                       end,
             Res2Str = fun({ok, Res})         -> ?F("ok: ~p", [Res]);
