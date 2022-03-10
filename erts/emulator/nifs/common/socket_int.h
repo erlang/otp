@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -183,15 +183,11 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(add_source_membership);    \
     GLOBAL_ATOM_DEF(allmulti);                 \
     GLOBAL_ATOM_DEF(any);                      \
-    GLOBAL_ATOM_DEF(arphrd_dlci);	       \
-    GLOBAL_ATOM_DEF(arphrd_ether);	       \
-    GLOBAL_ATOM_DEF(arphrd_frelay);	       \
-    GLOBAL_ATOM_DEF(arphrd_ieee802);	       \
-    GLOBAL_ATOM_DEF(arphrd_ieee1394);	       \
-    GLOBAL_ATOM_DEF(arphrd_loopback);	       \
-    GLOBAL_ATOM_DEF(arphrd_netrom);	       \
-    GLOBAL_ATOM_DEF(arphrd_none);	       \
+    GLOBAL_ATOM_DEF(appletlk);                 \
+    GLOBAL_ATOM_DEF(arcnet);                   \
+    GLOBAL_ATOM_DEF(ax25);                     \
     GLOBAL_ATOM_DEF(associnfo);                \
+    GLOBAL_ATOM_DEF(atm);                      \
     GLOBAL_ATOM_DEF(authhdr);                  \
     GLOBAL_ATOM_DEF(auth_active_key);          \
     GLOBAL_ATOM_DEF(auth_asconf);              \
@@ -227,6 +223,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
     GLOBAL_ATOM_DEF(disable_fragments);        \
+    GLOBAL_ATOM_DEF(dlci);                     \
     GLOBAL_ATOM_DEF(domain);                   \
     GLOBAL_ATOM_DEF(dontfrag);                 \
     GLOBAL_ATOM_DEF(dontroute);                \
@@ -237,6 +234,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(dying);		       \
     GLOBAL_ATOM_DEF(dynamic);                  \
     GLOBAL_ATOM_DEF(echo);                     \
+    GLOBAL_ATOM_DEF(eether);                   \
     GLOBAL_ATOM_DEF(egp);                      \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
@@ -244,6 +242,8 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(errqueue);                 \
     GLOBAL_ATOM_DEF(esp_network_level);        \
     GLOBAL_ATOM_DEF(esp_trans_level);          \
+    GLOBAL_ATOM_DEF(ether);                    \
+    GLOBAL_ATOM_DEF(eui64);                    \
     GLOBAL_ATOM_DEF(events);                   \
     GLOBAL_ATOM_DEF(explicit_eor);             \
     GLOBAL_ATOM_DEF(faith);                    \
@@ -254,6 +254,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(flowinfo);                 \
     GLOBAL_ATOM_DEF(fragment_interleave);      \
     GLOBAL_ATOM_DEF(freebind);                 \
+    GLOBAL_ATOM_DEF(frelay);                   \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
     GLOBAL_ATOM_DEF(hatype);                   \
     GLOBAL_ATOM_DEF(hdrincl);                  \
@@ -263,11 +264,14 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(host);                     \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
+    GLOBAL_ATOM_DEF(ieee802);                  \
+    GLOBAL_ATOM_DEF(ieee1394);                 \
     GLOBAL_ATOM_DEF(ifindex);                  \
     GLOBAL_ATOM_DEF(igmp);                     \
     GLOBAL_ATOM_DEF(implink);                  \
     GLOBAL_ATOM_DEF(inet);                     \
     GLOBAL_ATOM_DEF(inet6);                    \
+    GLOBAL_ATOM_DEF(infiniband);	       \
     GLOBAL_ATOM_DEF(info);                     \
     GLOBAL_ATOM_DEF(initmsg);                  \
     GLOBAL_ATOM_DEF(invalid);                  \
@@ -293,6 +297,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(link1);                     \
     GLOBAL_ATOM_DEF(link2);                     \
     GLOBAL_ATOM_DEF(local);                    \
+    GLOBAL_ATOM_DEF(localtlk);                 \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
     GLOBAL_ATOM_DEF(loopback);		       \
     GLOBAL_ATOM_DEF(lowdelay);                 \
@@ -302,6 +307,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(maxburst);                 \
     GLOBAL_ATOM_DEF(maxseg);                   \
     GLOBAL_ATOM_DEF(md5sig);                   \
+    GLOBAL_ATOM_DEF(metricom);                 \
     GLOBAL_ATOM_DEF(mincost);                  \
     GLOBAL_ATOM_DEF(minttl);                   \
     GLOBAL_ATOM_DEF(monitor);		       \
@@ -316,6 +322,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(multicast_loop);           \
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
+    GLOBAL_ATOM_DEF(netrom);                   \
     GLOBAL_ATOM_DEF(noarp);                    \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
@@ -355,6 +362,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(primary_addr);             \
     GLOBAL_ATOM_DEF(priority);                 \
     GLOBAL_ATOM_DEF(promisc);                  \
+    GLOBAL_ATOM_DEF(pronet);                   \
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
@@ -422,6 +430,8 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(true);                     \
     GLOBAL_ATOM_DEF(trunc);                    \
     GLOBAL_ATOM_DEF(ttl);                      \
+    GLOBAL_ATOM_DEF(tunnel);                   \
+    GLOBAL_ATOM_DEF(tunnel6);                  \
     GLOBAL_ATOM_DEF(type);                     \
     GLOBAL_ATOM_DEF(udp);                      \
     GLOBAL_ATOM_DEF(unblock_source);           \
@@ -434,6 +444,7 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
+    GLOBAL_ATOM_DEF(void);                     \
     GLOBAL_ATOM_DEF(v6only);
 
 

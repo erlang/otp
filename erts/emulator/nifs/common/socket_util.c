@@ -484,49 +484,49 @@ void esock_encode_hwsockaddr(ErlNifEnv*       env,
   switch (family) {
 #if defined(ARPHRD_NETROM)
   case ARPHRD_NETROM:
-    efamily = esock_atom_arphrd_netrom;
+    efamily = esock_atom_netrom;
     break;
 #endif
 
 #if defined(ARPHRD_ETHER)
   case ARPHRD_ETHER:
-    efamily = esock_atom_arphrd_ether;
+    efamily = esock_atom_ether;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE802)
   case ARPHRD_IEEE802:
-    efamily = esock_atom_arphrd_ieee802;
+    efamily = esock_atom_ieee802;
     break;
 #endif
 
 #if defined(ARPHRD_DLCI)
   case ARPHRD_DLCI:
-    efamily = esock_atom_arphrd_dlci;
+    efamily = esock_atom_dlci;
     break;
 #endif
 
 #if defined(ARPHRD_FRELAY)
   case ARPHRD_FRELAY:
-    efamily = esock_atom_arphrd_frelay;
+    efamily = esock_atom_frelay;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE1394)
   case ARPHRD_IEEE1394:
-    efamily = esock_atom_arphrd_ieee1394;
+    efamily = esock_atom_ieee1394;
     break;
 #endif
 
 #if defined(ARPHRD_LOOPBACK)
   case ARPHRD_LOOPBACK:
-    efamily = esock_atom_arphrd_loopback;
+    efamily = esock_atom_loopback;
     break;
 #endif
 
 #if defined(ARPHRD_NONE)
   case ARPHRD_NONE:
-    efamily = esock_atom_arphrd_none;
+    efamily = esock_atom_none;
     break;
 #endif
 
@@ -1499,7 +1499,157 @@ void esock_encode_packet_hatype(ErlNifEnv*     env,
                                 unsigned short hatype,
                                 ERL_NIF_TERM*  eHaType)
 {
-    *eHaType = MKUI(env, hatype);
+    ERL_NIF_TERM tmp;
+
+    switch (hatype) {
+
+        /*
+         * ARP protocol HARDWARE identifiers.
+         */
+
+#if defined(ARPHRD_NETROM)
+    case ARPHRD_NETROM:
+        tmp = esock_atom_netrom;
+        break;
+#endif
+
+#if defined(ARPHRD_ETHER)
+    case ARPHRD_ETHER:
+        tmp = esock_atom_ether;
+        break;
+#endif
+
+#if defined(ARPHRD_EETHER)
+    case ARPHRD_EETHER:
+        tmp = esock_atom_eether;
+        break;
+#endif
+
+#if defined(ARPHRD_AX25)
+    case ARPHRD_AX25:
+        tmp = esock_atom_ax25;
+        break;
+#endif
+
+#if defined(ARPHRD_PRONET)
+    case ARPHRD_PRONET:
+        tmp = esock_atom_pronet;
+        break;
+#endif
+
+#if defined(ARPHRD_CHAOS)
+    case ARPHRD_CHAOS:
+        tmp = esock_atom_chaos;
+        break;
+#endif
+
+#if defined(ARPHRD_IEEE802)
+    case ARPHRD_IEEE802:
+        tmp = esock_atom_ieee802;
+        break;
+#endif
+
+#if defined(ARPHRD_ARCNET)
+    case ARPHRD_ARCNET:
+        tmp = esock_atom_arcnet;
+        break;
+#endif
+
+#if defined(ARPHRD_APPLETLK)
+    case ARPHRD_APPLETLK:
+        tmp = esock_atom_appletlk;
+        break;
+#endif
+
+#if defined(ARPHRD_DLCI)
+    case ARPHRD_DLCI:
+        tmp = esock_atom_dlci;
+        break;
+#endif
+
+#if defined(ARPHRD_ATM)
+    case ARPHRD_ATM:
+        tmp = esock_atom_atm;
+        break;
+#endif
+
+#if defined(ARPHRD_METRICOM)
+    case ARPHRD_METRICOM:
+        tmp = esock_atom_metricom;
+        break;
+#endif
+
+#if defined(ARPHRD_IEEE1394)
+    case ARPHRD_IEEE1394:
+        tmp = esock_atom_ieee1394;
+        break;
+#endif
+
+#if defined(ARPHRD_EUI64)
+    case ARPHRD_EUI64:
+        tmp = esock_atom_eui64;
+        break;
+#endif
+
+#if defined(ARPHRD_INFINIBAND)
+    case ARPHRD_INFINIBAND:
+        tmp = esock_atom_infiniband;
+        break;
+#endif
+
+
+        /*
+         * Dummy types for non ARP hardware
+         */
+
+#if defined(ARPHRD_TUNNEL)
+    case ARPHRD_TUNNEL:
+        tmp = esock_atom_tunnel;
+        break;
+#endif
+
+#if defined(ARPHRD_TUNNEL6)
+    case ARPHRD_TUNNEL6:
+        tmp = esock_atom_tunnel6;
+        break;
+#endif
+
+#if defined(ARPHRD_LOOPBACK)
+    case ARPHRD_LOOPBACK:
+        tmp = esock_atom_loopback;
+        break;
+#endif
+
+#if defined(ARPHRD_LOCALTLK)
+    case ARPHRD_LOCALTLK:
+        tmp = esock_atom_localtlk;
+        break;
+#endif
+
+
+#if defined(ARPHRD_NONE)
+    case ARPHRD_NONE:
+        tmp = esock_atom_none;
+        break;
+#endif
+
+#if defined(ARPHRD_VOID)
+    case ARPHRD_VOID:
+        tmp = esock_atom_void;
+        break;
+#endif
+
+
+        /*
+         * And the rest will be just integer
+         */
+
+    default:
+        tmp = MKUI(env, hatype);
+        break;
+    }
+
+    *eHaType = tmp;
 }
 
 
