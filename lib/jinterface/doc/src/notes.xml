@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>OtpOutputStream.write_pid/4</c> and
+	    <c>write_ref/3</c> causing faulty encodig. Bug exists
+	    since OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17887 Aux Id: ERIERL-750, PR-5640 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

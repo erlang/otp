@@ -127,7 +127,7 @@
   <funcs>
 
     <func>
-      <name name="get_sample" arity="0" since="OTP @OTP-17830@"/>
+      <name name="get_sample" arity="0" since="OTP 24.3"/>
       <fsummary>Get scheduler utilization sample.</fsummary>
       <desc>
         <p>Returns a scheduler utilization sample for normal and dirty-cpu
@@ -138,7 +138,7 @@
     </func>
 
     <func>
-      <name name="get_sample_all" arity="0" since="OTP @OTP-17830@"/>
+      <name name="get_sample_all" arity="0" since="OTP 24.3"/>
       <fsummary>Get scheduler utilization sample.</fsummary>
       <desc>
         <p>Return a scheduler utilization sample for all schedulers,

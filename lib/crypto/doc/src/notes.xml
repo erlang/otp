@@ -31,6 +31,83 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.0.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The crypto app in OTP can since OTP-24.2 be compiled,
+	    linked and used with the new OpenSSL 3.0 cryptolib.</p>
+          <p>
+	    The crypto app has 3.0 support has been improved, but is
+	    still <em>*not recommended*</em> for other usages than
+	    experiments and alpha testing. There are not yet any
+	    guaranties that it works, not even together with other
+	    OTP applications like for example SSL and SSH, although
+	    there are no known errors.</p>
+          <p>
+	    Since the previous release, OTP-24.2, the following
+	    improvements have been done:</p>
+          <p>
+	    - It has been tested during nearly every nightly test on
+	    the OTP lab</p>
+          <p>
+	    - The hash algorithms <c>md4</c> and <c>ripemd160</c>
+	    have been enabled with OpenSSL 3.0.</p>
+          <p>
+	    - The ciphers <c>blowfish_cbc</c>, <c>blowfish_ecb</c>,
+	    <c>des_cbc</c>, <c>des_cfb</c>, <c>des_ecb</c>,
+	    <c>rc2_cbc</c> and <c>rc4</c> have been enabled with
+	    OpenSSL 3.0.</p>
+          <p>
+	    Disabled or unsupported with OpenSSL 3.0 are still:</p>
+          <p>
+	    - ENGINE support</p>
+          <p>
+	    - FIPS mode</p>
+          <p>
+	    - Other providers than the built-in ones</p>
+          <p>
+	    - Compiling and linking with OpenSSL 3.0 cryptolib in
+	    compatibility modes (for example to behave as 1.1.1) </p>
+          <p>
+	    and, the ciphers <c>blowfish_cfb64</c> and
+	    <c>blowfish_ofb64</c> are not supported and will not be
+	    either.</p>
+          <p>
+	    Deprecated functions in the OpenSSL 3.0 cryptolib must
+	    not be disabled as OTP/crypto still uses some of the
+	    deprecated API functions. The gcc flag
+	    <c>-Wno-deprecated-declarations</c> is set to prevent
+	    deprecation warnings to be printed when compiling.</p>
+          <p>
+	    Own Id: OTP-17812 Aux Id: OTP-16646, OTP-16282 </p>
+        </item>
+        <item>
+          <p>
+	    Crypto is adapted to LibreSSL 3.5.0 on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-17941 Aux Id: OTP-17942 </p>
+        </item>
+        <item>
+          <p>
+	    New configure option ( <c>--disable-otp-test-engine</c>)
+	    to prohibit the build of the OTP test engine used in some
+	    test suites.</p>
+          <p>
+	    The reason is that the test engine could be hard to
+	    compile on for instance LibreSSL 3.5.0. For that
+	    particular cryptolib version (or higher), this configure
+	    option is set automatically.</p>
+          <p>
+	    Own Id: OTP-17942 Aux Id: OTP-17941 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

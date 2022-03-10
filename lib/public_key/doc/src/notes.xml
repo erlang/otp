@@ -35,6 +35,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support password fun for protected keyfiles in
+	    ssl:connect function.</p>
+          <p>
+	    Own Id: OTP-17816 Aux Id: PR-5607 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.11.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,37 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix eldap extensibleMatch dnAttributes option.</p>
+          <p>
+	    According to the ldap ASN1 the dnAttributes should be a
+	    bool, instead it was generated as a string.</p>
+          <p>
+	    Own Id: OTP-17877 Aux Id: PR-5615 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implemented paged searches according to
+	    https://www.rfc-editor.org/rfc/rfc2696.txt</p>
+          <p>
+	    Own Id: OTP-17924 Aux Id: PR-5538 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.9</title>
 
     <section><title>Improvements and New Features</title>

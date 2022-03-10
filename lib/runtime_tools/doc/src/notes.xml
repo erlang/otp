@@ -32,6 +32,38 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>scheduler:utilization(Seconds)</c> that
+	    would leave the <c>scheduler_wall_time</c> system flag
+	    incorrectly enabled.</p>
+          <p>
+	    Own Id: OTP-17800 Aux Id: PR-5425 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>scheduler:get_sample/0</c> and
+	    <c>get_sample_all/0</c>. Also clarify <c>scheduler</c>
+	    module documentation about how it depends on system flag
+	    <c>scheduler_wall_time</c>.</p>
+          <p>
+	    Own Id: OTP-17830 Aux Id: GH-5425, PR-5444 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.17</title>
 
     <section><title>Improvements and New Features</title>

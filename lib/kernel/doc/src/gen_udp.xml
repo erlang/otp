@@ -119,7 +119,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="2" since="OTP @OTP-17455@" anchor="connect-sockaddr"/>
+      <name name="connect" arity="2" since="OTP 24.3" anchor="connect-sockaddr"/>
       <fsummary>Connect a UDP port.</fsummary>
       <desc> 
 	<p>Connecting a UDP socket only means storing the specified
@@ -142,7 +142,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="3" since="OTP @OTP-17455@" anchor="connect-addr-port"/>
+      <name name="connect" arity="3" since="OTP 24.3" anchor="connect-addr-port"/>
       <fsummary>Connect a UDP port.</fsummary>
       <desc>
 	<p>Connecting a UDP socket only means storing the specified
@@ -339,7 +339,7 @@
     </func>
 
     <func>
-      <name name="send" arity="2" since="OTP @OTP-17455@" anchor="send-2"/>
+      <name name="send" arity="2" since="OTP 24.3" anchor="send-2"/>
       <fsummary>Send a packet on a connected socket.</fsummary>
       <desc>
         <p>

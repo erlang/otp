@@ -128,7 +128,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="3" anchor="connect-sockaddr3" since="OTP @OTP-17455@"/>
+      <name name="connect" arity="3" anchor="connect-sockaddr3" since="OTP 24.3"/>
       <fsummary>Same as <c>connect(Socket, SockAddr, Opts, infinity)</c>.</fsummary>
       <desc>
         <p>Same as <c>connect(<anno>Socket</anno>, <anno>SockAddr</anno>,
@@ -137,7 +137,7 @@
     </func>
 
     <func>
-      <name name="connect" arity="4" clause_i="1" anchor="connect-sockaddr4" since="OTP @OTP-17455@"/>
+      <name name="connect" arity="4" clause_i="1" anchor="connect-sockaddr4" since="OTP 24.3"/>
       <fsummary>Establish a new association for socket <c>Socket</c>, with a
       peer (SCTP server socket).</fsummary>
       <desc>
@@ -243,7 +243,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="3" anchor="connect_init-sockaddr3" since="OTP @OTP-17455@"/>
+      <name name="connect_init" arity="3" anchor="connect_init-sockaddr3" since="OTP 24.3"/>
       <fsummary>Same as <c>connect_init(Socket, SockAddr, Opts, infinity)</c>.</fsummary>
       <desc>
         <p>Same as <c>connect_init(<anno>Socket</anno>, <anno>SockAddr</anno>,
@@ -252,7 +252,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="4" clause_i="1" anchor="connect_init-sockaddr4" since="OTP @OTP-17455@"/>
+      <name name="connect_init" arity="4" clause_i="1" anchor="connect_init-sockaddr4" since="OTP 24.3"/>
       <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>..</fsummary>
       <desc>
 	<p>This is conceptually the same as
@@ -1255,4 +1255,3 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
       API Extensions for SCTP</url></p>
   </section>
 </erlref>
-

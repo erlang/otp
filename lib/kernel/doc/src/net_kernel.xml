@@ -349,7 +349,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="start" arity="2" since="OTP @OTP-17905@"/>
+      <name name="start" arity="2" since="OTP 24.3"/>
       <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
       <desc>
         <p>
@@ -463,4 +463,3 @@ $ <input>erl -sname foobar</input></pre>
     </func>
   </funcs>
 </erlref>
-

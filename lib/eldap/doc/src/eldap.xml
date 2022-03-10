@@ -483,7 +483,7 @@
       <desc> <p>Negate a filter.</p> </desc>
     </func>
     <func>
-      <name since="OTP @OTP-17924@">paged_result_control(PageSize) -&gt;
+      <name since="OTP 24.3">paged_result_control(PageSize) -&gt;
       {control, "1.2.840.113556.1.4.319", true, binary()}</name>
       <fsummary>Create a paged result control tuple</fsummary>
       <type>
@@ -502,7 +502,7 @@ Control = eldap:paged_result_control(50),
       </desc>
     </func>
     <func>
-      <name since="OTP @OTP-17924@">paged_result_control(PageSize, Cookie)
+      <name since="OTP 24.3">paged_result_control(PageSize, Cookie)
       -&gt; {control, "1.2.840.113556.1.4.319", true,
       binary()}</name>
       <fsummary>Create a paged result control tuple with the given
@@ -531,7 +531,7 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
       </desc>
     </func>
     <func>
-      <name since="OTP @OTP-17924@">paged_result_cookie(SearchResult)
+      <name since="OTP 24.3">paged_result_cookie(SearchResult)
       -&gt; binary()</name>
       <fsummary>Extract a cookie from search results for use in the
       subsequent search.</fsummary>
@@ -552,4 +552,3 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
   </funcs>
 
 </erlref>
-

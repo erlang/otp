@@ -37,7 +37,37 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.2</title>
+  <section><title>Megaco 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compilation time is no longer recorded in BEAM
+	    files. There remained several undocumented functions that
+	    attempted to retrieve compilation times. Those have now
+	    been removed.</p>
+          <p>
+	    Own Id: OTP-17962</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update the performance and debug chapters of the megaco
+	    user's guide. Also some updates to the meas tools.</p>
+          <p>
+	    Own Id: OTP-17839</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

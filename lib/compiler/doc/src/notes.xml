@@ -32,6 +32,37 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The expression
+	    <c>&lt;&lt;0/native-float&gt;&gt;=Bin</c> would always
+	    fail to match, while
+	    <c>&lt;&lt;0/float-native&gt;&gt;=Bin</c> would match
+	    (provided that <c>Bin</c> contained the binary
+	    representation of <c>0.0</c>)</p>
+          <p>
+	    Own Id: OTP-17895</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The compiler will now compile huge functions with
+	    straight-line code faster.</p>
+          <p>
+	    Own Id: OTP-17886 Aux Id: GH-5140, GH-5686 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -294,8 +294,8 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="connect" arity="2" clause_i="1" since="OTP @OTP-17455@" anchor="connect-sockaddr2"/>
-      <name name="connect" arity="3" clause_i="2" since="OTP @OTP-17455@" anchor="connect-sockaddr3"/>
+      <name name="connect" arity="2" clause_i="1" since="OTP 24.3" anchor="connect-sockaddr2"/>
+      <name name="connect" arity="3" clause_i="2" since="OTP 24.3" anchor="connect-sockaddr3"/>
       <fsummary>Connect to a TCP port.</fsummary>
       <desc>
 	<p>Connects to a server according to <c><anno>SockAddr</anno></c>.
@@ -740,4 +740,3 @@ loop(Sock) ->
       comes in handy.</p>
   </section>
 </erlref>
-

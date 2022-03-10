@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calculate the display width in <c>etop</c>, instead of
+	    hard-coding it to 89 characters.</p>
+          <p>
+	    Own Id: OTP-17880 Aux Id: PR-5557 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

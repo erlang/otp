@@ -31,7 +31,30 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.2</title>
+  <section><title>Erl_Docgen 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix css for large tables and images on small screens</p>
+          <p>
+	    Own Id: OTP-17852</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug with codeinclude tag that caused it to not
+	    include the code if used in a correct, but unexpected
+	    way.</p>
+          <p>
+	    Own Id: OTP-17907 Aux Id: GH-5662 PR-5666 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
