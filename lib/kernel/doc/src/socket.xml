@@ -304,6 +304,10 @@
       <desc></desc>
     </datatype>
     <datatype>
+      <name name="hatype"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
       <name name="port_number"/>
       <desc></desc>
     </datatype>
