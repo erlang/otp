@@ -671,7 +671,7 @@ gen_gc(Fd, GBP) ->
                  "        false -> [CP0|T0]; % losing work done on T\n"
                  "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP,CP0])\n"
                  "    end;\n"
-                 "gc_extend([], _, CP) -> [CP];\n"
+                 "gc_extend([], T0, CP) -> [CP|T0];\n"
                  "gc_extend({error,R}, _, CP) -> [CP|R].\n\n"),
     io:put_chars(Fd,
                  "gc_extend2([CP|T], T0, Acc) ->\n"
@@ -679,8 +679,8 @@ gen_gc(Fd, GBP) ->
                  "        false -> [lists:reverse(Acc)|T0]; % losing work done on T\n"
                  "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP|Acc])\n"
                  "    end;\n"
-                 "gc_extend2([], _, Acc) ->\n"
-                 "    [lists:reverse(Acc)];\n"
+                 "gc_extend2([], T0, Acc) ->\n"
+                 "    [lists:reverse(Acc)|T0];\n"
                  "gc_extend2({error,R}, _, Acc) ->\n"
                  "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
