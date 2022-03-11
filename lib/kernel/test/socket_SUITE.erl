@@ -35163,22 +35163,8 @@ do_ioctl_get_gifhwaddr(_State) ->
     %% This a *very* simple test...
     %% ...just to check that we actually get an socket address
     _ = [case socket:ioctl(Sock, gifhwaddr, IfName) of
-             {ok, #{family := ArphdrFam,
-                    addr   := Addr}} when is_atom(ArphdrFam) ->
-                 case erlang:atom_to_list(ArphdrFam) of
-                     "arphrd_" ++ _ ->
-                         i("got (expected) (HW) socket address for "
-                           "interface ~p (~w): "
-                           "~n      (~w) ~p", [IfName, IfIdx, ArphdrFam, Addr]),
-                         ok;
-                     _ ->
-                         i("<ERROR> got unexpected family for interface ~p (~w)"
-                           "~n      ~p", [IfName, IfIdx, ArphdrFam]),
-                         socket:close(Sock),
-                         ?FAIL({unexpected_family, IfName, IfIdx, ArphdrFam})
-                 end;
              {ok, #{family := Fam,
-                    addr   := Addr}} when is_integer(Fam) ->
+                    addr   := Addr}} when is_atom(Fam) orelse is_integer(Fam) ->
                  i("got (expected) socket address for interface ~p (~w): "
                    "~n      (~w) ~p", [IfName, IfIdx, Fam, Addr]),
                  ok;
