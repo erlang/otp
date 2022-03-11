@@ -129,8 +129,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
         rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
 
-        if (erts_proc_sig_send_link(BIF_P, BIF_ARG_1, rlnk))
+        if (erts_proc_sig_send_link(&BIF_P->common, BIF_P->common.id,
+                                    BIF_ARG_1, rlnk)) {
             BIF_RET(am_true);
+        }
 
         erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
         erts_link_internal_release(lnk);
@@ -251,8 +253,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
                 }
                 erts_link_set_dead_dist(&elnk->ld.dist, dep->sysname);
             }
-            erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, &elnk->ld.dist,
-                                         am_noconnection, NIL);
+            erts_proc_sig_send_link_exit_noconnection(&elnk->ld.dist);
             break;
 
         case ERTS_DSIG_PREP_PENDING:
@@ -395,7 +396,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    }
 
    case ERTS_MON_TYPE_PROC:
-       erts_proc_sig_send_demonitor(mon);
+       erts_proc_sig_send_demonitor(&c_p->common, c_p->common.id, 0, mon);
        return am_true;
 
    case ERTS_MON_TYPE_DIST_PROC: {
@@ -677,9 +678,12 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
                 mdp->origin.flags |= add_oflags;
                 erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p),
                                          &mdp->origin);
-                if (!erts_proc_sig_send_monitor(&mdp->u.target, id))
-                    erts_proc_sig_send_monitor_down(&mdp->u.target,
+                if (!erts_proc_sig_send_monitor(&c_p->common, c_p->common.id,
+                                                &mdp->u.target, id)) {
+                    erts_proc_sig_send_monitor_down(NULL, id,
+                                                    &mdp->u.target,
                                                     am_noproc);
+                }
             }
 
             goto done;
@@ -722,7 +726,9 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
             case ERTS_DSIG_PREP_NOT_ALIVE:
             case ERTS_DSIG_PREP_NOT_CONNECTED:
                 erts_monitor_set_dead_dist(&mdp->u.target, dep->sysname);
-                erts_proc_sig_send_monitor_down(&mdp->u.target, am_noconnection);
+                erts_proc_sig_send_monitor_down(NULL, id,
+                                                &mdp->u.target,
+                                                am_noconnection);
                 code = ERTS_DSIG_SEND_OK;
                 break;
 
@@ -786,8 +792,10 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
             mdp->origin.flags |= add_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), &mdp->origin);
             prt = erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
-            if (!prt || erts_port_monitor(c_p, prt, &mdp->u.target) == ERTS_PORT_OP_DROPPED)
-                erts_proc_sig_send_monitor_down(&mdp->u.target, am_noproc);
+            if (!prt || erts_port_monitor(c_p, prt, &mdp->u.target) == ERTS_PORT_OP_DROPPED) {
+                erts_proc_sig_send_monitor_down(prt ? &prt->common : NULL, id,
+                                                &mdp->u.target, am_noproc);
+            }
             goto done;
         }
 
@@ -1102,7 +1110,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(BIF_P),
                                                    BIF_ARG_1);
         if (ilnk && !ilnk->unlinking) {
-            Uint64 id = erts_proc_sig_send_unlink(BIF_P,
+            Uint64 id = erts_proc_sig_send_unlink(&BIF_P->common,
                                                   BIF_P->common.id,
                                                   &ilnk->link);
             if (id)
@@ -1135,7 +1143,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
             else {
                 ErtsSigUnlinkOp *sulnk;
 
-                sulnk = erts_proc_sig_make_unlink_op(BIF_P, BIF_P->common.id);
+                sulnk = erts_proc_sig_make_unlink_op(&BIF_P->common,
+                                                     BIF_P->common.id);
                 ilnk->unlinking = sulnk->id;
 #ifdef DEBUG
 		ref = NIL;
@@ -1173,7 +1182,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         if (elnk->unlinking)
             BIF_RET(am_true);
 
-        unlink_id = erts_proc_sig_new_unlink_id(BIF_P);
+        unlink_id = erts_proc_sig_new_unlink_id(&BIF_P->common);
         elnk->unlinking = unlink_id;
 
 	code = erts_dsig_prepare(&ctx, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
@@ -1547,7 +1556,7 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
                               && c_p->common.id == id
                               && (reason == am_kill
                                   || !(c_p->flags & F_TRAP_EXIT)));
-         erts_proc_sig_send_exit(c_p, c_p->common.id, id,
+         erts_proc_sig_send_exit(&c_p->common, c_p->common.id, id,
                                  reason, NIL, exit2_suicide);
          if (!exit2_suicide)
              ERTS_BIF_PREP_RET(ret_val, am_true);

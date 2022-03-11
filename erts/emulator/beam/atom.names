@@ -660,6 +660,7 @@ atom spawn_init
 atom spawn_reply
 atom spawn_request
 atom spawn_request_yield
+atom spawn_service
 atom spawned
 atom ssl_tls
 atom stack_size

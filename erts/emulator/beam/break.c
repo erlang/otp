@@ -134,12 +134,19 @@ process_killer(void)
 		if ((j = sys_get_key(0)) <= 0)
 		    erts_exit(0, "");
 		switch(j) {
-		case 'k':
+                case 'k':
+                {
+                    Process *init_proc;
+
                     ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                    init_proc = erts_proc_lookup_raw(erts_init_process_id);
+
                     /* Send a 'kill' exit signal from init process */
-                    erts_proc_sig_send_exit(NULL, erts_init_process_id,
-                                            rp->common.id, am_kill, NIL,
-                                            0);
+                    erts_proc_sig_send_exit(&init_proc->common,
+                                            erts_init_process_id,
+                                            rp->common.id,
+                                            am_kill, NIL, 0);
+                }
 		case 'n': br = 1; break;
 		case 'r': return;
 		default: return;

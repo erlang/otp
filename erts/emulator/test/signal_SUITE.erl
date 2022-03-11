@@ -41,7 +41,8 @@
          busy_dist_demonitor_signal/1,
          busy_dist_down_signal/1,
          busy_dist_spawn_reply_signal/1,
-         busy_dist_unlink_ack_signal/1]).
+         busy_dist_unlink_ack_signal/1,
+         monitor_order/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -67,7 +68,8 @@ all() ->
      busy_dist_demonitor_signal,
      busy_dist_down_signal,
      busy_dist_spawn_reply_signal,
-     busy_dist_unlink_ack_signal].
+     busy_dist_unlink_ack_signal,
+     monitor_order].
 
 %% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
@@ -219,17 +221,24 @@ contended_signal_handling_make_ports(Drv, N, Ports) ->
     contended_signal_handling_make_ports(Drv, N-1, [Port|Ports]).
 
 busy_dist_exit_signal(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
+
     BusyTime = 1000,
     {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
     {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
-    Exiter = spawn(BusyChannelNode,
-                   fun () ->
-                           pong = net_adm:ping(OtherNode),
-                           Tester ! {self(), alive},
-                           receive after infinity -> ok end
-                   end),
-    receive {Exiter, alive} -> ok end,
+    {Exiter,MRef} = spawn_monitor(BusyChannelNode,
+                                  fun () ->
+                                          pong = net_adm:ping(OtherNode),
+                                          Tester ! {self(), alive},
+                                          receive after infinity -> ok end
+                                  end),
+    receive
+        {Exiter, alive} ->
+            erlang:demonitor(MRef, [flush]);
+        {'DOWN', MRef, process, Why, normal} ->
+            ct:fail({exiter_died, Why})
+    end,
     Linker = spawn_link(OtherNode,
                         fun () ->
                                 process_flag(trap_exit, true),
@@ -242,7 +251,7 @@ busy_dist_exit_signal(Config) when is_list(Config) ->
                                         exit({unexpected_message, Unexpected})
                                 end
                          end),
-    make_busy(BusyChannelNode, OtherNode, 1000),
+    make_busy(BusyChannelNode, OtherNode, BusyTime),
     exit(Exiter, tester_killed_me),
     receive
         {Linker, got_exiter_exit_message} ->
@@ -257,6 +266,8 @@ busy_dist_exit_signal(Config) when is_list(Config) ->
     ok.
 
 busy_dist_demonitor_signal(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
+
     BusyTime = 1000,
     {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
     {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
@@ -291,7 +302,7 @@ busy_dist_demonitor_signal(Config) when is_list(Config) ->
                              end),
     Demonitorer ! {self(), monitor, Demonitoree},
     receive {Demonitoree, monitored} -> ok end,
-    make_busy(BusyChannelNode, OtherNode, 1000),
+    make_busy(BusyChannelNode, OtherNode, BusyTime),
     exit(Demonitorer, tester_killed_me),
     receive
         {Demonitoree, got_demonitorer_demonitor_signal} ->
@@ -306,17 +317,24 @@ busy_dist_demonitor_signal(Config) when is_list(Config) ->
     ok.
 
 busy_dist_down_signal(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
+
     BusyTime = 1000,
     {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
     {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
-    Exiter = spawn(BusyChannelNode,
-                   fun () ->
-                           pong = net_adm:ping(OtherNode),
-                           Tester ! {self(), alive},
-                           receive after infinity -> ok end
-                   end),
-    receive {Exiter, alive} -> ok end,
+    {Exiter,MRef} = spawn_monitor(BusyChannelNode,
+                                  fun () ->
+                                          pong = net_adm:ping(OtherNode),
+                                          Tester ! {self(), alive},
+                                          receive after infinity -> ok end
+                                  end),
+    receive
+        {Exiter, alive} ->
+            erlang:demonitor(MRef, [flush]);
+        {'DOWN', MRef, process, Why, normal} ->
+            ct:fail({exiter_died, Why})
+    end,
     Monitorer = spawn_link(OtherNode,
                         fun () ->
                                 process_flag(trap_exit, true),
@@ -329,7 +347,7 @@ busy_dist_down_signal(Config) when is_list(Config) ->
                                         exit({unexpected_message, Unexpected})
                                 end
                          end),
-    make_busy(BusyChannelNode, OtherNode, 1000),
+    make_busy(BusyChannelNode, OtherNode, BusyTime),
     exit(Exiter, tester_killed_me),
     receive
         {Monitorer, got_exiter_down_message} ->
@@ -344,6 +362,8 @@ busy_dist_down_signal(Config) when is_list(Config) ->
     ok.
 
 busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
+
     BusyTime = 1000,
     {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
     {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
@@ -365,7 +385,7 @@ busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
                                  end
                          end),
     receive {Spawner, ready} -> ok end,
-    make_busy(BusyChannelNode, OtherNode, 1000),
+    make_busy(BusyChannelNode, OtherNode, BusyTime),
     Spawner ! {self(), go},
     receive
         {Spawner, got_spawn_reply_message} ->
@@ -385,17 +405,24 @@ busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
                    id}).
 
 busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
+
     BusyTime = 1000,
     {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
     {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
-    Unlinkee = spawn(BusyChannelNode,
-                     fun () ->
-                             pong = net_adm:ping(OtherNode),
-                             Tester ! {self(), alive},
-                             receive after infinity -> ok end
-                     end),
-    receive {Unlinkee, alive} -> ok end,
+    {Unlinkee,MRef} = spawn_monitor(BusyChannelNode,
+                                    fun () ->
+                                            pong = net_adm:ping(OtherNode),
+                                            Tester ! {self(), alive},
+                                            receive after infinity -> ok end
+                                    end),
+    receive
+        {Unlinkee, alive} ->
+            erlang:demonitor(MRef, [flush]);
+        {'DOWN', MRef, process, Why, normal} ->
+            ct:fail({unlinkee_died, Why})
+    end,
     Unlinker = spawn_link(OtherNode,
                           fun () ->
                                   erts_debug:set_internal_state(available_internal_state, true),
@@ -418,7 +445,7 @@ busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
                                   Tester ! {self(), got_unlink_ack_signal}
                           end),
     receive {Unlinker, ready} -> ok end,
-    make_busy(BusyChannelNode, OtherNode, 1000),
+    make_busy(BusyChannelNode, OtherNode, BusyTime),
     Unlinker ! {self(), go},
     receive
         {Unlinker, got_unlink_ack_signal} ->
@@ -431,6 +458,37 @@ busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
     peer:stop(BusyChannelPeer),
     peer:stop(OtherPeer),
     ok.
+
+%% Monitors could be reordered relative to message signals when the parallel
+%% signal sending optimization was active.
+monitor_order(_Config) ->
+    process_flag(message_queue_data, off_heap),
+    monitor_order_1(10).
+
+monitor_order_1(0) ->
+    ok;
+monitor_order_1(N) ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() ->
+                                        receive
+                                            MRef ->
+                                                %% The first message sets up
+                                                %% the parallel signal buffer,
+                                                %% the second uses it.
+                                                Self ! {self(), MRef, first},
+                                                Self ! {self(), MRef, second}
+                                        end,
+                                        exit(normal)
+                                end),
+    Pid ! MRef,
+    receive
+        {'DOWN', MRef, process, _, normal} ->
+            ct:fail("Down signal arrived before second message!");
+        {Pid, MRef, second} ->
+            receive {Pid, MRef, first} -> ok end,
+            erlang:demonitor(MRef, [flush]),
+            monitor_order_1(N - 1)
+    end.
 
 %%
 %% -- Internal utils --------------------------------------------------------

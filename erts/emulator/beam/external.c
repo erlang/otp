@@ -6034,8 +6034,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
 #endif
 
             /* Send unlink ack to local sender... */
-            erts_proc_sig_send_dist_unlink_ack(NULL, dep,
-                                               dep->connection_id,
+            erts_proc_sig_send_dist_unlink_ack(dep, dep->connection_id,
                                                remote, local, id);
 
             transcode_decode_state_destroy(&tds);

@@ -278,14 +278,14 @@ erts_realloc_shrink_message(ErtsMessage *mp, Uint sz, Eterm *brefs, Uint brefs_s
 
 void
 erts_queue_dist_message(Process *rcvr,
-			ErtsProcLocks rcvr_locks,
-			ErtsDistExternal *dist_ext,
+                        ErtsProcLocks rcvr_locks,
+                        ErtsDistExternal *dist_ext,
                         ErlHeapFragment *hfrag,
-			Eterm token,
+                        Eterm token,
                         Eterm from)
 {
-    ErtsMessage* mp;
     erts_aint_t state;
+    ErtsMessage *mp;
 
     ERTS_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
 
@@ -320,40 +320,62 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	ERL_MESSAGE_TOKEN(mp) = token;
 
-    if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
-	if (erts_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
-	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
-            ErtsProcLocks unlocks =
-                rcvr_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
-	    if (unlocks) {
-		erts_proc_unlock(rcvr, unlocks);
-		need_locks |= unlocks;
-	    }
-	    erts_proc_lock(rcvr, need_locks);
-	}
+    /* If the sender is known, try to enqueue to an outer message queue buffer
+     * instead of directly to the outer message queue.
+     *
+     * Otherwise, the code below flushes the buffer before adding the message
+     * to ensure the signal order is maintained. This should only happen for
+     * the relatively uncommon DOP_SEND/DOP_SEND_TT operations. */
+    if (is_external_pid(from) &&
+         erts_proc_sig_queue_try_enqueue_to_buffer(from, rcvr, rcvr_locks,
+                                                   mp, &mp->next,
+                                                   NULL, 1, 0)) {
+        return;
     }
 
+    if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
+        ErtsProcLocks unlocks;
+
+        unlocks = rcvr_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
+        erts_proc_unlock(rcvr, unlocks);
+
+        erts_proc_sig_queue_lock(rcvr);
+    }
 
     state = erts_atomic32_read_acqb(&rcvr->state);
     if (state & ERTS_PSFLG_EXITING) {
-	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
-	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
-	/* Drop message if receiver is exiting or has a pending exit ... */
-	erts_cleanup_messages(mp);
-    }
-    else {
-	LINK_MESSAGE(rcvr, mp);
+        if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
+            erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+        }
 
-	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
-	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+        /* Drop message if receiver is exiting or has a pending exit ... */
+        erts_cleanup_messages(mp);
+    } else {
+        if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
+            /* Install buffers for the outer message if the heuristic
+             * indicates that this is beneficial. It is best to do this as
+             * soon as possible to avoid as much contention as possible. */
+            erts_proc_sig_queue_maybe_install_buffers(rcvr, state);
 
-	erts_proc_notify_new_message(rcvr, rcvr_locks);
+            /* Flush outer signal queue buffers, if such buffers are
+             * installed, to ensure that messages from the same
+             * process cannot be reordered. */
+            erts_proc_sig_queue_flush_buffers(rcvr);
+        }
+
+        LINK_MESSAGE(rcvr, mp);
+
+        if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
+            erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+        }
+
+        erts_proc_notify_new_message(rcvr, rcvr_locks);
     }
 }
 
 /* Add messages last in message queue */
 static void
-queue_messages(Process* sender, /* is NULL if the sender is not a local process */
+queue_messages(Eterm from,
                Process* receiver,
                ErtsProcLocks receiver_locks,
                ErtsMessage* first,
@@ -382,7 +404,7 @@ queue_messages(Process* sender, /* is NULL if the sender is not a local process 
      * Try to enqueue to an outer message queue buffer instead of
      * directly to the outer message queue
      */
-    if (erts_proc_sig_queue_try_enqueue_to_buffer(sender, receiver, receiver_locks,
+    if (erts_proc_sig_queue_try_enqueue_to_buffer(from, receiver, receiver_locks,
                                                   first, last, NULL, len, 0)) {
         return;
     }
@@ -481,7 +503,7 @@ erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = from;
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
-    queue_messages(NULL, receiver, receiver_locks, mp, &mp->next, 1);
+    queue_messages(from, receiver, receiver_locks, mp, &mp->next, 1);
 }
 
 /**
@@ -498,7 +520,7 @@ erts_queue_message_token(Process* receiver, ErtsProcLocks receiver_locks,
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = from;
     ERL_MESSAGE_TOKEN(mp) = token;
-    queue_messages(NULL, receiver, receiver_locks, mp, &mp->next, 1);
+    queue_messages(from, receiver, receiver_locks, mp, &mp->next, 1);
 }
 
 
@@ -519,7 +541,7 @@ erts_queue_proc_message(Process* sender,
 {
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
-    queue_messages(sender, receiver, receiver_locks,
+    queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, mp),
                    &mp->next, 1);
 }
@@ -530,7 +552,7 @@ erts_queue_proc_messages(Process* sender,
                          Process* receiver, ErtsProcLocks receiver_locks,
                          ErtsMessage* first, ErtsMessage** last, Uint len)
 {
-    queue_messages(sender, receiver, receiver_locks,
+    queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);
 }
@@ -988,7 +1010,7 @@ change_off_heap_msgq(void *vcohmq)
      * process to complete this change itself.
      */
     cohmq = (ErtsChangeOffHeapMessageQueue *) vcohmq;
-    erts_proc_sig_send_move_msgq_off_heap(NULL, cohmq->pid);
+    erts_proc_sig_send_move_msgq_off_heap(cohmq->pid);
     erts_free(ERTS_ALC_T_MSGQ_CHNG, vcohmq);
 }
 
