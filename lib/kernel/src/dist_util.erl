@@ -315,8 +315,11 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 
 	    %% This can happen if the other node goes down,
 	    %% and goes up again and contact us before we have
-	    %% detected that the socket was closed. 
-	    wait_pending(Kernel),
+	    %% detected that the socket was closed.
+            %% It can also happen if the old connection went down silently,
+            %% without us knowing, a lost TCP FIN or RST packet for example.
+
+	    wait_pending(HSData),
 	    reset_timer(HSData#hs_data.timer),
             HSData;
 
@@ -332,7 +335,9 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 %% simultaneous connection problems
 %%
 
-wait_pending(Kernel) ->
+wait_pending(#hs_data{kernel_pid=Kernel,
+		      other_node=Node}) ->
+    Kernel ! {self(), {wait_pending, Node}},
     receive
 	{Kernel, pending} ->
 	    ?trace("wait_pending returned for pid ~p.~n", 
