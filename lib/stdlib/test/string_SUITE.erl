@@ -652,6 +652,9 @@ cd_gc(_) ->
     [778|<<>>] = string:next_codepoint(tl(string:next_codepoint(<<$e,778/utf8>>))),
     [0|<<128,1>>] = string:next_codepoint(<<0,128,1>>),
     {error,<<128,1>>} = string:next_codepoint(<<128,1>>),
+    [128021|<<>>] = string:next_codepoint(<<128021/utf8>>), %% Dog
+    [128021|<<8205/utf8>>] = string:next_codepoint(<<128021/utf8,8205/utf8>>), %% Dog + ZWJ
+    [128021|<<8205/utf8,129466/utf8>>] = string:next_codepoint(<<128021/utf8,8205/utf8,129466/utf8>>), %% Dog + ZWJ + Service vest == Service dog
 
     [] = string:next_grapheme(""),
     [] = string:next_grapheme(<<>>),
@@ -664,6 +667,9 @@ cd_gc(_) ->
     [[$e,778]|<<>>] = string:next_grapheme(<<$e,778/utf8>>),
     [0|<<128,1>>] = string:next_grapheme(<<0,128,1>>),
     {error,<<128,1>>} = string:next_grapheme(<<128,1>>),
+    [128021|<<>>] = string:next_grapheme(<<128021/utf8>>), %% Dog
+    [[128021,8205]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8>>), %% Dog + ZWJ
+    [[128021,8205,129466]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8,129466/utf8>>), %% Dog + ZWJ + Service vest == Service dog
 
     ok.
 
