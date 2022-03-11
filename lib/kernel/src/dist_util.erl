@@ -211,7 +211,7 @@ handshake_other_started(#hs_data{request_type=ReqType,
                               require_flags=ReqFlgs},
     check_dflags(HSData1, EDF),
     ?debug({"MD5 connection from ~p~n", [NodeOrHost]}),
-    HSData2 = mark_pending(HSData1),
+    {AcceptedPending, HSData2} = mark_pending(HSData1),
     Node = HSData2#hs_data.other_node,
     {MyCookie,HisCookie} = get_cookies(Node),
     ChallengeA = gen_challenge(),
@@ -224,6 +224,10 @@ handshake_other_started(#hs_data{request_type=ReqType,
     HSData4 = HSData3#hs_data{this_flags = ChosenFlags,
                               other_flags = ChosenFlags},
     ChallengeB = recv_challenge_reply(HSData4, ChallengeA, MyCookie),
+    case AcceptedPending of
+        up_pending -> wait_pending(HSData4);
+        _ -> continue
+    end,
     send_challenge_ack(HSData4, gen_digest(ChallengeB, HisCookie)),
     ?debug({dist_util, self(), accept_connection, Node}),
     connection(HSData4);
@@ -284,8 +288,10 @@ check_mandatory(Mandatory, OtherFlags, Missing) ->
 mark_pending(#hs_data{kernel_pid=Kernel,
 		      other_node=Node,
 		      this_node=MyNode}=HSData) ->
-    case do_mark_pending(Kernel, MyNode, Node,
-			 HSData#hs_data.other_flags) of
+    KernelReply = do_mark_pending(Kernel, MyNode, Node,
+                                  HSData#hs_data.other_flags),
+    {KernelReply,
+     case KernelReply of
 	ok ->
 	    send_status(HSData, ok),
 	    reset_timer(HSData#hs_data.timer),
@@ -319,7 +325,8 @@ mark_pending(#hs_data{kernel_pid=Kernel,
             %% It can also happen if the old connection went down silently,
             %% without us knowing, a lost TCP FIN or RST packet for example.
 
-	    wait_pending(HSData),
+            %% Continue handshake to verify cookie and then wait for old
+            %% connection to die.
 	    reset_timer(HSData#hs_data.timer),
             HSData;
 
@@ -327,14 +334,14 @@ mark_pending(#hs_data{kernel_pid=Kernel,
 	    %% FIXME: is this a case ?
 	    ?debug({dist_util,self(),mark_pending,already_pending,Node}),
 	    ?shutdown(Node)
-    end.
+        end
+    }.
+
 
 
 %%
-%% Marking pending and negotiating away 
-%% simultaneous connection problems
+%% Tell net_kernel we are waiting for old connection to die.
 %%
-
 wait_pending(#hs_data{kernel_pid=Kernel,
 		      other_node=Node}) ->
     Kernel ! {self(), {wait_pending, Node}},
