@@ -990,6 +990,7 @@ dnl ----------------------------------------------------------------------
 
 AC_CHECK_LIB(m, sin)
 AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_LIB(dl, dlvsym)
 AC_CHECK_LIB(inet, main)
 AC_CHECK_LIB(util, openpty)
 
@@ -1781,7 +1782,8 @@ AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
   [
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
-    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
+    AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs \
+                    sctp_connectx])
         AC_CHECK_MEMBERS([struct sctp_accoc_value.assoc_id], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
@@ -2153,7 +2155,7 @@ fi
 AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
-		pread pwrite memmove strerror strerror_r strncasecmp \
+		dlvsym pread pwrite memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r mprotect madvise posix_madvise \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \

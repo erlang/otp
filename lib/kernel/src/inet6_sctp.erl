@@ -31,7 +31,7 @@
 -include("inet_int.hrl").
 
 -export([getserv/1, getaddr/1, getaddr/2, translate_ip/1]).
--export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5]).
+-export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5, connectx/3, connectx/4]).
 -export([sendmsg/3, send/4, recv/2]).
 
 -define(PROTO,  sctp).
@@ -80,6 +80,12 @@ connect(S, SockAddr, Opts, Timer) ->
 
 connect(S, Addr, Port, Opts, Timer) ->
     inet_sctp:connect(S, Addr, Port, Opts, Timer).
+
+connectx(S, SockAddrs, Opts) ->
+    inet_sctp:connectx(S, SockAddrs, Opts).
+
+connectx(S, Addr, Port, Opts) ->
+    inet_sctp:connectx(S, Addr, Port, Opts).
 
 sendmsg(S, SRI, Data) ->
     prim_inet:sendmsg(S, SRI, Data).

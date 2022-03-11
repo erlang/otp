@@ -32,6 +32,7 @@
 -define(INET_AF_LOOPBACK,     4). % Fake for LOOPBACK in any address family
 -define(INET_AF_LOCAL,        5). % For Unix Domain address family
 -define(INET_AF_UNDEFINED,    6). % For any unknown address family
+-define(INET_AF_LIST,         7). % List of addresses for sctp connectx
 
 %% type codes to open and gettype - INET_REQ_GETTYPE
 -define(INET_TYPE_STREAM,     1).
@@ -370,21 +371,26 @@
 	(?u8(X0) -
 	 (if (X0) > 127 -> 16#100; true -> 0 end))).
 
-%% macro for use in guard for checking ip address {A,B,C,D}
+%% macro for guards only that checks IP address {A,B,C,D}
+%% that returns true for an IP address, but returns false
+%% or crashes for other terms
 -define(ip(A,B,C,D),
 	(((A) bor (B) bor (C) bor (D)) band (bnot 16#ff)) =:= 0).
+%% d:o for IP address as one term
 -define(ip(Addr),
-        ?ip(element(1, (Addr)), element(2, (Addr)),
-            element(3, (Addr)), element(4, (Addr)))).
-
+        (tuple_size(Addr) =:= 4 andalso
+         ?ip(element(1, (Addr)), element(2, (Addr)),
+             element(3, (Addr)), element(4, (Addr))))).
+%% d:o IPv6 address
 -define(ip6(A,B,C,D,E,F,G,H), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F) bor (G) bor (H)) 
 	 band (bnot 16#ffff)) =:= 0).
 -define(ip6(Addr),
-        ?ip6(element(1, (Addr)), element(2, (Addr)),
-             element(3, (Addr)), element(4, (Addr)),
-             element(5, (Addr)), element(6, (Addr)),
-             element(7, (Addr)), element(8, (Addr)))).
+        (tuple_size(Addr) =:= 8 andalso
+         ?ip6(element(1, (Addr)), element(2, (Addr)),
+              element(3, (Addr)), element(4, (Addr)),
+              element(5, (Addr)), element(6, (Addr)),
+              element(7, (Addr)), element(8, (Addr))))).
 
 -define(ether(A,B,C,D,E,F), 
 	(((A) bor (B) bor (C) bor (D) bor (E) bor (F)) 

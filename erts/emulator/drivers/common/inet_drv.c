@@ -517,6 +517,13 @@ static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
 static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 
+#if defined(__GNUC__) && defined(HAVE_SCTP_CONNECTX)
+static typeof(sctp_connectx) *p_sctp_connectx = NULL;
+#else
+static int (*p_sctp_connectx)
+        (int sd, struct sockaddr * addrs, int addrcnt, sctp_assoc_t * assoc_id) = NULL;
+#endif
+
 #endif /* #if defined(HAVE_SCTP_H) */
 
 #ifndef WANT_NONBLOCKING
@@ -690,6 +697,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
 #define INET_AF_LOCAL       5
 #define INET_AF_UNDEFINED   6 /* Unknown */
+#define INET_AF_LIST        7 /* List of addresses for sctp connectx */
 
 /* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
@@ -2301,6 +2309,43 @@ static int async_ok(inet_descriptor* desc)
 	return -1;
     return send_async_ok(desc->dport, aid, caller);
 }
+
+#ifdef HAVE_SCTP
+static int async_ok_assoc_id(inet_descriptor* desc, sctp_assoc_t assoc_id)
+{
+    int req;
+    int aid;
+    int i = 0;
+    ErlDrvTermData caller;
+    ErlDrvTermData spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_INT_CNT +
+			LOAD_ASSOC_ID_CNT + 2*LOAD_TUPLE_CNT];
+
+    if (deq_async(desc, &aid, &caller, &req) < 0)
+	return -1;
+
+    i = LOAD_ATOM(spec, i, am_inet_async);
+    i = LOAD_PORT(spec, i, desc->dport);
+    i = LOAD_INT(spec, i, aid);
+    {
+	i = LOAD_ATOM(spec, i, am_ok);
+	i = LOAD_ASSOC_ID(spec, i, assoc_id);
+	i = LOAD_TUPLE(spec, i, 2);
+    }
+    i = LOAD_TUPLE(spec, i, 4);
+
+    ASSERT(i == sizeof(spec)/sizeof(*spec));
+
+    return erl_drv_send_term(desc->dport, caller, spec, i);
+}
+
+static int async_ok_maybe_assoc_id(inet_descriptor* desc, sctp_assoc_t *p_assoc_id)
+{
+  if (p_assoc_id)
+    return async_ok_assoc_id(desc, *p_assoc_id);
+  else
+    return async_ok(desc);
+}
+#endif
 
 static int async_ok_port(inet_descriptor* desc, ErlDrvTermData Port2)
 {
@@ -4270,6 +4315,11 @@ static int inet_init()
     p_sctp_getpaddrs = NULL;
     p_sctp_freepaddrs = NULL;
 #     endif
+#     if defined(HAVE_SCTP_CONNECTX)
+    p_sctp_connectx = sctp_connectx;
+#     else
+    p_sctp_connectx = NULL;
+#     endif
     inet_init_sctp();
     add_driver_entry(&sctp_inet_driver_entry);
 #   else
@@ -4310,6 +4360,10 @@ static int inet_init()
 		    p_sctp_freepaddrs = NULL;
 		    p_sctp_getpaddrs = NULL;
 		}
+		if (erts_sys_ddll_vsym(h_libsctp, "sctp_connectx", "VERS_3", &ptr) == 0) {
+		    p_sctp_connectx = ptr;
+		}
+		else p_sctp_connectx = NULL;
 		inet_init_sctp();
 		add_driver_entry(&sctp_inet_driver_entry);
 	    }
@@ -12596,6 +12650,8 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	char tbuf[2];
 #ifdef HAVE_SCTP
 	unsigned timeout;
+	sctp_assoc_t assoc_id = 0;
+	sctp_assoc_t *p_assoc_id = NULL;
 #endif
 	DEBUGF(("packet_inet_ctl(%p): CONNECT\r\n",
                 desc->port)); 
@@ -12620,22 +12676,55 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    /* For SCTP, we do not set the peer's addr in desc->remote, as
 	       multiple peers are possible: */
-	    if ((xerror = inet_set_faddress
-		 (desc->sfamily, &remote, &buf, &len)) != NULL)
+	    if ((*buf) == INET_AF_LIST) {
+	      /* called as gen_sctp:connectx... */
+	      int addrcnt = 0;
+	      buf++; len--;
+	      addrcnt = get_int8(buf),
+	      buf++; len--;
+	      if (! p_sctp_connectx)
+		return ctl_error(ENOTSUP, rbuf, rsize);
+	      if (addrcnt > 0) {
+		char *rabuf = ALLOC(sizeof(inet_address) * addrcnt);
+                struct sockaddr *addrs = (struct sockaddr *) rabuf;
+		ErlDrvSizeT remote_size;
+		char *ep = buf + len;
+
+		for(int ai=0; ai < addrcnt; ai++) {
+		  remote_size = ep - buf;
+		  if ((xerror = inet_set_faddress
+		       (desc->sfamily, &remote, &buf, &remote_size)) != NULL) {
+                    FREE((char *)addrs);
+		    return ctl_xerror(xerror, rbuf, rsize);
+                  }
+		  memcpy(rabuf, &remote, remote_size);
+		  rabuf += remote_size;
+		}
+		p_assoc_id = &assoc_id;
+		code = p_sctp_connectx(desc->s, addrs, addrcnt, p_assoc_id);
+                FREE((char *)addrs);
+	      } else {
+		return ctl_error(EINVAL, rbuf, rsize);
+	      }
+	    } else {
+	      /* called as gen_sctp:connect... */
+	      if ((xerror = inet_set_faddress
+		   (desc->sfamily, &remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
-	
-	    code = sock_connect(desc->s, &remote.sa, len);
+
+	      code = sock_connect(desc->s, &remote.sa, len);
+	    }
 
 	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		async_ok(desc);
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else if (code == 0) { /* OK we are connected */
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		async_ok(desc);
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else {
 		return ctl_error(sock_errno(), rbuf, rsize);

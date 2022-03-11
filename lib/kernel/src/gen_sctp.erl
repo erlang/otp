@@ -30,7 +30,8 @@
 -export([open/0, open/1, open/2, close/1]).
 -export([listen/2, peeloff/2]).
 -export([connect/3, connect/4, connect/5,
-         connect_init/3, connect_init/4, connect_init/5]).
+         connect_init/3, connect_init/4, connect_init/5,
+         connectx_init/3, connectx_init/4,connectx_init/5]).
 -export([eof/2, abort/2]).
 -export([send/3, send/4, recv/1, recv/2]).
 -export([error_string/1]).
@@ -357,11 +358,11 @@ do_connect(_S, _SockAddr, _Opts, _Timeout, _ConnWait) ->
     badarg.
 
 
-do_connect(S, Addr, Port, Opts, Timeout, ConnWait)
+do_connect(S, Addr, Service, Opts, Timeout, ConnWait)
   when is_port(S) andalso is_list(Opts) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    case Mod:getserv(Port) of
+	    case Mod:getserv(Service) of
 		{ok,Port} ->
 		    try inet:start_timer(Timeout) of
 			Timer ->
@@ -387,6 +388,177 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait)
     end;
 do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
     badarg.
+
+
+
+-spec connectx_init(Socket, SockAddrs, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket   :: sctp_socket(),
+      SockAddrs:: [{inet:ip_address(), inet:port_number()} |
+                   inet:family_address() |
+                   socket:sockaddr_in() | socket:sockaddr_in6()],
+      Opts     :: [option()].
+%%
+connectx_init(S, SockAddrs, Opts) ->
+    case do_connectx(S, SockAddrs, Opts) of
+	badarg ->
+	    erlang:error(badarg, [S, SockAddrs, Opts]);
+	Result ->
+	    Result
+    end.
+
+-spec connectx_init(Socket, Addrs, Port, Opts) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number() | atom(),
+      Opts :: [option()].
+%%
+connectx_init(S, Addrs, Port, Opts) ->
+    connectx_init(S, Addrs, Port, Opts, infinity).
+
+-spec connectx_init(Socket, Addrs, Port, Opts, Timeout) ->
+                          {ok, assoc_id()} | {error, inet:posix()} when
+      Socket :: sctp_socket(),
+      Addrs :: [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number() | atom(),
+      Opts :: [option()],
+      Timeout :: timeout().
+%%
+connectx_init(S, Addrs, Port, Opts, Timeout) ->
+    case do_connectx(S, Addrs, Port, Opts, Timeout) of
+	badarg ->
+	    erlang:error(badarg, [S, Addrs, Port, Opts, Timeout]);
+	Result ->
+	    Result
+    end.
+
+
+do_connectx(S, SockAddrs, Opts)
+  when is_port(S), is_list(SockAddrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+        {ok, Mod} ->
+            case ensure_sockaddrs(SockAddrs) of
+                {SockAddrs_1, Port} ->
+                    SockAddrs_2 = set_port(SockAddrs_1, Port),
+                    Mod:connectx(S, SockAddrs_2, Opts);
+                Error1 ->
+                    Error1
+            end;
+        {error, _} = Error2->
+            Error2
+    end;
+do_connectx(_S, _SockAddrs, _Opts) ->
+    badarg.
+
+do_connectx(S, Addrs, Service, Opts, Timeout)
+  when is_port(S), is_list(Addrs), is_list(Opts) ->
+    case inet_db:lookup_socket(S) of
+	{ok,Mod} ->
+	    case Mod:getserv(Service) of
+		{ok,Port} ->
+		    try inet:start_timer(Timeout) of
+			Timer ->
+                            try
+                                case getaddrs(Mod, Addrs, Timer) of
+                                    IPs when is_list(IPs) ->
+                                        Mod:connectx(S, IPs, Port, Opts);
+                                    Error1 ->
+                                        Error1
+                                end
+                            after
+                                _ = inet:stop_timer(Timer)
+                            end
+		    catch
+			error:badarg ->
+                            badarg
+		    end;
+		{error, _} = Error2 ->
+                    Error2
+	    end;
+	{error, _} = Error3 ->
+            Error3
+    end;
+do_connectx(_S, _Addrs, _Port, _Opts, _Timeout) ->
+    badarg.
+
+ensure_sockaddrs(SockAddrs) ->
+    ensure_sockaddrs(SockAddrs, 0, []).
+%%
+ensure_sockaddrs([SockAddr | SockAddrs], Port, Acc) ->
+    case SockAddr of
+        {IP, P} when is_tuple(IP) ->
+            ensure_sockaddrs(SockAddrs, Port, [SockAddr | Acc], P);
+        {Family, {_, P}}
+          when Family =:= inet;
+               Family =:= inet6 ->
+            ensure_sockaddrs(SockAddrs, Port, [SockAddr | Acc], P);
+        #{family := Family}
+          when Family =:= inet;
+               Family =:= inet6 ->
+            SockAddr_1 = inet:ensure_sockaddr(SockAddr),
+            ensure_sockaddrs(
+              SockAddrs, Port, [SockAddr_1 | Acc],
+              maps:get(port, SockAddr_1, 0));
+        _ -> badarg
+    end;
+ensure_sockaddrs([], 0, _) ->
+    badarg;
+ensure_sockaddrs([], Port, Acc) ->
+    {lists:reverse(Acc), Port}.
+%%
+ensure_sockaddrs(SockAddrs, Port, Acc, P) ->
+    if
+        is_integer(P) ->
+            if
+                0 < P ->
+                    ensure_sockaddrs(SockAddrs, P, Acc);
+                P < 0 ->
+                    badarg;
+                true ->
+                    ensure_sockaddrs(SockAddrs, Port, Acc)
+            end;
+        true ->
+            badarg
+    end.
+
+set_port([SockAddr | SockAddrs], Port) ->
+    case SockAddr of
+        {IP, P} when is_tuple(IP) ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> {IP, Port} end);
+        {Family, {Addr, P}} ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> {Family, {Addr, Port}} end);
+        #{port := P} ->
+            set_port(
+              SockAddrs, Port, SockAddr, P,
+              fun () -> SockAddr#{port := Port} end)
+    end;
+set_port([], _Port) ->
+    [].
+%%
+set_port(SockAddrs, Port, SockAddr, P, NewSockAddrFun) ->
+    [case P of
+         Port -> SockAddr;
+         _    -> NewSockAddrFun()
+     end | set_port(SockAddrs, Port)].
+
+getaddrs(Mod, Addrs, Timer) ->
+    getaddrs(Mod, Addrs, Timer, []).
+%%
+getaddrs(Mod, [Addr | Addrs], Timer, Acc) ->
+    case Mod:getaddr(Addr, Timer) of
+        {ok, IP} ->
+            getaddrs(Mod, Addrs, Timer, [IP | Acc]);
+        {error, _} ->
+            badarg
+    end;
+getaddrs(_Mod, [], _Timer, Acc) ->
+    lists:reverse(Acc).
+
 
 
 -spec eof(Socket, Assoc) -> ok | {error, Reason} when

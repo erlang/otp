@@ -305,6 +305,53 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
+      <name name="connectx_init" arity="3" since="OTP-@OTP-17951@"/>
+      <fsummary>Same as <c>connectx_init(Socket, SockAddrs, Opts, infinity)</c>..</fsummary>
+      <desc>
+        <p>Similar to
+        <seemfa marker="#connectx_init/5"><c>connectx_init/5</c></seemfa>
+	except using socket addresses, and not having a <c>Timeout</c>.
+        Since the addresses do not need lookup and the connect
+        is non-blocking this call returns immediately.</p>
+	<p>The value of each socket address <c>port</c>
+        must be the same or zero.  At least one socket address
+        must have a non-zero <c>port</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connectx_init" arity="4" since="OTP-@OTP-17951@"/>
+      <fsummary>Same as <c>connectx_init(Socket, Addrs, Port, Opts, infinity)</c>..</fsummary>
+      <desc>
+        <p>Same as <c>connectx_init(<anno>Socket</anno>, <anno>Addrs</anno>,
+          <anno>Port</anno>, <anno>Opts</anno>, infinity)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connectx_init" arity="5" since="OTP-@OTP-17951@"/>
+      <fsummary>Initiate a new association for socket <c>Socket</c>, with a
+        peer (SCTP server socket).</fsummary>
+      <desc>
+        <p>Initiates a new association for socket <c><anno>Socket</anno></c>,
+          with the peer (SCTP server socket) specified by
+          <c><anno>Addrs</anno></c> and <c><anno>Port</anno></c>.</p>
+        <p>This API is similar to <c>connect_init/*</c> except the
+        underlying OS <c>sctp_connectx(3)</c> system call is used.</p>
+	<p>If successful, the association ID is returned which will be received
+        in a subsequent
+	<seeerl marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seeerl>
+        event.</p>
+        <p>The parameters are as described in
+        <seemfa marker="#connect_init/5"><c>connect_init/5</c></seemfa></p>
+        <p>NOTE: This API allows the OS to use all <anno>Addrs</anno>
+        when establishing an association, but does not guarantee it will.
+        Therefore, if the connection fails the user may want to rotate
+        the order of addresses for a subsequent call.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="controlling_process" arity="2" since=""/>
       <fsummary>Assign a new controlling process pid to the socket.</fsummary>
       <desc>
