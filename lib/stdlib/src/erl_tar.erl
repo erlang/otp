@@ -1019,11 +1019,14 @@ do_get_format({error, _} = Err, _Bin) ->
 do_get_format(#header_v7{}=V7, Bin)
   when is_binary(Bin), byte_size(Bin) =:= ?BLOCK_SIZE ->
     Checksum = parse_octal(V7#header_v7.checksum),
-    Chk1 = compute_checksum(Bin),
-    Chk2 = compute_signed_checksum(Bin),
-    if Checksum =/= Chk1 andalso Checksum =/= Chk2 ->
+    IsBadChecksum = case compute_checksum(Bin) of
+                        Checksum -> false;
+                        _ -> compute_signed_checksum(Bin) =/= Checksum
+                    end,
+    case IsBadChecksum of
+        true ->
             ?FORMAT_UNKNOWN;
-       true ->
+        false ->
             %% guess magic
             Ustar = to_ustar(V7, Bin),
             Star = to_star(V7, Bin),
@@ -1203,6 +1206,9 @@ compute_signed_checksum(<<H1:?V7_CHKSUM/binary,
 
 %% Returns the checksum of a binary.
 checksum(Bin) -> checksum(Bin, 0).
+
+checksum(<<A/unsigned,B/unsigned,C/unsigned,D/unsigned,Rest/binary>>, Sum) ->
+    checksum(Rest, Sum+A+B+C+D);
 checksum(<<A/unsigned,Rest/binary>>, Sum) ->
     checksum(Rest, Sum+A);
 checksum(<<>>, Sum) -> Sum.
@@ -1251,39 +1257,40 @@ parse_numeric(<<First, _/binary>> = Bin) ->
             parse_octal(Bin)
     end.
 
-parse_octal(Bin) when is_binary(Bin) ->
+parse_octal(<<Bin/binary>>) ->
     %% skip leading/trailing zero bytes and spaces
-    do_parse_octal(Bin, <<>>).
-do_parse_octal(<<>>, <<>>) ->
-    0;
-do_parse_octal(<<>>, Acc) ->
-    case io_lib:fread("~8u", binary:bin_to_list(Acc)) of
-        {error, _} -> throw({error, invalid_tar_checksum});
-        {ok, [Octal], []} -> Octal;
-        {ok, _, _} -> throw({error, invalid_tar_checksum})
-    end;
-do_parse_octal(<<$\s,Rest/binary>>, Acc) ->
+    do_parse_octal(Bin, 0).
+
+do_parse_octal(<<$\s, Rest/binary>>, Acc) ->
     do_parse_octal(Rest, Acc);
 do_parse_octal(<<0, Rest/binary>>, Acc) ->
     do_parse_octal(Rest, Acc);
 do_parse_octal(<<C, Rest/binary>>, Acc) ->
-    do_parse_octal(Rest, <<Acc/binary, C>>).
+    Digit = C - $0,
+    case Digit band 7 of
+        Digit ->
+            do_parse_octal(Rest, Acc bsl 3 bor Digit);
+        _ ->
+            throw({error, invalid_tar_checksum})
+    end;
+do_parse_octal(<<>>, Acc) ->
+    Acc.
 
 parse_string(Bin) when is_binary(Bin) ->
-    do_parse_string(Bin, <<>>).
-do_parse_string(<<>>, Acc) ->
-    case unicode:characters_to_list(Acc) of
+    N = strlen(Bin, 0),
+    <<Prefix:N/binary,_/binary>> = Bin,
+    case unicode:characters_to_list(Prefix) of
         Str when is_list(Str) ->
             Str;
         {incomplete, _Str, _Rest} ->
-            binary:bin_to_list(Acc);
+            binary_to_list(Bin);
         {error, _Str, _Rest} ->
             throw({error, {bad_header, invalid_string}})
-    end;
-do_parse_string(<<0, _/binary>>, Acc) ->
-    do_parse_string(<<>>, Acc);
-do_parse_string(<<C, Rest/binary>>, Acc) ->
-    do_parse_string(Rest, <<Acc/binary, C>>).
+    end.
+
+strlen(<<>>, N) -> N;
+strlen(<<0, _/binary>>, N) -> N;
+strlen(<<_, Rest/binary>>, N) -> strlen(Rest, N + 1).
 
 convert_header(Bin, #reader{pos=Pos}=Reader)
   when byte_size(Bin) =:= ?BLOCK_SIZE, (Pos rem ?BLOCK_SIZE) =:= 0 ->
