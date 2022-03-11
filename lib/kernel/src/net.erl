@@ -127,6 +127,10 @@
           skip_friendly_name => true,
           include_prefix     => false}).
 
+%% This is just a "fake" based on what it looks like on linux...
+-define(BADDR_FOR_PHYS_ADDR,
+        <<16#FF:8,16#FF:8,16#FF:8,16#FF:8,16#FF:8,16#FF:8>>).
+
 
 
 %% ===========================================================================
@@ -442,32 +446,24 @@ win_getifaddrs(Filter) ->
 get_adapters_addresses() ->
     case prim_net:get_adapters_addresses(#{}) of
         {ok, AdaptersAddresses} ->
-            d("get_adapters_addresses -> "
-              "~n   ~p", [AdaptersAddresses]),
             AdaptersAddresses;
         {error, _} ->
             []
     end.
 
-%% get_ip_address_table([]) ->
-get_ip_address_table(_) ->
+get_ip_address_table([]) ->
     case prim_net:get_ip_address_table(#{}) of
         {ok, IpAddressTable} ->
-            d("get_ip_address_table -> "
-              "~n   ~p", [IpAddressTable]),
             IpAddressTable;
         {error, _} ->
             []
-    end%% ;
-%% get_ip_address_table(_) ->
-%%     []
-        .
+    end;
+get_ip_address_table(_) ->
+    [].
 
 get_interface_info() ->
     case prim_net:get_interface_info(#{}) of
         {ok, InterfaceInfo} ->
-            d("get_interface_info -> "
-              "~n   ~p", [InterfaceInfo]),
             InterfaceInfo;
         {error, _} ->
             []
@@ -497,23 +493,30 @@ win_getifaddrs_iat2([], _IpIfInfos, Acc) ->
 win_getifaddrs_iat2([#{index := Idx} = IpAddr|IpAddrTab], IpIfInfos, Acc) ->
     case prim_net:get_if_entry(#{index => Idx}) of
         {ok, #{name := Name} = IfEntry} when (Name =/= "") ->
-            IfAddrs = win_getifaddrs_iat3(Name, IpAddr, IfEntry),
-            win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddrs|Acc]);
+            %% Note that here its (IfAddr) *not* a list!
+            {IfAddr, PktIfAddr} = win_getifaddrs_iat3(Name, IpAddr, IfEntry),
+            win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddr, PktIfAddr|Acc]);
         {ok, #{name        := Name,
                description := Desc} = IfEntry} when (Name =:= "") ->
             case if_info_search(Idx, IpIfInfos) of
                 {value, #{name := Name2}} ->
-                    IfAddrs = win_getifaddrs_iat3(Name2, IpAddr, IfEntry),
-                    win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddrs|Acc]);
+                    %% Note that here its (IfAddr) *not* a list!
+                    {IfAddr, PktIfAddr} =
+                        win_getifaddrs_iat3(Name2, IpAddr, IfEntry),
+                    win_getifaddrs_iat2(IpAddrTab, IpIfInfos,
+                                        [IfAddr, PktIfAddr|Acc]);
                 false ->
                     %% Use description
-                    IfAddrs = win_getifaddrs_iat3(Desc, IpAddr, IfEntry),
-                    win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddrs|Acc])
-                end;
+                    %% Note that here its (IfAddr) *not* a list!
+                    {IfAddr, PktIfAddr} =
+                        win_getifaddrs_iat3(Desc, IpAddr, IfEntry),
+                    win_getifaddrs_iat2(IpAddrTab, IpIfInfos,
+                                        [IfAddr, PktIfAddr|Acc])
+            end;
         {error, _} ->
             win_getifaddrs_iat2(IpAddrTab, IpIfInfos, Acc)
     end.
-               
+
 win_getifaddrs_iat3(Name, 
                    #{addr                 := Addr,
                      mask                 := Mask,
@@ -521,9 +524,9 @@ win_getifaddrs_iat3(Name,
                      bcast_addr           := _BCastAddr} = _IpAddr,
                    #{type                 := Type,
                      admin_status         := AStatus,
-                     internal_oper_status := _OStatus} = _IfEntry) ->
-    d("win_getifaddrs_iat3 -> entry with"
-      "~n   If Entry: ~p", [_IfEntry]),
+                     internal_oper_status := _OStatus,
+                     phys_addr            := PhysAddr,
+                     index                := Idx} = _IfEntry) ->
     Flags1 = case Type of
                  ethernet_csmacd ->
                      [broadcast,multicast];
@@ -544,12 +547,33 @@ win_getifaddrs_iat3(Name,
                  _ ->
                      [up]
              end,
-    #{name      => Name,
-      flags     => lists:sort(Flags1 ++ Flags2),
-      addr      => mk_sockaddr_in(Addr),
-      netmask   => mk_sockaddr_in(Mask),
-      %% And fake the broadcast address...
-      broadaddr => mk_sockaddr_in(iat_broadaddr(Addr, Mask))}.
+    Flags  = lists:sort(Flags1 ++ Flags2),
+    HaType = type2hatype(Type),
+    PktSockAddr = #{addr     => process_phys_addr(HaType, PhysAddr),
+                    family   => packet,
+                    hatype   => HaType,
+                    ifindex  => Idx,
+                    pkttype  => host,
+                    protocol => 0},
+    PktIfAddr =
+        case HaType of
+            loopback ->
+                #{name  => Name,
+                  addr  => PktSockAddr,
+                  flags => Flags};
+            _ ->
+                #{name      => Name,
+                  addr      => PktSockAddr,
+                  broadaddr => ?BADDR_FOR_PHYS_ADDR,
+                  flags     => Flags}
+        end,
+    IfAddr = #{name      => Name,
+               flags     => Flags,
+               addr      => mk_sockaddr_in(Addr),
+               netmask   => mk_sockaddr_in(Mask),
+               %% And fake the broadcast address...
+               broadaddr => mk_sockaddr_in(iat_broadaddr(Addr, Mask))},
+    {IfAddr, PktIfAddr}.
 
 mk_sockaddr_in(Addr) ->
     #{addr => Addr, family => inet, port => 0}.
@@ -570,32 +594,36 @@ win_getifaddrs_aa2([], _IpIfInfo, Acc) ->
 win_getifaddrs_aa2([#{index := Idx} = AdAddrs|AdsAddrs], IpIfInfos, Acc) ->
     case prim_net:get_if_entry(#{index => Idx}) of
         {ok, #{name := Name} = IfEntry} when (Name =/= "") ->
-            IfAddrs = win_getifaddrs_aa3(Name, AdAddrs, IfEntry),
-            win_getifaddrs_aa2(AdsAddrs, IpIfInfos, [IfAddrs|Acc]);
+            {IfAddrs, PktIfAddr} = win_getifaddrs_aa3(Name, AdAddrs, IfEntry),
+            win_getifaddrs_aa2(AdsAddrs, IpIfInfos, [IfAddrs,PktIfAddr|Acc]);
         {ok, #{name        := Name,
                description := Desc} = IfEntry} when (Name =:= "") ->
             case if_info_search(Idx, IpIfInfos) of
                 {value, #{name := Name2}} ->
-                    IfAddrs = win_getifaddrs_aa3(Name2, AdAddrs, IfEntry),
-                    win_getifaddrs_aa2(AdsAddrs, IpIfInfos, [IfAddrs|Acc]);
+                    {IfAddrs, PktIfAddr} =
+                        win_getifaddrs_aa3(Name2, AdAddrs, IfEntry),
+                    win_getifaddrs_aa2(AdsAddrs, IpIfInfos,
+                                       [IfAddrs, PktIfAddr|Acc]);
                     false ->
                         %% Use description
-                    IfAddrs = win_getifaddrs_aa3(Desc, AdAddrs, IfEntry),
-                    win_getifaddrs_aa2(AdsAddrs, IpIfInfos, [IfAddrs|Acc])
+                    {IfAddrs, PktIfAddr} =
+                        win_getifaddrs_aa3(Desc, AdAddrs, IfEntry),
+                    win_getifaddrs_aa2(AdsAddrs, IpIfInfos,
+                                       [IfAddrs, PktIfAddr|Acc])
                 end;
         {error, _} ->
             win_getifaddrs_aa2(AdsAddrs, IpIfInfos, Acc)
     end.
-    
+
 win_getifaddrs_aa3(Name,
                    #{flags         := #{no_multicast := NoMC},
                      unicast_addrs := UCastAddrs,
                      prefixes      := Prefixes} = _AdAddrs,
                    #{type                 := Type,
                      admin_status         := AStatus,
-                     internal_oper_status := _OStatus} = _IfEntry) ->
-    d("win_getifaddrs_aa3 -> entry with"
-      "~n   If Entry: ~p", [_IfEntry]),
+                     internal_oper_status := _OStatus,
+                     phys_addr            := PhysAddr,
+                     index                := Idx} = _IfEntry) ->
     Flags1 =
         if (NoMC =:= false) ->
                 [multicast];
@@ -622,10 +650,45 @@ win_getifaddrs_aa3(Name,
                  _ ->
                      [up]
              end,
-    [win_getifaddrs_aa4(Name,
-                        lists:sort(Flags1 ++ Flags2 ++ Flags3),
-                        Prefixes,
-                        UCastAddr) || UCastAddr <- UCastAddrs].
+    Flags  = lists:sort(Flags1 ++ Flags2 ++ Flags3),
+    HaType = type2hatype(Type),
+    PktSockAddr = #{addr     => process_phys_addr(HaType, PhysAddr),
+                    family   => packet,
+                    hatype   => HaType,
+                    ifindex  => Idx,
+                    pkttype  => host,
+                    protocol => 0},
+    PktIfAddr =
+        case HaType of
+            loopback ->
+                #{name  => Name,
+                  addr  => PktSockAddr,
+                  flags => Flags};
+            _ ->
+                #{name      => Name,
+                  addr      => PktSockAddr,
+                  broadaddr => ?BADDR_FOR_PHYS_ADDR,
+                  flags     => Flags}
+        end,
+    IfAddrs = [win_getifaddrs_aa4(Name,
+                                  Flags,
+                                  Prefixes,
+                                  UCastAddr) || UCastAddr <- UCastAddrs],
+    {IfAddrs, PktIfAddr}.
+
+type2hatype(ethernet_csmacd) ->
+    ether;
+type2hatype(software_loopback) ->
+    loopback;
+type2hatype(Other) ->
+    Other.
+
+process_phys_addr(loopback, <<>>) ->
+    <<0:8,0:8,0:8,0:8,0:8,0:8>>;
+process_phys_addr(_, Bin) when is_binary(Bin) ->
+    Bin.
+
+                               
 
 win_getifaddrs_aa4(Name, Flags, Prefixes,
                    #{addr := #{family := Fam} = Addr} = UCAddr) ->
@@ -809,12 +872,8 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
       addr   => {BA1, BA2, BA3, BA4},
       port   => 0}.
     
-%% decode_hwaddr(<<>>) ->
-%%     [0,0,0,0,0,0];
-%% decode_hwaddr(Bin) when is_binary(Bin) ->
-%%     binary_to_list(Bin).
 
-                               
+
 %% ===========================================================================
 %%
 %% if_name2index - Mappings between network interface names and indexes:
@@ -971,5 +1030,5 @@ win_name2index(Name) ->
 %% d(F) ->
 %%     d(F, []).
 
-d(F, A) ->
-    io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
+%% d(F, A) ->
+%%     io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
