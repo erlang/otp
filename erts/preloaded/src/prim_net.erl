@@ -49,7 +49,9 @@
               ifaddrs/0,
               name_info/0,
 
+              interface_info_args/0,
               if_entry_args/0,
+              ip_address_table_args/0,
               if_type/0,
               internal_if_oper_status/0,
               mib_if_row/0,
@@ -88,8 +90,11 @@
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
 
+-type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
-                           debug := boolean()}.
+                           debug => boolean()}.
+-type ip_address_table_args() :: #{debug => boolean()}.
+
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
                          tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
@@ -308,8 +313,8 @@ getifaddrs(Extra) when is_map(Extra) ->
       Addrs  :: term(), % adapters_addresses(),
       Reason :: term().
 
-get_adapters_addresses(Extra) when is_map(Extra) ->
-    nif_get_adapters_addresses(Extra).
+get_adapters_addresses(Args) when is_map(Args) ->
+    nif_get_adapters_addresses(Args).
 
 
 
@@ -319,12 +324,12 @@ get_adapters_addresses(Extra) when is_map(Extra) ->
 %%
 
 -spec get_interface_info(Args) -> {ok, IfInfo} | {error, Reason} when
-      Args   :: map(),
+      Args   :: interface_info_args(),
       IfInfo :: ip_interface_info(),
       Reason :: term().
 
-get_interface_info(Extra) when is_map(Extra) ->
-    nif_get_interface_info(Extra).
+get_interface_info(Args) when is_map(Args) ->
+    nif_get_interface_info(Args).
 
 
 
@@ -349,7 +354,7 @@ get_if_entry(Args) when is_map(Args) ->
 %%
 
 -spec get_ip_address_table(Args) -> {ok, Info} | {error, Reason} when
-      Args   :: map(),
+      Args   :: ip_address_table_args(),
       Info   :: term(),
       Reason :: term().
 
