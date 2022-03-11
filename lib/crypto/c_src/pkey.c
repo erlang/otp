@@ -47,24 +47,34 @@ typedef struct PKeySignOptions {
 
 
 static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM type,
-				const EVP_MD **md);
-static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
-				ERL_NIF_TERM type, ERL_NIF_TERM data,
+				const EVP_MD **md,
+                                ERL_NIF_TERM *err_return);
+static int get_pkey_sign_digest(ErlNifEnv *env,
+                                const ERL_NIF_TERM argv[],
+                                int algorithm_arg_num, int type_arg_num, int data_arg_num,
 				unsigned char *md_value, const EVP_MD **mdp,
-				unsigned char **tbsp, size_t *tbslenp);
-static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
-                                 const EVP_MD *md, PKeySignOptions *opt);
+				unsigned char **tbsp, size_t *tbslenp,
+                                ERL_NIF_TERM *err_return);
+static int get_pkey_sign_options(ErlNifEnv *env,
+                                 const ERL_NIF_TERM argv[],
+                                 int algorithm_arg_num, int options_arg_num,
+                                 const EVP_MD *md, PKeySignOptions *opt,
+                                 ERL_NIF_TERM *err_return);
 static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey);
 static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
 			       EVP_PKEY **pkey);
-static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
-				  PKeyCryptOptions *opt);
+static int get_pkey_crypt_options(ErlNifEnv *env,
+                                  const ERL_NIF_TERM argv[],
+                                  int algorithm_arg_num, int options_arg_num,
+				  PKeyCryptOptions *opt,
+                                  ERL_NIF_TERM *err_return);
 #ifdef HAVE_RSA_SSLV23_PADDING
 static size_t size_of_RSA(EVP_PKEY *pkey);
 #endif
 
 static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM type,
-				const EVP_MD **md)
+				const EVP_MD **md,
+                                ERL_NIF_TERM *err_return)
 {
     struct digest_type_t *digp = NULL;
     *md = NULL;
@@ -89,10 +99,12 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
     return PKEY_OK;
 }
 
-static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
-				ERL_NIF_TERM type, ERL_NIF_TERM data,
+static int get_pkey_sign_digest(ErlNifEnv *env,
+                                const ERL_NIF_TERM argv[],
+                                int algorithm_arg_num, int type_arg_num, int data_arg_num,
 				unsigned char *md_value, const EVP_MD **mdp,
-				unsigned char **tbsp, size_t *tbslenp)
+				unsigned char **tbsp, size_t *tbslenp,
+                                ERL_NIF_TERM *err_return)
 {
     int i, ret;
     const ERL_NIF_TERM *tpl_terms;
@@ -108,10 +120,10 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     tbs = *tbsp;
     tbslen = *tbslenp;
 
-    if ((i = get_pkey_digest_type(env, algorithm, type, &md)) != PKEY_OK)
+    if ((i = get_pkey_digest_type(env, argv[algorithm_arg_num], argv[type_arg_num], &md, err_return)) != PKEY_OK)
         return i;
 
-    if (enif_get_tuple(env, data, &tpl_arity, &tpl_terms)) {
+    if (enif_get_tuple(env, argv[data_arg_num], &tpl_arity, &tpl_terms)) {
         if (tpl_arity != 2)
             goto bad_arg;
         if (tpl_terms[0] != atom_digest)
@@ -129,14 +141,14 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else if (md == NULL) {
-        if (!enif_inspect_iolist_as_binary(env, data, &tbs_bin))
+        if (!enif_inspect_iolist_as_binary(env, argv[data_arg_num], &tbs_bin))
             goto bad_arg;
 
         /* md == NULL, that is no hashing because DigestType argument was atom_none */
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else {
-        if (!enif_inspect_iolist_as_binary(env, data, &tbs_bin))
+        if (!enif_inspect_iolist_as_binary(env, argv[data_arg_num], &tbs_bin))
             goto bad_arg;
 
         /* We have the cleartext in tbs_bin and the hash algo info in md */
@@ -173,19 +185,22 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     return ret;
 }
 
-static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
-                                 const EVP_MD *md, PKeySignOptions *opt)
+static int get_pkey_sign_options(ErlNifEnv *env,
+                                 const ERL_NIF_TERM argv[],
+                                 int algorithm_arg_num, int options_arg_num,
+                                 const EVP_MD *md, PKeySignOptions *opt,
+                                 ERL_NIF_TERM *err_return)
 {
     ERL_NIF_TERM head, tail;
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
     const EVP_MD *opt_md;
 
-    if (!enif_is_list(env, options))
+    if (!enif_is_list(env, argv[options_arg_num]))
         goto bad_arg;
 
     /* defaults */
-    if (algorithm == atom_rsa) {
+    if (argv[algorithm_arg_num] == atom_rsa) {
 	opt->rsa_mgf1_md = NULL;
 	opt->rsa_padding = RSA_PKCS1_PADDING;
 	opt->rsa_pss_saltlen = -2;
@@ -195,13 +210,13 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 	opt->rsa_pss_saltlen = 0;
     }
 
-    if (enif_is_empty_list(env, options))
+    if (enif_is_empty_list(env, argv[options_arg_num]))
 	return PKEY_OK;
 
-    if (algorithm != atom_rsa)
+    if (argv[algorithm_arg_num] != atom_rsa)
         goto bad_arg;
 
-    tail = options;
+    tail = argv[options_arg_num];
     while (enif_get_list_cell(env, tail, &head, &tail)) {
         if (!enif_get_tuple(env, head, &tpl_arity, &tpl_terms))
             goto bad_arg;
@@ -211,7 +226,7 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
         if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
             int result;
 
-            result = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            result = get_pkey_digest_type(env, argv[algorithm_arg_num], tpl_terms[1], &opt_md, err_return);
             if (result != PKEY_OK)
                 return result;
 
@@ -406,7 +421,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Type, Data|{digest,Digest}, Key|#{}, Options) */
     int i;
     int sig_bin_alloc = 0;
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret = atom_undefined;
     const EVP_MD *md = NULL;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     EVP_PKEY *pkey = NULL;
@@ -433,7 +448,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if (enif_is_map(env, argv[3]))
         return atom_notsup;
 #endif
-    i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
+    i = get_pkey_sign_digest(env, argv, 0, 1, 2, md_value, &md, &tbs, &tbslen, &ret);
     switch (i) {
     case PKEY_OK:
         break;
@@ -443,7 +458,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         goto bad_arg;
     }
 
-    i = get_pkey_sign_options(env, argv[0], argv[4], md, &sig_opt);
+    i = get_pkey_sign_options(env, argv, 0, 4, md, &sig_opt, &ret);
     switch (i) {
     case PKEY_OK:
         break;
@@ -684,7 +699,7 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary sig_bin; /* signature */
     unsigned char *tbs = NULL; /* data to be signed */
     size_t tbslen = 0;
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret = atom_undefined;
 
 #ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX *ctx = NULL;
@@ -707,7 +722,7 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     if (!enif_inspect_binary(env, argv[3], &sig_bin))
 	return enif_make_badarg(env);
 
-    i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
+    i = get_pkey_sign_digest(env, argv, 0, 1, 2, md_value, &md, &tbs, &tbslen, &ret);
     switch (i) {
     case PKEY_OK:
         break;
@@ -717,7 +732,7 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         goto bad_arg;
     }
 
-    i = get_pkey_sign_options(env, argv[0], argv[5], md, &sig_opt);
+    i = get_pkey_sign_options(env, argv, 0, 5, md, &sig_opt, &ret);
     switch (i) {
     case PKEY_OK:
         break;
@@ -867,19 +882,22 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 }
 
 
-static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
-				  PKeyCryptOptions *opt)
+static int get_pkey_crypt_options(ErlNifEnv *env,
+                                  const ERL_NIF_TERM argv[],
+                                  int algorithm_arg_num, int options_arg_num,
+				  PKeyCryptOptions *opt,
+                                  ERL_NIF_TERM *err_return)
 {
     ERL_NIF_TERM head, tail;
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
     const EVP_MD *opt_md;
 
-    if (!enif_is_list(env, options))
+    if (!enif_is_list(env, argv[options_arg_num]))
         goto bad_arg;
 
     /* defaults */
-    if (algorithm == atom_rsa) {
+    if (argv[algorithm_arg_num] == atom_rsa) {
         opt->rsa_mgf1_md = NULL;
         opt->rsa_oaep_label.data = NULL;
         opt->rsa_oaep_label.size = 0;
@@ -895,13 +913,13 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
         opt->signature_md = NULL;
     }
 
-    if (enif_is_empty_list(env, options))
+    if (enif_is_empty_list(env, argv[options_arg_num]))
         return PKEY_OK;
 
-    if (algorithm != atom_rsa)
+    if (argv[algorithm_arg_num] != atom_rsa)
         goto bad_arg;
 
-    tail = options;
+    tail = argv[options_arg_num];
     while (enif_get_list_cell(env, tail, &head, &tail)) {
         if (!enif_get_tuple(env, head, &tpl_arity, &tpl_terms))
             goto bad_arg;
@@ -936,7 +954,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 
         } else if (tpl_terms[0] == atom_signature_md && enif_is_atom(env, tpl_terms[1])) {
             int i;
-            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            i = get_pkey_digest_type(env, argv[algorithm_arg_num], tpl_terms[1], &opt_md, err_return);
             if (i != PKEY_OK) {
                 return i;
             }
@@ -948,7 +966,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
             if (tpl_terms[1] != atom_sha)
                 return PKEY_NOTSUP;
 #endif
-            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            i = get_pkey_digest_type(env, argv[algorithm_arg_num], tpl_terms[1], &opt_md, err_return);
             if (i != PKEY_OK) {
                 return i;
             }
@@ -968,7 +986,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
             if (tpl_terms[1] != atom_sha)
                 return PKEY_NOTSUP;
 #endif
-            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            i = get_pkey_digest_type(env, argv[algorithm_arg_num], tpl_terms[1], &opt_md, err_return);
             if (i != PKEY_OK) {
                 return i;
             }
@@ -1004,7 +1022,7 @@ static size_t size_of_RSA(EVP_PKEY *pkey) {
 
 ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret = atom_undefined;
     int i;
     int result = 0;
     int tmp_bin_alloc = 0;
@@ -1041,7 +1059,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_inspect_binary(env, argv[1], &in_bin))
         goto bad_arg;
 
-    i = get_pkey_crypt_options(env, argv[0], argv[3], &crypt_opt);
+    i = get_pkey_crypt_options(env, argv, 0, 3, &crypt_opt, &ret);
     switch (i) {
     case PKEY_OK:
         break;
