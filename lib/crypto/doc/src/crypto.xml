@@ -1253,6 +1253,7 @@ end
       <name name="private_decrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seemfa marker="#public_encrypt/4">public_encrypt/4</seemfa> (or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
@@ -1267,6 +1268,7 @@ end
       <name name="private_encrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
 	and returns the ciphertext. This is a low level signature operation
 	used for instance by older versions of the SSL protocol. See
@@ -1280,6 +1282,7 @@ end
       <name name="public_decrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seemfa marker="#private_encrypt/4">private_encrypt/4</seemfa>(or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
@@ -1294,6 +1297,7 @@ end
       <name name="public_encrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
 	and returns the <c>CipherText</c>. This is a low level signature operation
 	used for instance by older versions of the SSL protocol. See also <seemfa
@@ -1630,6 +1634,7 @@ FloatValue = rand:uniform().     % again
       <name name="sign" arity="5" since="OTP 20.1"/>
       <fsummary> Create digital signature.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Creates a digital signature.</p>
 	<p>The msg is either the binary "cleartext" data to be
 	signed or it is the hashed value of "cleartext" i.e. the
@@ -1645,6 +1650,7 @@ FloatValue = rand:uniform().     % again
       <name name="verify" arity="6" since="OTP 20.1"/>
       <fsummary>Verifies a digital signature.</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Verifies a digital signature</p>
 	<p>The msg is either the binary "cleartext" data to be
 	signed or it is the hashed value of "cleartext" i.e. the

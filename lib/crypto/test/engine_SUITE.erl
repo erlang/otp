@@ -833,7 +833,7 @@ sign_verify_rsa_pwd_bad_pwd(Config) ->
     try sign_verify(rsa, sha, Priv, Pub) of
         _ -> {fail, "PWD prot pubkey sign succeeded with no pwd!"}
     catch
-        error:badarg -> ok
+        error:{badarg,_,_} -> ok
     end.
 
 priv_encrypt_pub_decrypt_rsa(Config) ->

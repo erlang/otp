@@ -1424,11 +1424,9 @@ sign(Algorithm, Type, Data, Key) ->
 
 sign(Algorithm0, Type0, Data, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
-	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Signature -> Signature
-    end.
+    ?nif_call(pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options),
+              {1, 2, 3, 4, 5},
+              [Algorithm0, Type0, Data, Key, Options]).
 
 pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
@@ -1473,10 +1471,9 @@ verify(Algorithm, Type, Data, Signature, Key) ->
 
 verify(Algorithm0, Type0, Data, Signature, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
-	notsup -> erlang:error(notsup);
-	Boolean -> Boolean
-    end.
+    ?nif_call(pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options),
+              {1,2,3,4,5},
+              [Algorithm0, Type0, Data, Signature, Key, Options]).
 
 pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
@@ -1562,12 +1559,7 @@ pkey_crypt(rsa, Text, Key, Padding, PubPriv, EncDec) when is_atom(Padding) ->
     pkey_crypt(rsa, Text, Key, [{rsa_padding, Padding}], PubPriv, EncDec);
 
 pkey_crypt(Alg, Text, Key, Options, PubPriv, EncDec) ->
-    case pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec) of
-	error when EncDec==true  -> erlang:error(encrypt_failed, [Alg, Text, Key, Options]);
-	error when EncDec==false -> erlang:error(decrypt_failed, [Alg, Text, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
-    end.
+    ?nif_call(pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec)).
 
 pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
@@ -2305,16 +2297,15 @@ ec_curve(X) ->
                                                                      EnginePrivateKeyRef :: engine_key_ref(),
                                                                      PublicKey ::  rsa_public() | dss_public() .
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
-    try privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))
-    of
+    try ?nif_call(privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))) of
         [_|_]=L -> map_ensure_bin_as_int(L);
         X -> X
     catch
-        error:badarg when Alg==ecdsa ->
+        error:{badarg,_,_} when Alg==ecdsa ->
             {error, notsup};
-        error:badarg ->
+        error:{badarg,_,_} ->
             {error, not_found};
-        error:notsup ->
+        error:{notsup,_,_} ->
             {error, notsup}
     end.
 
