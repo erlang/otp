@@ -45,13 +45,11 @@
         ]).
 
 -export_type([
-              address_info/0,
-              ifaddrs/0,
-              name_info/0,
-
+              getifaddrs_args/0,
               interface_info_args/0,
               if_entry_args/0,
               ip_address_table_args/0,
+
               if_type/0,
               internal_if_oper_status/0,
               mib_if_row/0,
@@ -60,19 +58,11 @@
               ip_interface_info/0,
 
               mib_ip_address_row/0,
-              mib_ip_address_table/0,
-
-              ifaddrs_flag/0,
-              ifaddrs_flags/0,
-
-              name_info_flag/0,
-              name_info_flag_ext/0,
-              name_info_flags/0,
-
-              network_interface_name/0,
-              network_interface_index/0
+              mib_ip_address_table/0
              ]).
 
+
+-type getifaddrs_args() :: #{netns => string()}.
 
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
                         notrailers | running | noarp | promisc | master | slave |
@@ -98,8 +88,12 @@
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
                          tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
--type internal_if_oper_status() :: non_operational | unreachable |
-                                   disconnected | connected | operational.
+-type internal_if_oper_status() :: non_operational |
+                                   unreachable |
+                                   disconnected |
+                                   connecting | connected |
+                                   operational |
+                                   non_neg_integer().
 -type mib_if_row()    :: #{name              := string(),
                            index             := non_neg_integer(),
                            type              := if_type(),
