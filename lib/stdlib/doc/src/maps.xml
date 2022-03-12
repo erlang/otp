@@ -659,7 +659,7 @@ error</code>
     </func>
 
     <func>
-      <name name="groups_from_list" arity="2" since="OTP 26.0"/>
+      <name name="groups_from_list" arity="2" since="OTP 25.0"/>
       <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
       <desc>
         <p>The result is a map where each key is given by <anno>Fun</anno>
@@ -675,7 +675,7 @@ error</code>
     </func>
 
     <func>
-      <name name="groups_from_list" arity="3" since="OTP 26.0"/>
+      <name name="groups_from_list" arity="3" since="OTP 25.0"/>
       <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
       <desc>
         <p>The result is a map where each key is given by
