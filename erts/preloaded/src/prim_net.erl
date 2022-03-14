@@ -51,6 +51,7 @@
               ip_address_table_args/0,
 
               if_type/0,
+              if_admin_status/0,
               internal_if_oper_status/0,
               mib_if_row/0,
 
@@ -84,7 +85,8 @@
 -type getifaddrs_args() :: #{netns => string()}.
 
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
-                        notrailers | running | noarp | promisc | master | slave |
+                        notrailers | running | noarp | promisc |
+                        master | slave |
                         multicast | portsel | automedia | dynamic.
 -type ifaddrs_flags() :: [ifaddrs_flag()].
 
@@ -107,6 +109,12 @@
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
                          tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
+-type if_admin_status() :: non_operational |
+                           unreachable |
+                           disconnected |
+                           connecting | connected |
+                           operational |
+                           non_neg_integer().
 -type internal_if_oper_status() :: non_operational |
                                    unreachable |
                                    disconnected |
@@ -119,7 +127,7 @@
                            mtu               := non_neg_integer(),
                            speed             := non_neg_integer(),
                            phys_addr         := binary(),
-                           admin_status      := non_neg_integer(),
+                           admin_status      := if_admin_status(),
                            oper_status       := internal_if_oper_status(),
                            last_change       := non_neg_integer(),
                            in_octets         := non_neg_integer(),
