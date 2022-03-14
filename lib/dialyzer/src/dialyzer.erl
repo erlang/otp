@@ -532,11 +532,11 @@ message_to_string({callback_info_missing, [B]}, _I, _E) ->
   io_lib:format("Callback info about the ~w behaviour is not available\n", [B]);
 %%----- Warnings for unknown functions, types, and behaviours -------------
 message_to_string({unknown_type, {M, F, A}}, _I, _E) ->
-  io_lib:format("Unknown type ~w:~tw/~w", [M, F, A]);
+  io_lib:format("Unknown type ~w:~tw/~w\n", [M, F, A]);
 message_to_string({unknown_function, {M, F, A}}, _I, _E) ->
-  io_lib:format("Unknown function ~w:~tw/~w", [M, F, A]);
+  io_lib:format("Unknown function ~w:~tw/~w\n", [M, F, A]);
 message_to_string({unknown_behaviour, B}, _I, _E) ->
-  io_lib:format("Unknown behaviour ~w", [B]).
+  io_lib:format("Unknown behaviour ~w\n", [B]).
 
 %%-----------------------------------------------------------------------------
 %% Auxiliary functions below

@@ -4805,7 +4805,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
     {_, {_, _}} when element(1, Site) =:= check ->
       {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
       {t_any(), L1, C1};
-    {Tag, {{Module, _FileName, Form, ArgNames}, Type}} ->
+    {Tag, {{Module, {File,_Location}, Form, ArgNames}, Type}} ->
       NewTypeNames = [TypeName|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
       {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
@@ -4817,7 +4817,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = maps:from_list(List),
           {SiteTag, MFA} = TypeName,
-          Site1 = {SiteTag, MFA, site_file(Site)},
+          Site1 = {SiteTag, MFA, File},
           S2 = S1#from_form{site = Site1, vtab = TmpV},
           Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
@@ -4883,7 +4883,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
     {_, {_, _}} when element(1, Site) =:= check ->
       {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
       {t_any(), L1, C1};
-    {Tag, {{Mod, _FileLocation, Form, ArgNames}, Type}} ->
+    {Tag, {{Mod, {File,_Location}, Form, ArgNames}, Type}} ->
       NewTypeNames = [RemType|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
       {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
@@ -4895,7 +4895,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
           List = lists:zip(ArgNames, ArgTypes),
           TmpVarTab = maps:from_list(List),
           {SiteTag, MFA} = RemType,
-          Site1 = {SiteTag, MFA, site_file(Site)},
+          Site1 = {SiteTag, MFA, File},
           S2 = S1#from_form{site = Site1, vtab = TmpVarTab},
           Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
