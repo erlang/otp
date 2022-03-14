@@ -171,7 +171,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
             Sint size = Sint(arityval(*tuple_val(tuple)));
             auto [min, max] = getIntRange(Pos);
             bool is_bounded = min <= max;
-            bool can_fail = is_bounded || min < 1 || size < max;
+            bool can_fail = !is_bounded || min < 1 || size < max;
 
             comment("skipped tuple test since source is always a literal "
                     "tuple");
