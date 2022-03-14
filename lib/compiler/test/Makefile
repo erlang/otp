@@ -165,9 +165,8 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # FLAGS
 # ----------------------------------------------------
 
-MAYBE_OPT = '+{enable_feature,maybe_expr}'
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += +clint +clint0 +ssalint $(MAYBE_OPT)
+ERL_COMPILE_FLAGS += +clint +clint0 +ssalint
 
 EBIN = .
 

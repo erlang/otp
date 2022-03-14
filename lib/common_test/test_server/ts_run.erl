@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,6 +255,8 @@ make_command(Vars, Spec, State) ->
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
 	   " -pz \"",Cwd,"\"",
+           %% FIXME This is too far away from where it is needed.
+           " -enable-feature maybe_expr",
 	   " -ct_test_vars ",TestVars,
 	   " -eval \"ts_run:ct_run_test(\\\"",TestDir,"\\\", ",
 	   backslashify(lists:flatten(State#state.test_server_args)),")\""

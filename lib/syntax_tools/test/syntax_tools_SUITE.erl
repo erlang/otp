@@ -412,18 +412,20 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
 test_epp_dodger([], _, _) -> ok;
 test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
     io:format("Parsing ~p~n", [Filename]),
+    Options  = [{enable_feature, maybe_expr}],
     InFile   = filename:join(DataDir, Filename),
-    Parsers  = [{fun epp_dodger:parse_file/1,parse_file},
-		{fun epp_dodger:quick_parse_file/1,quick_parse_file},
+    Parsers  = [{fun(File) -> epp_dodger:parse_file(File, Options) end,parse_file},
+		{fun(File) -> epp_dodger:quick_parse_file(File,
+                                                          Options) end,quick_parse_file},
 		{fun (File) ->
 			{ok,Dev} = file:open(File,[read]),
-			Res = epp_dodger:parse(Dev),
+			Res = epp_dodger:parse(Dev, Options),
 			file:close(File),
 			Res
 		 end, parse},
 		{fun (File) ->
 			{ok,Dev} = file:open(File,[read]),
-			Res = epp_dodger:quick_parse(Dev),
+			Res = epp_dodger:quick_parse(Dev, Options),
 			file:close(File),
 			Res
 		 end, quick_parse}],
@@ -619,11 +621,7 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
     end.
 
 res_word_option() ->
-    %% FIXME: When the experimental features EEP has been implemented, we should
-    %% dig out all keywords defined in all features.
-    ResWordFun =
-        fun('maybe') -> true;
-           ('else') -> true;
-           (Other) -> erl_scan:reserved_word(Other)
-        end,
+    Options = [{enable_feature, maybe_expr}],
+    {ok, {_Ftrs, ResWordFun}} =
+        erl_features:keyword_fun(Options, fun erl_scan:f_reserved_word/1),
     {reserved_word_fun, ResWordFun}.
