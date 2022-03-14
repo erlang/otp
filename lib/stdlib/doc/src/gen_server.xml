@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -109,134 +109,521 @@ gen_server:abcast     -----> Module:handle_cast/2
 
   </description>
 
+
+
+  <datatypes>
+    <datatype>
+      <name name="server_name"/>
+      <desc>
+        <p>
+          Name specification to use when starting a <c>gen_server</c>.
+          See functions
+          <seemfa marker="#start/3"><c>start/3,4</c></seemfa>,
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>,
+          <seemfa marker="#start_monitor/3"><c>start_monitor/3,4</c></seemfa>,
+          <seemfa marker="#enter_loop/3"><c>enter_loop/3,4,5</c></seemfa>,
+          and the type
+	  <seetype marker="#server_ref"><c>server_ref()</c></seetype>
+	  below.
+        </p>
+        <taglist>
+          <tag><c>{local,<anno>LocalName</anno>}</c></tag>
+          <item>
+            <p>
+              Register the <c>gen_server</c> locally
+              as <c><anno>LocalName</anno></c> using
+              <seemfa marker="erts:erlang#register/2">
+                <c>register/2</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>{global,<anno>GlobalName</anno>}</c></tag>
+          <item>
+            <p>
+              Register the <c>gen_server</c> process id
+              globally as <c>GlobalName</c> using
+              <seemfa marker="kernel:global#register_name/2">
+                <c>global:register_name/2</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>{via,<anno>RegMod</anno>,<anno>ViaName</anno>}</c></tag>
+          <item>
+            <p>
+              Register the <c>gen_server</c> process with the registry
+              represented by <c><anno>RegMod</anno></c>.
+              The <c><anno>RegMod</anno></c> callback is to export
+              the functions <c>register_name/2</c>, <c>unregister_name/1</c>,
+              <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
+              like the corresponding functions in
+              <seeerl marker="kernel:global"><c>global</c></seeerl>.
+              Thus, <c>{via,global,<anno>GlobalName</anno>}</c>
+              is a valid reference equivalent to
+              <c>{global,<anno>GlobalName</anno>}</c>.
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="server_ref"/>
+      <desc>
+	<p>
+	  Server specification to use when addressing
+	  a <c>gen_server</c>.
+	  See <seemfa marker="#call/2"><c>call/2,3</c></seemfa>,
+	  <seemfa marker="#cast/2"><c>cast/2</c></seemfa>,
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>,
+	  <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>,
+	  <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
+	  <seemfa marker="#stop/1"><c>stop/2,3</c></seemfa>
+          and the type
+	  <seetype marker="#server_name"><c>server_name()</c></seetype>
+	  above.
+	</p>
+	<p>It can be:</p>
+	<taglist>
+	  <tag><c>pid()</c></tag>
+	  <item>
+            <p>
+              The <c>gen_server</c>'s process identifier.
+            </p>
+          </item>
+	  <tag><c><anno>LocalName</anno></c></tag>
+	  <item>
+            <p>
+              The <c>gen_server</c> is locally registered
+              as <c><anno>LocalName</anno></c> with
+              <seemfa marker="erts:erlang#register/2">
+                <c>register/2</c></seemfa>.
+            </p>
+          </item>
+	  <tag><c>{<anno>Name</anno>,<anno>Node</anno>}</c></tag>
+	  <item>
+            <p>
+	      The <c>gen_server</c> is locally registered
+	      on another node.
+            </p>
+	  </item>
+	  <tag><c>{global,<anno>GlobalName</anno>}</c></tag>
+	  <item>
+            <p>
+	      The <c>gen_server</c> is globally registered in
+	      <seeerl marker="kernel:global"><c>global</c></seeerl>.
+            </p>
+	  </item>
+	  <tag><c>{via,<anno>RegMod</anno>,<anno>ViaName</anno>}</c></tag>
+	  <item>
+            <p>
+	      The <c>gen_server</c> is registered in
+	      an alternative process registry.
+	      The registry callback module <c><anno>RegMod</anno></c>
+	      is to export functions
+	      <c>register_name/2</c>, <c>unregister_name/1</c>,
+	      <c>whereis_name/1</c>, and <c>send/2</c>,
+	      which are to behave like the corresponding functions in
+	      <seeerl marker="kernel:global"><c>global</c></seeerl>.
+	      Thus, <c>{via,global,<anno>GlobalName</anno>}</c>
+              is the same as <c>{global,<anno>GlobalName</anno>}</c>.
+            </p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="start_opt"/>
+      <desc>
+	<p>
+	  Options that can be used when starting
+	  a <c>gen_server</c> server through, for example,
+	  <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
+	</p>
+        <taglist>
+          <tag><c>{timeout,<anno>Timeout</anno>}</c></tag>
+          <item>
+            <p>
+              How many milliseconds the <c>gen_server</c> process is allowed
+              to spend initializing or it is terminated and the
+              start function returns <c>{error,timeout}</c>.
+            </p>
+          </item>
+          <tag>
+            <c>{spawn_opt,<anno>SpawnOptions</anno>}</c>
+          </tag>
+          <item>
+            <p>
+              The <c><anno>SpawnOptions</anno></c> option list
+              is passed to the function used to spawn
+              the <c>gen_server</c>; see
+              <seemfa marker="erts:erlang#spawn_opt/2">
+                <c>spawn_opt/2</c></seemfa>.
+            </p>
+            <note>
+              <p>
+                Using spawn option <c>monitor</c> is not
+                allowed, it causes a <c>badarg</c> failure.
+              </p>
+            </note>
+          </item>
+          <tag><c>enter_loop_opt()</c></tag>
+          <item>
+            <p>
+              See the type
+              <seetype marker="#enter_loop_opt"><c>enter_loop_opt()</c></seetype>
+              below for more start options that are also allowed by
+              <seemfa marker="#enter_loop/3"><c>enter_loop/3,4,5</c></seemfa>.
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="enter_loop_opt"/>
+      <desc>
+	<p>
+	  Options that can be used when starting
+	  a <c>gen_server</c> server through
+	  <seemfa marker="#enter_loop/3"><c>enter_loop/3-5</c></seemfa>
+          or the start functions such as
+	  <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
+	</p>
+	<taglist>
+	  <tag><c>{hibernate_after,<anno>HibernateAfterTimeout</anno>}</c></tag>
+	  <item>
+            <p>
+	      Specifies that the <c>gen_server</c> process awaits
+	      any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation
+	      automatically (by calling
+	      <seemfa marker="proc_lib#hibernate/3">
+                <c>proc_lib:hibernate/3</c></seemfa>).
+            </p>
+	  </item>
+	  <tag><c>{debug,<anno>Dbgs</anno>}</c></tag>
+	  <item>
+            <p>
+	      For every entry in <c><anno>Dbgs</anno></c>,
+	      the corresponding function in
+	      <seeerl marker="sys"><c>sys(3)</c></seeerl> is called.
+            </p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="start_ret"/>
+      <desc>
+	<p>
+	  Return value from the
+          <seemfa marker="#start/3"><c>start/3,4</c></seemfa>
+          and
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>
+          functions.
+	</p>
+        <taglist>
+          <tag><c>{ok,<anno>Pid</anno>}</c></tag>
+          <item>
+            <p>
+              The <c>gen_server</c> process was succesfully created
+              and initialized, with the process identifier
+              <c><anno>Pid</anno></c>.
+            </p>
+          </item>
+          <tag><c>{error,{already_started,OtherPid}}</c></tag>
+          <item>
+            <p>
+              A process with the specified <c>ServerName</c> exists already
+              with the process identifier <c>OtherPid</c>.
+              This <c>gen_server</c> was not started.
+            </p>
+          </item>
+          <tag><c>ignore</c></tag>
+          <item>
+            <p>
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+              returned <c>ignore</c>, the <c>gen_server</c> process
+              is terminated.  An exit signal <c>normal</c> is sent
+              to linked processes and ports.
+            </p>
+          </item>
+          <tag><c>{error,<anno>Reason</anno>}</c></tag>
+          <item>
+            <p>
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+              returned <c>{stop,<anno>Reason</anno>}</c>
+              or failed with <c><anno>Reason</anno></c>.
+              The <c>gen_server</c> process is terminated and
+              an exit signal with the same <c><anno>Reason</anno></c>
+              is sent to linked processes and ports.
+            </p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="start_mon_ret"/>
+      <desc>
+	<p>
+	  Return value from the
+	  <seemfa marker="#start_monitor/3"><c>start_monitor/3,4</c></seemfa>
+	  functions.
+          The same as type
+          <seetype marker="#start_ret"><c>start_ret()</c></seetype>
+          except that for a succesful start it returns both
+          the process identifier <c><anno>Pid</anno></c> and a
+          <seemfa marker="erts:erlang#monitor/2"><c>monitor/2,3</c></seemfa>
+          <c>reference()</c> <c><anno>MonRef</anno></c>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="from"/>
+      <desc>
+	<p>
+          Destination, given to the <c>gen_server</c>
+          as the first argument to the callback function
+          <seemfa marker="#Module:handle_call/3"><c>Module:handle_call/3</c></seemfa>,
+          to be used by the when replying through
+	  <seemfa marker="#reply/2"><c>reply/2</c></seemfa>
+          (instead of through the callback function's return value)
+	  to the process <c><anno>Client</anno></c>
+          that has called the <c>gen_server</c> using
+	  <seemfa marker="#call/2"><c>call/2,3</c></seemfa>.
+          <c><anno>Tag</anno></c> is a term that is unique
+          for this call/request instance.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="reply_tag"/>
+      <desc>
+        <p>
+          A handle that associates a reply to the corresponding request.
+        </p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="request_id"/>
+      <desc>
+	<p>
+	  A request handle, see
+          <seemfa marker="#send_request/2"> <c>send_request/2</c> </seemfa>
+	  for details.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+
+
   <funcs>
     <func>
-      <name since="">abcast(Name, Request) -> abcast</name>
-      <name since="">abcast(Nodes, Name, Request) -> abcast</name>
-      <fsummary>Send an asynchronous request to many generic servers.</fsummary>
-      <type>
-        <v>Nodes = [Node]</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>Name = atom()</v>
-        <v>Request = term()</v>
-      </type>
+      <name name="abcast" arity="2" since=""/>
+      <name name="abcast" arity="3" since=""/>
+      <fsummary>
+        Send an asynchronous request to many generic servers.
+      </fsummary>
       <desc>
-        <p>Sends an asynchronous request to the <c>gen_server</c> processes
-          locally registered as <c>Name</c> at the specified nodes. The function
+        <p>
+          Sends an asynchronous request to the <c>gen_server</c> processes
+          locally registered as <c><anno>Name</anno></c>
+          at the specified nodes. The function
           returns immediately and ignores nodes that do not exist, or
-          where the <c>gen_server</c> <c>Name</c> does not exist.
+          where the <c>gen_server</c>
+          <c><anno>Name</anno></c> does not exist.
           The <c>gen_server</c> processes call
           <seemfa marker="#Module:handle_cast/2">
-          <c>Module:handle_cast/2</c></seemfa> to handle the request.</p>
-        <p>For a description of the arguments, see
-          <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>.</p>
+            <c>Module:handle_cast/2</c>
+            </seemfa> to handle the request.
+        </p>
+        <p>
+          For a description of the arguments, see
+          <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="">call(ServerRef, Request) -> Reply</name>
-      <name since="">call(ServerRef, Request, Timeout) -> Reply</name>
+      <name name="call" arity="2" since=""/>
+      <name name="call" arity="3" since=""/>
       <fsummary>Make a synchronous call to a generic server.</fsummary>
-      <type>
-        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Request = term()</v>
-        <v>Timeout = int()>0 | infinity</v>
-        <v>Reply = term()</v>
-      </type>
       <desc>
-        <p>Makes a synchronous call to the <c>ServerRef</c> of the
-          <c>gen_server</c> process
+        <p>
+          Makes a synchronous call to the
+          <c><anno>ServerRef</anno></c> of the <c>gen_server</c> process
           by sending a request and waiting until a reply arrives or a
           time-out occurs. The <c>gen_server</c> process calls
           <seemfa marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seemfa> to handle the request.</p>
-        <p><c>ServerRef</c> can be any of the following:</p>
-        <list type="bulleted">
-          <item>The pid</item>
-          <item><c>Name</c>, if the <c>gen_server</c> process is locally
-            registered</item>
-          <item><c>{Name,Node}</c>, if the <c>gen_server</c> process is locally
-            registered at another node</item>
-          <item><c>{global,GlobalName}</c>, if the <c>gen_server</c> process is
-            globally registered</item>
-          <item><c>{via,Module,ViaName}</c>, if the <c>gen_server</c> process is
-            registered through an alternative process registry</item>
-        </list>
-        <p><c>Request</c> is any term that is passed as the
-          first argument to <c>Module:handle_call/3</c>.</p>
-        <p><c>Timeout</c> is an integer greater than zero that
+            <c>Module:handle_call/3</c>
+          </seemfa>
+          to handle the request.
+        </p>
+        <p>
+          See also <c><anno>ServerRef</anno></c>'s type
+          <seetype marker="#server_ref"><c>server_ref()</c></seetype>.
+        </p>
+        <p>
+          <c><anno>Request</anno></c> is any term that is passed as the
+          first argument to <c>Module:handle_call/3</c>.
+        </p>
+        <p>
+          <c><anno>Timeout</anno></c> is an integer that
           specifies how many milliseconds to wait for a reply, or
-          the atom <c>infinity</c> to wait indefinitely. Defaults to
-          5000. If no reply is received within the specified time,
-          the function call fails. If the caller catches the failure
-          and continues running, and the server is just late with the reply,
-          it can arrive at any time later into the message queue of the caller.
-          The caller must in this case be prepared for this
-          and discard any such garbage messages that are two element
-          tuples with a reference as the first element.</p>
-        <p>The return value <c>Reply</c> is defined in the return value
-          of <c>Module:handle_call/3</c>.</p>
-        <p>The call can fail for many reasons, including time-out and the
-          called <c>gen_server</c> process dying before or during the call.</p>
+          the atom <c>infinity</c> to wait indefinitely.
+          Defaults to 5000.
+          If no reply is received within the specified time,
+          this function exits the calling process with an exit term
+          containing <c>Reason&nbsp;=&nbsp;timeout</c> as described below.
+        </p>
+        <note>
+          <p>
+            If the caller uses (<c>try</c>...)<c>catch</c>
+            to avoid process exit,
+            and the server happens to just be late with the reply,
+            it may arrive to the process message queue any time later.
+            The calling process must therefore after catching a time-out exit
+            be prepared to receive garbage message(s)
+            on the form <c>{reference(),&nbsp;_}</c>
+            and deal with them appropriately (discard them)
+            so they do not clog the process message queue
+            or gets mistaken for other messages.
+          </p>
+        </note>
+        <p>
+          The return value <c><anno>Reply</anno></c>
+          is passed from the return value of <c>Module:handle_call/3</c>.
+        </p>
+        <p>
+          This call may exit the callling process
+          with an exit term on the form
+          <c>{Reason,&nbsp;Location}</c> where
+          <c>Location&nbsp;=&nbsp;{gen_server,call,ArgList}</c>
+          and <c>Reason</c> can be (at least) one of:
+        </p>
+        <taglist>
+          <tag><c>timeout</c></tag>
+          <item>
+            <p>
+              The call was aborted after waiting
+              <c><anno>Timeout</anno></c> milliseconds for a reply,
+              as described above.
+            </p>
+          </item>
+          <tag><c>noproc</c></tag>
+          <item>
+            <p>
+              The <c><anno>ServerRef</anno></c> refers to
+              a server by name (it is not a <c>pid()</c>)
+              and looking up the server process failed,
+              or the <c>pid()</c> was already terminated.
+            </p>
+          </item>
+          <tag><c>{nodedown,Node}</c></tag>
+          <item>
+            <p>
+              The <c><anno>ServerRef</anno></c> refers to a server
+              on the remote node <c>Node</c> and the connection
+              to that node failed.
+            </p>
+          </item>
+          <tag><c>calling_self</c></tag>
+          <item>
+            <p>A call to <c>self()</c> would hang indefinitely.</p>
+          </item>
+          <tag>
+            <c>shutdown</c><br/>
+          </tag>
+          <item>
+            <p>
+              The server was stopped during the call
+              by its supervisor.  See also
+              <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
+            </p>
+          </item>
+          <tag>
+            <c>normal</c><br/>
+            <c>{shutdown,Term}</c><br/>
+          </tag>
+          <item>
+            <p>
+              The server stopped during the call by returning
+              <c>{stop,Reason,_}</c> from its
+              <seemfa marker="#Module:handle_call/3">
+                <c>Module:handle_call/3</c>
+              </seemfa>
+              callback, without replying.  See also
+              <seemfa marker="#stop/3"><c>stop/3</c></seemfa>.
+            </p>
+          </item>
+          <tag><c>_OtherTerm</c></tag>
+          <item>
+            <p>
+              The server process exited during the call,
+              with reason <c>Reason</c>.  Either by returning
+              <c>{stop,Reason,_}</c> from its
+              <seemfa marker="#Module:handle_call/3">
+                <c>Module:handle_call/3</c>
+              </seemfa>
+              callback (without replying),
+              by raising an exception,
+              or due to getting an exit signal it did not trap.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
     <func>
-      <name since="">cast(ServerRef, Request) -> ok</name>
+      <name name="cast" arity="2" since=""/>
       <fsummary>Send an asynchronous request to a generic server.</fsummary>
-      <type>
-        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Request = term()</v>
-      </type>
       <desc>
-        <p>Sends an asynchronous request to the <c>ServerRef</c> of the
-          <c>gen_server</c> process
-          and returns <c>ok</c> immediately, ignoring
-          if the destination node or <c>gen_server</c> process does not exist.
+        <p>
+          Sends an asynchronous request to the
+          <c><anno>ServerRef</anno></c> of the
+          <c>gen_server</c> process and returns <c>ok</c> immediately,
+          ignoring if the destination node or <c>gen_server</c> process
+          does not exist.
           The <c>gen_server</c> process calls
           <seemfa marker="#Module:handle_cast/2">
-          <c>Module:handle_cast/2</c></seemfa> to handle the request.</p>
-        <p>For a description of <c>ServerRef</c>, see
-          <seemfa marker="#call/2"><c>call/2,3</c></seemfa>.</p>
-        <p><c>Request</c> is any term that is passed as one
-          of the arguments to <c>Module:handle_cast/2</c>.</p>
+            <c>Module:handle_cast/2</c>
+          </seemfa>
+          to handle the request.
+        </p>
+        <p>
+          See also <c><anno>ServerRef</anno></c>'s type
+          <seetype marker="#server_ref"><c>server_ref()</c></seetype>.
+        </p>
+        <p>
+          <c><anno>Request</anno></c> is any term that is passed as
+          the first argument to <c>Module:handle_cast/2</c>.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP-23">check_response(Msg, RequestId) -> Result</name>
+      <name name="check_response" arity="2" since="OTP-23"/>
       <fsummary>Check if a message is a reply from a server.</fsummary>
-      <type>
-	<v>RequestId = term()</v>
-	<v>Result = {reply, Reply} | no_reply | {error, {Reason, ServerRef}}</v>
-	<v>Msg = Reply = term()</v>
-	<v>Timeout = timeout()</v>
-	<v>Reason = term()</v>
-	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-      </type>
       <desc>
 	<p>
 	  This function is used to check if a previously received
 	  message, for example by <c>receive</c> or
 	  <c>handle_info/2</c>, is a result of a request made with
 	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>.
-	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
-	  the result of the request is returned in <c>Reply</c>.
+	  If <c><anno>Msg</anno></c> is a reply
+          to the handle <c><anno>RequestId</anno></c>
+	  the result of the request is returned in <c><anno>Reply</anno></c>.
 	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
 	  thus the function must be invoked repeatedly until a reply
 	  is returned.
 	</p>
 	<p>
-	  The return value <c>Reply</c> is defined in the return value
+	  The return value <c>Reply</c> is passed from the return value
 	  of <c>Module:handle_call/3</c>.
 	</p>
 	<p>
@@ -247,148 +634,177 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="">enter_loop(Module, Options, State)</name>
-      <name since="">enter_loop(Module, Options, State, ServerName)</name>
-      <name since="">enter_loop(Module, Options, State, Timeout)</name>
-      <name since="">enter_loop(Module, Options, State, ServerName, Timeout)</name>
+      <name name="enter_loop" arity="3" since=""/>
+      <name name="enter_loop" arity="4" clause_i="1" since=""/>
+      <name name="enter_loop" arity="4" clause_i="2" since=""/>
+      <name name="enter_loop" arity="5" since=""/>
       <fsummary>Enter the <c>gen_server</c> receive loop.</fsummary>
-      <type>
-        <v>Module = atom()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {hibernate_after,HibernateAfterTimeout}</v>
-        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</v>
-        <v>State = term()</v>
-        <v>ServerName = {local,Name} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
-        <v>&nbsp;Name = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Timeout = int() | infinity</v>
-      </type>
       <desc>
-        <p>Makes an existing process into a <c>gen_server</c> process. Does not
-          return, instead the calling process enters the <c>gen_server</c>
-          process receive
-          loop and becomes a <c>gen_server</c> process. The process
-          <em>must</em> have been started using one of the start functions in
-          <seeerl marker="proc_lib"><c>proc_lib(3)</c></seeerl>. The user is
-          responsible for any initialization of the process, including
-          registering a name for it.</p>
-        <p>This function is useful when a more complex initialization procedure
-          is needed than the <c>gen_server</c> process behavior provides.</p>
-        <p><c>Module</c>, <c>Options</c>, and <c>ServerName</c> have
+        <p>
+          Makes an existing process a <c>gen_server</c> process.
+          Does not return, instead the calling process enters
+          the <c>gen_server</c> process receive loop
+          and becomes a <c>gen_server</c> process.
+          The process <em>must</em> have been started using
+          one of the start functions in
+          <seeerl marker="proc_lib"><c>proc_lib(3)</c></seeerl>.
+          The user is responsible for any initialization of the process,
+          including registering a name for it.
+        </p>
+        <p>
+          This function is useful when a more complex
+          initialization procedure is needed
+          than the <c>gen_server</c> process behavior provides.
+        </p>
+        <p>
+          <c><anno>Module</anno></c>, <c><anno>Options</anno></c>,
+          and <c><anno>ServerName</anno></c> have
           the same meanings as when calling
-          <seemfa marker="#start_link/3"><c>start[_link|_monitor]/3,4</c></seemfa>.
-          However, if <c>ServerName</c> is specified, the process must
-          have been registered accordingly <em>before</em> this function
-          is called.</p>
-        <p><c>State</c> and <c>Timeout</c> have the same meanings as in
+          <seemfa marker="#start_link/3">
+            <c>start[_link|_monitor]/3,4</c>
+          </seemfa>
+          or it can be <c>self()</c> for an anonymous server,
+          which is the same as calling an <c>enter_loop/3,4</c> function
+          without a <c><anno>ServerName</anno></c> argument.
+          However, if <c><anno>ServerName</anno></c> is specified
+          (and not as <c>self()</c>),
+          the process must have been registered accordingly
+          <em>before</em> this function is called.
+        </p>
+        <p>
+          <c>State</c> and <c>Timeout</c> have the same meanings as in
           the return value of
-          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
-          The callback module <c>Module</c> does not need to
-          export an <c>init/1</c> function.</p>
-        <p>The function fails if the calling process was not started by a
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
+          which is <em>not</em> called when <c>enter_loop/3,4,5</c> is used.
+          Note that to adhere to the
+          <seeguide marker="system/design_principles:gen_server_concepts">
+            gen_server Behaviour
+          </seeguide>
+          such a callback function needs to be defined,
+          and it might as well be the one used when starting
+          the <c>gen_server</c> process through <c>proc_lib</c>,
+          and then be the one that calls <c>enter_loop/3,4,5</c>.
+          But if such a <c>Module:init/1</c> function
+          in for example error cases cannot call
+          <c>enter_loop/3,4,5</c>, it should return a value
+          that follows the type specification for
+          <c>Module:init/1</c> such as <c>ignore</c>,
+          although that value will be lost
+          when returning to the spawning function.
+        </p>
+        <p>
+          This function fails if the calling process was not started by a
           <c>proc_lib</c> start function, or if it is not registered
-          according to <c>ServerName</c>.</p>
+          according to <c><anno>ServerName</anno></c>.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="">multi_call(Name, Request) -> Result</name>
-      <name since="">multi_call(Nodes, Name, Request) -> Result</name>
-      <name since="">multi_call(Nodes, Name, Request, Timeout) -> Result</name>
+      <name name="multi_call" arity="2" since=""/>
+      <name name="multi_call" arity="3" since=""/>
+      <name name="multi_call" arity="4" since=""/>
       <fsummary>Make a synchronous call to many generic servers.</fsummary>
-      <type>
-        <v>Nodes = [Node]</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>Name = atom()</v>
-        <v>Request = term()</v>
-        <v>Timeout = int()>=0 | infinity</v>
-        <v>Result = {Replies,BadNodes}</v>
-        <v>&nbsp;Replies = [{Node,Reply}]</v>
-        <v>&nbsp;&nbsp;Reply = term()</v>
-        <v>BadNodes = [Node]</v>
-      </type>
       <desc>
-        <p>Makes a synchronous call to all <c>gen_server</c> processes locally
-          registered as <c>Name</c> at the specified nodes by first
-          sending a request to every node and then waits for
-          the replies. The <c>gen_server</c> process calls
+        <p>
+          Makes a synchronous call to all <c>gen_server</c> processes
+          locally registered as <c><anno>Name</anno></c>
+          at the specified nodes,
+          by first sending the request to the nodes,
+          and then waiting for the replies.
+          The <c>gen_server</c> processes on the nodes call
           <seemfa marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seemfa> to handle the request.</p>
-        <p>The function returns a tuple <c>{Replies,BadNodes}</c>, where
-          <c>Replies</c> is a list of <c>{Node,Reply}</c> and
-          <c>BadNodes</c> is a list of node that either did not exist,
-          or where the <c>gen_server</c> <c>Name</c> did not exist or did not
-          reply.</p>
-        <p><c>Nodes</c> is a list of node names to which the request
-          is to be sent. Default value is the list of all known nodes
-          <c>[node()|nodes()]</c>.</p>
-        <p><c>Name</c> is the locally registered name of each
-          <c>gen_server</c> process.</p>
-        <p><c>Request</c> is any term that is passed as the first
-          argument to <c>Module:handle_call/3</c>.</p>
-        <p><c>Timeout</c> is an integer greater than zero that
-          specifies how many milliseconds to wait for each reply, or
-          the atom <c>infinity</c> to wait indefinitely. Defaults
-          to <c>infinity</c>. If no reply is received from a node within
-          the specified time, the node is added to <c>BadNodes</c>.</p>
-        <p>When a reply <c>Reply</c> is received from the <c>gen_server</c>
-          process at a node <c>Node</c>, <c>{Node,Reply}</c> is added to
-          <c>Replies</c>. <c>Reply</c> is defined in the return value of
-          <c>Module:handle_call/3</c>.</p>
+            <c>Module:handle_call/3</c>
+          </seemfa>
+          to handle the request.
+        </p>
+        <p>
+          The function returns a tuple
+          <c>{<anno>Replies</anno>,<anno>BadNodes</anno>}</c>,
+          where <c><anno>Replies</anno></c> is a list of
+          <c>{<anno>Node</anno>,<anno>Reply</anno>}</c> tuples,
+          and <c><anno>BadNodes</anno></c> is a list of nodes
+          that either did not exist,
+          where <c><anno>Name</anno></c>
+          was not a registered <c>gen_server</c>,
+          or where it did not reply.
+        </p>
+        <p>
+          <c><anno>Nodes</anno></c> is a list of node names
+          to which the request is to be sent.
+          Default value is the list of all known nodes
+          <c>[node()|nodes()]</c>.
+        </p>
+        <p>
+          <c><anno>Name</anno></c> is the locally registered name
+          for each <c>gen_server</c> process.
+        </p>
+        <p>
+          <c><anno>Request</anno></c> is any term that is passed
+          as the first argument to <c>Module:handle_call/3</c>.
+        </p>
+        <p>
+          <c><anno>Timeout</anno></c> is an integer that
+          specifies how many milliseconds to wait for all replies,
+          or the atom <c>infinity</c> to wait indefinitely,
+          which is the default.
+          If no reply is received from a node within the specified time,
+          the node is added to <c><anno>BadNodes</anno></c>.
+        </p>
+        <p>
+          When a reply <c><anno>Reply</anno></c> is received
+          from the <c>gen_server</c> process
+          at a node <c><anno>Node</anno></c>,
+          <c>{<anno>Node</anno>,<anno>Reply</anno>}</c> is added to
+          <c><anno>Replies</anno></c>.
+          <c><anno>Reply</anno></c> is passed from the return value of
+          <c>Module:handle_call/3</c>.
+        </p>
         <warning>
-          <p>If one of the nodes cannot process monitors, for example,
+          <p>
+            If one of the nodes cannot process monitors, for example,
             C or Java nodes, and the <c>gen_server</c> process is not started
             when the requests are sent, but starts within 2 seconds,
             this function waits the whole <c>Timeout</c>,
-            which may be infinity.</p>
+            which may be infinity.
+          </p>
           <p>This problem does not exist if all nodes are Erlang nodes.</p>
         </warning>
-        <p>To prevent late answers (after the time-out) from polluting
-          the message queue of the caller, a middleman process is used to
-          do the calls. Late answers are then discarded
-          when they arrive to a terminated process.</p>
+        <p>
+          To prevent late answers (after the time-out) from polluting
+          the message queue of the caller, a middleman process is used
+          to do the calls. Late answers are then discarded
+          when they arrive to a terminated process.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 24.0">receive_response(RequestId, Timeout) -> Result</name>
-      <fsummary>Receive for a reply from a server.</fsummary>
-      <type>
-	<v>RequestId = term()</v>
-	<v>Result = {reply, Reply} | timeout | {error, {Reason, ServerRef}}</v>
-	<v>Reply = term()</v>
-	<v>Timeout = timeout()</v>
-	<v>Reason = term()</v>
-	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-      </type>
+      <name name="receive_response" arity="2" since="OTP 24.0"/>
+      <fsummary>Receive a reply from a server.</fsummary>
       <desc>
 	<p>
-	This function is used to receive a reply of a request made with
-	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
-	to a <c>gen_server</c> process. This function must be called
-	from the same process from which
-	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
-	was made.
+	  This function is used to receive a reply to a request made with
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	  to a <c>gen_server</c> process.
+          This function must be called by the same process that called
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
-	  that specifies how many milliseconds to wait for an reply, or
-	  the atom <c>infinity</c> to wait indefinitely.
-	  If no reply is received within the specified
-	  time, the function returns <c>timeout</c>. Assuming that the
-	  server executes on a node supporting aliases (introduced in
-	  OTP 24) no response will be received after a timeout. Otherwise,
-	  a garbage response might be received at a later time.
+	  <c><anno>Timeout</anno></c> is an integer
+          that specifies how many milliseconds
+          to wait for a reply, or the atom <c>infinity</c>
+          to wait indefinitely.
+	  If no reply is received within the specified time,
+          the function returns <c>timeout</c>.
+          If the server executes on a node supporting aliases
+          (introduced in OTP 24) no response will be received
+          after a time-out. Otherwise, a garbage response
+          might be received at a later time.
 	</p>
 	<p>
-	  The return value <c>Reply</c> is defined in the return value
-	  of <c>Module:handle_call/3</c>.
+	  A returned <c><anno>Reply</anno></c> is passed from
+          the return value of <c>Module:handle_call/3</c>.
 	</p>
 	<p>
 	  The function returns an error if the <c>gen_server</c>
@@ -398,329 +814,241 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  The difference between
 	  <seemfa marker="#wait_response/2"><c>wait_response()</c></seemfa>
 	  and <c>receive_response()</c> is that <c>receive_response()</c>
-	  abandons the request at timeout so that a potential future
+	  abandons the request at time-out so that a potential late
 	  response is ignored, while <c>wait_response()</c> does not.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name since="">reply(Client, Reply) -> ok</name>
+      <name name="reply" arity="2" since=""/>
       <fsummary>Send a reply to a client.</fsummary>
-      <type>
-        <v>Client - see below</v>
-        <v>Reply = term()</v>
-      </type>
       <desc>
-        <p>This function can be used by a <c>gen_server</c> process to
+        <p>
+          This function can be used by a <c>gen_server</c> process to
           explicitly send a reply to a client that called
           <seemfa marker="#call/2"><c>call/2,3</c></seemfa> or
           <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>,
-          when the reply cannot be defined in the return value of
+          when the reply cannot be passed in the return value of
           <seemfa marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seemfa>.</p>
-        <p><c>Client</c> must be the <c>From</c> argument provided to
-          the callback function. <c>Reply</c> is any term
-          given back to the client as the return value of
-          <c>call/2,3</c> or <c>multi_call/2,3,4</c>.</p>
+            <c>Module:handle_call/3</c></seemfa>.
+        </p>
+        <p>
+          <c><anno>Client</anno></c> must be the <c>From</c> argument
+          provided to the <c>handle_call</c> callback function.
+          <c><anno>Reply</anno></c> is any term
+          passed back to the client as the return value of
+          <c>call/2,3</c> or <c>multi_call/2,3,4</c>.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 23.0">send_request(ServerRef, Request) -> RequestId</name>
+      <name name="send_request" arity="2" since="OTP 23.0"/>
       <fsummary>Sends a request to a generic server.</fsummary>
-      <type>
-        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>RequestId = term()</v>
-        <v>Timeout = int()>0 | infinity</v>
-        <v>Request = term()</v>
-      </type>
       <desc>
         <p>
-	  Sends a request to the <c>ServerRef</c> of the
-          <c>gen_server</c> process and returns a handle <c>RequestId</c>.
-	  The return value <c>RequestId</c> shall later be used with
-          <seemfa marker="#receive_response/2"> <c>receive_response/2</c></seemfa>,
-          <seemfa marker="#wait_response/2"> <c>wait_response/2</c></seemfa>, or
-	  <seemfa marker="#check_response/2"> <c>check_response/2</c></seemfa>
+	  Sends a request to the <c><anno>ServerRef</anno></c>
+          of the <c>gen_server</c> process
+          and returns a handle <c><anno>RequestId</anno></c>.
+	  The returned handle shall later be used with
+          <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+          <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>, or
+	  <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>
 	  to fetch the actual result of the request.
 	</p>
 	<p>
-	  The call <c>gen_server:wait_response(gen_server:send_request(ServerRef,Request), Timeout)</c>
+	  The call
+          <c>
+            gen_server:wait_response(gen_server:send_request(<anno>ServerRef</anno>,
+            <anno>Request</anno>), Timeout)
+          </c>
 	  can be seen as equivalent to
-	  <seemfa marker="#call/3"><c>gen_server:call(Server,Request,Timeout)</c></seemfa>,
+	  <seemfa marker="#call/3"><c>gen_server:call(<anno>ServerRef</anno>, <anno>Request</anno>, Timeout)</c></seemfa>,
 	  ignoring the error handling.
 	</p>
 	<p>
 	  The <c>gen_server</c> process calls
-	  <seemfa marker="#Module:handle_call/3"> <c>Module:handle_call/3</c></seemfa>
+	  <seemfa marker="#Module:handle_call/3">
+            <c>Module:handle_call/3</c>
+          </seemfa>
 	  to handle the request.
 	</p>
-        <p><c>ServerRef</c> can be any of the following:</p>
-        <list type="bulleted">
-          <item>The pid</item>
-          <item><c>Name</c>, if the <c>gen_server</c> process is locally
-            registered</item>
-          <item><c>{Name,Node}</c>, if the <c>gen_server</c> process is locally
-            registered at another node</item>
-          <item><c>{global,GlobalName}</c>, if the <c>gen_server</c> process is
-            globally registered</item>
-          <item><c>{via,Module,ViaName}</c>, if the <c>gen_server</c> process is
-            registered through an alternative process registry</item>
-        </list>
-        <p><c>Request</c> is any term that is passed as the first
-        argument to <c>Module:handle_call/3</c>.</p>
+        <p>
+          See the type
+          <seetype marker="#server_ref"><c>server_ref()</c></seetype>
+          for the possible values for <c><anno>ServerRef</anno></c>.
+        </p>
+        <p>
+          <c><anno>Request</anno></c> is any term that is passed
+          as the first argument to <c>Module:handle_call/3</c>.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="">start(Module, Args, Options) -> Result</name>
-      <name since="">start(ServerName, Module, Args, Options) -> Result</name>
+      <name name="start" arity="3" since=""/>
+      <name name="start" arity="4" since=""/>
       <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
-      <type>
-        <v>ServerName = {local,Name} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
-        <v>&nbsp;Name = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Module = atom()</v>
-        <v>Args = term()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
-        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
-        <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
-        <v>&nbsp;Pid = pid()</v>
-        <v>&nbsp;Error = {already_started,Pid} | term()</v>
-      </type>
       <desc>
-        <p>Creates a standalone <c>gen_server</c> process, that is, a
+        <p>
+          Creates a standalone <c>gen_server</c> process, that is, a
           <c>gen_server</c> process that is not part of a supervision tree
           and thus has no supervisor.</p>
-        <p>For a description of arguments and return values, see
-          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.</p>
+          <p>
+            Other than that see
+            <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
+          </p>
       </desc>
     </func>
 
     <func>
-      <name since="">start_link(Module, Args, Options) -> Result</name>
-      <name since="">start_link(ServerName, Module, Args, Options) -> Result</name>
-      <fsummary>Create a <c>gen_server</c> process in a supervision tree.
+      <name name="start_link" arity="3" since=""/>
+      <name name="start_link" arity="4" since=""/>
+      <fsummary>
+        Create a <c>gen_server</c> process in a supervision tree.
       </fsummary>
-      <type>
-        <v>ServerName = {local,Name} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
-        <v>&nbsp;Name = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Module = atom()</v>
-        <v>Args = term()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
-        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
-        <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
-        <v>&nbsp;Pid = pid()</v>
-        <v>&nbsp;Error = {already_started,Pid} | term()</v>
-      </type>
       <desc>
-        <p>Creates a <c>gen_server</c> process as part of a supervision tree.
+        <p>
+          Creates a <c>gen_server</c> process as part of a supervision tree.
           This function is to be called, directly or indirectly, by
           the supervisor. For example, it ensures that
-          the <c>gen_server</c> process is linked to the supervisor.</p>
-        <p>The <c>gen_server</c> process calls
-          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa> to
-          initialize. To ensure a synchronized startup procedure,
+          the <c>gen_server</c> process is linked to the supervisor.
+        </p>
+        <p>
+          The <c>gen_server</c> process calls
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
+          to initialize.
+          To ensure a synchronized startup procedure,
           <c>start_link/3,4</c> does not return until
-          <c>Module:init/1</c> has returned.</p>
-        <list type="bulleted">
-          <item>
-            <p>If <c>ServerName={local,Name}</c>, the <c>gen_server</c> process
-              is registered locally as <c>Name</c> using <c>register/2</c>.</p>
-          </item>
-          <item>
-            <p>If <c>ServerName={global,GlobalName}</c>, the <c>gen_server</c>
-              process id registered globally as <c>GlobalName</c> using
-              <seemfa marker="kernel:global#register_name/2">
-              <c>global:register_name/2</c></seemfa> If no name is
-              provided, the <c>gen_server</c> process is not registered.</p>
-          </item>
-          <item>
-            <p>If <c>ServerName={via,Module,ViaName}</c>, the <c>gen_server</c>
-              process registers with the registry represented by <c>Module</c>.
-              The <c>Module</c> callback is to export the functions
-              <c>register_name/2</c>, <c>unregister_name/1</c>,
-              <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
-              like the corresponding functions in
-              <seeerl marker="kernel:global"><c>global</c></seeerl>.
-              Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
-          </item>
-        </list>
-        <p><c>Module</c> is the name of the callback module.</p>
-        <p><c>Args</c> is any term that is passed as
+          <c>Module:init/1</c> has returned.
+        </p>
+        <p>
+          Using the argument <c><anno>ServerName</anno></c>
+          creates a <c>gen_server</c> with a registered name.
+          See type
+          <seetype marker="#server_name"><c>server_name()</c></seetype>
+          for different name registrations.
+          If no <c><anno>ServerName</anno></c> is provided,
+          the <c>gen_server</c> process is not registered.
+        </p>
+        <p>
+          <c><anno>Module</anno></c> is the name of the callback module.
+        </p>
+        <p>
+          <c><anno>Args</anno></c> is any term that is passed as
           the argument to
-          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.</p>
-        <list type="bulleted">
-          <item>
-            <p>If option <c>{timeout,Time}</c> is present, the <c>gen_server</c>
-              process is allowed to spend <c>Time</c> milliseconds
-              initializing or it is terminated and the start function
-              returns <c>{error,timeout}</c>.</p>
-          </item>
-          <item>
-            <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_server</c>
-              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
-              if no message is received, the process goes into hibernation automatically
-              (by calling <seemfa marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>).</p>
-          </item>
-          <item>
-            <p>If option <c>{debug,Dbgs}</c> is present,
-              the corresponding <c>sys</c> function is called for each
-              item in <c>Dbgs</c>; see
-              <seeerl marker="sys"><c>sys(3)</c></seeerl>.</p>
-          </item>
-          <item>
-            <p>If option <c>{spawn_opt,SOpts}</c> is present,
-              <c>SOpts</c> is passed as option list to
-              the <c>spawn_opt</c> BIF, which is used to spawn
-              the <c>gen_server</c> process; see
-              <seemfa marker="erts:erlang#spawn_opt/2">
-              <c>spawn_opt/2</c></seemfa>.</p>
-          </item>
-        </list>
-        <note>
-          <p>Using spawn option <c>monitor</c> is not
-            allowed, it causes the function to fail with reason
-            <c>badarg</c>.</p>
-        </note>
-        <p>If the <c>gen_server</c> process is successfully created and
-          initialized, the function returns <c>{ok,Pid}</c>, where <c>Pid</c>
-          is the pid of the <c>gen_server</c> process. If a process with the
-          specified <c>ServerName</c> exists already, the function returns
-          <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
-          the pid of that process.</p>
-        <p>If <c>Module:init/1</c> fails with <c>Reason</c>,
-          the function returns <c>{error,Reason}</c>. If
-          <c>Module:init/1</c> returns <c>{stop,Reason}</c> or
-          <c>ignore</c>, the process is terminated and the function
-          returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.
-	  An exit signal with the same <c>Reason</c> (or <c>normal</c> if
-	  <c>Module:init/1</c> returns <c>ignore</c>) is sent to linked
-	  processes and ports.</p>
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
+        </p>
+        <p>
+          See type
+          <seetype marker="#start_opt"><c>start_opt()</c></seetype>
+          for <c><anno>Options</anno></c> when starting
+          the <c>gen_server</c> process.
+        </p>
+        <p>
+          See type
+          <seetype marker="#start_ret"><c>start_ret()</c></seetype>
+          for a description this function's return values.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 23.0">start_monitor(Module, Args, Options) -> Result</name>
-      <name since="OTP 23.0">start_monitor(ServerName, Module, Args, Options) -> Result</name>
+      <name name="start_monitor" arity="3" since="OTP 23.0"/>
+      <name name="start_monitor" arity="4" since="OTP 23.0"/>
       <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
-      <type>
-        <v>ServerName = {local,Name} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
-        <v>&nbsp;Name = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Module = atom()</v>
-        <v>Args = term()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
-        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
-        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
-        <v>&nbsp;&nbsp;SOpts = [term()]</v>
-        <v>Result = {ok,{Pid,Mon}} | ignore | {error,Error}</v>
-        <v>&nbsp;Pid = pid()</v>
-        <v>&nbsp;Error = {already_started,Pid} | term()</v>
-      </type>
       <desc>
-        <p>Creates a standalone <c>gen_server</c> process, that is, a
+        <p>
+          Creates a standalone <c>gen_server</c> process, that is, a
           <c>gen_server</c> process that is not part of a supervision tree
           (and thus has no supervisor) and atomically sets up a monitor to
-	  the newly created server.</p>
-        <p>For a description of arguments and return values, see
-        <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
-	Note that the return value on successful start differs from
-	<c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
-	<c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
-	of the server, and <c>Mon</c> is a reference to the monitor
-	set up to monitor the server. If the start is not successful,
-	the caller will be blocked until the <c>DOWN</c> message has
-	been received and removed from the message queue.</p>
+	  the newly created server.
+        </p>
+        <p>
+          Other than that see
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
+	  Note that the return value for a successful start differs
+          in that it returns a monitor <c>reference</c>.
+          See type
+          <seetype marker="#start_mon_ret"><c>start_mon_ret()</c></seetype>.
+        </p>
+        <p>
+          If the start is not successful,
+	  the caller will be blocked until the monitor's
+          <c>'DOWN'</c> message has been received
+          and removed from the message queue.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 18.0">stop(ServerRef) -> ok</name>
-      <name since="OTP 18.0">stop(ServerRef, Reason, Timeout) -> ok</name>
+      <name name="stop" arity="1"  since="OTP 18.0"/>
+      <name name="stop" arity="3"  since="OTP 18.0"/>
       <fsummary>Synchronously stop a generic server.</fsummary>
-      <type>
-        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-        <v>Reason = term()</v>
-        <v>Timeout = int()>0 | infinity</v>
-      </type>
       <desc>
-        <p>Orders a generic server to exit with the specified <c>Reason</c>
-          and waits for it to terminate. The <c>gen_server</c> process calls
+        <p>
+          Orders the generic server specified by
+          <c><anno>ServerRef</anno></c> to exit
+          with the specified <c><anno>Reason</anno></c>,
+          default 'normal', and waits for it to terminate.
+          The <c>gen_server</c> process calls
           <seemfa marker="#Module:terminate/2">
-          <c>Module:terminate/2</c></seemfa> before exiting.</p>
-        <p>The function returns <c>ok</c> if the server terminates
+            <c>Module:terminate/2</c>
+          </seemfa>
+          before exiting.
+        </p>
+        <p>
+          The function returns <c>ok</c> if the server terminates
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
-          An exit signal with the same reason is sent to linked processes
-	  and ports.
-          The default <c>Reason</c> is <c>normal</c>.</p>
-        <p><c>Timeout</c> is an integer greater than zero that
+          An exit signal with the same reason
+          is sent to linked processes and ports.
+        </p>
+        <p>
+          <c><anno>Timeout</anno></c> is an integer that
           specifies how many milliseconds to wait for the server to
           terminate, or the atom <c>infinity</c> to wait
-          indefinitely. Defaults to <c>infinity</c>. If the
-          server has not terminated within the specified time, a
-          <c>timeout</c> exception is raised.</p>
-        <p>If the process does not exist, a <c>noproc</c> exception
-          is raised.</p>
+          indefinitely, which is the default.  If the
+          server has not terminated within the specified time,
+          the call exits the calling process
+          with reason <c>timeout</c>.
+        </p>
+        <p>
+          If the process does not exist, the call exits
+          the calling process with reason <c>noproc</c>,
+          and with reason <c>{nodedown,Node}</c>
+          if the connection fails to the remote <c>Node</c>
+          where the server runs.
+        </p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 23.0">wait_response(RequestId, Timeout) -> Result</name>
+      <name name="wait_response" arity="2" since="OTP 23.0"/>
       <fsummary>Wait for a reply from a server.</fsummary>
-      <type>
-	<v>RequestId = term()</v>
-	<v>Result = {reply, Reply} | timeout | {error, {Reason, ServerRef}}</v>
-	<v>Reply = term()</v>
-	<v>Timeout = timeout()</v>
-	<v>Reason = term()</v>
-	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-      </type>
       <desc>
 	<p>
-	This function is used to wait for a reply of a request made with
-	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
-	from the <c>gen_server</c> process. This function must be called
-	from the same process from which
-	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
-	was made.
+	  This function is used to wait for a reply of a request made with
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
+	  from the <c>gen_server</c> process.
+          This function must be called from the same process that called
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
-	  that specifies how many milliseconds to wait for an reply, or
-	  the atom <c>infinity</c> to wait indefinitely.
-	  If no reply is received within the specified
-	  time, the function returns <c>timeout</c> and no cleanup is
-	  done, and thus the function can be invoked repeatedly until a
+	  <c><anno>Timeout</anno></c> is an integer
+	  that specifies how many milliseconds to wait for a reply,
+          or the atom <c>infinity</c> to wait indefinitely.
+	  If no reply is received within the specified time,
+	  the function returns <c>timeout</c> and no cleanup is done;
+          thus the function can be invoked repeatedly until a
 	  reply is returned.
 	</p>
 	<p>
-	  The return value <c>Reply</c> is defined in the return value
-	  of <c>Module:handle_call/3</c>.
+	  The return value <c><anno>Reply</anno></c> is passed from
+          the return value of <c>Module:handle_call/3</c>.
 	</p>
 	<p>
 	  The function returns an error if the <c>gen_server</c>
@@ -730,7 +1058,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  The difference between
 	  <seemfa marker="#receive_response/2"><c>receive_response()</c></seemfa>
 	  and <c>wait_response()</c> is that <c>receive_response()</c>
-	  abandons the request at timeout so that a potential future
+	  abandons the request at time-out so that a potential future
 	  response is ignored, while <c>wait_response()</c> does not.
 	</p>
       </desc>
@@ -930,18 +1258,24 @@ format_status(Status) ->
       <fsummary>Handle a synchronous request.</fsummary>
       <type>
         <v>Request = term()</v>
-        <v>From = {pid(),Tag}</v>
+        <v>From = <seetype marker="#from">from()</seetype></v>
         <v>State = term()</v>
-        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
+        <v>Result = {reply,Reply,NewState}</v>
+        <v>&nbsp;&nbsp;| {reply,Reply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {reply,Reply,NewState,{continue,Continue}}</v>
-        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
+        <v>&nbsp;&nbsp;| {noreply,NewState}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
-        <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;Reply = term()</v>
         <v>&nbsp;NewState = term()</v>
-        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>
+          &nbsp;Timeout =
+          <seetype marker="erts:erlang#timeout">timeout()</seetype>
+        </v>
         <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
@@ -950,45 +1284,109 @@ format_status(Status) ->
           <seemfa marker="#call/2"><c>call/2,3</c></seemfa> or
           <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>,
           this function is called to handle the request.</p>
-        <p><c>Request</c> is the <c>Request</c> argument provided
-          to <c>call</c> or <c>multi_call</c>.</p>
-        <p><c>From</c> is a tuple <c>{Pid,Tag}</c>, where <c>Pid</c> is
-          the pid of the client and <c>Tag</c> is a unique tag.</p>
         <p><c>State</c> is the internal state of the <c>gen_server</c>
-          process.</p>
-        <list type="bulleted">
+          process, and <c>NewState</c> a possibly updated one.</p>
+        <p><c>Request</c> is passed from the same argument provided
+        to <c>call</c> or <c>multi_call</c>.</p>
+        <p>The return value <c>Result</c> is interpreted as follows:</p>
+        <taglist>
+          <tag>
+            <c>{reply,Reply,NewState}</c><br/>
+            <c>{reply,Reply,NewState,_}</c>
+          </tag>
           <item>
-            <p>If <c>{reply,Reply,NewState}</c> is returned, 
-              <c>{reply,Reply,NewState,Timeout}</c> or 
-              <c>{reply,Reply,NewState,hibernate}</c>, <c>Reply</c> is
-              given back to <c>From</c> as the return value of
-              <c>call/2,3</c> or included in the return value of
-              <c>multi_call/2,3,4</c>. The <c>gen_server</c> process then
-              continues executing with the possibly updated internal state
-              <c>NewState</c>.</p>
-            <p>For a description of <c>Timeout</c> and <c>hibernate</c>, see
-              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.</p>
+            <p>
+              The <c>Reply</c> value is sent back to the client request
+              and there becomes its return value.
+            </p>
+            <p>
+              The <c>gen_server</c> process continues executing
+              with the possibly updated internal state <c>NewState</c>.
+            </p>
           </item>
+          <tag>
+            <c>{noreply,NewState}</c><br/>
+            <c>{noreply,NewState,_}</c>
+          </tag>
           <item>
-            <p>If <c>{noreply,NewState}</c> is returned,
-              <c>{noreply,NewState,Timeout}</c>, or
-              <c>{noreply,NewState,hibernate}</c>, the <c>gen_server</c>
-              process continues executing with <c>NewState</c>. Any reply to
-              <c>From</c> must be specified explicitly using
-              <seemfa marker="#reply/2"><c>reply/2</c></seemfa>.</p>
+            <p>
+              The <c>gen_server</c> process continues executing
+              with the possibly updated internal state <c>NewState</c>.
+            </p>
+            <p>
+              A reply to the client request has to be created by calling
+              <seemfa marker="#reply/2"><c>reply(From,&nbsp;Reply)</c></seemfa>,
+              either in this or in a later callback.
+            </p>
           </item>
+          <tag>
+            <c>{reply,_,_,Timeout}</c><br/>
+            <c>{noreply,_,Timeout}</c>
+          </tag>
           <item>
-            <p>If <c>{stop,Reason,Reply,NewState}</c> is returned,
-              <c>Reply</c> is given back to <c>From</c>.</p>
+            <p>
+              If an integer <c>Timeout</c> is provided, a time-out occurs
+              unless a request or a message is received within
+              that many milliseconds. A time-out is represented by
+              the atom <c>timeout</c> to be handled by the
+              <seemfa marker="#Module:handle_info/2">
+                <c>Module:handle_info/2</c>
+              </seemfa>
+              callback function.
+              <c>Timeout&nbsp;=:=&nbsp;infinity</c>
+              can be used to wait indefinitely, which is the same as
+              returning a value without a <c>Timeout</c> member.
+            </p>
           </item>
+          <tag>
+            <c>{reply,_,_,hibernate}</c><br/>
+            <c>{noreply,_,hibernate}</c>
+          </tag>
           <item>
-            <p>If <c>{stop,Reason,NewState}</c> is returned, any reply
-              to <c>From</c> must be specified explicitly using
-              <seemfa marker="#reply/2"><c>reply/2</c></seemfa>.
-              The <c>gen_server</c> process then calls
-              <c>Module:terminate(Reason,NewState)</c> and terminates.</p>
+            <p>
+              The process goes into hibernation waiting for
+              the next message to arrive (by calling
+              <seemfa marker="proc_lib#hibernate/3">
+                <c>proc_lib:hibernate/3</c></seemfa>).
+            </p>
           </item>
-        </list>
+          <tag>
+            <c>{reply,_,_,{continue,Continue}}</c><br/>
+            <c>{noreply,_,{continue,Continue}}</c>
+          </tag>
+          <item>
+            <p>
+              The process will execute the
+              <seemfa marker="#Module:handle_continue/2">
+                <c>Module:handle_continue/2</c>
+              </seemfa>
+              callback function, with <c>Continue</c> as the first argument.
+            </p>
+          </item>
+          <tag>
+            <c>{stop,Reason,NewState}</c><br/>
+            <c>{stop,Reason,Reply,NewState}</c>
+          </tag>
+          <item>
+            <p>
+              The <c>gen_server</c> process will call
+              <seemfa marker="#Module:terminate/2">
+                <c>Module:terminate(Reason,NewState)</c>
+              </seemfa>
+              and then terminate.
+            </p>
+            <p>
+              <c>{stop,_,Reply,_}</c> will create
+              a reply to the client request just as
+              <c>{reply,Reply,...}</c> while
+              <c>{stop,_,_}</c> will not,
+              so just as for <c>{noreply,NewState,...}</c>
+              a reply has to be created by calling
+              <c>reply(From,&nbsp;Reply)</c>
+              before returning <c>{stop,_,_}</c>.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
@@ -998,12 +1396,16 @@ format_status(Status) ->
       <type>
         <v>Request = term()</v>
         <v>State = term()</v>
-        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>Result = {noreply,NewState}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
-        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>
+          &nbsp;Timeout =
+          <seetype marker="erts:erlang#timeout">timeout()</seetype>
+        </v>
         <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
@@ -1024,25 +1426,31 @@ format_status(Status) ->
       <type>
         <v>Continue = term()</v>
         <v>State = term()</v>
-        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>Result = {noreply,NewState}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
-        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>
+          &nbsp;Timeout =
+          <seetype marker="erts:erlang#timeout">timeout()</seetype>
+        </v>
         <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
         <note>
           <p>This callback is optional, so callback modules need to
-            export it only if they return <c>{continue,Continue}</c>
-            from another callback. If continue is used and the callback
-            is not implemented, the process will exit with <c>undef</c>
-            error.</p>
+            export it only if they return one of the tuples containing
+            <c>{continue,Continue}</c>
+            from another callback. If such a <c>{continue,_}</c> tuple
+            is used and the callback is not implemented,
+            the process will exit with <c>undef</c> error.</p>
         </note>
-        <p>This function is called by a <c>gen_server</c> process whenever
-          a previous callback returns <c>{continue, Continue}</c>.
+        <p>This function is called by a <c>gen_server</c> process
+          whenever a previous callback returns
+          one of the tuples containing <c>{continue, Continue}</c>.
           <c>handle_continue/2</c> is invoked immediately after the previous
           callback, which makes it useful for performing work after
           initialization or for splitting the work in a callback in
@@ -1059,12 +1467,16 @@ format_status(Status) ->
       <type>
         <v>Info = timeout | term()</v>
         <v>State = term()</v>
-        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>Result = {noreply,NewState}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
-        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>
+          &nbsp;Timeout =
+          <seetype marker="erts:erlang#timeout">timeout()</seetype>
+        </v>
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
@@ -1090,10 +1502,17 @@ format_status(Status) ->
       <fsummary>Initialize process and internal state.</fsummary>
       <type>
         <v>Args = term()</v>
-        <v>Result =  {ok,State} | {ok,State,Timeout} | {ok,State,hibernate}</v>
-        <v>&nbsp;| {ok,State,{continue,Continue}} | {stop,Reason} | ignore</v>
+        <v>Result = {ok,State}</v>
+        <v>&nbsp;&nbsp;| {ok,State,Timeout}</v>
+        <v>&nbsp;&nbsp;| {ok,State,hibernate}</v>
+        <v>&nbsp;&nbsp;| {ok,State,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason}</v>
+        <v>&nbsp;&nbsp;| ignore</v>
         <v>&nbsp;State = term()</v>
-        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>
+          &nbsp;Timeout =
+          <seetype marker="erts:erlang#timeout">timeout()</seetype>
+        </v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
@@ -1104,35 +1523,50 @@ format_status(Status) ->
           this function is called by the new process to initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
-        <p>If the initialization is successful, the function is to
-          return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c>,
-          <c>{ok,State,hibernate}</c>, or <c>{ok,State,{continue,Continue}}</c>
-          where <c>State</c> is the internal state of the <c>gen_server</c>
-           process.</p>
-        <p>If an integer time-out value is provided, a time-out occurs
-          unless a request or a message is received within
-          <c>Timeout</c> milliseconds. A time-out is represented by
-          the atom <c>timeout</c>, which is to be handled by the
-          <seemfa marker="#Module:handle_info/2">
-          <c>Module:handle_info/2</c></seemfa> callback function. The atom
-          <c>infinity</c> can be used to wait indefinitely, this is
-          the default value.</p>
-        <p>If <c>hibernate</c> is specified instead of a time-out value,
-          the process goes into
-          hibernation when waiting for the next message to arrive (by calling 
-          <seemfa marker="proc_lib#hibernate/3">
-          <c>proc_lib:hibernate/3</c></seemfa>).</p>
-        <p>If <c>{continue,Continue}</c> is specified, the process will
-          execute the <seemfa marker="#Module:handle_continue/2">
-          <c>Module:handle_continue/2</c></seemfa> callback function, with
-          <c>Continue</c> as the first argument.</p>
-        <p>If the initialization fails, the function is to return
-          <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
-          <c>ignore</c>. An exit signal with this <c>Reason</c> (or with reason
-          <c>normal</c> if <c>ignore</c> is returned) is sent to linked
-          processes and ports, notably to the process starting the gen_server
-          when <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>
-          is used.</p>
+        <p>The return value <c>Result</c> is interpreted as follows:</p>
+        <taglist>
+          <tag>
+            <c>{ok,State}</c><br/>
+            <c>{ok,State,_}</c>
+          </tag>
+          <item>
+            <p>
+              Initialization was succesful and <c>State</c>
+              is the internal state of the <c>gen_server</c> process.
+            </p>
+          </item>
+          <tag>
+            <c>{ok,_,Timeout}</c><br/>
+            <c>{ok,_,hibernate}</c><br/>
+            <c>{ok,_,{continue,Continue}}</c>
+          </tag>
+          <item>
+            <p>
+              See the corresponding return values from
+              <seemfa marker="#Module:handle_call/3">
+                <c>Module:handle_call/3</c>
+              </seemfa>
+              for a description of this tuple member.
+            </p>
+          </item>
+          <tag>
+            <c>{stop,Reason}</c><br/>
+            <c>ignore</c>
+          </tag>
+          <item>
+            <p>
+              Initialization failed.
+              An exit signal with this <c>Reason</c>
+              (or with reason <c>normal</c> if <c>ignore</c> is returned)
+              is sent to linked processes and ports,
+              notably to the process starting the gen_server when
+              <seemfa marker="#start_link/3">
+                <c>start_link/3,4</c>
+              </seemfa>
+              is used.
+            </p>
+          </item>
+        </taglist>
       </desc>
     </func>
 
@@ -1182,11 +1616,14 @@ format_status(Status) ->
           <c>'EXIT'</c> message from its parent. <c>Reason</c> is the same
           as in the <c>'EXIT'</c> message.</p>
         <p>Otherwise, the <c>gen_server</c> process terminates immediately.</p>
-        <p>Notice that for any other reason than <c>normal</c>,
-          <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
-          process is assumed to terminate because of an error and
-          an error report is issued using
-          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
+        <p>
+          Notice that for any other reason than <c>normal</c>,
+          <c>shutdown</c>, or <c>{shutdown,Term}</c>, see
+          <seemfa marker="#stop/3"><c>stop/3</c></seemfa>,
+          the <c>gen_server</c> process is assumed to terminate
+          because of an error, and an error report is issued using
+          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
+        </p>
         <p>When the gen_server process exits, an exit signal with the same
           reason is sent to linked processes and ports.</p>
       </desc>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2021</year>
+      <year>2016</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -636,6 +636,14 @@ handle_event(_, _, State, Data) ->
 	  to a process that has called the <c>gen_statem</c> server using
 	  <seemfa marker="#call/2"><c>call/2</c></seemfa>.
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="reply_tag"/>
+      <desc>
+        <p>
+          A handle that associates a reply to the corresponding request.
+        </p>
       </desc>
     </datatype>
     <datatype>
@@ -1698,6 +1706,20 @@ handle_event(_, _, State, Data) ->
 	  The call can also fail, for example, if the <c>gen_statem</c>
 	  dies before or during this function call.
 	</p>
+        <p>
+          When this call fails it
+          <seemfa marker="erts:erlang#exit/1">exits</seemfa>
+          the calling process.
+          The exit term is on the form
+          <c>{Reason,&nbsp;Location}</c> where
+          <c>Location&nbsp;=&nbsp;{gen_statem,call,ArgList}</c>.
+          See
+          <seemfa marker="gen_server#call/3">
+            <c>gen_server:call/3</c>
+          </seemfa>
+          that has a description of relevant
+          values for the <c>Reason</c> in the exit term.
+        </p>
       </desc>
     </func>
 
@@ -1861,7 +1883,7 @@ handle_event(_, _, State, Data) ->
 	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
+	  <c>Timeout</c> is an integer
 	  that specifies how many milliseconds to wait for an reply, or
 	  the atom <c>infinity</c> to wait indefinitely. Defaults to
 	  <c>infinity</c>.
@@ -2186,12 +2208,16 @@ handle_event(_, _, State, Data) ->
 	  terminate, or the atom <c>infinity</c> to wait indefinitely.
 	  Defaults to <c>infinity</c>.
 	  If the server does not terminate within the specified time,
-	  a <c>timeout</c> exception is raised.
+          the call exits the calling process
+          with reason <c>timeout</c>.
 	</p>
-	<p>
-	  If the process does not exist, a <c>noproc</c> exception
-	  is raised.
-	</p>
+        <p>
+          If the process does not exist, the call exits
+          the calling process with reason <c>noproc</c>,
+          and with reason <c>{nodedown,Node}</c>
+          if the connection fails to the remote <c>Node</c>
+          where the server runs.
+        </p>
       </desc>
     </func>
 
@@ -2209,7 +2235,7 @@ handle_event(_, _, State, Data) ->
 	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
+	  <c>Timeout</c> is an integer
 	  that specifies how many milliseconds to wait for an reply, or
 	  the atom <c>infinity</c> to wait indefinitely. Defaults to
 	  <c>infinity</c>.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@
 -export_type(
    [event_type/0,
     from/0,
+    reply_tag/0,
     callback_mode_result/0,
     init_result/1,
     init_result/2,
@@ -70,7 +71,8 @@
     event_handler_result/2,
     reply_action/0,
     enter_action/0,
-    action/0
+    action/0,
+    request_id/0
    ]).
 %% Old types, not advertised
 -export_type(
@@ -85,15 +87,17 @@
    [server_name/0,
     server_ref/0,
     start_opt/0,
+    enter_loop_opt/0,
     start_ret/0,
-    enter_loop_opt/0]).
+    start_mon_ret/0]).
 
 %%%==========================================================================
 %%% Interface functions.
 %%%==========================================================================
 
 -type from() ::
-	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
+	{To :: pid(), Tag :: reply_tag()}. % Reply-to specifier for call
+-opaque reply_tag() :: gen:reply_tag().
 
 -type state() ::
 	state_name() | % For StateName/3 callback functions
@@ -278,7 +282,7 @@
 	 Replies :: [reply_action()] | reply_action(),
 	 NewData :: DataType}.
 
--type request_id() :: term().
+-opaque request_id() :: gen:request_id().
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
@@ -486,31 +490,37 @@ timeout_event_type(Type) ->
 %%%==========================================================================
 %%% API
 
--type server_name() ::
-        {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), Name :: term()}
-      | {'local', atom()}.
--type server_ref() ::
+-type server_name() :: % Duplicate of gen:emgr_name()
+        {'local', atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), Name :: term()}.
+
+-type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
         pid()
       | (LocalName :: atom())
       | {Name :: atom(), Node :: atom()}
       | {'global', GlobalName :: term()}
       | {'via', RegMod :: module(), ViaName :: term()}.
--type start_opt() ::
+
+-type start_opt() :: % Duplicate of gen:option()
         {'timeout', Time :: timeout()}
-      | {'spawn_opt', [proc_lib:start_spawn_option()]}
+      | {'spawn_opt', [proc_lib:spawn_option()]}
       | enter_loop_opt().
--type start_ret() ::
+%%
+-type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
+	{'hibernate_after', HibernateAfterTimeout :: timeout()}
+      | {'debug', Dbgs :: [sys:debug_option()]}.
+
+-type start_ret() :: % gen:start_ret() without monitor return
         {'ok', pid()}
       | 'ignore'
       | {'error', term()}.
--type start_mon_ret() ::
+
+-type start_mon_ret() :: % gen:start_ret() with only monitor return
         {'ok', {pid(),reference()}}
       | 'ignore'
       | {'error', term()}.
--type enter_loop_opt() ::
-	{'hibernate_after', HibernateAfterTimeout :: timeout()}
-      | {'debug', Dbgs :: [sys:debug_option()]}.
+
 
 
 
@@ -709,9 +719,11 @@ call_dirty(ServerRef, Request, Timeout, T) ->
         {ok,Reply} ->
             Reply
     catch
-        Class:Reason:Stacktrace ->
+        %% 'gen' raises 'exit' for problems
+        Class:Reason:Stacktrace when Class =:= exit ->
             erlang:raise(
               Class,
+              %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace)
     end.
@@ -753,12 +765,19 @@ call_clean(ServerRef, Request, Timeout, T) ->
                 {ok,Reply} ->
                     Reply
             end;
-        {Ref,Class,Reason,Stacktrace} ->
+        {Ref,Class,Reason,Stacktrace} when Class =:= exit ->
+            %% 'gen' raises 'exit' for problems
             demonitor(Mref, [flush]),
+            %% Pretend it happened in this process
             erlang:raise(
               Class,
+              %% Wrap the reason according to tradition
               {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
               Stacktrace);
+        {Ref,Class,Reason,Stacktrace} ->
+            demonitor(Mref, [flush]),
+            %% Pretend it happened in this process
+            erlang:raise(Class, Reason, Stacktrace);
         {'DOWN',Mref,_,_,Reason} ->
             %% There is a theoretical possibility that the
             %% proxy process gets killed between try--of and !

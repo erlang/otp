@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@
 -export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
-              del_handler_ret/0]).
+              del_handler_ret/0, request_id/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -147,7 +147,8 @@
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
--type request_id() :: term().
+
+-opaque request_id() :: gen:request_id().
 
 %%---------------------------------------------------------------------------
 

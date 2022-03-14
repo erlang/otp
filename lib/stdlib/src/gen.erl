@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,25 +43,36 @@
 
 %%-----------------------------------------------------------------
 
+-export_type(
+   [reply_tag/0,
+    request_id/0]).
+
 -type linkage()    :: 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
 
--type start_ret()  :: {'ok', pid()} | {'ok', {pid(), reference()}} | 'ignore' | {'error', term()}.
+-type start_ret()  :: {'ok', pid()}
+                    | {'ok', {pid(), reference()}}
+                    | 'ignore'
+                    | {'error', term()}.
 
--type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
-                    | {'logfile', string()}.
 -type option()     :: {'timeout', timeout()}
-		    | {'debug', [debug_flag()]}
+		    | {'debug', [sys:debug_option()]}
 		    | {'hibernate_after', timeout()}
 		    | {'spawn_opt', [proc_lib:spawn_option()]}.
--type options()    :: [option()].
 
 -type server_ref() :: pid() | atom() | {atom(), node()}
                     | {global, term()} | {via, module(), term()}.
 
--type request_id() :: term().
+-opaque reply_tag() :: % As accepted by reply/2
+          reference()
+        | nonempty_improper_list('alias', reference())
+        | nonempty_improper_list(
+            nonempty_improper_list('alias', reference()), term()).
+
+-opaque request_id() :: reference().
+
 
 %%-----------------------------------------------------------------
 %% Starts a generic process.
@@ -79,7 +90,7 @@
 %%    The 'already_started' is returned only if Name is given 
 %%-----------------------------------------------------------------
 
--spec start(module(), linkage(), emgr_name(), module(), term(), options()) ->
+-spec start(module(), linkage(), emgr_name(), module(), term(), [option()]) ->
 	start_ret().
 
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
@@ -90,7 +101,7 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 	    {error, {already_started, Pid}}
     end.
 
--spec start(module(), linkage(), module(), term(), options()) -> start_ret().
+-spec start(module(), linkage(), module(), term(), [option()]) -> start_ret().
 
 start(GenMod, LinkP, Mod, Args, Options) ->
     do_spawn(GenMod, LinkP, Mod, Args, Options).

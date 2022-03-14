@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,10 +119,13 @@ init([]) ->
     process_flag(trap_exit, true),
     {ok, #{nodes_observer => start_nodes_observer()}}.
 
--spec handle_call(term(), term(), state()) ->
-        {'noreply', state()} |
-	{'reply', term(), state()} |
-	{'stop', 'normal', 'stopped', state()}.
+-spec handle_call(
+        term(),
+        gen_server:from() | {?NAME,term()},
+        state()) ->
+                         {'noreply', state()} |
+                         {'reply', term(), state()} |
+                         {'stop', 'normal', 'stopped', state()}.
 
 handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
     %% Spawn not to block the rex server.
@@ -142,7 +145,7 @@ handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
                                    Ref -> ok
                                end;
                            _ ->
-                               gen_server:reply(To, Reply)
+                               reply(To, Reply)
                        end
                end,
     try
@@ -190,7 +193,7 @@ handle_info({'DOWN', M, process, _, Reason}, S) ->
 	undefined ->
 	    {noreply, S};
 	{_, _} = To ->
-	    gen_server:reply(To, {badrpc, {'EXIT', Reason}}),
+	    reply(To, {badrpc, {'EXIT', Reason}}),
 	    {noreply, maps:remove(M, S)}
     end;
 handle_info({From, {sbcast, Name, Msg}}, S) ->
@@ -211,7 +214,7 @@ handle_info({From, {send, Name, Msg}}, S) ->
     {noreply, S};
 handle_info({From, {call, Mod, Fun, Args, Gleader}}, S) ->
     %% Special for hidden C node's, uugh ...
-    To = {From, ?NAME},
+    To = {?NAME, From},
     NewGleader =
         case Gleader of
             send_stdout_to_caller ->
@@ -224,7 +227,7 @@ handle_info({From, {call, Mod, Fun, Args, Gleader}}, S) ->
         {noreply, _NewS} = Return ->
             Return;
         {reply, Reply, NewS} ->
-            gen_server:reply(To, Reply),
+            reply(To, Reply),
             {noreply, NewS}
     end;
 handle_info({From, features_request}, S) ->
@@ -245,6 +248,13 @@ code_change(_, S, _) ->
 
 
 %% RPC aid functions ....
+
+reply({?NAME, From}, Reply) ->
+    From ! {?NAME, Reply},
+    ok;
+reply({From, _} = To, Reply) when is_pid(From) ->
+    gen_server:reply(To, Reply).
+
 
 execute_call(Mod, Fun, Args) ->
     try
@@ -894,7 +904,7 @@ cnode_call_group_leader_loop(State) ->
             From ! {io_reply, ReplyAs, Reply},
             cnode_call_group_leader_loop(NewState);
         {stop, StopRequesterPid, Ref, To, Reply} ->
-            gen_server:reply(To, Reply),
+            reply(To, Reply),
             StopRequesterPid ! Ref,
             ok;
 	_Unknown ->

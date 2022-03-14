@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,19 +120,22 @@
 
 -include("logger.hrl").
 
+-export_type(
+   [from/0,
+    reply_tag/0,
+    request_id/0]).
+
+-export_type(
+   [server_name/0,
+    server_ref/0,
+    start_opt/0,
+    enter_loop_opt/0,
+    start_ret/0,
+    start_mon_ret/0]).
+
 -define(
    STACKTRACE(),
    element(2, erlang:process_info(self(), current_stacktrace))).
-
-
--type server_ref() ::
-        pid()
-      | (LocalName :: atom())
-      | {Name :: atom(), Node :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
-
--type request_id() :: term().
 
 %%%=========================================================================
 %%%  API
@@ -141,7 +144,7 @@
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore.
--callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+-callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
     {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
@@ -185,6 +188,13 @@
     [handle_info/2, handle_continue/2, terminate/2, code_change/3,
      format_status/1, format_status/2]).
 
+
+
+-type from() ::	{Client :: pid(), Tag :: reply_tag()}.
+-opaque reply_tag() :: gen:reply_tag().
+
+-opaque request_id() :: gen:request_id().
+
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
 %%% start(Mod, Args, Options)
@@ -201,23 +211,102 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
-start(Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Mod, Args, Options).
 
-start(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Name, Mod, Args, Options).
+-type server_name() :: % Duplicate of gen:emgr_name()
+        {'local', LocalName :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
 
-start_link(Mod, Args, Options) ->
-    gen:start(?MODULE, link, Mod, Args, Options).
+-type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
+        pid()
+      | (LocalName :: atom())
+      | {Name :: atom(), Node :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
 
-start_link(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, link, Name, Mod, Args, Options).
+-type start_opt() :: % Duplicate of gen:option()
+        {'timeout', Timeout :: timeout()}
+      | {'spawn_opt', SpawnOptions :: [proc_lib:spawn_option()]}
+      | enter_loop_opt().
+%%
+-type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
+	{'hibernate_after', HibernateAfterTimeout :: timeout()}
+      | {'debug', Dbgs :: [sys:debug_option()]}.
 
-start_monitor(Mod, Args, Options) ->
-    gen:start(?MODULE, monitor, Mod, Args, Options).
+-type start_ret() :: % gen:start_ret() without monitor return
+        {'ok', Pid :: pid()}
+      | 'ignore'
+      | {'error', Reason :: term()}.
 
-start_monitor(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, monitor, Name, Mod, Args, Options).
+-type start_mon_ret() :: % gen:start_ret() with only monitor return
+        {'ok', {Pid :: pid(), MonRef :: reference()}}
+      | 'ignore'
+      | {'error', Reason :: term()}.
+
+%%% ---------------------------------------------------
+
+-spec start(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start(Module, Args, Options) ->
+    gen:start(?MODULE, nolink, Module, Args, Options).
+
+-spec start(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, nolink, ServerName, Module, Args, Options).
+
+-spec start_link(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start_link(Module, Args, Options) ->
+    gen:start(?MODULE, link, Module, Args, Options).
+
+-spec start_link(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start_link(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, link, ServerName, Module, Args, Options).
+
+-spec start_monitor(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_mon_ret().
+%%
+start_monitor(Module, Args, Options) ->
+    gen:start(?MODULE, monitor, Module, Args, Options).
+
+-spec start_monitor(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_mon_ret().
+%%
+start_monitor(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, monitor, ServerName, Module, Args, Options).
 
 
 %% -----------------------------------------------------------------
@@ -225,11 +314,22 @@ start_monitor(Name, Mod, Args, Options) ->
 %% If the server is located at another node, that node will
 %% be monitored.
 %% -----------------------------------------------------------------
-stop(Name) ->
-    gen:stop(Name).
 
-stop(Name, Reason, Timeout) ->
-    gen:stop(Name, Reason, Timeout).
+-spec stop(
+        ServerRef :: server_ref()
+       ) -> ok.
+%%
+stop(ServerRef) ->
+    gen:stop(ServerRef).
+
+-spec stop(
+	ServerRef :: server_ref(),
+	Reason    :: term(),
+	Timeout   :: timeout()
+       ) -> ok.
+%%
+stop(ServerRef, Reason, Timeout) ->
+    gen:stop(ServerRef, Reason, Timeout).
 
 %% -----------------------------------------------------------------
 %% Make a call to a generic server.
@@ -238,20 +338,34 @@ stop(Name, Reason, Timeout) ->
 %% If the client is trapping exits and is linked server termination
 %% is handled here (? Shall we do that here (or rely on timeouts) ?).
 %% ----------------------------------------------------------------- 
-call(Name, Request) ->
-    case catch gen:call(Name, '$gen_call', Request) of
+
+-spec call(
+        ServerRef :: server_ref(),
+        Request   :: term()
+       ) ->
+                  Reply :: term().
+%%
+call(ServerRef, Request) ->
+    case catch gen:call(ServerRef, '$gen_call', Request) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
-	    exit({Reason, {?MODULE, call, [Name, Request]}})
+	    exit({Reason, {?MODULE, call, [ServerRef, Request]}})
     end.
 
-call(Name, Request, Timeout) ->
-    case catch gen:call(Name, '$gen_call', Request, Timeout) of
+-spec call(
+        ServerRef :: server_ref(),
+        Request   :: term(),
+        Timeout   :: timeout()
+       ) ->
+                  Reply :: term().
+%%
+call(ServerRef, Request, Timeout) ->
+    case catch gen:call(ServerRef, '$gen_call', Request, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
-	    exit({Reason, {?MODULE, call, [Name, Request, Timeout]}})
+	    exit({Reason, {?MODULE, call, [ServerRef, Request, Timeout]}})
     end.
 
 %% -----------------------------------------------------------------
@@ -259,28 +373,56 @@ call(Name, Request, Timeout) ->
 %% used with wait_response/2 or check_response/2 to fetch the
 %% result of the request.
 
--spec send_request(Name::server_ref(), Request::term()) -> request_id().
-send_request(Name, Request) ->
-    gen:send_request(Name, '$gen_call', Request).
+-spec send_request(
+        ServerRef :: server_ref(),
+        Request   :: term()
+       ) ->
+                          RequestId :: request_id().
+send_request(ServerRef, Request) ->
+    gen:send_request(ServerRef, '$gen_call', Request).
 
--spec wait_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
+-spec wait_response(
+        RequestId :: request_id(),
+        Timeout   :: timeout()) ->
+                           {reply, Reply :: term()} |
+                           'timeout' |
+                           {error,
+                            {Reason :: term(), ServerRef :: server_ref()}}.
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
--spec receive_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
+-spec receive_response(
+        RequestId :: request_id(),
+        Timeout   :: timeout()
+       ) ->
+                              {reply, Reply :: term()} |
+                              'timeout' |
+                              {error,
+                               {Reason :: term(), ServerRef :: server_ref()}}.
 receive_response(RequestId, Timeout) ->
     gen:receive_response(RequestId, Timeout).
 
--spec check_response(Msg::term(), RequestId::request_id()) ->
-        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), server_ref()}}.
+-spec check_response(
+        Msg       :: term(),
+        RequestId :: request_id()
+       ) ->
+                            {reply, Reply :: term()} |
+                            'no_reply' |
+                            {error,
+                             {Reason :: term(), ServerRef :: server_ref()}}.
 check_response(Msg, RequestId) ->
     gen:check_response(Msg, RequestId).
 
 %% -----------------------------------------------------------------
 %% Make a cast to a generic server.
 %% -----------------------------------------------------------------
+
+-spec cast(
+        ServerRef :: server_ref(),
+        Request   :: term()
+       ) ->
+                  ok.
+%%
 cast({global,Name}, Request) ->
     catch global:send(Name, cast_msg(Request)),
     ok;
@@ -303,15 +445,36 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
-reply(From, Reply) ->
-    gen:reply(From, Reply).
+
+-spec reply(
+        Client :: from(),
+        Reply  :: term()
+       ) ->
+                   ok.
+%%
+reply(Client, Reply) ->
+    gen:reply(Client, Reply).
 
 %% ----------------------------------------------------------------- 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
 %%-----------------------------------------------------------------  
+
+-spec abcast(
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                  abcast.
+%%
 abcast(Name, Request) when is_atom(Name) ->
     do_abcast([node() | nodes()], Name, cast_msg(Request)).
 
+-spec abcast(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                  abcast.
+%%
 abcast(Nodes, Name, Request) when is_list(Nodes), is_atom(Name) ->
     do_abcast(Nodes, Name, cast_msg(Request)).
 
@@ -330,19 +493,49 @@ do_abcast([], _,_) -> abcast.
 %%% queue, it would probably become confused. Late answers will 
 %%% now arrive to the terminated middleman and so be discarded.
 %%% -----------------------------------------------------------------
-multi_call(Name, Req)
+
+-spec multi_call(
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Name, Request)
   when is_atom(Name) ->
-    do_multi_call([node() | nodes()], Name, Req, infinity).
+    do_multi_call([node() | nodes()], Name, Request, infinity).
 
-multi_call(Nodes, Name, Req) 
+-spec multi_call(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Nodes, Name, Request)
   when is_list(Nodes), is_atom(Name) ->
-    do_multi_call(Nodes, Name, Req, infinity).
+    do_multi_call(Nodes, Name, Request, infinity).
 
-multi_call(Nodes, Name, Req, infinity) ->
-    do_multi_call(Nodes, Name, Req, infinity);
-multi_call(Nodes, Name, Req, Timeout) 
-  when is_list(Nodes), is_atom(Name), is_integer(Timeout), Timeout >= 0 ->
-    do_multi_call(Nodes, Name, Req, Timeout).
+-spec multi_call(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term(),
+        Timeout :: timeout()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Nodes, Name, Request, Timeout)
+  when is_list(Nodes), is_atom(Name), is_integer(Timeout), Timeout >= 0;
+       is_list(Nodes), is_atom(Name), Timeout =:= infinity ->
+    do_multi_call(Nodes, Name, Request, Timeout).
 
 
 %%-----------------------------------------------------------------
@@ -356,19 +549,51 @@ multi_call(Nodes, Name, Req, Timeout)
 %%              The user is responsible for any initialization of the 
 %%              process, including registering a name for it.
 %%-----------------------------------------------------------------
+
+-spec enter_loop(
+        Module  :: module(),
+        Options :: [enter_loop_opt()],
+        State   :: term()
+       ) ->
+                        no_return().
+%%
 enter_loop(Mod, Options, State) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
+-spec enter_loop(
+        Module     :: module(),
+        Options    :: [enter_loop_opt()],
+        State      :: term(),
+        ServerName :: server_name() | pid()
+       ) ->
+                        no_return();
+       (
+         Module  :: module(),
+         Options :: [enter_loop_opt()],
+         State   :: term(),
+         Timeout :: timeout()
+       ) ->
+                        no_return().
+%%
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
   when Scope == local; Scope == global ->
     enter_loop(Mod, Options, State, ServerName, infinity);
-
+%%
 enter_loop(Mod, Options, State, ServerName = {via, _, _}) ->
     enter_loop(Mod, Options, State, ServerName, infinity);
-
+%%
 enter_loop(Mod, Options, State, Timeout) ->
     enter_loop(Mod, Options, State, self(), Timeout).
 
+-spec enter_loop(
+        Module     :: module(),
+        Options    :: [enter_loop_opt()],
+        State      :: term(),
+        ServerName :: server_name() | pid(),
+        Timeout    :: timeout()
+       ) ->
+                        no_return().
+%%
 enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
