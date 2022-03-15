@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>There could be spurious warnings for unknown types
+	    when a type was a subtype of an existing type that was a
+	    subtype of an unknown type.</p>
+          <p>
+	    Own Id: OTP-17963 Aux Id: GH-5764 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
