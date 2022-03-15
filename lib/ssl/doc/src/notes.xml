@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Client certification could fail for TLS-1.3 servers that
+	    did not include the certificate_authorities extension in
+	    its certificate request message.</p>
+          <p>
+	    Own Id: OTP-17971 Aux Id: GH-5783 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
