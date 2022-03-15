@@ -960,9 +960,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#elif defined(HAVE_GETNAMEINFO)
+#if defined(HAVE_GETNAMEINFO)
     ERL_NIF_TERM result;
     ERL_NIF_TERM eSockAddr, eFlags;
     int          flags = 0; // Just in case...
@@ -1009,7 +1007,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 /* Given the provided sock(et) address (and flags), retrieve the host and
  * service info.
  */
-#if !defined(__WIN32__) && defined(HAVE_GETNAMEINFO)
+#if defined(HAVE_GETNAMEINFO)
 static
 ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
                               const ESockAddress* saP,
@@ -1074,7 +1072,7 @@ ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
         break;
 #endif
 
-#if defined(EAI_NONAME)
+#if !defined(__WIN32__) && defined(EAI_NONAME)
     case EAI_NONAME:
         result = esock_make_error(env, atom_enoname);
         break;
@@ -1120,9 +1118,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#elif defined(HAVE_GETADDRINFO)
+#if defined(HAVE_GETADDRINFO)
     ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
     char*            servName;
@@ -1182,7 +1178,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
 }
 
 
-#if !defined(__WIN32__) && defined(HAVE_GETADDRINFO)
+#if defined(HAVE_GETADDRINFO)
 static
 ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
                               char*      host,
@@ -1254,7 +1250,8 @@ ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
         break;
 #endif
 
-#if defined(EAI_NONAME)
+        /* This value conflict with "some" other value on windows... */
+#if !defined(__WIN32__) && defined(EAI_NONAME)
     case EAI_NONAME:
         result = esock_make_error(env, atom_enoname);
         break;
@@ -4234,7 +4231,6 @@ ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
 
 
 
-#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                 const ERL_NIF_TERM eflags,
@@ -4261,10 +4257,8 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
 
     return result;
 }
-#endif // __WIN32__
 
 
-#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                                      const ERL_NIF_TERM eflags,
@@ -4347,14 +4341,12 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
 
     return TRUE;
 }
-#endif // __WIN32__
 
 
 
 /* Decode the address info string (hostname or service name)
  * The string is either the atom undefined or an actual string.
  */
-#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
                                  const ERL_NIF_TERM eString,
@@ -4381,7 +4373,6 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
     return result;
 
 }
-#endif // __WIN32__
 
 
 
@@ -4389,7 +4380,6 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
  * The address info is a linked list och address info, which
  * will result in the result being a list of zero or more length.
  */
-#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
                                   struct addrinfo* addrInfo)
@@ -4421,7 +4411,6 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
 
     return result;
 }
-#endif // __WIN32__
 
 
 
@@ -4429,7 +4418,6 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
  * The list is NULL-terminated, so the only way is to
  * iterate through the list until we find next = NULL.
  */
-#if !defined(__WIN32__)
 static
 unsigned int address_info_length(struct addrinfo* addrInfoP)
 {
@@ -4450,7 +4438,6 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
 
     return len;
 }
-#endif // __WIN32__
 
 
 
@@ -4459,7 +4446,6 @@ unsigned int address_info_length(struct addrinfo* addrInfoP)
  *
  * {address_info, Fam, Type, Proto, Addr}
  */
-#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
                                  struct addrinfo* addrInfoP)
@@ -4477,7 +4463,6 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
     make_address_info(env, fam, type, proto, addr, &addrInfo);
     return addrInfo;
 }
-#endif // __WIN32__
 
 
 /* Convert an "native" family to an erlang family (=domain).
@@ -4485,7 +4470,6 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
  * inet and inet6. Other values will be returned as is, that is
  * in the form of an integer.
  */
-#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
                                         int        family)
@@ -4495,7 +4479,6 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
     esock_encode_domain(env, family, &efam);
     return efam;
 }
-#endif // __WIN32__
 
 
 
@@ -4504,7 +4487,6 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
  * stream and dgram. Other values will be returned as is, that is
  * in the form of an integer.
  */
-#if !defined(__WIN32__)
 static
 ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                       int        socktype)
@@ -4514,11 +4496,9 @@ ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
     esock_encode_type(env, socktype, &etype);
     return etype;
 }
-#endif // __WIN32__
 
 
 
-#if !defined(__WIN32__)
 static
 void make_address_info(ErlNifEnv*    env,
                        ERL_NIF_TERM  fam,
@@ -4537,7 +4517,6 @@ void make_address_info(ErlNifEnv*    env,
     ESOCK_ASSERT( numKeys == NUM(vals) );
     ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, ai) );
 }
-#endif // if !defined(__WIN32__)
 
 
 
