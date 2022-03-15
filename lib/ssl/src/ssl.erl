@@ -26,6 +26,7 @@
 -module(ssl).
 
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
@@ -2865,7 +2866,7 @@ maybe_client_warn_no_verify(#{verify := verify_none,
                              warn_verify_none := true,
                              log_level := LogLevel}, client) ->
             ssl_logger:log(warning, LogLevel, #{description => "Authenticity is not established by certificate path validation",
-                                                reason => "Option {verify, verify_peer} and cacertfile/cacerts is missing"}, #{});
+                                                reason => "Option {verify, verify_peer} and cacertfile/cacerts is missing"}, ?LOCATION);
 maybe_client_warn_no_verify(_,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS
     ok.
