@@ -963,7 +963,7 @@ if_names() ->
         C : E : S when (C =:= error) andalso (E =:= notsup) ->
             %% This is *most likely* Windows, so try that.
             %% If not (another catch), raise the original catched error.
-            try win_names()
+            try {ok, win_names()}
             catch
                 _:_:_ ->
                     erlang:raise(C, E, S)
