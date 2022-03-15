@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "3.17"},
+  {vsn, "3.17.1"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -111,6 +111,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-7.0","erts-12.0","crypto-4.5",
+  {runtime_dependencies, ["sasl-3.0","kernel-@OTP-17720@","erts-12.0","crypto-4.5",
 			  "compiler-5.0"]}
 ]}.
