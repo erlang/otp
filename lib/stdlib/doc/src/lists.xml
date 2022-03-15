@@ -1126,6 +1126,43 @@ splitwith(Pred, List) ->
 [[a,x,1],[b,y,2],[c,z,3]]</pre>
       </desc>
     </func>
+
+    <func>
+      <name name="uniq" arity="1" since="OTP 25.0"/>
+      <fsummary>Removes duplicate elements of a list preserving the order.</fsummary>
+      <desc>
+        <p>Returns a list containing the elements of
+        <c><anno>List1</anno></c> with duplicated elements removed
+        (preserving the order of the elements).  The first occurrence of
+        each element is kept.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>lists:uniq(fun([3,3,1,2,1,2,3]).</input>
+[3,1,2]
+> <input>lists:uniq([a, a, 1, b, 2, a, 3]).</input>
+[a, 1, b, 2, 3]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniq" arity="2" since="OTP 25.0"/>
+      <fsummary>
+        Removes duplicate elements of a list using
+        a fun as a key preserving the order.
+      </fsummary>
+      <desc>
+        <p>Returns a list containing the elements of
+        <c><anno>List1</anno></c> without the elements for which
+        <c><anno>Fun</anno></c> returned duplicate values
+        (preserving the order of the elements).  The first occurrence
+        of each element is kept.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>lists:uniq(fun({X, _}) -> X end, [{b, 2}, {a, 1}, {c, 3}, {a, 2}]).</input>
+[{b, 2}, {a, 1}, {c, 3}]</pre>
+      </desc>
+    </func>
+
   </funcs>
 </erlref>
 
