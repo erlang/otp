@@ -646,7 +646,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                            maps:get(signature_algs, Extensions, undefined)),
         ClientSignAlgsCert = get_signature_scheme_list(
                                maps:get(signature_algs_cert, Extensions, undefined)),
-        CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions)),
+        CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
         CookieExt = maps:get(cookie, Extensions, undefined),
         Cookie = get_cookie(CookieExt),
 
@@ -1439,7 +1439,7 @@ process_certificate_request(#certificate_request_1_3{
                        maps:get(signature_algs, Extensions, undefined)),
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
-    CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions)),
+    CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
 
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
