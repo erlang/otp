@@ -1085,6 +1085,23 @@ handle_info({SetupPid, {is_pending, Node}}, State) ->
     SetupPid ! {self(), {is_pending, Reply}},
     {noreply, State};
 
+handle_info({AcceptPid, {wait_pending, Node}}, State) ->
+    case get_conn(Node) of
+        {ok, #connection{state = up_pending,
+                         ctrlr = OldCtrlr,
+                         pending_owner = AcceptPid}} ->
+            %% Kill old controller to make sure new connection setup
+            %% does not get stuck.
+            ?debug({net_kernel, wait_pending, kill, OldCtrlr, new, AcceptPid}),
+            exit(OldCtrlr, wait_pending);
+        _ ->
+            %% Old connnection maybe already gone
+            ignore
+    end,
+    %% Exiting controller will trigger {Kernel,pending} reply
+    %% in up_pending_nodedown()
+    {noreply, State};
+
 %%
 %% Handle different types of process terminations.
 %%
