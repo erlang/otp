@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compile error regarding <c>gethostbyaddr_r</c> on
+	    Android. Error introduced in OTP 24.3.</p>
+          <p>
+	    Own Id: OTP-17975 Aux Id: PR-5763 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 5.2</title>
 
     <section><title>Improvements and New Features</title>
