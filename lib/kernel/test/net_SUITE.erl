@@ -299,6 +299,8 @@ api_b_name_and_addr_info() ->
     SA     = #{family => Domain, addr => Addr},
     try
         begin
+            i("try getnameinfo for"
+              "~n   ~p", [SA]),
             Hostname =
                 case net:getnameinfo(SA) of
                     {ok, #{host := Name, service := Service} = NameInfo} 
@@ -314,6 +316,8 @@ api_b_name_and_addr_info() ->
                     {error, Reason1} ->
                         ?FAIL({getnameinfo, SA, Reason1})
                 end,
+            i("try getaddrinfo for"
+              "~n   ~p", [Hostname]),
             case net:getaddrinfo(Hostname) of
                 {ok, AddrInfos} when is_list(AddrInfos) ->
                     i("getaddrinfo: "
@@ -434,37 +438,12 @@ verify_if_names([{Index, Name}|T]) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_addr(Domain, IFL);
-        {error, Reason} ->
-            ?FAIL({inet, getifaddrs, Reason})
-    end.
-
-which_addr(_Domain, []) ->
-    skip(no_address);
-which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
-    which_addr(Domain, IFL);
-which_addr(Domain, [{_Name, IFO}|IFL]) ->
-    case which_addr2(Domain, IFO) of
+    case ?LIB:which_local_addr(Domain) of
         {ok, Addr} ->
             Addr;
-        {error, no_address} ->
-            which_addr(Domain, IFL)
-    end;
-which_addr(Domain, [_|IFL]) ->
-    which_addr(Domain, IFL).
-
-which_addr2(_Domain, []) ->
-    {error, no_address};
-which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
-    {ok, Addr};
-which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
-    {ok, Addr};
-which_addr2(Domain, [_|IFO]) ->
-    which_addr2(Domain, IFO).
-
-
+        {error, _} = ERROR ->
+            skip(ERROR)
+    end.
 
 
 
