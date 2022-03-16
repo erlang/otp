@@ -166,7 +166,8 @@ open_new_log(Name) ->
     case open_log() of
         {error, Reason} ->
             handle_open_error(Reason),
-            disable_history();
+            disable_history(),
+            [];
         _ ->
             _ = disk_log:close(Name),
             load()
