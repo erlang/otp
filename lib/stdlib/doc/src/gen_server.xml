@@ -637,7 +637,11 @@ gen_server:abcast     -----> Module:handle_cast/2
       <name name="enter_loop" arity="3" since=""/>
       <name name="enter_loop" arity="4" clause_i="1" since=""/>
       <name name="enter_loop" arity="4" clause_i="2" since=""/>
-      <name name="enter_loop" arity="5" since=""/>
+      <name name="enter_loop" arity="4" clause_i="3" since=""/>
+      <name name="enter_loop" arity="4" clause_i="4" since=""/>
+      <name name="enter_loop" arity="5" clause_i="1" since=""/>
+      <name name="enter_loop" arity="5" clause_i="2" since=""/>
+      <name name="enter_loop" arity="5" clause_i="3" since=""/>
       <fsummary>Enter the <c>gen_server</c> receive loop.</fsummary>
       <desc>
         <p>
@@ -672,7 +676,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <em>before</em> this function is called.
         </p>
         <p>
-          <c>State</c> and <c>Timeout</c> have the same meanings as in
+          <c><anno>State</anno></c>, <c><anno>Timeout</anno></c>,
+          <c><anno>Hibernate</anno></c> and <c><anno>Cont</anno></c> have the same meanings as in
           the return value of
           <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>,
           which is <em>not</em> called when <c>enter_loop/3,4,5</c> is used.

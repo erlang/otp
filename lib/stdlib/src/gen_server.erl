@@ -580,17 +580,17 @@ enter_loop(Mod, Options, State) when is_atom(Mod) andalso is_list(Options) ->
        ) ->
                         no_return();
        (
-           Module  :: module(),
-           Options :: [enter_loop_opt()],
-           State   :: term(),
-           Hibernate :: hibernate
+           Module    :: module(),
+           Options   :: [enter_loop_opt()],
+           State     :: term(),
+           Hibernate :: 'hibernate'
        ) ->
                         no_return();
        (
            Module  :: module(),
            Options :: [enter_loop_opt()],
            State   :: term(),
-           Continue :: {continue, term()}
+           Cont    :: {'continue', term()}
        ) ->
                         no_return().
 %%
@@ -617,7 +617,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue) when is_atom(Mod) andals
         Options    :: [enter_loop_opt()],
         State      :: term(),
         ServerName :: server_name() | pid(),
-        Timeout    :: timeout() | hibernate | {continue, term()}
+        Timeout    :: timeout()
        ) ->
                         no_return();
        (
@@ -625,7 +625,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue) when is_atom(Mod) andals
            Options    :: [enter_loop_opt()],
            State      :: term(),
            ServerName :: server_name() | pid(),
-           Hibernate    :: hibernate
+           Hibernate  :: 'hibernate'
        ) ->
                         no_return();
        (
@@ -633,7 +633,7 @@ enter_loop(Mod, Options, State, {continue, _}=Continue) when is_atom(Mod) andals
            Options    :: [enter_loop_opt()],
            State      :: term(),
            ServerName :: server_name() | pid(),
-           Continue    :: {continue, term()}
+           Cont       :: {'continue', term()}
        ) ->
                         no_return().
 %%
