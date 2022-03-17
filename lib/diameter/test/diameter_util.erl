@@ -31,6 +31,9 @@
          fold/3,
          foldl/3,
          scramble/1,
+         choose/1,
+         tmpdir/0,
+         mktemp/1,
          unique_string/0,
          have_sctp/0,
          eprof/1]).
@@ -41,11 +44,6 @@
          connect/3, connect/4,
          disconnect/4,
          info/0]).
-
-%% common_test-specific
--export([write_priv/3,
-         read_priv/2,
-         map_priv/3]).
 
 -define(L, atom_to_list).
 
@@ -102,18 +100,37 @@ consult(Path) ->
 %% ---------------------------------------------------------------------------
 %% run/1
 %%
-%% Evaluate functions in parallel and return a list of those that
-%% failed to return. The fun takes a boolean (did the function return
-%% or not), the function that was evaluated, the return value or exit
-%% reason and the prevailing accumulator.
+%% Evaluate functions in parallel and raise an error exception if any
+%% fail to return.
 
 run(L) ->
-    fold(fun cons/4, [], L).
+    Ref = make_ref(),
+    AccF = fun(I, [F|T]) ->
+                   Ref == (catch element(1, I))
+                       orelse error(#{failed => F, reason => I}),
+                   T
+           end,
+    Pid = self(),
+    Funs = [fun() -> down(Pid, self()), {Ref, eval(F)} end || F <- L],
+    [] = fold(AccF, L, Funs).
 
-cons(true, _, _, Acc) ->
-    Acc;
-cons(false, F, RC, Acc) ->
-    [{F, RC} | Acc].
+%% down/2
+
+down(Parent, Worker)
+  when is_pid(Parent) ->
+    spawn(fun() ->
+                  monitor(process, Worker),
+                  down(monitor(process, Parent), Worker)
+          end);
+
+%% Die with the worker, kill the worker if the parent dies.
+down(MRef, Pid) ->
+    receive
+        {'DOWN', MRef, process, _, _} ->
+            exit(Pid, kill);
+        {'DOWN', _, process, Pid, _} ->
+            ok
+    end.
 
 %% ---------------------------------------------------------------------------
 %% fold/3
@@ -121,61 +138,43 @@ cons(false, F, RC, Acc) ->
 %% Parallel fold. Results are folded in the order received.
 
 fold(Fun, Acc0, L)
-  when is_function(Fun, 4) ->
-    Ref = make_ref(),
-    %% Spawn a middleman to collect down messages from processes
-    %% spawned for each function so as not to assume that all DOWN
-    %% messages are ours.
-    MRef = run1([fun fold/4, Ref, Fun, Acc0, L], Ref),
-    {Ref, RC} = down(MRef),
-    RC.
+  when is_list(L) ->
+    fold(Fun, Acc0, lists:foldl(fun(F,A) ->
+                                        {P,M} = spawn_eval(F),
+                                        A#{M => P}
+                                end,
+                                #{},
+                                L));
 
-fold(Ref, Fun, Acc0, L) ->
-    recv(run(Ref, L), Ref, Fun, Acc0).
-
-run(Ref, L) ->
-    [{run1(F, Ref), F} || F <- L].
-
-run1(F, Ref) ->
-    {_, MRef} = spawn_monitor(fun() -> exit({Ref, eval(F)}) end),
-    MRef.
-
-recv([], _, _, Acc) ->
+fold(_, Acc, Map)
+  when 0 == map_size(Map) ->
     Acc;
-recv(L, Ref, Fun, Acc) ->
-    {MRef, R} = down(),
-    {MRef, F} = lists:keyfind(MRef, 1, L),
-    recv(lists:keydelete(MRef, 1, L),
-         Ref,
-         Fun,
-         acc(R, Ref, F, Fun, Acc)).
 
-acc({Ref, RC}, Ref, F, Fun, Acc) ->
-    Fun(true, F, RC, Acc);
-acc(Reason, _, F, Fun, Acc) ->
-    Fun(false, F, Reason, Acc).
+fold(Fun, Acc, #{} = Map) ->
+    receive
+        {'DOWN', MRef, process, _, Info} when is_map_key(MRef, Map) ->
+            fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
+    end.
 
-down(MRef) ->
-    receive {'DOWN', MRef, process, _, Reason} -> Reason end.
+%% spawn_eval/1
 
-down() ->
-    receive {'DOWN', MRef, process, _, Reason} -> {MRef, Reason} end.
+spawn_eval(F) ->
+    spawn_monitor(fun() -> exit(eval(F)) end).
 
 %% ---------------------------------------------------------------------------
 %% foldl/3
 %%
 %% Parallel fold. Results are folded in order of the function list.
 
-foldl(Fun, Acc0, L)
-  when is_function(Fun, 4) ->
-    Ref = make_ref(),
-    recvl(run(Ref, L), Ref, Fun, Acc0).
+foldl(Fun, Acc0, L) ->
+    lists:foldl(fun(R,A) -> acc(Fun, R, A) end,
+                Acc0,
+                [M || F <- L, {_,M} <- [spawn_eval(F)]]).
 
-recvl([], _, _, Acc) ->
-    Acc;
-recvl([{MRef, F} | L], Ref, Fun, Acc) ->
-    R = down(MRef),
-    recvl(L, Ref, Fun, acc(R, Ref, F, Fun, Acc)).
+%% acc/3
+
+acc(Fun, MRef, Acc) ->
+    receive {'DOWN', MRef, process, _, Info} -> Fun(Info, Acc) end.
 
 %% ---------------------------------------------------------------------------
 %% scramble/1
@@ -184,6 +183,33 @@ recvl([{MRef, F} | L], Ref, Fun, Acc) ->
 
 scramble(L) ->
     [X || {_,X} <- lists:sort([{rand:uniform(), T} || T <- L])].
+
+%% ---------------------------------------------------------------------------
+%% choose/1
+%%
+%% Return a random element from a list.
+
+choose([_|_] = List) ->
+    hd(lists:nthtail(rand:uniform(length(List)) - 1, List)).
+
+%% ---------------------------------------------------------------------------
+%% tmpdir/0
+
+tmpdir() ->
+    case os:getenv("TMPDIR") of
+        false ->
+            "/tmp";
+        Dir ->
+            Dir
+    end.
+
+%% mktemp/1
+
+mktemp(Prefix) ->
+    Suf = integer_to_list(erlang:monotonic_time()),
+    Tmp = Prefix ++ "." ++ Suf,
+    ok = file:make_dir(Tmp),
+    Tmp.
 
 %% ---------------------------------------------------------------------------
 %% unique_string/0
@@ -208,8 +234,7 @@ have_sctp(_) ->
         {ok, Sock} ->
             gen_sctp:close(Sock),
             true;
-        {error, E} when E == eprotonosupport;
-                        E == esocktnosupport -> %% fail on any other reason
+        _ ->
             false
     end.
 
@@ -217,6 +242,13 @@ have_sctp(_) ->
 %% eval/1
 %%
 %% Evaluate a function in one of a number of forms.
+
+eval({F, infinity}) ->
+    eval(F);
+eval({F, Tmo})
+  when is_integer(Tmo) ->
+    {ok, _} = timer:exit_after(Tmo, timeout),
+    eval(F);
 
 eval({M,[F|A]})
   when is_atom(F) ->
@@ -231,53 +263,11 @@ eval([F|A])
 
 eval(L)
   when is_list(L) ->
-    run(L);
+    [eval(F) || F <- L];
 
 eval(F)
   when is_function(F,0) ->
     F().
-
-%% ---------------------------------------------------------------------------
-%% write_priv/3
-%%
-%% Write an arbitrary term to a named file.
-
-write_priv(Config, Name, Term) ->
-    write(path(Config, Name), Term).
-
-write(Path, Term) ->
-    ok = file:write_file(Path, term_to_binary(Term)).
-
-%% read_priv/2
-%%
-%% Read a term from a file.
-
-read_priv(Config, Name) ->
-    read(path(Config, Name)).
-
-read(Path) ->
-    {ok, Bin} = file:read_file(Path),
-    binary_to_term(Bin).
-
-%% map_priv/3
-%%
-%% Modify a term in a file and return both old and new values.
-
-map_priv(Config, Name, Fun1) ->
-    map(path(Config, Name), Fun1).
-
-map(Path, Fun1) ->
-    T0 = read(Path),
-    T1 = Fun1(T0),
-    write(Path, T1),
-    {T0, T1}.
-
-path(Config, Name)
-  when is_atom(Name) ->
-    path(Config, ?L(Name));
-path(Config, Name) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    filename:join([Dir, Name]).
 
 %% ---------------------------------------------------------------------------
 %% lport/2

@@ -27,14 +27,19 @@
 
 -module(diameter_gen_sctp_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
          init_per_suite/1,
          end_per_suite/1]).
 
 %% testcases
--export([send_one_from_many/1, send_one_from_many/0,
-         send_many_from_one/1, send_many_from_one/0,
+-export([send_one_from_many/1,
+         send_many_from_one/1,
          receive_what_was_sent/1]).
 
 -include_lib("kernel/include/inet_sctp.hrl").
@@ -67,7 +72,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
     [send_one_from_many,
@@ -89,12 +94,19 @@ end_per_suite(_Config) ->
 
 %% ===========================================================================
 
-%% send_one_from_many/0
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1
+
+run(List) ->
+    diameter_util:run([{{?MODULE, F, [[]]}, 10000} || F <- List]).
+
+%% send_one_from_many/1
 %%
 %% Demonstrates sluggish delivery of messages.
-
-send_one_from_many() ->
-    [{timetrap, {seconds, 30}}].
 
 send_one_from_many(_) ->
     ?OK = send_multiple(128, 1, 1024).
@@ -402,23 +414,20 @@ unmark(Bin) ->
 
 %% ===========================================================================
 
-%% send_many_from_one/0
+%% send_many_from_one/1
 %%
 %% Demonstrates sluggish delivery of messages.
-
-send_many_from_one() ->
-    [{timetrap, {seconds, 30}}].
 
 send_many_from_one(_) ->
     ?OK = send_multiple(1, 128, 1024).
 
 %% ===========================================================================
 
-%% receive_what_was_sent/1
+%% receive_what_was_sent/0
 %%
 %% Demonstrates reception of a message that differs from that sent.
 
-receive_what_was_sent(_Config) ->
+receive_what_was_sent(_) ->
     ?OK = send_multiple(1, 1, 1024*32).
 
 %% ===========================================================================

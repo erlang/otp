@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,20 +24,14 @@
 
 -module(diameter_length_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2]).
-
-%% testcases
--export([start/1,
-         send/1,
-         stop/1]).
+         parallel/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -83,39 +77,20 @@
 -define(LOGOUT,
         ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 
--define(GROUPS, [exit, handle, discard]).
-
 -define(L, atom_to_list).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
-    [{group, G} || G <- ?GROUPS].
+    [parallel].
 
-groups() ->
-    [{G, [], [start, send, stop]} || G <- ?GROUPS].
+parallel(_Config) ->
+    run().
 
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
-
-init_per_group(Group, Config) ->
-    [{group, Group} | Config].
-
-end_per_group(_, _) ->
-    ok.
-
-init_per_testcase(_Name, Config) ->
-    Config.
-
-end_per_testcase(_, _) ->
-    ok.
+%% ===========================================================================
 
 origin(exit)    -> 0;
 origin(handle)  -> 1;
@@ -127,25 +102,39 @@ origin(2) -> discard.
 
 %% ===========================================================================
 
+run() ->
+    run([exit, handle, discard]).
+
+run(List)
+  when is_list(List) ->
+    ok = diameter:start(),
+    try
+        ?util:run([[{[fun run/1, T], 30000} || T <- List]])
+    after
+        ok = diameter:stop()
+    end;
+
+run(Group) ->
+    start(Group),
+    send(Group),
+    stop().
+
 %% start/1
 
-start(Config) ->
-    Group = proplists:get_value(group, Config),
+start(Group) ->
     ok = diameter:start_service(?SERVER, ?SERVICE(?L(Group))),
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)),
-    LRef = ?util:listen(?SERVER,
-                        tcp,
-                        [{length_errors, Group}]),
+    LRef = ?util:listen(?SERVER, tcp, [{length_errors, Group}]),
     ?util:connect(?CLIENT,
                   tcp,
                   LRef,
                   [{capabilities, [{'Origin-State-Id', origin(Group)}]}]).
 
-%% stop/1
+%% stop/0
 
-stop(_Config) ->
-    ok = diameter:remove_transport(?CLIENT, true),
+stop() ->
     ok = diameter:remove_transport(?SERVER, true),
+    ok = diameter:remove_transport(?CLIENT, true),
     ok = diameter:stop_service(?SERVER),
     ok = diameter:stop_service(?CLIENT).
 
@@ -194,10 +183,7 @@ send(discard) ->
     {error, timeout}
         = call(4),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = call(0);
-
-send(Config) ->
-    send(proplists:get_value(group, Config)).
+        = call(0).
 
 %% ===========================================================================
 

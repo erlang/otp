@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,20 +26,18 @@
 
 -module(diameter_event_SUITE).
 
+%% testcase, no common_test dependency
+-export([run/0]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_testcase/2,
-         end_per_testcase/2]).
+         traffic/1]).
 
-%% testcases
--export([start/1,
-         start_server/1,
-         up/1,
+%% internal
+-export([up/1,
          down/1,
-         cea_timeout/1,
-         stop/1]).
+         cea_timeout/1]).
 
 -include("diameter.hrl").
 
@@ -77,43 +75,44 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [start,
-     start_server,
-     up,
-     down,
-     cea_timeout,
-     stop].
+    [traffic].
 
-%% Not used, but a convenient place to enable trace.
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_testcase(Name, Config) ->
-    [{name, Name} | Config].
-
-end_per_testcase(_, _) ->
-    ok.
+traffic(_Config) ->
+    run().
 
 %% ===========================================================================
-%% start/stop testcases
 
-start(_Config) ->
-    ok = diameter:start().
+%% run/0
 
-start_server(Config) ->
+run() ->
+    ok = diameter:start(),
+    try
+        ?util:run([{fun traffic/0, 60000}])
+    after
+        ok = diameter:stop()
+    end.
+
+%% traffic/0
+
+traffic() ->
+    PortNr = start_server(),
+    Config = [{portnr, PortNr}],
+    Funs = [up, down, cea_timeout],
+    ?util:run([[{?MODULE, F, [[{name, F} | Config]]} || F <- Funs]]).
+
+%% start_server/0
+
+start_server() ->
     diameter:subscribe(?SERVER),
     ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER, [?DICT_COMMON])),
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx_cb/2},
                                        {capx_timeout, ?SERVER_CAPX_TMO}]),
     [PortNr] = ?util:lport(tcp, LRef),
-    ?util:write_priv(Config, portnr, PortNr),
-    start = event(?SERVER).
+    start = event(?SERVER),
+    PortNr.
 
 %% Connect with matching capabilities and expect the connection to
 %% come up.
@@ -158,9 +157,6 @@ cea_timeout(Config) ->
     start = event(Svc),
     {{closed, Ref, {'CEA', timeout}, T}, _} = {event(Svc), T}.
 
-stop(_Config) ->
-    ok = diameter:stop().
-
 %% ----------------------------------------
 
 %% Keep the server from sending CEA until the client has timed out.
@@ -201,7 +197,7 @@ start_service(Name, Opts) ->
     diameter:start_service(Name, [{monitor, self()} | Opts]).
 
 opts(Config, Opts) ->
-    PortNr = ?util:read_priv(Config, portnr),
+    PortNr = proplists:get_value(portnr, Config),
 
     {connect, [{transport_module, diameter_tcp},
                {transport_config, [{ip, ?ADDR}, {port, 0},

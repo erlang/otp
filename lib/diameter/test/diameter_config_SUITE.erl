@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,14 +25,15 @@
 
 -module(diameter_config_SUITE).
 
--export([suite/0,
-         all/0]).
+%% testscases, no common_test dependency
+-export([run/0,
+         run/1]).
 
-%% testcases
--export([start/1,
+%% common_test wrapping
+-export([suite/0,
+         all/0,
          start_service/1,
-         add_transport/1,
-         stop/1]).
+         add_transport/1]).
 
 -define(util, diameter_util).
 
@@ -204,38 +205,53 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
-    [start,
-     start_service,
-     add_transport,
-     stop].
+    [start_service,
+     add_transport].
+
+start_service(_Config) ->
+    run([start_service]).
+
+add_transport(_Config) ->
+    run([add_transport]).
 
 %% ===========================================================================
 
-start(_) ->
-    ok = diameter:start().
+run() ->
+    run(all()).
 
-start_service(T)
-  when is_tuple(T) ->
-    do(fun start/3, T);
+run(List)
+  when is_list(List) ->
+    try
+        ?util:run([[[fun run/1, {F, 5000}] || F <- List]])
+    after
+        dbg:stop_clear(),
+        diameter:stop()
+    end;
 
-start_service(_) ->
-    [] = ?util:run([{?MODULE, start_service, [T]}
-                    || T <- [lists:keyfind(capabilities, 1, ?TRANSPORT_CONFIG)
-                             | ?SERVICE_CONFIG]]).
+run({F, Tmo}) ->
+    ok = diameter:start(),
+    try
+        ?util:run([{[fun run/1, F], Tmo}])
+    after
+        ok = diameter:stop()
+    end;
 
-add_transport(T)
-  when is_tuple(T) ->
-    do(fun add/3, T);
+run(start_service) ->
+    ?util:run([[fun start/1, T]
+               || T <- [lists:keyfind(capabilities, 1, ?TRANSPORT_CONFIG)
+                       | ?SERVICE_CONFIG]]);
 
-add_transport(_) ->
-    [] = ?util:run([{?MODULE, add_transport, [T]}
-                    || T <- ?TRANSPORT_CONFIG]).
+run(add_transport) ->
+    ?util:run([[fun add/1, T] || T <- ?TRANSPORT_CONFIG]).
 
-stop(_) ->
-    ok = diameter:stop().
+start(T) ->
+    do(fun start/3, T).
+
+add(T) ->
+    do(fun add/3, T).
 
 %% ===========================================================================
 

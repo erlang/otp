@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,20 +36,19 @@
 
 -module(diameter_failover_SUITE).
 
--export([suite/0,
-         all/0]).
+%% testcases, no common_test dependency
+-export([run/0]).
 
-%% testcases
--export([start/1,
-         start_services/1,
-         connect/1,
-         send_ok/1,
-         send_nok/1,
-         send_discard_1/1,
-         send_discard_2/1,
-         stop_services/1,
-         empty/1,
-         stop/1]).
+%% common_test wrapping
+-export([suite/0,
+         all/0,
+         parallel/1]).
+
+%% internal
+-export([send_ok/0,
+         send_nok/0,
+         send_discard_1/0,
+         send_discard_2/0]).
 
 %% diameter callbacks
 -export([pick_peer/4,
@@ -112,50 +111,61 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [start,
-     start_services,
-     connect,
-     send_ok,
-     send_nok,
-     send_discard_1,
-     send_discard_2,
-     stop_services,
-     empty,
-     stop].
+    [parallel].
+
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
-%% start/stop testcases
 
-start(_Config) ->
-    ok = diameter:start().
+%% run/0
 
-start_services(_Config) ->
+run() ->
+    ok = diameter:start(),
+    try
+        ?util:run([{fun traffic/0, 60000}])
+    after
+        ok = diameter:stop()
+    end.
+
+%% traffic/0
+
+traffic() ->
+    Servers = start_services(),
+    ok = connect(Servers),
+    [] = send(),
+    [] = stop_services(),
+    [] = ets:tab2list(diameter_request).
+
+%% start_services/0
+
+start_services() ->
     Servers = [server(N) || N <- ?SERVERS],
     [] = [T || C <- ?CLIENTS,
                T <- [diameter:start_service(C, ?SERVICE(C))],
                T /= ok],
+    Servers.
 
-    {save_config, Servers}.
+%% send/0
 
-connect(Config) ->
-    {start_services, Servers} = proplists:get_value(saved_config, Config),
+send() ->
+    Funs = [send_ok, send_nok, send_discard_1, send_discard_2],
+    ?util:run([[{?MODULE, F, []} || F <- Funs]]).
 
+%% connect/1
+
+connect(Servers) ->
     lists:foreach(fun(C) -> connect(C, Servers) end, ?CLIENTS).
 
-stop_services(_Config) ->
-    [] = [{H,T} || H <- ?CLIENTS ++ ?SERVERS,
-                   T <- [diameter:stop_service(H)],
-                   T /= ok].
+%% stop_services/0
 
-%% Ensure transports have been removed from request table.
-empty(_Config) ->
-    [] = ets:tab2list(diameter_request).
-
-stop(_Config) ->
-    ok = diameter:stop().
+stop_services() ->
+    [{H,T} || H <- ?CLIENTS ++ ?SERVERS,
+              T <- [diameter:stop_service(H)],
+              T /= ok].
 
 %% ----------------------------------------
 
@@ -171,7 +181,7 @@ connect(Name, Refs) ->
 
 %% Send an STR and expect success after SERVER3 answers after a couple
 %% of failovers.
-send_ok(_Config) ->
+send_ok() ->
     Req = #diameter_base_STR{'Destination-Realm' = realm(?SERVER1),
                              'Termination-Cause' = ?LOGOUT,
                              'Auth-Application-Id' = ?APP_ID},
@@ -180,19 +190,19 @@ send_ok(_Config) ->
         = call(?CLIENT1, Req).
 
 %% Send an STR and expect failure when both servers fail.
-send_nok(_Config) ->
+send_nok() ->
     Req = #diameter_base_STR{'Destination-Realm' = realm(?SERVER4),
                              'Termination-Cause' = ?LOGOUT,
                              'Auth-Application-Id' = ?APP_ID},
     {failover, ?LOGOUT} = call(?CLIENT1, Req).
 
 %% Send an STR and have prepare_retransmit discard it.
-send_discard_1(_Config) ->
+send_discard_1() ->
     Req = #diameter_base_STR{'Destination-Realm' = realm(?SERVER1),
                              'Termination-Cause' = ?TIMEOUT,
                              'Auth-Application-Id' = ?APP_ID},
     {rejected, ?TIMEOUT} = call(?CLIENT2, Req).
-send_discard_2(_Config) ->
+send_discard_2() ->
     Req = #diameter_base_STR{'Destination-Realm' = realm(?SERVER4),
                              'Termination-Cause' = ?MOVED,
                              'Auth-Application-Id' = ?APP_ID},
