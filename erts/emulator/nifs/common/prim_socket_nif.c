@@ -3978,15 +3978,10 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(add_source_membership);           \
     GLOBAL_ATOM_DECL(allmulti);                        \
     GLOBAL_ATOM_DECL(any);                             \
-    GLOBAL_ATOM_DECL(arphrd_dlci);		       \
-    GLOBAL_ATOM_DECL(arphrd_ether);		       \
-    GLOBAL_ATOM_DECL(arphrd_frelay);		       \
-    GLOBAL_ATOM_DECL(arphrd_ieee802);		       \
-    GLOBAL_ATOM_DECL(arphrd_ieee1394);		       \
-    GLOBAL_ATOM_DECL(arphrd_loopback);		       \
-    GLOBAL_ATOM_DECL(arphrd_netrom);		       \
-    GLOBAL_ATOM_DECL(arphrd_none);		       \
+    GLOBAL_ATOM_DECL(appletlk);                        \
+    GLOBAL_ATOM_DECL(arcnet);                          \
     GLOBAL_ATOM_DECL(associnfo);                       \
+    GLOBAL_ATOM_DECL(atm);                             \
     GLOBAL_ATOM_DECL(authhdr);                         \
     GLOBAL_ATOM_DECL(auth_active_key);                 \
     GLOBAL_ATOM_DECL(auth_asconf);                     \
@@ -3996,6 +3991,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(auth_level);                      \
     GLOBAL_ATOM_DECL(autoclose);                       \
     GLOBAL_ATOM_DECL(automedia);                       \
+    GLOBAL_ATOM_DECL(ax25);                            \
     GLOBAL_ATOM_DECL(bad_data);                        \
     GLOBAL_ATOM_DECL(bindtodevice);                    \
     GLOBAL_ATOM_DECL(block_source);                    \
@@ -4022,6 +4018,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
     GLOBAL_ATOM_DECL(disable_fragments);               \
+    GLOBAL_ATOM_DECL(dlci);                            \
     GLOBAL_ATOM_DECL(domain);                          \
     GLOBAL_ATOM_DECL(dontfrag);                        \
     GLOBAL_ATOM_DECL(dontroute);                       \
@@ -4032,6 +4029,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(dying);			       \
     GLOBAL_ATOM_DECL(dynamic);                         \
     GLOBAL_ATOM_DECL(echo);                            \
+    GLOBAL_ATOM_DECL(eether);                          \
     GLOBAL_ATOM_DECL(egp);                             \
     GLOBAL_ATOM_DECL(enotsup);                         \
     GLOBAL_ATOM_DECL(eor);                             \
@@ -4039,6 +4037,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(errqueue);                        \
     GLOBAL_ATOM_DECL(esp_network_level);               \
     GLOBAL_ATOM_DECL(esp_trans_level);                 \
+    GLOBAL_ATOM_DECL(ether);                           \
+    GLOBAL_ATOM_DECL(eui64);                           \
     GLOBAL_ATOM_DECL(events);                          \
     GLOBAL_ATOM_DECL(explicit_eor);                    \
     GLOBAL_ATOM_DECL(faith);                           \
@@ -4049,6 +4049,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(flowinfo);                        \
     GLOBAL_ATOM_DECL(fragment_interleave);             \
     GLOBAL_ATOM_DECL(freebind);                        \
+    GLOBAL_ATOM_DECL(frelay);                          \
     GLOBAL_ATOM_DECL(get_peer_addr_info);              \
     GLOBAL_ATOM_DECL(hatype);                          \
     GLOBAL_ATOM_DECL(hdrincl);                         \
@@ -4058,11 +4059,14 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(host);                            \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
+    GLOBAL_ATOM_DECL(ieee802);                         \
+    GLOBAL_ATOM_DECL(ieee1394);                        \
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(implink);                         \
     GLOBAL_ATOM_DECL(inet);                            \
     GLOBAL_ATOM_DECL(inet6);                           \
+    GLOBAL_ATOM_DECL(infiniband);                      \
     GLOBAL_ATOM_DECL(info);                            \
     GLOBAL_ATOM_DECL(initmsg);                         \
     GLOBAL_ATOM_DECL(invalid);                         \
@@ -4088,6 +4092,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(link1);                            \
     GLOBAL_ATOM_DECL(link2);                            \
     GLOBAL_ATOM_DECL(local);                           \
+    GLOBAL_ATOM_DECL(localtlk);                        \
     GLOBAL_ATOM_DECL(local_auth_chunks);               \
     GLOBAL_ATOM_DECL(loopback);			       \
     GLOBAL_ATOM_DECL(lowdelay);                        \
@@ -4097,6 +4102,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(maxburst);                        \
     GLOBAL_ATOM_DECL(maxseg);                          \
     GLOBAL_ATOM_DECL(md5sig);                          \
+    GLOBAL_ATOM_DECL(metricom);                        \
     GLOBAL_ATOM_DECL(mincost);                         \
     GLOBAL_ATOM_DECL(minttl);                          \
     GLOBAL_ATOM_DECL(monitor);			       \
@@ -4111,6 +4117,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
     GLOBAL_ATOM_DECL(name);                            \
+    GLOBAL_ATOM_DECL(netrom);                          \
     GLOBAL_ATOM_DECL(noarp);                           \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
@@ -4150,6 +4157,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(primary_addr);                    \
     GLOBAL_ATOM_DECL(priority);                        \
     GLOBAL_ATOM_DECL(promisc);                         \
+    GLOBAL_ATOM_DECL(pronet);                          \
     GLOBAL_ATOM_DECL(protocol);                        \
     GLOBAL_ATOM_DECL(pup);                             \
     GLOBAL_ATOM_DECL(raw);                             \
@@ -4216,6 +4224,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(true);                            \
     GLOBAL_ATOM_DECL(trunc);                           \
     GLOBAL_ATOM_DECL(ttl);                             \
+    GLOBAL_ATOM_DECL(tunnel);                          \
+    GLOBAL_ATOM_DECL(tunnel6);                         \
     GLOBAL_ATOM_DECL(type);                            \
     GLOBAL_ATOM_DECL(udp);                             \
     GLOBAL_ATOM_DECL(unblock_source);                  \
@@ -4228,6 +4238,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(user_timeout);                    \
     GLOBAL_ATOM_DECL(use_ext_recvinfo);                \
     GLOBAL_ATOM_DECL(use_min_mtu);                     \
+    GLOBAL_ATOM_DECL(void);                            \
     GLOBAL_ATOM_DECL(v6only)
 
 

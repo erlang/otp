@@ -317,6 +317,13 @@
                        outgoing | loopback | user | kernel | fastroute |
                        non_neg_integer().
 
+-type hatype() :: netrom | eether | ether | ax25 | pronet | chaos |
+                  ieee802 | arcnet | appletlk | dlci | atm | metricom |
+                  ieee1394 | eui64 | infiniband |
+                  tunnel | tunnel6 | loopback | localtlk |
+                  none | void |
+                  non_neg_integer().
+
 -type sockaddr_un() ::
         #{family := 'local',
           path   := binary() | string()}.
@@ -336,7 +343,7 @@
           protocol := non_neg_integer(),
           ifindex  := integer(),
           pkttype  := packet_type(),
-          hatype   := non_neg_integer(),
+          hatype   := hatype(),
           addr     := binary()}.
 -type sockaddr_unspec() ::
         #{family := 'unspec', addr := binary()}.
