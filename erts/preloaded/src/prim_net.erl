@@ -167,17 +167,17 @@
 -type mib_ip_address_table() :: [mib_ip_address_row()].
 
 -type adapters_addresses_flags() ::
-        #{skip_unicast                := boolean(),  % default false
-          skip_anycast                := boolean(),  % default true
-          skip_multicast              := boolean(),  % default true
-          skip_dns_server             := boolean(),  % default true
-          skip_friendly_name          := boolean(),  % default true
-          include_prefix              := boolean(),  % default true
-          include_wins_info           := boolean(),  % default false
-          include_gateways            := boolean(),  % default false
-          include_all_interfaces      := boolean(),  % default false
-          include_all_compartments    := boolean(),  % default false
-          include_tunnel_bindingorder := boolean()}. % default false)
+        #{skip_unicast                => boolean(),  % default false
+          skip_anycast                => boolean(),  % default true
+          skip_multicast              => boolean(),  % default true
+          skip_dns_server             => boolean(),  % default true
+          skip_friendly_name          => boolean(),  % default true
+          include_prefix              => boolean(),  % default true
+          include_wins_info           => boolean(),  % default false
+          include_gateways            => boolean(),  % default false
+          include_all_interfaces      => boolean(),  % default false
+          include_all_compartments    => boolean(),  % default false
+          include_tunnel_bindingorder => boolean()}. % default false)
 
 %% defaults to:
 %% #{family => unspec,
@@ -193,9 +193,9 @@
 %%               include_all_compartments    => false
 %%               include_tunnel_bindingorder => false},
 %%   debug  => false}.
--type adapters_addresses_args() :: #{family := unspec | inet | inet6,
-                                     flags  := adapters_addresses_flags(),
-                                     debug  := boolean()}.
+-type adapters_addresses_args() :: #{family => unspec | inet | inet6,
+                                     flags  => adapters_addresses_flags(),
+                                     debug  => boolean()}.
 
 -type adapter_unicast_dad_state() :: invalid | tentative | duplicate |
                                      deprecated | preferred |
@@ -211,7 +211,7 @@
                                    transient    := boolean()}.
 
 -type adapter_unicast_addr() ::
-        #{addr               := socket:address(),
+        #{addr               := socket:sockaddr(),
           dad_state          := adapter_unicast_dad_state(),
           flags              := adapter_unicast_flags(),
           prefix_origin      := adapter_unicast_prefix_origin(),
@@ -223,16 +223,16 @@
 -type adapter_anycast_flags() :: #{dns_eligible := boolean(),
                                    transient    := boolean()}.
 
--type adapter_anycast_addr() :: #{addr  := socket:address(),
+-type adapter_anycast_addr() :: #{addr  := socket:sockaddr(),
                                   flags := adapter_anycast_flags()}.
 
 -type adapter_multicast_flags() :: #{dns_eligible := boolean(),
                                      transient    := boolean()}.
 
--type adapter_multicast_addr() :: #{addr  := socket:address(),
+-type adapter_multicast_addr() :: #{addr  := socket:sockaddr(),
                                     flags := adapter_multicast_flags()}.
 
--type adapter_dns_server_addr() :: #{addr := socket:address()}.
+-type adapter_dns_server_addr() :: #{addr := socket:sockaddr()}.
 
 -type adapter_flags() :: #{ddns_enabled                          := boolean(),
                            register_adapter_suffix               := boolean(),
@@ -254,7 +254,7 @@
                                lower_layer_down |
                                integer().
 
--type adapter_prefix() :: #{addr   := socket:address(),
+-type adapter_prefix() :: #{addr   := socket:sockaddr(),
                             length := non_neg_integer()}.
 -type adapter_addresses()  ::
         #{index            := non_neg_integer(),
@@ -489,7 +489,10 @@ getifaddrs(Extra) when is_map(Extra) ->
 %%
 
 -spec get_adapters_addresses(Args) -> {ok, Addrs} | {error, Reason} when
-      Args   :: adapters_addresses_args(),
+      Args   :: default |
+                no_skips_all_includes | no_skips_no_includes |
+                all_skips_no_includes | all_skips_all_includes |
+                adapters_addresses_args(),
       Addrs  :: adapters_addresses(),
       Reason :: term().
 
