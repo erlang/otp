@@ -131,7 +131,8 @@ help:
 
 # Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
-# because ct will change directories.
+# because ct will change directories, and for code:lib_dir(diameter) to
+# return the parent directory.
 $(SUITES): log opt
 	$(ERL) -noinput \
 	       -pa $(realpath ../ebin) \
@@ -144,7 +145,7 @@ $(SUITES): log opt
 # Run suites without common_test.
 $(SUITES:%=_%): opt
 	$(ERL) -noinput \
-	       -pa ../ebin \
+	       -pa $(realpath ../ebin) \
 	       -sname diameter_test_$@ \
 	       -s diameter$@_SUITE run \
 	       -s init stop

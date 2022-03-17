@@ -99,10 +99,6 @@
 -define(caps,   #diameter_caps).
 -define(packet, #diameter_packet).
 
--define(fail(T), error({T, process_info(self(), messages)})).
-
--define(TIMEOUT, 10000).
-
 -define(DICTS, [rfc3588, rfc6733]).
 
 %% ===========================================================================

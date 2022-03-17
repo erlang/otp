@@ -69,7 +69,7 @@
 %% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 45}}].
+    [{timetrap, {seconds, 75}}].
 
 all() ->
     [dict, code].
@@ -101,7 +101,7 @@ run({code, Tmpdir}) ->
 
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
 run(List) ->
-    ?util:run([{[fun run/1, T], 30000} || T <- List]).
+    ?util:run([{[fun run/1, T], 60000} || T <- List]).
 
 %% ===========================================================================
 %% compile_dicts/0

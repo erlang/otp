@@ -328,12 +328,7 @@ relup({App, Config}) ->
     UpFrom = acc_rel(Dir, Rel, Up),
     DownTo = acc_rel(Dir, Rel, Down),
 
-    {[Name], [Name], [], []}  %% no current in up/down and go both ways
-        = {[Name] -- UpFrom,
-           [Name] -- DownTo,
-           UpFrom -- DownTo,
-           DownTo -- UpFrom},
-
+    {[], []} = {UpFrom -- DownTo, DownTo -- UpFrom},
     [[], []] = [S -- sets:to_list(sets:from_list(S))
                 || S <- [UpFrom, DownTo]],
 
@@ -345,12 +340,7 @@ relup(Config) ->
     run(Config, [relup]).
 
 acc_rel(Dir, Rel, List) ->
-    lists:foldl(fun(T,A) -> acc_rel(Dir, Rel, T, A) end,
-                [],
-                List).
-
-acc_rel(Dir, Rel, {Vsn, _}, Acc) ->
-    [write_rel(Dir, Rel, Vsn) | Acc].
+    lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->

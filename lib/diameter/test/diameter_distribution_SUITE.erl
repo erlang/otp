@@ -97,11 +97,6 @@
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
 
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
-
 %% ===========================================================================
 
 suite() ->
