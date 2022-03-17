@@ -33,14 +33,6 @@
   <modulesummary>Network interface.</modulesummary>
   <description>
     <p>This module provides an API for the network interface.</p>
-    <note>
-      <p>There is currently <em>limited</em> support for Windows.
-      That is, not all functions work on Windows. </p>
-      <p>Not on Windows:
-      <seemfa marker="#getnameinfo/1"><c>getnameinfo</c></seemfa> and
-      <seemfa marker="#getaddrinfo/1"><c>getaddrinfo</c></seemfa>.
-      </p>
-    </note>
   </description>
 
   <datatypes>
