@@ -1100,6 +1100,20 @@ do_measure(_Config) ->
                     State)
           end,
           benchmark_dummy, TMarkUniformFullRange),
+    _ =
+        measure_1(
+          fun (State) -> half_range(State) bsl 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St) ->
+                            case Mod:uniform(Range) of
+                                X when is_integer(X), 1 =< X, X =< Range ->
+                                    St
+                            end
+                    end,
+                    State)
+          end,
+          procdict, TMarkUniformFullRange),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
     _ =
@@ -1287,6 +1301,8 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                 {?MODULE, <<>>};
             benchmark_dummy ->
                 {?MODULE, ignored_state};
+            procdict ->
+                {rand, rand:seed(default)};
             _ ->
                 {rand, rand:seed_s(Alg)}
         end,
