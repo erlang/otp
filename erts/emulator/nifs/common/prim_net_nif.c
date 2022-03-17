@@ -285,9 +285,8 @@ ENET_NIF_FUNCS
 /* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM enet_command(ErlNifEnv*   env,
                                  ERL_NIF_TERM cmd);
-#if defined(HAVE_GETHOSTNAME)
+
 static ERL_NIF_TERM enet_gethostname(ErlNifEnv* env);
-#endif
 
 #if defined(HAVE_GETNAMEINFO)
 static ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
@@ -885,7 +884,6 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
-#if defined(HAVE_GETHOSTNAME)
     ERL_NIF_TERM result;
     
     NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
@@ -898,13 +896,9 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
     NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
     return result;
-#else
-    return esock_make_error(env, esock_atom_enotsup);
-#endif
 }
 
 
-#if defined(HAVE_GETHOSTNAME)
 static
 ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 {
@@ -940,7 +934,6 @@ ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 
     return result;
 }
-#endif
 
 
 
