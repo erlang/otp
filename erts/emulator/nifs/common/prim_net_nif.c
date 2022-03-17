@@ -1966,89 +1966,68 @@ ERL_NIF_TERM enet_get_adapters_addresses(ErlNifEnv* env,
     unsigned long         ipAdAddrsSz = 16 * 1024;
     IP_ADAPTER_ADDRESSES* ipAdAddrsP;
     ERL_NIF_TERM          eret, addrs, result;
-    /*
-    ULONG (WINAPI*        fpGetAdaptersAddresses)
-        (ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
-    HMODULE               iphlpapi = GetModuleHandle("iphlpapi");
 
-    NDBG2( dbg,
-           ("NET", "enet_get_adapters_addresses -> "
-            "try get GetAdaptersAddresses\r\n") );
-
-    fpGetAdaptersAddresses =
-        (void *) (iphlpapi ?
-                  GetProcAddress(iphlpapi, "GetAdaptersAddresses") :
-                  NULL);
-
-    */
-    /* if (fpGetAdaptersAddresses) */ {
-        ipAdAddrsP = (IP_ADAPTER_ADDRESSES*) MALLOC(ipAdAddrsSz);
-        for (i = 17;  i;  i--) {
-            /* ret = fpGetAdaptersAddresses(family, */
-            ret = GetAdaptersAddresses(family,
-                                       flags,
-                                       NULL,
-                                       ipAdAddrsP,
-                                       &ipAdAddrsSz);
-            if (ret == NO_ERROR) {
-                /* We are done! */
-                break;
-            } else if (ret == ERROR_BUFFER_OVERFLOW) {
-                /* Not large enough */
-                ipAdAddrsP = REALLOC(ipAdAddrsP, ipAdAddrsSz);
-                continue;
-            } else {
-                /* Failure */
-                i = 0;
-            }
-            if (ret == NO_ERROR) break;
-            if (ret == ERROR_BUFFER_OVERFLOW) continue;
+    ipAdAddrsP = (IP_ADAPTER_ADDRESSES*) MALLOC(ipAdAddrsSz);
+    for (i = 17;  i;  i--) {
+        ret = GetAdaptersAddresses(family, flags, NULL,
+                                   ipAdAddrsP, &ipAdAddrsSz);
+        if (ret == NO_ERROR) {
+            /* We are done! */
+            break;
+        } else if (ret == ERROR_BUFFER_OVERFLOW) {
+            /* Not large enough */
+            ipAdAddrsP = REALLOC(ipAdAddrsP, ipAdAddrsSz);
+            continue;
+        } else {
+            /* Failure */
             i = 0;
         }
+        if (ret == NO_ERROR) break;
+        if (ret == ERROR_BUFFER_OVERFLOW) continue;
+        i = 0;
+    }
 
-        if (! i) {
+    if (! i) {
 
-            NDBG2( dbg,
-                   ("NET", "enet_get_adapters_addresses -> "
-                    "try encode error (%d)\r\n", ret) );
+        NDBG2( dbg,
+               ("NET", "enet_get_adapters_addresses -> "
+                "try encode error (%d)\r\n", ret) );
 
-            FREE(ipAdAddrsP);
+        FREE(ipAdAddrsP);
 
-            switch (ret) {
-            case ERROR_ADDRESS_NOT_ASSOCIATED:
-                eret = atom_address_not_associated;
-                break;
-            case ERROR_BUFFER_OVERFLOW:
-                eret = atom_insufficient_buffer;
-                break;
-            case ERROR_INVALID_PARAMETER:
-                eret = atom_invalid_parameter;
-                break;
-            case ERROR_NO_DATA:
-                eret = atom_no_data;
-                break;
-            case ERROR_NOT_ENOUGH_MEMORY:
-                eret = atom_not_enough_memory;
-                break;
-            default:
-                eret = MKI(env, ret);
-                break;
-            }
-
-            result = esock_make_error(env, eret);
-        } else {
-
-            NDBG2( dbg,
-                   ("NET", "enet_get_adapters_addresses -> "
-                    "try encode addresses\r\n") );
-
-            addrs  = enet_adapters_addresses_encode(env, dbg, ipAdAddrsP);
-            result = esock_make_ok2(env, addrs);
-
+        switch (ret) {
+        case ERROR_ADDRESS_NOT_ASSOCIATED:
+            eret = atom_address_not_associated;
+            break;
+        case ERROR_BUFFER_OVERFLOW:
+            eret = atom_insufficient_buffer;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            eret = atom_invalid_parameter;
+            break;
+        case ERROR_NO_DATA:
+            eret = atom_no_data;
+            break;
+        case ERROR_NOT_ENOUGH_MEMORY:
+            eret = atom_not_enough_memory;
+            break;
+        default:
+            eret = MKI(env, ret);
+            break;
         }
-    } /* else {
-        result = esock_make_error(env, atom_no_function);
-        } */
+
+        result = esock_make_error(env, eret);
+
+    } else {
+
+        NDBG2( dbg,
+               ("NET", "enet_get_adapters_addresses -> "
+                "try encode addresses\r\n") );
+
+        addrs  = enet_adapters_addresses_encode(env, dbg, ipAdAddrsP);
+        result = esock_make_ok2(env, addrs);
+
+    }
     
     NDBG2( dbg,
            ("NET", "enet_get_adapters_addresses -> done with:"
