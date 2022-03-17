@@ -423,7 +423,8 @@ types(erlang, setelement, [PosType, TupleType, ArgType]) ->
 
 types(erlang, make_fun, [_,_,Arity0]) ->
     Type = case Arity0 of
-               #t_integer{elements={Arity,Arity}} when Arity >= 0 ->
+               #t_integer{elements={Arity,Arity}}
+                 when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
                    #t_fun{arity=Arity};
                _ ->
                    #t_fun{}

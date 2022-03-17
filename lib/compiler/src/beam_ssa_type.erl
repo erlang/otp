@@ -1091,7 +1091,7 @@ simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
             I
     end;
 simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
-  when is_integer(Arity), Arity >= 0 ->
+  when is_integer(Arity), Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     case normalized_type(Fun, Ts) of
         #t_fun{arity=any} ->
             I;
@@ -1650,7 +1650,7 @@ eval_type_test_bif(I, is_boolean, [Type]) ->
 eval_type_test_bif(I, is_float, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_float{});
 eval_type_test_bif(I, is_function, [Type, #t_integer{elements={Arity,Arity}}])
-  when Arity >= 0, Arity =< 255 ->
+  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     eval_type_test_bif_1(I, Type, #t_fun{arity=Arity});
 eval_type_test_bif(I, is_function, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_fun{});
@@ -2374,7 +2374,7 @@ infer_type({bif,is_function}, [#b_var{}=Arg], _Ts, _Ds) ->
     {[T], [T]};
 infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
     case Arity of
-        #b_literal{val=V} when is_integer(V), V >= 0, V =< 255 ->
+        #b_literal{val=V} when is_integer(V), V >= 0, V =< ?MAX_FUNC_ARGS ->
             T = {Arg, #t_fun{arity=V}},
             {[T], [T]};
         _ ->
