@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2021. All Rights Reserved.
+# Copyright Ericsson AB 1998-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -581,8 +581,10 @@ bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe
 	@cp $(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun.exe
+	@cp $(ERL_TOP)/bin/$(TARGET)/inet_gethost.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost.exe
 else
-bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
 
 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
@@ -611,10 +613,17 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun: $(ERL_TOP)/bin/$(TARGET)/escript
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
 endif
 
+$(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost: $(ERL_TOP)/bin/$(TARGET)/inet_gethost $(BOOTSTRAP_ROOT)/bootstrap/target
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+	@cp $(ERL_TOP)/bin/$(TARGET)/inet_gethost $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+
+
 bootstrap_setup_target:
 	@{ test -r $(BOOTSTRAP_ROOT)/bootstrap/target && \
 	   test $(TARGET) = `cat $(BOOTSTRAP_ROOT)/bootstrap/target`; } || \
 	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; fi
 
 tiny_secondary_bootstrap_build:
 	$(make_verbose)cd lib && \
