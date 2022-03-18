@@ -137,6 +137,11 @@
    STACKTRACE(),
    element(2, erlang:process_info(self(), current_stacktrace))).
 
+-define(
+	is_timeout(X),
+	( (X) =:= infinity orelse ( is_integer(X) andalso (X) >= 0 ) )
+).
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
@@ -533,8 +538,7 @@ multi_call(Nodes, Name, Request)
                         }.
 %%
 multi_call(Nodes, Name, Request, Timeout)
-  when is_list(Nodes), is_atom(Name), is_integer(Timeout), Timeout >= 0;
-       is_list(Nodes), is_atom(Name), Timeout =:= infinity ->
+  when is_list(Nodes), is_atom(Name), ?is_timeout(Timeout) ->
     do_multi_call(Nodes, Name, Request, Timeout).
 
 
@@ -557,7 +561,8 @@ multi_call(Nodes, Name, Request, Timeout)
        ) ->
                         no_return().
 %%
-enter_loop(Mod, Options, State) ->
+enter_loop(Mod, Options, State)
+  when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
 -spec enter_loop(
@@ -573,17 +578,39 @@ enter_loop(Mod, Options, State) ->
          State   :: term(),
          Timeout :: timeout()
        ) ->
+                        no_return();
+       (
+           Module    :: module(),
+           Options   :: [enter_loop_opt()],
+           State     :: term(),
+           Hibernate :: 'hibernate'
+       ) ->
+                        no_return();
+       (
+           Module  :: module(),
+           Options :: [enter_loop_opt()],
+           State   :: term(),
+           Cont    :: {'continue', term()}
+       ) ->
                         no_return().
 %%
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
-  when Scope == local; Scope == global ->
+  when is_atom(Mod), is_list(Options), Scope == local;
+       is_atom(Mod), is_list(Options), Scope == global ->
     enter_loop(Mod, Options, State, ServerName, infinity);
 %%
-enter_loop(Mod, Options, State, ServerName = {via, _, _}) ->
+enter_loop(Mod, Options, State, ServerName = {via, _, _})
+  when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, ServerName, infinity);
 %%
-enter_loop(Mod, Options, State, Timeout) ->
-    enter_loop(Mod, Options, State, self(), Timeout).
+enter_loop(Mod, Options, State, TimeoutOrHibernate)
+  when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
+       is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
+    enter_loop(Mod, Options, State, self(), TimeoutOrHibernate);
+%%
+enter_loop(Mod, Options, State, {continue, _}=Continue)
+  when is_atom(Mod), is_list(Options) ->
+    enter_loop(Mod, Options, State, self(), Continue).
 
 -spec enter_loop(
         Module     :: module(),
@@ -592,14 +619,40 @@ enter_loop(Mod, Options, State, Timeout) ->
         ServerName :: server_name() | pid(),
         Timeout    :: timeout()
        ) ->
+                        no_return();
+       (
+           Module     :: module(),
+           Options    :: [enter_loop_opt()],
+           State      :: term(),
+           ServerName :: server_name() | pid(),
+           Hibernate  :: 'hibernate'
+       ) ->
+                        no_return();
+       (
+           Module     :: module(),
+           Options    :: [enter_loop_opt()],
+           State      :: term(),
+           ServerName :: server_name() | pid(),
+           Cont       :: {'continue', term()}
+       ) ->
                         no_return().
 %%
-enter_loop(Mod, Options, State, ServerName, Timeout) ->
+enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
+  when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
+       is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
     HibernateAfterTimeout = gen:hibernate_after(Options),
-    loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug).
+    loop(Parent, Name, State, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug);
+%%
+enter_loop(Mod, Options, State, ServerName, {continue, _}=Continue)
+  when is_atom(Mod), is_list(Options) ->
+    Name = gen:get_proc_name(ServerName),
+    Parent = gen:get_parent(),
+    Debug = gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
+    loop(Parent, Name, State, Mod, Continue, HibernateAfterTimeout, Debug).
 
 %%%========================================================================
 %%% Gen-callback functions
@@ -623,10 +676,14 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, {ok, State}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug);
-	{ok, {ok, State, TimeoutHibernateOrContinue}} ->
+    {ok, {ok, State, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, Mod, TimeoutHibernateOrContinue,
-	         HibernateAfterTimeout, Debug);
+	    loop(Parent, Name, State, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug);
+	{ok, {ok, State, {continue, _}=Continue}} ->
+	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    loop(Parent, Name, State, Mod, Continue, HibernateAfterTimeout, Debug);
 	{ok, {stop, Reason}} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
@@ -984,13 +1041,14 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTim
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {reply, Reply, NState, Time1}} ->
+	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
-	{ok, {noreply, NState}} ->
-	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, []);
+	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
+	    reply(From, Reply),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
 		terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, [])
@@ -1009,17 +1067,14 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTim
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {reply, Reply, NState, Time1}} ->
+	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState, Time1}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug1);
+	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
+	    Debug1 = reply(Name, From, Reply, NState, Debug),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
 		terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, Debug)
@@ -1037,8 +1092,12 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
     case Reply of
 	{ok, {noreply, NState}} ->
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, {continue, _}=Continue}} ->
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, []);
 	{'EXIT', Class, Reason, Stacktrace} ->
@@ -1053,10 +1112,14 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState, Time1}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
+	{ok, {noreply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug1);
+	{ok, {noreply, NState, {continue, _}=Continue}} ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, Debug);
 	{'EXIT', Class, Reason, Stacktrace} ->
