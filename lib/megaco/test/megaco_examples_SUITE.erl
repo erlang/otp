@@ -616,17 +616,19 @@ meas(Config) when is_list(Config) ->
                    {Time, Factor} =
                        if
                            (MFactor =:= 1) ->
-                               {3, 100};
+                               {3,  100};
                            (MFactor =:= 2) ->
-                               {4, 100};
+                               {4,  100};
                            (MFactor =:= 3) ->
-                               {4, 200};
+                               {4,  200};
                            (MFactor =:= 4) ->
-                               {5, 200};
+                               {5,  300};
                            (MFactor =:= 5) ->
-                               {5, 400};
+                               {5,  400};
+                           (MFactor =:= 6) ->
+                               {6,  500};
                            true ->
-                               {6, 400}
+                               {10, 600}
                        end,
                    p("Run with: "
                      "~n      Timetrap: ~p mins"
