@@ -635,67 +635,52 @@ format_env(nomatch) -> ok.
 %%  Add a testcase that tests that we can recurse in showModal
 %%  because it hangs in observer if object are not destroyed correctly
 %%  when popping the stack
-
 modal(Config) ->
     Wx = wx:new(),
-    case {?wxMAJOR_VERSION, ?wxMINOR_VERSION, ?wxRELEASE_NUMBER} of
-	{2, Min, Rel} when Min < 8 orelse (Min =:= 8 andalso Rel < 11) ->
-	    {skip, "old wxWidgets version"};
-	_ ->
-	    Frame = wxFrame:new(Wx, -1, "Test Modal windows"),
-	    wxFrame:show(Frame),
-	    Env = wx:get_env(),
-	    Tester = self(),
-	    ets:new(test_state, [named_table, public]),
-	    Upd = wxUpdateUIEvent:getUpdateInterval(),
-	    wxUpdateUIEvent:setUpdateInterval(500),
-	    _Pid = spawn(fun() ->
-				 wx:set_env(Env),
-				 modal_dialog(Frame, 1, Tester)
-			 end),
-	    %% need to sleep so we know that the window is stuck in
-	    %% the ShowModal event loop and not in an earlier event loop
-	    %% wx2.8 invokes the event loop from more calls than wx-3
-	    M1 = receive {dialog, W1, 1} -> timer:sleep(1200), ets:insert(test_state, {W1, ready}), W1 end,
-	    M2 = receive {dialog, W2, 2} -> timer:sleep(1200), ets:insert(test_state, {W2, ready}), W2 end,
+    Frame = wxFrame:new(Wx, -1, "Test Modal windows"),
+    wxFrame:show(Frame),
+    Env = wx:get_env(),
+    Upd = wxUpdateUIEvent:getUpdateInterval(),
+    wxUpdateUIEvent:setUpdateInterval(200),
+    Tester = spawn_link(fun() -> modal_test(Env) end),
+    D1 = wxTextEntryDialog:new(Frame, "Dialog 1"),
+    ShowCB = fun(#wx{event=Ev},_) ->
+                     case Ev of
+                         #wxShow{show=true} ->
+                             Tester ! {dialog, self(), D1},
+                             receive continue ->
+                                     D2 = wxTextEntryDialog:new(Frame, "Dialog 2"),
+                                     Tester ! {dialog, self(), D2},
+                                     Tester ! {dialog_done, self(), wxDialog:showModal(D2)}
+                             end;
+                         _ ->
+                             ignore
+                     end
+             end,
+    wxDialog:connect(D1, show, [{callback, ShowCB}]),
+    ?wxID_OK = wxDialog:showModal(D1),
+    wxUpdateUIEvent:setUpdateInterval(Upd),
+    wx_test_lib:wx_destroy(Frame,Config).
 
-	    receive done -> ok end,
-	    receive {dialog_done, M2, 2} -> M2 end,
-	    receive {dialog_done, M1, 1} -> M1 end,
-
-	    wxUpdateUIEvent:setUpdateInterval(Upd),
-	    wx_test_lib:wx_destroy(Frame,Config)
+%%
+%%  Add sleep before continuing so we recurse from
+%%  wxe_impl::dispatch_cb() to wxe_impl::dispatch() (with idle commands)
+%%  and handle events there so the queue should be reset and started from 0.
+%%
+modal_test(Env) ->
+    wx:set_env(Env),
+    receive
+        {dialog, CBpid, D1} ->
+            timer:sleep(500),
+            CBpid ! continue,
+            ?wxID_CANCEL = modal_test2(CBpid),
+            wxDialog:endModal(D1, ?wxID_OK)
     end.
 
-modal_dialog(Parent, Level, Tester) when Level < 3 ->
-    M1 = wxTextEntryDialog:new(Parent, "Dialog " ++ integer_to_list(Level)),
-    Id = wxWindow:getId(M1),
-    io:format("Creating dialog ~p ~p~n",[Level, M1]),
-    ok = wxDialog:connect(M1, show, [{callback, fun(#wx{event=Ev},_) ->
-                                                        case Ev of
-                                                            #wxShow{show=true} ->
-                                                                Tester ! {dialog, M1, Level};
-                                                            _ -> ignore
-                                                        end
-                                                end}]),
-    DoOnce = fun(_,_) ->
-		     case ets:take(test_state, M1) of
-			 [] -> ignore;
-			 [_] -> modal_dialog(M1, Level+1, Tester)
-		     end
-	     end,
-    ok = wxDialog:connect(M1, update_ui, [{callback, DoOnce}, {id,Id}]),
-    ?wxID_OK = wxDialog:showModal(M1),
-    wxDialog:destroy(M1),
-    case Level > 1 of
-	true ->
-	    io:format("~p: End dialog ~p ~p~n",[?LINE, Level-1, Parent]),
-	    wxDialog:endModal(Parent, ?wxID_OK);
-	false -> ok
-    end,
-    Tester ! {dialog_done, M1, Level},
-    ok;
-modal_dialog(Parent, Level, Tester) ->
-    io:format("~p: End dialog ~p ~p~n",[?LINE, Level-1, Parent]),
-    wxDialog:endModal(Parent, ?wxID_OK),
-    Tester ! done.
+modal_test2(CBpid) ->
+    receive
+        {dialog, CBpid, D2} ->
+            timer:sleep(500),
+            wxDialog:endModal(D2, ?wxID_CANCEL),
+            receive {dialog_done, CBpid, Res} -> Res end
+    end.

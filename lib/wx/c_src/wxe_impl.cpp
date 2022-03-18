@@ -435,19 +435,21 @@ void WxeApp::dispatch_cb(wxeFifo * batch, wxeMemEnv * memenv, ErlNifPid process)
             }
             enif_mutex_lock(wxe_batch_locker_m);
             last = batch->m_q.size();
-            if(wxe_idle_processed) {
-              // We have processed cmds inside dispatch()
-              // so the iterator may be wrong, restart from
-              // beginning of the queue
-              i = 0;
-            }
             break;
           }
           batch->DeleteCmd(event);
         } else {
         // enif_fprintf(stderr, "Ignore:"); event ? print_cmd(*event) : fprintf(stderr, "NULL\r\n");
       }
-      i++;
+      if(wxe_idle_processed) {
+        // We have processed cmds inside dispatch()
+        // so the iterator may be wrong, restart from
+        // beginning of the queue
+        i = 0;
+        wxe_idle_processed = 0;
+      } else {
+        i++;
+      }
     }
     // sleep until something happens
     // enif_fprintf(stderr, "\r\n%s:%d: %d: sleep sz %d (%d) it pos: %d\r\n", __FILE__, __LINE__, recurse_level,
