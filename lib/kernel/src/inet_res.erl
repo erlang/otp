@@ -71,7 +71,7 @@
 
 -type dns_name() :: string().
 
--type rr_type() :: a | aaaa | caa | cname | gid | hinfo | ns | mb | md | mg
+-type dns_rr_type() :: a | aaaa | caa | cname | gid | hinfo | ns | mb | md | mg
                  | mf | minfo | mx | naptr | null | ptr | soa | spf | srv
                  | txt | uid | uinfo | unspec | uri | wks.
 
@@ -109,7 +109,7 @@
 -spec resolve(Name, Class, Type) -> {ok, dns_msg()} | Error when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Error :: {error, Reason} | {error,{Reason,dns_msg()}},
       Reason :: inet:posix() | res_error().
 
@@ -120,7 +120,7 @@ resolve(Name, Class, Type) ->
                      {ok, dns_msg()} | Error when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Opts :: [Opt],
       Opt :: res_option() | verbose | atom(),
       Error :: {error, Reason} | {error,{Reason,dns_msg()}},
@@ -133,7 +133,7 @@ resolve(Name, Class, Type, Opts) ->
                      {ok, dns_msg()} | Error when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Opts :: [Opt],
       Opt :: res_option() | verbose | atom(),
       Timeout :: timeout(),
@@ -160,7 +160,7 @@ resolve(Name, Class, Type, Opts, Timeout) ->
 -spec lookup(Name, Class, Type) -> [dns_data()] when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type().
+      Type :: dns_rr_type().
 
 lookup(Name, Class, Type) ->
     lookup(Name, Class, Type, []).
@@ -168,7 +168,7 @@ lookup(Name, Class, Type) ->
 -spec lookup(Name, Class, Type, Opts) -> [dns_data()] when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Opts :: [res_option() | verbose].
 
 lookup(Name, Class, Type, Opts) ->
@@ -177,7 +177,7 @@ lookup(Name, Class, Type, Opts) ->
 -spec lookup(Name, Class, Type, Opts, Timeout) -> [dns_data()] when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Opts :: [res_option() | verbose],
       Timeout :: timeout().
 
@@ -203,7 +203,7 @@ lookup_filter({error,_}, _, _) -> [].
 -spec nslookup(Name, Class, Type) -> {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Reason :: inet:posix() | res_error().
 
 nslookup(Name, Class, Type) ->
@@ -213,14 +213,14 @@ nslookup(Name, Class, Type) ->
                       {ok, dns_msg()} | {error, Reason} when
                   Name :: dns_name() | inet:ip_address(),
                   Class :: dns_class(),
-                  Type :: rr_type(),
+                  Type :: dns_rr_type(),
                   Timeout :: timeout(),
                   Reason :: inet:posix() | res_error();
               (Name, Class, Type, Nameservers) ->
                       {ok, dns_msg()} | {error, Reason} when
                   Name :: dns_name() | inet:ip_address(),
                   Class :: dns_class(),
-                  Type :: rr_type(),
+                  Type :: dns_rr_type(),
                   Nameservers :: [nameserver()],
                   Reason :: inet:posix() | res_error().
 
@@ -233,7 +233,7 @@ nslookup(Name, Class, Type, NSs) ->             % For backwards compatibility
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Nameservers :: [nameserver()],
       Reason :: inet:posix().
 
@@ -244,7 +244,7 @@ nnslookup(Name, Class, Type, NSs) ->
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Timeout :: timeout(),
       Nameservers :: [nameserver()],
       Reason :: inet:posix().
@@ -459,13 +459,13 @@ gethostbyname_tm(_Name, _Family, _Timer) ->
         {'hostent',
          H_name      :: inet:hostname(),
          H_aliases   :: [inet:hostname()],
-         H_addrtype  :: rr_type(),
+         H_addrtype  :: dns_rr_type(),
          H_length    :: non_neg_integer(),
          H_addr_list :: [dns_data()]}.
 
 -spec getbyname(Name, Type) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
 
@@ -474,7 +474,7 @@ getbyname(Name, Type) ->
 
 -spec getbyname(Name, Type, Timeout) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
-      Type :: rr_type(),
+      Type :: dns_rr_type(),
       Timeout :: timeout(),
       Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
