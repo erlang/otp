@@ -496,8 +496,8 @@ win_getifaddrs_iat2([#{index := Idx} = IpAddr|IpAddrTab], IpIfInfos, Acc) ->
             %% Note that here its (IfAddr) *not* a list!
             {IfAddr, PktIfAddr} = win_getifaddrs_iat3(Name, IpAddr, IfEntry),
             win_getifaddrs_iat2(IpAddrTab, IpIfInfos, [IfAddr, PktIfAddr|Acc]);
-        {ok, #{name  := Name,
-               descr := Desc} = IfEntry} when (Name =:= "") ->
+        {ok, #{name        := Name,
+               description := Desc} = IfEntry} when (Name =:= "") ->
             case if_info_search(Idx, IpIfInfos) of
                 {value, #{name := Name2}} ->
                     %% Note that here its (IfAddr) *not* a list!
@@ -518,15 +518,15 @@ win_getifaddrs_iat2([#{index := Idx} = IpAddr|IpAddrTab], IpIfInfos, Acc) ->
     end.
 
 win_getifaddrs_iat3(Name, 
-                   #{addr         := Addr,
-                     mask         := Mask,
+                   #{addr                 := Addr,
+                     mask                 := Mask,
                      %% Why do we skip this and "make" our own?
-                     bcast_addr   := _BCastAddr} = _IpAddr,
-                   #{type         := Type,
-                     admin_status := AStatus,
-                     oper_status  := _OStatus,
-                     phys_addr    := PhysAddr,
-                     index        := Idx} = _IfEntry) ->
+                     bcast_addr           := _BCastAddr} = _IpAddr,
+                   #{type                 := Type,
+                     admin_status         := AStatus,
+                     internal_oper_status := _OStatus,
+                     phys_addr            := PhysAddr,
+                     index                := Idx} = _IfEntry) ->
     Flags1 = case Type of
                  ethernet_csmacd ->
                      [broadcast,multicast];
@@ -596,8 +596,8 @@ win_getifaddrs_aa2([#{index := Idx} = AdAddrs|AdsAddrs], IpIfInfos, Acc) ->
         {ok, #{name := Name} = IfEntry} when (Name =/= "") ->
             {IfAddrs, PktIfAddr} = win_getifaddrs_aa3(Name, AdAddrs, IfEntry),
             win_getifaddrs_aa2(AdsAddrs, IpIfInfos, [IfAddrs,PktIfAddr|Acc]);
-        {ok, #{name  := Name,
-               descr := Desc} = IfEntry} when (Name =:= "") ->
+        {ok, #{name        := Name,
+               description := Desc} = IfEntry} when (Name =:= "") ->
             case if_info_search(Idx, IpIfInfos) of
                 {value, #{name := Name2}} ->
                     {IfAddrs, PktIfAddr} =
@@ -616,14 +616,14 @@ win_getifaddrs_aa2([#{index := Idx} = AdAddrs|AdsAddrs], IpIfInfos, Acc) ->
     end.
 
 win_getifaddrs_aa3(Name,
-                   #{flags         := #{no_multicast := NoMC},
-                     unicast_addrs := UCastAddrs,
-                     prefixes      := Prefixes} = _AdAddrs,
-                   #{type          := Type,
-                     admin_status  := AStatus,
-                     oper_status   := _OStatus,
-                     phys_addr     := PhysAddr,
-                     index         := Idx} = _IfEntry) ->
+                   #{flags                := #{no_multicast := NoMC},
+                     unicast_addrs        := UCastAddrs,
+                     prefixes             := Prefixes} = _AdAddrs,
+                   #{type                 := Type,
+                     admin_status         := AStatus,
+                     internal_oper_status := _OStatus,
+                     phys_addr            := PhysAddr,
+                     index                := Idx} = _IfEntry) ->
     Flags1 =
         if (NoMC =:= false) ->
                 [multicast];
