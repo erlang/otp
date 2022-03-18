@@ -261,10 +261,13 @@ endif
 
 TARGETS = \
 	$(OBJ_TARGETS) \
-	$(SH_TARGETS) \
 	$(EXE_TARGETS) \
 	$(APP_TARGET)  \
 	$(APPUP_TARGET)
+
+ifeq (@DYNAMIC_LIB@, yes)
+TARGETS += $(SH_TARGETS)
+endif
 
 ###########################################################################
 #  List all source files
