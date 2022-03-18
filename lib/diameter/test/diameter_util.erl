@@ -34,6 +34,7 @@
          choose/1,
          tmpdir/0,
          mktemp/1,
+         peer/1,
          unique_string/0,
          have_sctp/0,
          eprof/1]).
@@ -210,6 +211,44 @@ mktemp(Prefix) ->
     Tmp = Prefix ++ "." ++ Suf,
     ok = file:make_dir(Tmp),
     Tmp.
+
+%% ---------------------------------------------------------------------------
+%% peer/1
+%%
+%% Start a peer that dies with the calling process, but start it from
+%% a spawned process to make it insensitive to the exit reason of the
+%% calling process.
+
+peer(#{name := _} = Opts) ->
+    Ref = make_ref(),
+    Pid = self(),
+    {_, MRef} = spawn_monitor(fun() -> peer(Opts, Pid, Ref) end),
+    receive
+        {Ref, T} ->
+            erlang:demonitor(MRef, [flush]),
+            T;
+        {'DOWN', MRef, process, _, T} ->
+            {error, T}
+    end;
+
+peer(#{} = Opts) ->
+    peer(Opts#{name => peer:random_name()}).
+
+%% peer/3
+
+peer(Opts, Pid, Ref) ->
+    Cookie = atom_to_list(erlang:get_cookie()),
+    Args = [str(B) || B <- maps:get(args, Opts, [])],
+    Pid ! {Ref, peer:start_link(Opts#{args => ["-setcookie", Cookie | Args]})},
+    MRef = monitor(process, Pid),
+    receive {'DOWN', MRef, process, _, _} -> ok end.
+
+%% str/1
+%%
+%% Turn possible iodata() into string().
+
+str(Bytes) ->
+    binary_to_list(iolist_to_binary(Bytes)).
 
 %% ---------------------------------------------------------------------------
 %% unique_string/0

@@ -285,11 +285,8 @@ enslave(Prefix) ->
               {ok, _, N} <- [slave(M,D)]].
 
 slave(Name, Dir) ->
-    Args = [["-pa" | [lists:flatten(io_lib:format("~s", [D]))
-                      || D <- [Dir, filename:join([Dir, "..", "ebin"])]]],
-            ["-setcookie", ?L(erlang:get_cookie())]],
-    {ok, _Pid, _Node} = peer:start_link(#{name => Name,
-                                          args => lists:append(Args)}).
+    Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
+    {ok, _Pid, _Node} = ?util:peer(#{name => Name, args => Args}).
 
 here() ->
     filename:dirname(code:which(?MODULE)).

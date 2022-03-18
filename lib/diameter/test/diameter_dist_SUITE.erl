@@ -134,15 +134,11 @@ traffic() ->
 enslave() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
-    Dirs = [Here, Ebin],
-    Args =  [["-pa" | [lists:flatten(io_lib:format("~s", [D])) || D <- Dirs]],
-             ["-setcookie", ?L(erlang:get_cookie())]],
-    [{N,S} || A <- [lists:append(Args)],
-              {M,S} <- ?NODES,
-              N <- [start(M, A)]].
+    Args = ["-pa", Here, Ebin],
+    [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
 start(Name, Args) ->
-    {ok, _, Node} = peer:start_link(#{name => Name, args => Args}),
+    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
     Node.
 
 %% ping/1
