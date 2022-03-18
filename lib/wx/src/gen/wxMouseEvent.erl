@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 
 -module(wxMouseEvent).
 -include("wxe.hrl").
--export([altDown/1,button/2,buttonDClick/1,buttonDClick/2,buttonDown/1,buttonDown/2,
+-export([altDown/1,aux1DClick/1,aux1Down/1,aux1Up/1,aux2DClick/1,aux2Down/1,
+  aux2Up/1,button/2,buttonDClick/1,buttonDClick/2,buttonDown/1,buttonDown/2,
   buttonUp/1,buttonUp/2,cmdDown/1,controlDown/1,dragging/1,entering/1,
   getButton/1,getLinesPerAction/1,getLogicalPosition/2,getPosition/1,
   getWheelAxis/1,getWheelDelta/1,getWheelRotation/1,getX/1,getY/1,isButton/1,
@@ -373,6 +374,54 @@ getWheelAxis(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMouseEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_GetWheelAxis),
   wxe_util:rec(?wxMouseEvent_GetWheelAxis).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux1dclick">external documentation</a>.
+-spec aux1DClick(This) -> boolean() when
+	This::wxMouseEvent().
+aux1DClick(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux1DClick),
+  wxe_util:rec(?wxMouseEvent_Aux1DClick).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux1down">external documentation</a>.
+-spec aux1Down(This) -> boolean() when
+	This::wxMouseEvent().
+aux1Down(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux1Down),
+  wxe_util:rec(?wxMouseEvent_Aux1Down).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux1up">external documentation</a>.
+-spec aux1Up(This) -> boolean() when
+	This::wxMouseEvent().
+aux1Up(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux1Up),
+  wxe_util:rec(?wxMouseEvent_Aux1Up).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux2dclick">external documentation</a>.
+-spec aux2DClick(This) -> boolean() when
+	This::wxMouseEvent().
+aux2DClick(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux2DClick),
+  wxe_util:rec(?wxMouseEvent_Aux2DClick).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux2down">external documentation</a>.
+-spec aux2Down(This) -> boolean() when
+	This::wxMouseEvent().
+aux2Down(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux2Down),
+  wxe_util:rec(?wxMouseEvent_Aux2Down).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventaux2up">external documentation</a>.
+-spec aux2Up(This) -> boolean() when
+	This::wxMouseEvent().
+aux2Up(#wx_ref{type=ThisT}=This) ->
+  ?CLASS(ThisT,wxMouseEvent),
+  wxe_util:queue_cmd(This,?get_env(),?wxMouseEvent_Aux2Up),
+  wxe_util:rec(?wxMouseEvent_Aux2Up).
 
  %% From wxEvent
 %% @hidden

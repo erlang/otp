@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year><year>2022</year>
     <holder>wxWidgets team.</holder></copyright>
   <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
@@ -320,6 +320,48 @@
     <desc><p>Gets the axis the wheel operation concerns. 
       </p><p>Usually the mouse wheel is used to scroll vertically so <c>wxMOUSE_WHEEL_VERTICAL</c> is returned but some mice (and most trackpads) also allow to use the wheel to scroll horizontally in which case <c>wxMOUSE_WHEEL_HORIZONTAL</c> is returned.
       </p><p>Notice that before wxWidgets 2.9.4 this method returned <c>int</c>. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux1DClick" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the event was a first extra button double click. </fsummary>
+    <desc><p>Returns true if the event was a first extra button double click. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux1Down" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the first extra button mouse button changed to down. </fsummary>
+    <desc><p>Returns true if the first extra button mouse button changed to down. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux1Up" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the first extra button mouse button changed to up. </fsummary>
+    <desc><p>Returns true if the first extra button mouse button changed to up. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux2DClick" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the event was a second extra button double click. </fsummary>
+    <desc><p>Returns true if the event was a second extra button double click. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux2Down" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the second extra button mouse button changed to down. </fsummary>
+    <desc><p>Returns true if the second extra button mouse button changed to down. 
+      </p></desc>
+  </func>
+  
+  <func>
+    <name name="aux2Up" arity="1" clause_i="1" since=""/>
+    <fsummary>Returns true if the second extra button mouse button changed to up. </fsummary>
+    <desc><p>Returns true if the second extra button mouse button changed to up. 
       </p></desc>
   </func>
   </funcs>

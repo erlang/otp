@@ -185,9 +185,17 @@ AS_CASE([$host_os],
     ],
 
     [
-	CFLAGS="$CFLAGS -Wno-deprecated-declarations"
-	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
+        GLIB_CFLAGS=`pkg-config --silence-errors --cflags glib-2.0`
+        GLIB_LIBS=`pkg-config --silence-errors --libs glib-2.0`
+        if test X"$GLIB_CFLAGS" != X ; then
+            HAVE_GLIB="-DHAVE_GLIB=1"
+        fi
+        CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+       	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS $HAVE_GLIB"
     ])
+
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
 
 AC_SUBST(OBJC_CC)
 AC_SUBST(OBJC_CFLAGS)
