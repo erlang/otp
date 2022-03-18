@@ -97,7 +97,7 @@ run(lib) ->
 
 %% Have a separate AVP dictionary just to exercise more code.
 run(unknown) ->
-    PD = ?util:mktemp(filename:join(?util:tmpdir(), "diameter_codec")),
+    PD = ?util:mktemp("diameter_codec"),
     DD = filename:join([code:lib_dir(diameter),
                         "test",
                         "diameter_codec_SUITE_data"]),
@@ -132,24 +132,25 @@ run(List) ->
 %% ===========================================================================
 
 unknown(Priv, Data) ->
-    ok = make(Data, "recv.dia"),
-    ok = make(Data, "avps.dia"),
-    {ok, _, _} = compile("diameter_test_avps.erl"),
-    ok = make(Data, "send.dia"),
-    {ok, _, _} = compile("diameter_test_send.erl"),
-    {ok, _, _} = compile("diameter_test_recv.erl"),
-    {ok, _, _} = compile(filename:join([Data, "diameter_test_unknown.erl"]),
+    ok = make(Data, "recv.dia", Priv),
+    ok = make(Data, "avps.dia", Priv),
+    {ok, _, _} = compile(Priv, "diameter_test_avps.erl"),
+    ok = make(Data, "send.dia", Priv),
+    {ok, _, _} = compile(Priv, "diameter_test_send.erl"),
+    {ok, _, _} = compile(Priv, "diameter_test_recv.erl"),
+    {ok, _, _} = compile(Priv,
+                         filename:join([Data, "diameter_test_unknown.erl"]),
                          [{i, Priv}]),
     diameter_test_unknown:run().
 
-make(Dir, File) ->
-    diameter_make:codec(filename:join([Dir, File])).
+make(Dir, File, Out) ->
+    diameter_make:codec(filename:join(Dir, File), [{outdir, Out}]).
 
-compile(File) ->
-    compile(File, []).
+compile(Dir, File) ->
+    compile(Dir, File, []).
 
-compile(File, Opts) ->
-    compile:file(File, [return | Opts]).
+compile(Dir, File, Opts) ->
+    compile:file(filename:join(Dir, File), [return | Opts]).
 
 %% ===========================================================================
 

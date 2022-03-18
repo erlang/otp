@@ -74,11 +74,11 @@ suite() ->
 all() ->
     [dict, code].
 
-dict(_Config) ->
-    run([dict]).
+dict(Config) ->
+    run(dict, Config).
 
 code(Config) ->
-    run([{code, proplists:get_value(priv_dir, Config)}]).
+    run(code, Config).
 
 %% ===========================================================================
 
@@ -89,31 +89,45 @@ run() ->
 
 %% run/1
 
-run(dict) ->
-    compile_dicts();
+run({dict, Dir}) ->
+    compile_dicts(Dir);
 %% The example code doesn't use the example dictionaries, so a
 %% separate testcase.
 
-run(code) ->
-    run_code(?util:tmpdir());
-run({code, Tmpdir}) ->
-    run_code(Tmpdir);
+run({code, Dir}) ->
+    run_code(Dir);
+
+run(List)
+  when is_list(List) ->
+    Tmp = ?util:mktemp("diameter_examples"),
+    try
+        run(List, Tmp)
+    after
+        file:del_dir_r(Tmp)
+    end.
+
+%% run/2
 
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
-run(List) ->
-    ?util:run([{[fun run/1, T], 60000} || T <- List]).
+run(List, Dir)
+  when is_list(List) ->
+    ?util:run([{[fun run/1, {F, Dir}], 60000} || F <- List]);
+
+run(F, Config) ->
+    run([F], proplists:get_value(priv_dir, Config)).
 
 %% ===========================================================================
-%% compile_dicts/0
+%% compile_dicts/1
 %%
 %% Compile example dictionaries in examples/dict.
 
-compile_dicts() ->
+compile_dicts(Dir) ->
+    Out = mkdir(Dir, "dict"),
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
-                      RC <- [make(F,D)],
+                      RC <- [make(F, D, Out)],
                       RC /= ok].
 
 sort([{_,_} | _] = Files) ->
@@ -144,11 +158,11 @@ dep([{Dict, _} | T], Rest, Acc) ->
 dep([], Rest, Acc) ->
     dep(Rest, Acc).
 
-make(Path, Dict0)
+make(Path, Dict0, Out)
   when is_atom(Dict0) ->
-    make(Path, atom_to_list(Dict0));
+    make(Path, atom_to_list(Dict0), Out);
 
-make(Path, Dict0) ->
+make(Path, Dict0, Out) ->
     Dict = filename:rootname(filename:basename(Path)),
     {Mod, Pre} = make_name(Dict),
     {"diameter_gen_base" ++ Suf = Mod0, _} = make_name(Dict0),
@@ -156,10 +170,11 @@ make(Path, Dict0) ->
     try
         ok = to_erl(Path, [{name, Name},
                            {prefix, Pre},
+                           {outdir, Out},
                            {inherits, "common/" ++ Mod0}
                            | [{inherits, D ++ "/" ++ M ++ Suf}
                               || {D,M} <- dep(Dict)]]),
-        ok = to_beam(Name)
+        ok = to_beam(filename:join(Out, Name))
     catch
         throw: {_,_} = E ->
             E
@@ -347,15 +362,10 @@ traffic({Prot, Ebin}) ->
 
 %% run_code/1
 
-run_code(Tmpdir) ->
+run_code(Dir) ->
     true = is_alive(),  %% need distribution for peer nodes
-    Tmp = ?util:mktemp(filename:join(Tmpdir, "diameter_examples")),
-    try
-        {ok, Ebin} = compile_code(Tmp),
-        [] = ?util:run([[fun traffic/1, {T, Ebin}] || T <- ?PROTS])
-    after
-        file:del_dir_r(Tmp)
-    end.
+    {ok, Ebin} = compile_code(mkdir(Dir, "code")),
+    ?util:run([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
 
 %% call/1
 
@@ -365,3 +375,10 @@ call(0) ->
 call(N) ->
     {ok, _} = client:call(),
     call(N-1).
+
+%% mkdir/2
+
+mkdir(Top, Dir) ->
+    Tmp = filename:join(Top, Dir),
+    ok = file:make_dir(Tmp),
+    Tmp.

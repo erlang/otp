@@ -149,7 +149,7 @@ dir(Config) ->
 %% ===========================================================================
 
 run() ->
-    Tmp = ?util:mktemp(filename:join(?util:tmpdir(), "diameter_tls")),
+    Tmp = ?util:mktemp("diameter_tls"),
     try
         run(Tmp, true)
     after
