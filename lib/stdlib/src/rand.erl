@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@
 %% This depends on the algorithm handler function
 -type alg_state() ::
 	exsplus_state() | exro928_state() |  exrop_state() | exs1024_state() |
-	exs64_state() | term().
+	exs64_state() | dummy_state() | term().
 
 %% This is the algorithm handling definition within this module,
 %% and the type to use for plugins.
@@ -132,7 +132,8 @@
 %% Algorithm state
 -type state() :: {alg_handler(), alg_state()}.
 -type builtin_alg() ::
-	exsss | exro928ss | exrop | exs1024s | exsp | exs64 | exsplus | exs1024.
+	exsss | exro928ss | exrop | exs1024s | exsp | exs64 | exsplus |
+        exs1024 | dummy.
 -type alg() :: builtin_alg() | atom().
 -type export_state() :: {alg(), alg_state()}.
 -type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
@@ -141,7 +142,7 @@
     state/0, export_state/0, seed/0]).
 -export_type(
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
-    exs64_state/0]).
+    exs64_state/0, dummy_state/0]).
 
 %% =====================================================================
 %% Range macro and helper
@@ -710,7 +711,12 @@ mk_alg(exro928ss) ->
        uniform=>fun exro928ss_uniform/1,
        uniform_n=>fun exro928ss_uniform/2,
        jump=>fun exro928_jump/1},
-     fun exro928_seed/1}.
+     fun exro928_seed/1};
+mk_alg(dummy=Name) ->
+    {#{type=>Name, bits=>58, next=>fun dummy_next/1,
+       uniform=>fun dummy_uniform/1,
+       uniform_n=>fun dummy_uniform/2},
+     fun dummy_seed/1}.
 
 %% =====================================================================
 %% exs64 PRNG: Xorshift64*
@@ -1372,6 +1378,39 @@ exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
             NewS = exrop_next_s(S__0, S__1),
             exrop_jump(NewS, S0, S1, J bsr 1, Js)
     end.
+
+%% =====================================================================
+%% dummy "PRNG": Benchmark dummy overhead reference
+%%
+%% As fast as possible - return a constant; to measure overhead.
+%%
+%% =====================================================================
+
+-opaque dummy_state() :: 0..?MASK(58).
+
+dummy_uniform(_Range, State) -> {1, State}.
+dummy_next(R)                -> {?BIT(57), R}.
+dummy_uniform(State)         -> {0.5, State}.
+
+%% Serious looking seed, to avoid at least seed test failure
+%%
+dummy_seed(L) when is_list(L) ->
+    case L of
+        [X] when is_integer(X) ->
+            ?MASK(58, X);
+        [X|_] when is_integer(X) ->
+            erlang:error(too_many_seed_integer);
+        [_|_] ->
+            erlang:error(non_integer_seed)
+    end;
+dummy_seed(X) when is_integer(X) ->
+    {Z1, _} = splitmix64_next(X),
+    ?MASK(58, Z1);
+dummy_seed({A1, A2, A3}) ->
+    {_, X1} = splitmix64_next(A1),
+    {_, X2} = splitmix64_next(A2 bxor X1),
+    {Z3, _} = splitmix64_next(A3 bxor X2),
+    ?MASK(58, Z3).
 
 %% =====================================================================
 %% Mask and fill state list, ensure not all zeros

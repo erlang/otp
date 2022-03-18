@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -350,21 +350,35 @@ gen(_, _, _, Acc) -> lists:reverse(Acc).
 
 basic_stats_uniform_1(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
-    [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
-     || Alg <- [default|algs()]],
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [basic_uniform_1(Alg, ?LOOP, 100)
+           || Alg <- [default|algs()]]),
+    Result =:= [] orelse
+        ct:fail(Result),
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
-    [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
-     || Alg <- [default|algs()]],
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [basic_uniform_2(Alg, ?LOOP, 100)
+           || Alg <- [default|algs()]]),
+    Result =:= [] orelse
+        ct:fail(Result),
     ok.
 
 basic_stats_bytes(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
-    [basic_bytes(
-       ?LOOP div 100, rand:seed_s(Alg), 0, array:new(256, [{default, 0}]))
-     || Alg <- [default|algs()]],
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [basic_bytes(Alg, ?LOOP div 100, 113)
+           || Alg <- [default|algs()]]),
+    Result =:= [] orelse
+        ct:fail(Result),
     ok.
 
 basic_stats_standard_normal(Config) when is_list(Config) ->
@@ -372,9 +386,14 @@ basic_stats_standard_normal(Config) when is_list(Config) ->
     io:format("Testing standard normal~n",[]),
     IntendedMean = 0,
     IntendedVariance = 1,
-    [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
-                    rand:seed_s(Alg), 0, 0)
-     || Alg <- [default|algs()]],
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                          rand:seed_s(Alg), 0, 0)
+           || Alg <- [default|algs()]]),
+    Result =:= [] orelse
+        ct:fail(Result),
     ok.
 
 basic_stats_normal(Config) when is_list(Config) ->
@@ -385,20 +404,32 @@ basic_stats_normal(Config) when is_list(Config) ->
         [{Mean, Variance} || Mean <- IntendedMeans,
                              Variance <- IntendedVariances],
 
-    ct:timetrap({minutes, 6 * length(IntendedMeanVariancePairs)}), %% valgrind needs a lot of time
-    lists:foreach(
-      fun ({IntendedMean, IntendedVariance}) ->
-              ct:pal(
-                "Testing normal(~.2f, ~.2f)~n",
-                [float(IntendedMean), float(IntendedVariance)]),
-              [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
-                              rand:seed_s(Alg), 0, 0)
-               || Alg <- [default|algs()]]
-      end,
-      IntendedMeanVariancePairs).
+    %% valgrind needs a lot of time
+    ct:timetrap({minutes, 6 * length(IntendedMeanVariancePairs)}),
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [begin
+               ct:pal(
+                 "Testing normal(~.2f, ~.2f)~n",
+                 [float(IntendedMean), float(IntendedVariance)]),
+               lists:filter(
+                 fun (R) -> R =/= [] end,
+                 [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                                 rand:seed_s(Alg), 0, 0)
+                  || Alg <- [default|algs()]])
+           end || {IntendedMean, IntendedVariance}
+                      <- IntendedMeanVariancePairs]),
+    Result =:= [] orelse
+        ct:fail(Result),
+    ok.
 
-
-basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
+basic_uniform_1(Alg, Loop, Buckets) ->
+    basic_uniform_1(
+      0, Loop, Buckets, rand:seed_s(Alg), 0.0,
+      array:new(Buckets, [{default, 0}])).
+%%
+basic_uniform_1(N, Loop, Buckets, S0, Sum, A0) when N < Loop ->
     {X,S} =
         case N band 1 of
             0 ->
@@ -406,45 +437,41 @@ basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
             1 ->
                 rand:uniform_real_s(S0)
         end,
-    I = trunc(X*100),
+    I = trunc(X*Buckets),
     A = array:set(I, 1+array:get(I,A0), A0),
-    basic_uniform_1(N-1, S, Sum+X, A);
-basic_uniform_1(0, {#{type:=Alg}, _}, Sum, A) ->
-    Loop = ?LOOP,
+    basic_uniform_1(N+1, Loop, Buckets, S, Sum+X, A);
+basic_uniform_1(_N, Loop, Buckets, {#{type:=Alg}, _}, Sum, A) ->
     AverExp = 1.0 / 2,
-    Buckets = 100,
     Counters = array:to_list(A),
-    Min = lists:min(Counters),
-    Max = lists:max(Counters),
-    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
+    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters).
 
-basic_uniform_2(N, S0, Sum, A0) when N > 0 ->
-    {X,S} = rand:uniform_s(100, S0),
+basic_uniform_2(Alg, Loop, Buckets) ->
+    basic_uniform_2(
+      0, Loop, Buckets, rand:seed_s(Alg), 0,
+      array:new(Buckets, [ {default, 0}])).
+%%
+basic_uniform_2(N, Loop, Buckets, S0, Sum, A0) when N < Loop ->
+    {X,S} = rand:uniform_s(Buckets, S0),
     A = array:set(X-1, 1+array:get(X-1,A0), A0),
-    basic_uniform_2(N-1, S, Sum+X, A);
-basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
-    Loop = ?LOOP,
-    AverExp = ((100 - 1) / 2) + 1,
-    Buckets = 100,
+    basic_uniform_2(N+1, Loop, Buckets, S, Sum+X, A);
+basic_uniform_2(_N, Loop, Buckets, {#{type:=Alg}, _}, Sum, A) ->
+    AverExp = ((Buckets - 1) / 2) + 1,
     Counters = tl(array:to_list(A)),
-    Min = lists:min(Counters),
-    Max = lists:max(Counters),
-    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
+    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters).
 
-basic_bytes(N, S0, Sum0, A0) when N > 0 ->
-    ByteSize = 100,
-    {Bin,S} = rand:bytes_s(ByteSize, S0),
+basic_bytes(Alg, Loop, BytesSize) ->
+    basic_bytes(
+      0, Loop, BytesSize, rand:seed_s(Alg), 0,
+      array:new(256, [{default, 0}])).
+basic_bytes(N, Loop, BytesSize, S0, Sum0, A0) when N < Loop ->
+    {Bin,S} = rand:bytes_s(BytesSize, S0),
     {Sum,A} = basic_bytes_incr(Bin, Sum0, A0),
-    basic_bytes(N-1, S, Sum, A);
-basic_bytes(0, {#{type:=Alg}, _}, Sum, A) ->
-    ByteSize = 100,
-    Loop = (?LOOP * ByteSize) div 100,
+    basic_bytes(N+1, Loop, BytesSize, S, Sum, A);
+basic_bytes(_N, Loop, BytesSize, {#{type:=Alg}, _}, Sum, A) ->
     Buckets = 256,
     AverExp = (Buckets - 1) / 2,
     Counters = array:to_list(A),
-    Min = lists:min(Counters),
-    Max = lists:max(Counters),
-    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max).
+    basic_verify(Alg, Loop * BytesSize, Sum, AverExp, Buckets, Counters).
 
 basic_bytes_incr(Bin, Sum, A) ->
     basic_bytes_incr(Bin, Sum, A, 0).
@@ -458,7 +485,7 @@ basic_bytes_incr(Bin, Sum, A, N) ->
             {Sum,A}
     end.
 
-basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max) ->
+basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters) ->
     AverDiff = AverExp * 0.01,
     Aver = Sum / Loop,
     io:format(
@@ -467,19 +494,39 @@ basic_verify(Alg, Loop, Sum, AverExp, Buckets, Min, Max) ->
     %%
     CountExp = Loop / Buckets,
     CountDiff = CountExp * 0.1,
+    {MinBucket, Min} = lists_where(fun erlang:min/2, Counters),
+    {MaxBucket, Max} = lists_where(fun erlang:max/2, Counters),
     io:format(
       "~.12w: Expected Count: ~p, Allowed Diff: ~p, Min: ~p, Max: ~p~n",
       [Alg, CountExp, CountDiff, Min, Max]),
     %%
     %% Verify that the basic statistics are ok
-    %% be gentle we don't want to see to many failing tests
-    abs(Aver - AverExp) < AverDiff orelse
-        ct:fail({average, Alg, Aver, AverExp, AverDiff}),
-    abs(Min - CountExp) < CountDiff orelse
-        ct:fail({min, Alg, Min, CountExp, CountDiff}),
-    abs(Max - CountExp) < CountDiff orelse
-        ct:fail({max, Alg, Max, CountExp, CountDiff}),
-    ok.
+    %% be gentle - we don't want to see to many failing tests
+    if
+        abs(Aver - AverExp) < AverDiff -> [];
+        true -> [{average, Alg, Aver, AverExp, AverDiff}]
+    end ++
+        if
+            abs(Min - CountExp) < CountDiff -> [];
+            true -> [{min, Alg, {MinBucket,Min}, CountExp, CountDiff}]
+        end ++
+        if
+            abs(Max - CountExp) < CountDiff -> [];
+            true -> [{max, Alg, {MaxBucket,Max}, CountExp, CountDiff}]
+        end.
+
+lists_where(Fun, [X | L]) ->
+    lists_where(Fun, L, 2, 1, X).
+%%
+lists_where(_Fun, [], _N, Where, What) ->
+    {Where, What};
+lists_where(Fun, [X | L], N, Where, What) ->
+    case Fun(X, What) of
+        What ->
+            lists_where(Fun, L, N+1, Where, What);
+        X ->
+            lists_where(Fun, L, N+1, N, X)
+    end.
 
 
 basic_normal_1(N, IntendedMean, IntendedVariance, S0, StandardSum, StandardSq) when N > 0 ->
@@ -491,7 +538,7 @@ basic_normal_1(N, IntendedMean, IntendedVariance, S0, StandardSum, StandardSq) w
     StandardX = (X - IntendedMean) / math:sqrt(IntendedVariance),
     basic_normal_1(N-1, IntendedMean, IntendedVariance, S,
                    StandardX+StandardSum, StandardX*StandardX+StandardSq);
-basic_normal_1(0, _IntendedMean, _IntendedVariance, {#{type:=Alg}, _}, StandardSum, StandardSumSq) ->
+basic_normal_1(0, IntendedMean, IntendedVariance, {#{type:=Alg}, _}, StandardSum, StandardSumSq) ->
     StandardMean = StandardSum / ?LOOP,
     StandardVariance = (StandardSumSq - (StandardSum*StandardSum/?LOOP))/(?LOOP - 1),
     StandardStdDev =  math:sqrt(StandardVariance),
@@ -500,9 +547,16 @@ basic_normal_1(0, _IntendedMean, _IntendedVariance, {#{type:=Alg}, _}, StandardS
     %%
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(StandardMean) < 0.005 orelse ct:fail({average, Alg, StandardMean}),
-    abs(StandardStdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StandardStdDev}),
-    ok.
+    if
+        abs(StandardMean) < 0.005 -> [];
+        true ->
+            [{average, Alg, StandardMean, IntendedMean, IntendedVariance}]
+    end ++
+        if
+            abs(StandardStdDev - 1.0) < 0.005 -> [];
+            true ->
+                [{stddev, Alg, StandardStdDev, IntendedMean, IntendedVariance}]
+        end.
 
 normal_s(Mean, Variance, State0) when Mean == 0, Variance == 1 ->
     % Make sure we're also testing the standard normal interface
@@ -1024,7 +1078,7 @@ do_measure(_Config) ->
           Algs),
     %%
     ct:pal("~nRNG uniform integer full range performance~n",[]),
-    _ =
+    [TMarkUniformFullRange|_] =
         measure_1(
           fun (State) -> half_range(State) bsl 1 end,
           fun (State, Range, Mod) ->
@@ -1036,7 +1090,30 @@ do_measure(_Config) ->
                     end,
                     State)
           end,
-          Algs),
+          Algs ++ [dummy]),
+    _ =
+        measure_1(
+          fun (_) -> 0 end,
+          fun (State, _, _) ->
+                  measure_loop(
+                    fun (State0) -> State0 end,
+                    State)
+          end,
+          benchmark_dummy, TMarkUniformFullRange),
+    _ =
+        measure_1(
+          fun (State) -> half_range(State) bsl 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St) ->
+                            case Mod:uniform(Range) of
+                                X when is_integer(X), 1 =< X, X =< Range ->
+                                    St
+                            end
+                    end,
+                    State)
+          end,
+          procdict, TMarkUniformFullRange),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
     _ =
@@ -1222,6 +1299,10 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                 {?MODULE, ignored_state};
             crypto_bytes_cached ->
                 {?MODULE, <<>>};
+            benchmark_dummy ->
+                {?MODULE, ignored_state};
+            procdict ->
+                {rand, rand:seed(default)};
             _ ->
                 {rand, rand:seed_s(Alg)}
         end,
