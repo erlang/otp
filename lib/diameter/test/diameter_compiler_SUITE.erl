@@ -365,7 +365,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 45}}].
+    [{timetrap, {seconds, 200}}].
 
 all() ->
     [format,
@@ -386,7 +386,7 @@ run() ->
 run(List) ->
     Path = filename:join([code:lib_dir(diameter, src), "dict", ?base]),
     {ok, Bin} = file:read_file(Path),
-    ?util:run([{{?MODULE, F, [Bin]}, 30000} || F <- List]).
+    ?util:run([{{?MODULE, F, [Bin]}, 180000} || F <- List]).
 
 %% ===========================================================================
 %% format/1

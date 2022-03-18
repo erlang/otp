@@ -69,7 +69,7 @@
 %% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 45}}].
+    [{timetrap, {seconds, 75}}].
 
 all() ->
     [dict, code].
@@ -101,7 +101,7 @@ run({code, Tmpdir}) ->
 
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
 run(List) ->
-    ?util:run([{[fun run/1, T], 30000} || T <- List]).
+    ?util:run([{[fun run/1, T], 60000} || T <- List]).
 
 %% ===========================================================================
 %% compile_dicts/0
@@ -285,11 +285,8 @@ enslave(Prefix) ->
               {ok, _, N} <- [slave(M,D)]].
 
 slave(Name, Dir) ->
-    Args = [["-pa" | [lists:flatten(io_lib:format("~s", [D]))
-                      || D <- [Dir, filename:join([Dir, "..", "ebin"])]]],
-            ["-setcookie", ?L(erlang:get_cookie())]],
-    {ok, _Pid, _Node} = peer:start_link(#{name => Name,
-                                          args => lists:append(Args)}).
+    Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
+    {ok, _Pid, _Node} = ?util:peer(#{name => Name, args => Args}).
 
 here() ->
     filename:dirname(code:which(?MODULE)).

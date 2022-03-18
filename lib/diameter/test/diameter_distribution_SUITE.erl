@@ -97,11 +97,6 @@
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
 
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
-
 %% ===========================================================================
 
 suite() ->
@@ -137,15 +132,11 @@ traffic() ->
 enslave() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
-    Dirs = [Here, Ebin],
-    Args = [["-pa" | [lists:flatten(io_lib:format("~s", [D])) || D <- Dirs]],
-            ["-setcookie", ?L(erlang:get_cookie())]],
-    [{N,S} || A <- [lists:append(Args)],
-              {M,S} <- ?NODES,
-              N <- [start(M, A)]].
+    Args = ["-pa", Here, Ebin],
+    [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
 start(Name, Args) ->
-    {ok, _, Node} = peer:start_link(#{name => Name, args => Args}),
+    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
     Node.
 
 %% ping/1
