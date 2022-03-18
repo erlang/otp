@@ -69,12 +69,9 @@ all $(TYPES): $(TARGET_FILES)
 strict:
 	$(MAKE) opt STRICT_FLAGS=-Werror
 
-# Require success ...
-run: $(SUITES)
-
-# ... or not.
-any: opt
-	$(MAKE) -i $(SUITES)
+# Run all suites, without/with common_test.
+run: $(SUITES:%=_%)
+ct: $(SUITES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -95,7 +92,7 @@ info:
 	@echo
 	@echo erl = $(shell which erl)
 	@erl -noinput \
-	     -eval 'io:format("diameter = ~s~n", [code:lib_dir(diameter)])' \
+	     -eval 'io:format("diameter = ~ts~n", [code:lib_dir(diameter)])' \
 	     -s init stop
 	@echo ========================================
 
@@ -107,10 +104,10 @@ help:
 	@echo "        Compile all test suites."
 	@echo
 	@echo "    run:"
-	@echo "        Compile and run all test suites, stop on failure."
+	@echo "        Compile and run all test suites without common_test."
 	@echo
-	@echo "    any:"
-	@echo "        Compile and run all test suites, ignore any failures."
+	@echo "    ct:"
+	@echo "        Compile and run all test suites with common_test."
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
@@ -123,7 +120,10 @@ help:
 	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all any run clean debug docs help info opt realclean strict
+.PHONY: all ct run clean debug docs help info opt realclean strict
+
+# Disable crash dumps.
+export ERL_CRASH_DUMP_BYTES=0
 
 # ----------------------------------------------------
 # Special Targets
