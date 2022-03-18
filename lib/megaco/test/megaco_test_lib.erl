@@ -62,6 +62,7 @@
 
          stop_nodes/3,
          stop_node/3,
+         ping/1, ping/2,
 
          is_socket_backend/1,
          inet_backend_opts/1,
@@ -2148,7 +2149,12 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
             try Case(State) of
                 Res ->
                     p("try_tc -> test case done: try post"),
-                    _ = executor(fun() -> Post(State) end),
+                    _ = executor(fun() ->
+                                         put(verbosity, Verbosity),
+                                         put(sname,     Name),
+                                         put(tc,        TCName),
+                                         Post(State)
+                                 end),
                     p("try_tc -> done"),
                     Res
             catch
@@ -2288,10 +2294,11 @@ start_node(Node, Force, File, Line)
     start_node(Node, Force, false, File, Line).
 
 start_node(Node, Force, Retry, File, Line) ->
-    case net_adm:ping(Node) of
+    p("start_node -> check if node ~p already running", [Node]),
+    case ping(Node, ?SECS(5)) of
         %% Do not require a *new* node
 	pong when (Force =:= false) ->
-            p("node ~p already running", [Node]),
+            p("start_node -> node ~p already running", [Node]),
 	    ok;
 
         %% Do require a *new* node, so kill this one and try again
@@ -2312,13 +2319,14 @@ start_node(Node, Force, Retry, File, Line) ->
 
         % Not (yet) running
         pang ->
+            p("start_node -> node ~p not running - create args", [Node]),
 	    [Name, Host] = node_to_name_and_host(Node),
             Pa = filename:dirname(code:which(?MODULE)),
             Args0 = " -pa " ++ Pa ++
                 " -s " ++ atom_to_list(megaco_test_sys_monitor) ++ " start" ++ 
                 " -s global sync",
             Args = string:tokens(Args0, [$\ ]),
-            p("try start node ~p", [Node]),
+            p("start_node -> try start node ~p", [Node]),
             PeerOpts = #{name => Name,
                          host => Host,
                          args => Args},
@@ -2341,7 +2349,10 @@ start_node(Node, Force, Retry, File, Line) ->
 		Other ->
                     e("failed starting node ~p: ~p", [Node, Other]),
                     fatal_skip({cannot_start_node, Node, Other}, File, Line)
-	    end
+	    end;
+        
+        timeout ->
+            fatal_skip({ping_timeout, Node}, File, Line)
     end.
 
 
@@ -2399,6 +2410,8 @@ stop_node(Node) ->
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
+e(F) ->
+    e(F, []).
 e(F, A) ->
     print("ERROR", F, A).
 
@@ -2484,3 +2497,49 @@ connect(Config, Ref, Opts)
     InetBackendOpts = inet_backend_opts(Config),
     megaco_tcp:connect(Ref, InetBackendOpts ++ Opts).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The point of this cludge is to make it possible to specify a 
+%% timeout for the ping, since it can actually hang.
+ping(Node) ->
+    ping(Node, infinity).
+
+ping(Node, Timeout)
+  when is_atom(Node) andalso
+       ((is_integer(Timeout) andalso (Timeout > 0)) orelse
+        (Timeout =:= infinity)) ->
+    {Pid, Mon} = erlang:spawn_monitor(fun() -> exit(net_adm:ping(Node)) end),
+    receive
+        {'DOWN', Mon, process, Pid, Info} when (Info =:= pong) orelse 
+                                               (Info =:= pang) ->
+            Info;
+        {'DOWN', Mon, process, Pid, Info} ->
+            e("unexpected ping result: "
+              "~n      ~p", [Info]),
+            exit({unexpected_ping_result, Info});
+        {'EXIT', TCPid, {timetrap_timeout, TCTimeout, TCSTack}} ->
+            p("received timetrap timeout (~w ms) from ~p => Kill ping process"
+              "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
+            kill_and_wait(Pid, Mon, "ping"),
+            timeout
+    after Timeout ->
+            e("unexpected ping timeout"),
+            kill_and_wait(Pid, Mon, "ping"),
+            timeout
+    end.
+            
+                                             
+kill_and_wait(Pid, MRef, PStr) ->
+    exit(Pid, kill),
+    %% We do this in case we get some info about 'where'
+    %% the process is hanging...
+    receive
+        {'DOWN', MRef, process, Pid, Info} ->
+            p("~s process terminated (forced) with"
+              "~n      ~p", [PStr, Info]),
+            ok
+    after 100 -> % Give it a second...
+            ok
+    end.
+    
