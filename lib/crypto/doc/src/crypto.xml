@@ -553,7 +553,8 @@
   <section>
     <title>Exceptions</title>
     <section>
-      <title>The older style</title>
+      <title>Atoms - the older style</title>
+      <marker id="error_old"/>
       <p>The exception <c>error:badarg</c> signifies that one or more arguments are of wrong data type,
       or are otherwise badly formed.
       </p>
@@ -565,14 +566,15 @@
     </section>
 
     <section>
-      <title>The new style</title>
+      <title>3-tuples - the new style</title>
+      <marker id="error_3tup"/>
       <p>The exception is:</p>
       <pre>
-Tag, C_FileInfo, Description}
+error:{Tag, C_FileInfo, Description}
 
 Tag = badarg | notsup | error
 C_FileInfo = term()    % Usually only useful for the OTP maintainer
-Description = string() % Clear text or info for the OTP maintainer
+Description = string() % Clear text, sometimes only useful for the OTP maintainer
       </pre>
 
       <p>The exception tags are:</p>
@@ -588,7 +590,7 @@ Description = string() % Clear text or info for the OTP maintainer
 
 	<tag><c>error</c></tag>
 	<item><p>An error condition that should not occur, for example a memory allocation failed or
-	the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
+	the underlying cryptolib returned an error code, for example <c>"Can't initialize context, step 1"</c>.
 	Those text usually needs searching the C-code to be understood.</p>
 	</item>
       </taglist>
@@ -615,6 +617,7 @@ end
       <name name="crypto_init" arity="3" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Equivalent to the call
 	<seemfa marker="#crypto_init/4"><c>crypto_init(Cipher, Key, &lt;&lt;>>, FlagOrOptions)</c></seemfa>.
 	It is intended for ciphers without an IV (nounce).
@@ -626,6 +629,7 @@ end
       <name name="crypto_init" arity="4" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	Initializes a series of encryptions or decryptions and creates an internal state
 	with a reference that is returned.
@@ -682,6 +686,7 @@ end
       <name name="crypto_update" arity="2" since="OTP 22.0"/>
       <fsummary>Do an actual crypto operation on a part of the full text</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	It does an actual crypto operation on a part of the full text. If the part is less
 	than a number of full blocks, only the full blocks (possibly none) are encrypted 
@@ -701,6 +706,7 @@ end
       <name name="crypto_dyn_iv_init" arity="3" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions where the IV is provided later</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Initializes a series of encryptions or decryptions where the IV is provided later.
 	The actual encryption or decryption is done by
 	<seemfa marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seemfa>.
@@ -715,6 +721,7 @@ end
       <name name="crypto_final" arity="1" since="OTP 23.0"/>
       <fsummary>Ends a series of encryptions or decryptions</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	Finalizes a series of encryptions or decryptions and delivers the final bytes of the final block.
 	The data returned from this function may be empty if no padding was enabled in
@@ -728,6 +735,7 @@ end
       <name name="crypto_get_data" arity="1" since="OTP 23.0"/>
       <fsummary>Get information about crypto states</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	  Returns information about the State in the argument. The information is the form of a map,
 	  which currently contains at least:
@@ -756,6 +764,7 @@ end
       <name name="crypto_dyn_iv_update" arity="3" since="OTP 22.0"/>
       <fsummary>Do an actual crypto operation on a part of the full text and the IV is supplied for each part</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	Do an actual crypto operation on a part of the full text and the IV is supplied for each part.
 	The <c>State</c> should be created with
@@ -768,6 +777,7 @@ end
       <name name="crypto_one_time" arity="4" since="OTP 22.0"/>
       <fsummary>Do a complete encrypt or decrypt of the full text</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>As <seemfa marker="#crypto_one_time/5">crypto_one_time/5</seemfa> but for ciphers without IVs.</p>
       </desc>
     </func>
@@ -776,6 +786,7 @@ end
       <name name="crypto_one_time" arity="5" since="OTP 22.0"/>
       <fsummary>Do a complete encrypt or decrypt of the full text</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	Do a complete encrypt or decrypt of the full text in the argument <c>Data</c>.
 	</p>
@@ -793,6 +804,7 @@ end
       <name name="crypto_one_time_aead" arity="7" since="OTP 22.0"/>
       <fsummary>Do a complete encrypt or decrypt with an AEAD cipher of the full text</fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>
 	Do a complete encrypt or decrypt with an AEAD cipher of the full text.
 	</p>
@@ -1050,15 +1062,10 @@ end
       <name name="generate_key" arity="3" since="OTP R16B01"/>
       <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <desc>
+	<p>Uses the <seeerl marker="#error_3tup">3-tuple style</seeerl> for error handling.</p>
 	<p>Generates a public key of type <c>Type</c>.
 	See also <seemfa marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seemfa>.
-	May raise exception:
         </p>
-        <list type="bulleted">
-          <item><c>error:badarg</c>: an argument is of wrong type or has an illegal value,</item>
-	  <item><c>error:low_entropy</c>: the random generator failed due to lack of secure "randomness",</item>
-          <item><c>error:computation_failed</c>: the computation fails of another reason than <c>low_entropy</c>.</item>
-        </list>
 	<note>
 	  <p>RSA key generation is only available if the runtime was
 	  built with dirty scheduler support. Otherwise, attempting to
