@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 prog="$0"
-progdir="`dirname ${prog}`"
+progdir=`dirname "${prog}"`
 dyn_erl_path="${progdir}/%DYN_ERL_PATH%"
 if [ ! -f "$dyn_erl_path" ]
 then
@@ -28,9 +28,9 @@ fi
 
 if [ -f "$dyn_erl_path" ]
 then
-    dyn_rootdir=`${dyn_erl_path} --realpath`
-    dyn_rootdir=`dirname ${dyn_rootdir}`
-    dyn_rootdir=`dirname ${dyn_rootdir}`
+    dyn_rootdir=`"${dyn_erl_path}" --realpath`
+    dyn_rootdir=`dirname "${dyn_rootdir}"`
+    dyn_rootdir=`dirname "${dyn_rootdir}"`
     dyn_rootdir="${dyn_rootdir}%DYN_ROOTDIR_BASE_EXT%"
 else
     dyn_rootdir=""
@@ -47,9 +47,9 @@ then
 else
     ROOTDIR="$ERL_ROOTDIR"
 fi
-BINDIR=$ROOTDIR/erts-%VSN%/bin
+BINDIR="$ROOTDIR/erts-%VSN%/bin"
 EMU=%EMULATOR%%EMULATOR_NUMBER%
-PROGNAME=`echo $0 | sed 's/.*\///'`
+PROGNAME=`basename "$0"`
 export EMU
 export ROOTDIR
 export BINDIR
