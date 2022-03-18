@@ -427,8 +427,8 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
 
             a.bind(loop);
             {
-                a.sub(TMP3, TMP3, imm(1));
-                a.cbz(TMP3, resolve_beam_label(Fail, disp1MB));
+                a.subs(TMP3, TMP3, imm(1));
+                a.b_eq(resolve_beam_label(Fail, disp1MB));
 
                 a.ldr(TMP4, arm::Mem(TMP2, TMP3, arm::lsl(3)));
 
