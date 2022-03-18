@@ -76,7 +76,7 @@ run() ->
     run(all()).
 
 run(List) ->
-    Tmp = ?util:mktemp(filename:join(?util:tmpdir(), "diameter_app")),
+    Tmp = ?util:mktemp("diameter_app"),
     try
         run([{priv_dir, Tmp}], List)
     after

@@ -208,7 +208,7 @@ tmpdir() ->
 
 mktemp(Prefix) ->
     Suf = integer_to_list(erlang:monotonic_time()),
-    Tmp = Prefix ++ "." ++ Suf,
+    Tmp = filename:join(tmpdir(), Prefix ++ "." ++ Suf),
     ok = file:make_dir(Tmp),
     Tmp.
 
