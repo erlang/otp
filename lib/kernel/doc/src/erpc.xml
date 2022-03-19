@@ -64,12 +64,55 @@
       <name name="request_id"/>
       <desc>
         <p>
-	  An opaque type of call request identifiers. For more
-	  information see
+	  An opaque request identifier. For more information see
           <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>.
 	</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="request_id_collection"/>
+      <desc>
+        <p>
+	  An opaque collection of request identifiers
+          (<seetype marker="#request_id"><c>request_id()</c></seetype>)
+          where each request identifier can be associated with a label
+          chosen by the user. For more information see
+          <seemfa marker="#reqids_new/0"><c>reqids_new/0</c></seemfa>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="timeout_time"/>
+      <desc>
+        <taglist>
+          <tag><c>0..4294967295</c></tag>
+          <item><p>
+            Timeout relative to current time in milliseconds.
+          </p></item>
+          <tag><c>infinity</c></tag>
+          <item><p>
+            Infinite timeout. That is, the operation will never time out.
+          </p></item>
+          <tag><c>{abs, Timeout}</c></tag>
+          <item><p>
+            An absolute
+            <seemfa marker="erts:erlang#monotonic_time/1">Erlang monotonic time</seemfa>
+            timeout in milliseconds. That is, the operation will time out when
+            <seemfa marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time(millisecond)</c></seemfa>
+            returns a value larger than or equal to <c>Timeout</c>. <c>Timeout</c>
+            is not allowed to identify a time further into the future than <c>4294967295</c>
+            milliseconds. Identifying the timeout using an absolute timeout value
+            is especially handy when you have a deadline for responses corresponding
+            to a complete collection of requests
+            (<seetype marker="#request_id_collection"><c>request_id_collection()</c></seetype>)
+,
+            since you do not have to recalculate the relative time until the deadline
+            over and over again.
+	  </p></item>
+        </taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -81,8 +124,9 @@
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#call/5"><c>erpc:call(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
-	  May raise all the same exceptions as <c>erpc:call/5</c>
+	  <seemfa marker="#call/5"><c>erpc:call(<anno>Node</anno>,
+          erlang, apply, [<anno>Fun</anno>,[]], <anno>Timeout</anno>)</c></seemfa>.
+	  May raise all the same exceptions as <c>call/5</c>
 	  plus an <c>{erpc, badarg}</c> <c>error</c>
 	  exception if <c><anno>Fun</anno></c> is not a fun of
 	  zero arity.
@@ -104,9 +148,8 @@
 	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Result</anno></c>.
-	  <c><anno>Timeout</anno></c> is an integer representing
-	  the timeout in milliseconds or the atom <c>infinity</c>
-	  which prevents the operation from ever timing out.
+          <c><anno>Timeout</anno></c> sets an upper time limit
+          for the <c>call</c> operation to complete.
 	</p>
 	<p>The call <c>erpc:call(<anno>Node</anno>, <anno>Module</anno>,
 	<anno>Function</anno>, <anno>Args</anno>)</c> is equivalent
@@ -118,7 +161,7 @@
 	  exceptions, the operation did not time out, and no failures
 	  occurred. In all other cases an exception is raised. The
 	  following exceptions, listed by exception class, can
-	  currently be raised by <c>erpc:call()</c>:
+	  currently be raised by <c>call()</c>:
 	</p>
 	<taglist>
 	  <tag><c>throw</c></tag>
@@ -158,7 +201,7 @@
 	    
 	    <tag><c>{exception, ErrorReason, StackTrace}</c></tag>
 	    <item><p>
-	      A runtime error occurred which raised and error
+	      A runtime error occurred which raised an error
 	      exception while applying the function,
 	      and the applied function did not catch the
 	      exception. The error reason <c>ErrorReason</c>
@@ -186,9 +229,8 @@
 		  <item><p><c><anno>Args</anno></c> is not a list.
 		  Note that the list is not verified to be
 		  a proper list at the client side.</p></item>
-		  <item><p><c><anno>Timeout</anno></c> is not the
-		  atom <c>infinity</c> or an integer in valid
-		  range.</p></item>
+		  <item><p><c><anno>Timeout</anno></c> is
+                  invalid.</p></item>
 		</list>
 	      </item>
 	      
@@ -256,7 +298,7 @@
 	  The same as calling
 	  <seemfa marker="#cast/4"><c>erpc:cast(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
-	<p><c>erpc:cast/2</c> fails with an <c>{erpc, badarg}</c>
+	<p><c>cast/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
@@ -273,11 +315,11 @@
 	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Args</anno>)</c> on node
           <c><anno>Node</anno></c>. No response is delivered to the
-	  calling process. <c>erpc:cast()</c> returns immediately
+	  calling process. <c>cast()</c> returns immediately
 	  after the cast request has been sent. Any failures beside
 	  bad arguments are silently ignored.
 	</p>
-	<p><c>erpc:cast/4</c> fails with an <c>{erpc, badarg}</c>
+	<p><c>cast/4</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
@@ -305,13 +347,13 @@
 	<p>
 	  Check if a message is a response to a <c>call</c> request
 	  previously made by the calling process using
-	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned
-	  from the previously made <c>erpc:send_request()</c> call,
+	  from the previously made <c>send_request/4</c> call,
 	  and the corresponding response should not already have been
-	  received and handled to completion by <c>erpc:check_response()</c>,
-	  <seemfa marker="#receive_response/2"><c>erpc:receive_response()</c></seemfa>, or
-	  <seemfa marker="#wait_response/2"><c>erpc:wait_response()</c></seemfa>.
+	  received and handled to completion by <c>check_response/2</c>,
+	  <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>, or
+	  <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>.
 	  <c><anno>Message</anno></c> is the message to check.
 	</p>
 	<p>
@@ -323,9 +365,9 @@
 	  corresponds to the value returned from the applied function
 	  or an exception is raised. The exceptions that can be raised
 	  corresponds to the same exceptions as can be raised by
-	  <seemfa marker="#call/4"><c>erpc:call/4</c></seemfa>.
+	  <seemfa marker="#call/4"><c>call/4</c></seemfa>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception
-	  can be raised. <c>erpc:check_response()</c> will fail with
+	  can be raised. <c>check_response()</c> will fail with
 	  an <c>{erpc, badarg}</c> exception if/when an invalid
 	  <c><anno>RequestId</anno></c> is detected.
 	</p>
@@ -341,14 +383,89 @@
     </func>
 
     <func>
+      <name name="check_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Check if a message is a response corresponding to a
+      previously sent call request.</fsummary>
+      <desc>
+        <p>
+	  Check if a message is a response to a <c>call</c> request corresponding
+          to a request identifier saved in <c><anno>RequestIdCollection</anno></c>.
+          All request identifiers of <c><anno>RequestIdCollection</anno></c> must
+          correspond to requests that have been made using
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa> or
+	  <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>,
+          and all requests must have been made by the process calling this
+          function.
+	</p>
+        <p>
+          <c><anno>Label</anno></c> is the label associated with the request
+          identifier of the request that the response corresponds to.
+          A request identifier is associated with a label when
+          <seemfa marker="#reqids_add/3">adding a request identifier</seemfa>
+          in a <seetype marker="#request_id_collection">request identifier
+          collection</seetype>, or when sending the request using
+          <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          or an exception associated with a specific request identifier will
+          be wrapped in a 3-tuple. The first element of this tuple equals the
+          value that would have been produced by <c>check_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewRequestIdCollection</anno></c> is a possibly  modified
+          request identifier collection. The <c>error</c> exception <c>{erpc,
+          badarg}</c> is not associated with any specific request identifier,
+          and will hence not be wrapped.
+        </p>
+        <p>
+          If <c><anno>RequestIdCollection</anno></c> is empty, the atom
+          <c>no_request</c> will be returned. If <c><anno>Message</anno></c>
+          does not correspond to any of the request identifiers in
+          <c><anno>RequestIdCollection</anno></c>, the atom
+          <c>no_response</c> is returned.
+        </p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>RequestIdCollection</anno></c> in the resulting
+          <c><anno>NewRequestIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewRequestIdCollection</anno></c> will equal
+          <c><anno>RequestIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>check_response/3</c>,
+ 	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>check_response/3</c>, it will always
+          return <c>no_response</c>.
+        </p>
+        <p>
+          Note that a response might have been consumed uppon an <c>{erpc,
+          badarg}</c> exception and if so, will be lost for ever.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="multicall" arity="2" since="OTP 23.0"/>
       <name name="multicall" arity="3" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#multicall/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
-	  May raise all the same exceptions as <c>erpc:multicall/5</c>
+	  <seemfa marker="#multicall/5"><c>erpc:multicall(<anno>Nodes</anno>,
+          erlang, apply, [<anno>Fun</anno>,[]], <anno>Timeout</anno>)</c></seemfa>.
+	  May raise all the same exceptions as <c>multicall/5</c>
 	  plus an <c>{erpc, badarg}</c> <c>error</c>
 	  exception if <c><anno>Fun</anno></c> is not a fun of
 	  zero arity.
@@ -372,15 +489,13 @@
 	  Performs multiple <c>call</c> operations in parallel
 	  on multiple nodes. That is, evaluates
 	  <c>apply(<anno>Module</anno>, <anno>Function</anno>,
-          <anno>Args</anno>)</c> on the nodes
-	  <c><anno>Nodes</anno></c> in parallel.
-	  <c><anno>Timeout</anno></c> is an integer representing
-	  the timeout in milliseconds or the atom <c>infinity</c>
-	  which prevents the operation from ever timing out.
-	  The result is returned as a list where
-	  the result from each node is placed at the same position
-	  as the node name is placed in <c><anno>Nodes</anno></c>.
-	  Each item in the resulting list is formatted as either:
+          <anno>Args</anno>)</c> on the nodes <c><anno>Nodes</anno></c>
+          in parallel. <c><anno>Timeout</anno></c> sets an upper time
+          limit for all <c>call</c> operations to complete. The result
+          is returned as a list where the result from each node is placed
+          at the same position as the node name is placed in
+          <c><anno>Nodes</anno></c>. Each item in the resulting list is
+          formatted as either:
 	</p>
 	<taglist>
 	  <tag><c>{ok, Result}</c></tag>
@@ -394,11 +509,11 @@
 	    raised an exception of class <c>Class</c> with
 	    exception reason <c>ExceptionReason</c>. These
 	    corresponds the the exceptions that
-	    <seemfa marker="#call/5"><c>erpc:call/5</c></seemfa>
+	    <seemfa marker="#call/5"><c>call/5</c></seemfa>
 	    can raise.
 	  </p></item>
 	</taglist>
-	<p><c>erpc:multicall/5</c> fails with an <c>{erpc, badarg}</c>
+	<p><c>multicall/5</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Nodes</anno></c> is not a proper list of
@@ -416,8 +531,12 @@
 	  to the call <c>erpc:multicall(<anno>Nodes</anno>, <anno>Module</anno>,
 	  <anno>Function</anno>, <anno>Args</anno>, infinity)</c>. These
 	  calls are also equivalent to calling <c>my_multicall(Nodes, Module,
-	  Function, Args)</c> if one disregard performance and failure
-	  behavior:
+	  Function, Args)</c> below if one disregard performance and failure
+	  behavior. <c>multicall()</c> can utilize a selective receive
+          optimization which removes the need to scan the message queue from
+          the beginning in order to find a matching message. The
+	  <c>send_request()/receive_response()</c> combination can,
+          however, not utilize this optimization.
 	</p>
 	<pre>
 my_multicall(Nodes, Module, Function, Args) ->
@@ -435,12 +554,6 @@ my_multicall(Nodes, Module, Function, Args) ->
             end,
             ReqIds).
 </pre>
-
-        <p>
-	  The <c><anno>Timeout</anno></c> value in milliseconds
-	  sets an upper time limit for all <c>call</c> operations
-	  to complete.
-	</p>
 
 	<p>
 	  If an <c>erpc</c> operation fails, but it is unknown if
@@ -473,7 +586,7 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  The same as calling
 	  <seemfa marker="#multicast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
-	<p><c>erpc:multicast/2</c> fails with an <c>{erpc, badarg}</c>
+	<p><c>multicast/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Nodes</anno></c> is not a proper list of atoms.</p></item>
@@ -490,11 +603,11 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Args</anno>)</c> on the nodes
           <c><anno>Nodes</anno></c>. No response is delivered to the
-	  calling process. <c>erpc:multicast()</c> returns immediately
+	  calling process. <c>multicast()</c> returns immediately
 	  after the cast requests have been sent. Any failures beside
 	  bad arguments are silently ignored.
 	</p>
-	<p><c>erpc:multicast/4</c> fails with an <c>{erpc, badarg}</c>
+	<p><c>multicast/4</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Nodes</anno></c> is not a proper list of
@@ -515,9 +628,21 @@ my_multicall(Nodes, Module, Function, Args) ->
 	</note>
       </desc>
     </func>
-    
+
     <func>
       <name name="receive_response" arity="1" since="OTP 23.0"/>
+      <fsummary>Receive a call response corresponding to a
+      previously sent call request.</fsummary>
+      <desc>
+        <p>
+          The same as calling
+          <seemfa marker="#receive_response/2"><c>erpc:receive_response(<anno>RequestId</anno>,
+          infinity)</c></seemfa>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="receive_response" arity="2" since="OTP 23.0"/>
       <fsummary>Receive a call response corresponding to a
       previously sent call request.</fsummary>
@@ -525,34 +650,41 @@ my_multicall(Nodes, Module, Function, Args) ->
 	<p>
 	  Receive a response to a <c>call</c> request previously
 	  made by the calling process using
-	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned from
-	  the previously made <c>erpc:send_request()</c> call, and
+	  the previously made <c>send_request/4</c> call, and
 	  the corresponding response should not already have been received
-	  and handled to completion by
-	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>,
-	  <c>erpc:receive_response()</c>, or
-	  <seemfa marker="#wait_response/2"><c>erpc:wait_response()</c></seemfa>.
-	  <c><anno>Timeout</anno></c> is an integer representing
-	  the timeout in milliseconds or the atom <c>infinity</c>
-	  which prevents the operation from ever timing out. The <c>call</c>
-	  operation is completed once the <c>erpc:receive_response()</c> call
-	  returns or raise an exception.
+	  and handled to completion by <c>receive_response()</c>,
+	  <seemfa marker="#check_response/2"><c>check_response/4</c></seemfa>,
+          or
+	  <seemfa marker="#wait_response/2"><c>wait_response/4</c></seemfa>.
+        </p>
+        <p>
+          <c><anno>Timeout</anno></c> sets an upper time limit on how
+          long to wait for a response. If the operation times out, the request
+          identified by <c><anno>RequestId</anno></c> will be abandoned, then an
+          <c>{erpc, timeout}</c> <c>error</c> exception will be raised. That is,
+          no response corresponding to the request will ever be received after a
+          timeout. If a response is received, the <c>call</c> operation is
+          completed and either the result is returned or an exception is raised. The
+          exceptions that can be raised corresponds to the same exceptions as can
+          be raised by <seemfa marker="#call/5"><c>call/5</c></seemfa>.
+	  <c>receive_response/2</c> will fail with an <c>{erpc, badarg}</c>
+	  exception if/when an invalid <c><anno>RequestId</anno></c> is detected
+	  or if an invalid <c><anno>Timeout</anno></c> is passed.
 	</p>
-	<p>
-	  The call <c>erpc:receive_response(<anno>RequestId</anno>)</c> is
-	  equivalent to the call
-	  <c>erpc:receive_response(<anno>RequestId</anno>, infinity)</c>.
-	</p>
+
 	<p>
 	  A call to the function
 	  <c>my_call(Node, Module, Function, Args, Timeout)</c>
 	  below is equivalent to the call
 	  <seemfa marker="#call/5"><c>erpc:call(Node, Module, Function, Args,
-	  Timeout)</c></seemfa> if one disregards performance. <c>erpc:call()</c>
-	  can utilize a message queue optimization which removes the need to scan
-	  the whole message queue which the combination
-	  <c>erpc:send_request()/erpc:receive_response()</c> cannot.
+	  Timeout)</c></seemfa> if one disregards performance. <c>call()</c>
+	  can utilize a selective receive optimization which removes
+          the need to scan the message queue from the beginning in
+          order to find a matching message. The
+	  <c>send_request()/receive_response()</c> combination can,
+          however, not utilize this optimization.
 	</p>
 	<pre>
 my_call(Node, Module, Function, Args, Timeout) ->
@@ -568,15 +700,157 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  communicates with the calling process, such communication
 	  may, of course, reach the calling process.
         </p>
-	
-	<p>
-	  <c>erpc:receive_response()</c> will return or raise exceptions the
-	  same way as <seemfa marker="#call/5"><c>erpc:call/5</c></seemfa>
-	  does with the exception of <c>{erpc, badarg}</c>. An
-	  <c>{erpc, badarg}</c> exception will be raised if/when an invalid
-	  <c><anno>RequestId</anno></c> is detected or if an invalid
-	  <c><anno>Timeout</anno></c> is passed.
+      </desc>
+    </func>
+
+    <func>
+      <name name="receive_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Receive a call response corresponding to a
+      previously sent call request.</fsummary>
+      <desc>
+        <p>
+	  Receive a response to a <c>call</c> request corresponding to a request
+          identifier saved in <c><anno>RequestIdCollection</anno></c>. All
+          request identifiers of <c><anno>RequestIdCollection</anno></c> must
+          correspond to requests that have been made using
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa> or
+	  <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>,
+          and all requests must have been made by the process calling this
+          function.
 	</p>
+        <p>
+          <c><anno>Label</anno></c> is the label associated with the request
+          identifier of the request that the response corresponds to.
+          A request identifier is associated with a label when
+          <seemfa marker="#reqids_add/3">adding a request identifier</seemfa>
+          in a <seetype marker="#request_id_collection">request identifier
+          collection</seetype>, or when sending the request using
+          <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          or an exception associated with a specific request identifier will
+          be wrapped in a 3-tuple. The first element of this tuple equals the
+          value that would have been produced by <c>receive_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewRequestIdCollection</anno></c> is a possibly  modified
+          request identifier collection. The <c>error</c> exceptions <c>{erpc,
+          badarg}</c> and <c>{erpc, timeout}</c> are not associated with any
+          specific request identifiers, and will hence not be wrapped.
+        </p>
+        <p>
+          If <c><anno>RequestIdCollection</anno></c> is empty, the atom
+          <c>no_request</c> will be returned.
+        </p>
+        <p>
+          If the operation times out, all requests identified by
+          <c><anno>RequestIdCollection</anno></c> will be abandoned, then an
+          <c>{erpc, timeout}</c> <c>error</c> exception will be raised. That is,
+          no responses corresponding to any of the request identifiers in
+          <c><anno>RequestIdCollection</anno></c> will ever be received after a
+          timeout. The difference between <c>receive_response/3</c> and
+          <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>
+          is that <c>receive_response/3</c> abandons the requests at timeout
+          so that any potential future responses are ignored, while
+          <c>wait_response/3</c> does not.
+	</p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>RequestIdCollection</anno></c> in the resulting
+          <c><anno>NewRequestIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewRequestIdCollection</anno></c> will equal
+          <c><anno>RequestIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>receive_response/3</c>,
+ 	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>receive_response/3</c>, it will always block
+          until a timeout determined by <c><anno>Timeout</anno></c> is
+          triggered.
+        </p>
+        <p>
+          Note that a response might have been consumed uppon an <c>{erpc,
+          badarg}</c> exception and if so, will be lost for ever.
+        </p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="reqids_add" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Save a request identifier.</fsummary>
+      <desc>
+	<p>
+          Saves <c><anno>RequestId</anno></c> and associates a
+          <c><anno>Label</anno></c> with the request identifier by adding this
+          information to <c><anno>RequestIdCollection</anno></c> and returning
+          the resulting request identifier collection.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reqids_new" arity="0" since="OTP @OTP-17784@"/>
+      <fsummary>Create a new empty request identifier collection.</fsummary>
+      <desc>
+	<p>
+          Returns a new empty request identifier collection. A 
+          request identifier collection can be utilized in order
+          the handle multiple outstanding requests.
+        </p>
+        <p>
+          Request identifiers of requests made by
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>
+          can be saved in a request identifier collection using 
+	  <seemfa marker="#reqids_add/3"><c>reqids_add/3</c></seemfa>.
+          Such a collection of request identifiers can later be used in
+          order to get one response corresponding to a request in the
+          collection by passing the collection as argument to
+          <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>,
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+        </p>
+        <p>
+          <seemfa marker="#reqids_size/1"><c>reqids_size/1</c></seemfa>
+          can be used to determine the amount of request identifiers in a
+          request identifier collection.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reqids_size" arity="1" since="OTP @OTP-17784@"/>
+      <fsummary>Get size of a request identifier collection.</fsummary>
+      <desc>
+	<p>
+          Returns the amount of request identifiers saved in
+          <c><anno>RequestIdCollection</anno></c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reqids_to_list" arity="1" since="OTP @OTP-17784@"/>
+      <fsummary>Get a list a request identifier/label associations in a collection.</fsummary>
+      <desc>
+	<p>
+          Returns a list of <c>{<anno>RequestId</anno>, <anno>Label</anno>}</c>
+          tuples which corresponds to all request identifiers with their
+          associated labels present in the <c><anno>RequestIdCollection</anno></c>
+          collection.
+        </p>
       </desc>
     </func>
 
@@ -586,10 +860,10 @@ my_call(Node, Module, Function, Args, Timeout) ->
       <desc>
 	<p>
 	  The same as calling
-	  <seemfa marker="#send_request/4"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
+	  <seemfa marker="#send_request/4"><c>erpc:send_request(<anno>Node</anno>,
+          erlang, apply, [<anno>Fun</anno>, []])</c></seemfa>.
 	</p>
-	<p><c>erpc:send_request/2</c> fails with an <c>{erpc, badarg}</c>
-	<c>error</c> exception if:</p>
+	<p>Fails with an <c>{erpc, badarg}</c> <c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Fun</anno></c> is not a fun of
@@ -606,22 +880,52 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
     
     <func>
-      <name name="send_request" arity="4" since="OTP 23.0"/>
+      <name name="send_request" arity="4" clause_i="1" since="OTP 23.0"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
 	  Send an asynchronous <c>call</c> request to the node
-	  <c><anno>Node</anno></c>. <c>erpc:send_request()</c>
+	  <c><anno>Node</anno></c>. <c>send_request/4</c>
 	  returns a request identifier that later is to be passed
-	  as argument to either
-	  <seemfa marker="#receive_response/1"><c>erpc:receive_response()</c></seemfa>,
-	  <seemfa marker="#wait_response/1"><c>erpc:wait_response()</c></seemfa>,
+	  to either
+	  <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+	  <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
 	  or,
-	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>
-	  in order to get the response of the call request.
+	  <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>
+	  in order to get the response of the call request. Besides passing
+          the request identifier directly to these functions, it can also be
+          added in a request identifier collection using 
+	  <seemfa marker="#reqids_add/3"><c>reqids_add/3</c></seemfa>.
+          Such a collection of request identifiers can later be used in
+          order to get one response corresponding to a request in the
+          collection by passing the collection as argument to
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>,
+	  or,
+	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>.
+          If you are about to save the request identifier in a request identifier
+          collection, you may want to consider using
+          <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>
+          instead.
+        </p>
+        <p>
+	  A call to the function
+	  <c>my_call(Node, Module, Function, Args, Timeout)</c>
+	  below is equivalent to the call
+	  <seemfa marker="#call/5"><c>erpc:call(Node, Module, Function, Args,
+	  Timeout)</c></seemfa> if one disregards performance. <c>call()</c>
+	  can utilize a selective receive optimization which removes
+          the need to scan the message queue from the beginning in
+          order to find a matching message. The
+	  <c>send_request()/receive_response()</c> combination can,
+          however, not utilize this optimization.
 	</p>
-	<p><c>erpc:send_request()</c> fails with an <c>{erpc, badarg}</c>
-	<c>error</c> exception if:</p>
+	<pre>
+my_call(Node, Module, Function, Args, Timeout) ->
+  RequestId = erpc:send_request(Node, Module, Function, Args),
+  <seemfa marker="#receive_response/2">erpc:receive_response(RequestId, Timeout)</seemfa>.
+</pre>
+	<p>Fails with an <c>{erpc, badarg}</c> <c>error</c> exception if:</p>
 	<list>
 	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
@@ -629,11 +933,105 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  <item><p><c><anno>Args</anno></c> is not a list. Note that the
 	  list is not verified to be a proper list at the client side.</p></item>
 	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
     <func>
-      <name name="wait_response" arity="1" since="OTP 23.0"/>
+      <name name="send_request" arity="4" clause_i="2" since="OTP @OTP-17784@"/>
+      <fsummary>Send a request to evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seemfa marker="#send_request/6"><c>erpc:send_request(<anno>Node</anno>,
+          erlang, apply, [<anno>Fun</anno>,[]]), <anno>Label</anno>,
+          <anno>RequestIdCollection</anno>)</c></seemfa>.
+	</p>
+	<p>Fails with an <c>{erpc, badarg}</c> <c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Fun</anno></c> is not a fun of zero arity.</p></item>
+	  <item><p><c><anno>RequestIdCollection</anno></c> is detected not to
+          be request identifier collection.</p></item>
+	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_request" arity="6" since="OTP @OTP-17784@"/>
+      <fsummary>Send a request to evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  Send an asynchronous <c>call</c> request to the node
+	  <c><anno>Node</anno></c>. The <c><anno>Label</anno></c> will be
+          associated with the request identifier of the operation and
+          added to the returned request identifier collection
+          <c><anno>NewRequestIdCollection</anno></c>. The collection can
+          later be used in order to get one response corresponding to a
+          request in the collection by passing the collection as argument to
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>,
+	  or,
+	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>.
+        </p>
+
+        <p>
+          The same as calling
+          <seemfa marker="#reqids_add/3"><c>erpc:reqids_add</c></seemfa>(<seemfa
+          marker="#send_request/4"><c>erpc:send_request</c></seemfa><c>(<anno>Node</anno>,
+          <anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>),
+          <anno>Label</anno>, <anno>RequestIdCollection</anno>)</c>, but
+          calling <c>send_request/6</c> is slightly more efficient.
+        </p>
+
+	<p>Fails with an <c>{erpc, badarg}</c> <c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a list. Note that the
+	  list is not verified to be a proper list at the client side.</p></item>
+	  <item><p><c><anno>RequestIdCollection</anno></c> is detected not to
+          be request identifier collection.</p></item>
+	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wait_response" arity="1" clause_i="1" since="OTP 23.0"/>
+      <fsummary>Poll for a call response corresponding to a previously
+      sent call request.</fsummary>
+      <desc>
+        <p>
+          The same as calling
+          <seemfa marker="#wait_response/2"><c>erpc:wait_response(<anno>RequestId</anno>,
+          0)</c></seemfa>. That is, poll for a response message to a <c>call</c>
+          request previously made by the calling process.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="wait_response" arity="2" since="OTP 23.0"/>
       <fsummary>Wait or poll for a call response corresponding to a previously
       sent call request.</fsummary>
@@ -641,40 +1039,30 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	<p>
 	  Wait or poll for a response message to a <c>call</c> request
 	  previously made by the calling process using
-	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned from
-	  the previously made <c>erpc:send_request()</c> call, and the
+	  the previously made <c>send_request()</c> call, and the
 	  corresponding response should not already have been received and handled
 	  to completion by
-	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>,
-	  <seemfa marker="#receive_response/2"><c>erpc:receive_response()</c></seemfa>,
-	  or <c>erpc:wait_response()</c>. <c><anno>WaitTime</anno></c> equals the
-	  time to wait in milliseconds (or the atom <c>infinity</c>) during the wait.
-	  <c><anno>WaitTime</anno></c> is an integer representing time to wait
-	  in milliseconds or the atom <c>infinity</c> which will cause
-	  <c>wait_response/2</c> to wait for a response until it appears
-	  regardless of how long time that is.
+	  <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>,
+	  <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+	  or <c>wait_response()</c>.
 	</p>
 	<p>
-	  The call <c>erpc:wait_response(<anno>RequestId</anno>)</c> is equivalent
-	  to the call <c>erpc:wait_response(<anno>RequestId</anno>, 0)</c>. That is,
-	  poll for a response message to a <c>call</c> request previously made by
-	  the calling process.
-	</p>
-	<p>
-	  If no response is received before <c><anno>WaitTime</anno></c> milliseconds,
-	  the atom <c>no_response</c> is returned. It is valid to continue waiting
-	  for a response as many times as needed up until a response has
-	  been received and completed by <c>erpc:check_response()</c>,
-	  <c>erpc:receive_response()</c>, or <c>erpc:wait_response()</c>. If a
-	  response is received, the <c>call</c> operation is completed and either
-	  the result is returned as <c>{response, Result}</c> where <c>Result</c>
-	  corresponds to the value returned from the applied function or an
-	  exception is raised. The exceptions that can be raised corresponds to the
-	  same exceptions as can be raised by
-	  <seemfa marker="#call/4"><c>erpc:call/4</c></seemfa>.
+          <c><anno>WaitTime</anno></c> sets an upper time limit on how long to wait
+          for a response. If no response is received before the
+          <c><anno>WaitTime</anno></c> timeout has triggered, the atom
+          <c>no_response</c> is returned. It is valid to continue waiting for a
+          response as many times as needed up until a response has been received
+          and completed by <c>check_response()</c>, <c>receive_response()</c>, or
+          <c>wait_response()</c>. If a response is received, the <c>call</c>
+          operation is completed and either the result is returned as
+          <c>{response, Result}</c> where <c>Result</c> corresponds to the value
+          returned from the applied function or an exception is raised. The
+          exceptions that can be raised corresponds to the same exceptions as can
+          be raised by <seemfa marker="#call/4"><c>call/4</c></seemfa>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception can be raised.
-	  <c>erpc:wait_response()</c> will fail with an <c>{erpc, badarg}</c>
+	  <c>wait_response/2</c> will fail with an <c>{erpc, badarg}</c>
 	  exception if/when an invalid <c><anno>RequestId</anno></c> is detected
 	  or if an invalid <c><anno>WaitTime</anno></c> is passed.
 	</p>
@@ -690,6 +1078,87 @@ my_call(Node, Module, Function, Args, Timeout) ->
       </desc>
     </func>
 
+    <func>
+      <name name="wait_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Wait or poll for a call response corresponding to a previously
+      sent call request.</fsummary>
+      <desc>
+        <p>
+	  Wait or poll for a response to a <c>call</c> request corresponding
+          to a request identifier saved in <c><anno>RequestIdCollection</anno></c>. All
+          request identifiers of <c><anno>RequestIdCollection</anno></c> must
+          correspond to requests that have been made using
+	  <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa> or
+	  <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>,
+          and all requests must have been made by the process calling this
+          function.
+	</p>
+        <p>
+          <c><anno>Label</anno></c> is the label associated with the request
+          identifier of the request that the response corresponds to.
+          A request identifier is associated with a label when
+          <seemfa marker="#reqids_add/3">adding a request identifier</seemfa>
+          in a <seetype marker="#request_id_collection">request identifier
+          collection</seetype>, or when sending the request using
+          <seemfa marker="#send_request/6"><c>send_request/6</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          or an exception associated with a specific request identifier will
+          be wrapped in a 3-tuple. The first element of this tuple equals the
+          value that would have been produced by <c>wait_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewRequestIdCollection</anno></c> is a possibly  modified
+          request identifier collection. The <c>error</c> exception <c>{erpc,
+          badarg}</c> is not associated with any specific request identifier,
+          and will hence not be wrapped.
+        </p>
+        <p>
+          If <c><anno>RequestIdCollection</anno></c> is empty, <c>no_request</c>
+          will be returned. If no response is received before the
+          <c><anno>WaitTime</anno></c> timeout has triggered, the atom
+          <c>no_response</c> is returned. It is valid to continue waiting for a
+          response as many times as needed up until a response has been received
+          and completed by <c>check_response()</c>, <c>receive_response()</c>,
+          or <c>wait_response()</c>. The difference between
+          <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>
+	  and <c>wait_response/3</c> is that <c>receive_response/3</c>
+	  abandons requests at timeout so that any potential future
+	  responses are ignored, while <c>wait_response/3</c> does not.
+        </p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>RequestIdCollection</anno></c> in the resulting
+          <c><anno>NewRequestIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewRequestIdCollection</anno></c> will equal
+          <c><anno>RequestIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>wait_response/3</c>,
+ 	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>wait_response/3</c>, it will always block
+          until a timeout determined by <c><anno>WaitTime</anno></c> is
+          triggered and then return <c>no_response</c>.
+        </p>
+        <p>
+          Note that a response might have been consumed uppon an <c>{erpc,
+          badarg}</c> exception and if so, will be lost for ever.
+        </p>
+      </desc>
+    </func>
+    
   </funcs>
 </erlref>
 
