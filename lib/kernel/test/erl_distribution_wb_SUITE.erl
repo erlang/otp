@@ -137,7 +137,7 @@ switch_options(Config) when is_list(Config) ->
 
 %% Whitebox testing of distribution handshakes.
 whitebox(Config) when is_list(Config) ->
-    {ok, Node} = start_node(?MODULE,""),
+    {ok, Peer, Node} = ?CT_PEER(),
     Cookie = erlang:get_cookie(),
     {_,Host} = split(node()),
     OurVersion = ?DIST_VER_HIGH,
@@ -152,7 +152,7 @@ whitebox(Config) when is_list(Config) ->
                                OurVersion, TrustEpmd, Cookie)
      end
      || TrustEpmd <- [true, false]],
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %%
@@ -402,38 +402,37 @@ simultaneous_md5(Node, OurName, OurVersion, TrustEpmd, Cookie) when OurName > No
     ok.
 
 missing_compulsory_dflags(Config) when is_list(Config) ->
-    [Name1, Name2] = get_nodenames(2, missing_compulsory_dflags),
-    {ok, Node} = start_node(Name1,""),
+    {ok, Peer, Node} = ?CT_PEER(),
     {NA,NB} = split(Node),
     {port,PortNo,_} = erl_epmd:port_please(NA,NB),
     [begin
          {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
                                          [{active,false},
                                           {packet,2}]),
-         BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
+         BadNode = list_to_atom(?CT_PEER_NAME()++"@"++atom_to_list(NB)),
          send_name(SocketA,BadNode, ?DIST_VER_HIGH, Version, 0),
          not_allowed = recv_status(SocketA),
          gen_tcp:close(SocketA)
      end
      || Version <- lists:seq(?DIST_VER_LOW, ?DIST_VER_HIGH)],
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 %% Test that instead of passing all compulsory flags, we can instead
 %% pass only ?DFLAG_MANDATORY_25_DIGEST to ensure that we will be able to communicate
 %% with a future release where ?DFLAG_MANDATORY_25_DIGEST is mandatory.
 dflag_mandatory_25(_Config) ->
-    [Name1, Name2] = get_nodenames(2, ?FUNCTION_NAME),
-    {ok, Node} = start_node(Name1, ""),
+    {ok, Peer, Node} = ?CT_PEER(),
     {NA,NB} = split(Node),
     {port,PortNo,_} = erl_epmd:port_please(NA, NB),
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),
                                     PortNo,
                                     [{active,false},{packet,2}]),
-    OtherNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
+    OtherNode = list_to_atom(?CT_PEER_NAME()++"@"++atom_to_list(NB)),
     send_name(SocketA, OtherNode, ?DIST_VER_HIGH, ?DIST_VER_HIGH, ?DFLAG_MANDATORY_25_DIGEST),
     ok = recv_status(SocketA),
     gen_tcp:close(SocketA),
+    peer:stop(Peer),
     ok.
 
 %%
@@ -830,24 +829,3 @@ recv_message(Socket) ->
 %% Build a nodename
 join(Name,Host) ->
     list_to_atom(atom_to_list(Name) ++ "@" ++ atom_to_list(Host)).
-
-%% start/stop slave.
-start_node(Name, Param) ->
-    test_server:start_node(Name, slave, [{args, Param}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
-
-get_nodenames(N, T) ->
-    get_nodenames(N, T, []).
-
-get_nodenames(0, _, Acc) ->
-    Acc;
-get_nodenames(N, T, Acc) ->
-    U = erlang:unique_integer([positive]),
-    get_nodenames(N-1, T, [list_to_atom(?MODULE_STRING
-					++ "-"
-					++ atom_to_list(T)
-					++ "-"
-					++ integer_to_list(U)) | Acc]).

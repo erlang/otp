@@ -25,8 +25,6 @@
     suite/0,
     all/0,
     groups/0,
-    init_per_suite/1,
-    end_per_suite/1,
     init_per_testcase/2,
     end_per_testcase/2,
     stop_proc/1,
@@ -59,32 +57,11 @@
     group_leave/1
 ]).
 
--export([
-    control/1,
-    controller/3
-]).
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{timetrap, {seconds, 60}}].
-
-init_per_suite(Config) ->
-    case erlang:is_alive() of
-        false ->
-            %% verify epmd running (otherwise next call fails)
-            (erl_epmd:names("localhost") =:= {error, address}) andalso ([] = os:cmd("epmd -daemon")),
-            %% start a random node name
-            NodeName = list_to_atom(lists:concat([atom_to_list(?MODULE), "_", os:getpid()])),
-            {ok, Pid} = net_kernel:start([NodeName, shortnames]),
-            [{distribution, Pid} | Config];
-        true ->
-            Config
-    end.
-
-end_per_suite(Config) ->
-    is_pid(proplists:get_value(distribution, Config)) andalso net_kernel:stop().
 
 init_per_testcase(TestCase, Config) ->
     {ok, _Pid} = pg:start_link(TestCase),
@@ -196,10 +173,10 @@ process_owner_check() ->
     [{doc, "Tests that process owner is local node"}].
 
 process_owner_check(Config) when is_list(Config) ->
-    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     %% spawn remote process
     LocalPid = erlang:spawn(forever()),
-    RemotePid = erlang:spawn(TwoPeer, forever()),
+    RemotePid = erlang:spawn(Node, forever()),
     %% check they can't be joined locally
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid)),
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid])),
@@ -208,19 +185,19 @@ process_owner_check(Config) when is_list(Config) ->
     ?assertException(error, function_clause, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
     ?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [undefined])),
     %% stop the peer
-    stop_node(TwoPeer, Socket),
+    peer:stop(Peer),
     ok.
 
 overlay_missing() ->
     [{doc, "Tests that scope process that is not a part of overlay network does not change state"}].
 
 overlay_missing(_Config) ->
-    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     %% join self (sanity check)
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, group, self())),
     %% remember pid from remote
-    PgPid = rpc:call(TwoPeer, erlang, whereis, [?FUNCTION_NAME]),
-    RemotePid = erlang:spawn(TwoPeer, forever()),
+    PgPid = rpc:call(Node, erlang, whereis, [?FUNCTION_NAME]),
+    RemotePid = erlang:spawn(Node, forever()),
     %% stop remote scope
     gen_server:stop(PgPid),
     %% craft white-box request: ensure it's rejected
@@ -241,34 +218,34 @@ overlay_missing(_Config) ->
     %?assertException(error, function_clause, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
     %?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [undefined])),
     %% stop the peer
-    stop_node(TwoPeer, Socket).
+    peer:stop(Peer).
 
 
 two(Config) when is_list(Config) ->
-    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     Pid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, Pid)),
     ?assertEqual([Pid], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     %% first RPC must be serialised
-    sync({?FUNCTION_NAME, TwoPeer}),
-    ?assertEqual([Pid], rpc:call(TwoPeer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
-    ?assertEqual([], rpc:call(TwoPeer, pg, get_local_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    ?assertEqual([], rpc:call(Node, pg, get_local_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
     stop_proc(Pid),
     %% again, must be serialised
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    ?assertEqual([], rpc:call(TwoPeer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    ?assertEqual([], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
 
-    Pid2 = erlang:spawn(TwoPeer, forever()),
-    Pid3 = erlang:spawn(TwoPeer, forever()),
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid2])),
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid3])),
+    Pid2 = erlang:spawn(Node, forever()),
+    Pid3 = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid2])),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid3])),
     %% serialise through the *other* node
-    sync({?FUNCTION_NAME, TwoPeer}),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual(lists:sort([Pid2, Pid3]),
         lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop the peer
-    stop_node(TwoPeer, Socket),
+    peer:stop(Peer),
     %% hope that 'nodedown' comes before we route our request
     sync(?FUNCTION_NAME),
     ok.
@@ -277,35 +254,35 @@ empty_group_by_remote_leave() ->
     [{doc, "Empty group should be deleted from nodes."}].
 
 empty_group_by_remote_leave(Config) when is_list(Config) ->
-    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    RemoteNode = rpc:call(TwoPeer, erlang, whereis, [?FUNCTION_NAME]),
-    RemotePid = erlang:spawn(TwoPeer, forever()),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    RemoteNode = rpc:call(Node, erlang, whereis, [?FUNCTION_NAME]),
+    RemotePid = erlang:spawn(Node, forever()),
     % remote join
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
     {state, _, _, #{RemoteNode := {_, RemoteMap}}} = sys:get_state(?FUNCTION_NAME),
     ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
     % remote leave
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
 
     %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
-    RemotePid2 = erlang:spawn(TwoPeer, forever()),
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
-    sync({?FUNCTION_NAME, TwoPeer}),
+    RemotePid2 = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([RemotePid, RemotePid2], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     %% now leave
-    ?assertEqual(ok, rpc:call(TwoPeer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
-    sync({?FUNCTION_NAME, TwoPeer}),
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
-    stop_node(TwoPeer, Socket),
+    peer:stop(Peer),
     ok.
 
 thundering_herd() ->
@@ -317,228 +294,228 @@ thundering_herd(Config) when is_list(Config) ->
     %% make up a large amount of groups
     [pg:join(?FUNCTION_NAME, {group, Seq}, self()) || Seq <- lists:seq(1, GroupCount)],
     %% initiate a few syncs - and those are really slow...
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    PeerPid = erlang:spawn(Peer, forever()),
-    PeerPg = rpc:call(Peer, erlang, whereis, [?FUNCTION_NAME], 1000),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    PeerPid = erlang:spawn(Node, forever()),
+    PeerPg = rpc:call(Node, erlang, whereis, [?FUNCTION_NAME], 1000),
     %% WARNING: code below acts for white-box! %% WARNING
     FakeSync = [{{group, 1}, [PeerPid, PeerPid]}],
     [gen_server:cast(?FUNCTION_NAME, {sync, PeerPg, FakeSync}) || _ <- lists:seq(1, SyncCount)],
     %% next call must not timetrap, otherwise test fails
     pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, self()),
-    stop_node(Peer, Socket).
+    peer:stop(Peer).
 
 initial(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, Pid)),
     ?assertEqual([Pid], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     %% first RPC must be serialised
-    sync({?FUNCTION_NAME, Peer}),
-    ?assertEqual([Pid], rpc:call(Peer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
 
-    ?assertEqual([], rpc:call(Peer, pg, get_local_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    ?assertEqual([], rpc:call(Node, pg, get_local_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
     stop_proc(Pid),
-    sync({?FUNCTION_NAME, Peer}),
-    ?assertEqual([], rpc:call(Peer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
-    stop_node(Peer, Socket),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    peer:stop(Peer),
     ok.
 
 netsplit(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    ?assertEqual(Peer, rpc(Socket, erlang, node, [])), %% just to test RPC
-    RemoteOldPid = erlang:spawn(Peer, forever()),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to test RPC
+    RemoteOldPid = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
     %% hohoho, partition!
-    disconnect_nodes([Peer]),
-    ?assertEqual(Peer, rpc(Socket, erlang, node, [])), %% just to ensure RPC still works
-    RemotePid = rpc(Socket, erlang, spawn, [forever()]),
-    ?assertEqual([], rpc(Socket, erlang, nodes, [])),
-    ?assertNot(lists:member(Peer, nodes())), %% should be no nodes in the cluster
-    ?assertEqual(ok, rpc(Socket, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])), %% join - in a partition!
+    disconnect_nodes([Node]),
+    ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to ensure RPC still works
+    RemotePid = peer:call(Peer, erlang, spawn, [forever()]),
+    ?assertEqual([], peer:call(Peer, erlang, nodes, [])),
+    ?assertNot(lists:member(Node, nodes())), %% should be no nodes in the cluster
+    ?assertEqual(ok, peer:call(Peer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])), %% join - in a partition!
 
-    ?assertEqual(ok, rpc(Socket, pg, leave, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
-    ?assertEqual(ok, rpc(Socket, pg, join, [?FUNCTION_NAME, '$visible', RemoteOldPid])),
-    ?assertEqual([RemoteOldPid], rpc(Socket, pg, get_local_members, [?FUNCTION_NAME, '$visible'])),
+    ?assertEqual(ok, peer:call(Peer, pg, leave, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
+    ?assertEqual(ok, peer:call(Peer, pg, join, [?FUNCTION_NAME, '$visible', RemoteOldPid])),
+    ?assertEqual([RemoteOldPid], peer:call(Peer, pg, get_local_members, [?FUNCTION_NAME, '$visible'])),
     %% join locally too
     LocalPid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, LocalPid)),
 
-    ?assertNot(lists:member(Peer, nodes())), %% should be no nodes in the cluster
+    ?assertNot(lists:member(Node, nodes())), %% should be no nodes in the cluster
 
-    pong = net_adm:ping(Peer),
+    pong = net_adm:ping(Node),
     %% now ensure sync happened
     Pids = lists:sort([RemotePid, LocalPid]),
-    sync({?FUNCTION_NAME, Peer}),
-    ?assertEqual(Pids, lists:sort(rpc:call(Peer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual(Pids, lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
     ?assertEqual([RemoteOldPid], pg:get_members(?FUNCTION_NAME, '$visible')),
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     ok.
 
 trisplit(Config) when is_list(Config) ->
-    {Peer, Socket1} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    _PeerPid1 = erlang:spawn(Peer, forever()),
-    PeerPid2 = erlang:spawn(Peer, forever()),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, three, PeerPid2])),
-    disconnect_nodes([Peer]),
-    ?assertEqual(true, net_kernel:connect_node(Peer)),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, one, PeerPid2])),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    _PeerPid1 = erlang:spawn(Node, forever()),
+    PeerPid2 = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, three, PeerPid2])),
+    disconnect_nodes([Node]),
+    ?assertEqual(true, net_kernel:connect_node(Node)),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, one, PeerPid2])),
     %% now ensure sync happened
-    {Peer2, Socket2} = spawn_node(?FUNCTION_NAME, trisplit_second),
-    ?assertEqual(true, rpc:call(Peer2, net_kernel, connect_node, [Peer])),
-    ?assertEqual(lists:sort([node(), Peer]), lists:sort(rpc:call(Peer2, erlang, nodes, []))),
-    ok = rpc:call(Peer2, ?MODULE, ensure_peers_info, [?FUNCTION_NAME, [node(), Peer]]),
-    ?assertEqual([PeerPid2], rpc:call(Peer2, pg, get_members, [?FUNCTION_NAME, one])),
-    stop_node(Peer, Socket1),
-    stop_node(Peer2, Socket2),
+    {Peer2, Node2} = spawn_node(?FUNCTION_NAME),
+    ?assertEqual(true, rpc:call(Node2, net_kernel, connect_node, [Node])),
+    ?assertEqual(lists:sort([node(), Node]), lists:sort(rpc:call(Node2, erlang, nodes, []))),
+    ok = rpc:call(Node2, ?MODULE, ensure_peers_info, [?FUNCTION_NAME, [node(), Node]]),
+    ?assertEqual([PeerPid2], rpc:call(Node2, pg, get_members, [?FUNCTION_NAME, one])),
+    peer:stop(Peer),
+    peer:stop(Peer2),
     ok.
 
 foursplit(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, one, Pid)),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, two, Pid)),
-    PeerPid1 = spawn(Peer, forever()),
+    PeerPid1 = erlang:spawn(Node, forever()),
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, one, Pid)),
     ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, three, Pid)),
-    disconnect_nodes([Peer]),
-    ?assertEqual(ok, rpc(Socket, ?MODULE, stop_proc, [PeerPid1])),
+    disconnect_nodes([Node]),
+    ?assertEqual(ok, peer:call(Peer, ?MODULE, stop_proc, [PeerPid1])),
     ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, three, Pid)),
-    ?assertEqual(true, net_kernel:connect_node(Peer)),
+    ?assertEqual(true, net_kernel:connect_node(Node)),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, one)),
-    ?assertEqual([], rpc(Socket, pg, get_members, [?FUNCTION_NAME, one])),
-    stop_node(Peer, Socket),
+    ?assertEqual([], peer:call(Peer, pg, get_members, [?FUNCTION_NAME, one])),
+    peer:stop(Peer),
     ok.
 
 exchange(Config) when is_list(Config) ->
-    {Peer1, Socket1} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    {Peer2, Socket2} = spawn_node(?FUNCTION_NAME, exchange_second),
-    Pids10 = [rpc(Socket1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
-    Pids2 = [rpc(Socket2, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
-    Pids11 = [rpc(Socket1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
+    {Peer1, Node1} = spawn_node(?FUNCTION_NAME),
+    {Peer2, Node2} = spawn_node(?FUNCTION_NAME),
+    Pids10 = [peer:call(Peer1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
+    Pids2 = [peer:call(Peer2, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
+    Pids11 = [peer:call(Peer1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
     %% kill first 3 pids from node1
     {PidsToKill, Pids1} = lists:split(3, Pids10),
 
-    ?assertEqual(ok, rpc(Socket1, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pids10])),
-    sync({?FUNCTION_NAME, Peer1}), %% Join broadcast have reached local
+    ?assertEqual(ok, peer:call(Peer1, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pids10])),
+    sync({?FUNCTION_NAME, Node1}), %% Join broadcast have reached local
     sync(?FUNCTION_NAME), %% Join broadcast has been processed by local
     ?assertEqual(lists:sort(Pids10), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
-    [rpc(Socket1, ?MODULE, stop_proc, [Pid]) || Pid <- PidsToKill],
+    [peer:call(Peer1, ?MODULE, stop_proc, [Pid]) || Pid <- PidsToKill],
     sync(?FUNCTION_NAME),
-    sync({?FUNCTION_NAME, Peer1}),
+    sync({?FUNCTION_NAME, Node1}),
 
     Pids = lists:sort(Pids1 ++ Pids2 ++ Pids11),
     ?assert(lists:all(fun erlang:is_pid/1, Pids)),
 
-    disconnect_nodes([Peer1, Peer2]),
+    disconnect_nodes([Node1, Node2]),
 
     sync(?FUNCTION_NAME), %% Processed nodedowns...
     ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
 
-    [?assertEqual(ok, rpc(Socket2, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid])) || Pid <- Pids2],
-    [?assertEqual(ok, rpc(Socket1, pg, join, [?FUNCTION_NAME, second, Pid])) || Pid <- Pids11],
-    ?assertEqual(ok, rpc(Socket1, pg, join, [?FUNCTION_NAME, third, Pids11])),
+    [?assertEqual(ok, peer:call(Peer2, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid])) || Pid <- Pids2],
+    [?assertEqual(ok, peer:call(Peer1, pg, join, [?FUNCTION_NAME, second, Pid])) || Pid <- Pids11],
+    ?assertEqual(ok, peer:call(Peer1, pg, join, [?FUNCTION_NAME, third, Pids11])),
     %% rejoin
-    ?assertEqual(true, net_kernel:connect_node(Peer1)),
-    ?assertEqual(true, net_kernel:connect_node(Peer2)),
+    ?assertEqual(true, net_kernel:connect_node(Node1)),
+    ?assertEqual(true, net_kernel:connect_node(Node2)),
     %% need to sleep longer to ensure both nodes made the exchange
-    ensure_peers_info(?FUNCTION_NAME, [Peer1, Peer2]),
+    ensure_peers_info(?FUNCTION_NAME, [Node1, Node2]),
     ?assertEqual(Pids, lists:sort(pg:get_members(?FUNCTION_NAME, second) ++ pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     ?assertEqual(lists:sort(Pids11), lists:sort(pg:get_members(?FUNCTION_NAME, third))),
 
     {Left, Stay} = lists:split(3, Pids11),
-    ?assertEqual(ok, rpc(Socket1, pg, leave, [?FUNCTION_NAME, third, Left])),
-    sync({?FUNCTION_NAME, Peer1}),
+    ?assertEqual(ok, peer:call(Peer1, pg, leave, [?FUNCTION_NAME, third, Left])),
+    sync({?FUNCTION_NAME, Node1}),
     sync(?FUNCTION_NAME),
     ?assertEqual(lists:sort(Stay), lists:sort(pg:get_members(?FUNCTION_NAME, third))),
-    ?assertEqual(not_joined, rpc(Socket1, pg, leave, [?FUNCTION_NAME, left, Stay])),
-    ?assertEqual(ok, rpc(Socket1, pg, leave, [?FUNCTION_NAME, third, Stay])),
-    sync({?FUNCTION_NAME, Peer1}),
+    ?assertEqual(not_joined, peer:call(Peer1, pg, leave, [?FUNCTION_NAME, left, Stay])),
+    ?assertEqual(ok, peer:call(Peer1, pg, leave, [?FUNCTION_NAME, third, Stay])),
+    sync({?FUNCTION_NAME, Node1}),
     sync(?FUNCTION_NAME),
     ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, third))),
-    sync({?FUNCTION_NAME, Peer1}),
+    sync({?FUNCTION_NAME, Node1}),
     sync(?FUNCTION_NAME),
 
-    stop_node(Peer1, Socket1),
-    stop_node(Peer2, Socket2),
+    peer:stop(Peer1),
+    peer:stop(Peer2),
     ok.
 
 nolocal(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    RemotePid = spawn(Peer, forever()),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    RemotePid = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     ok.
 
 double(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, Pid)),
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid])),
     ?assertEqual([Pid, Pid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     sync(?FUNCTION_NAME),
-    sync({?FUNCTION_NAME, Peer}),
-    ?assertEqual([Pid, Pid], rpc:call(Peer, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
-    stop_node(Peer, Socket),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([Pid, Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    peer:stop(Peer),
     ok.
 
 scope_restart(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid, Pid])),
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    RemotePid = spawn(Peer, forever()),
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Peer}),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    RemotePid = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual(lists:sort([RemotePid, Pid, Pid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop scope locally, and restart
     gen_server:stop(?FUNCTION_NAME),
     pg:start(?FUNCTION_NAME),
     %% ensure remote pids joined, local are missing
     sync(?FUNCTION_NAME),
-    sync({?FUNCTION_NAME, Peer}),
+    sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     ok.
 
 missing_scope_join(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    ?assertEqual(ok, rpc:call(Peer, gen_server, stop, [?FUNCTION_NAME])),
-    RemotePid = spawn(Peer, forever()),
-    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Peer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Peer, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    stop_node(Peer, Socket),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    ?assertEqual(ok, rpc:call(Node, gen_server, stop, [?FUNCTION_NAME])),
+    RemotePid = erlang:spawn(Node, forever()),
+    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    peer:stop(Peer),
     ok.
 
 disconnected_start(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    disconnect_nodes([Peer]),
-    ?assertEqual(ok, rpc(Socket, gen_server, stop, [?FUNCTION_NAME])),
-    ?assertMatch({ok, _Pid}, rpc(Socket, pg, start,[?FUNCTION_NAME])),
-    ?assertEqual(ok, rpc(Socket, gen_server, stop, [?FUNCTION_NAME])),
-    RemotePid = rpc(Socket, erlang, spawn, [forever()]),
+    {Peer, Node} = spawn_disconnected_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    ?assertNot(lists:member(Node, nodes())),
+    ?assertEqual(ok, peer:call(Peer, gen_server, stop, [?FUNCTION_NAME])),
+    ?assertMatch({ok, _Pid}, peer:call(Peer, pg, start,[?FUNCTION_NAME])),
+    ?assertEqual(ok, peer:call(Peer, gen_server, stop, [?FUNCTION_NAME])),
+    RemotePid = peer:call(Peer, erlang, spawn, [forever()]),
     ?assert(is_pid(RemotePid)),
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     ok.
 
 forced_sync() ->
     [{doc, "This test was added when lookup_element was erroneously used instead of lookup, crashing pg with badmatch, and it tests rare out-of-order sync operations"}].
 
 forced_sync(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
     Pid = erlang:spawn(forever()),
-    RemotePid = spawn(Peer, forever()),
+    RemotePid = erlang:spawn(Node, forever()),
     Expected = lists:sort([Pid, RemotePid]),
     pg:join(?FUNCTION_NAME, one, Pid),
 
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, one, RemotePid])),
-    RemoteScopePid = rpc:call(Peer, erlang, whereis, [?FUNCTION_NAME]),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, one, RemotePid])),
+    RemoteScopePid = rpc:call(Node, erlang, whereis, [?FUNCTION_NAME]),
     ?assert(is_pid(RemoteScopePid)),
     %% hohoho, partition!
-    disconnect_nodes([Peer]),
-    ?assertEqual(true, net_kernel:connect_node(Peer)),
-    ensure_peers_info(?FUNCTION_NAME, [Peer]),
+    disconnect_nodes([Node]),
+    ?assertEqual(true, net_kernel:connect_node(Node)),
+    ensure_peers_info(?FUNCTION_NAME, [Node]),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
     %% WARNING: this code uses pg as white-box, exploiting internals,
     %%  only to simulate broken 'sync'
@@ -551,32 +528,32 @@ forced_sync(Config) when is_list(Config) ->
     ?assertEqual(lists:sort([RemotePid, RemotePid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     ?assertEqual(lists:sort([RemotePid, RemotePid, Pid]), lists:sort(pg:get_members(?FUNCTION_NAME, one))),
     %% simulate force-sync via 'discover' - ask peer to send sync to us
-    {?FUNCTION_NAME, Peer} ! {discover, whereis(?FUNCTION_NAME)},
-    sync({?FUNCTION_NAME, Peer}),
+    {?FUNCTION_NAME, Node} ! {discover, whereis(?FUNCTION_NAME)},
+    sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
     ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% and simulate extra sync
-    sync({?FUNCTION_NAME, Peer}),
+    sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
 
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     ok.
 
 group_leave(Config) when is_list(Config) ->
-    {Peer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
-    RemotePid = erlang:spawn(Peer, forever()),
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    RemotePid = erlang:spawn(Node, forever()),
     Total = lists:duplicate(16, RemotePid),
     {Left, Remain} = lists:split(4, Total),
     %% join 16 times!
-    ?assertEqual(ok, rpc:call(Peer, pg, join, [?FUNCTION_NAME, two, Total])),
-    ?assertEqual(ok, rpc:call(Peer, pg, leave, [?FUNCTION_NAME, two, Left])),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, two, Total])),
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, two, Left])),
 
-    sync({?FUNCTION_NAME, Peer}),
+    sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual(Remain, pg:get_members(?FUNCTION_NAME, two)),
-    stop_node(Peer, Socket),
+    peer:stop(Peer),
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
     ok.
@@ -587,7 +564,7 @@ group_leave(Config) when is_list(Config) ->
 sync(GS) ->
     _ = sys:log(GS, get).
 
-ensure_peers_info(Scope, Peers) ->
+ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
     %% pg servers on all Peer nodes passed as argument (assuming
     %% no connection failures).
@@ -602,7 +579,7 @@ ensure_peers_info(Scope, Peers) ->
     sync(Scope),
     %% Known: nodup handled and discover sent to Peer
 
-    lists:foreach(fun (Peer) -> sync({Scope, Peer}) end, Peers),
+    lists:foreach(fun (Node) -> sync({Scope, Node}) end, Nodes),
     %% Known: nodeup handled by Peers and discover sent to local
     %% Known: discover received/handled by Peers and sync sent to local
     %% Known: discover received from Peer
@@ -615,7 +592,7 @@ ensure_peers_info(Scope, Peers) ->
 
 -ifdef(CURRENTLY_UNUSED_BUT_SERVES_AS_DOC).
 
-ensure_synced(Scope, Peers) ->
+ensure_synced(Scope, Nodes) ->
     %% Ensures that the pg server on local node have synced
     %% with pg servers on all Peer nodes (assuming no connection
     %% failures).
@@ -626,10 +603,10 @@ ensure_synced(Scope, Peers) ->
     %% Note that this relies on current ERTS implementation; not
     %% language guarantees.
     %%
-    ensure_peer_info(Scope, Peer),
+    ensure_peer_info(Scope, Node),
     %% Known: local has gotten info from all Peers
     %% Known: discover from Peers handled and sync sent to Peers
-    lists:foreach(fun (Peer) -> sync({Scope, Peer}) end, Peers),
+    lists:foreach(fun (Node) -> sync({Scope, Node}) end, Nodes),
     %% Known: sync from local handled by Peers
     ok.
 
@@ -637,7 +614,7 @@ ensure_synced(Scope, Peers) ->
 
 disconnect_nodes(Nodes) ->
     %% The following is not a language guarantee, but internal
-    %% knowledged about current implementation of ERTS and pg.
+    %% knowledge about current implementation of ERTS and pg.
     %%
     %% The pg server reacts on 'DOWN's via process monitors of
     %% its peers. These are delivered before 'nodedown's from
@@ -662,11 +639,9 @@ disconnect_nodes(Nodes) ->
     {Pid, Mon} = spawn_monitor(F),
     receive
         {'DOWN', Mon, process, Pid, Reason} ->
-            normal = Reason
+            ?assertEqual(normal, Reason)
     end,
     ok.
-
--define (LOCALHOST, {127, 0, 0, 1}).
 
 %% @doc Kills process Pid and waits for it to exit using monitor,
 %%      and yields after (for 1 ms).
@@ -678,79 +653,6 @@ stop_proc(Pid) ->
         {'DOWN', _MRef, process, Pid, _Info} ->
             timer:sleep(1)
     end.
-
-%% @doc Executes remote call on the node via TCP socket
-%%      Used when dist connection is not available, or
-%%      when it's undesirable to use one.
--spec rpc(gen_tcp:socket(), module(), atom(), [term()]) -> term().
-rpc(Sock, M, F, A) ->
-    ok = gen_tcp:send(Sock, term_to_binary({call, M, F, A})),
-    inet:setopts(Sock, [{active, once}]),
-    receive
-        {tcp, Sock, Data} ->
-            case binary_to_term(Data) of
-                {ok, Val} ->
-                    Val;
-                {error, Error} ->
-                    {badrpc, Error}
-            end;
-        {tcp_closed, Sock} ->
-            error(closed)
-    end.
-
-%% @doc starts peer node on this host.
-%% Returns spawned node name, and a gen_tcp socket to talk to it using ?MODULE:rpc.
--spec spawn_node(Scope :: atom(), Node :: atom()) -> {node(), gen_tcp:socket()}.
-spawn_node(Scope, Name) ->
-    Self = self(),
-    Controller = erlang:spawn(?MODULE, controller, [Name, Scope, Self]),
-    receive
-        {'$node_started', Node, Port} ->
-            {ok, Socket} = gen_tcp:connect(?LOCALHOST, Port, [{active, false}, {mode, binary}, {packet, 4}]),
-            Controller ! {socket, Socket},
-            {Node, Socket};
-        Other ->
-            error({start_node, Name, Other})
-    after 60000 ->
-        error({start_node, Name, timeout})
-    end.
-
-%% @private
--spec controller(atom(), atom(), pid()) -> ok.
-controller(Name, Scope, Self) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Pa2 = filename:dirname(code:which(pg)),
-    Args = lists:concat(["-setcookie ", erlang:get_cookie(),
-            " -connect_all false -kernel dist_auto_connect never -noshell -pa ", Pa, " -pa ", Pa2]),
-    {ok, Node} = test_server:start_node(Name, peer, [{args, Args}]),
-    case rpc:call(Node, ?MODULE, control, [Scope], 5000) of
-        {badrpc, nodedown} ->
-            Self ! {badrpc, Node},
-            ok;
-        {Port, _PgPid} ->
-            Self ! {'$node_started', Node, Port},
-            controller_wait()
-    end.
-
-controller_wait() ->
-    Port =
-        receive
-            {socket, Port0} ->
-                Port0
-        end,
-    MRef = monitor(port, Port),
-    receive
-        {'DOWN', MRef, port, Port, _Info} ->
-            ok
-    end.
-
-%% @doc Stops the node previously started with spawn_node,
-%%      and also closes the RPC socket.
--spec stop_node(node(), gen_tcp:socket()) -> true.
-stop_node(Node, Socket) when Node =/= node() ->
-    true = test_server:stop_node(Node),
-    Socket =/= undefined andalso gen_tcp:close(Socket),
-    true.
 
 forever() ->
     Parent = self(),
@@ -766,49 +668,13 @@ forever() ->
             end
     end.
 
+spawn_node(TestCase) ->
+    {Peer, Node} = spawn_disconnected_node(TestCase, TestCase),
+    true = net_kernel:connect_node(Node),
+    {Peer, Node}.
 
--spec control(Scope :: atom()) -> {Port :: integer(), pid()}.
-control(Scope) ->
-    Control = self(),
-    erlang:spawn(fun () -> server(Control, Scope) end),
-    receive
-        {port, Port, PgPid} ->
-            {Port, PgPid};
-        Other ->
-            error({error, Other})
-    end.
-
-server(Control, Scope) ->
-    try
-        {ok, Pid} = if Scope =:= undefined -> {ok, undefined}; true -> pg:start(Scope) end,
-        {ok, Listen} = gen_tcp:listen(0, [{mode, binary}, {packet, 4}, {ip, ?LOCALHOST}]),
-        {ok, Port} = inet:port(Listen),
-        Control ! {port, Port, Pid},
-        {ok, Sock} = gen_tcp:accept(Listen),
-        server_loop(Sock)
-    catch
-        Class:Reason:Stack ->
-            Control ! {error, {Class, Reason, Stack}}
-    end.
-
-server_loop(Sock) ->
-    inet:setopts(Sock, [{active, once}]),
-    receive
-        {tcp, Sock, Data} ->
-            {call, M, F, A} = binary_to_term(Data),
-            Ret =
-                try
-                    erlang:apply(M, F, A) of
-                    Res ->
-                        {ok, Res}
-                catch
-                    exit:Reason ->
-                        {error, {'EXIT', Reason}};
-                    error:Reason ->
-                        {error, {'EXIT', Reason}}
-                end,
-            ok = gen_tcp:send(Sock, term_to_binary(Ret)),
-            server_loop(Sock);
-        {tcp_closed, Sock} ->
-            erlang:halt(1)
-    end.
+spawn_disconnected_node(Scope, TestCase) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(TestCase), connection => 0,
+        args => ["-connect_all", "false", "-kernel", "dist_auto_connect", "never"]}),
+    {ok, _Pid} = peer:call(Peer, pg, start, [Scope]),
+    {Peer, Node}.

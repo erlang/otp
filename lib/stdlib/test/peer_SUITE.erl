@@ -134,7 +134,8 @@ peer_down_crash() ->
 
 peer_down_crash(Config) when is_list(Config) ->
     %% two-way link: "crash" mode
-    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME), peer_down => crash}),
+    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME),
+        args => ["-connect_all", "false"], peer_down => crash}),
     %% verify node started locally
     ?assertEqual(Node, erpc:call(Node, erlang, node, [])),
     %% verify there is no alternative connection
@@ -157,7 +158,8 @@ peer_down_continue() ->
     [{doc, "Tests peer_down handling for continue setting"}].
 
 peer_down_continue(Config) when is_list(Config) ->
-    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME), peer_down => continue}),
+    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME),
+        args => ["-connect_all", "false"], peer_down => continue}),
     ?assertEqual(ok, erpc:cast(Node, erlang, halt, [])),
     ct:sleep(500),
     sys:replace_state(net_kernel, fun(S) -> sys:get_state(Peer), S end),
@@ -179,7 +181,7 @@ dist_io_redirect(Config) when is_list(Config) ->
     %% 'peer' relays output via control process group leader.
     ct:capture_start(),
     {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME),
-        args => ["-eval", "io:format(\"out\")."]}),
+        args => ["-connect_all", "false", "-eval", "io:format(\"out\")."]}),
     %% RPC is smart enough to set the group leader, so force 'user' output
     %% to check that peer node redirects 'user' to the current process group
     %% leader.

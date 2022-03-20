@@ -255,12 +255,12 @@ via_logger_process(Config) ->
 
 other_node(_Config) ->
     error_logger:add_report_handler(?MODULE, self()),
-    {ok,Node} = test_server:start_node(?FUNCTION_NAME,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     ok = rpc:call(Node,logger,add_handler,[error_logger,error_logger,
                                            #{level=>info,filter_default=>log}]),
     rpc:call(Node,error_logger,error_report,[hi_from_remote]),
     reported(error_report,std_error,hi_from_remote),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 

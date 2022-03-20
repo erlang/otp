@@ -21,159 +21,126 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, start/1, restart/1, 
-	 reboot/1,
-	 node_start_immediately_after_crash/1,
-	 node_start_soon_after_crash/1,
-	 set_cmd/1, clear_cmd/1, get_cmd/1,
-	 callback_api/1,
-         options_api/1,
-	 dont_drop/1, kill_pid/1, heart_no_kill/1]).
+%% Test suite exports
+-export([
+    all/0, suite/0,
+    init_per_suite/1, end_per_suite/1
+]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
+%% Test case exports
+-export([
+    start/0, start/1,
+    restart/0, restart/1,
+    reboot/0, reboot/1,
+    node_start_immediately_after_crash/1,
+    node_start_soon_after_crash/1,
+    set_cmd/1, clear_cmd/1, get_cmd/1,
+    callback_api/1, options_api/1, dont_drop/1,
+    kill_pid/0, kill_pid/1,
+    heart_no_kill/0, heart_no_kill/1
+]).
 
--export([start_heart_stress/1, mangle/1, suicide_by_heart/0, non_suicide_by_heart/0]).
-
--define(DEFAULT_TIMEOUT_SECS, 120).
-
--define(UNIQ_NODE_NAME,
-  list_to_atom(?MODULE_STRING ++ "__" ++
-               atom_to_list(?FUNCTION_NAME) ++ "_" ++
-	       integer_to_list(erlang:unique_integer([positive])))).
-
-init_per_testcase(_Func, Config) ->
-    Config.
-
-end_per_testcase(_Func, _Config) ->
-    Nodes = nodes(),
-    lists:foreach(fun(X) ->
-		NNam = list_to_atom(hd(string:tokens(atom_to_list(X),"@"))),
-		case NNam of
-		    heart_test ->
-			ct:pal(?HI_VERBOSITY, "WARNING: Killed ~p~n", [X]),
-			rpc:cast(X, erlang, halt, []);
-		    _ ->
-			ok
-		end
-	end, Nodes).
+%% Internal exports used by peer nodes
+-export([
+    start_heart_stress/1, mangle/1,
+    suicide_by_heart/0, non_suicide_by_heart/0,
+    exhaust_atoms/0
+]).
 
 %%-----------------------------------------------------------------
-%% Test suite for heart.
-%% Should be started in a CC view with:
-%% erl -sname master -rsh ctrsh
-%%-----------------------------------------------------------------
+%% Test suite for heart
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,2}}].
+    [{ct_hooks, [ts_install_cth]}, {timetrap, {minutes,2}}].
 
-all() -> [
-	start, restart, reboot,
-	node_start_immediately_after_crash,
-	node_start_soon_after_crash,
-	set_cmd, clear_cmd, get_cmd,
-	callback_api,
-        options_api,
-	kill_pid,
-        heart_no_kill
-    ].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
+all() ->
+    [
+        start, restart, reboot,
+        node_start_immediately_after_crash,
+        node_start_soon_after_crash,
+        set_cmd, clear_cmd, get_cmd, callback_api,
+        options_api, kill_pid, heart_no_kill].
 
 init_per_suite(Config) when is_list(Config) ->
     case os:type() of
-	{win32, windows} ->
-	    {skipped, "No use to run on Windows 95/98"};
-	_ ->
-	    ignore_cores:init(Config)
+        {win32, windows} ->
+            {skipped, "No use to run on Windows 95/98"};
+        _ ->
+            ignore_cores:init(Config)
     end.
+
 end_per_suite(Config) when is_list(Config) ->
     ignore_cores:fini(Config).
 
+%%-----------------------------------------------------------------
+%% Test suite for heart
 
-start_check(Type, Name) ->
-    start_check(Type, Name, []).
-start_check(Type, Name, Envs) ->
-    Args = case os:type() of
-	{win32,_} ->
-	    "+t50000 -heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
-	_ ->
-	    "+t50000 -heart " ++ env_encode(Envs)
-    end,
-    {ok, Node} = case Type of
-	loose ->
-	    loose_node:start(Name, Args, ?DEFAULT_TIMEOUT_SECS);
-	_ ->
-	    test_server:start_node(Name, Type, [{args, Args}])
-    end,
+heart_args() ->
+    Common = ["-heart"],
+    case os:type() of
+        {win32, _} ->
+            Common ++ ["-env", "HEART_COMMAND", "no_reboot"];
+        _ ->
+            Common
+    end.
+
+heart_monitor(Node) ->
     erlang:monitor_node(Node, true),
-    case rpc:call(Node, erlang, whereis, [heart]) of
-	Pid when is_pid(Pid) ->
-	    ok;
-	_ ->
-	    ct:fail(heart_not_started)
-    end,
-    {ok, Node}.
+    %% assert that peer node has a heart
+    is_pid(rpc:call(Node, erlang, whereis, [heart])) orelse
+        ct:fail(heart_not_started),
+    ok.
+
+start() ->
+    [{doc, "Test that node is down after init:reboot"}].
 
 start(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
-    rpc:call(Node, init, reboot, []),
+    {ok, _Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
+    ok = rpc:call(Node, init, reboot, []),
     receive
-	{nodedown, Node} -> ok
-    after 2000 -> ct:fail(node_not_closed)
+        {nodedown, Node} ->
+            ok
+    after
+        2000 -> ct:fail(node_not_closed)
     end,
     timer:sleep(5000),
-    case net_adm:ping(Node) of
-	pang ->
-	    ok;
-	_ -> 
-	    ct:fail(node_rebooted)
-    end,
-    test_server:stop_node(Node).
+    net_adm:ping(Node) =:= pang orelse
+        ct:fail(node_rebooted).
+
+restart() ->
+    [{doc, "Check that a node is up and running after a init:restart/0"}].
 
 %% Also test fixed bug in R1B (it was not possible to
 %% do init:stop/0 on a restarted system before)
 %% Slave executes erlang:halt() on master nodedown.
 %% Therefore the slave process has to be killed
 %% before restart.
-
-%% restart
-%% Purpose:
-%%   Check that a node is up and running after a init:restart/0
 restart(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME),
-    rpc:call(Node, init, restart, []),
+    {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => heart_args()}),
+    heart_monitor(Node),
+    ok = rpc:call(Node, init, restart, []),
     receive
-	{nodedown, Node} ->
-	    ok
+	    {nodedown, Node} ->
+	        ok
     after 5000 ->
 	    ct:fail(node_not_closed)
     end,
     timer:sleep(5000),
     node_check_up_down(Node, 2000),
-    loose_node:stop(Node).
+    peer:stop(Peer).
 
-%% reboot
-%% Purpose:
-%%   Check that a node is up and running after a init:reboot/0
+reboot() ->
+    [{doc, "Check that a node is up and running after a init:reboot/0"}].
+
 reboot(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
-
+    {ok, _Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
     ok = rpc:call(Node, heart, set_cmd,
-			[ct:get_progname() ++
-			 " -noshell -heart " ++ name(Node) ++ "&"]),
-    rpc:call(Node, init, reboot, []),
+        [ct:get_progname() ++ " -noshell -heart " ++ name(Node) ++ "&"]),
+    ok = rpc:call(Node, init, reboot, []),
     receive
-	{nodedown, Node} ->
-	    ok
+        {nodedown, Node} ->
+            ok
     after 2000 ->
 	    ct:fail(node_not_closed)
     end,
@@ -187,50 +154,40 @@ reboot(Config) when is_list(Config) ->
 %%   This test exhausts the atom table on the remote node.
 %%   ERL_CRASH_DUMP_SECONDS=0 will force beam not to dump an erl_crash.dump.
 %% May currently dump core in beam debug build due to lock-order violation
-%% This should be removed when a non-lockad information retriever is implemented
+%% This should be removed when a non-locked information retriever is implemented
 %% for crash dumps
 node_start_immediately_after_crash(Config) when is_list(Config) ->
-    Config2 = ignore_cores:setup(?MODULE, node_start_immediately_after_crash, Config, true),
+    Config2 = ignore_cores:setup(?MODULE, ?FUNCTION_NAME, Config, true),
     try
-	node_start_immediately_after_crash_test(Config2)
+        node_start_immediately_after_crash_test(Config2)
     after
-	ignore_cores:restore(Config2)
+        ignore_cores:restore(Config2)
     end.
- 
 
 node_start_immediately_after_crash_test(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME,
-			     [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
+    {ok, _Peer, Node} = ?CT_PEER(#{connection => standard_io,
+        args => heart_args() ++ ["-env", "ERL_CRASH_DUMP_SECONDS", "0"]}),
+    heart_monitor(Node),
 
     ok = rpc:call(Node, heart, set_cmd,
-	[ct:get_progname() ++
-	    " -noshell -heart " ++ name(Node) ++ "&"]),
-
-    Mod  = exhaust_atoms,
-
-    Code = generate(Mod, [], [
-	    "do() -> "
-	    "  Set = lists:seq($a,$z), "
-	    "  [ list_to_atom([A,B,C,D,E]) || "
-	    "  A <- Set, B <- Set, C <- Set, E <- Set, D <- Set ]."
-	]),
+        [ct:get_progname() ++ " -noshell -heart " ++ name(Node) ++ "&"]),
 
     %% crash it with atom exhaustion
-    rpc:call(Node, erlang, load_module, [Mod, Code]),
-    rpc:cast(Node, Mod, do, []),
+    rpc:cast(Node, ?MODULE, exhaust_atoms, []),
 
-    T0 = now(),
-
-    receive {nodedown, Node} ->
-	    io:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
-	    ok
+    T0 = erlang:monotonic_time(),
+    receive
+        {nodedown, Node} ->
+        Msec = erlang:convert_time_unit(erlang:monotonic_time() - T0, native, millisecond),
+        io:format("Took ~.2f s. for node to go down~n", [Msec / 1000]),
+        ok
     %% timeout is very liberal here. nodedown is received in about 1 s. on linux (palantir)
     %% and in about 10 s. on solaris (carcharoth)
-    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
+    after (15000 * test_server:timetrap_scale_factor()) ->
+        ct:fail(node_not_closed)
     end,
     timer:sleep(3000),
-    node_check_up_down(Node, 2000),
-    loose_node:stop(Node).
+    node_check_up_down(Node, 2000).
 
 %% node_start_soon_after_crash
 %% Purpose:
@@ -238,63 +195,49 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
 %%   This test exhausts the atom table on the remote node.
 %%   ERL_CRASH_DUMP_SECONDS=10 will force beam
 %%   to only dump an erl_crash.dump for 10 seconds.
-%% May currently dump core in beam debug build due to lock-order violation
-%% This should be removed when a non-lockad information retriever is implemented
-%% for crash dumps
 node_start_soon_after_crash(Config) when is_list(Config) ->
-    Config2 = ignore_cores:setup(?MODULE, node_start_soon_after_crash, Config, true),
+    Config2 = ignore_cores:setup(?MODULE, ?FUNCTION_NAME, Config, true),
     try
-	node_start_soon_after_crash_test(Config2)
+        node_start_soon_after_crash_test(Config2)
     after
-	ignore_cores:restore(Config2)
+        ignore_cores:restore(Config2)
     end.
- 
+
 node_start_soon_after_crash_test(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME,
-			     [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
+    {ok, _Peer, Node} = ?CT_PEER(#{connection => standard_io,
+        args => heart_args() ++ ["-env", "ERL_CRASH_DUMP_SECONDS", "10"]}),
+    heart_monitor(Node),
 
     ok = rpc:call(Node, heart, set_cmd,
-	[ct:get_progname() ++
-	    " -noshell -heart " ++ name(Node) ++ "&"]),
+        [ct:get_progname() ++ " -noshell -heart " ++ name(Node) ++ "&"]),
 
-    Mod  = exhaust_atoms,
-
-    Code = generate(Mod, [], [
-	    "do() -> "
-	    "  Set = lists:seq($a,$z), "
-	    "  [ list_to_atom([A,B,C,D,E]) || "
-	    "  A <- Set, B <- Set, C <- Set, E <- Set, D <- Set ]."
-	]),
-
-    %% crash it with atom exhaustion
-    rpc:call(Node, erlang, load_module, [Mod, Code]),
-    rpc:cast(Node, Mod, do, []),
+    rpc:cast(Node, ?MODULE, exhaust_atoms, []),
 
     receive {nodedown, Node} -> ok
-    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
+    after (15000 * test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
     timer:sleep(20000),
-    node_check_up_down(Node, 15000),
-    loose_node:stop(Node).
+    node_check_up_down(Node, 15000).
 
 
 node_check_up_down(Node, Tmo) ->
     case net_adm:ping(Node) of
-	pong ->
-	    erlang:monitor_node(Node, true),
-	    rpc:call(Node, init, reboot, []),
-	    receive
-		{nodedown, Node} -> ok
-	    after Tmo ->
-		    ct:fail(node_not_closed2)
-	    end;
-	_ ->
-	    ct:fail(node_not_rebooted)
+        pong ->
+            erlang:monitor_node(Node, true),
+            rpc:call(Node, init, reboot, []),
+            receive
+                {nodedown, Node} -> ok
+            after Tmo ->
+                ct:fail(node_not_closed2)
+            end;
+        _ ->
+            ct:fail(node_not_rebooted)
     end.
 
 %% Only tests bad command, correct behaviour is tested in reboot/1.
 set_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
+    {ok, Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
     Cmd = wrong_atom,
     {error, {bad_cmd, Cmd}} = rpc:call(Node, heart, set_cmd, [Cmd]),
     Cmd1 = lists:duplicate(2047, $a),
@@ -303,49 +246,51 @@ set_cmd(Config) when is_list(Config) ->
     ok = rpc:call(Node, heart, set_cmd, [Cmd2]),
     Cmd3 = lists:duplicate(2000, $a),
     ok = rpc:call(Node, heart, set_cmd, [Cmd3]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 clear_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
+    {ok, _Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
     ok = rpc:call(Node, heart, set_cmd,
-			[ct:get_progname() ++
-			 " -noshell -heart " ++ name(Node) ++ "&"]),
+        [ct:get_progname() ++
+            " -noshell -heart " ++ name(Node) ++ "&"]),
     rpc:call(Node, init, reboot, []),
     receive
-	{nodedown, Node} ->
-	    ok
+        {nodedown, Node} ->
+            ok
     after 2000 ->
-	    ct:fail(node_not_closed)
+        ct:fail(node_not_closed)
     end,
     timer:sleep(5000),
     case net_adm:ping(Node) of
-	pong ->
-	    erlang:monitor_node(Node, true);
-	_ ->
-	    ct:fail(node_not_rebooted)
+        pong ->
+            erlang:monitor_node(Node, true);
+        _ ->
+            ct:fail(node_not_rebooted)
     end,
     ok = rpc:call(Node, heart, set_cmd,
-			["erl -noshell -heart " ++ name(Node) ++ "&"]),
+        ["erl -noshell -heart " ++ name(Node) ++ "&"]),
     ok = rpc:call(Node, heart, clear_cmd, []),
     rpc:call(Node, init, reboot, []),
     receive
-	{nodedown, Node} ->
-	    ok
+        {nodedown, Node} ->
+            ok
     after 2000 ->
-	    ct:fail(node_not_closed)
+        ct:fail(node_not_closed)
     end,
     timer:sleep(5000),
     case net_adm:ping(Node) of
-	pang ->
-	    ok;
-	_ ->
-	    ct:fail(node_rebooted)
+        pang ->
+            ok;
+        _ ->
+            ct:fail(node_rebooted)
     end,
     ok.
 
 get_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
+    {ok, Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
 
     ShortCmd = "test",
     ok  = rpc:call(Node, heart, set_cmd, [ShortCmd]),
@@ -356,11 +301,12 @@ get_cmd(Config) when is_list(Config) ->
     ok  = rpc:call(Node, heart, set_cmd, [LongCmd]),
     {ok, LongCmd} = rpc:call(Node, heart, get_cmd, []),
 
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 callback_api(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
+    {ok, _Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
     none = rpc:call(Node, heart, get_callback, []),
     M0 = self(),
     F0 = ok,
@@ -390,11 +336,11 @@ callback_api(Config) when is_list(Config) ->
     receive {nodedown, Node} -> ok
     after 5000 -> ct:fail(node_not_killed)
     end,
-    stop_node(Node),
     ok.
 
 options_api(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
+    {ok, Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
     none = rpc:call(Node, heart, get_options, []),
     M0 = self(),
     F0 = ok,
@@ -418,7 +364,7 @@ options_api(Config) when is_list(Config) ->
 
     ok = rpc:call(Node, heart, set_options, [[]]),
     none = rpc:call(Node, heart, get_options, []),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 
@@ -447,11 +393,14 @@ do_dont_drop(Config,N) ->
     FirstCmd = erl() ++ name(NN2 ++ "@" ++ Host),
     %% Separated the parameters to start_node_run for clarity...
     Name = list_to_atom(NN1),
-    Env = [{"HEART_COMMAND", FirstCmd}],
-    Func = "start_heart_stress",
-    Arg = NN3 ++ "@" ++ Host ++ " " ++
-	filename:join(proplists:get_value(data_dir, Config), "simple_echo"),
-    start_node_run(Name,Env,Func,Arg),
+    EchoPath = filename:join(proplists:get_value(data_dir, Config), "simple_echo"),
+    Peer3Name = list_to_atom(NN3 ++ "@" ++ Host),
+    %%
+    PA = filename:dirname(code:which(?MODULE)),
+    Params = ["-heart", "-pa", PA, "-env", "HEART_COMMAND", FirstCmd],
+    {ok, Peer, _Node} = ?CT_PEER(#{name => Name, args => Params}),
+    peer:call(Peer, ?MODULE, start_heart_stress, [Peer3Name, EchoPath]),
+    %%
     case wait_for_any_of(list_to_atom(NN2 ++ "@" ++ Host),
 	    list_to_atom(NN3 ++ "@" ++ Host)) of
 	2 ->
@@ -483,53 +432,32 @@ wait_for_any_of(N1,N2,Times) ->
     end.
 
 
-%% Tests that heart kills the old erlang node before executing
-%% heart command.
+kill_pid() ->
+    [{doc, "Tests that heart kills the old erlang node before executing heart command."}].
+
 kill_pid(Config) when is_list(Config) ->
-    ok = do_kill_pid(Config).
-
-do_kill_pid(_Config) ->
-    Name = ?UNIQ_NODE_NAME,
-    Env = [{"HEART_COMMAND", "nickeNyfikenFarEttJobb"}],
-    {ok,Node} = start_node_run(Name,Env,suicide_by_heart,[]),
-    ok = wait_for_node(Node,15),
+    {ok, _Peer, Node} = ?CT_PEER(heart_args() ++ ["-env", "HEART_COMMAND", "nickeNyfikenFarEttJobb"]),
+    heart_monitor(Node),
+    true = rpc:cast(Node, ?MODULE, suicide_by_heart, []),
     erlang:monitor_node(Node, true),
-    receive {nodedown,Node} -> ok
+    receive {nodedown, Node} -> ok
     after 30000 ->
-	    false
+        ct:fail(heart_did_not_kill_old_node)
     end.
 
 
-heart_no_kill(suite) ->
-    [];
-heart_no_kill(doc) ->
-    ["Tests that heart doesn't kill the old erlang node when ",
-     "HEART_NO_KILL is set."];
+heart_no_kill() ->
+    [{doc, "Tests that heart doesn't kill the old erlang node when HEART_NO_KILL is set."}].
+
 heart_no_kill(Config) when is_list(Config) ->
-    ok = do_no_kill(Config).
-
-do_no_kill(_Config) ->
-    Name = heart_test,
-    {ok,Node} = start_node_run(Name,[],non_suicide_by_heart,[]),
-    io:format("Node is ~p~n", [Node]),
-    ok = wait_for_node(Node,15),
-    io:format("wait_for_node is ~p~n", [ok]),
-    erlang:monitor_node(Node, true),
-    receive {nodedown,Node} -> false
+    {ok, Peer, Node} = ?CT_PEER(heart_args()),
+    heart_monitor(Node),
+    true = rpc:cast(Node, ?MODULE, non_suicide_by_heart, []),
+    receive
+        {nodedown, Node} ->
+            ct:fail(heart_killed_old_node)
     after 30000 ->
-	    io:format("Node didn't die..\n"),
-	    rpc:call(Node,init,stop,[]),
-	    io:format("done init:stop..\n"),
-	    ok
-    end.
-
-wait_for_node(_,0) ->
-    false;
-wait_for_node(Node,N) ->
-    receive after 1000 -> ok end,
-    case net_adm:ping(Node) of
-	pong -> ok;
-	pang -> wait_for_node(Node,N-1)
+        peer:stop(Peer)
     end.
 
 erl() ->	   
@@ -537,133 +465,105 @@ erl() ->
 	{win32,_} -> "werl ";
 	_ -> "erl "
     end.
-    
-name(Node) when is_list(Node) -> name(Node,[]);
-name(Node) when is_atom(Node) -> name(atom_to_list(Node),[]).
 
-name([$@|Node], Name) ->
+name(Node) when is_list(Node) -> name(Node, []);
+name(Node) when is_atom(Node) -> name(atom_to_list(Node), []).
+
+name([$@ | Node], Name) ->
     case lists:member($., Node) of
-	true ->
-	    "-name " ++ lists:reverse(Name);
-	_ ->
-	    "-sname " ++ lists:reverse(Name)
+        true ->
+            "-name " ++ lists:reverse(Name);
+        _ ->
+            "-sname " ++ lists:reverse(Name)
     end;
-name([H|T], Name) ->
-    name(T, [H|Name]).
+name([H | T], Name) ->
+    name(T, [H | Name]).
 
 
-enc(A) when is_atom(A) -> atom_to_list(A);
-enc(A) when is_binary(A) -> binary_to_list(A);
-enc(A) when is_list(A) -> A.
-
-env_encode([]) -> [];
-env_encode([{X,Y}|T]) ->
-    "-env " ++ enc(X) ++ " \"" ++ enc(Y) ++ "\" " ++ env_encode(T).
-
-%%%
-%%% Starts a node and runs a function in this
-%%% module.
-%%% Name is the node name as either atom or string,
-%%% Env is a list of Tuples containing name-value pairs.
-%%% Function is the function to run in this module
-%%% Argument is the argument(s) to send through erl -s
-%%%
-start_node_run(Name, Env, Function, Argument) -> 
-    PA = filename:dirname(code:which(?MODULE)),
-    Params = "-heart " ++ env_encode(Env) ++ " -pa " ++ PA ++
-	" -s " ++
-	enc(?MODULE) ++ " " ++ enc(Function) ++ " " ++
-	enc(Argument),
-    start_node(Name, Params).
-
-start_node(Name, Param) ->
-    test_server:start_node(Name, slave, [{args, Param}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
-
-
-%%% This code is run in a slave node to ensure that 
-%%% A heart command really gets set synchronously 
+%%% This code is run in a peer node to ensure that
+%%% A heart command really gets set synchronously
 %%% and cannot get "dropped".
 
-send_to(_,_,0) ->
+send_to(_, _, 0) ->
     ok;
-send_to(Port,D,N) ->
-    Port ! {self(),{command,D}},
-    send_to(Port,D,N-1).
+send_to(Port, D, N) ->
+    Port ! {self(), {command, D}},
+    send_to(Port, D, N - 1).
 
-receive_from(_,_,0) ->
+receive_from(_, _, 0) ->
     ok;
 
-receive_from(Port,D,N) ->
+receive_from(Port, D, N) ->
     receive
-	{Port, {data,{eol,_Data}}} ->
-	    receive_from(Port,D,N-1);
-	X ->
-	    io:format("Got garbage ~p~n",[X])
+        {Port, {data, {eol, _Data}}} ->
+            receive_from(Port, D, N - 1);
+        X ->
+            io:format("Got garbage ~p~n", [X])
     end.
 
 mangle(PP) when is_list(PP) ->
-    Port = open_port({spawn,PP},[{line,100}]),
+    Port = open_port({spawn, PP}, [{line, 100}]),
     mangle(Port);
 
 mangle(Port) ->
-    send_to(Port, "ABCDEFGHIJ" ++ io_lib:nl(),1),
-    receive_from(Port,"ABCDEFGHIJ",1),
+    send_to(Port, "ABCDEFGHIJ" ++ io_lib:nl(), 1),
+    receive_from(Port, "ABCDEFGHIJ", 1),
     mangle(Port).
 
 
 
-explode(0,_) ->
+explode(0, _) ->
     ok;
-explode(N,PP) ->
-    spawn(?MODULE,mangle,[PP]),
-    explode(N-1,PP).
+explode(N, PP) ->
+    spawn(?MODULE, mangle, [PP]),
+    explode(N - 1, PP).
 
-start_heart_stress([NewName,PortProgram]) ->
-    explode(10,atom_to_list(PortProgram)),
-    NewCmd = erl() ++ name(NewName), 
+start_heart_stress([NewName, PortProgram]) ->
+    explode(10, atom_to_list(PortProgram)),
+    NewCmd = erl() ++ name(NewName),
     %%io:format("~p~n",[NewCmd]),
     receive
     after 10000 ->
-	    heart:set_cmd(NewCmd),
-	    halt()
+        heart:set_cmd(NewCmd),
+        halt()
     end.
 
 suicide_by_heart() ->
     %%io:format("Suicide starting...~n"),
-    open_port({spawn,"heart -ht 11 -pid "++os:getpid()},[{packet,2}]),
+    open_port({spawn, "heart -ht 11 -pid " ++ os:getpid()}, [{packet, 2}]),
     receive X -> X end,
     %% Just hang and wait for heart to timeout
     receive
-	{makaronipudding} ->
-	    sallad
+        {makaronipudding} ->
+            sallad
     end.
 
 non_suicide_by_heart() ->
-    P = open_port({spawn,"heart -ht 11 -pid "++os:getpid()},
-                  [exit_status, {env, [{"HEART_NO_KILL", "TRUE"}]},
-                   {packet,2}]),
+    P = open_port({spawn, "heart -ht 11 -pid " ++ os:getpid()},
+        [exit_status, {env, [{"HEART_NO_KILL", "TRUE"}]},
+            {packet, 2}]),
     receive X -> X end,
     %% Just hang and wait for heart to timeout
     receive
-	{P,{exit_status,_}} ->
-	    ok
+        {P, {exit_status, _}} ->
+            ok
     after
-	20000 ->
-	    exit(timeout)
+        20000 ->
+            exit(timeout)
     end.
 
+exhaust_atoms() ->
+    Set = lists:seq($a,$z),
+    [list_to_atom([A,B,C,D,E]) || A <- Set, B <- Set, C <- Set, E <- Set, D <- Set].
 
 %% generate a module from binary
 generate(Module, Attributes, FunStrings) ->
     FunForms = function_forms(FunStrings),
-    Forms    = [
-	{attribute,a(1),module,Module},
-	{attribute,a(2),export,[FA || {FA,_} <- FunForms]}
-    ] ++ [{attribute, a(3), A, V}|| {A, V} <- Attributes] ++
-    [ Function || {_, Function} <- FunForms],
+    Forms = [
+        {attribute, a(1), module, Module},
+        {attribute, a(2), export, [FA || {FA, _} <- FunForms]}
+    ] ++ [{attribute, a(3), A, V} || {A, V} <- Attributes] ++
+        [Function || {_, Function} <- FunForms],
     {ok, Module, Bin} = compile:forms(Forms),
     Bin.
 
@@ -671,9 +571,9 @@ a(L) ->
     erl_anno:new(L).
 
 function_forms([]) -> [];
-function_forms([S|Ss]) ->
-    {ok, Ts,_} = erl_scan:string(S),
+function_forms([S | Ss]) ->
+    {ok, Ts, _} = erl_scan:string(S),
     {ok, Form} = erl_parse:parse_form(Ts),
-    Fun   = element(3, Form),
+    Fun = element(3, Form),
     Arity = element(4, Form),
-    [{{Fun,Arity}, Form}|function_forms(Ss)].
+    [{{Fun, Arity}, Form} | function_forms(Ss)].

@@ -38,8 +38,7 @@
 
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     case logger:get_handler_config(?STANDARD_HANDLER) of
@@ -878,14 +877,13 @@ via_logger_process(cleanup, Config) ->
 other_node(_Config) ->
     ok = logger:add_handler(h1,?MODULE,#{level=>notice,filter_default=>log,
                                          tc_proc=>self()}),
-    {ok,Node} = test_server:start_node(?FUNCTION_NAME,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     rpc:call(Node,logger,error,[Msg=?str,#{}]),
     check_logged(error,Msg,#{}),
+    peer:stop(Peer),
     ok.
 
 other_node(cleanup,_Config) ->
-    Nodes = nodes(),
-    [test_server:stop_node(Node) || Node <- Nodes],
     logger:remove_handler(h1),
     ok.
 
@@ -957,7 +955,7 @@ process_metadata(cleanup,_Config) ->
 
 app_config(Config) ->
     %% Start a node with default configuration
-    {ok,_,Node} = logger_test_lib:setup(Config,[]),
+    {ok, _, Peer, Node} = logger_test_lib:setup(Config,[]),
 
     App1Name = app1,
     App1 = {application, App1Name,
@@ -979,35 +977,35 @@ app_config(Config) ->
     {ok,#{filters:=DF}} = rpc:call(Node,logger,get_handler_config,[default]),
     {ok,#{filters:=[]}} = rpc:call(Node,logger,get_handler_config,[myh]),
 
-    true = test_server:stop_node(Node),
+    ok = peer:stop(Peer),
 
     %% Start a node with no default handler, then add an own default handler
-    {ok,#{handlers:=[#{id:=simple}]},Node} =
-        logger_test_lib:setup(Config,[{logger,[{handler,default,undefined}]}]),
+    {ok, #{handlers := [#{id := simple}]}, Peer2, Node2} =
+        logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
 
-    ok = rpc:call(Node,application,load,[App1]),
-    ok = rpc:call(Node,application,set_env,
+    ok = rpc:call(Node2,application,load,[App1]),
+    ok = rpc:call(Node2,application,set_env,
                   [App1Name,logger,[{handler,default,logger_std_h,#{}}]]),
-    ok = rpc:call(Node,logger,add_handlers,[App1Name]),
+    ok = rpc:call(Node2,logger,add_handlers,[App1Name]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
-        rpc:call(Node,logger,get_config,[]),
+        rpc:call(Node2,logger,get_config,[]),
 
-    true = test_server:stop_node(Node),
+    ok = peer:stop(Peer2),
 
     %% Start a silent node, then add an own default handler
-    {ok,#{handlers:=[]},Node} =
+    {ok,#{handlers:=[]}, Peer3, Node3} =
         logger_test_lib:setup(Config,[{error_logger,silent}]),
 
     {error,{bad_config,{handler,[{some,bad,config}]}}} =
-        rpc:call(Node,logger,add_handlers,[[{some,bad,config}]]),
-    ok = rpc:call(Node,logger,add_handlers,
+        rpc:call(Node3,logger,add_handlers,[[{some,bad,config}]]),
+    ok = rpc:call(Node3,logger,add_handlers,
                   [[{handler,default,logger_std_h,#{}}]]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
-        rpc:call(Node,logger,get_config,[]),
+        rpc:call(Node3,logger,get_config,[]),
 
-    ok.
+    ok = peer:stop(Peer3).
 
 %% This test case is mainly to see code coverage. Note that
 %% logger_env_var_SUITE tests a lot of the same, and checks the
@@ -1018,7 +1016,7 @@ kernel_config(Config) ->
     %% start by calling logger:reconfigure(). This is to test all
     %% variants of kernel config, including bad config, and see
     %% the code coverage.
-    {ok,#{handlers:=[#{id:=simple,filters:=DF}]}=LC,Node} =
+    {ok,#{handlers:=[#{id:=simple,filters:=DF}]}=LC, Peer, Node} =
         logger_test_lib:setup(Config,[{error_logger,false}]),
 
     %% Same once more, to get coverage
@@ -1152,7 +1150,7 @@ kernel_config(Config) ->
     {error,{bad_config,{kernel,{invalid_level,bad}}}} =
         rpc:call(Node,logger,reconfigure,[]),
 
-    ok.
+    ok = peer:stop(Peer).
 
 pretty_print(_Config) ->
     ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),

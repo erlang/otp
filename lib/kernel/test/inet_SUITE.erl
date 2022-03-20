@@ -965,13 +965,11 @@ gethostnative_parallell(Config) when is_list(Config) ->
     end.
 
 do_gethostnative_parallell() ->
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(gethost_parallell, slave,
-				       [{args, "-pa " ++ PA}]),
+    {ok,Peer,Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, parallell_gethost, []),
     receive after 10000 -> ok end,
     pong = net_adm:ping(Node),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 parallell_gethost() ->
@@ -1102,9 +1100,7 @@ missing_hosts_reload(Config) when is_list(Config) ->
     ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
     {error, enoent} = file:read_file_info(HostsFile),
     % start a node
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, TestNode} = test_server:start_node(?MODULE, slave,
-        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    {ok, Peer, TestNode} = ?CT_PEER(["-kernel", "inetrc", "\"" ++ InetRc ++ "\""]),
     % ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
@@ -1118,7 +1114,7 @@ missing_hosts_reload(Config) when is_list(Config) ->
     {ok,{hostent,"somehost",[],inet,4,[{1,2,3,4}]}} =
         rpc:call(TestNode, inet_hosts, gethostbyname, ["somehost"]),
     % cleanup
-    true = test_server:stop_node(TestNode).
+    peer:stop(Peer).
 
 
 %% The /etc/hosts file format and limitations is quite undocumented.
@@ -1196,9 +1192,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
     %%
     %% start a node
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, TestNode} = test_server:start_node(?MODULE, slave,
-        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    {ok, Peer, TestNode} = ?CT_PEER(["-kernel", "inetrc", "\"" ++ InetRc ++ "\""]),
     %% ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
@@ -1245,7 +1239,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     hosts_file_quirks_verify(TestNode, V1),
     %%
     %% cleanup
-    true = test_server:stop_node(TestNode).
+    peer:stop(Peer).
 
 hosts_file_quirks_verify(_TestNode, Vs) ->
     hosts_file_quirks_verify(_TestNode, Vs, true).

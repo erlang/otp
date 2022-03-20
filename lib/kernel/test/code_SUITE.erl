@@ -657,8 +657,7 @@ set_path_file(Config) when is_list(Config) ->
 %% Test that a module with the same name as a module in
 %% a sticky directory cannot be loaded.
 sticky_dir(Config) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     Mods = [code,lists,erlang,init],
     OutDir = filename:join(proplists:get_value(priv_dir, Config), sticky_dir),
     _ = file:make_dir(OutDir),
@@ -671,7 +670,7 @@ sticky_dir(Config) when is_list(Config) ->
 	    io:format("~p\n", [Other]),
 	    ct:fail(failed)
     end,
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 sticky_compiler(Files, PrivDir) ->
@@ -709,22 +708,17 @@ pa_pz_option(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
     PaDir = filename:join(DDir,"pa"),
     PzDir = filename:join(DDir,"pz"),
-    {ok, Node}=test_server:start_node(pa_pz1, slave,
-	[{args,
-		"-pa " ++ PaDir
-		++ " -pz " ++ PzDir}]),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", PaDir, "-pz", PzDir]),
     Ret=rpc:call(Node, code, get_path, []),
     [PaDir|Paths] = Ret,
     [PzDir|_] = lists:reverse(Paths),
-    test_server:stop_node(Node),
-    {ok, Node2}=test_server:start_node(pa_pz2, slave,
-	[{args,
-		"-mode embedded " ++ "-pa "
-		++ PaDir ++ " -pz " ++ PzDir}]),
+    peer:stop(Peer),
+    {ok, Peer2, Node2} = ?CT_PEER(["-mode", "embedded", "-pa",
+        PaDir, "-pz", PzDir]),
     Ret2=rpc:call(Node2, code, get_path, []),
     [PaDir|Paths2] = Ret2,
     [PzDir|_] = lists:reverse(Paths2),
-    test_server:stop_node(Node2).
+    peer:stop(Peer2).
 
 %% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
@@ -1006,16 +1000,16 @@ mult_lib_roots(Config) when is_list(Config) ->
     mult_lib_compile(DataDir,
 			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
 
-    %% Set up ERL_LIBS and start a slave node.
+    %% Set up ERL_LIBS and start a peer node.
     ErlLibs = filename:join(DataDir, "first_root") ++ mult_lib_sep() ++
 	filename:join(DataDir, "second_root"),
 
-    {ok,Node} =
-	test_server:start_node(mult_lib_roots, slave,
-		      [{args,"-env ERL_LIBS "++ErlLibs}]),
+    {ok, Peer, Node} = ?CT_PEER(["-env", "ERL_LIBS", ErlLibs]),
 
     Path0 = rpc:call(Node, code, get_path, []),
-    ["."|Path1] = Path0,
+    %% ?CT_PEER adds extra path to this module folder
+    PathToSelf = filename:dirname(code:which(?MODULE)),
+    [PathToSelf, "."|Path1] = Path0,
     [Kernel|Path2] = Path1,
     [Stdlib|Path3] = Path2,
     mult_lib_verify_lib(Kernel, "kernel"),
@@ -1033,6 +1027,7 @@ mult_lib_roots(Config) when is_list(Config) ->
     io:format("~p\n", [Path]),
 
     true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
+    peer:stop(Peer),
 
     ok.
 
@@ -1065,16 +1060,13 @@ bad_erl_libs(Config) when is_list(Config) ->
              false -> BadLibs0;
              Libs -> BadLibs0 ++ ":" ++ Libs
          end,
-    {ok,Node} =
-	test_server:start_node(bad_erl_libs, slave, []),
+    {ok, Peer, Node} = ?CT_PEER(),
     Code = rpc:call(Node,code,get_path,[]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
 
-    {ok,Node2} =
-	test_server:start_node(bad_erl_libs, slave,
-			       [{args,"-env ERL_LIBS " ++ BadLibs}]),
-    Code2 = rpc:call(Node,code,get_path,[]),
-    test_server:stop_node(Node2),
+    {ok, Peer2, Node2} = ?CT_PEER(["-env", "ERL_LIBS", BadLibs]),
+    Code2 = rpc:call(Node2,code,get_path,[]),
+    peer:stop(Peer2),
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
 
@@ -1132,10 +1124,8 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     filelib:ensure_dir(OtherFile),
     ok = file:write_file(OtherFile, OtherContents),
 
-    %% Set up ERL_LIBS and start a slave node.
-    {ok, Node} =
-	test_server:start_node(code_archive, slave,
-		      [{args,"-env ERL_LIBS " ++ RootDir}]),
+    %% Set up ERL_LIBS and start a peer node.
+    {ok, Peer, Node} = ?CT_PEER(["-env", "ERL_LIBS", RootDir]),
     CodePath = rpc:call(Node, code, get_path, []),
     AppEbin = filename:join([Archive, Base, "ebin"]),
     io:format("AppEbin: ~p\n", [AppEbin]),
@@ -1177,7 +1167,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     error =  rpc:call(Node, App, find, [Tab, Key]),
     ok =  rpc:call(Node, App, erase, [Tab]),
 
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 compile_app(TopDir, AppName) ->
@@ -1207,12 +1197,11 @@ compile_files([], _, _) ->
 %% embeddedd system.
 big_boot_embedded(Config) when is_list(Config) ->
     {BootArg,AppsInBoot} = create_big_boot(Config),
-    {ok, Node} =
-	test_server:start_node(big_boot_embedded, slave,
-		      [{args,"-boot "++BootArg++" -mode embedded"}]),
+    {ok, Peer, Node} = ?CT_PEER(["-boot", BootArg, "-mode", "embedded"]),
     RemoteNodeApps =
 	[ {X,Y} || {X,_,Y} <-
 		       rpc:call(Node,application,loaded_applications,[]) ],
+    peer:stop(Peer),
     true = lists:sort(AppsInBoot) =:=  lists:sort(RemoteNodeApps),
     ok.
 
@@ -1358,12 +1347,11 @@ on_load_embedded_1(Config) ->
     true = code:del_path(OnLoadAppEbin),
 
     %% Start the node and check that the on_load function was run.
-    {ok,Node} = start_node(on_load_embedded,
-				 "-mode embedded -boot " ++ BootScript),
+    {ok, Peer, Node} = ?CT_PEER(["-mode", "embedded", "-boot", BootScript]),
     ok = rpc:call(Node, on_load_embedded, status, []),
 
     %% Clean up.
-    stop_node(Node).
+    peer:stop(Peer).
 
 del_link(LinkName) ->
    case file:delete(LinkName) of
@@ -1839,23 +1827,23 @@ do_normalized_paths([]) ->
 
 %% Make sure that the extra -mode flags are ignored
 mult_embedded_flags(_Config) ->
-    Modes = [{" -mode embedded", embedded},
-	     {" -mode interactive", interactive},
-	     {" -mode invalid", interactive}],
+    Modes = [{["-mode", "embedded"], embedded},
+	     {["-mode", "interactive"], interactive},
+	     {["-mode", "invalid"], interactive}],
 
     [ begin
 	  {ArgMode, ExpectedMode} = Mode,
-	  {ok, Node} = start_node(mode_test, ArgMode),
+	  {ok, Peer, Node} = ?CT_PEER(ArgMode),
 	  ExpectedMode = rpc:call(Node, code, get_mode, []),
-	  true = stop_node(Node)
+	  peer:stop(Peer)
       end || Mode <- Modes],
 
     [ begin
 	  {ArgIgnoredMode, _} = IgnoredMode,
 	  {ArgRelevantMode, ExpectedMode} = RelevantMode,
-	  {ok, Node} = start_node(mode_test, ArgRelevantMode ++ ArgIgnoredMode),
+	  {ok, Peer, Node} = ?CT_PEER(ArgRelevantMode ++ ArgIgnoredMode),
 	  ExpectedMode = rpc:call(Node, code, get_mode, []),
-	  true = stop_node(Node)
+	  peer:stop(Peer)
       end || IgnoredMode <- Modes, RelevantMode <- Modes],
     ok.
 
@@ -2050,9 +2038,3 @@ run_purge_test(Test, Config) ->
     after
         TestLowOSRL = erlang:system_flag(outstanding_system_requests_limit, OSRL)
     end.
-
-start_node(Name, Param) ->
-    test_server:start_node(Name, slave, [{args, Param}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
