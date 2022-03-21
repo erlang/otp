@@ -1567,6 +1567,20 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
     }
 }
 
+static ERTS_INLINE ErlHeapFragment *
+get_hidden_heap_frag(Eterm val)
+{
+    ErlHeapFragment *hfp;
+    if (is_immed(val))
+        hfp = NULL;
+    else {
+        ASSERT(is_CP(val));
+        hfp = (ErlHeapFragment *) cp_val(val);
+        ASSERT(hfp->alloc_size == hfp->used_size + 1);
+    }
+    return hfp;
+}
+
 static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
@@ -1580,6 +1594,23 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
                 ERTS_INIT_OFF_HEAP(&oh);
                 oh.first = mdep->uptr.ohhp;
                 insert_offheap(&oh, type, id);
+            }
+            if (mdp->origin.flags & ERTS_ML_FLG_TAG) {
+                ErlHeapFragment *hfp;
+                Eterm tag_storage;
+                if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                    tag_storage = ((ErtsMonitorDataExtended *) mdp)->heap[0];
+                else
+                    tag_storage = ((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+                hfp = get_hidden_heap_frag(tag_storage);
+                if (hfp)
+                    insert_offheap(&hfp->off_heap, type, id);
+            }
+            if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_PENDING) {
+                ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+                ErlHeapFragment *hfp = get_hidden_heap_frag(mdep->u.name);
+                if (hfp)
+                    insert_offheap(&hfp->off_heap, type, id);
             }
         }
     }
