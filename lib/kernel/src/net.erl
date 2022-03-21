@@ -342,6 +342,7 @@ getifaddrs(Namespace) when is_list(Namespace) ->
 
 -dialyzer({no_return, getifaddrs/2}).
 
+-ifdef(USE_ESOCK).
 getifaddrs(Filter, Namespace)
   when (is_atom(Filter) orelse is_map(Filter)) andalso is_list(Namespace) ->
     do_getifaddrs(getifaddrs_filter_map(Filter),
@@ -349,9 +350,14 @@ getifaddrs(Filter, Namespace)
 getifaddrs(Filter, Namespace)
   when is_function(Filter, 1) andalso is_list(Namespace) ->
     do_getifaddrs(Filter, fun() -> getifaddrs(Namespace) end).
+-else.
+getifaddrs(_Filter, _Namespace) ->
+    erlang:error(notsup).
+-endif.
 
 -dialyzer({no_return, do_getifaddrs/2}).
 
+-ifdef(USE_ESOCK).
 do_getifaddrs(Filter, GetIfAddrs) ->
     try GetIfAddrs() of
         {ok, IfAddrs0} when is_function(Filter) ->
@@ -785,13 +791,6 @@ masked_eq(<<M:32>>,
           <<A:32>>,
           <<PA:32>>) ->
     (A band M) =:= (PA band M);
-%% masked_eq(<<M1:8,  M2:8,  M3:8,  M4:8>>,
-%%           <<A1:8,  A2:8,  A3:8,  A4:8>>,
-%%           <<PA1:8, PA2:8, PA3:8, PA4:8>>) ->
-%%     ((A1 band M1) =:= (PA1 band M1)) andalso
-%%                                        ((A2 band M2) =:= (PA2 band M2)) andalso
-%%                                                                           ((A3 band M3) =:= (PA3 band M3)) andalso
-%%                                                                                                              ((A4 band M4) =:= (PA4 band M4));
 masked_eq(<<M01:8,  M02:8,  M03:8,  M04:8,
             M05:8,  M06:8,  M07:8,  M08:8,
             M09:8,  M10:8,  M11:8,  M12:8,
@@ -871,6 +870,7 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
     #{family => inet,
       addr   => {BA1, BA2, BA3, BA4},
       port   => 0}.
+-endif.
     
 
 
@@ -975,8 +975,12 @@ if_names() ->
 -endif.
 
 
+%% ===========================================================================
+%%
 %% -- Windows specific functions:
+%%
 
+-ifdef(USE_ESOCK).
 win_names() ->
     [{Idx, win_name(Idx)} || Idx <- win_indexes()].
 
@@ -1019,6 +1023,7 @@ win_name2index(Name) ->
         false ->
             {error, enodev} % This is to be "compatible" with unix
     end.
+-endif.
 
 
 %% ===========================================================================
