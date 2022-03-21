@@ -16887,12 +16887,12 @@ then :
 
    unset -v ac_cv_lib_dlpi_dlpi_open
             save_ldflags="$LDFLAGS"
-   try_dlpi_lib=/lib
+   try_dlpi_lib=$erl_xcomp_sysroot/lib
    if test x"$ac_cv_sizeof_void_p" = x"8"; then
-      if test -d /lib64; then
-	 try_dlpi_lib=/lib64
-      elif test -d /lib/64; then
-	 try_dlpi_lib=/lib/64
+      if test -d  $erl_xcomp_sysroot/lib64; then
+	 try_dlpi_lib= $erl_xcomp_sysroot/lib64
+      elif test -d  $erl_xcomp_sysroot/lib/64; then
+	 try_dlpi_lib= $erl_xcomp_sysroot/lib/64
       fi
    fi
    if test ! -f "$try_dlpi_lib/libdlpi.so" && \
@@ -16906,8 +16906,8 @@ then :
    fi
    LDFLAGS="-L$try_dlpi_lib -R$try_dlpi_lib $LDFLAGS"
    unset -v try_dlpi_lib
-   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Extending the search to include /lib" >&5
-printf "%s\n" "$as_me: Extending the search to include /lib" >&6;}
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Extending the search to include  $erl_xcomp_sysroot/lib" >&5
+printf "%s\n" "$as_me: Extending the search to include  $erl_xcomp_sysroot/lib" >&6;}
    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dlpi_open in -ldlpi" >&5
 printf %s "checking for dlpi_open in -ldlpi... " >&6; }
 if test ${ac_cv_lib_dlpi_dlpi_open+y}
