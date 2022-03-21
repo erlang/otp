@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -453,10 +453,20 @@ gethostbyname_tm(_Name, _Family, _Timer) ->
 %% Caches the answer.
 %% --------------------------------------------------------------------------
 
+%% Duplicate of inet.hrl: #hostent{}, but with DNS RR types in h_addrtype
+%% and dns_data() in h_addr_list.
+-type hostent() ::
+        {'hostent',
+         H_name      :: inet:hostname(),
+         H_aliases   :: [inet:hostname()],
+         H_addrtype  :: rr_type(),
+         H_length    :: non_neg_integer(),
+         H_addr_list :: [dns_data()]}.
+
 -spec getbyname(Name, Type) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
       Type :: rr_type(),
-      Hostent :: inet:hostent(),
+      Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
 
 getbyname(Name, Type) -> 
@@ -466,7 +476,7 @@ getbyname(Name, Type) ->
       Name :: dns_name(),
       Type :: rr_type(),
       Timeout :: timeout(),
-      Hostent :: inet:hostent(),
+      Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
 
 getbyname(Name, Type, Timeout) ->

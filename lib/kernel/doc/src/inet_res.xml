@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2021</year>
+      <year>2009</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -195,6 +195,9 @@ inet_dns:record_type(_) -> undefined.</pre>
           in the UTF-8 coding standard.</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="hostent"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -204,9 +207,20 @@ inet_dns:record_type(_) -> undefined.</pre>
       <fsummary>Resolve a DNS record of the specified type for the specified
       host.</fsummary>
       <desc>
-        <p>Resolves a DNS record of the specified type for the specified host,
-          of class <c>in</c>. Returns, on success, a <c>hostent()</c> record
-          with <c>dns_data()</c> elements in the address list field.</p>
+        <p>Resolves a DNS record of the specified <c><anno>Type</anno></c>
+          for the specified host, of class <c>in</c>.
+          Returns, on success, when resolving a
+          <c><anno>Type</anno>&nbsp;=&nbsp;a|aaaa</c> DNS record,
+          a <c>#hostent{}</c> record with
+          <c>#hostent.h_addrtype&nbsp;=&nbsp;inet|inet6</c>,
+          respectively; see
+          <seetype marker="inet#hostent"><c>inet:hostent()</c></seetype>.</p>
+        <p>When resolving other
+          <c><anno>Type</anno>&nbsp;=&nbsp;rr_type()</c>:s
+          also returns a <c>#hostent{}</c> record but with
+          <c>#hostent.h_addrtype&nbsp;=&nbsp;</c><seetype marker="#rr_type"><c>rr_type()</c></seetype>, and
+          <c>#hostent.h_addr_list&nbsp;=&nbsp;</c>[<seetype marker="#dns_data"><c>dns_data()</c></seetype>]; see
+          <seetype marker="#hostent"><c>hostent()</c></seetype>.</p>
         <p>This function uses resolver option <c>search</c> that
           is a list of domain names. If the name to resolve contains
           no dots, it is prepended to each domain name in the
