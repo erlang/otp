@@ -119,24 +119,89 @@ gen_event:stop             ----->  Module:terminate/2
     <datatype>
       <name name="handler"/>
     </datatype>
+
     <datatype>
       <name name="handler_args"/>
     </datatype>
+
     <datatype>
       <name name="add_handler_ret"/>
     </datatype>
+
     <datatype>
       <name name="del_handler_ret"/>
     </datatype>
+
+    <datatype>
+      <name name="emgr_ref"/>
+    </datatype>    
+    
     <datatype>
       <name name="request_id"/>
       <desc>
 	<p>
-	  A request handle, see <seemfa marker="#send_request/3"> <c>send_request/3</c> </seemfa>
+	  An opaque request identifier. See
+          <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
 	  for details.
 	</p>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="request_id_collection"/>
+      <desc>
+        <p>
+	  An opaque collection of request identifiers
+          (<seetype marker="#request_id"><c>request_id()</c></seetype>)
+	  where each request identifier can be associated with a label
+          chosen by the user. For more information see
+          <seemfa marker="#reqids_new/0"><c>reqids_new/0</c></seemfa>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="response_timeout"/>
+      <desc>
+        <p>
+          Used to set a time limit on how long to wait for a response using
+          either 
+          <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+          <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+          <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
+          or
+          <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+          The time unit used is <c>millisecond</c>. Currently valid values:
+        </p>
+        <taglist>
+          <tag><c>0..4294967295</c></tag>
+          <item><p>
+            Timeout relative to current time in milliseconds.
+          </p></item>
+          <tag><c>infinity</c></tag>
+          <item><p>
+            Infinite timeout. That is, the operation will never time out.
+          </p></item>
+          <tag><c>{abs, Timeout}</c></tag>
+          <item><p>
+            An absolute
+            <seemfa marker="erts:erlang#monotonic_time/1">Erlang monotonic time</seemfa>
+            timeout in milliseconds. That is, the operation will time out when
+            <seemfa marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time(millisecond)</c></seemfa>
+            returns a value larger than or equal to <c>Timeout</c>. <c>Timeout</c>
+            is not allowed to identify a time further into the future than <c>4294967295</c>
+            milliseconds. Identifying the timeout using an absolute timeout value
+            is especially handy when you have a deadline for responses corresponding
+            to a complete collection of requests
+            (<seetype marker="#request_id_collection"><c>request_id_collection()</c></seetype>)
+,
+            since you do not have to recalculate the relative time until the deadline
+            over and over again.
+	  </p></item>
+        </taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -312,28 +377,24 @@ gen_event:stop             ----->  Module:terminate/2
       </desc>
     </func>
 
-
     <func>
-      <name since="OTP 23.0">check_response(Msg, RequestId) -> Result</name>
-      <fsummary>Check if a message is a reply from a server.</fsummary>
-      <type>
-	<v>Msg = term()</v>
-	<v>RequestId = request_id()</v>
-	<v>Result = {reply, Reply} | no_reply | {error, Error}</v>
-	<v>Reply = Error = term()</v>
-      </type>
+      <name name="check_response" arity="2" since="OTP 23.0"/>
+      <fsummary>Check if a message is a response to an asynchronous call request
+      to a generic event manager.</fsummary>
       <desc>
 	<p>
-	  This function is used to check if a previously received
-	  message, for example by <c>receive</c> or
-	  <c>handle_info/2</c>, is a result of a request made with
+	  Check if <c><anno>Msg</anno></c> is a response corresponding
+          to the request identifier <c><anno>ReqId</anno></c>. The request
+          must have been made by
 	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>.
-	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
-	  the result of the request is returned in <c>Reply</c>.
-	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
-	  thus the function shall be invoked repeatedly until a reply
-	  is returned.
 	</p>
+        <p>
+          If <c><anno>Msg</anno></c> is a response corresponding to
+          <c><anno>ReqId</anno></c> the response is returned; otherwise,
+          <c>no_reply</c> is returned and no cleanup is done, and
+	  thus the function must be invoked repeatedly until a response
+	  is returned.
+        </p>
 	<p>
 	  If the specified event handler is not
           installed, the function returns <c>{error,bad_module}</c>. If
@@ -343,6 +404,74 @@ gen_event:stop             ----->  Module:terminate/2
           respectively. If the event manager dies before or during the
 	  request this function returns <c>{error,{Reason, EventMgrRef}}</c>.
 	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="check_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Check if a message is a response to an asynchronous call request
+      to a generic event manager.</fsummary>
+      <desc>
+	<p>
+	  Check if <c><anno>Msg</anno></c> is a response corresponding
+          to a request identifier saved in <c><anno>ReqIdCollection</anno></c>.
+          All request identifiers of <c><anno>ReqIdCollection</anno></c>
+          must correspond to requests that have been made using
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa> or
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>,
+          and all request must have been made by the process calling this
+          function.
+	</p>
+        <p>
+          The <c><anno>Label</anno></c> in the response equals the
+          <c><anno>Label</anno></c> associated with the request identifier
+          that the response corresponds to. The <c><anno>Label</anno></c>
+          of a request identifier is associated when
+          <seemfa marker="#reqids_add/3">saving the request id</seemfa>
+          in a request identifier collection, or when sending the request using
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          or an exception associated with a specific request identifier will
+          be wrapped in a 3-tuple. The first element of this tuple equals the
+          value that would have been produced by <c>check_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewReqIdCollection</anno></c> is a possibly  modified
+          request identifier collection.
+        </p>
+        <p>
+          If <c><anno>ReqIdCollection</anno></c> is empty, the atom
+          <c>no_request</c> will be returned. If <c><anno>Msg</anno></c>
+          does not correspond to any of the request identifiers in
+          <c><anno>ReqIdCollection</anno></c>, the atom
+          <c>no_reply</c> is returned.
+        </p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>ReqIdCollection</anno></c> in the resulting
+          <c><anno>NewReqIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewReqIdCollection</anno></c> will equal
+          <c><anno>ReqIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>check_response/3</c>,
+ 	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>check_response/3</c>, it will always
+          return <c>no_reply</c>.
+        </p>
       </desc>
     </func>
 
@@ -409,34 +538,29 @@ gen_event:stop             ----->  Module:terminate/2
           does not exist, unless it is specified as <c>Name</c>.</p>
       </desc>
     </func>
-
+    
     <func>
-      <name since="OTP 24.0">receive_response(RequestId, Timeout) -> Result</name>
-      <fsummary>Receive for a reply from a server.</fsummary>
-      <type>
-	<v>RequestId = request_id()</v>
-	<v>Reply = term()</v>
-	<v>Timeout = timeout()</v>
-	<v>Result = {reply, Reply} | timeout | {error, Error}</v>
-	<v>Reply = Error = term()</v>
-      </type>
+      <name name="receive_response" arity="2" clause_i="1" since="OTP 24.0"/>
+      <fsummary>Receive a response to an asynchronous call request
+      to a generic event manager.</fsummary>
       <desc>
 	<p>
-	This function is used to receive for a reply of a request made with
-	<seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
-	to the event manager. This function must be called from the same
-	process from which <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
-	was made.
+	  Receive a response corresponding to the request identifier
+          <c><anno>ReqId</anno></c>- The request must have been made by
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
+	  to the <c>gen_statem</c> process. This function must be called
+	  from the same process from which
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
+	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
-	  that specifies how many milliseconds to wait for an reply, or
-	  the atom <c>infinity</c> to wait indefinitely.
-	  If no reply is received within the specified
-	  time, the function returns <c>timeout</c>. Assuming that the
+	  <c><anno>Timeout</anno></c> specifies how long to wait for
+          a response. If no response is received within the specified time,
+          the function returns <c>timeout</c>. Assuming that the
 	  server executes on a node supporting aliases (introduced in
-	  OTP 24) no response will be received after a timeout. Otherwise,
-	  a garbage response might be received at a later time.
+	  OTP 24) the request will also be abandoned. That is, no
+          response will be received after a timeout. Otherwise, a
+          stray response might be received at a later time.
 	</p>
 	<p>
 	  The return value <c>Reply</c> is defined in the return value
@@ -453,44 +577,197 @@ gen_event:stop             ----->  Module:terminate/2
 	</p>
 	<p>
 	  The difference between
-	  <seemfa marker="#wait_response/2"><c>wait_response()</c></seemfa>
-	  and <c>receive_response()</c> is that <c>receive_response()</c>
+	  <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>
+	  and <c>receive_response/2</c> is that <c>receive_response/2</c>
 	  abandons the request at timeout so that a potential future
-	  response is ignored, while <c>wait_response()</c> does not.
+	  response is ignored, while <c>wait_response/2</c> does not.
 	</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 23.0">send_request(EventMgrRef, Handler, Request) -> RequestId</name>
-      <fsummary>Send a request to a generic event manager.</fsummary>
-      <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}</v>
-        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
-        <v>&nbsp;Node = atom()</v>
-        <v>&nbsp;GlobalName = ViaName = term()</v>
-	<v>Handler = Module | {Module,Id}</v>
-        <v>&nbsp;Module = atom()</v>
-        <v>&nbsp;Id = term()</v>
-        <v>Request = term()</v>
-        <v>RequestId = request_id()</v>
-      </type>
+      <name name="receive_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Receive a response to an asynchronous call request
+      to a generic event manager.</fsummary>
       <desc>
+	<p>
+	  Receive a response corresponding to a request identifier saved
+          in <c><anno>ReqIdCollection</anno></c>. All request identifiers
+          of <c><anno>ReqIdCollection</anno></c> must correspond to requests
+          that have been made using
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa> or
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>,
+          and all request must have been made by the process calling this
+          function.
+	</p>
         <p>
-	  Sends a request to event handler <c>Handler</c> installed in
-	  event manager <c>EventMgrRef</c> and returns a handle
-	  <c>RequestId</c>.  The return value <c>RequestId</c> shall
-	  later be used with <seemfa marker="#receive_response/2">
-	  <c>receive_response/2</c></seemfa>, <seemfa marker="#wait_response/2">
-	  <c>wait_response/2</c></seemfa>, or <seemfa
-	  marker="#check_response/2">
-	  <c>check_response/2</c></seemfa> in the same process to
-	  fetch the actual result of the request.
+          The <c><anno>Label</anno></c> in the response equals the
+          <c><anno>Label</anno></c> associated with the request identifier
+          that the response corresponds to. The <c><anno>Label</anno></c>
+          of a request identifier is associated when
+          <seemfa marker="#reqids_add/3">adding the request id</seemfa>
+          in a request identifier collection, or when sending the request using
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          will be wrapped in a 3-tuple. The first element of this tuple equals
+          the value that would have been produced by <c>receive_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewReqIdCollection</anno></c> is a possibly modified
+          request identifier collection.
+        </p>
+        <p>
+          If <c><anno>ReqIdCollection</anno></c> is empty, the atom
+          <c>no_request</c> will be returned.
+        </p>
+	<p>
+	  <c><anno>Timeout</anno></c> specifies how long to wait for
+          a response. If no response is received within the specified time,
+          the function returns <c>timeout</c>. Assuming that the
+	  server executes on a node supporting aliases (introduced in
+	  OTP 24) all requests identified by <c><anno>ReqIdCollection</anno></c>
+          will also be abandoned. That is, no responses will be received
+          after a timeout. Otherwise, stray responses might be received
+          at a later time.
 	</p>
 	<p>
-	  The call <c>gen_event:wait_response(gen_event:send_request(EventMgrRef,Handler,Request), Timeout)</c>
+	  The difference between <c>receive_response/3</c> and
+          <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>
+          is that <c>receive_response/3</c> abandons the requests at timeout
+          so that potential future responses are ignored, while
+          <c>wait_response/3</c> does not.
+	</p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>ReqIdCollection</anno></c> in the resulting
+          <c><anno>NewReqIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewReqIdCollection</anno></c> will equal
+          <c><anno>ReqIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>receive_response/3</c>,
+ 	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>receive_response/3</c>, it will always block
+          until a timeout determined by <c><anno>Timeout</anno></c> is
+          triggered.
+        </p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="reqids_add" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Save a request identifier.</fsummary>
+      <desc>
+	<p>
+          Saves <c><anno>ReqId</anno></c> and associates a <c><anno>Label</anno></c>
+          with the request identifier by adding this information to
+          <c><anno>ReqIdCollection</anno></c> and returning the
+          resulting request identifier collection.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reqids_new" arity="0" since="OTP @OTP-17784@"/>
+      <fsummary>Create a new empty request identifier collection.</fsummary>
+      <desc>
+	<p>
+          Returns a new empty request identifier collection. A 
+          request identifier collection can be utilized in order
+          the handle multiple outstanding requests.
+        </p>
+        <p>
+          Request identifiers of requests made by
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
+          can be saved in a request identifier collection using 
+	  <seemfa marker="#reqids_add/3"><c>reqids_add/3</c></seemfa>.
+          Such a collection of request identifiers can later be used in
+          order to get one response corresponding to a request in the
+          collection by passing the collection as argument to
+          <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>,
+	  or,
+	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>.
+        </p>
+        <p>
+          <seemfa marker="#reqids_size/1"><c>reqids_size/1</c></seemfa>
+          can be used to determine the amount of request identifiers in a
+          request identifier collection.
+        </p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="reqids_size" arity="1" since="OTP @OTP-17784@"/>
+      <fsummary>Get size of a request identifier collection.</fsummary>
+      <desc>
+	<p>
+          Returns the amount of request identifiers saved in
+          <c><anno>ReqIdCollection</anno></c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="reqids_to_list" arity="1" since="OTP @OTP-17784@"/>
+      <fsummary>List a request identifiers.</fsummary>
+      <desc>
+	<p>
+          Returns a list of <c>{<anno>ReqId</anno>, <anno>Label</anno>}</c>
+          tuples which corresponds to all request identifiers with their
+          associated labels present in the <c><anno>ReqIdCollection</anno></c>
+          collection.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_request" arity="3" since="OTP 23.0"/>
+      <fsummary>Send an asyncronous call request to a generic event manager.</fsummary>
+      <desc>
+        <p>
+          Sends an asynchronous <c>call</c> request <c><anno>Request</anno></c> to
+          event handler <c><anno>Handler</anno></c> installed in the event manager
+          identified by <c><anno>EventMgrRef</anno></c> and returns a request
+          identifier <c>ReqId</c>. The return value <c><anno>ReqId</anno></c>
+          shall later be used with
+          <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>,
+          <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>, or
+	  <seemfa marker="#check_response/2"><c>check_response/2</c></seemfa>
+	  to fetch the actual result of the request. Besides passing
+          the request identifier directly to these functions, it can also be
+          saved in a request identifier collection using 
+	  <seemfa marker="#reqids_add/3"><c>reqids_add/3</c></seemfa>.
+          Such a collection of request identifiers can later be used in
+          order to get one response corresponding to a request in the
+          collection by passing the collection as argument to
+          <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>, or
+	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>.
+          If you are about to save the request identifier in a request identifier
+          collection, you may want to consider using
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>
+          instead.
+	</p>
+	<p>
+	  The call <c>gen_event:receive_response(gen_event:send_request(<anno>EventMgrRef</anno>,
+          <anno>Handler</anno>, <anno>Request</anno>), Timeout)</c>
 	  can be seen as equivalent to
-	  <seemfa marker="#call/3"><c>gen_event:call(EventMgrRef,Handler,Request,Timeout)</c></seemfa>,
+	  <seemfa marker="#call/3"><c>gen_event:call(<anno>EventMgrRef</anno>,
+          <anno>Handler</anno>, <anno>Request</anno>, Timeout)</c></seemfa>,
 	  ignoring the error handling.
 	</p>
 	<p>
@@ -501,6 +778,38 @@ gen_event:stop             ----->  Module:terminate/2
 	  <c>Request</c> is any term that is passed as one of
           the arguments to <c>Module:handle_call/3</c>.
 	</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name name="send_request" arity="5" since="OTP @OTP-17784@"/>
+      <fsummary>Sends a request to a generic server.</fsummary>
+      <desc>
+	<p>
+          Sends an asynchronous <c>call</c> request <c><anno>Request</anno></c> to
+          event handler <c><anno>Handler</anno></c> installed in the event manager
+          identified by <c><anno>EventMgrRef</anno></c>.
+          The <c><anno>Label</anno></c> will be associated with the request
+          identifier of the operation and added to the returned request
+          identifier collection <c><anno>NewReqIdCollection</anno></c>.
+          The collection can later be used in order to get one response
+          corresponding to a request in the collection by passing the
+          collection as argument to
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>,
+	  <seemfa marker="#wait_response/3"><c>wait_response/3</c></seemfa>,
+	  or,
+	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>.
+        </p>
+
+        <p>
+          The same as calling
+          <seemfa marker="#reqids_add/3"><c>gen_event:reqids_add</c></seemfa>(<seemfa
+          marker="#send_request/3"><c>gen_event:send_request</c></seemfa><c>(<anno>EventMgrRef</anno>,
+          <anno>Handler</anno>, <anno>Request</anno>), <anno>Label</anno>,
+          <anno>ReqIdCollection</anno>)</c>, but calling <c>send_request/5</c>
+          is slightly more efficient.
+        </p>
       </desc>
     </func>
 
@@ -742,30 +1051,24 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name since="OTP 23.0">wait_response(RequestId, Timeout) -> Result</name>
-      <fsummary>Wait for a reply from a server.</fsummary>
-      <type>
-	<v>RequestId = request_id()</v>
-	<v>Reply = term()</v>
-	<v>Timeout = timeout()</v>
-	<v>Result = {reply, Reply} | timeout | {error, Error}</v>
-	<v>Reply = Error = term()</v>
-      </type>
+      <name name="wait_response" arity="2" since="OTP 23.0"/>
+      <fsummary>Wait or poll for a response to an asynchronous call request
+      to a generic event manager.</fsummary>
       <desc>
 	<p>
-	This function is used to wait for a reply of a request made with
-	<seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
-	to the event manager. This function must be called from the same
-	process from which <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
-	was made.
+	  Wait for a response corresponding to the request identifier
+          <c><anno>ReqId</anno></c>. The request must have been made by
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
+	  to the <c>gen_statem</c> process. This function must be called
+	  from the same process from which
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
+	  was made.
 	</p>
 	<p>
-	  <c>Timeout</c> is an integer greater then or equal to zero
-	  that specifies how many milliseconds to wait for an reply, or
-	  the atom <c>infinity</c> to wait indefinitely.
-	  If no reply is received within the specified
+	  <c><anno>WaitTime</anno></c> specifies how long to wait for
+          a response. If no response is received within the specified
 	  time, the function returns <c>timeout</c> and no cleanup is
-	  done, and thus the function must be invoked repeatedly until a
+	  done, and thus the function can be invoked repeatedly until a
 	  reply is returned.
 	</p>
 	<p>
@@ -783,11 +1086,89 @@ gen_event:stop             ----->  Module:terminate/2
 	</p>
 	<p>
 	  The difference between
-	  <seemfa marker="#receive_response/2"><c>receive_response()</c></seemfa>
-	  and <c>wait_response()</c> is that <c>receive_response()</c>
+	  <seemfa marker="#receive_response/2"><c>receive_response/2</c></seemfa>
+	  and <c>wait_response/2</c> is that <c>receive_response/2</c>
 	  abandons the request at timeout so that a potential future
-	  response is ignored, while <c>wait_response()</c> does not.
+	  response is ignored, while <c>wait_response/2</c> does not.
 	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wait_response" arity="3" since="OTP @OTP-17784@"/>
+      <fsummary>Wait or poll for a response to an asynchronous call request
+      to a generic event manager.</fsummary>
+      <desc>
+	<p>
+	  Wait for a response corresponding to a request identifier saved
+          in <c><anno>ReqIdCollection</anno></c>. All request identifiers
+          of <c><anno>ReqIdCollection</anno></c> must correspond to requests
+          that have been made using
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa> or
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>,
+          and all request must have been made by the process calling this
+          function.
+	</p>
+        <p>
+          The <c><anno>Label</anno></c> in the response equals the
+          <c><anno>Label</anno></c> associated with the request identifier
+          that the response corresponds to. The <c><anno>Label</anno></c>
+          of a request identifier is associated when
+          <seemfa marker="#reqids_add/3">saving the request id</seemfa> in
+          a request identifier collection, or when sending the request using
+          <seemfa marker="#send_request/5"><c>send_request/5</c></seemfa>.
+        </p>
+        <p>
+          Compared to
+          <seemfa marker="#wait_response/2"><c>wait_response/2</c></seemfa>,
+          the returned result associated with a specific request identifier
+          or an exception associated with a specific request identifier will
+          be wrapped in a 3-tuple. The first element of this tuple equals the
+          value that would have been produced by <c>wait_response/2</c>,
+          the second element equals the <c><anno>Label</anno></c> associated
+          with the specific request identifier, and the third element
+          <c><anno>NewReqIdCollection</anno></c> is a possibly  modified
+          request identifier collection.
+        </p>
+        <p>
+          If <c><anno>ReqIdCollection</anno></c> is empty, <c>no_request</c>
+          will be returned. If no response is received before the
+          <c><anno>WaitTime</anno></c> timeout has triggered, the atom
+          <c>timeout</c> is returned. It is valid to continue waiting for a
+          response as many times as needed up until a response has been received
+          and completed by <c>check_response()</c>, <c>receive_response()</c>,
+          or <c>wait_response()</c>.
+        </p>
+	<p>
+	  The difference between
+          <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>
+	  and <c>wait_response/3</c> is that <c>receive_response/3</c>
+	  abandons requests at timeout so that a potential future
+	  responses are ignored, while <c>wait_response/3</c> does not.
+	</p>
+        <p>
+          If <c><anno>Delete</anno></c> equals <c>true</c>, the association
+          with <c><anno>Label</anno></c> will have been deleted from
+          <c><anno>ReqIdCollection</anno></c> in the resulting
+          <c><anno>NewReqIdCollection</anno></c>. If
+          <c><anno>Delete</anno></c> equals <c>false</c>,
+          <c><anno>NewReqIdCollection</anno></c> will equal
+          <c><anno>ReqIdCollection</anno></c>. Note that deleting an
+          association is not for free and that a collection containing
+          already handled requests can still be used by subsequent calls to
+          <c>wait_response/3</c>,
+ 	  <seemfa marker="#check_response/3"><c>check_response/3</c></seemfa>,
+          and
+	  <seemfa marker="#receive_response/3"><c>receive_response/3</c></seemfa>.
+          However, without deleting handled associations, the above calls will
+          not be able to detect when there are no more outstanding requests to
+          handle, so you will have to keep track of this some other way than
+          relying on a <c>no_request</c> return. Note that if you pass a
+          collection only containing associations of already handled or
+          abandoned requests to <c>wait_response/3</c>, it will always block
+          until a timeout determined by <c><anno>WaitTime</anno></c> is
+          triggered and then return <c>no_reply</c>.
+        </p>
       </desc>
     </func>
 

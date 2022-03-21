@@ -63,6 +63,9 @@ handle_call(hibernate, _State) ->
 handle_call(hibernate_later, _State) ->
     timer:send_after(1000,sleep),
     {ok,later,[]};
+handle_call({delayed_answer, T}, State) ->
+    receive after T -> ok end,
+    {ok, delayed, State};
 handle_call(_Query, State) ->
     {ok, ok, State}.
 
