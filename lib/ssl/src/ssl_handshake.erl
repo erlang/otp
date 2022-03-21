@@ -2081,7 +2081,7 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	Signature ->
 	    Signature
     catch
-	error:badkey->
+	error:_ ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 

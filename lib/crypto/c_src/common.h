@@ -46,4 +46,6 @@ ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char*
 #define EXCP_NOTSUP_N(Env, ArgNum, Str) raise_exception((Env), atom_notsup, (ArgNum), (Str), __FILE__, __LINE__)
 #define EXCP_BADARG_N(Env, ArgNum, Str) raise_exception((Env), atom_badarg, (ArgNum), (Str), __FILE__, __LINE__)
 
+#define assign_goto(Var, Goto, CALL) {Var = (CALL); goto Goto;}
+
 #endif /* E_COMMON_H__ */

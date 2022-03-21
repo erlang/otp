@@ -1584,6 +1584,13 @@ do_sign_verify({Type, Hash, Public, Private, Msg, Options}) ->
             ct:log("notsup but OK in old cryptolib crypto:sign(~p, ~p, ..., ..., ..., ~p)",
                    [Type,Hash,Options]),
             true;
+        error:{notsup,_,_} when NotSupLow == true,
+                          is_integer(LibVer),
+                          LibVer < 16#10001000 ->
+            %% Those opts where introduced in 1.0.1
+            ct:log("notsup but OK in old cryptolib crypto:sign(~p, ~p, ..., ..., ..., ~p)",
+                   [Type,Hash,Options]),
+            true;
         C:E ->
             ct:log("~p:~p  crypto:sign(~p, ~p, ..., ..., ..., ~p)", [C,E,Type,Hash,Options]),
             ct:fail({{crypto, sign_verify, [LibVer, Type, Hash, Msg, Public, Options]}})
@@ -4345,7 +4352,7 @@ bad_generate_key_name(_Config) ->
 
 bad_hash_name(_Config) ->
     ?chk_api_name(crypto:hash_init(foobar),
-                  error:badarg).
+                  error:{badarg,{"hash.c",_},"Bad digest type"}).
 
 bad_mac_name(_Config) ->
     ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),
@@ -4353,15 +4360,15 @@ bad_mac_name(_Config) ->
 
 bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
-                  error:badarg),
+                  error:{badarg, {"pkey.c",_}, "Bad digest type"}),
     ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
-                  error:badarg).
+                  error:{badarg, {"pkey.c",_}, "Bad algorithm"}).
     
 bad_verify_name(_Config) ->
-    ?chk_api_name(crypto:verify(rsa, foobar, "nothing","nothing",  <<1:1024>>),
-                  error:badarg),
-    ?chk_api_name(crypto:verify(foobar, sha, "nothing", "nothing", <<1:1024>>),
-                  error:badarg).
+    ?chk_api_name(crypto:verify(rsa, foobar, "nothing", <<"nothing">>,  <<1:1024>>),
+                  error:{badarg,{"pkey.c",_},"Bad digest type"}),
+    ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
+                  error:{badarg, {"pkey.c",_}, "Bad algorithm"}).
 
 
 %%%----------------------------------------------------------------

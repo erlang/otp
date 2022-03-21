@@ -45,43 +45,43 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if (argv[0] != atom_undefined) {
         if (!get_bn_from_bin(env, argv[0], &priv_key_in))
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Can't get bignum from binary"));
     }
     if (!enif_get_list_cell(env, argv[1], &head, &tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "List with exactly two elements expected"));
     if (!get_bn_from_bin(env, head, &dh_p))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Can't get bignum from binary"));
 
     if (!enif_get_list_cell(env, tail, &head, &tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "List with exactly two elements expected"));
     if (!get_bn_from_bin(env, head, &dh_g))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Can't get bignum from binary"));
 
     if (!enif_is_empty_list(env, tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "List with exactly two elements expected"));
 
     if (!enif_get_uint(env, argv[2], &mpint))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Integer expected"));
     if (mpint != 0 && mpint != 4)
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Integer 0 or 4 expected"));
 
     if (!enif_get_ulong(env, argv[3], &len))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 3, "Integer expected"));
     if (len > LONG_MAX)
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 3, "Too big integer"));
 
     /* Load dh_params with values to use by the generator.
        Mem mgmnt transferred from dh_p etc to dh_params */
     if ((dh_params = DH_new()) == NULL)
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't do DH_new"));
     if (priv_key_in) {
         if (!DH_set0_key(dh_params, NULL, priv_key_in))
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Not accepted as private key"));
         /* On success, dh_params owns priv_key_in */
         priv_key_in = NULL;
     }
     if (!DH_set0_pqg(dh_params, dh_p, NULL, dh_g))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "P and/or G not accepted"));
     dh_p_shared = dh_p; /* Don't free this because dh_params owns it */
     /* On success, dh_params owns dh_p and dh_g */
     dh_p = NULL;
@@ -91,56 +91,56 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         int bn_len;
 
         if ((bn_len = BN_num_bits(dh_p_shared)) < 0)
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR(env, "BN_num_bits < 0"));
         dh_p_shared = NULL;  /* dh_params owns the reference */
         if (len >= (size_t)bn_len)
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR_N(env, 3, "Too big length"));
 
         if (!DH_set_length(dh_params, (long)len))
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR_N(env, 3, "The length is not accepted"));
     }
 
 #if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_DH)
     if ((params = EVP_PKEY_new()) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_new"));
 
    /* set the key referenced by params to dh_params... */
     if (EVP_PKEY_set1_DH(params, dh_params) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_set1_DH"));
 
     if ((ctx = EVP_PKEY_CTX_new(params, NULL)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new"));
 
     if (EVP_PKEY_keygen_init(ctx) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
 
     if ((dhkey = EVP_PKEY_new()) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_new"));
 
     /* key gen op, key written to ppkey (=last arg) */
     if (EVP_PKEY_keygen(ctx, &dhkey) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen"));
 
     DH_free(dh_params);
     if ((dh_params = EVP_PKEY_get1_DH(dhkey)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get1_DH"));
 
 #else
     if (!DH_generate_key(dh_params))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't DH_generate_key"));
 #endif
 
     DH_get0_key(dh_params, &pub_key_gen, &priv_key_gen);
 
     if ((pub_len = BN_num_bytes(pub_key_gen)) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't get public key length"));
     if ((prv_len = BN_num_bytes(priv_key_gen)) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't get private key length"));
 
     if ((pub_ptr = enif_make_new_binary(env, (size_t)pub_len+mpint, &ret_pub)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate pub_ptr"));
     if ((prv_ptr = enif_make_new_binary(env, (size_t)prv_len+mpint, &ret_prv)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate prv_ptr"));
 
     if (mpint) {
         put_uint32(pub_ptr, (unsigned int)pub_len);
@@ -151,9 +151,9 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
     if (BN_bn2bin(pub_key_gen, pub_ptr) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't BN_bn2bin"));
     if (BN_bn2bin(priv_key_gen, prv_ptr) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't BN_bn2bin"));
 
     ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
     ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
@@ -161,13 +161,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ret = enif_make_tuple2(env, ret_pub, ret_prv);
     goto done;
 
- bad_arg:
-    ret = enif_make_badarg(env);
-    goto done;
-
  err:
-    ret = atom_error;
-
  done:
     if (priv_key_in)
         BN_free(priv_key_in);
@@ -216,22 +210,22 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ASSERT(argc == 3);
 
     if (!get_bn_from_bin(env, argv[0], &other_pub_key))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Can't get bignum from binary"));
     if (!get_bn_from_bin(env, argv[1], &priv_key))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Can't get bignum from binary"));
 
     if (!enif_get_list_cell(env, argv[2], &head, &tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "List with exactly two elements expected"));
     if (!get_bn_from_bin(env, head, &dh_p))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Can't get bignum from binary"));
 
     if (!enif_get_list_cell(env, tail, &head, &tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "List with exactly two elements expected"));
     if (!get_bn_from_bin(env, head, &dh_g))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Can't get bignum from binary"));
 
     if (!enif_is_empty_list(env, tail))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "List with exactly two elements expected"));
 
     /* Note: DH_set0_key() does not allow setting only the
      * private key, although DH_compute_key() does not use the
@@ -239,48 +233,45 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
      * the public key to a copy of the private key.
      */
     if ((dummy_pub_key = BN_dup(priv_key)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't BN_dup"));
     if ((dh_priv = DH_new()) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't DH_new"));
 
     if (!DH_set0_key(dh_priv, dummy_pub_key, priv_key))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't DH_set0_key"));
     /* dh_priv owns dummy_pub_key and priv_key now */
     dummy_pub_key = NULL;
     priv_key = NULL;
 
     if (!DH_set0_pqg(dh_priv, dh_p, NULL, dh_g))
-        goto err;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "P and/or G not accepted"));
     /* dh_priv owns dh_p and dh_g now */
     dh_p = NULL;
     dh_g = NULL;
 
     if ((dh_size = DH_size(dh_priv)) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't DH_size"));
     if (!enif_alloc_binary((size_t)dh_size, &ret_bin))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allcate binary"));
     ret_bin_alloc = 1;
 
     if ((size = DH_compute_key(ret_bin.data, other_pub_key, dh_priv)) < 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't DH_compute_key"));
     if (size == 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "size == 0"));
 
     if ((size_t)size != ret_bin.size) {
         if (!enif_realloc_binary(&ret_bin, (size_t)size))
-            goto err;
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't realloc binary"));
     }
 
     ret = enif_make_binary(env, &ret_bin);
     ret_bin_alloc = 0;
     goto done;
 
- bad_arg:
  err:
     if (ret_bin_alloc)
         enif_release_binary(&ret_bin);
-    ret = enif_make_badarg(env);
-
  done:
     if (other_pub_key)
         BN_free(other_pub_key);

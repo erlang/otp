@@ -426,11 +426,9 @@ int get_ec_key_sz(ErlNifEnv* env,
     return 1;
 }
 
-#endif /* HAVE_EC */
 
-ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 { /* (Curve, PrivKey)  */
-#if defined(HAVE_EC)
     EC_KEY *key = NULL;
     const EC_GROUP *group;
     const EC_POINT *public_key;
@@ -440,11 +438,11 @@ ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     size_t size;
 
     if (!get_ec_key_sz(env, argv[0], argv[1], atom_undefined, &key, &size))
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get EC key"));
 
     if (argv[1] == atom_undefined) {
 	if (!EC_KEY_generate_key(key))
-            goto err;
+            assign_goto(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
     }
 
     group = EC_KEY_get0_group(key);
@@ -463,15 +461,17 @@ ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     goto done;
 
  err:
- bad_arg:
-    ret = make_badarg_maybe(env);
-
  done:
     if (key)
         EC_KEY_free(key);
     return ret;
-
-#else
-    return atom_notsup;
-#endif
 }
+#endif /* HAVE_EC */
+
+
+#if ! defined(HAVE_EC)
+ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ /* (Curve, PrivKey)  */
+    return EXCP_NOTSUP_N(env, 0, "EC not supported");
+}
+#endif

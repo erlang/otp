@@ -34,43 +34,53 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     ASSERT(argc == 3);
 
+    /* Arg 0, Curve */
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
     else
-        goto bad_arg;
+        assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 0, "Bad curve"));
 
-    if (!enif_inspect_binary(env, argv[1], &peer_bin))
-        goto bad_arg;
+    /* Arg 2, MyBin (My private key) */
     if (!enif_inspect_binary(env, argv[2], &my_bin))
-        goto bad_arg;
+        assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 2, "Binary expected"));
 
     if ((my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Not a valid raw private key"));
+
     if ((ctx = EVP_PKEY_CTX_new(my_key, NULL)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR_N(env, 2, "Can't make context"));
 
     if (EVP_PKEY_derive_init(ctx) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_derive_init"));
+
+    /* Arg 1, PeerBin (Peer public key) */
+    if (!enif_inspect_binary(env, argv[1], &peer_bin))
+        assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 1, "Binary expected"));
 
     if ((peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) == NULL)
-        goto err;
-    if (EVP_PKEY_derive_set_peer(ctx, peer_key) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Not a raw public peer key"));
 
+    if (EVP_PKEY_derive_set_peer(ctx, peer_key) != 1)
+        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't EVP_PKEY_derive_set_peer"));
+
+    /* Find max size of the common key */
     if (EVP_PKEY_derive(ctx, NULL, &max_size) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
 
     if (!enif_alloc_binary(max_size, &key_bin))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
+
     key_bin_alloc = 1;
+
+    /* Derive the common key */
     if (EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_derive"));
 
     if (key_bin.size < max_size) {
         if (!enif_realloc_binary(&key_bin, (size_t)key_bin.size))
-            goto err;
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't shrink binary"));
     }
 
     ret = enif_make_binary(env, &key_bin);
@@ -81,7 +91,6 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
  err:
     if (key_bin_alloc)
         enif_release_binary(&key_bin);
-    ret = enif_make_badarg(env);
 
  done:
     if (my_key)
@@ -97,6 +106,7 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return atom_notsup;
 #endif
 }
+
 
 ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (Curve) */
@@ -119,46 +129,41 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     else if (argv[0] == atom_ed448)
         type = EVP_PKEY_ED448;
     else
-        goto bad_arg;
+        assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 0, "Bad curve"));
 
     if (argv[1] == atom_undefined) {
         if ((ctx = EVP_PKEY_CTX_new_id(type, NULL)) == NULL)
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't make context"));
         if (EVP_PKEY_keygen_init(ctx) != 1)
-            goto err;
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
         if (EVP_PKEY_keygen(ctx, &pkey) != 1)
-            goto err;
+            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen"));
     } else {
         if (!enif_inspect_binary(env, argv[1], &prv_key))
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
         if ((pkey = EVP_PKEY_new_raw_private_key(type, NULL, prv_key.data, prv_key.size)) == NULL)
-            goto bad_arg;
+            assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't EVP_PKEY_new_raw_private_key"));
     }
 
     if (EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
     if ((out_pub = enif_make_new_binary(env, key_len, &ret_pub)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
     if (EVP_PKEY_get_raw_public_key(pkey, out_pub, &key_len) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_public_key"));
 
     if (EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
     if ((out_priv = enif_make_new_binary(env, key_len, &ret_prv)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
     if (EVP_PKEY_get_raw_private_key(pkey, out_priv, &key_len) != 1)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_private_key"));
 
     ret = enif_make_tuple2(env, ret_pub, ret_prv);
     goto done;
 
  bad_arg:
-    ret = enif_make_badarg(env);
-    goto done;
-
  err:
-    ret = atom_error;
-
  done:
     if (pkey)
         EVP_PKEY_free(pkey);

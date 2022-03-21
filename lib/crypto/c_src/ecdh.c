@@ -29,7 +29,7 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 /* (OtherPublicKey, Curve, My) */
 {
 #if defined(HAVE_EC)
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret = atom_undefined;
     unsigned char *p;
     EC_KEY* key = NULL;
     int degree;
@@ -39,44 +39,37 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     EC_POINT *my_ecpoint = NULL;
     EC_KEY *other_ecdh = NULL;
 
-    ASSERT(argc == 3);
-
     if (!get_ec_key_sz(env, argv[1], argv[2], atom_undefined, &key, NULL)) // my priv key
-        goto bad_arg;
+        assign_goto(ret, err, EXCP_BADARG_N(env, 2, "Couldn't get local key"));
+    
     if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
-        goto bad_arg;
+         assign_goto(ret, err, EXCP_ERROR(env, "Couldn't duplicate EC key"));
+
     priv_key = EC_KEY_get0_private_key(key);
 
-    if (!term2point(env, argv[0], group, &my_ecpoint)) {
-        goto err;
-    }
+    if (!term2point(env, argv[0], group, &my_ecpoint))
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Couldn't get ecpoint"));
 
     if ((other_ecdh = EC_KEY_new()) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't allocate EC_KEY"));
+    
     if (!EC_KEY_set_group(other_ecdh, group))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't set group"));
+
     if (!EC_KEY_set_private_key(other_ecdh, priv_key))
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't set private key"));
 
     if ((degree = EC_GROUP_get_degree(group)) <= 0)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get degree"));
 
     field_size = (size_t)degree;
     if ((p = enif_make_new_binary(env, (field_size+7)/8, &ret)) == NULL)
-        goto err;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't allocate binary"));
+
     if (ECDH_compute_key(p, (field_size+7)/8, my_ecpoint, other_ecdh, NULL) < 1)
-        goto err;
-
-    goto done;
-
- bad_arg:
-    ret = make_badarg_maybe(env);
-    goto done;
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't compute key"));
 
  err:
-    ret = enif_make_badarg(env);
-
- done:
     if (group)
         EC_GROUP_free(group);
     if (my_ecpoint)
@@ -89,6 +82,6 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 
 #else
-    return atom_notsup;
+    return EXCP_NOTSUP_N(env, 0, "EC not supported");
 #endif
 }
