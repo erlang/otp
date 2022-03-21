@@ -81,6 +81,7 @@
 %% [1] https://en.wikipedia.org/wiki/Lattice_(order)#General_lattice
 
 -define(ATOM_SET_SIZE, 5).
+-define(MAX_FUNC_ARGS, 255).
 
 -record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
 -record(t_bitstring, {size_unit=1 :: pos_integer()}).

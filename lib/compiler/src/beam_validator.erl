@@ -452,7 +452,7 @@ vi({test,is_float,{f,Lbl},[Src]}, Vst) ->
 vi({test,is_function,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_fun{}, Src, Vst);
 vi({test,is_function2,{f,Lbl},[Src,{integer,Arity}]}, Vst)
-  when Arity >= 0, Arity =< 255 ->
+  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     type_test(Lbl, #t_fun{arity=Arity}, Src, Vst);
 vi({test,is_function2,{f,Lbl},[Src0,_Arity]}, Vst) ->
     Src = unpack_typed_arg(Src0),
@@ -2118,7 +2118,7 @@ infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_float{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_function},args=[Src,{integer,Arity}]},
               Val, Op, Vst)
-  when Arity >= 0, Arity =< 255 ->
+  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     infer_type_test_bif(#t_fun{arity=Arity}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_function},args=[Src,_Arity]}, Val, Op, Vst) ->
     case Val of
