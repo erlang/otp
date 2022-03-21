@@ -61,7 +61,7 @@ void init_load(void)
     {
         int i;
 
-        for (i = 1; i < num_instructions; i++) {
+        for (i = 1; i < NUM_GENERIC_OPS; i++) {
             const GenOpEntry *op = &gen_opc[i];
 
             ASSERT(op->name && op->name[0] != '\0');
