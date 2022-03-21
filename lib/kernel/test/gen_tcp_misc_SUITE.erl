@@ -5047,14 +5047,21 @@ anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down) ->
 
 %% Test the send_timeout socket option.
 send_timeout(Config) when is_list(Config) ->
-    ?TC_TRY(send_timeout, fun() -> do_send_timeout(Config) end).
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout(Config, Node) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
 
-do_send_timeout(Config) ->
+do_send_timeout(Config, RNode) ->
     ?P("begin"),
-    Dir = filename:dirname(code:which(?MODULE)),
-    ?P("create node"),
-    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
-
     {TslTimeout, SndTimeout, BinData, SndBuf} = 
 	case ?IS_SOCKET_BACKEND(Config) of
 	    true ->
@@ -5102,9 +5109,6 @@ do_send_timeout(Config) ->
     ?P("check parallel writers w autoclose"),
     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		      true, RNode),
-
-    ?P("stop node"),
-    ?STOP_NODE(RNode),
 
     ?P("done"),
     ok.
@@ -5662,18 +5666,18 @@ timeout_sink_loop(Action, To, N) ->
 
 send_timeout_resume(Config) when is_list(Config) ->
     ct:timetrap(?SECS(16)),
-    ?TC_TRY(
-       send_timeout_resume,
-       fun () -> do_send_timeout_resume(Config) end).
-
-do_send_timeout_resume(Config) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
-    try
-        do_send_timeout_resume(Config, RNode, 12)
-    after
-        ?STOP_NODE(RNode)
-    end.
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout_resume(Config, Node, 12) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
 
 do_send_timeout_resume(Config, RNode, BlockPow) ->
     BlockSize = 1 bsl BlockPow,
@@ -5740,6 +5744,18 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                            %% so that did not work
                            1 < Timeouts ->
                         ok;
+                    {Tag, ok, Count} when Count =:= N * BlockSize ->
+                        ?P("Unexpected number of timeouts: "),
+                        ct:fail(Result);
+                    {Tag, ok, Count} ->
+                        ?P("Unexpected counts: "
+                           "~n      Got:      ~p"
+                           "~n      Expected: ~p", [Count, N*BlockSize]),
+                        ct:fail(Result);
+                    {Tag, Res, _Count} ->
+                        ?P("Unexpected res: "
+                           "~n      Res: ~p", [Res]),
+                        ct:fail(Result);
                     _ ->
                         ct:fail(Result)
                 end
