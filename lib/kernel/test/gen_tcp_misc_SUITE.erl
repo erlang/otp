@@ -5663,6 +5663,7 @@ timeout_sink_loop(Action, To, N) ->
     end.
 
 
+%% =========================================================================
 
 send_timeout_resume(Config) when is_list(Config) ->
     ct:timetrap(?SECS(16)),
@@ -5672,7 +5673,7 @@ send_timeout_resume(Config) when is_list(Config) ->
                    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
                    RNode
            end,
-    Case = fun(Node) -> do_send_timeout_resume(Config, Node, 12) end,
+    Case = fun(Node) -> do_send_timeout_resume(Config, Node, 13) end,
     Post = fun(Node) ->
                    ?P("stop node ~p", [Node]),
                    ?STOP_NODE(Node)
@@ -5681,24 +5682,24 @@ send_timeout_resume(Config) when is_list(Config) ->
 
 do_send_timeout_resume(Config, RNode, BlockPow) ->
     BlockSize = 1 bsl BlockPow,
-    1 = rand:uniform(1),
-    Seed = rand:export_seed(),
+    1         = rand:uniform(1),
+    Seed      = rand:export_seed(),
     ListenOpts =
         [inet,
          binary,
          {backlog, 2},
-         {active, false}],
+         {active,  false}],
     ConnectOpts =
         [inet,
          {send_timeout, 0},
-         {active, false},
+         {active,       false},
          binary],
     StreamOpts =
         [{high_watermark, BlockSize},
-         {low_watermark, BlockSize bsr 1},
-         {sndbuf, BlockSize},
-         {recbuf, BlockSize},
-         {buffer, BlockSize bsl 1}],
+         {low_watermark,  BlockSize bsr 1},
+         {sndbuf,         BlockSize},
+         {recbuf,         BlockSize},
+         {buffer,         BlockSize bsl 1}],
     Client = self(),
     Tag = make_ref(),
     {Server, Mref} =
@@ -5728,12 +5729,16 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
             {'DOWN', Mref, _, _, Error2} ->
                 ct:fail(Error2)
         end,
+        ?P("send"),
         {N, Timeouts} =
-            do_send_timeout_resume_send(C, Server, Tag, 0, BlockSize),
+            do_send_timeout_resume_send(C, Server, Tag, BlockSize),
+        ?P("await server reply (DOWN)"),
         receive
             {'DOWN', Mref, _, _, Result} ->
-                ?P("N = ~p, Timeouts = ~p, Result=~p~n",
-                   [N, Timeouts, Result]),
+                ?P("received DOWN message from server:"
+                   "~n   N:        ~p"
+                   "~n   Timeouts: ~p"
+                   "~n   Result:   ~p", [N, Timeouts, Result]),
                 case Result of
                     {Tag, ok, Count}
                       when Count =:= N * BlockSize,
@@ -5745,7 +5750,10 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                            1 < Timeouts ->
                         ok;
                     {Tag, ok, Count} when Count =:= N * BlockSize ->
-                        ?P("Unexpected number of timeouts: "),
+                        ?P("Unexpected number of timeouts, ~w, when"
+                           "~n   Expected count: ~p"
+                           "~n   Got count:      ~p"
+                           "~n   ", [Timeouts, N*BlockSize, Count]),
                         ct:fail(Result);
                     {Tag, ok, Count} ->
                         ?P("Unexpected counts: "
@@ -5769,35 +5777,63 @@ optnames(Opts) ->
     [Name || {Name, _} <- Opts].
 
 %% Fill buffers
-do_send_timeout_resume_send(S, Server, Tag, N, BlockSize) ->
+do_send_timeout_resume_send(S, Server, Tag, BlockSize) ->
+    %%% This is really sketchy, but it seems to "work"...
+    RetryTimeout =
+        case os:type() of
+            {unix, darwin} ->
+                25;
+            {unix, freebsd} ->
+                50;
+            _ ->
+                100
+        end,
+    do_send_timeout_resume_send(S, Server, Tag, 0, RetryTimeout, BlockSize).
+
+do_send_timeout_resume_send(S, Server, Tag, N, RetryTimeout, BlockSize) ->
     Bin = random_data(BlockSize),
-    case send_timeout_repeat(S, Server, Tag, N, Bin, 0) of
+    case send_timeout_repeat(S, Server, Tag, N, Bin, RetryTimeout, 0) of
         0 ->
-            do_send_timeout_resume_send(S, Server, Tag, N + 1, BlockSize);
+            do_send_timeout_resume_send(S, Server, Tag,
+                                        N + 1, RetryTimeout, BlockSize);
         Timeouts ->
             ok = gen_tcp:close(S),
             {N + 1, Timeouts}
     end.
 
-send_timeout_repeat(S, Server, Tag, N, Bin, Timeouts) ->
+send_timeout_repeat(S, Server, Tag, N, Bin, RetryTimeout, Timeouts) ->
     case gen_tcp:send(S, Bin) of
         ok ->
+            ?P("send_timeout_repeat -> success => done when"
+               "~n      N:        ~p"
+               "~n      Timeouts: ~p", [N, Timeouts]),
             Timeouts;
         {error, Reason} ->
             case Reason of
                 timeout ->
+                    ?P("send_timeout_repeat -> timeout:"
+                       "~n      S:        ~p"
+                       "~n      N:        ~p"
+                       "~n      Timeouts: ~p", [S, N, Timeouts]),
                     Server ! {Tag, rec},
-                    ?P("timeout ~p, ~p~n", [S, N]),
-                    receive after 100 -> ok end,
+                    receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
-                      S, Server, Tag, N, <<>>, Timeouts + 1);
+                      S, Server, Tag, N, <<>>, RetryTimeout, Timeouts + 1);
                 {timeout, RestData} ->
+                    ?P("send_timeout_repeat -> timeout with RestData: "
+                       "~n      S:        ~p"
+                       "~n      N:        ~p"
+                       "~n      Timeouts: ~p", [S, N, Timeouts]),
                     Server ! {Tag, rec},
-                    ?P("timeout, RestData ~p, ~p~n", [S, N]),
-                    receive after 100 -> ok end,
+                    receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
-                      S, Server, Tag, N, RestData, Timeouts + 1);
+                      S, Server, Tag, N, RestData, RetryTimeout, Timeouts + 1);
                 _ ->
+                    ?P("send_timeout_repeat -> unexpected send failure: "
+                       "~n      Reason:   ~p"
+                       "~n   when"
+                       "~n      N:        ~p"
+                       "~n      Timeouts: ~p", [Reason, N, Timeouts]),
                     error({Reason, N, Timeouts})
             end
     end.
@@ -5820,22 +5856,23 @@ compare_data(<<Byte, Bin/binary>>, Count) ->
 send_timeout_resume_srv(Config, Seed, Client, Tag, ListenOpts, StreamOpts) ->
     rand:seed(Seed),
     {ok, L} = ?LISTEN(Config, 0, ListenOpts),
-    ?P("get listen StreamOpts -> ~p",
+    ?P("[server] get listen StreamOpts -> ~p",
        [inet:getopts(L, optnames(StreamOpts))]),
     {ok, P} = inet:port(L),
     Client ! {Tag, port, P},
     %%
     {ok, A} = gen_tcp:accept(L, 2000),
-    ?P("accept success ~p~n", [A]),
+    ?P("[server] accept success ~p", [A]),
     ok = inet:setopts(A, StreamOpts),
-    ?P("get accept StreamOpts -> ~p",
+    ?P("[server] get accept StreamOpts -> ~p",
        [inet:getopts(A, optnames(StreamOpts))]),
     Client ! {Tag, send},
     %%
     receive
         {Tag, rec} ->
-            receive after 1000 -> ok end,
-            ?P("receiving ~p~n", [A]),
+            ?P("[server] received recv command - now wait some time"),
+            receive after 5000 -> ok end,
+            ?P("[server] begin receiving (on ~p)", [A]),
             exit({Tag, ok, send_timeout_resume_srv(A, 0)})
     end.
 
