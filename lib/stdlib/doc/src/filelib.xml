@@ -108,7 +108,7 @@
     </func>
 
     <func>
-      <name name="ensure_path" arity="1" since=""/>
+      <name name="ensure_path" arity="1" since="OTP @OTP-17953@"/>
       <fsummary>Ensure that all parent directories for a target directory exist.</fsummary>
       <desc>
         <p>Ensures that all parent directories for the specified path
