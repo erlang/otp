@@ -26,7 +26,7 @@
          without/2, with/2,
          iterator/1, next/1,
          intersect/2, intersect_with/3,
-         merge_with/3,
+         merge_deep/2, merge_with/3,
          groups_from_list/2, groups_from_list/3]).
 
 %% BIFs
@@ -195,6 +195,22 @@ merge_with_1({K, V2, Iterator}, Map1, Map2, Combiner) ->
 merge_with_1(none, Result, _, _) ->
     Result.
 
+-spec merge_deep(Map1, Map2) -> Map3 when
+    Map1 :: map(),
+    Map2 :: map(),
+    Map3 :: map().
+
+merge_deep(Map1, Map2) when is_map(Map1), is_map(Map2) ->
+    Combiner = fun
+        (_Key1, Value1, Value2) when is_map(Value1), is_map(Value2) ->
+            merge_deep(Value1, Value2);
+        (_Key1, _Value1, Value2) ->
+            Value2
+    end,
+    merge_with(Combiner, Map1, Map2);
+
+merge_deep(Map1, Map2) ->
+    error_with_info(error_type_two_maps(Map1, Map2), [Map1, Map2]).
 
 %% Shadowed by erl_bif_types: maps:put/3
 -spec put(Key,Value,Map1) -> Map2 when

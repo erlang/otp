@@ -33,7 +33,8 @@
          t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
-         t_merge_with/1, t_from_keys/1,
+         t_merge_deep/1, t_merge_with/1,
+         t_from_keys/1,
          error_info/1,
          t_from_list_kill_process/1,
          t_from_keys_kill_process/1,
@@ -60,7 +61,7 @@ all() ->
      t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
-     t_merge_with, t_from_keys,
+     t_merge_deep, t_merge_with, t_from_keys,
      error_info,
      t_from_list_kill_process,
      t_from_keys_kill_process,
@@ -782,6 +783,31 @@ t_groups_from_list(_Config) ->
          ),
     #{0 := [2], 1 := [1, 3]} = maps:groups_from_list(fun(X) -> X rem 2 end, [1, 2, 3]).
 
+t_merge_deep(Config) when is_list(Config) ->
+    Map1 = #{1 => #{1 => 1},
+             2 => #{2 => 2},
+             3 => 3,
+             4 => #{4 => 4},
+             5 => #{5 => #{5 => #{5 => 5}}}},
+    Map2 = #{1 => #{1 => <<"override">>, 2 => 2},
+             2 => #{0 => 0},
+             3 => <<"override">>,
+             4 => #{},
+             5 => #{5 => #{5 => #{0 => 0}}}},
+    #{1 := #{1 := <<"override">>, 2 := 2},
+      2 := #{0 := 0, 2 := 2},
+      3 := <<"override">>,
+      4 := #{4 := 4},
+      5 := #{5 := #{5 := #{0 := 0, 5 := 5}}}} = maps:merge_deep(Map1, Map2),
+
+    %% Errors
+    {'EXIT', {{badmap, a}, _}} =
+    (catch maps:merge_deep(#{}, a)),
+    {'EXIT', {{badmap, a}, _}} =
+    (catch maps:merge_deep(a, a)),
+
+    ok.
+
 error_info(_Config) ->
     BadIterator = [-1|#{}],
     GoodIterator = maps:iterator(#{}),
@@ -848,6 +874,10 @@ error_info(_Config) ->
          {merge,[#{a => b}, {a,b}]},
          {merge,[{x,y}, #{a => b}]},
          {merge,[{x,y}, {a,b}],[{1,".*"},{2,".*"}]},
+
+         {merge_deep, [a, #{}]},
+         {merge_deep, [#{}, a]},
+         {merge_deep, [a, b],[{1,".*"},{2,".*"}]},
 
          {merge_with, [fun(_, _) -> ok end, #{}, #{}]},
          {merge_with, [a, b, c],[{1,".*"},{2,".*"},{3,".*"}]},
