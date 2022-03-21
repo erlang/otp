@@ -336,6 +336,7 @@ atom group_leader
 atom handle
 atom have_dt_utag
 atom heap_block_size
+atom heap_growth
 atom heap_size
 atom heap_sizes
 atom heap_type

@@ -769,6 +769,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_GARBAGE_COLLECTION_INFO              33
 #define ERTS_PI_IX_MAGIC_REF                            34
 #define ERTS_PI_IX_FULLSWEEP_AFTER                      35
+#define ERTS_PI_IX_HEAP_GROWTH                          36
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -824,7 +825,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_message_queue_data, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_garbage_collection_info, ERTS_PROCESS_GC_INFO_MAX_SIZE, 0, ERTS_PROC_LOCK_MAIN},
     {am_magic_ref, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
-    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_heap_growth, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -943,6 +945,8 @@ pi_arg2ix(Eterm arg)
         return ERTS_PI_IX_MAGIC_REF;
     case am_fullsweep_after:
         return ERTS_PI_IX_FULLSWEEP_AFTER;
+    case am_heap_growth:
+        return ERTS_PI_IX_HEAP_GROWTH;
     default:
         return -1;
     }
@@ -1793,6 +1797,10 @@ process_info_aux(Process *c_p,
                                      &hp, NULL);
 	break;
     }
+
+    case ERTS_PI_IX_HEAP_GROWTH:
+        res = (rp->flags & F_HEAP_GROWTH_LOW) ? am_low : am_normal;
+        break;
 
     case ERTS_PI_IX_TOTAL_HEAP_SIZE: {
 	Uint total_heap_size;
@@ -2645,6 +2653,12 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_min_bin_vheap_size,make_small(BIN_VH_MIN_SIZE));
 	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_heap_growth) {
+        Eterm atom = (erts_atomic32_read_nob(&erts_default_proc_flags)
+                      & F_HEAP_GROWTH_LOW) ? am_low : am_normal;
+        hp = HAlloc(BIF_P, 3);
+        res = TUPLE2(hp, am_heap_growth, atom);
+        BIF_RET(res);
     } else if (BIF_ARG_1 == am_process_count) {
 	BIF_RET(make_small(erts_ptab_count(&erts_proc)));
     } else if (BIF_ARG_1 == am_process_limit) {

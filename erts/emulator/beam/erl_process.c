@@ -11976,6 +11976,17 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
 		} else {
 		    sop->max_gen_gcs = max_gen_gcs;
 		}
+            } else if (arg == am_heap_growth) {
+                switch (val) {
+                case am_low:
+                    sop->proc_flags |= F_HEAP_GROWTH_LOW;
+                    break;
+                case am_normal:
+                    sop->proc_flags &= ~F_HEAP_GROWTH_LOW;
+                    break;
+                default:
+                    result = -1;
+                }
 	    } else if (arg == am_scheduler && is_small(val)) {
 		Sint scheduler = signed_val(val);
                 if (sop->flags & SPO_SCHEDULER)
@@ -12049,7 +12060,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		   ErlSpawnOpts* so) /* Options for spawn. */
 {
     int bound = 0;
-    Uint flags = 0, qs_flags = 0;
+    Uint qs_flags = 0;
     ErtsRunQueue *rq = NULL;
     Process *p;
     Sint arity;			/* Number of arguments. */
@@ -12157,7 +12168,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /* Reserve place for continuation pointer, redzone, etc */
     heap_need = arg_size + S_RESERVED;
 
-    p->flags = flags;
+    p->flags = so->proc_flags;
     p->sig_qs.flags = qs_flags;
 
     p->static_flags = 0;

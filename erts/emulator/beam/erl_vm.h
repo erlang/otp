@@ -257,6 +257,9 @@ extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
 extern int H_MAX_SIZE;          /* maximum (heap + stack) */
 extern int H_MAX_FLAGS;         /* maximum heap flags  */
 
+extern erts_atomic32_t erts_default_proc_flags;  /* Process.flags */
+
+
 extern int erts_atom_table_size;/* Atom table size */
 extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
