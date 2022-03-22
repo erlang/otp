@@ -2158,17 +2158,17 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
                     p("try_tc -> done"),
                     Res
             catch
-                throw:{skip, _} = SKIP:_ ->
-                    p("try_tc -> test case (throw) skip: try post"),
+                C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                          (C =:= exit) ->
+                    p("try_tc -> test case (~w) skip: try post", [C]),
                     _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> test case (throw) skip: done"),
-                    SKIP;
-                exit:{skip, _} = SKIP:_ ->
-                    p("try_tc -> test case (exit) skip: try post"),
-                    _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> test case (exit) skip: done"),
+                    p("try_tc -> test case (~w) skip: done", [C]),
                     SKIP;
                 C:E:S ->
+                    %% We always check the system events
+                    %% before we accept a failure.
+                    %% We do *not* run the Post here because it might
+                    %% generate sys events itself...
                     p("try_tc -> test case failed: try post"),
                     _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
@@ -2176,17 +2176,16 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
                             p("try_tc -> test case failed: done"),
                             exit({case_catched, C, E, S});
                         SysEvs ->
-                            p("try_tc -> test case failed with system event(s): "
+                            p("try_tc -> "
+                              "test case failed with system event(s): "
                               "~n   ~p", [SysEvs]),
                             {skip, "TC failure with system events"}
                     end
             end
     catch
-        throw:{skip, _} = SKIP:_ ->
-            p("try_tc -> pre (throw) skip"),
-            SKIP;
-        exit:{skip, _} = SKIP:_ ->
-            p("try_tc -> pre (exit) skip"),
+        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                  (C =:= exit) ->
+            p("try_tc -> pre (~w) skip", [C]),
             SKIP;
         C:E:S ->
             case megaco_test_global_sys_monitor:events() of
