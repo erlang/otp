@@ -2138,31 +2138,35 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
   when is_function(Pre, 0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
-    process_flag(trap_exit, true),
-    put(verbosity, Verbosity),
-    put(sname,     Name),
-    put(tc,        TCName),
-    p("try_tc -> starting: try pre"),
+    tc_begin(TCName),
     try Pre() of
         State ->
-            p("try_tc -> pre done: try test case"),
-            try Case(State) of
-                Res ->
-                    p("try_tc -> test case done: try post"),
+            tc_print("pre done: try test case"),
+            try
+                begin
+                    Res = Case(State),
+                    sleep(seconds(1)),
+                    tc_print("test case done: try post"),
                     _ = executor(fun() ->
                                          put(verbosity, Verbosity),
                                          put(sname,     Name),
                                          put(tc,        TCName),
                                          Post(State)
                                  end),
-                    p("try_tc -> done"),
+                    tc_end("ok"),
                     Res
+                end
             catch
                 C:{skip, _} = SKIP:_ when (C =:= throw) orelse
                                           (C =:= exit) ->
-                    p("try_tc -> test case (~w) skip: try post", [C]),
-                    _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> test case (~w) skip: done", [C]),
+                    tc_print("test case (~w) skip: try post", [C]),
+                    _ = executor(fun() ->
+                                         put(verbosity, Verbosity),
+                                         put(sname,     Name),
+                                         put(tc,        TCName),
+                                         Post(State)
+                                 end),
+                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
                     SKIP;
                 C:E:S ->
                     %% We always check the system events
@@ -2173,33 +2177,117 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
                     _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
-                            p("try_tc -> test case failed: done"),
-                            exit({case_catched, C, E, S});
+                            tc_print("test case failed: try post"),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end( f("failed(caught,~w,tc)", [C]) ),
+                            erlang:raise(C, E, S);
                         SysEvs ->
-                            p("try_tc -> "
-                              "test case failed with system event(s): "
-                              "~n   ~p", [SysEvs]),
-                            {skip, "TC failure with system events"}
-                    end
+                            tc_print("System Events received during tc: "
+                                     "~n   ~p"
+                                     "~nwhen tc failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S]),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                      [C]) ),
+                            SKIP = {skip, "TC failure with system events"},
+                            SKIP
+                     end
             end
     catch
         C:{skip, _} = SKIP:_ when (C =:= throw) orelse
                                   (C =:= exit) ->
-            p("try_tc -> pre (~w) skip", [C]),
+            tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
             SKIP;
         C:E:S ->
             case megaco_test_global_sys_monitor:events() of
                 [] ->
-                    p("try_tc -> pre failed: done"),
-                    exit({pre_catched, C, E, S});
+                    tc_print("tc-pre failed: auto-skip"
+                             "~n   C: ~p"
+                             "~n   E: ~p"
+                             "~n   S: ~p",
+                             [C, E, S]),
+                    tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                    SKIP;
                 SysEvs ->
-                    p("try_tc -> pre failed with system event(s): "
-                      "~n   ~p", [SysEvs]),
-                    {skip, "TC pre failure with system events"}
+                    tc_print("System Events received: "
+                             "~n   ~p"
+                             "~nwhen tc-pre failed:"
+                             "~n   C: ~p"
+                             "~n   E: ~p"
+                             "~n   S: ~p",
+                             [SysEvs, C, E, S], "", ""),
+                    tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
+                    SKIP = {skip, "TC-Pre failure with system events"},
+                    SKIP
             end
     end.
 
 
+tc_set_name(N) when is_atom(N) ->
+    tc_set_name(atom_to_list(N));
+tc_set_name(N) when is_list(N) ->
+    put(tc_name, N).
+
+tc_get_name() ->
+    get(tc_name).
+
+tc_begin(TC) ->
+    OldVal = process_flag(trap_exit, true),
+    put(old_trap_exit, OldVal),
+    tc_set_name(TC),
+    tc_print("begin ***",
+             "~n----------------------------------------------------~n", "").
+
+tc_end(Result) when is_list(Result) ->
+    OldVal = erase(old_trap_exit),
+    process_flag(trap_exit, OldVal),
+    tc_print("done: ~s", [Result], 
+             "", "----------------------------------------------------~n~n"),
+    ok.
+
+tc_print(F) ->
+    tc_print(F, [], "", "").
+
+tc_print(F, A) ->
+    tc_print(F, A, "", "").
+
+tc_print(F, Before, After) ->
+    tc_print(F, [], Before, After).
+
+tc_print(F, A, Before, After) ->
+    Name = tc_which_name(),
+    FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+             [formated_timestamp(), Name, self() | A]),
+    io:format(user, Before ++ FStr ++ After, []),
+    io:format(standard_io, Before ++ FStr ++ After, []).
+
+tc_which_name() ->
+    case tc_get_name() of
+        undefined ->
+            case get(sname) of
+                undefined ->
+                    "";
+                SName when is_list(SName) ->
+                    SName
+            end;
+        Name when is_list(Name) ->
+            Name
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
