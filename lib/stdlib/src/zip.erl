@@ -51,7 +51,7 @@
 -define(WRITE_BLOCK_SIZE, 8*1024).
 
 %% for debugging, to turn off catch
--define(CATCH, catch).
+-define(CATCH(Expr), (catch (Expr))).
 
 %% Debug.
 -define(SHOW_GP_BIT_11(B, F), ok).
@@ -227,7 +227,7 @@ openzip_open(F) ->
     openzip_open(F, []).
 
 openzip_open(F, Options) ->
-    case ?CATCH do_openzip_open(F, Options) of
+    case ?CATCH(do_openzip_open(F, Options)) of
 	{ok, OpenZip} ->
 	    {ok, OpenZip};
 	Error ->
@@ -252,7 +252,7 @@ do_openzip_open(F, Options) ->
 
 %% retrieve all files from an open archive
 openzip_get(OpenZip) ->
-    case ?CATCH do_openzip_get(OpenZip) of
+    case ?CATCH(do_openzip_get(OpenZip)) of
 	{ok, Result} -> {ok, Result};
 	Error -> {error, Error}
     end.
@@ -269,7 +269,7 @@ do_openzip_get(_) ->
 
 %% retrieve a file from an open archive
 openzip_get(FileName, OpenZip) ->
-    case ?CATCH do_openzip_get(FileName, OpenZip) of
+    case ?CATCH(do_openzip_get(FileName, OpenZip)) of
 	{ok, Result} -> {ok, Result};
 	Error -> {error, Error}
     end.
@@ -372,7 +372,7 @@ unzip(F) -> unzip(F, []).
                 | {error, {Name :: file:name(), Reason :: term()}}).
 
 unzip(F, Options) ->
-    case ?CATCH do_unzip(F, Options) of
+    case ?CATCH(do_unzip(F, Options)) of
 	{ok, R} -> {ok, R};
 	Error -> {error, Error}
     end.
@@ -452,7 +452,7 @@ zip(F, Files) -> zip(F, Files, []).
                 | {error, Reason :: term()}).
 
 zip(F, Files, Options) ->
-    case ?CATCH do_zip(F, Files, Options) of
+    case ?CATCH(do_zip(F, Files, Options)) of
 	{ok, R} -> {ok, R};
 	Error -> {error, Error}
     end.
@@ -496,7 +496,7 @@ list_dir(F) -> list_dir(F, []).
       Option :: cooked).
 
 list_dir(F, Options) ->
-    case ?CATCH do_list_dir(F, Options) of
+    case ?CATCH(do_list_dir(F, Options)) of
 	{ok, R} -> {ok, R};
 	Error -> {error, Error}
     end.
@@ -521,7 +521,7 @@ t(F) when is_record(F, openzip) -> openzip_t(F);
 t(F) -> t(F, fun raw_short_print_info_etc/5).
 
 t(F, RawPrint) ->
-    case ?CATCH do_t(F, RawPrint) of
+    case ?CATCH(do_t(F, RawPrint)) of
 	ok -> ok;
 	Error -> {error, Error}
     end.
@@ -1543,7 +1543,7 @@ get_z_data(?DEFLATED, In0, FileName, CompSize, Input, Output, OpO, Z) ->
     Out0 = Output({open, FileName, [write | OpO]}, []),
     CRC0 = 0,
     {In1, Out1, UncompSize, CRC} = get_z_data_loop(CompSize, 0, In0, Out0, Input, Output, CRC0, Z),
-    ?CATCH zlib:inflateEnd(Z),
+    _ = ?CATCH(zlib:inflateEnd(Z)),
     Out2 = Output({close, FileName}, Out1),
     {Out2, In1, CRC, UncompSize};
 get_z_data(?STORED, In0, FileName, CompSize, Input, Output, OpO, _Z) ->

@@ -42,7 +42,7 @@
 -define(READ_BLOCK_SIZE, 16*1024).
 
 %% for debugging, to turn off catch
--define(CATCH, catch).
+-define(CATCH(Expr), (catch (Expr))).
 
 -record(primzip_file,
 	{name,
@@ -203,7 +203,7 @@ get_z_all(?DEFLATED, Compressed, Z, _F) ->
     ok = zlib:inflateInit(Z, -?MAX_WBITS),
     Uncompressed = zlib:inflate(Z, Compressed),
     %%_CRC = zlib:crc32(Z),
-    ?CATCH zlib:inflateEnd(Z),
+    _ = ?CATCH(zlib:inflateEnd(Z)),
     erlang:iolist_to_binary(Uncompressed); % {erlang:iolist_to_binary(Uncompressed), CRC}
 get_z_all(?STORED, Stored, _Z, _F) ->
     %%CRC0 = zlib:crc32(Z, <<>>),
@@ -350,7 +350,7 @@ prim_file_io({file_info, F}, _) ->
 	{error, E} -> throw(E)
     end;
 prim_file_io({open, FN, Opts}, _) ->
-    case ?CATCH prim_file:open(FN, Opts++[binary]) of
+    case prim_file:open(FN, Opts++[binary]) of
 	{ok, H} ->
 	    H;
 	{error, E} ->
