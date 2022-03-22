@@ -6672,9 +6672,9 @@ receive_replies(ReqId, N, Acc) ->
             <item>
                 <p><c><anno>Pid</anno></c> is the identifier
                 of the parent process, the one that spawned current
-                process. When the process does not have a local parent
-                (e.g. <c>init</c>, or process is spawned remotely),
-                <c>undefined</c> is returned.</p>
+                process. When the process does not have a parent
+                <c>undefined</c> is returned. Only the initial process
+                (<c>init</c>) on a node lacks a parent, though.</p>
             </item>
           <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>

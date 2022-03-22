@@ -1071,7 +1071,25 @@ process_info_parent(Config) when is_list(Config) ->
     Child = spawn_link(fun () -> receive stop -> ok end end),
     ?assertEqual({parent, self()}, erlang:process_info(Child, parent)),
     Child ! stop,
-    ?assertEqual({parent, undefined}, erlang:process_info(whereis(init), parent)).
+    ?assertEqual({parent, undefined}, erlang:process_info(whereis(init), parent)),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    RemoteChild = spawn_link(Node,
+                             fun () ->
+                                     {parent, Parent} = process_info(self(), parent),
+                                     garbage_collect(),
+                                     {parent, Parent} = process_info(self(), parent),
+                                     garbage_collect(),
+                                     Parent ! remote_child_hello,
+                                     receive stop -> ok end
+                             end),
+    ?assertEqual({parent, self()},
+                 erpc:call(Node, erlang, process_info, [RemoteChild, parent])),
+    receive remote_child_hello -> ok end,
+    unlink(RemoteChild),
+    RemoteChild ! stop,
+    peer:stop(Peer),
+    ok.
 
 process_info_smoke_all_tester() ->
     register(process_info_smoke_all_tester, self()),

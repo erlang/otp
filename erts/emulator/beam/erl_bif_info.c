@@ -2030,7 +2030,17 @@ process_info_aux(Process *c_p,
 	break;
 
     case ERTS_PI_IX_PARENT:
-        res = rp->parent == NIL ? am_undefined : rp->parent;
+        if (is_immed(rp->parent)) {
+            ASSERT(is_internal_pid(rp->parent) || rp->parent == am_undefined);
+            res = rp->parent;
+        }
+        else {
+            Uint sz;
+            ASSERT(is_external_pid(rp->parent));
+            sz = size_object(rp->parent);
+            hp = erts_produce_heap(hfact, sz, reserve_size);
+            res = copy_struct(rp->parent, sz, &hp, hfact->off_heap);
+        }
         break;
 
     case ERTS_PI_IX_MAGIC_REF: {

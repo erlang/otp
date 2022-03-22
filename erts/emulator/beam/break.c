@@ -307,7 +307,8 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 		   p->current->arity);
     }
 
-    erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
+    erts_print(to, to_arg, "Spawned by: %T\n",
+               p->parent == am_undefined ? NIL : p->parent);
 
     if (locks & ERTS_PROC_LOCK_MAIN) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
