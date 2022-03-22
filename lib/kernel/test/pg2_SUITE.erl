@@ -37,8 +37,7 @@
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
 
 %% Internal export.
--export([mk_part_node_and_group/3, part2/4,
-         mk_part_node/3, part1/5, p_init/3, start_proc/1, sane/0]).
+-export([p_init/3, start_proc/1, sane/0]).
 
 init_per_testcase(Case, Config) ->
     [{?TESTCASE, Case}| Config].
@@ -101,9 +100,19 @@ otp_8653(Config) when is_list(Config) ->
 
     wait_for_ready_net(Config),
 
+    G = pg2_otp_8653,
+
+    {[ok,ok,ok,ok], []}
+        = rfmulticall([node(), A, B, C],
+                      fun () ->
+                              Pid = spawn(forever()),
+                              ok = pg2:create(G),
+                              _ = [ok = pg2:join(G, Pid) || _ <- [1,1]],
+                              ok
+                      end),
+
     %% make b and c connected, partitioned from node() and a
-    rpc_cast(B, ?MODULE, part2, [Config, node(), A, C]),
-    ?UNTIL(is_ready_partition(Config)),
+    PartCtrlr = setup_partitions(Config, [[B, C], [node(), A]]),
 
     %% Connect to the other partition.
     pong = net_adm:ping(B),
@@ -112,7 +121,6 @@ otp_8653(Config) when is_list(Config) ->
     _ = global:sync(),
     [A, B, C] = lists:sort(nodes()),
 
-    G = pg2_otp_8653,
     ?UNTIL(begin
 	       GA = lists:sort(rpc:call(A, pg2, get_members, [G])),
 	       GB = lists:sort(rpc:call(B, pg2, get_members, [G])),
@@ -125,26 +133,8 @@ otp_8653(Config) when is_list(Config) ->
 	   end),
     ok = pg2:delete(G),
     stop_nodes([A,B,C]),
+    stop_partition_controller(PartCtrlr),
     ok.
-
-part2(Config, Main, A, C) ->
-    Function = mk_part_node_and_group,
-    case catch begin
-		   make_partition(Config, [Main, A], [node(), C], Function)
-	       end
-    of
-	ok -> ok
-    end.
-
-mk_part_node_and_group(File, MyPart0, Config) ->
-    touch(File, "start"), % debug
-    MyPart = lists:sort(MyPart0),
-    ?UNTIL(is_node_in_part(File, MyPart)),
-    G = pg2_otp_8653,
-    Pid = spawn(forever()),
-    ok = pg2:create(G),
-    _ = [ok = pg2:join(G, Pid) || _ <- [1,1]],
-    touch(File, "done").
 
 %% OTP-8259. Member was not removed after being killed.
 otp_8259(Config) when is_list(Config) ->
@@ -162,8 +152,17 @@ otp_8259(Config) when is_list(Config) ->
     ok = pg2:join(G, Pid),
 
     %% make b and c connected, partitioned from node() and a
-    rpc_cast(B, ?MODULE, part1, [Config, node(), A, C, Name]),
-    ?UNTIL(is_ready_partition(Config)),
+    PartCtrlr = setup_partitions(Config, [[B, C], [node(), A]]),
+    ok = rfcall(
+           PartCtrlr,
+           fun () ->
+                   rfcall(
+                     B,
+                     fun () ->
+                             {_, yes} = start_proc(Name),
+                             ok
+                     end)
+           end),
 
     %% Connect to the other partition.
     %% The resolver on node b will be called.
@@ -182,15 +181,8 @@ otp_8259(Config) when is_list(Config) ->
 
     ok = pg2:delete(G),
     stop_nodes([A,B,C]),
+    stop_partition_controller(PartCtrlr),
     ok.
-
-part1(Config, Main, A, C, Name) ->
-    case catch begin
-		   make_partition(Config, [Main, A], [node(), C]),
-		   {_Pid, yes} = start_proc(Name)
-	       end of
-	{_, yes} -> ok
-    end.
 
 start_proc(Name) ->
     Pid = spawn(?MODULE, p_init, [self(), Name, node()]),
@@ -585,6 +577,9 @@ collect_nodes(N, Max) ->
             [Node | collect_nodes(N+1, Max)]
     end.
 
+start_hidden_node(Name, Config) ->
+    start_node(Name, slave, "-hidden", Config).
+
 start_node(Name, How, Config) ->
     start_node(Name, How, "", Config).
 
@@ -619,60 +614,79 @@ node_name(Name, Config) ->
     L = lists:flatten(Date),
     lists:concat([Name,U,?testcase,U,U,L]).
 
-%% This one runs on one node in Part2.
-%% The partition is ready when is_ready_partition(Config) returns (true).
-make_partition(Config, Part1, Part2) ->
-    make_partition(Config, Part1, Part2, mk_part_node).
 
-make_partition(Config, Part1, Part2, Function) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    Ns = [begin
-              Name = lists:concat([atom_to_list(N),"_",msec(),".part"]),
-              File = filename:join([Dir, Name]),
-              file:delete(File),
-              rpc_cast(N, ?MODULE, Function, [File, Part, Config], File),
-              {N, File}
-          end || Part <- [Part1, Part2], N <- Part],
-    all_nodes_files(Ns, "done", Config),
-    lists:foreach(fun({_N,File}) -> file:delete(File) end, Ns),
-    PartFile = make_partition_file(Config),
-    touch(PartFile, "done").
+create_partitions(PartitionsList) ->
+    AllNodes = lists:sort(lists:flatten(PartitionsList)),
 
-%% The node signals its success by touching a file.
-mk_part_node(File, MyPart0, Config) ->
-    touch(File, "start"), % debug
-    MyPart = lists:sort(MyPart0),
-    ?UNTIL(is_node_in_part(File, MyPart)),
-    touch(File, "done").
+    %% Take down all connections on all nodes...
+    AllOk = {lists:map(fun (_) -> ok end, AllNodes), []},
+    io:format("Disconnecting all nodes from eachother...", []),
+    AllOk = rfmulticall(
+              AllNodes,
+              fun () ->
+                      lists:foreach(fun (N) ->
+                                            erlang:disconnect_node(N)
+                                    end, nodes()),
+                      wait_until(fun () -> [] == global_known() end),
+                      ok
+              end, 5000),
+    %% Here we know that all 'lost_connection' messages that will be
+    %% sent by global name servers due to these disconnects have been
+    %% sent, but we don't know that all of them have been received and
+    %% handled. By communicating with all global name servers one more
+    %% time it is very likely that all of them have been received and
+    %% handled (however, not guaranteed). If 'lost_connection' messages
+    %% are received after we begin to set up the partitions, the
+    %% partitions may lose connection with some of its nodes.
+    lists:foreach(fun (N) -> [] = global_known(N) end, AllNodes),
 
-%% The calls to append_to_file are for debugging.
-is_node_in_part(File, MyPart) ->
-    lists:foreach(fun(N) ->
-                          _ = erlang:disconnect_node(N)
-                  end, nodes() -- MyPart),
-    case {(Known = get_known(node())) =:= MyPart,
-          (Nodes = lists:sort([node() | nodes()])) =:= MyPart} of
-        {true, true} ->
-            %% Make sure the resolvers have been terminated,
-            %% otherwise they may pop up and send some message.
-            %% (This check is probably unnecessary.)
-            case element(5, global:info()) of
-                [] ->
-                    true;
-                Rs ->
-                    append_to_file(File, {now(), Known, Nodes, Rs}),
-                    false
-            end;
-        _ ->
-            append_to_file(File, {now(), Known, Nodes}),
-            false
-    end.
+    %% Set up fully connected partitions...
+    io:format("Connecting partitions...", []),
+    lists:foreach(
+      fun (Partition) ->
+              Part = lists:sort(Partition),
+              PartOk = {lists:map(fun (_) -> ok end, Part), []},
+              PartOk = rfmulticall(
+                         Part,
+                         fun () ->
+                                 wait_until(
+                                   fun () ->
+                                           ConnNodes = Part -- [node()|nodes()],
+                                           if ConnNodes == [] ->
+                                                   true;
+                                              true ->
+                                                   lists:foreach(
+                                                     fun (N) ->
+                                                             net_kernel:connect_node(N)
+                                                     end, ConnNodes),
+                                                   false
+                                           end
+                                   end),
+                                 ok
+                                                        
+                         end, 5000)
+      end, PartitionsList),
+    ok.
+                                                     
+setup_partitions(PartCtrlr, PartList) when is_atom(PartCtrlr) ->
+    ok = rfcall(PartCtrlr, fun () -> create_partitions(PartList) end),
+    io:format("Partitions successfully setup:~n", []),
+    lists:foreach(fun (Part) ->
+                          io:format("~p~n", [Part])
+                  end,
+                  PartList),
+    ok;
+setup_partitions(Config, PartList) when is_list(Config) ->
+    PartCtrlr = start_partition_controller(Config),
+    setup_partitions(PartCtrlr, PartList),
+    PartCtrlr.
 
-is_ready_partition(Config) ->
-    File = make_partition_file(Config),
-    file_contents(File, "done", Config),
-    file:delete(File),
-    true.
+start_partition_controller(Config) when is_list(Config) ->
+    {ok, PartCtrlr} = start_hidden_node(part_ctrlr, Config),
+    PartCtrlr.
+
+stop_partition_controller(PartCtrlr) ->
+    stop_node(PartCtrlr).
 
 wait_for_ready_net(Config) ->
     wait_for_ready_net([node()|nodes()], Config).
@@ -688,64 +702,30 @@ wait_for_ready_net(Nodes0, Config) ->
 			     end, Nodes)
            end).
 
-%% To make it less probable that some low-level problem causes
-%% problems, the receiving node is ping:ed.
-rpc_cast(Node, Module, Function, Args) ->
-    {_,pong,Node}= {node(),net_adm:ping(Node),Node},
-    rpc:cast(Node, Module, Function, Args).
+global_known(Node) ->
+    gen_server:call({global_name_server, Node}, get_known, infinity).
 
-rpc_cast(Node, Module, Function, Args, File) ->
-    case net_adm:ping(Node) of
-        pong ->
-            rpc:cast(Node, Module, Function, Args);
-        Else ->
-            append_to_file(File, {now(), {rpc_cast, Node, Module, Function,
-                                          Args, Else}})
-            %% Maybe we should crash, but it probably doesn't matter.
+global_known() ->
+    global_known(node()).
+
+wait_until(F) ->
+    case catch F() of
+        true ->
+            ok;
+        _ ->
+            receive after 10 -> ok end,
+            wait_until(F)
     end.
 
-touch(File, List) ->
-    ok = file:write_file(File, list_to_binary(List)).
+rfcall(Node, Fun) ->
+    rfcall(Node, Fun, infinity).
 
-append_to_file(File, Term) ->
-    {ok, Fd} = file:open(File, [raw,binary,append]),
-    ok = file:write(Fd, io_lib:format("~p.~n", [Term])),
-    ok = file:close(Fd).
+rfcall(Node, Fun, Timeout) ->
+    rpc:call(Node, erlang, apply, [Fun, []], Timeout).
 
-all_nodes_files(Files, ContentsList, Config) ->
-    lists:all(fun({_N,File}) ->
-                      file_contents(File, ContentsList, Config)
-              end, Files).
+rfmulticall(Nodes, Fun) ->
+    rfmulticall(Nodes, Fun, infinity).
 
-file_contents(File, ContentsList, Config) ->
-    file_contents(File, ContentsList, Config, no_log_file).
+rfmulticall(Nodes, Fun, Timeout) ->
+    rpc:multicall(Nodes, erlang, apply, [Fun, []], Timeout).
 
-file_contents(File, ContentsList, Config, LogFile) ->
-    Contents = list_to_binary(ContentsList),
-    Sz = size(Contents),
-    ?UNTIL(begin
-               case file:read_file(File) of
-                   {ok, FileContents}=Reply ->
-                       case catch split_binary(FileContents, Sz) of
-                           {Contents,_} ->
-                               true;
-                           _ ->
-                               catch append_to_file(LogFile,
-                                                    {File,Contents,Reply}),
-                               false
-                       end;
-                   Reply ->
-                       catch append_to_file(LogFile, {File, Contents, Reply}),
-                       false
-               end
-           end).
-
-make_partition_file(Config) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    filename:join([Dir, atom_to_list(make_partition_done)]).
-
-msec() ->
-    msec(now()).
-
-msec(T) ->
-    element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
