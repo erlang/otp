@@ -5778,16 +5778,23 @@ optnames(Opts) ->
 
 %% Fill buffers
 do_send_timeout_resume_send(S, Server, Tag, BlockSize) ->
-    %%% This is really sketchy, but it seems to "work"...
     RetryTimeout =
         case os:type() of
             {unix, darwin} ->
-                25;
-            {unix, freebsd} ->
-                50;
+                %% This is really sketchy, but it seems to "work"...
+                %% Don't know if its the processor (M1) or if its the
+                %% OS/darwin version (darwin 21.x).
+                %% But since we don't have any intel macs running 21...
+                case string:to_lower(os:cmd("uname -m")) of
+                    "arm64" ++ _ ->
+                        25;
+                    _ ->
+                        100
+                end;
             _ ->
                 100
         end,
+    ?P("try send-timeout-resume with retry timeout: ~w ms", [RetryTimeout]),
     do_send_timeout_resume_send(S, Server, Tag, 0, RetryTimeout, BlockSize).
 
 do_send_timeout_resume_send(S, Server, Tag, N, RetryTimeout, BlockSize) ->
