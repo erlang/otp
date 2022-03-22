@@ -53,7 +53,7 @@ int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
         goto err;
     if (EVP_PKEY_fromdata_init(ctx) <= 0)
         goto err;
-    if (EVP_PKEY_fromdata(ctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+    if (EVP_PKEY_fromdata(ctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0)
         goto bad_arg;
 
     if (ctx) EVP_PKEY_CTX_free(ctx);
