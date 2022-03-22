@@ -158,6 +158,6 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-17843@", "stdlib-3.13", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-11.2.2.11", "stdlib-3.13", "sasl-3.0"]}
  ]
 }.
