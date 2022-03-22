@@ -1,0 +1,3 @@
+
+unknown_function.erl:10:5: Call to missing or unexported function unknown_function:function/0
+unknown_function.erl:14:5: Unknown function unknown:function/0

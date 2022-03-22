@@ -134,6 +134,7 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
+		   mod_deps_file  = ""             :: file:filename(),
                    solvers                         :: [solver()]}).
 
 -record(options, {files           = []		   :: [file:filename()],
@@ -154,6 +155,7 @@
 		  output_format   = formatted      :: format(),
 		  filename_opt	  = basename       :: fopt(),
 		  callgraph_file  = ""             :: file:filename(),
+		  mod_deps_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   solvers         = []             :: [solver()]}).
 
