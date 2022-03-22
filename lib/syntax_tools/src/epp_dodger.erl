@@ -431,14 +431,11 @@ parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
 
-    %% FIXME: This should not be hard-coded. Either all keywords from
-    %% all features should be retrieved here, or there should be an option
-    %% to passes in either the keywords or the feature names.
-    ResWordFun =
-        fun('maybe') -> true;
-           ('else') -> true;
-           (Other) -> erl_scan:reserved_word(Other)
-        end,
+    %% This as the *potential* to read options for enabling/disabling
+    %% features for the parsing of the file.
+    {ok, {_Ftrs, ResWordFun}} =
+        erl_features:keyword_fun(Options,
+                                 fun erl_scan:f_reserved_word/1),
 
     case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->

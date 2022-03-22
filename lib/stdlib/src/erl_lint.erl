@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,6 +199,9 @@ format_error(invalid_call) ->
 format_error(invalid_record) ->
     "invalid record expression";
 
+format_error({future_feature, Ftr, Atom}) ->
+    io_lib:format("atom '~p' is reserved in the experimental feature '~p'",
+                  [Atom, Ftr]);
 format_error({attribute,A}) ->
     io_lib:format("attribute ~tw after function definitions", [A]);
 format_error({missing_qlc_hrl,A}) ->
@@ -588,6 +591,7 @@ module(Forms, FileName) ->
       ErrorInfo :: error_info()).
 
 module(Forms, FileName, Opts0) ->
+    %% FIXME Hmm, this is not coherent with the semantics of features
     %% We want the options given on the command line to take
     %% precedence over options in the module.
     Opts = compiler_options(Forms) ++ Opts0,
@@ -658,7 +662,10 @@ start(File, Opts) ->
                       true, Opts)},
          {nif_inline,
           bool_option(warn_nif_inline, nowarn_nif_inline,
-                      true, Opts)}
+                      true, Opts)},
+         {keyword_warning,
+          bool_option(warn_keywords, nowarn_keywords,
+                      false, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -4164,7 +4171,22 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
 %% keyword_warning(Anno, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
-keyword_warning(_Anno, _A, St) -> St.
+keyword_warning(Anno, Atom, St) ->
+    case is_warn_enabled(keyword_warning, St) of
+        true ->
+            Ftrs = erl_features:features(),
+            Reserved =
+                fun(Ftr) ->
+                        lists:member(Atom, erl_features:keywords(Ftr))
+                end,
+            case lists:filter(Reserved, Ftrs) of
+                [] -> St;
+                [Ftr] ->
+                    add_warning(Anno, {future_feature, Ftr, Atom}, St)
+            end;
+        false ->
+            St
+    end.
 
 %% format_function(Anno, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for bad calls to io:fwrite/format functions.

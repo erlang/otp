@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,9 +72,12 @@
               uses = #{}			%Macro use structure
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
-	      pre_opened = false :: boolean(),
-              fname = [] :: function_name_type(),
-              erl_scan_opts = [] :: erl_scan:options()
+              pre_opened = false :: boolean(),
+              in_prefix = true :: boolean(),
+              erl_scan_opts = [] :: [_],
+              features = [] :: [atom()],
+              else_reserved = false :: boolean(),
+              fname = [] :: function_name_type()
 	     }).
 
 %% open(Options)
@@ -132,12 +135,14 @@ open(Options) ->
         Name ->
             Self = self(),
             Epp = spawn(fun() -> server(Self, Name, Options) end),
+            Extra = proplists:get_bool(extra, Options),
             case epp_request(Epp) of
-                {ok, Pid, Encoding} ->
-                    case proplists:get_bool(extra, Options) of
-                        true -> {ok, Pid, [{encoding, Encoding}]};
-                        false -> {ok, Pid}
-                    end;
+                {ok, Pid, Encoding} when Extra ->
+                    {ok, Pid, [{encoding, Encoding}]};
+                {ok, Pid, _} ->
+                    {ok, Pid};
+                {ok, Pid} when Extra ->
+                    {ok, Pid, []};
                 Other ->
                     Other
             end
@@ -240,6 +245,8 @@ format_error({error,Term}) ->
     io_lib:format("-error(~tp).", [Term]);
 format_error({warning,Term}) ->
     io_lib:format("-warning(~tp).", [Term]);
+format_error(ftr_after_prefix) ->
+    "feature directive not allowed after anything interesting";
 format_error(E) -> file:format_error(E).
 
 -spec scan_file(FileName, Options) ->
@@ -298,6 +305,8 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
 		  {'location',StartLocation :: erl_anno:location()} |
+                  {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
+                  {'features', [Feature :: atom()]} |
 		  'extra'],
       Form :: erl_parse:abstract_form()
             | {'error', ErrorInfo}
@@ -312,11 +321,13 @@ parse_file(Ifile, Options) ->
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    close(Epp),
-	    {ok,Forms};
+	    {ok, Forms};
 	{ok,Epp,Extra} ->
 	    Forms = parse_file(Epp),
+            Epp ! {get_features, self()},
+            Ftrs = receive X -> X end,
 	    close(Epp),
-	    {ok,Forms,Extra};
+	    {ok, Forms, [{features, Ftrs} | Extra]};
 	{error,E} ->
 	    {error,E}
     end.
@@ -594,7 +605,8 @@ server(Pid, Name, Options) ->
 init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
-    Ms0 = predef_macros(SourceName),
+    Features = proplists:get_value(features, Options, []),
+    Ms0 = predef_macros(SourceName, Features),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
             DefEncoding = proplists:get_value(default_encoding, Options,
@@ -605,16 +617,19 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
-
-            ResWordFun = proplists:get_value(reserved_word_fun, Options,
-                                             fun erl_scan:reserved_word/1),
-
+            ResWordFun =
+                proplists:get_value(reserved_word_fun, Options,
+                                    fun erl_scan:f_reserved_word/1),
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
+
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
-                         erl_scan_opts=[{reserved_word_fun,ResWordFun}]},
+                         erl_scan_opts =
+                             [{reserved_word_fun, ResWordFun}],
+                         features = Features,
+                         else_reserved = ResWordFun('else')},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -628,10 +643,11 @@ init_server(Pid, FileName, Options, St0) ->
 %%  Initialise the macro dictionary with the default predefined macros,
 %%  FILE, LINE, MODULE as undefined, MACHINE and MACHINE value.
 
-predef_macros(File) ->
+predef_macros(File, EnabledFeatures) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
+    AvailableFeatures = erl_features:features(),
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -642,9 +658,37 @@ predef_macros(File) ->
 	    {'BASE_MODULE_STRING', undefined},
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
 	    {Machine,	           {none,[{atom,Anno,true}]}},
-	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}}
+	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}},
+            %% FIXME Understand this has to be a list.  Is it because
+            %% it takes an argument?
+            {'FEATURE_AVAILABLE',  [ftr_macro(AvailableFeatures)]},
+            {'FEATURE_ENABLED', [ftr_macro(EnabledFeatures)]}
 	   ],
     maps:from_list(Defs).
+
+%% Make macro definition from a list of features.  The macro takes one
+%% argument and returns true when argument is available as a feature.
+ftr_macro(Features) ->
+    Anno = line1(),
+    Arg = 'X',
+    Fexp = fun(Ftr) -> [{'(', Anno},
+                        {var, Anno, Arg},
+                        {')', Anno},
+                        {'==', Anno},
+                        {atom, Anno, Ftr}]
+           end,
+    Body =
+        case Features of
+            [] -> [{atom, Anno, false}];
+            [Ftr| Ftrs] ->
+                [{'(', Anno}|
+                 lists:foldl(fun(F, Expr) ->
+                                     Fexp(F) ++ [{'orelse', Anno} | Expr]
+                            end,
+                            Fexp(Ftr) ++ [{')', Anno}],
+                            Ftrs)]
+        end,
+    {1, {[Arg], Body}}.
 
 %% user_predef(PreDefMacros, Macros) ->
 %%	{ok,MacroDict} | {error,E}
@@ -680,6 +724,9 @@ user_predef([], Ms) -> {ok,Ms}.
 wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
+        {get_features, From} ->
+            From ! St#epp.features,
+            wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
 	    Defs = [{{atom,K},V} || {K,V} <- maps:to_list(St#epp.macs)],
@@ -736,7 +783,11 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Anno = erl_anno:new(AtLocation),
     enter_file_reply(From, Pname, Anno, AtLocation, code),
     #epp{macs = Ms0,
-         default_encoding = DefEncoding} = St0,
+         default_encoding = DefEncoding,
+         in_prefix = InPrefix,
+         erl_scan_opts = ScanOpts,
+         else_reserved = ElseReserved,
+         features = Ftrs} = St0,
     Ms = Ms0#{'FILE':={none,[{string,Anno,Pname}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
@@ -748,6 +799,10 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     _ = set_encoding(NewF, DefEncoding),
     #epp{file=NewF,location=AtLocation,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms,
+         in_prefix = InPrefix,
+         features = Ftrs,
+         erl_scan_opts = ScanOpts,
+         else_reserved = ElseReserved,
          default_encoding=DefEncoding}.
 
 enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
@@ -789,8 +844,16 @@ leave_file(From, St) ->
                     CurrLoc = add_line(OldLoc, Delta),
                     Anno = erl_anno:new(CurrLoc),
 		    Ms0 = St#epp.macs,
+                    InPrefix = St#epp.in_prefix,
+                    Ftrs = St#epp.features,
+                    ElseReserved = St#epp.else_reserved,
+                    ScanOpts = St#epp.erl_scan_opts,
 		    Ms = Ms0#{'FILE':={none,[{string,Anno,OldName2}]}},
-                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses},
+                    NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses,
+                                       in_prefix = InPrefix,
+                                       features = Ftrs,
+                                       else_reserved = ElseReserved,
+                                       erl_scan_opts = ScanOpts},
 		    enter_file_reply(From, OldName, Anno, CurrLoc, code),
                     case OldName2 =:= OldName of
                         true ->
@@ -812,27 +875,30 @@ leave_file(From, St) ->
 %% scan_toks(Tokens, From, EppState)
 
 scan_toks(From, St) ->
-    case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.erl_scan_opts) of
-	{ok,Toks,Cl} ->
-	    scan_toks(Toks, From, St#epp{location=Cl});
-	{error,E,Cl} ->
-	    epp_reply(From, {error,E}),
-	    wait_req_scan(St#epp{location=Cl});
-	{eof,Cl} ->
-	    leave_file(From, St#epp{location=Cl});
-	{error,_E} ->
+    #epp{file = File, location = Loc, erl_scan_opts = ScanOpts} = St,
+    case io:scan_erl_form(File, '', Loc, ScanOpts) of
+        {ok,Toks,Cl} ->
+            scan_toks(Toks, From, St#epp{location=Cl});
+        {error,E,Cl} ->
+            epp_reply(From, {error,E}),
+            wait_req_scan(St#epp{location=Cl});
+        {eof,Cl} ->
+            leave_file(From, St#epp{location=Cl});
+        {error,_E} ->
             epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(wait_request(St), St)	%This serious, just exit!
+            leave_file(wait_request(St), St)	%This serious, just exit!
     end.
 
+scan_toks([{'-',_Lh},{atom,_Ld,feature}=Feature|Toks], From, St) ->
+    scan_feature(Toks, Feature, From, St);
 scan_toks([{'-',_Lh},{atom,_Ld,define}=Define|Toks], From, St) ->
     scan_define(Toks, Define, From, St);
 scan_toks([{'-',_Lh},{atom,_Ld,undef}=Undef|Toks], From, St) ->
-    scan_undef(Toks, Undef, From, St);
+    scan_undef(Toks, Undef, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Ld,error}=Error|Toks], From, St) ->
-    scan_err_warn(Toks, Error, From, St);
+    scan_err_warn(Toks, Error, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Ld,warning}=Warn|Toks], From, St) ->
-    scan_err_warn(Toks, Warn, From, St);
+    scan_err_warn(Toks, Warn, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Li,include}=Inc|Toks], From, St) ->
     scan_include(Toks, Inc, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include_lib}=IncLib|Toks], From, St) ->
@@ -843,7 +909,9 @@ scan_toks([{'-',_Lh},{atom,_Li,ifndef}=IfnDef|Toks], From, St) ->
     scan_ifndef(Toks, IfnDef, From, St);
 scan_toks([{'-',_Lh},{atom,_Le,'else'}=Else|Toks], From, St) ->
     scan_else(Toks, Else, From, St);
-scan_toks([{'-',_Lh},{'else',_Le}=Else|Toks], From, St) ->
+%% conditionally allow else as a keyword
+scan_toks([{'-',_Lh},{'else',_Le}=Else|Toks], From, St)
+  when St#epp.else_reserved ->
     scan_else(Toks, Else, From, St);
 scan_toks([{'-',_Lh},{'if',_Le}=If|Toks], From, St) ->
     scan_if(Toks, If, From, St);
@@ -862,12 +930,36 @@ scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
 scan_toks(Toks0, From, St) ->
     case catch expand_macros(Toks0, St#epp{fname=Toks0}) of
 	Toks1 when is_list(Toks1) ->
+            InPrefix =
+                St#epp.in_prefix
+                andalso case Toks1 of
+                            [] -> true;
+                            [{'-', _Loc}, Tok | _] ->
+                                in_prefix(Tok);
+                            _ ->
+                                false
+                        end,
 	    epp_reply(From, {ok,Toks1}),
-	    wait_req_scan(St#epp{macs=scan_module(Toks1, St#epp.macs)});
+	    wait_req_scan(St#epp{in_prefix = InPrefix,
+                                 macs=scan_module(Toks1, St#epp.macs)});
 	{error,ErrL,What} ->
 	    epp_reply(From, {error,{ErrL,epp,What}}),
 	    wait_req_scan(St)
     end.
+
+%% Determine whether we have passed the prefix where a -feature
+%% directive is allowed.
+in_prefix({atom, _, Atom}) ->
+    %% These directives are allowed inside the prefix
+    lists:member(Atom, ['module', 'feature',
+                        'if', 'else', 'elif', 'endif', 'ifdef', 'ifndef',
+                        'define', 'undef',
+                        'include', 'include_lib']);
+in_prefix(_T) ->
+    false.
+
+leave_prefix(#epp{} = St) ->
+    St#epp{in_prefix = false}.
 
 scan_module([{'-',_Ah},{atom,_Am,module},{'(',_Al}|Ts], Ms) ->
     scan_module_1(Ts, Ms);
@@ -908,6 +1000,58 @@ scan_err_warn(Toks, {atom,_,Tag}=Token, From, St) ->
     T = no_match(Toks, Token),
     epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
     wait_req_scan(St).
+
+%% scan a feature directive
+scan_feature([{'(', _Ap}, {atom, _Am, Ind},
+              {',', _}, {atom, _, Ftr}, {')', _}, {dot, _}],
+             Feature, From, St)
+  when St#epp.in_prefix,
+       (Ind =:= enable
+        orelse Ind =:= disable) ->
+    case update_features(St, Ind, Ftr, loc(Feature)) of
+        {ok, St1} ->
+            scan_toks(From, St1);
+        {error, {{Mod, Reason}, ErrLoc}} ->
+            epp_reply(From, {error, {ErrLoc, Mod, Reason}}),
+            wait_req_scan(St)
+    end;
+scan_feature([{'(', _Ap}, {atom, _Am, _Ind},
+              {',', _}, {atom, _, _Ftr}, {')', _}, {dot, _}| _Toks],
+             Feature, From, St) when not St#epp.in_prefix ->
+    epp_reply(From, {error, {loc(Feature), epp,
+                             ftr_after_prefix}}),
+    wait_req_scan(St);
+scan_feature(Toks, {atom, _, Tag} = Token, From, St) ->
+    T = no_match(Toks, Token),
+    epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
+    wait_req_scan(St).
+
+%% FIXME Rewrite this
+update_features(St0, Ind, Ftr, Loc) ->
+    Ftrs0 = St0#epp.features,
+    ScanOpts = St0#epp.erl_scan_opts,
+    KeywordFun =
+        case proplists:get_value(reserved_word_fun, ScanOpts) of
+            undefined -> fun erl_scan:f_reserved_word/1;
+            Fun -> Fun
+        end,
+    case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
+        {error, Reason} ->
+            {error, {Reason, Loc}};
+        {ok, ResWordFun1, Ftrs1} ->
+            Macs0 = St0#epp.macs,
+            Macs1 = Macs0#{'FEATURE_ENABLED' => [ftr_macro(Ftrs1)]},
+            %% ?liof("ok!\n", []),
+            %% FIXME WE need to keep any other scan_opts
+            %% present.  Right now, there are no other, but
+            %% that might change.
+            StX = St0#epp{erl_scan_opts =
+                              [{reserved_word_fun, ResWordFun1}],
+                          features = Ftrs1,
+                          else_reserved = ResWordFun1('else'),
+                          macs = Macs1},
+            {ok, StX}
+    end.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
@@ -1328,6 +1472,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
+    ElseReserved = St#epp.else_reserved,
     case io:scan_erl_form(St#epp.file, '', St#epp.location, St#epp.erl_scan_opts) of
 	{ok,[{'-',_Ah},{atom,_Ai,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [ifdef,I|Sis]);
@@ -1337,7 +1482,8 @@ skip_toks(From, St, [I|Sis]) ->
 	    skip_toks(From, St#epp{location=Cl}, ['if',I|Sis]);
 	{ok,[{'-',_Ah},{atom,_Ae,'else'}=Else|_Toks],Cl}->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
-	{ok,[{'-',_Ah},{'else',_Ae}=Else|_Toks],Cl}->
+        %% conditionally allow else as reserved word
+	{ok,[{'-',_Ah},{'else',_Ae}=Else|_Toks],Cl} when ElseReserved ->
 	    skip_else(Else, From, St#epp{location=Cl}, [I|Sis]);
 	{ok,[{'-',_Ah},{atom,_Ae,'elif'}=Elif|Toks],Cl}->
 	    skip_elif(Toks, Elif, From, St#epp{location=Cl}, [I|Sis]);

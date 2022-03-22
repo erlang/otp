@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -816,7 +816,8 @@ otp_8130(Config) when is_list(Config) ->
                                "t() -> ?a.\n"),
     {ok,Epp} = epp:open(File, []),
     PreDefMacs = macs(Epp),
-    ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE',
+    ['BASE_MODULE','BASE_MODULE_STRING','BEAM',
+     'FEATURE_AVAILABLE', 'FEATURE_ENABLED','FILE',
      'FUNCTION_ARITY','FUNCTION_NAME',
      'LINE','MACHINE','MODULE','MODULE_STRING',
      'OTP_RELEASE'] = PreDefMacs,
@@ -1609,8 +1610,9 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,latin1}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,3}],[{encoding,none}]} =
+	 {eof,3}],Extra0} =
 	epp_parse_file(ErlFile, [{default_encoding,latin1},extra]),
+    none = proplists:get_value(encoding, Extra0),
 
     %% Try a latin-1 file with encoding given in a comment.
     C2 = <<"-module(encoding).
@@ -1632,16 +1634,20 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,utf8}]),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra1} =
 	epp_parse_file(ErlFile, [extra]),
+    latin1 = proplists:get_value(encoding, Extra1),
+
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra2} =
 	epp_parse_file(ErlFile, [{default_encoding,latin1},extra]),
+    latin1 = proplists:get_value(encoding, Extra2),
     {ok,[{attribute,1,file,_},
 	 {attribute,1,module,encoding},
-	 {eof,4}],[{encoding,latin1}]} =
+	 {eof,4}],Extra3} =
 	epp_parse_file(ErlFile, [{default_encoding,utf8},extra]),
+    latin1 = proplists:get_value(encoding, Extra3),
     ok.
 
 extends(Config) ->
@@ -2110,7 +2116,11 @@ run_test(Config, Test0, Opts0) ->
     Opts = [return, {i,PrivDir},{outdir,PrivDir}] ++ Opts0,
     {ok, epp_test, []} = compile:file(File, Opts),
     AbsFile = filename:rootname(File, ".erl"),
+    %% FIXME For now, use firbidden feature at rumtime
+    erl_features:enable_feature(maybe_expr),
     {module, epp_test} = code:load_abs(AbsFile, epp_test),
+    %% FIXME For now, use firbidden feature at rumtime
+    erl_features:disable_feature(maybe_expr),
     Reply = epp_test:t(),
     code:purge(epp_test),
     Reply.

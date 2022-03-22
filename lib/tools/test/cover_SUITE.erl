@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1881,8 +1881,8 @@ eep49(Config) ->
 
     File = "t.erl",
     Test = <<"-module(t).
+              -feature(enable,maybe_expr).
               -export([t/0]).
-              -compile([{enable_feature,'maybe'}]).
 
               t() ->
                   t1(),                         %6
@@ -1920,8 +1920,7 @@ eep49(Config) ->
                   end.
              ">>,
     ok = file:write_file(File, Test),
-    %% FIXME: Remove `enable_feature` option here when it can be recognized inside a module.
-    {ok, t} = cover:compile(File, [{enable_feature,maybe_expr}]),
+    {ok, t} = cover:compile(File),
     ok = t:t(),
     {ok,[{{t,6},1}, {{t,8},1}, {{t,9},1}, {{t,10},1}, {{t,12},1},
          {{t,13},1}, {{t,14},1}, {{t,16},1},

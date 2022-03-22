@@ -739,7 +739,8 @@ do_start() ->
 
 load_code_server_prerequisites() ->
     %% Please keep the alphabetical order.
-    Needed = [binary,
+    Needed = [beam_lib,
+              binary,
 	      ets,
 	      filename,
 	      gb_sets,
