@@ -109,6 +109,11 @@ endif
 ifeq ($(USE_ESOCK),yes)
 ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
 endif
+ifeq ($(ERL_DETERMINISTIC),yes)
+  ERL_COMPILE_FLAGS += +deterministic
+  YRL_FLAGS += +deterministic
+  XRL_FLAGS += +deterministic
+endif
 
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)

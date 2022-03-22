@@ -166,6 +166,12 @@ endif
 ERL_COMPILE_FLAGS += -Werror
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
+endif
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -191,16 +197,17 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/io.beam \
   $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam
 
+
 $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl
 	$(gen_verbose)
-	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/egen erl_parse.yrl
-	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(BOOTSTRAP_COMPILER)/egen/erl_parse.erl
+	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/egen $(DETERMINISM_FLAG) erl_parse.yrl
+	$(V_at)$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG) $(BOOTSTRAP_COMPILER)/egen/erl_parse.erl
 
 $(BOOTSTRAP_TOP)/lib/stdlib/egen/erl_parse.erl: erl_parse.yrl
 	$(yecc_verbose)$(ERLC) $(YRL_FLAGS) -o$(BOOTSTRAP_TOP)/lib/stdlib/egen erl_parse.yrl
 
 $(BOOTSTRAP_COMPILER)/ebin/%.beam: %.erl
-	$(V_ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $<
+	$(V_ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(DETERMINISM_FLAG) $<
 
 # ----------------------------------------------------
 # Special Build Targets

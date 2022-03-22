@@ -122,6 +122,12 @@ ERL_COMPILE_FLAGS += \
 # -pa is to be able to include_lib from the include directory: the
 # path must contain the application name.
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
+endif
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -152,7 +158,7 @@ $(filter-out opt, $(TYPES)):
 # The dictionary parser.
 gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
 	$(yecc_verbose) \
-	$(ERLC) -Werror -o $(@D) $<
+	$(ERLC) -Werror $(DETERMINISTIC_FLAG) -o $(@D) $<
 
 # Generate the app file.
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk

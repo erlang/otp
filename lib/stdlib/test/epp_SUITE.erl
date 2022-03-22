@@ -18,6 +18,9 @@
 %% %CopyrightEnd%
 
 -module(epp_SUITE).
+
+-include_lib("stdlib/include/assert.hrl").
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
@@ -29,7 +32,8 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1]).
+	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
+   deterministic_include/1, nondeterministic_include/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +74,8 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro].
+     otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
+     deterministic_include, nondeterministic_include].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -122,6 +127,60 @@ file_macro(Config) when is_list(Config) ->
     {attribute,_,a,FileA} = lists:keyfind(a, 3, List),
     {attribute,_,b,FileB} = lists:keyfind(b, 3, List),
     "Other source" = FileA = FileB,
+    ok.
+
+deterministic_include(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "deterministic_include.erl"),
+    {ok, List} = epp:parse_file(File, [{includes, [DataDir]},
+                                       {deterministic, true},
+                                       {source_name, "deterministic_include.erl"}]),
+
+    %% In deterministic mode, only basenames, rather than full paths, should
+    %% be written to the -file() attributes resulting from -include and -include_lib
+    ?assert(lists:any(fun
+                       ({attribute,_Anno,file,{"baz.hrl",_Line}}) -> true;
+                       (_) -> false
+                     end,
+                     List),
+            "Expected a basename in the -file attribute resulting from " ++
+            "including baz.hrl in deterministic mode"),
+    ?assert(lists:any(fun
+                       ({attribute,_Anno,file,{"quux.hrl",_Line}}) -> true;
+                       (_) -> false
+                     end,
+                     List),
+            "Expected a basename in the -file attribute resulting from " ++
+            "including quux.hrl in deterministic mode"),
+    ok.
+
+nondeterministic_include(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "deterministic_include.erl"),
+    {ok, List} = epp:parse_file(File, [{includes, [DataDir]},
+                                       {source_name, "deterministic_include.erl"}]),
+
+    %% Outside of deterministic mode, full paths, should be written to
+    %% the -file() attributes resulting from -include and -include_lib
+    %% to make debugging easier
+    BazAbsolutePath = filename:join(DataDir,"include/baz.hrl"),
+    ?assert(lists:any(fun
+                       ({attribute,_Anno,file,{IncludePath,_Line}})
+                         when IncludePath == BazAbsolutePath -> true;
+                       (_) -> false
+                     end,
+                     List),
+            "Expected an absolute in the -file attribute resulting from " ++
+            "including baz.hrl in outside of deterministic mode"),
+    QuuxAbsolutePath = filename:join(DataDir,"include/quux.hrl"),
+    ?assert(lists:any(fun
+                       ({attribute,_Anno,file,{IncludePath,_line}})
+                         when IncludePath == QuuxAbsolutePath -> true;
+                       (_) -> false
+                     end,
+                     List),
+            "Expected an absolute in the -file attribute resulting from " ++
+            "including quxx.hrl in outside of deterministic mode"),
     ok.
 
 %%% Here is a little reimplementation of epp:parse_file, which times out
