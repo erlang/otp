@@ -1244,7 +1244,7 @@ bootstrap_clean:
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/egen/*
-	$(V_at)rm -f $(ERL_TOP)/bootstrap/bin/*.*
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/bin/*.boot
 	$(V_at)rm -f $(KERNEL_PRELOAD:%=$(ERL_TOP)/lib/kernel/ebin/%.beam)
 	$(V_at)test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
 		|| $(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) bootstrap_root_clean
