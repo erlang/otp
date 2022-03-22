@@ -789,6 +789,15 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
+    /* Order all managed threads to block, this has to be done
+       first to guarantee that this is the only thread to generate
+       crash dump. */
+    erts_thr_progress_fatal_error_block(&tpd_buf);
+
+    /* Allow us to pass certain places without locking... */
+    erts_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
+    erts_tsd_set(erts_is_crash_dumping_key, (void *) 1);
+
     envsz = sizeof(env);
     /* ERL_CRASH_DUMP_SECONDS not set
      * if we have a heart port, break immediately
@@ -886,11 +895,6 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     time(&now);
     erts_cbprintf(to, to_arg, "=erl_crash_dump:0.5\n%s", ctime(&now));
 
-    /* Order all managed threads to block, this has to be done
-       first to guarantee that this is the only thread to generate
-       crash dump. */
-    erts_thr_progress_fatal_error_block(&tpd_buf);
-
 #ifdef ERTS_SYS_SUSPEND_SIGNAL
     /*
      * We suspend all scheduler threads so that we can dump some
@@ -911,10 +915,6 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     }
 
 #endif
-
-    /* Allow us to pass certain places without locking... */
-    erts_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
-    erts_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 
     if (file != NULL)
        erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
