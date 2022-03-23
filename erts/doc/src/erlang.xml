@@ -8333,7 +8333,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="3" since=""/>
+      <name name="statistics" arity="1" clause_i="3"
+	    anchor="statistics_context_switches" since=""/>
       <fsummary>Information about context switches.</fsummary>
       <desc>
         <p>Returns the total number of context switches since the
@@ -8343,6 +8344,16 @@ true</pre>
 
     <func>
       <name name="statistics" arity="1" clause_i="4"
+	    anchor="statistics_dist" since=""/>
+      <fsummary>Information about dist message counters.</fsummary>
+      <desc>
+        <p>Returns the number of dist messages accepted on this
+           node by type.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="5"
 	    anchor="statistics_exact_reductions" since=""/>
       <fsummary>Information about exact reductions.</fsummary>
       <desc>
@@ -8357,7 +8368,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="5" since=""/>
+      <name name="statistics" arity="1" clause_i="6" since=""/>
       <fsummary>Information about garbage collection.</fsummary>
       <desc>
         <p>Returns information about garbage collection, for example:</p>
@@ -8369,7 +8380,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="6" since=""/>
+      <name name="statistics" arity="1" clause_i="7" since=""/>
       <fsummary>Information about I/O.</fsummary>
       <desc>
         <p>Returns <c><anno>Input</anno></c>,
@@ -8380,7 +8391,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="7"
+      <name name="statistics" arity="1" clause_i="8"
 	    anchor="statistics_microstate_accounting" since="OTP 19.0"/>
       <fsummary>Information about microstate accounting.</fsummary>
       <desc>
@@ -8523,7 +8534,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="8"
+      <name name="statistics" arity="1" clause_i="9"
 	    anchor="statistics_reductions" since=""/>
       <fsummary>Information about reductions.</fsummary>
       <desc>
@@ -8542,7 +8553,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="9"
+      <name name="statistics" arity="1" clause_i="10"
 	    anchor="statistics_run_queue" since=""/>
       <fsummary>Information about the run-queues.</fsummary>
       <desc>
@@ -8558,7 +8569,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="10"
+      <name name="statistics" arity="1" clause_i="11"
 	    anchor="statistics_run_queue_lengths" since="OTP 18.3"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
@@ -8573,7 +8584,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="11"
+      <name name="statistics" arity="1" clause_i="12"
 	    anchor="statistics_run_queue_lengths_all" since="OTP 20.0"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
@@ -8616,7 +8627,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="12" since=""/>
+      <name name="statistics" arity="1" clause_i="13" since=""/>
       <fsummary>Information about runtime.</fsummary>
       <desc>
         <p>Returns information about runtime, in milliseconds.</p>
@@ -8634,7 +8645,7 @@ lists:map(
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="13"
+      <name name="statistics" arity="1" clause_i="14"
 	    anchor="statistics_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
@@ -8779,7 +8790,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="14"
+      <name name="statistics" arity="1" clause_i="15"
 	    anchor="statistics_scheduler_wall_time_all" since="OTP 20.0"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
@@ -8807,7 +8818,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="statistics" arity="1" clause_i="15"
+      <name name="statistics" arity="1" clause_i="16"
 	    anchor="statistics_total_active_tasks" since="OTP 18.3"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
@@ -8818,7 +8829,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="16"
+      <name name="statistics" arity="1" clause_i="17"
 	    anchor="statistics_total_active_tasks_all" since="OTP 20.0"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
@@ -8829,7 +8840,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="17"
+      <name name="statistics" arity="1" clause_i="18"
 	    anchor="statistics_total_run_queue_lengths" since="OTP 18.3"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
@@ -8840,7 +8851,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="18"
+      <name name="statistics" arity="1" clause_i="19"
 	    anchor="statistics_total_run_queue_lengths_all" since="OTP 20.0"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
@@ -8851,7 +8862,7 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="19" since=""/>
+      <name name="statistics" arity="1" clause_i="20" since=""/>
       <fsummary>Information about wall clock.</fsummary>
       <desc>
         <p>Returns information about wall clock. <c>wall_clock</c> can

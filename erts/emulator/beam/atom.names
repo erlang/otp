@@ -73,11 +73,13 @@ atom abort
 atom abs_path
 atom absoluteURI
 atom ac
+atom accept
 atom access
 atom active
 atom active_tasks
 atom active_tasks_all
 atom alias
+atom alias_send
 atom alive
 atom all
 atom all_but_first
@@ -279,6 +281,7 @@ atom exact_reductions
 atom exception_from
 atom exception_trace
 atom exclusive
+atom exit2
 atom exit_status
 atom exited
 atom existing
@@ -441,6 +444,7 @@ atom module
 atom module_info
 atom monitored_by
 atom monitor
+atom monitor_exit
 atom monitor_nodes
 atom monitors
 atom monotonic
@@ -582,6 +586,7 @@ atom receive
 atom recent_size
 atom reductions
 atom refc
+atom reg_send
 atom register
 atom registered_name
 atom reload
@@ -727,6 +732,8 @@ atom unblock_normal
 atom uniq
 atom unit
 atom unless_suspending
+atom unlink
+atom unlink_ack
 atom unloaded
 atom unloaded_only
 atom unload_cancelled

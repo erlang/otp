@@ -181,6 +181,8 @@ int erts_dflags_test_remove_hopefull_flags;
 
 Export spawn_request_yield_export;
 
+ErtsDistMsgStats erts_dist_msg_stats;
+
 /* distribution trap functions */
 Export* dmonitor_node_trap = NULL;
 
@@ -1064,8 +1066,17 @@ trap_function(Eterm func, int arity)
 
 static BIF_RETTYPE spawn_request_yield_3(BIF_ALIST_3);
 
+static void
+init_dist_msg_stats(void)
+{
+    for (int i = 0; i < ERTS_NUM_OF_DIST_MSG_TYPES; i++)
+        for (int j = 0; j < ERTS_NUM_OF_DIST_MSG_ACTIONS; j++)
+            erts_atomic64_init_nob(&erts_dist_msg_stats.counters[i][j], 0);
+}
+
 void init_dist(void)
 {
+    init_dist_msg_stats();
     init_nodes_monitors();
 
 #ifdef ERTS_DIST_MSG_DBG_FILE
@@ -2098,8 +2109,10 @@ int erts_net_message(Port *prt,
             /* old incarnation of node; reply noproc... */
         }
         else if (is_internal_pid(to)) {
-            ErtsLinkData *ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
-                                                          to, from);
+            ErtsLinkData *ldp;
+            erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_LINK][ERTS_DIST_MSG_ACTION_ACCEPT]);
+            ldp = erts_link_external_create(ERTS_LNK_TYPE_DIST_PROC,
+                                            to, from);
             ASSERT(ldp->dist.other.item == to);
             ASSERT(eq(ldp->proc.other.item, from));
 
@@ -2164,6 +2177,7 @@ int erts_net_message(Port *prt,
         if (is_not_internal_pid(to))
             goto invalid_message;
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_UNLINK][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_unlink(dep, conn_id, from, to, id);
 	break;
     }
@@ -2190,6 +2204,7 @@ int erts_net_message(Port *prt,
         if (is_not_internal_pid(to))
             goto invalid_message;
 
+	erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_UNLINK_ACK][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_unlink_ack(dep, conn_id, from, to, id);
 	break;
     }
@@ -2236,6 +2251,7 @@ int erts_net_message(Port *prt,
 
         if (is_internal_pid(pid)) {
             ErtsMonitorData *mdp;
+	    erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_MONITOR][ERTS_DIST_MSG_ACTION_ACCEPT]);
             mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
                                       ref, watcher, pid, name,
                                       THE_NON_VALUE);
@@ -2287,29 +2303,31 @@ int erts_net_message(Port *prt,
         if (is_not_external_pid(watcher) || external_pid_dist_entry(watcher) != dep)
             goto invalid_message;
 
-        if (is_internal_pid(watched)) {
-            erts_proc_sig_send_dist_demonitor(watcher, watched, ref);
+        if (is_internal_pid(watched) || is_atom(watched)) {
+            erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_DEMONITOR][ERTS_DIST_MSG_ACTION_ACCEPT]);
+            if (is_internal_pid(watched)) {
+                erts_proc_sig_send_dist_demonitor(watcher, watched, ref);
+            } else {
+                ErtsMonitor *mon;
+
+                erts_mtx_lock(&ede.mld->mtx);
+                if (ede.mld->alive) {
+                    mon = erts_monitor_tree_lookup(ede.mld->orig_name_monitors, ref);
+                    if (mon)
+                        erts_monitor_tree_delete(&ede.mld->orig_name_monitors, mon);
+                } else {
+                    mon = NULL;
+                }
+                erts_mtx_unlock(&ede.mld->mtx);
+
+                if (mon) {
+                    erts_proc_sig_send_demonitor(NULL, watcher, 0, mon);
+                }
+            }
         } else if (is_external_pid(watched)
                  && external_pid_dist_entry(watched) == erts_this_dist_entry) {
             /* old incarnation; ignore it */
             ;
-        }
-        else if (is_atom(watched)) {
-            ErtsMonitor *mon;
-
-            erts_mtx_lock(&ede.mld->mtx);
-            if (ede.mld->alive) {
-                mon = erts_monitor_tree_lookup(ede.mld->orig_name_monitors, ref);
-                if (mon)
-                    erts_monitor_tree_delete(&ede.mld->orig_name_monitors, mon);
-            } else {
-                mon = NULL;
-            }
-            erts_mtx_unlock(&ede.mld->mtx);
-
-            if (mon) {
-                erts_proc_sig_send_demonitor(NULL, watcher, 0, mon);
-            }
         }
         else
             goto invalid_message;
@@ -2343,6 +2361,7 @@ int erts_net_message(Port *prt,
 	if (is_not_pid(from) || is_not_atom(to)){
 	    goto invalid_message;
 	}
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_REG_SEND][ERTS_DIST_MSG_ACTION_ACCEPT]);
 	rp = erts_whereis_process(NULL, 0, to, 0, 0);
 	if (rp) {
 	    ErtsProcLocks locks = 0;
@@ -2398,6 +2417,7 @@ int erts_net_message(Port *prt,
         to = tuple[3];
         if (is_not_pid(to))
             goto invalid_message;
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_SEND][ERTS_DIST_MSG_ACTION_ACCEPT]);
         rp = erts_proc_lookup(to);
 
         if (rp) {
@@ -2431,6 +2451,7 @@ int erts_net_message(Port *prt,
         if (is_not_ref(to)) {
             goto invalid_message;
         }
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_ALIAS_SEND][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_to_alias(from, to, edep, ede_hfrag, token);
         break;
         
@@ -2485,6 +2506,7 @@ int erts_net_message(Port *prt,
         }
 #endif
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_MONITOR_EXIT][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_monitor_down(
             dep, ref, watched, watcher, edep, ede_hfrag, reason);
 	break;
@@ -2546,6 +2568,7 @@ int erts_net_message(Port *prt,
         }
 #endif
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_EXIT][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_link_exit(dep,
                                           from, to, edep, ede_hfrag,
                                           reason, token);
@@ -2614,6 +2637,7 @@ int erts_net_message(Port *prt,
         }
 #endif
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_EXIT2][ERTS_DIST_MSG_ACTION_ACCEPT]);
         erts_proc_sig_send_dist_exit(dep, from, to, edep, ede_hfrag, reason, token);
 	break;
     }
@@ -2627,6 +2651,7 @@ int erts_net_message(Port *prt,
 	    goto invalid_message;
 	}
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_GROUP_LEADER][ERTS_DIST_MSG_ACTION_ACCEPT]);
         (void) erts_proc_sig_send_group_leader(NULL, to, from, NIL);
 	break;
 
@@ -2676,6 +2701,7 @@ int erts_net_message(Port *prt,
                 goto invalid_message;
         }
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_SPAWN_REQUEST][ERTS_DIST_MSG_ACTION_ACCEPT]);
         opts_error = erts_parse_spawn_opts(&so, opts, NULL, 0);
         if (opts_error) {
             ErtsDSigSendContext ctx;
@@ -2835,6 +2861,7 @@ int erts_net_message(Port *prt,
             }
         }
 
+        erts_atomic64_inc_nob(&erts_dist_msg_stats.counters[ERTS_DIST_MSG_TYPE_SPAWN_REPLY][ERTS_DIST_MSG_ACTION_ACCEPT]);
         if (!erts_proc_sig_send_dist_spawn_reply(dep->sysname, ref,
                                                  parent, lnk, result,
                                                  token)) {
@@ -3041,6 +3068,81 @@ retry:
 
  fail:
     erts_de_runlock(dep);
+    return res;
+}
+
+static ERTS_INLINE Eterm
+make_atom_from_dist_msg_type(const ErtsDistMsgType type)
+{
+    switch (type) {
+        case ERTS_DIST_MSG_TYPE_ALIAS_SEND:
+            return am_alias_send;
+        case ERTS_DIST_MSG_TYPE_DEMONITOR:
+            return am_demonitor;
+        case ERTS_DIST_MSG_TYPE_EXIT:
+            return am_exit;
+        case ERTS_DIST_MSG_TYPE_EXIT2:
+            return am_exit2;
+        case ERTS_DIST_MSG_TYPE_GROUP_LEADER:
+            return am_group_leader;
+        case ERTS_DIST_MSG_TYPE_LINK:
+            return am_link;
+        case ERTS_DIST_MSG_TYPE_MONITOR:
+            return am_monitor;
+        case ERTS_DIST_MSG_TYPE_MONITOR_EXIT:
+            return am_monitor_exit;
+        case ERTS_DIST_MSG_TYPE_REG_SEND:
+            return am_reg_send;
+        case ERTS_DIST_MSG_TYPE_SEND:
+            return am_send;
+        case ERTS_DIST_MSG_TYPE_SPAWN_REPLY:
+            return am_spawn_reply;
+        case ERTS_DIST_MSG_TYPE_SPAWN_REQUEST:
+            return am_spawn_request;
+        case ERTS_DIST_MSG_TYPE_UNLINK:
+            return am_unlink;
+        case ERTS_DIST_MSG_TYPE_UNLINK_ACK:
+            return am_unlink_ack;
+        default:
+            return am_undefined;
+    }
+}
+
+static ERTS_INLINE Eterm
+make_atom_from_dist_msg_action(const ErtsDistMsgAction action)
+{
+    switch (action) {
+        case ERTS_DIST_MSG_ACTION_ACCEPT:
+            return am_accept;
+        default:
+            return am_undefined;
+    }
+}
+
+Eterm
+erts_bld_dist_msg_stats(Uint **hpp, Uint *szp, const ErtsDistMsgStats *stats)
+{
+    ErtsDistMsgType type;
+    ErtsDistMsgAction action;
+    Uint64 value = 0;
+    Eterm type_keys[ERTS_NUM_OF_DIST_MSG_TYPES];
+    Eterm type_vals[ERTS_NUM_OF_DIST_MSG_TYPES];
+    Eterm action_keys[ERTS_NUM_OF_DIST_MSG_ACTIONS];
+    Eterm action_vals[ERTS_NUM_OF_DIST_MSG_ACTIONS];
+    Eterm res = THE_NON_VALUE;
+
+    for (action = (ErtsDistMsgAction) 0; action < ERTS_NUM_OF_DIST_MSG_ACTIONS; action++)
+        action_keys[action] = make_atom_from_dist_msg_action(action);
+    for (type = (ErtsDistMsgType) 0; type < ERTS_NUM_OF_DIST_MSG_TYPES; type++) {
+        type_keys[type] = make_atom_from_dist_msg_type(type);
+        for (action = (ErtsDistMsgAction) 0; action < ERTS_NUM_OF_DIST_MSG_ACTIONS; action++) {
+            if (hpp)
+                value = (Uint64) erts_atomic64_read_nob((erts_atomic64_t *)&stats->counters[type][action]);
+            action_vals[action] = erts_bld_uint64(hpp, szp, value);
+	}
+	type_vals[type] = erts_bld_2tup_list(hpp, szp, ERTS_NUM_OF_DIST_MSG_ACTIONS, action_keys, action_vals);
+    }
+    res = erts_bld_2tup_list(hpp, szp, ERTS_NUM_OF_DIST_MSG_TYPES, type_keys, type_vals);
     return res;
 }
 

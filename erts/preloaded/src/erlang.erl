@@ -2609,6 +2609,12 @@ setelement(_Index, _Tuple1, _Value) ->
       ActiveTasks :: non_neg_integer();
 		(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
+                (dist) -> [{DistMsgType, [{DistMsgAction, DistMsgCounter}]}] when
+      DistMsgType :: alias_send | demonitor | exit | exit2 | group_leader |
+                     link | monitor | monitor_exit | reg_send | send |
+                     spawn_reply | spawn_request | unlink | unlink_ack,
+      DistMsgAction :: accept,
+      DistMsgCounter :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
                                        Exact_Reductions_Since_Last_Call} when
       Total_Exact_Reductions :: non_neg_integer(),

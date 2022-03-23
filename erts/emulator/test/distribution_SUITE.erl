@@ -73,7 +73,21 @@
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         huge_iovec/1]).
+         huge_iovec/1,
+         dist_msg_stats_alias_send/1,
+         dist_msg_stats_demonitor/1,
+         dist_msg_stats_exit/1,
+         dist_msg_stats_exit2/1,
+         dist_msg_stats_group_leader/1,
+         dist_msg_stats_link/1,
+         dist_msg_stats_monitor/1,
+         dist_msg_stats_monitor_exit/1,
+         dist_msg_stats_reg_send/1,
+         dist_msg_stats_send/1,
+         dist_msg_stats_spawn_reply/1,
+         dist_msg_stats_spawn_request/1,
+         dist_msg_stats_unlink/1,
+         dist_msg_stats_unlink_ack/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -82,7 +96,25 @@
          roundtrip/1, bounce/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
          derr_run/1,
-         dist_evil_parallel_receiver/0, make_busy/2]).
+         dist_evil_parallel_receiver/0, make_busy/2,
+         dist_msg_stats_alias_send_0/0,
+         dist_msg_stats_demonitor_1/1,
+         dist_msg_stats_exit_1/1,
+         dist_msg_stats_exit_2/2,
+         dist_msg_stats_group_leader_1/1,
+         dist_msg_stats_group_leader_2/2,
+         dist_msg_stats_link_1/1,
+         dist_msg_stats_link_2/2,
+         dist_msg_stats_monitor_1/1,
+         dist_msg_stats_monitor_2/2,
+         dist_msg_stats_monitor_exit_1/1,
+         dist_msg_stats_monitor_exit_2/2,
+         dist_msg_stats_reg_send_2/2,
+         dist_msg_stats_send_1/1,
+         dist_msg_stats_unlink_1/1,
+         dist_msg_stats_unlink_2/2,
+         dist_msg_stats_unlink_ack_1/1,
+         dist_msg_stats_unlink_ack_2/2]).
 
 %% epmd_module exports
 -export([start_link/0, register_node/2, register_node/3, port_please/2, address_please/3]).
@@ -106,7 +138,7 @@ all() ->
      dist_entry_refc_race,
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
-     huge_iovec].
+     huge_iovec, {group, dist_msg_stats}].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -125,7 +157,22 @@ groups() ->
       [message_latency_large_message,
        message_latency_large_link_exit,
        message_latency_large_monitor_exit,
-       message_latency_large_exit2]}
+       message_latency_large_exit2]},
+     {dist_msg_stats, [parallel],
+      [dist_msg_stats_alias_send,
+       dist_msg_stats_demonitor,
+       dist_msg_stats_exit,
+       dist_msg_stats_exit2,
+       dist_msg_stats_group_leader,
+       dist_msg_stats_link,
+       dist_msg_stats_monitor,
+       dist_msg_stats_monitor_exit,
+       dist_msg_stats_reg_send,
+       dist_msg_stats_send,
+       dist_msg_stats_spawn_reply,
+       dist_msg_stats_spawn_request,
+       dist_msg_stats_unlink,
+       dist_msg_stats_unlink_ack]}
     ].
 
 init_per_suite(Config) ->
@@ -2713,6 +2760,370 @@ mk_rand_bin_list(_Bytes, 0, Acc) ->
     Acc;
 mk_rand_bin_list(Bytes, Binaries, Acc) ->
     mk_rand_bin_list(Bytes, Binaries-1, [rand:bytes(Bytes) | Acc]).
+
+dist_msg_stats_alias_send(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, _OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    Alias = peer:call(Peer, ?MODULE, dist_msg_stats_alias_send_0, []),
+    ReplyAlias = erlang:alias([reply]),
+    Alias ! {Alias, ping, ReplyAlias},
+    ok = receive {ReplyAlias, pong} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [alias_send]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_alias_send_0() ->
+    Tag = erlang:alias([reply]),
+    spawn(fun() ->
+        Alias = erlang:alias([reply]),
+        Tag ! {Tag, Alias},
+        receive
+            {Alias, ping, ReplyAlias} ->
+                ReplyAlias ! {ReplyAlias, pong},
+                exit(normal)
+        end
+    end),
+    receive {Tag, Alias} -> Alias end.
+
+dist_msg_stats_demonitor(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    {Pid, Monitor} = erlang:spawn_monitor(OtherNode, ?MODULE, dist_msg_stats_demonitor_1, [self()]),
+    true = erlang:demonitor(Monitor, [flush]),
+    Pid ! stop,
+    ok = receive {Pid, stopped} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [demonitor]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_demonitor_1(Parent) ->
+    receive
+        stop ->
+            Parent ! {self(), stopped},
+            exit(normal);
+        _Msg ->
+            dist_msg_stats_demonitor_1(Parent)
+    end.
+
+dist_msg_stats_exit(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_exit_1, [self()]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_exit_2, [self(), LocalPid]),
+    ok = receive {LocalPid, linked} -> ok end,
+    LocalPid ! trigger_exit,
+    ok = receive {OtherPid, exit_triggered} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [exit]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_exit_1(Parent) ->
+    receive
+        {OtherPid, linked} ->
+            OtherPid ! {self(), linked},
+            Parent ! {self(), linked},
+            dist_msg_stats_exit_1(Parent);
+        trigger_exit ->
+            exit(exit_triggered);
+        _Msg ->
+            dist_msg_stats_exit_1(Parent)
+    end.
+
+dist_msg_stats_exit_2(Parent, LocalPid) ->
+    _ = erlang:process_flag(trap_exit, true),
+    true = erlang:link(LocalPid),
+    LocalPid ! {self(), linked},
+    ok = receive {LocalPid, linked} -> ok end,
+    dist_msg_stats_exit_2_loop(Parent, LocalPid).
+
+dist_msg_stats_exit_2_loop(Parent, LocalPid) ->
+    receive
+        {'EXIT', LocalPid, exit_triggered} ->
+            Parent ! {self(), exit_triggered},
+            exit(normal);
+        _Msg ->
+            dist_msg_stats_exit_2_loop(Parent, LocalPid)
+    end.
+
+dist_msg_stats_exit2(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OldTrapExit = erlang:process_flag(trap_exit, true),
+    OtherPid = erlang:spawn_link(OtherNode, fun LoopForever() -> receive _ -> LoopForever() end end),
+    true = erlang:exit(OtherPid, kill),
+    ok = receive {'EXIT', OtherPid, killed} -> ok end,
+    _ = erlang:process_flag(trap_exit, OldTrapExit),
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [exit2]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_group_leader(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_group_leader_1, [self()]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_group_leader_2, [self(), LocalPid]),
+    true = erlang:group_leader(LocalPid, OtherPid),
+    ok = receive {OtherPid, group_leader_changed} -> ok end,
+    LocalPid ! stop,
+    ok = receive {LocalPid, stopped} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [group_leader]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_group_leader_1(Parent) ->
+    receive
+        stop ->
+            Parent ! {self(), stopped},
+            exit(normal);
+        _Msg ->
+            dist_msg_stats_group_leader_1(Parent)
+    end.
+
+dist_msg_stats_group_leader_2(Parent, LocalPid) ->
+    case erlang:group_leader() of
+        LocalPid ->
+            Parent ! {self(), group_leader_changed},
+            exit(normal);
+        _ ->
+            ok = receive after 500 -> ok end,
+            dist_msg_stats_group_leader_2(Parent, LocalPid)
+    end.
+
+dist_msg_stats_link(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_link_1, [self()]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_link_2, [self(), OtherPid]),
+    ok = receive {LocalPid, linked} -> ok end,
+    ok = receive {OtherPid, linked} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [link]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_link_1(Parent) ->
+    receive
+        {LocalPid, linked} ->
+            LocalPid ! {self(), linked},
+            Parent ! {self(), linked},
+            exit(normal);
+        _Msg ->
+            dist_msg_stats_link_1(Parent)
+    end.
+
+dist_msg_stats_link_2(Parent, OtherPid) ->
+    true = erlang:link(OtherPid),
+    OtherPid ! {self(), linked},
+    ok = receive {OtherPid, linked} -> ok end,
+    Parent ! {self(), linked},
+    exit(normal).
+
+dist_msg_stats_monitor(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_monitor_1, [self()]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_monitor_2, [self(), OtherPid]),
+    ok = receive {LocalPid, monitored} -> ok end,
+    ok = receive {OtherPid, monitored} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [monitor]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_monitor_1(Parent) ->
+    LocalPid = receive {LPid, monitored} when is_pid(LPid) -> LPid end,
+    LocalPid ! {self(), monitored},
+    Parent ! {self(), monitored},
+    exit(normal).
+
+dist_msg_stats_monitor_2(Parent, OtherPid) ->
+    Monitor = erlang:monitor(process, OtherPid),
+    OtherPid ! {self(), monitored},
+    ok = receive {OtherPid, monitored} -> ok end,
+    ok = receive {'DOWN', Monitor, process, OtherPid, _Reason} -> ok end,
+    Parent ! {self(), monitored},
+    exit(normal).
+
+dist_msg_stats_monitor_exit(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_monitor_exit_1, [self()]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_monitor_exit_2, [self(), LocalPid]),
+    ok = receive {LocalPid, exit_monitored} -> ok end,
+    ok = receive {OtherPid, exit_monitored} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [monitor_exit]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_monitor_exit_1(Parent) ->
+    OtherPid = receive {OPid, monitored} when is_pid(OPid) -> OPid end,
+    OtherPid ! {self(), monitored},
+    Parent ! {self(), exit_monitored},
+    exit(normal).
+
+dist_msg_stats_monitor_exit_2(Parent, LocalPid) ->
+    Monitor = erlang:monitor(process, LocalPid),
+    LocalPid ! {self(), monitored},
+    ok = receive {LocalPid, monitored} -> ok end,
+    ok = receive {'DOWN', Monitor, process, LocalPid, _Reason} -> ok end,
+    Parent ! {self(), exit_monitored},
+    exit(normal).
+
+dist_msg_stats_reg_send(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherName = 'dist_msg_stats_reg_send_2_name',
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_reg_send_2, [self(), OtherName]),
+    ok = receive {OtherPid, ready} -> ok end,
+    {OtherName, OtherNode} ! {self(), stop},
+    ok = receive {OtherPid, stopped} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [reg_send]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_reg_send_2(Parent, OtherName) ->
+    true = erlang:register(OtherName, self()),
+    Parent ! {self(), ready},
+    ok = receive {Parent, stop} -> ok end,
+    Parent ! {self(), stopped},
+    exit(normal).
+
+dist_msg_stats_send(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_send_1, [self()]),
+    ok = receive {OtherPid, ready} -> ok end,
+    OtherPid ! {self(), stop},
+    ok = receive {OtherPid, stopped} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [send]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_send_1(Parent) ->
+    Parent ! {self(), ready},
+    ok = receive {Parent, stop} -> ok end,
+    Parent ! {self(), stopped},
+    exit(normal).
+
+dist_msg_stats_spawn_reply(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Parent = self(),
+    ThisNode = node(),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherPid = erlang:spawn_link(OtherNode, fun() ->
+        ReqId = erlang:spawn_request(ThisNode, erlang, send, [Parent, spawn_requested], [{reply, yes}]),
+        _LocalPid = receive {spawn_reply, ReqId, ok, LPid} when is_pid(LPid) -> LPid end,
+        Parent ! {self(), spawn_replied},
+        exit(normal)
+    end),
+    ok = receive spawn_requested -> ok end,
+    ok = receive {OtherPid, spawn_replied} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [spawn_reply]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_spawn_request(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    ReqId = erlang:spawn_request(OtherNode, erlang, send, [self(), spawn_requested], [{reply, yes}]),
+    _OtherPid = receive {spawn_reply, ReqId, ok, OPid} when is_pid(OPid) -> OPid end,
+    ok = receive spawn_requested -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [spawn_request]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_unlink(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_unlink_1, [self()]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_unlink_2, [self(), LocalPid]),
+    ok = receive {LocalPid, unlinked} -> ok end,
+    ok = receive {OtherPid, unlinked} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [unlink]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_unlink_1(Parent) ->
+    OtherPid = receive {OPid, linked} when is_pid(OPid) -> OPid end,
+    OtherPid ! {self(), linked},
+    true = erlang:unlink(OtherPid),
+    OtherPid ! {self(), unlinked},
+    ok = receive {OtherPid, unlinked} -> ok end,
+    Parent ! {self(), unlinked},
+    exit(normal).
+
+dist_msg_stats_unlink_2(Parent, LocalPid) ->
+    true = erlang:link(LocalPid),
+    LocalPid ! {self(), linked},
+    ok = receive {LocalPid, linked} -> ok end,
+    ok = receive {LocalPid, unlinked} -> ok end,
+    LocalPid ! {self(), unlinked},
+    Parent ! {self(), unlinked},
+    exit(normal).
+
+dist_msg_stats_unlink_ack(Config) when is_list(Config) ->
+    %% Disabled "connect all" so global wont interfere...
+    {ok, Peer, OtherNode} = ?CT_PEER(#{connection => 0, args => ["-connect_all", "false"]}),
+    Stats0 = peer:call(Peer, erlang, statistics, [dist]),
+    OtherPid = erlang:spawn_link(OtherNode, ?MODULE, dist_msg_stats_unlink_ack_1, [self()]),
+    LocalPid = erlang:spawn(?MODULE, dist_msg_stats_unlink_ack_2, [self(), OtherPid]),
+    ok = receive {LocalPid, unlinked} -> ok end,
+    ok = receive {OtherPid, unlinked} -> ok end,
+    Stats1 = peer:call(Peer, erlang, statistics, [dist]),
+    true = assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [unlink_ack]),
+    peer:stop(Peer),
+    ok.
+
+dist_msg_stats_unlink_ack_1(Parent) ->
+    LocalPid = receive {LPid, linked} when is_pid(LPid) -> LPid end,
+    LocalPid ! {self(), linked},
+    true = erlang:unlink(LocalPid),
+    LocalPid ! {self(), unlinked},
+    ok = receive {LocalPid, unlinked} -> ok end,
+    Parent ! {self(), unlinked},
+    exit(normal).
+
+dist_msg_stats_unlink_ack_2(Parent, OtherPid) ->
+    true = erlang:link(OtherPid),
+    OtherPid ! {self(), linked},
+    ok = receive {OtherPid, linked} -> ok end,
+    ok = receive {OtherPid, unlinked} -> ok end,
+    OtherPid ! {self(), unlinked},
+    Parent ! {self(), unlinked},
+    exit(normal).
+
+assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, [Key | Keys]) ->
+    {Key, Vals0} = lists:keyfind(Key, 1, Stats0),
+    {Key, Vals1} = lists:keyfind(Key, 1, Stats1),
+    {accept, Accept0} = lists:keyfind(accept, 1, Vals0),
+    {accept, Accept1} = lists:keyfind(accept, 1, Vals1),
+    Accept0 < Accept1 andalso assert_accept_increase_for_dist_msg_stats(Stats0, Stats1, Keys);
+assert_accept_increase_for_dist_msg_stats(_Stats0, _Stats1, []) ->
+    true.
 
 %% Try provoke DistEntry refc bugs (OTP-17513).
 dist_entry_refc_race(_Config) ->
