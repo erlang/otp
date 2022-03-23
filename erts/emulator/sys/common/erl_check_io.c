@@ -2693,9 +2693,17 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
                     err = 1;
             }
             else {
-                ErtsPollEvents ev = cio_events;
-                if (ev != ep_events && ep_events != ERTS_POLL_EV_NONE)
-                    err = 1;
+                if (ep_events != ERTS_POLL_EV_NONE) {
+                    if (!ERTS_POLL_USE_KERNEL_POLL
+                        || (!(state->flags & (ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_FALLBACK))
+                            && ((cio_events ^ ep_events) & ep_events) != 0)) {
+                        err = 1;
+                    }
+                    /* else: Kernel poll with oneshot (used by poller threads)
+                     *       may cause a race where an event just triggered and
+                     *       thereby was cleared in the pollset (ep_events).
+                     */
+                }
                 erts_dsprintf(dsbufp, "cio_ev=");
                 print_events(dsbufp, cio_events);
                 erts_dsprintf(dsbufp, " ep_ev=");
