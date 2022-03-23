@@ -27,6 +27,31 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add options for users to be able to set spawn_opts for
+	    TLS processes (sender and receiver) this may be useful
+	    for tuning trade-offs between CPU and Memory usage.</p>
+          <p>
+	    Own Id: OTP-17855 Aux Id: PR-5328 </p>
+        </item>
+        <item>
+          <p>
+	    Allow key file passwords to be input as a single binary,
+	    that is we change the datatype to be the more for the
+	    purpose logical data type iodata() instead of string().</p>
+          <p>
+	    Own Id: OTP-17890</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

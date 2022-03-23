@@ -37,7 +37,30 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.3</title>
+  <section><title>Megaco 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Megaco test suite(s) use the new peer module for node
+	    starts.</p>
+          <p>
+	    Own Id: OTP-17910</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

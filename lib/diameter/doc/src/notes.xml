@@ -43,6 +43,34 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix decode of non-IP address types; that is, of values of
+	    the derived AVP data format Address whose first two
+	    octets specify an address family other than 1 (IP) or 2
+	    (IP6). Such values have never been decoded, and were
+	    treated as decode errors. They're now decoded to a
+	    2-tuple of the integer() address family and binary()
+	    remaining octets, with no family-specific decode. The
+	    2-tuple distinguishes the decode from the 4-tuple and
+	    8-tuple IP address decodes. 2-tuples are also now
+	    encoded.</p>
+          <p>
+	    Note that even currently unassigned address families are
+	    decoded: only the reserved values, 0 and 65535, are
+	    treated as errors.</p>
+          <p>
+	    Own Id: OTP-17976 Aux Id: GH-5463 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

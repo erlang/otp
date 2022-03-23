@@ -32,6 +32,45 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix unused types warnings in internal edoc module.</p>
+          <p>
+	    Own Id: OTP-17550 Aux Id: GH-5094 PR-5106 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add source file to the warning on skipped tags when
+	    generating EEP-48 style docs.</p>
+          <p>
+	    Own Id: OTP-17556 Aux Id: PR-5023 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the doc chunks generators to emit documentation even
+	    if there is not module level documentation.</p>
+          <p>
+	    Fix the doc chunks generators to respect the
+	    <c>@hidden</c> and <c>@private</c> tags properly for both
+	    modules and functions.</p>
+          <p>
+	    Own Id: OTP-17733 Aux Id: PR-5205 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 1.1</title>
 
     <section><title>Improvements and New Features</title>

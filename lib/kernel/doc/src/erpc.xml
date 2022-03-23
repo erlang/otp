@@ -383,7 +383,7 @@
     </func>
 
     <func>
-      <name name="check_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="check_response" arity="3" since="OTP 25.0"/>
       <fsummary>Check if a message is a response corresponding to a
       previously sent call request.</fsummary>
       <desc>
@@ -704,7 +704,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="receive_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="receive_response" arity="3" since="OTP 25.0"/>
       <fsummary>Receive a call response corresponding to a
       previously sent call request.</fsummary>
       <desc>
@@ -788,7 +788,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
     
     <func>
-      <name name="reqids_add" arity="3" since="OTP @OTP-17784@"/>
+      <name name="reqids_add" arity="3" since="OTP 25.0"/>
       <fsummary>Save a request identifier.</fsummary>
       <desc>
 	<p>
@@ -801,7 +801,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="reqids_new" arity="0" since="OTP @OTP-17784@"/>
+      <name name="reqids_new" arity="0" since="OTP 25.0"/>
       <fsummary>Create a new empty request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -831,7 +831,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="reqids_size" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_size" arity="1" since="OTP 25.0"/>
       <fsummary>Get size of a request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -842,7 +842,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="reqids_to_list" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_to_list" arity="1" since="OTP 25.0"/>
       <fsummary>Get a list a request identifier/label associations in a collection.</fsummary>
       <desc>
 	<p>
@@ -944,7 +944,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="send_request" arity="4" clause_i="2" since="OTP @OTP-17784@"/>
+      <name name="send_request" arity="4" clause_i="2" since="OTP 25.0"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -971,7 +971,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="send_request" arity="6" since="OTP @OTP-17784@"/>
+      <name name="send_request" arity="6" since="OTP 25.0"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -1079,7 +1079,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="wait_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="wait_response" arity="3" since="OTP 25.0"/>
       <fsummary>Wait or poll for a call response corresponding to a previously
       sent call request.</fsummary>
       <desc>

@@ -31,6 +31,40 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix systools:make* to recursively search for source code
+	    when doing a <c>src_tests</c>.</p>
+          <p>
+	    Own Id: OTP-17752 Aux Id: PR-5302 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An Erlang installation directory is now relocatable on
+	    the file system given that the paths in the
+	    installation's <c>RELEASES</c> file are paths that are
+	    relative to the installations root directory. The
+	    <c>`release_handler:create_RELEASES/4</c> function can
+	    generate a <c>RELEASES</c> file with relative paths if
+	    its <c>RootDir</c> parameter is set to the empty string.</p>
+          <p>
+	    Own Id: OTP-17304</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 4.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

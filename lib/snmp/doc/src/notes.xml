@@ -34,7 +34,31 @@
   </header>
 
 
-  <section><title>SNMP 5.12</title>
+  <section><title>SNMP 5.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions slated for removal in
+	    OTP-25. Also removed "dead" code, kept for backward
+	    compatibility reasons.</p>
+          <p>
+	    Own Id: OTP-17612</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
