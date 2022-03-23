@@ -2170,7 +2170,7 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
   when is_function(Pre, 0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
-    tc_begin(TCName),
+    tc_begin(TCName, Name, Verbosity),
     try Pre() of
         State ->
             tc_print("pre done: try test case"),
@@ -2277,10 +2277,12 @@ tc_set_name(N) when is_list(N) ->
 tc_get_name() ->
     get(tc_name).
 
-tc_begin(TC) ->
+tc_begin(TC, Name, Verbosity) ->
     OldVal = process_flag(trap_exit, true),
     put(old_trap_exit, OldVal),
     tc_set_name(TC),
+    put(sname,     Name),
+    put(verbosity, Verbosity),
     tc_print("begin ***",
              "~n----------------------------------------------------~n", "").
 
