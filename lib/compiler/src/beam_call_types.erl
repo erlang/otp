@@ -22,7 +22,7 @@
 
 -include("beam_types.hrl").
 
--import(lists, [duplicate/2,foldl/3]).
+-import(lists, [any/2,duplicate/2,foldl/3]).
 
 -export([will_succeed/3, types/3, arith_type/2]).
 
@@ -244,6 +244,73 @@ types(erlang, 'or', [_,_]) ->
 types(erlang, 'xor', [_,_]) ->
     Bool = beam_types:make_boolean(),
     sub_unsafe(Bool, [Bool, Bool]);
+
+%% Relational operators.
+types(erlang, Op, [#t_integer{elements={A,B}},
+                   #t_integer{elements={C,D}}])
+  when Op =:= '<'; Op =:= '=<'; Op =:= '>='; Op =:= '>' ->
+    case {erlang:Op(B, C),erlang:Op(A, D)} of
+        {Bool,Bool} ->
+            sub_unsafe(#t_atom{elements=[Bool]}, [any, any]);
+        {_,_} ->
+            sub_unsafe(beam_types:make_boolean(), [any, any])
+    end;
+
+%% Type tests.
+types(erlang, is_atom, [Type]) ->
+    sub_unsafe_type_test(Type, #t_atom{});
+types(erlang, is_binary, [Type]) ->
+    sub_unsafe_type_test(Type, #t_bs_matchable{tail_unit=8});
+types(erlang, is_bitstring, [Type]) ->
+    sub_unsafe_type_test(Type, #t_bs_matchable{});
+types(erlang, is_boolean, [Type]) ->
+    case beam_types:is_boolean_type(Type) of
+        true ->
+            sub_unsafe(#t_atom{elements=[true]}, [any]);
+        false ->
+            case beam_types:meet(Type, #t_atom{}) of
+                #t_atom{elements=[_|_]=Es} ->
+                    case any(fun is_boolean/1, Es) of
+                        true ->
+                            sub_unsafe(beam_types:make_boolean(), [any]);
+                        false ->
+                            sub_unsafe(#t_atom{elements=[false]}, [any])
+                    end;
+                #t_atom{} ->
+                    sub_unsafe(beam_types:make_boolean(), [any]);
+                none ->
+                    sub_unsafe(#t_atom{elements=[false]}, [any])
+            end
+    end;
+types(erlang, is_float, [Type]) ->
+    sub_unsafe_type_test(Type, #t_float{});
+types(erlang, is_function, [Type, #t_integer{elements={Arity,Arity}}])
+  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
+    RetType =
+        case beam_types:meet(Type, #t_fun{arity=Arity}) of
+            Type -> #t_atom{elements=[true]};
+            none -> #t_atom{elements=[false]};
+            _ -> beam_types:make_boolean()
+        end,
+    sub_unsafe(RetType, [any, any]);
+types(erlang, is_function, [Type]) ->
+    sub_unsafe_type_test(Type, #t_fun{});
+types(erlang, is_integer, [Type]) ->
+    sub_unsafe_type_test(Type, #t_integer{});
+types(erlang, is_list, [Type]) ->
+    sub_unsafe_type_test(Type, #t_list{});
+types(erlang, is_map, [Type]) ->
+    sub_unsafe_type_test(Type, #t_map{});
+types(erlang, is_number, [Type]) ->
+    sub_unsafe_type_test(Type, number);
+types(erlang, is_pid, [Type]) ->
+    sub_unsafe_type_test(Type, pid);
+types(erlang, is_port, [Type]) ->
+    sub_unsafe_type_test(Type, port);
+types(erlang, is_reference, [Type]) ->
+    sub_unsafe_type_test(Type, reference);
+types(erlang, is_tuple, [Type]) ->
+    sub_unsafe_type_test(Type, #t_tuple{});
 
 %% Bitwise ops
 types(erlang, 'band', [_,_]=Args) ->
@@ -812,7 +879,6 @@ types(maps, without, [Keys, Map]) ->
 types(_, _, Args) ->
     sub_unsafe(any, [any || _ <- Args]).
 
-
 -spec arith_type(Op, ArgTypes) -> RetType when
       Op :: beam_ssa:op(),
       ArgTypes :: [normal_type()],
@@ -1099,6 +1165,15 @@ maps_remove_type(_Key, _Map) ->
 %%%
 %%% Generic helpers
 %%%
+
+sub_unsafe_type_test(ArgType, Required) ->
+    RetType =
+        case beam_types:meet(ArgType, Required) of
+            ArgType -> #t_atom{elements=[true]};
+            none -> #t_atom{elements=[false]};
+            _ -> beam_types:make_boolean()
+        end,
+    sub_unsafe(RetType, [any]).
 
 sub_unsafe(RetType, ArgTypes) ->
     {RetType, ArgTypes, false}.
