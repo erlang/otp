@@ -38,45 +38,6 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 # ifdef HAS_3_0_API
 
-/**** Begin debug-help functions ****/
-#  if 0
-ERL_NIF_TERM debug_put_pkey(ErlNifEnv* env, EVP_PKEY *pkey);
-
-#  define PUT1(env,bn,t)                                                \
-     if (bn) {if ((t = bin_from_bn(env, bn)) == atom_error) goto err;}   \
-     else t = atom_undefined
-
-ERL_NIF_TERM debug_put_pkey(ErlNifEnv* env, EVP_PKEY *pkey)
-{
-    const BIGNUM *p1 = NULL, *q1 = NULL, *g1 = NULL, *pub1 = NULL, *priv1 = NULL;
-    DH *dh = NULL;
-    ERL_NIF_TERM result[8];
-    int i = 0;
-
-    if (pkey) {
-        dh = EVP_PKEY_get1_DH(pkey);
-        DH_get0_pqg(dh, &p1, &q1, &g1);
-
-        pub1 = DH_get0_pub_key(dh);
-        priv1= DH_get0_priv_key(dh);
-
-        PUT1(env, p1, result[i++]);
-        PUT1(env, g1, result[i++]);
-        PUT1(env, q1, result[i++]);
-        PUT1(env, pub1, result[i++]);
-        PUT1(env, priv1, result[i++]);
-
-        return enif_make_list_from_array(env,result,i);
-    } else
-        return atom_false;
-
- err:
-    return atom_error;
-}
-#  endif
-/**** End debug-help functions ****/
-
-
 /* Has 3_0 */
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], 0, Len|0) */
