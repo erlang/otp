@@ -26,6 +26,9 @@
 
 -export([create/3, pos/3, add/2, size_of/1, to_term/1]).
 
+-nifs([create/3, pos/3, add/2, size_of/1, to_term/1]).
+
+
 -define(nif, nif_error(?LINE)). 
 
 -on_load(on_load/0).

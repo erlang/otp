@@ -49,6 +49,14 @@
 
 -export([enc_sockaddr/1, p_get/1]).
 
+-nifs([nif_info/0, nif_info/1, nif_supports/0, nif_supports/1, nif_command/1,
+       nif_open/2, nif_open/4, nif_bind/2, nif_connect/1, nif_connect/3,
+       nif_listen/2, nif_accept/2, nif_send/4, nif_sendto/5, nif_sendmsg/5,
+       nif_sendfile/5, nif_sendfile/4, nif_sendfile/1, nif_recv/4,
+       nif_recvfrom/4, nif_recvmsg/5, nif_close/1, nif_shutdown/2,
+       nif_setopt/5, nif_getopt/3, nif_getopt/4, nif_sockname/1,
+       nif_peername/1, nif_ioctl/2, nif_ioctl/3, nif_ioctl/4, nif_cancel/3,
+       nif_finalize_close/1]).
 
 %% Also in socket
 -define(REGISTRY, socket_registry).
