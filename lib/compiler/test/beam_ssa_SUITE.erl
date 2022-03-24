@@ -669,6 +669,7 @@ do_comb_sw_2(X) ->
 share_opt(_Config) ->
     ok = do_share_opt_1(0),
     ok = do_share_opt_2(),
+    ok = do_share_opt_3(),
     ok.
 
 do_share_opt_1(A) ->
@@ -699,7 +700,16 @@ sopt_2({Flags, Opts}, ok) ->
         [] ->
             ok
     end.
-    
+
+do_share_opt_3() ->
+    true = sopt_3(id(ok)),
+    false = sopt_3(id(nok)),
+    ok.
+
+sopt_3(X) ->
+    %% Must be one line to trigger bug.
+    case X of ok -> id(?LINE), true; _ -> id(?LINE), false end.
+
 beam_ssa_dead_crash(_Config) ->
     not_A_B = do_beam_ssa_dead_crash(id(false), id(true)),
     not_A_not_B = do_beam_ssa_dead_crash(false, false),

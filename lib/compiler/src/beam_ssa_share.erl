@@ -297,7 +297,7 @@ canonical_is(Is) ->
     Can.
 
 canonical_is([#b_set{op=Op,dst=Dst,args=Args0}=I|Is], VarMap0, Acc) ->
-    Args = [canonical_arg(Arg, VarMap0) || Arg <-Args0],
+    Args = [canonical_arg(Arg, VarMap0) || Arg <- Args0],
     Var = {var,map_size(VarMap0)},
     VarMap = VarMap0#{Dst=>Var},
     LineAnno = case Op of
@@ -312,17 +312,8 @@ canonical_is([#b_set{op=Op,dst=Dst,args=Args0}=I|Is], VarMap0, Acc) ->
                        beam_ssa:get_anno(location, I, none)
                end,
     canonical_is(Is, VarMap, {Op,LineAnno,Var,Args,Acc});
-canonical_is([#b_ret{arg=Arg}], VarMap, Acc0) ->
-    Acc1 = case Acc0 of
-               {call,_Anno,Var,[#b_local{}|_]=Args,PrevAcc} ->
-                   %% This is a tail-recursive call to a local function.
-                   %% There will be no line instruction generated;
-                   %% thus, the annotation is not significant.
-                   {call,[],Var,Args,PrevAcc};
-               _ ->
-                   Acc0
-           end,
-    {{ret,canonical_arg(Arg, VarMap),Acc1},VarMap};
+canonical_is([#b_ret{arg=Arg}], VarMap, Acc) ->
+    {{ret,canonical_arg(Arg, VarMap),Acc},VarMap};
 canonical_is([#b_br{bool=#b_var{}=Arg,fail=Fail}], VarMap, Acc) ->
     %% A previous buggy version of this code omitted the canonicalized
     %% argument in the return value. Unfortunately, that worked most
@@ -331,6 +322,19 @@ canonical_is([#b_br{bool=#b_var{}=Arg,fail=Fail}], VarMap, Acc) ->
     {{br,canonical_arg(Arg, VarMap),succ,Fail,Acc},VarMap};
 canonical_is([#b_br{succ=Succ}], VarMap, Acc) ->
     {{br,Succ,Acc},VarMap};
+canonical_is([{tail_br,Arg0,Ret0}], VarMap, Acc0) ->
+    Arg = canonical_arg(Arg0, VarMap),
+    Ret = canonical_arg(Ret0, VarMap),
+    case Acc0 of
+        {{succeeded,body},_,Arg,[Ret],{call,_,Ret,CallArgs,PrevAcc}} ->
+            %% This is a tail-recursive call to a local function.
+            %% There will be no line instruction generated; thus, the
+            %% annotation is not significant.
+            {{tail_call,Ret,CallArgs,PrevAcc},VarMap};
+        _ ->
+            %% Not a tail-recursive call.
+            {{br_ret,Arg,Ret,Acc0},VarMap}
+    end;
 canonical_is([], VarMap, Acc) ->
     {Acc,VarMap}.
 
@@ -343,6 +347,14 @@ canonical_terminator(L, #b_br{bool=#b_literal{val=true},succ=Succ}=Br, Blocks) -
             {[],Succ};
         [_|_]=Phis ->
             {Phis ++ [Br],done}
+    end;
+canonical_terminator(_L, #b_br{bool=#b_var{}=Arg,succ=Succ,fail=?EXCEPTION_BLOCK}=Br,
+                     Blocks) ->
+    case Blocks of
+        #{Succ := #b_blk{is=[],last=#b_ret{arg=Ret}}} ->
+            {[{tail_br,Arg,Ret}],done};
+        #{} ->
+            {[Br],Succ}
     end;
 canonical_terminator(_L, #b_br{bool=#b_var{},succ=Succ}=Br, _Blocks) ->
     {[Br],Succ};
