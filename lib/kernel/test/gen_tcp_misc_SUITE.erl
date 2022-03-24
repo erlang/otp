@@ -5921,9 +5921,11 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
             {'DOWN', Mref, _, _, Error2} ->
                 ct:fail(Error2)
         end,
+        RetryTimeout = str_which_retry_timeout(),
         ?P("send"),
         {N, Timeouts} =
-            do_send_timeout_resume_send(C, Server, Tag, BlockSize),
+            do_send_timeout_resume_send(C, Server, Tag,
+                                        RetryTimeout, BlockSize),
         ?P("await server reply (DOWN)"),
         receive
             {'DOWN', Mref, _, _, Result} ->
@@ -5968,28 +5970,36 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
 optnames(Opts) ->
     [Name || {Name, _} <- Opts].
 
+str_which_retry_timeout() ->
+    case os:type() of
+        {unix, darwin} ->
+            %% This is really sketchy, but it seems to "work"...
+            %% Don't know if its the processor (M1) or if its the
+            %% OS/darwin version (darwin 21.x).
+            %% But since we don't have any intel macs running 21...
+            case os:version() of
+                {Major, _, _} when (Major >= 20) ->
+                    25;
+                _ ->
+                    100
+            end;
+        {unix, freebsd} ->
+            %% Has only seen this on FreeBSD 13, but...
+            case os:version() of
+                {Major, _, _} when (Major >= 13) ->
+                    50;
+                _ ->
+                    100
+            end;
+        _ ->
+            100
+    end.
+    
 %% Fill buffers
-do_send_timeout_resume_send(S, Server, Tag, BlockSize) ->
-    RetryTimeout =
-        case os:type() of
-            {unix, darwin} ->
-                %% This is really sketchy, but it seems to "work"...
-                %% Don't know if its the processor (M1) or if its the
-                %% OS/darwin version (darwin 21.x).
-                %% But since we don't have any intel macs running 21...
-                case string:to_lower(os:cmd("uname -m")) of
-                    "arm64" ++ _ ->
-                        25;
-                    _ ->
-                        100
-                end;
-            {unix, freebsd} ->
-                %% Has only seen this on FreeBSD 13, but...
-                50;
-            _ ->
-                100
-        end,
-    ?P("try send-timeout-resume with retry timeout: ~w ms", [RetryTimeout]),
+do_send_timeout_resume_send(S, Server, Tag, RetryTimeout, BlockSize) ->
+    ?P("try send-timeout-resume with"
+       "~n   RetryTimeout: ~w ms"
+       "~n   BlockSize:    ~w", [RetryTimeout, BlockSize]),
     do_send_timeout_resume_send(S, Server, Tag, 0, RetryTimeout, BlockSize).
 
 do_send_timeout_resume_send(S, Server, Tag, N, RetryTimeout, BlockSize) ->
