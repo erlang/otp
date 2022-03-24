@@ -6007,35 +6007,42 @@ send_timeout_repeat(S, Server, Tag, N, Bin, RetryTimeout, Timeouts) ->
     case gen_tcp:send(S, Bin) of
         ok ->
             ?P("send_timeout_repeat -> success => done when"
-               "~n      N:        ~p"
-               "~n      Timeouts: ~p", [N, Timeouts]),
+               "~n      N:           ~p"
+               "~n      Timeouts:    ~p"
+               "~n      Socket Info: ~p", [N, Timeouts, (catch inet:info(S))]),
             Timeouts;
         {error, Reason} ->
             case Reason of
                 timeout ->
                     ?P("send_timeout_repeat -> timeout:"
-                       "~n      S:        ~p"
-                       "~n      N:        ~p"
-                       "~n      Timeouts: ~p", [S, N, Timeouts]),
+                       "~n      S:           ~p"
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [S, N, Timeouts, (catch inet:info(S))]),
                     Server ! {Tag, rec},
                     receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
                       S, Server, Tag, N, <<>>, RetryTimeout, Timeouts + 1);
                 {timeout, RestData} ->
                     ?P("send_timeout_repeat -> timeout with RestData: "
-                       "~n      S:        ~p"
-                       "~n      N:        ~p"
-                       "~n      Timeouts: ~p", [S, N, Timeouts]),
+                       "~n      S:           ~p"
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [S, N, Timeouts, (catch inet:info(S))]),
                     Server ! {Tag, rec},
                     receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
                       S, Server, Tag, N, RestData, RetryTimeout, Timeouts + 1);
                 _ ->
                     ?P("send_timeout_repeat -> unexpected send failure: "
-                       "~n      Reason:   ~p"
+                       "~n      Reason:      ~p"
                        "~n   when"
-                       "~n      N:        ~p"
-                       "~n      Timeouts: ~p", [Reason, N, Timeouts]),
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [Reason, N, Timeouts, (catch inet:info(S))]),
                     error({Reason, N, Timeouts})
             end
     end.
