@@ -5983,6 +5983,9 @@ do_send_timeout_resume_send(S, Server, Tag, BlockSize) ->
                     _ ->
                         100
                 end;
+            {unix, freebsd} ->
+                %% Has only seen this on FreeBSD 13, but...
+                50;
             _ ->
                 100
         end,
