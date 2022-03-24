@@ -1235,6 +1235,8 @@ resolve_inst({bs_create_bin,Args},_,_,_) ->
     {bs_create_bin,Args};
 resolve_inst({call_fun2,[Tag,{u,Arity},Func]},_,_,_) ->
     {call_fun2,Tag,Arity,Func};
+resolve_inst({nif_start,[]},_,_,_) ->
+    nif_start;
 resolve_inst({badrecord,[Arg]},_,_,_) ->
     {badrecord,resolve_arg(Arg)};
 
