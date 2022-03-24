@@ -1349,12 +1349,13 @@ do_asm(Beam, Outdir) ->
     {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     try
-	{ok,M,Asm} = compile:forms(A, ['S']),
+        Opts = test_lib:opt_opts(M),
+	{ok,M,Asm} = compile:forms(A, ['S'|Opts]),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
 	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
 	ok = file:close(Fd),
-	case compile:file(AsmFile, [from_asm,binary,report]) of
+        case compile:file(AsmFile, [from_asm,binary,report|Opts]) of
 	    {ok,M,_} ->
 		ok = file:delete(AsmFile);
 	    Other ->

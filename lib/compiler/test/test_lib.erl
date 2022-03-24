@@ -130,15 +130,15 @@ get_data_dir(Config) ->
 is_cloned_mod(Mod) ->
     is_cloned_mod_1(atom_to_list(Mod)).
 
-%% Test whether Mod is a cloned module.
+%% Test whether Mod is a cloned module. We don't consider modules
+%% compiled with compatibility for an older release cloned (that
+%% will improve coverage).
 
 is_cloned_mod_1("_no_opt_SUITE") -> true;
 is_cloned_mod_1("_no_copt_SUITE") -> true;
 is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;
-is_cloned_mod_1("_23_SUITE") -> true;
-is_cloned_mod_1("_24_SUITE") -> true;
 is_cloned_mod_1("_no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.
