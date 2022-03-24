@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@
 -export([append/3,check/3,destroy/1,enable/3,enableTop/3,findItem/2,findMenu/2,
   findMenuItem/3,getAutoWindowMenu/0,getHelpString/2,getLabel/2,getLabelTop/2,
   getMenu/2,getMenuCount/1,getMenuLabel/2,getMenuLabelText/2,insert/4,
-  isChecked/2,isEnabled/2,new/0,new/1,oSXGetAppleMenu/1,remove/2,replace/4,
-  setAutoWindowMenu/1,setHelpString/3,setLabel/3,setLabelTop/3,setMenuLabel/3]).
+  isChecked/2,isEnabled/2,macGetCommonMenuBar/0,macSetCommonMenuBar/1,
+  new/0,new/1,oSXGetAppleMenu/1,remove/2,replace/4,setAutoWindowMenu/1,
+  setHelpString/3,setLabel/3,setLabelTop/3,setMenuLabel/3]).
 
 %% inherited exports
 -export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
@@ -252,6 +253,19 @@ oSXGetAppleMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuBar),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuBar_OSXGetAppleMenu),
   wxe_util:rec(?wxMenuBar_OSXGetAppleMenu).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarmacgetcommonmenubar">external documentation</a>.
+-spec macGetCommonMenuBar() -> wxMenuBar().
+macGetCommonMenuBar() ->
+  wxe_util:queue_cmd(?get_env(), ?wxMenuBar_MacGetCommonMenuBar),
+  wxe_util:rec(?wxMenuBar_MacGetCommonMenuBar).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarmacsetcommonmenubar">external documentation</a>.
+-spec macSetCommonMenuBar(Menubar) -> 'ok' when
+	Menubar::wxMenuBar().
+macSetCommonMenuBar(#wx_ref{type=MenubarT}=Menubar) ->
+  ?CLASS(MenubarT,wxMenuBar),
+  wxe_util:queue_cmd(Menubar,?get_env(),?wxMenuBar_MacSetCommonMenuBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
 -spec isEnabled(This, Id) -> boolean() when

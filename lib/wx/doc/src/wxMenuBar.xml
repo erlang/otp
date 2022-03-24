@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year><year>2022</year>
     <holder>wxWidgets team.</holder></copyright>
   <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
@@ -205,6 +205,23 @@
       </p><p>This is the leftmost menu with application's name as its title. You shouldn't remove any items from it, but it is safe to insert extra menu items or submenus into it.
       </p><p>Only for:wxosx</p><p>Since: 3.0.1 
       </p></desc>
+  </func>
+  
+  <func>
+    <name name="macGetCommonMenuBar" arity="0" clause_i="1" since=""/>
+    <fsummary>Enables you to get the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open. </fsummary>
+    <desc><p>Enables you to get the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open. 
+      </p><p>Return: The global menubar.
+      </p><p>Remark: Only exists on Mac, other platforms do not have this method.
+      </p><p>Only for:wxosx</p></desc>
+  </func>
+  
+  <func>
+    <name name="macSetCommonMenuBar" arity="1" clause_i="1" since=""/>
+    <fsummary>Enables you to set the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open. </fsummary>
+    <desc><p>Enables you to set the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open. 
+      </p><p>Remark: Only exists on Mac, other platforms do not have this method.
+      </p><p>Only for:wxosx</p></desc>
   </func>
   
   <func>
