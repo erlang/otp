@@ -76,7 +76,7 @@
     <p>But before all name servers are tried again, there is a
     (user configurable) timeout, <c>servfail_retry_timeout</c>.
     The point of this is to prevent the new query to be handled by
-    a server's servfail cache (a client that is to eager will
+    a server's servfail cache (a client that is too eager will
     actually only get what is in the servfail cache).
     If there is too little time left
     of the resolver call's timeout to do a retry,
