@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,basic/1,lean_throw/1,
-	 try_of/1,try_after/1,%after_bind/1,
+	 try_of/1,try_after/1,
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
@@ -326,35 +326,6 @@ try_after_try(X, Y) ->
                         catch
                             _ -> ok
                         end).
-
--ifdef(begone).
-
-after_bind(Conf) when is_list(Conf) ->
-    V = [make_ref(),self()|value],
-    {value,{value,V}} =
-	after_bind_1({value,V}, V, {value,V}),
-    ok.
-
-after_bind_1(X, V, Y) ->
-    try
-        Try =
-            try foo(X) of
-                V -> value
-            catch
-                C1:V -> {caught,C1}
-            after
-                After = foo(Y)
-	    end,
-        {Try,After} 
-    of
-        V -> {value,V}
-    catch
-        C:D -> {caught,{C,D}}
-    end.
-
--endif.
-
-
 
 catch_oops(Conf) when is_list(Conf) ->
     V = {v,[a,l|u],{e},self()},
