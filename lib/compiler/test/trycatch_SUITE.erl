@@ -25,7 +25,7 @@
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
-	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
+	 andalso_orelse/1,get_in_try/1,
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
          stacktrace/1,nested_stacktrace/1,raise/1,
          no_return_in_try_block/1,
@@ -45,7 +45,7 @@ groups() ->
       [basic,lean_throw,try_of,try_after,catch_oops,
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
-       bool,plain_catch_coverage,andalso_orelse,get_in_try,
+       bool,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
        stacktrace,nested_stacktrace,raise,
        no_return_in_try_block,expression_export,
@@ -975,14 +975,6 @@ do_bool(A0, B) ->
 	    error
     end.
 
-plain_catch_coverage(Config) when is_list(Config) ->
-    %% Cover some code in beam_block:alloc_may_pass/1.
-    {a,[42]} = do_plain_catch_list(42).
-
-do_plain_catch_list(X) ->
-    B = [X],
-    catch id({a,B}).
-
 andalso_orelse(Config) when is_list(Config) ->
     {2,{a,42}} = andalso_orelse_1(true, {a,42}),
     {b,{b}} = andalso_orelse_1(false, {b}),
@@ -1549,10 +1541,13 @@ throw_opt_crash_1(true, {_, _}=Term) ->
 throw_opt_crash_1(false, _Term) ->
     ok.
 
-coverage(_Config) ->
+coverage(Config) ->
     {'EXIT',{{badfun,true},[_|_]}} = (catch coverage_1()),
     ok = coverage_ssa_throw(),
     error = coverage_pre_codegen(),
+    {a,[42]} = do_plain_catch_list(42),
+    cover_raise(Config),
+
     ok.
 
 %% Cover some code in beam_trim.
@@ -1653,5 +1648,28 @@ coverage_pre_codegen() ->
             error
     end.
 
+%% Cover some code in beam_block:alloc_may_pass/1.
+do_plain_catch_list(X) ->
+    B = [X],
+    catch id({a,B}).
+
+cover_raise(Config) ->
+    UncertainClass = uncertain_class(Config),
+    badarg = erlang:raise(UncertainClass, reason, []),
+    BadClass = bad_class(Config),
+    badarg = erlang:raise(BadClass, reason, []),
+    ok.
+
+uncertain_class(Config) ->
+    case Config of
+        [never_ever] ->  error;
+        _ -> undefined_class
+    end.
+
+bad_class(Config) ->
+    case Config of
+        [never_ever] -> bad_class;
+        _ -> also_bad
+    end.
 
 id(I) -> I.
