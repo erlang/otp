@@ -40,6 +40,13 @@
          init_opengl/1
         ]).
 
+-nifs([queue_cmd/1,queue_cmd/2,queue_cmd/3,queue_cmd/4,queue_cmd/5,
+       queue_cmd/6,queue_cmd/7,queue_cmd/8,queue_cmd/9,queue_cmd/10,
+       queue_cmd/11,queue_cmd/12,queue_cmd/13,queue_cmd/14,queue_cmd/15,
+       make_env/0, delete_env/1, debug_driver/1, get_consts_impl/0,
+       init_opengl/1
+      ]).
+
 -export([priv_dir/2, opt_error_log/3, init_nif/1]).
 
 -include("wxe.hrl").

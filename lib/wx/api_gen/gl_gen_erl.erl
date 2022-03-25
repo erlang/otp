@@ -89,6 +89,7 @@ gl_api(Fs, _GluNifs) ->
     w("-on_load(init_nif/0).~n",[]),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
     w("-export([get_interface/0, rec/1, lookup_func/0]).\n",[]),
+    w("-nifs([lookup_func/0]).\n",[]),
     w("-define(nif_stub,nif_stub_error(?LINE)).~n", []),
     w("%% @hidden~n", []),
     w("nif_stub_error(Line) ->~n"
