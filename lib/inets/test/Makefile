@@ -120,7 +120,6 @@ INETS_ROOT = ../../inets
 
 MODULES =                 		\
 	inets_test_lib    		\
-	erl_make_certs                  \
 	make_certs                      \
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
