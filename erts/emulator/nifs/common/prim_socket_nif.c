@@ -13053,13 +13053,28 @@ ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
     if (! IS_OPEN(descP->readState))
         return esock_make_error(env, atom_closed);
     
+    SSDBG( descP,
+           ("SOCKET", "esock_sockname {%d} -> open - try get sockname\r\n",
+            descP->sock) );
+
     sys_memzero((char*) saP, sz);
     if (sock_name(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
         return esock_make_error_errno(env, sock_errno());
     } else {
         ERL_NIF_TERM esa;
 
+        SSDBG( descP,
+               ("SOCKET", "esock_sockname {%d} -> "
+                "got sockname - try decode\r\n",
+                descP->sock) );
+
         esock_encode_sockaddr(env, saP, sz, &esa);
+
+        SSDBG( descP,
+               ("SOCKET", "esock_sockname {%d} -> decoded: "
+                "\r\n   %T\r\n",
+                descP->sock, esa) );
+
         return esock_make_ok2(env, esa);
     }
 }
@@ -13131,14 +13146,29 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
   if (! IS_OPEN(descP->readState))
     return esock_make_error(env, atom_closed);
 
+  SSDBG( descP,
+         ("SOCKET", "esock_peername {%d} -> open - try get peername\r\n",
+          descP->sock) );
+
   sys_memzero((char*) saP, sz);
   if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-    return esock_make_error_errno(env, sock_errno());
+      return esock_make_error_errno(env, sock_errno());
   } else {
-    ERL_NIF_TERM esa;
+      ERL_NIF_TERM esa;
 
-    esock_encode_sockaddr(env, saP, sz, &esa);
-    return esock_make_ok2(env, esa);
+      SSDBG( descP,
+             ("SOCKET", "esock_peername {%d} -> "
+              "got peername - try decode\r\n",
+              descP->sock) );
+
+      esock_encode_sockaddr(env, saP, sz, &esa);
+
+      SSDBG( descP,
+             ("SOCKET", "esock_peername {%d} -> decoded: "
+              "\r\n   %T\r\n",
+              descP->sock, esa) );
+
+      return esock_make_ok2(env, esa);
   }
 }
 #endif // #ifndef __WIN32__
@@ -14088,9 +14118,8 @@ ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 				  struct sockaddr* addrP)
 {
   ERL_NIF_TERM eaddr;
-  unsigned int sz = sizeof(ESockAddress);
 
-  esock_encode_sockaddr(env, (ESockAddress*) addrP, sz, &eaddr);
+  esock_encode_sockaddr(env, (ESockAddress*) addrP, -1, &eaddr);
 
   SSDBG( descP, ("SOCKET", "encode_ioctl_ifraddr -> done with"
 		 "\r\n    Sock Addr: %T"
@@ -14334,16 +14363,18 @@ ERL_NIF_TERM encode_ioctl_ifreq_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
   ERL_NIF_TERM esa;
 
   if (sa != NULL) {
-    unsigned int sz = sizeof(ESockAddress);
 
-    esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
-        
+    esock_encode_sockaddr(env, (ESockAddress*) sa, -1, &esa);
+
   } else {
-    esa = esock_atom_undefined;
+
+      esa = esock_atom_undefined;
+
   }
 
   return esa;
 }
+
 
 /* The ifreq structure *always* contain a name
  * and *one* other element. The second element
@@ -17069,7 +17100,7 @@ BOOLEAN_T esock_cmsg_encode_recverr(ErlNifEnv                *env,
     if (have_offender) {
         esock_encode_sockaddr(env,
                               (ESockAddress *)offender,
-                              (CHARP(sock_err) + dataLen ) - CHARP(offender),
+                              (CHARP(sock_err) + dataLen) - CHARP(offender),
                               &eSockAddr);
     } else {
         eSockAddr = esock_atom_undefined;

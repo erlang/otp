@@ -129,6 +129,10 @@ typedef union {
     struct sockaddr_ll ll;
 #endif
 
+#if defined(AF_LINK)
+    struct sockaddr_dl dl;
+#endif
+
     /* Max size sockaddr on system */
     struct sockaddr_storage ss;
 
