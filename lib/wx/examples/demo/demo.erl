@@ -82,7 +82,7 @@ init(Options) ->
     wxMenuBar:append(MB, Help, "&Help"),
     wxFrame:setMenuBar(Frame,MB),
 
-    wxFrame:connect(Frame, command_menu_selected),
+    wxFrame:connect(Frame, command_menu_selected, [{skip, true}]),
     wxFrame:connect(Frame, close_window),
 
     _SB = wxFrame:createStatusBar(Frame,[]),

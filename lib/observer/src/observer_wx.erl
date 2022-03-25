@@ -158,7 +158,7 @@ setup(#state{frame = Frame} = State) ->
     wxNotebook:connect(Notebook, command_notebook_page_changed,
                        [{skip, true}, {id, ?ID_NOTEBOOK}]),
     wxFrame:connect(Frame, close_window, []),
-    wxMenu:connect(Frame, command_menu_selected),
+    wxMenu:connect(Frame, command_menu_selected, [{skip, true}]),
     wxFrame:show(Frame),
 
     %% Freeze and thaw is buggy currently
@@ -390,6 +390,10 @@ handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}},
 		 false -> State
              end,
     {noreply, change_node_view(Node, LState)};
+
+handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}}, State)
+  when Id >= ?wxID_OSX_MENU_FIRST, Id =< ?wxID_OSX_MENU_LAST ->
+    {noreply, State};
 
 handle_event(Event, #state{active_tab=Pid} = State) ->
     Pid ! Event,
