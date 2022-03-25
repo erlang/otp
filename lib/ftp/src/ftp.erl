@@ -1615,7 +1615,6 @@ handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true,
     {noreply, State#state{client = undefined,
                           caller = undefined,
                           tls_upgrading_data_connection = false}};
-
 handle_ctrl_result({pos_compl, _}, #state{caller = open, client = From}
                    = State) ->
     gen_server:reply(From, {ok, self()}),
@@ -1952,7 +1951,10 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
 %% Default
 handle_ctrl_result({Status, _Lines}, #state{client = From} = State)
   when From =/= undefined ->
-    ctrl_result_response(Status, State, {error, Status}).
+    ctrl_result_response(Status, State, {error, Status});
+handle_ctrl_result(CtrlMsg, #state{caller = undefined} = State) ->
+    logger:log(info, #{protocol => ftp, unexpected_msg => CtrlMsg}),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------------
 %% Help functions to handle_ctrl_result
