@@ -396,6 +396,15 @@ tuple(_Config) ->
     2 = do_literal_tuple_2(15),
     2 = do_literal_tuple_2(20),
 
+    Counters0 = id({0,0,0}),                    %Inexact size.
+    {1,0,0} = Counters1 = increment_element(1, Counters0),
+    {1,1,0} = increment_element(2, Counters1),
+
+    Counters10 = {id(0),id(0),id(0)},           %Exact size.
+    {0,-1,0} = decrement_element(2, Counters10),
+    {0,0,-1} = decrement_element(3, Counters10),
+    {'EXIT',{badarg,_}} = catch decrement_element(4, Counters10),
+
     ok.
 
 do_tuple() ->
@@ -406,6 +415,14 @@ do_literal_tuple_1(X) ->
 
 do_literal_tuple_2(X) ->
     element(X, {2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2}).
+
+increment_element(Pos, Cs) ->
+    Ns = element(Pos, Cs),
+    setelement(Pos, Cs, Ns + 1).
+
+decrement_element(Pos, Cs) ->
+    Ns = element(Pos, Cs),
+    setelement(Pos, Cs, Ns - 1).
 
 -record(x, {a}).
 
