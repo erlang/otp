@@ -22,6 +22,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_test_lib.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -107,6 +108,8 @@ end_per_suite(Config) ->
     ResponderPid = proplists:get_value(responder_pid, Config),
     ssl_test_lib:close(ResponderPid),
     ok = ssl:stop(),
+    %% terminate OpenSSL processes (OCSP responder in particular)
+    ssl_test_lib:kill_openssl(),
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
@@ -118,8 +121,14 @@ end_per_group(GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
+    Timetrap = case group_name(Config) of
+                   'dtlsv1.2' ->
+                       {seconds, 300}; % DTLS require more time for handling retransmissions
+                   _ ->
+                       {seconds, 10}
+               end,
+    ct:timetrap(Timetrap),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 10}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
@@ -128,198 +137,96 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-
 ocsp_stapling_basic() ->
-    [{doc, "Verify OCSP stapling works without nonce "
-           "and responder certs."}].
+    [{doc, "Verify OCSP stapling works without nonce and responder certs."}].
 ocsp_stapling_basic(Config)
   when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
+    ocsp_stapling_helper(Config, [{ocsp_nonce, false}]).
 
-    Data = "ping",  %% 4 bytes
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    Server = ssl_test_lib:start_server(openssl_ocsp,
-                                       [{options, ServerOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
-                                           {cacertfile, CACertsFile},
-                                           {server_name_indication, disable},
-                                           {ocsp_stapling, true},
-                                           {ocsp_nonce, false}], Config),
-    Client = ssl_test_lib:start_client(erlang,
-                                       [{port, Port},
-                                        {options, ClientOpts}], Config),
-    ssl_test_lib:send(Server, Data),
-    Data = ssl_test_lib:check_active_receive(Client, Data),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-%%--------------------------------------------------------------------
 ocsp_stapling_with_nonce() ->
     [{doc, "Verify OCSP stapling works with nonce."}].
 ocsp_stapling_with_nonce(Config)
   when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
-    
-    Data = "ping",  %% 4 bytes
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    Server = ssl_test_lib:start_server(openssl_ocsp,
-                                       [{options, ServerOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
-                                           {cacertfile, CACertsFile},
-                                           {server_name_indication, disable},
-                                           {ocsp_stapling, true},
-                                           {ocsp_nonce, true}], Config),
-    Client = ssl_test_lib:start_client(erlang,
-                                       [{port, Port},
-                                        {options, ClientOpts}], Config),
-    ssl_test_lib:send(Server, Data),
-    Data = ssl_test_lib:check_active_receive(Client, Data),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ocsp_stapling_helper(Config, [{ocsp_nonce, true}]).
 
 ocsp_stapling_with_responder_cert() ->
-    [{doc, "Verify OCSP stapling works with nonce "
-           "and responder certs."}].
+    [{doc, "Verify OCSP stapling works with nonce and responder certs."}].
 ocsp_stapling_with_responder_cert(Config)
   when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
- 
-    Data = "ping",  %% 4 bytes
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    Server = ssl_test_lib:start_server(openssl_ocsp,
-                                       [{options, ServerOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
     PrivDir = proplists:get_value(priv_dir, Config),
     {ok, ResponderCert} =
         file:read_file(filename:join(PrivDir, "b.server/cert.pem")),
     [{'Certificate', Der, _IsEncrypted}] =
         public_key:pem_decode(ResponderCert),
+    ocsp_stapling_helper(Config, [{ocsp_nonce, true},
+                                  {ocsp_responder_certs, [Der]}]).
 
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
+ocsp_stapling_helper(Config, Opts) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
+    Data = "ping",  %% 4 bytes
+    GroupName = undefined,
+    ServerOpts = [{group, GroupName}],
+    Server = ssl_test_lib:start_server(openssl_ocsp,
+                                       [{options, ServerOpts}], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
                                            {cacertfile, CACertsFile},
                                            {server_name_indication, disable},
-                                           {ocsp_stapling, true},
-                                           {ocsp_nonce, true},
-                                           {ocsp_responder_certs, [Der]}], Config),
+                                           {ocsp_stapling, true}] ++ Opts, Config),
     Client = ssl_test_lib:start_client(erlang,
                                        [{port, Port},
                                         {options, ClientOpts}], Config),
+    true = is_pid(Client),
     ssl_test_lib:send(Server, Data),
     Data = ssl_test_lib:check_active_receive(Client, Data),
-
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 ocsp_stapling_revoked() ->
     [{doc, "Verify OCSP stapling works with revoked certificate."}].
 ocsp_stapling_revoked(Config)
-  when is_list(Config) ->    
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "revoked/cacerts.pem"),
+  when is_list(Config) ->
+    ocsp_stapling_negative_helper(Config, "revoked/cacerts.pem",
+                                  openssl_ocsp_revoked, certificate_revoked).
 
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server(openssl_ocsp_revoked,
-                                       [{options, ServerOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
-                                           {server_name_indication, disable},
-                                           {cacertfile, CACertsFile},
-                                           {ocsp_stapling, true},
-                                           {ocsp_nonce, true}
-                                          ], Config),
-    
-    Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
-                                              {host, Hostname}, {from, self()},
-                                              {options, ClientOpts}]),
-
-    ssl_test_lib:check_client_alert(Client, certificate_revoked).
-
-%%--------------------------------------------------------------------
 ocsp_stapling_undetermined() ->
     [{doc, "Verify OCSP stapling works with certificate with undetermined status."}].
 ocsp_stapling_undetermined(Config)
   when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "undetermined/cacerts.pem"),
+    ocsp_stapling_negative_helper(Config, "undetermined/cacerts.pem",
+                                  openssl_ocsp_undetermined, bad_certificate).
 
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server(openssl_ocsp_undetermined,
-                                       [{options, ServerOpts}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
-                                           {server_name_indication, disable},
-                                           {cacertfile, CACertsFile},
-                                           {ocsp_stapling, true},
-                                           {ocsp_nonce, true}
-                                          ], Config),
-
-    Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
-                                              {host, Hostname}, {from, self()},
-                                              {options, ClientOpts}]),
-
-    ssl_test_lib:check_client_alert(Client, bad_certificate).
-
-%%--------------------------------------------------------------------
 ocsp_stapling_no_staple() ->
     [{doc, "Verify OCSP stapling works with a missing OCSP response."}].
 ocsp_stapling_no_staple(Config)
   when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
-
-    GroupName = proplists:get_value(group, Config),
-    ServerOpts = [{log_level, debug},
-                  {group, GroupName}],
-    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
     %% Start a server that will not include an OCSP response.
-    Server = ssl_test_lib:start_server(openssl,
+    ocsp_stapling_negative_helper(Config, "a.server/cacerts.pem",
+                                  openssl, bad_certificate).
+
+ocsp_stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    CACertsFile = filename:join(PrivDir, CACertsPath),
+    GroupName = undefined,
+    ServerOpts = [{group, GroupName}],
+    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server(ServerVariant,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    ClientOpts = ssl_test_lib:ssl_options([{log_level, debug},
-                                           {verify, verify_peer},
+    ClientOpts = ssl_test_lib:ssl_options([{verify, verify_peer},
                                            {server_name_indication, disable},
                                            {cacertfile, CACertsFile},
                                            {ocsp_stapling, true},
                                            {ocsp_nonce, true}
                                           ], Config),
-
     Client = ssl_test_lib:start_client_error([{node, ClientNode},{port, Port},
                                               {host, Hostname}, {from, self()},
                                               {options, ClientOpts}]),
-
-    ssl_test_lib:check_client_alert(Client, bad_certificate).
+    true = is_pid(Client),
+    ssl_test_lib:check_client_alert(Client, ExpectedError).
 
 %%--------------------------------------------------------------------
 %% Intrernal functions -----------------------------------------------
@@ -349,20 +256,17 @@ ocsp_responder_init(ResponderPort, PrivDir, Starter) ->
 
 ocsp_responder_loop(Port, {Status, Starter} = State) ->
     receive
-	stop_ocsp_responder ->
-	    ct:log("Shut down OCSP responder!~n"),
-            ok = ssl_test_lib:close_port(Port);
 	{_Port, closed} ->
-	    ct:log("Port Closed~n"),
+	    ?LOG("Port Closed"),
 	    ok;
 	{'EXIT', _Port, Reason} ->
-	    ct:log("Port Closed ~p~n",[Reason]),
+	    ?LOG("Port Closed ~p",[Reason]),
 	    ok;
 	{Port, {data, _Msg}} when Status == new ->
             Starter ! {started, self()},
 	    ocsp_responder_loop(Port, {started, undefined});
         {Port, {data, Msg}} ->
-	    ct:pal("Responder Msg ~p~n",[Msg]),
+	    ?PAL("Responder Msg ~p",[Msg]),
             ocsp_responder_loop(Port, State)
     after 1000 ->
             case Status of
@@ -373,12 +277,12 @@ ocsp_responder_loop(Port, {Status, Starter} = State) ->
             end
     end.
 
-stop_ocsp_responder(Pid) ->
-    Pid ! stop_ocsp_responder.
-
 get_free_port() ->
     {ok, Listen} = gen_tcp:listen(0, [{reuseaddr, true}]),
     {ok, Port} = inet:port(Listen),
     ok = gen_tcp:close(Listen),
     Port.
 
+group_name(Config) ->
+    GroupProp = proplists:get_value(tc_group_properties, Config),
+    proplists:get_value(name, GroupProp).
