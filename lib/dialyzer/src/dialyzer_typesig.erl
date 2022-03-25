@@ -426,6 +426,8 @@ traverse(Tree, DefinedVars, State) ->
           end;
         remove_message ->
           {State, t_any()};
+        nif_start ->
+          {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
     seq ->
