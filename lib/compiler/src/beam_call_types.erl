@@ -703,8 +703,6 @@ types(maps, get, [Key, Map, Default]) ->
                   ValueType -> beam_types:join(ValueType, Default)
               end,
     sub_unsafe(RetType, [any, #t_map{}, any]);
-types(maps, is_key, [_Key, _Map]=Args) ->
-    types(erlang, is_map_key, Args);
 types(maps, keys, [Map]) ->
     RetType = case Map of
                   #t_map{super_key=none} -> nil;
