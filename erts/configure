@@ -9939,14 +9939,30 @@ fi
 
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "no" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "try_find_pthread_compatible" in
@@ -9960,11 +9976,11 @@ fi
 	;;
     custom_resolution)
 	check_msg="custom resolution "
-	prefer_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_MONOTONIC"
+	prefer_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME_RAW CLOCK_MONOTONIC"
 	;;
     *)
 	check_msg="custom "
-	prefer_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_MONOTONIC"
+	prefer_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME_RAW CLOCK_MONOTONIC"
 	;;
   esac
 
@@ -22150,6 +22166,15 @@ case "$with_clock_gettime_monotonic_id" in
    CLOCK_REALTIME*|CLOCK_TAI*)
      as_fn_error $? "Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id" "$LINENO" 5
      ;;
+   CLOCK_MONOTONIC)
+     case $host_os in
+         darwin*)
+           # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+           # and Monterey, since it may step backwards.
+           as_fn_error $? "Invalid clock_gettime() monotonic clock id: Refusing to use $with_clock_gettime_monotonic_id as monotonic clock id since it is buggy on MacOS" "$LINENO" 5;;
+         *)
+           ;;
+     esac;;
    CLOCK_*)
      ;;
    *)
@@ -22161,14 +22186,30 @@ case "$with_clock_resolution-$with_clock_gettime_monotonic_id" in #(
   high-no) :
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "high_resolution" in
@@ -22473,14 +22514,30 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
   low-no) :
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "low_resolution" in
@@ -22785,14 +22842,30 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
   default-no) :
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "default_resolution" in
@@ -23097,14 +23170,30 @@ printf "%s\n" "$erl_cv_mach_clock_get_time_monotonic" >&6; }
   *) :
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "$prefer_elapsed_monotonic_time_during_suspend" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "custom_resolution" in
@@ -23478,14 +23567,30 @@ printf "%s\n" "#define HAVE_CLOCK_GETTIME_MONOTONIC_RAW 1" >>confdefs.h
 fi
 
 
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "no" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "high_resolution" in

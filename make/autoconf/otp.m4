@@ -756,14 +756,30 @@ esac
 
 AC_DEFUN(ERL_MONOTONIC_CLOCK,
 [
+  # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+  # and Monterey, since it may step backwards.
   if test "$3" = "yes"; then
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_RAW";;
+          *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_BOOTTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_PRECISE";;
+     esac
   else
-     default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
-     low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
-     high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE"
+     case $host_os in
+          darwin*)
+                default_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW"
+                low_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW_APPROX"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_RAW";;
+                *)
+                default_resolution_clock_gettime_monotonic="CLOCK_HIGHRES CLOCK_UPTIME CLOCK_MONOTONIC"
+                low_resolution_clock_gettime_monotonic="CLOCK_MONOTONIC_COARSE CLOCK_UPTIME_FAST"
+                high_resolution_clock_gettime_monotonic="CLOCK_UPTIME_PRECISE";;
+     esac
   fi
 
   case "$1" in
@@ -1583,7 +1599,7 @@ esac
 LM_CHECK_THR_LIB
 ERL_INTERNAL_LIBS
 
-ERL_MONOTONIC_CLOCK(try_find_pthread_compatible, CLOCK_HIGHRES CLOCK_MONOTONIC, no)
+ERL_MONOTONIC_CLOCK(try_find_pthread_compatible, CLOCK_HIGHRES CLOCK_UPTIME_RAW CLOCK_MONOTONIC, no)
 
 case $erl_monotonic_clock_func in
   clock_gettime)
@@ -2523,6 +2539,15 @@ case "$with_clock_gettime_monotonic_id" in
    CLOCK_REALTIME*|CLOCK_TAI*)
      AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use the realtime clock id $with_clock_gettime_monotonic_id as monotonic clock id])
      ;;
+   CLOCK_MONOTONIC)
+     case $host_os in
+         darwin*)
+           # CLOCK_MONOTONIC is buggy on MacOS (darwin), or at least on Big Sur
+           # and Monterey, since it may step backwards.
+           AC_MSG_ERROR([Invalid clock_gettime() monotonic clock id: Refusing to use $with_clock_gettime_monotonic_id as monotonic clock id since it is buggy on MacOS]);;
+         *)
+           ;;
+     esac;;
    CLOCK_*)
      ;;
    *)
