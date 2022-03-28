@@ -152,6 +152,6 @@
          {prevent_overlapping_partitions, false}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-17843@", "stdlib-3.5", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-10.7.2.17", "stdlib-3.5", "sasl-3.0"]}
  ]
 }.
