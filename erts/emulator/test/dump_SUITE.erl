@@ -24,7 +24,8 @@
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([signal_abort/1, exiting_dump/1, free_dump/1]).
+-export([signal_abort/1, exiting_dump/1, free_dump/1,
+         heart_dump/1, heart_no_dump/1]).
 
 -export([load/1]).
 
@@ -35,7 +36,7 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() ->
-    [signal_abort, exiting_dump, free_dump].
+    [signal_abort, exiting_dump, free_dump, heart_dump, heart_no_dump].
 
 init_per_testcase(signal_abort, Config) ->
     SO = erlang:system_info(schedulers_online),
@@ -212,6 +213,26 @@ free_dump(Config) when is_list(Config) ->
 
     ok.
 
+%% Test that crash dumping works when heart is used
+heart_dump(Config) ->
+    Dump = filename:join(proplists:get_value(priv_dir, Config),"heart.dump"),
+    {ok, _Peer, Node} = ?CT_PEER(#{ args => ["-heart"] }),
+    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP_SECONDS","10"]),
+    rpc:call(Node, erlang, halt, ["dump"]),
+    {ok, _Bin} = get_dump_when_done(Dump),
+    ok.
+
+%% Test that there is no crash dump if heart is used and DUMP_SECONDS is not set
+heart_no_dump(Config) ->
+    Dump = filename:join(proplists:get_value(priv_dir, Config),"heart_no.dump"),
+    {ok, _Peer, Node} = ?CT_PEER(#{ args => ["-heart"] }),
+    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+    true = rpc:call(Node, os, unsetenv, ["ERL_CRASH_DUMP_SECONDS"]),
+    rpc:call(Node, erlang, halt, ["dump"]),
+    timer:sleep(1000),
+    {error, enoent} = file:read_file_info(Dump),
+    ok.
 
 get_dump_when_done(Dump) ->
     case file:read_file_info(Dump) of
@@ -232,4 +253,3 @@ get_dump_when_done(Dump, Sz) ->
         {ok, #file_info{ size = NewSz }} ->
             get_dump_when_done(Dump, NewSz)
     end.
-
