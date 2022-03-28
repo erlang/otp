@@ -2603,6 +2603,14 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 
+    ASSERT(p->parent == am_undefined
+           || is_pid(follow_moved(p->parent, (Eterm) 0)));
+    if (is_not_immed(p->parent)) {
+	roots[n].v  = &p->parent;
+	roots[n].sz = 1;
+	n++;
+    }
+
     /*
      * The process may be garbage-collected while it is terminating.
      * fvalue contains the EXIT reason.
@@ -3425,6 +3433,7 @@ offset_one_rootset(Process *p, Sint heap_offs, Sint stack_offs,
     offset_heap_ptr(&p->dt_utag, 1, heap_offs, area, area_sz);
 #endif
     offset_heap_ptr(&p->group_leader, 1, heap_offs, area, area_sz);
+    offset_heap_ptr(&p->parent, 1, heap_offs, area, area_sz);
     if (p->sig_qs.recv_mrk_blk) {
         offset_heap_ptr(&p->sig_qs.recv_mrk_blk->ref[0],
                         ERTS_RECV_MARKER_BLOCK_SIZE, heap_offs,

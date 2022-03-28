@@ -26,6 +26,7 @@
 %%	process_info/1,2
 %%	register/2 (partially)
 
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -define(heap_binary_size, 64).
@@ -43,6 +44,7 @@
 	 process_info_lock_reschedule2/1,
 	 process_info_lock_reschedule3/1,
          process_info_garbage_collection/1,
+         process_info_parent/1,
          process_info_smoke_all/1,
          process_info_status_handled_signal/1,
          process_info_reductions/1,
@@ -105,6 +107,7 @@ all() ->
      process_info_lock_reschedule2,
      process_info_lock_reschedule3,
      process_info_garbage_collection,
+     process_info_parent,
      process_info_smoke_all,
      process_info_status_handled_signal,
      process_info_reductions,
@@ -1063,6 +1066,30 @@ process_info_garbage_collection(_Config) ->
 
 gv(Key,List) ->
     proplists:get_value(Key,List).
+
+process_info_parent(Config) when is_list(Config) ->
+    Child = spawn_link(fun () -> receive stop -> ok end end),
+    ?assertEqual({parent, self()}, erlang:process_info(Child, parent)),
+    Child ! stop,
+    ?assertEqual({parent, undefined}, erlang:process_info(whereis(init), parent)),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    RemoteChild = spawn_link(Node,
+                             fun () ->
+                                     {parent, Parent} = process_info(self(), parent),
+                                     garbage_collect(),
+                                     {parent, Parent} = process_info(self(), parent),
+                                     garbage_collect(),
+                                     Parent ! remote_child_hello,
+                                     receive stop -> ok end
+                             end),
+    ?assertEqual({parent, self()},
+                 erpc:call(Node, erlang, process_info, [RemoteChild, parent])),
+    receive remote_child_hello -> ok end,
+    unlink(RemoteChild),
+    RemoteChild ! stop,
+    peer:stop(Peer),
+    ok.
 
 process_info_smoke_all_tester() ->
     register(process_info_smoke_all_tester, self()),

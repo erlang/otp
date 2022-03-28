@@ -769,6 +769,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_GARBAGE_COLLECTION_INFO              33
 #define ERTS_PI_IX_MAGIC_REF                            34
 #define ERTS_PI_IX_FULLSWEEP_AFTER                      35
+#define ERTS_PI_IX_PARENT                               36
 
 #define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
 #define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
@@ -824,7 +825,8 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_message_queue_data, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_garbage_collection_info, ERTS_PROCESS_GC_INFO_MAX_SIZE, 0, ERTS_PROC_LOCK_MAIN},
     {am_magic_ref, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
-    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN}
+    {am_fullsweep_after, 0, 0, ERTS_PROC_LOCK_MAIN},
+    {am_parent, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -943,6 +945,8 @@ pi_arg2ix(Eterm arg)
         return ERTS_PI_IX_MAGIC_REF;
     case am_fullsweep_after:
         return ERTS_PI_IX_FULLSWEEP_AFTER;
+    case am_parent:
+        return ERTS_PI_IX_PARENT;
     default:
         return -1;
     }
@@ -2024,6 +2028,20 @@ process_info_aux(Process *c_p,
 	    break;
 	}
 	break;
+
+    case ERTS_PI_IX_PARENT:
+        if (is_immed(rp->parent)) {
+            ASSERT(is_internal_pid(rp->parent) || rp->parent == am_undefined);
+            res = rp->parent;
+        }
+        else {
+            Uint sz;
+            ASSERT(is_external_pid(rp->parent));
+            sz = size_object(rp->parent);
+            hp = erts_produce_heap(hfact, sz, reserve_size);
+            res = copy_struct(rp->parent, sz, &hp, hfact->off_heap);
+        }
+        break;
 
     case ERTS_PI_IX_MAGIC_REF: {
 	Uint sz = 0;

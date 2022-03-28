@@ -6668,6 +6668,14 @@ receive_replies(ReqId, N, Acc) ->
               <seeerl marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
           </item>
+            <tag><c>{parent, <anno>Pid</anno>}</c></tag>
+            <item>
+                <p><c><anno>Pid</anno></c> is the identifier
+                of the parent process, the one that spawned current
+                process. When the process does not have a parent
+                <c>undefined</c> is returned. Only the initial process
+                (<c>init</c>) on a node lacks a parent, though.</p>
+            </item>
           <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
             <p><c><anno>Level</anno></c> is the current priority level for

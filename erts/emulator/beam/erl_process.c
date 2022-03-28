@@ -12299,9 +12299,20 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
 #endif
-    p->parent = (!parent || parent->common.id == ERTS_INVALID_PID
-		 ? NIL
-		 : parent->common.id);
+    
+    if (parent_id == ERTS_INVALID_PID) {
+        p->parent = am_undefined;
+    }
+    else if (is_internal_pid(parent_id)) {
+        p->parent = parent_id;            
+    }
+    else {
+        Eterm sz, *hp;
+        ASSERT(is_external_pid(parent_id));
+        sz = size_object(parent_id);
+        hp = HAlloc(p, sz);
+        p->parent = copy_struct(parent_id, sz, &hp, &MSO(p));
+    }
 
     INIT_HOLE_CHECK(p);
 #ifdef DEBUG
@@ -12820,7 +12831,7 @@ void erts_init_empty_process(Process *p)
     p->def_arg_reg[4] = 0;
     p->def_arg_reg[5] = 0;
 
-    p->parent = NIL;
+    p->parent = am_undefined;
     p->static_flags = 0;
 
     p->common.u.alive.started_interval = 0;
@@ -12875,7 +12886,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->i == NULL);
     ASSERT(p->current == NULL);
 
-    ASSERT(p->parent == NIL);
+    ASSERT(p->parent == am_undefined);
 
     ASSERT(p->sig_inq.first == NULL);
     ASSERT(p->sig_inq.len == 0);
