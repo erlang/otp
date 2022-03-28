@@ -422,7 +422,8 @@
 	  <p>Signature algorithms used for certificates may be overridden by the
 	  <seetype marker="#sign_schemes">signature schemes</seetype> (algorithms) supplied by the <c>signature_algs_cert</c> option.</p>
 
-	  <p>TLS-1.2 default is</p> 
+	  <p>TLS-1.2 default is Default_TLS_12_Alg_Pairs interleaved with rsa_pss_schemes since ssl-11.0 (OTP-25)
+	  pss_pss is prefered over pss_rsae that is prefered over rsa</p>
 
 	  <p><c>Default_TLS_12_Alg_Pairs =</c></p>
 	  <code>[
@@ -439,13 +440,21 @@
 {sha, ecdsa},
 {sha, rsa},
 {sha, dsa}
-]
-	  </code>
+]</code>
 
-	  <p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) </p>
+<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) </p>
 
+ <p><c> rsa_pss_schemes =</c></p>
+ <code>
+[rsa_pss_pss_sha512,
+rsa_pss_pss_sha384,
+rsa_pss_pss_sha256,
+rsa_pss_rsae_sha512,
+rsa_pss_rsae_sha384,
+rsa_pss_rsae_sha256]
+ </code>
 
- <p><c> TLS_13 _Legacy_Schemes =</c></p>
+ <p><c> TLS_13_Legacy_Schemes =</c></p>
  <code> [
  %% Legacy algorithms only applicable to certificate signatures
 rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
@@ -458,21 +467,20 @@ rsa_pkcs1_sha1    %% Corresponds to {sha, rsa}
 
  <p><c> Default_TLS_13_Schemes =</c></p>
  <code> [
+ %% EDDSA
+eddsa_ed25519,
+eddsa_ed448
+
 %% ECDSA
 ecdsa_secp521r1_sha512,
 ecdsa_secp384r1_sha384,
-ecdsa_secp256r1_sha256,
+ecdsa_secp256r1_sha256] ++
+
 %% RSASSA-PSS
-rsa_pss_pss_sha512,
-rsa_pss_pss_sha384,
-rsa_pss_pss_sha256,
-rsa_pss_rsae_sha512,
-rsa_pss_rsae_sha384,
-rsa_pss_rsae_sha256,
-%% EDDSA
-eddsa_ed25519,
-eddsa_ed448]
-</code>
+rsa_pss_schemes()
+ </code>
+
+ <p>EDDSA was made highest priority in ssl-11.0 (OTP-25) </p>
 
 <p>TLS-1.3 default is</p>
 <code>Default_TLS_13_Schemes ++ Legacy_TLS_13_Schemes </code>

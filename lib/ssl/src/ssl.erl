@@ -2481,7 +2481,7 @@ handle_hashsigns_option(_, _Version) ->
     undefined.
 
 handle_signature_algorithms_option(Value, Version) when is_list(Value)
-                                                        andalso Version >= {3, 4} ->
+                                                        andalso Version >= {3, 3} ->
     case tls_v1:signature_schemes(Version, Value) of
 	[] ->
 	    throw({error, {options,
