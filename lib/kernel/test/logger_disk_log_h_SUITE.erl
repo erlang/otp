@@ -656,10 +656,10 @@ sync(Config) ->
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_h_common,handle_cast,repeated_filesync},
+    OneSync = {logger_h_common,handle_info,{timeout,repeated_filesync}},
     %% receive 1 repeated_filesync per sec
-    start_tracer([{{logger_h_common,handle_cast,2},
-                   [{[repeated_filesync,'_'],[],[{message,{caller}}]}]}],
+    start_tracer([{{logger_h_common,handle_info,2},
+                   [{[{timeout,'_',repeated_filesync},'_'],[],[{message,{caller}}]}]}],
                  [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
@@ -1610,12 +1610,15 @@ tpl([{{M,F,A},MS}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]},Caller},
+tracer({trace,_,call,{logger_h_common = Mod,handle_cast = Func,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
 tracer({trace,_,call,{Mod=logger_disk_log_h,Func=disk_log_write,[_,_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data},Caller);
 tracer({trace,_,call,{Mod,Func,_},Caller}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
+tracer({trace,_,call,{logger_h_common = Mod,handle_info = Func,[{timeout,_,Op},_S]},Caller},
+       {Pid,[{Mod,Func,{timeout,Op}}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
 tracer({trace,_,call,Call,Caller}, {Pid,Expected}) ->
     ct:log("Tracer got unexpected: ~p~nCaller: ~p~nExpected: ~p~n",[Call,Caller,Expected]),
