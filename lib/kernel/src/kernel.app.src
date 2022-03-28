@@ -147,6 +147,8 @@
   {applications, []},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false},
+         {net_tickintensity, 4},
+         {net_ticktime, 60},
          {prevent_overlapping_partitions, false}
         ]},
   {mod, {kernel, []}},
