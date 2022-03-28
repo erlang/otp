@@ -336,6 +336,19 @@ MaxT = TickTime + TickTime / 4</code>
         <p>Normally, a terminating node is detected immediately by the transport
 	protocol (like TCP/IP).</p>
       </item>
+      <tag><marker id="prevent_overlapping_partitions"/>
+      <c>prevent_overlapping_partitions = true | false</c></tag>
+      <item>
+        <p>
+          If enabled (<c>true</c>), <c>global</c> will actively prevent
+          overlapping partitions from forming when connections are lost
+          between nodes. This fix is, however, currently disabled by
+          default. See the
+          <seealso marker="kernel:global#prevent_overlapping_partitions">
+            <c>global(3)</c></seealso> documentation for more
+            information.
+        </p>
+      </item>
       <tag><c>shutdown_timeout = integer() | infinity</c></tag>
       <item>
         <p>Specifies the time <c>application_controller</c> waits

@@ -70,13 +70,13 @@ call(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     {ok, N1} = test_server:start_node('3_rpc_SUITE_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N2} = test_server:start_node('1_rcp_SUITE_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N3} = test_server:start_node('4_rcp_SUITE_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N4} = test_server:start_node('8_rcp_SUITE_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     ok = io:format("~p~n", [[N1, N2, N3]]),
     {hej,_,N1} = rpc:call(N1, ?MODULE, f, []),
     {hej,_,N2} = rpc:call(N2, ?MODULE, f, [], 2000),
@@ -95,13 +95,13 @@ block_call(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     {ok, N1} = test_server:start_node('3_rpc_SUITE_block_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N2} = test_server:start_node('1_rcp_SUITE_block_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N3} = test_server:start_node('4_rcp_SUITE_block_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N4} = test_server:start_node('8_rcp_SUITE_block_call', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     ok = io:format("~p~n", [[N1, N2, N3]]),
     {hej,_,N1} = rpc:block_call(N1, ?MODULE, f, []),
     {hej,_,N2} = rpc:block_call(N2, ?MODULE, f, [], 2000),
@@ -121,9 +121,9 @@ multicall(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     {ok, N1} = test_server:start_node('3_rpc_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N2} = test_server:start_node('1_rcp_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     ok = io:format("~p~n", [[N1, N2]]),
     {[{hej,_,N1},{hej,_,N2}],[]} =
 	rpc:multicall([N1, N2], ?MODULE, f, []),
@@ -137,13 +137,13 @@ multicall_timeout(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     {ok, N1} = test_server:start_node('11_rpc_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N2} = test_server:start_node('8_rpc_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N3} = test_server:start_node('5_rpc_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N4} = test_server:start_node('2_rcp_SUITE_multicall', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     ok = io:format("~p~n", [[N1, N2]]),
     {[{hej,_,N3},{hej,_,N4}],[N1, N2]} =
 	rpc:multicall([N3, N1, N2, N4], ?MODULE, f, [], 6000),
@@ -159,9 +159,9 @@ multicall_timeout(Config) when is_list(Config) ->
 multicall_dies(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     {ok, N1} = test_server:start_node('rpc_SUITE_multicall_dies_1', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     {ok, N2} = test_server:start_node('rcp_SUITE_multicall_dies_2', slave,
-				      [{args, "-pa " ++ PA}]),
+				      [{args, "-connect_all false -pa " ++ PA}]),
     Nodes = [N1, N2],
     %%
     {[{badrpc, {'EXIT', normal}}, {badrpc, {'EXIT', normal}}], []} =
@@ -213,10 +213,10 @@ multicall_node_dies(Config) when is_list(Config) ->
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ok = io:format("~p:~p~p~n", [Mod, Func, Args]),
     PA = filename:dirname(code:which(?MODULE)),
-    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', slave,
-				      [{args, "-pa " ++ PA}]),
-    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', slave,
-				      [{args, "-pa " ++ PA}]),
+    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', peer,
+				      [{args, "-connect_all false -pa " ++ PA}]),
+    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', peer,
+				      [{args, "-connect_all false -pa " ++ PA}]),
     Nodes = [N1, N2],
     {[], Nodes} = rpc:multicall(Nodes, Mod, Func, Args),
     Msgs = flush([]),
@@ -229,7 +229,7 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
 called_dies(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     {ok, N} = test_server:start_node(rpc_SUITE_called_dies, slave,
-				     [{args, "-pa " ++ PA}]),
+				     [{args, "-connect_all false -pa " ++ PA}]),
     %%
     rep(fun (Tag, Call, Args) ->
 		{Tag,{badrpc,{'EXIT',normal}}} =
@@ -395,7 +395,7 @@ node_rep(Fun, Name, PA, M, F, A) ->
 node_rep_call(Tag, Call, Args, Fun, Name0, PA) ->
     Name = list_to_atom(Name0 ++ "_" ++ atom_to_list(Tag)),
     {ok, N} = test_server:start_node(Name, slave,
-				     [{args, "-pa " ++ PA}]),
+				     [{args, "-connect_all false -pa " ++ PA}]),
     Fun(Call, [N|Args]),
     catch test_server:stop_node(N),
     ok.
@@ -405,7 +405,7 @@ called_throws(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     %%
     {ok, N} = test_server:start_node(rpc_SUITE_called_throws, slave,
-				     [{args, "-pa " ++ PA}]),
+				     [{args, "-connect_all false -pa " ++ PA}]),
     %%
     rep(fun (Tag, Call, Args) ->
 		{Tag,up} =
@@ -424,7 +424,7 @@ called_throws(Config) when is_list(Config) ->
 call_benchmark(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(rpc_SUITE_call_benchmark, slave,
-					[{args, "-pa " ++ PA}]),
+					[{args, "-connect_all false -pa " ++ PA}]),
     Iter = case erlang:system_info(modified_timing_level) of
 	       undefined -> 10000;
 	       _ -> 500		     %Modified timing - spawn is slower
@@ -452,7 +452,7 @@ do_call_benchmark(Node, I, M) ->
 async_call(Config) when is_list(Config) ->
     %% Note: First part of nodename sets response delay in seconds.
     PA = filename:dirname(code:which(?MODULE)),
-    NodeArgs = [{args,"-pa "++ PA}],
+    NodeArgs = [{args,"-connect_all false -pa "++ PA}],
     {ok,Node1} = test_server:start_node('1_rpc_SUITE_call', slave, NodeArgs),
     {ok,Node2} = test_server:start_node('10_rpc_SUITE_call', slave, NodeArgs),
     {ok,Node3} = test_server:start_node('20_rpc_SUITE_call', slave, NodeArgs),
