@@ -1278,9 +1278,9 @@ bail_out:
     case DB_ERROR_UNSPEC:
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     default:
-	BIF_ERROR(BIF_P, BADARG);
 	break;
     }
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 static BIF_RETTYPE
@@ -1475,9 +1475,9 @@ bail_out:
     case DB_ERROR_BADPARAM:
         BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     default:
-        BIF_ERROR(p, BADARG);
 	break;
     }
+    BIF_ERROR(p, BADARG);
 }
 
 /*
