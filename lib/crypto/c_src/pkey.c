@@ -132,6 +132,9 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     if (type == atom_undefined && algorithm == atom_eddsa)
         return 1;
     
+    if (type == atom_none && algorithm == atom_eddsa)
+        return 1;
+    
     if ((digp = get_digest_type(type)) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
