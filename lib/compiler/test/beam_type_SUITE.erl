@@ -263,7 +263,19 @@ coverage(Config) ->
 
     false = fun lot:life/147 == #{},
 
+    {'EXIT',{badarith,_}} = catch coverage_1(),
+
     ok.
+
+coverage_1() ->
+    try
+        []
+    catch
+        _:_ ->
+            42
+    end
+    *
+    [].
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
