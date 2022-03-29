@@ -799,6 +799,10 @@ switch_fail_inference(_Config) ->
     ok = sfi(id([{twiddle,frobnitz}, eof])),
     {error, gaffel, gurka} = sfi(id([{twiddle, frobnitz}, {error, gurka}])),
     {error, gaffel, gurka} = sfi(id([{ok, frobnitz}, {error, gurka}])),
+
+    ok = sfi_5(id("GET")),
+    error = sfi_5(id("OTHER")),
+
     ok.
 
 sfi(Things) ->
@@ -836,6 +840,20 @@ sfi_4({ok, IgnoredLater}) ->
     {twiddle, IgnoredLater};
 sfi_4({error, Reason}) ->
     {error, {gaffel, Reason}}.
+
+sfi_5(Info) ->
+    ReturnValue = case Info of
+                      "GET" ->
+                          {304};
+                      _ ->
+                          {412}
+                  end,
+    sfi_send_return_value(ReturnValue).
+
+sfi_send_return_value({304}) ->
+    ok;
+sfi_send_return_value({412}) ->
+    error.
 
 id(I) ->
     I.
