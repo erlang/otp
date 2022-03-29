@@ -1369,7 +1369,7 @@ erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp)
 	init_tmp_thr_prgr_data(tpd);
     }
 
-    /* Returns number of threads that have not yes been blocked */
+    /* Returns number of threads that have not yet been blocked */
     return thr_progress_block(tpd, 0);
 }
 
