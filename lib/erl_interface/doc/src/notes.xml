@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 5.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid attempt build dynamic libs if config option
+	    <c>--enable-ei-dynamic-lib</c> is not given.</p>
+          <p>
+	    Own Id: OTP-17987 Aux Id: GH-5781, PR-5787 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 5.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
