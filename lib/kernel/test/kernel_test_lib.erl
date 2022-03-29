@@ -1730,10 +1730,32 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
-                            tc_print("test case failed: try post"),
-                            (catch Post(State)),
-                            tc_end( f("failed(catched,~w,tc)", [C]) ),
-                            erlang:raise(C, E, S)
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            case kernel_test_global_sys_monitor:events() of
+                                [] ->
+                                    tc_print("test case failed: try post"),
+                                    (catch Post(State)),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print(
+                                      "System Events received during tc: "
+                                      "~n   ~p"
+                                      "~nwhen tc failed:"
+                                      "~n   C: ~p"
+                                      "~n   E: ~p"
+                                      "~n   S: ~p",
+                                      [SysEvs, C, E, S]),
+                                    (catch Post(State)),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP = {skip,
+                                            "TC failure with system events"},
+                                    SKIP
+                            end
                     end
             catch
                 C:{skip, _} = SKIP when (C =:= throw) orelse
@@ -1741,14 +1763,31 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    tc_print("tc-pre failed: auto-skip"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [C, E, S]),
-                    tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
-                    SKIP
+                    %% We always check the system events
+                    %% before we accept a failure
+                    case kernel_test_global_sys_monitor:events() of
+                        [] ->
+                            tc_print("tc-pre failed: auto-skip"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                            tc_print("System Events received: "
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)",
+                                      [C]) ),
+                            SKIP = {skip, "TC-Pre failure with system events"},
+                            SKIP
+                    end
             end;
         {skip, _} = SKIP ->
             tc_end("skipping(cond)"),
