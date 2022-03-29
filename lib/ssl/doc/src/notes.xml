@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, potential hanging of pre TLS1.3 client
+	    receiving OSCP staple message is avoided.</p>
+          <p>
+	    Own Id: OTP-17994</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
