@@ -884,6 +884,8 @@ grab_bag(_Config) ->
 
     fact = grab_bag_17(),
 
+    {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
+
     ok.
 
 grab_bag_1() ->
@@ -1095,6 +1097,21 @@ grab_bag_17() ->
         _:_ ->
             []
     end.
+
+grab_bag_18() ->
+    try 0 of
+        _V0 ->
+            bnot false
+    after
+        try [] of
+            wrong ->
+                ok
+        catch
+            _:_ when false ->
+                error
+        end
+    end.
+
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
