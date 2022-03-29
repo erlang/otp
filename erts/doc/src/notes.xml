@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> <c>erlang:open_port({spawn, _},_)</c> has been fixed
+	    on Windows to handle whitespace characters in the path
+	    correctly. </p><p> This could, for example, cause
+	    execution of the resolver helper program
+	    <c>inet_gethost</c> to fail and instead possibly execute
+	    a different program. </p>
+          <p>
+	    Own Id: OTP-17978 Aux Id: OTP-17958 </p>
+        </item>
+        <item>
+          <p>
+	    Fix race condition when creating crash dump that could
+	    cause multiple threads to race when writing the initial
+	    information in a crash dump.</p>
+          <p>
+	    The race condition was introduced in erts-12.2
+	    (Erlang/OTP 24.2).</p>
+          <p>
+	    Own Id: OTP-17993 Aux Id: PR-5806 </p>
+        </item>
+        <item>
+          <p>
+	    Fix Erlang monotonic time on MacOS. Previously used OS
+	    monotonic time primitive on MacOS is buggy and will not
+	    be used anymore. It has been replaced with usage of
+	    another OS monotonic time primitive that does not appear
+	    to be buggy.</p>
+          <p>
+	    Own Id: OTP-17998 Aux Id: PR-5825, GH-5554 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
