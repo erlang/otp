@@ -80,5 +80,5 @@ $MT_TERM $geom2 $title a2 $exec $erlcmd2 &
 echo "Give the following command in order to see the outcome from node a@$h"":"
 echo ""
 echo "	less $log"
-echo "tail -f "$log" | egrep 'Eval|<>ERROR|NYI'"
+tail -f "$log" | egrep 'Eval|<>ERROR|NYI'
 
