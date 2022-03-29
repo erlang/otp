@@ -102,6 +102,8 @@ integers(_Config) ->
 
     {'EXIT',{badarith,_}} = (catch do_integers_8()),
 
+    -693 = do_integers_9(id(7), id(1)),
+
     ok.
 
 do_integers_1(B0) ->
@@ -169,6 +171,9 @@ do_integers_7() ->
 
 do_integers_8() ->
     -1 band ((0 div 0) band 0).
+
+do_integers_9(X, Y) ->
+    X * (-100 bor (Y band 1)).
 
 numbers(_Config) ->
     Int = id(42),

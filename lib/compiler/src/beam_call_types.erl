@@ -922,7 +922,7 @@ erlang_bor_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
 erlang_bor_type(_) ->
     #t_integer{}.
 
-erlang_bor_type_1(LHS, Int) ->
+erlang_bor_type_1(LHS, Int) when Int >= 0 ->
     case LHS of
         #t_integer{elements={Min0,Max0}} when Min0 >= 0, Max0 - Min0 < 1 bsl 256 ->
             {_Intersection, Union} = range_masks(Min0, Max0),
@@ -933,7 +933,9 @@ erlang_bor_type_1(LHS, Int) ->
             #t_integer{elements={Min,Max}};
         _ ->
             beam_types:meet(LHS, #t_integer{})
-    end.
+    end;
+erlang_bor_type_1(_, _) ->
+    #t_integer{}.
 
 erlang_div_type(ArgTypes) ->
     case ArgTypes of
