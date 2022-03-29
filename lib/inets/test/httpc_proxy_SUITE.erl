@@ -490,15 +490,19 @@ app_stop(App) ->
     application:stop(App).
 
 make_cert_files(Alg, Prefix, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg}]),
-    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg},{issuer,CaInfo}]),
-    CaCertFile = filename:join(PrivDir, Prefix++"cacerts.pem"),
-    CertFile = filename:join(PrivDir, Prefix++"cert.pem"),
-    KeyFile = filename:join(PrivDir, Prefix++"key.pem"),
-    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
-    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
-    der_to_pem(KeyFile, [CertKey]),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
+    GenCertData =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(3)}
+                                                  ]},
+                                    client_chain =>
+                                        #{root => [{key, inets_test_lib:hardcode_rsa_key(4)}],
+                                          intermediates => [[{key, inets_test_lib:hardcode_rsa_key(5)}]],
+                                          peer => [{key, inets_test_lib:hardcode_rsa_key(6)}]}}),
+    inets_test_lib:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
     ok.
 
 der_to_pem(File, Entries) ->
