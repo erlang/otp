@@ -293,6 +293,11 @@ booleans(_Config) ->
     ok = do_booleans_2(42, 41),
     error = do_booleans_2(42, 42),
 
+    ok = do_booleans_3(id([]), id(false)),
+    error = do_booleans_3(id([]), id(true)),
+    error = do_booleans_3(id([a]), id(false)),
+    error = do_booleans_3(id([a]), id(true)),
+
     AnyAtom = id(atom),
     true = is_atom(AnyAtom),
     false = is_boolean(AnyAtom),
@@ -333,6 +338,14 @@ do_booleans_2(A, B) ->
     end.
 
 do_booleans_cmp(A, B) -> A > B.
+
+do_booleans_3(NewContent, IsAnchor) ->
+    if NewContent == [] andalso not IsAnchor ->
+            ok;
+       true ->
+            error
+    end.
+
 
 setelement(_Config) ->
     T0 = id({a,42}),
