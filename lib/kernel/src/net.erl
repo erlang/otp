@@ -355,9 +355,11 @@ getifaddrs(_Filter, _Namespace) ->
     erlang:error(notsup).
 -endif.
 
--dialyzer({no_return, do_getifaddrs/2}).
 
 -ifdef(USE_ESOCK).
+
+-dialyzer({no_return, do_getifaddrs/2}).
+
 do_getifaddrs(Filter, GetIfAddrs) ->
     try GetIfAddrs() of
         {ok, IfAddrs0} when is_function(Filter) ->
