@@ -272,6 +272,9 @@ coverage(Config) ->
 
     {'EXIT',{badarith,_}} = catch coverage_2(),
 
+    {'EXIT',{function_clause,_}} = catch coverage_3("a"),
+    {'EXIT',{function_clause,_}} = catch coverage_3("b"),
+
     ok.
 
 coverage_1() ->
@@ -286,6 +289,10 @@ coverage_1() ->
 
 coverage_2() ->
     tl("abc") bsr [].
+
+%% Cover beam_ssa_type:infer_br_value(V, Bool, none).
+coverage_3("a" = V) when is_function(V, false) ->
+    0.
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
