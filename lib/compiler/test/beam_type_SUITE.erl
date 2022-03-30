@@ -608,16 +608,38 @@ do_test_size(Term) when is_binary(Term) ->
     size(Term).
 
 cover_lists_functions(Config) ->
+    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+
+    Config = lists:map(id(fun id/1), Config),
+
     case lists:suffix([no|Config], Config) of
         true ->
             ct:fail(should_be_false);
         false ->
             ok
     end,
-    Zipped = lists:zipwith(fun(A, B) -> {A,B} end,
+
+    Zipper = fun(A, B) -> {A,B} end,
+
+    [] = lists:zipwith(Zipper, [], []),
+
+    Zipped = lists:zipwith(Zipper,
                            lists:duplicate(length(Config), zip),
                            Config),
-    true = is_list(Zipped),
+    [{zip,_}|_] = Zipped,
+
+    DoubleZip = lists:zipwith(id(Zipper),
+                              lists:duplicate(length(Zipped), zip_zip),
+                              Zipped),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                            lists:duplicate(length(Zipped), zip_zip),
+                                            Zipped)),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {[_|_],[_|_]} = lists:unzip(Zipped),
+
     ok.
 
 list_append(_Config) ->
