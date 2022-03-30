@@ -1892,7 +1892,8 @@ opt_create_bin_is([]) -> [].
 opt_create_bin_args([#b_literal{val=binary},#b_literal{val=[1|_]},
                      #b_literal{val=Bin0},#b_literal{val=all},
                      #b_literal{val=binary},#b_literal{val=[1|_]},
-                     #b_literal{val=Bin1},#b_literal{val=all}|Args0]) ->
+                     #b_literal{val=Bin1},#b_literal{val=all}|Args0])
+  when is_bitstring(Bin0), is_bitstring(Bin1) ->
     %% Coalesce two litary binary segments to one.
     Bin = <<Bin0/bitstring,Bin1/bitstring>>,
     Args = [#b_literal{val=binary},#b_literal{val=[1]},
