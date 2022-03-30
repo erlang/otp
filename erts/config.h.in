@@ -779,6 +779,9 @@
 /* Define if the targeted system supports the `perf` profiler */
 #undef HAVE_LINUX_PERF_SUPPORT
 
+/* Define to 1 if you have the <linux/tls.h> header file. */
+#undef HAVE_LINUX_TLS_H
+
 /* Define to 1 if you have the <linux/types.h> header file. */
 #undef HAVE_LINUX_TYPES_H
 

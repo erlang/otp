@@ -164,6 +164,9 @@
 -define(INET_OPT_TTL,             46).
 -define(INET_OPT_RECVTTL,         47).
 -define(TCP_OPT_NOPUSH,           48).
+-define(TCP_OPT_ULP,              49).
+-define(TLS_OPT_TX,               50).
+-define(TLS_OPT_RX,               51).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).

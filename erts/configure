@@ -20113,6 +20113,12 @@ then :
   printf "%s\n" "#define HAVE_SYS_UN_H 1" >>confdefs.h
 
 fi
+ac_fn_c_check_header_compile "$LINENO" "linux/tls.h" "ac_cv_header_linux_tls_h" "$ac_includes_default"
+if test "x$ac_cv_header_linux_tls_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_LINUX_TLS_H 1" >>confdefs.h
+
+fi
 
 ac_fn_c_check_func "$LINENO" "getifaddrs" "ac_cv_func_getifaddrs"
 if test "x$ac_cv_func_getifaddrs" = xyes

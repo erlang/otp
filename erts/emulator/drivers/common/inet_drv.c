@@ -64,6 +64,9 @@
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
 #endif
+#ifdef HAVE_LINUX_TLS_H
+#include <linux/tls.h>
+#endif
 
 #ifdef HAVE_SENDFILE
 #if defined(__linux__) || (defined(__sun) && defined(__SVR4))
@@ -847,6 +850,9 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
+#define TCP_OPT_ULP                 49  /* TCP Upper Layer Protocol */
+#define TLS_OPT_TX                  50  /* crypto info for TLS Transmit */
+#define TLS_OPT_RX                  51  /* crypto info for TLS Receive */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -6978,6 +6984,154 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_BINDTODEVICE=%s\r\n",
 		    desc->port, desc->s, ifname));
 	    break;
+#endif
+
+#if defined(SOL_TCP) && defined(TCP_ULP)
+        case TCP_OPT_ULP:
+            if (ival < 0) return -1;
+            if (len < ival) return -1;
+
+            proto = SOL_TCP;
+            type = TCP_ULP;
+            arg_ptr = ptr;
+            arg_sz = ival;
+            ptr += ival;
+            len -= ival;
+            propagate = 1; /* We do want to know if this fails */
+
+            DEBUGF(("inet_set_opts(%p): s=%d, TCP_ULP=%s\r\n",
+                    desc->port, desc->s, arg_ptr));
+            break;
+#endif
+
+#if defined(SOL_TLS) && defined(TLS_TX) && defined(TLS_RX) \
+    && defined(TLS_1_3_VERSION_MINOR) && defined(TLS_1_3_VERSION_MAJOR)
+        case TLS_OPT_TX:
+        case TLS_OPT_RX:
+            if (ival < 4) return -1;
+            if (len < ival) return -1;
+
+            proto = SOL_TLS;
+            if (opt == TLS_OPT_TX) {
+                type = TLS_TX;
+            } else {
+                type = TLS_RX;
+            }
+
+            if (
+                *ptr != TLS_1_3_VERSION_MINOR
+                || *(ptr + 1) != TLS_1_3_VERSION_MAJOR
+                || *(ptr + 3) != 0
+            )
+                return -1;
+            switch (*(ptr + 2)) {
+#if defined(TLS_CIPHER_AES_GCM_128)\
+    && defined(TLS_CIPHER_AES_GCM_128_IV_SIZE) \
+    && defined(TLS_CIPHER_AES_GCM_128_KEY_SIZE)\
+    && defined(TLS_CIPHER_AES_GCM_128_SALT_SIZE) \
+    && defined(TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE)
+                case TLS_CIPHER_AES_GCM_128:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_AES_GCM_128_IV_SIZE
+                            + TLS_CIPHER_AES_GCM_128_KEY_SIZE
+                            + TLS_CIPHER_AES_GCM_128_SALT_SIZE
+                            + TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+#if defined(TLS_CIPHER_AES_GCM_256)\
+    && defined(TLS_CIPHER_AES_GCM_256_IV_SIZE) \
+    && defined(TLS_CIPHER_AES_GCM_256_KEY_SIZE)\
+    && defined(TLS_CIPHER_AES_GCM_256_SALT_SIZE) \
+    && defined(TLS_CIPHER_AES_GCM_256_REC_SEQ_SIZE)
+                case TLS_CIPHER_AES_GCM_256:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_AES_GCM_256_IV_SIZE
+                            + TLS_CIPHER_AES_GCM_256_KEY_SIZE
+                            + TLS_CIPHER_AES_GCM_256_SALT_SIZE
+                            + TLS_CIPHER_AES_GCM_256_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+#if defined(TLS_CIPHER_AES_CCM_128)\
+    && defined(TLS_CIPHER_AES_CCM_128_IV_SIZE) \
+    && defined(TLS_CIPHER_AES_CCM_128_KEY_SIZE)\
+    && defined(TLS_CIPHER_AES_CCM_128_SALT_SIZE) \
+    && defined(TLS_CIPHER_AES_CCM_128_REC_SEQ_SIZE)
+                case TLS_CIPHER_AES_CCM_128:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_AES_CCM_128_IV_SIZE
+                            + TLS_CIPHER_AES_CCM_128_KEY_SIZE
+                            + TLS_CIPHER_AES_CCM_128_SALT_SIZE
+                            + TLS_CIPHER_AES_CCM_128_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+#if defined(TLS_CIPHER_CHACHA20_POLY1305)\
+    && defined(TLS_CIPHER_CHACHA20_POLY1305_IV_SIZE) \
+    && defined(TLS_CIPHER_CHACHA20_POLY1305_KEY_SIZE)\
+    && defined(TLS_CIPHER_CHACHA20_POLY1305_SALT_SIZE) \
+    && defined(TLS_CIPHER_CHACHA20_POLY1305_REC_SEQ_SIZE)
+                case TLS_CIPHER_CHACHA20_POLY1305:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_CHACHA20_POLY1305_IV_SIZE
+                            + TLS_CIPHER_CHACHA20_POLY1305_KEY_SIZE
+                            + TLS_CIPHER_CHACHA20_POLY1305_SALT_SIZE
+                            + TLS_CIPHER_CHACHA20_POLY1305_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+#if defined(TLS_CIPHER_SM4_GCM)\
+    && defined(TLS_CIPHER_SM4_GCM_IV_SIZE) \
+    && defined(TLS_CIPHER_SM4_GCM_KEY_SIZE)\
+    && defined(TLS_CIPHER_SM4_GCM_SALT_SIZE) \
+    && defined(TLS_CIPHER_SM4_GCM_REC_SEQ_SIZE)
+                case TLS_CIPHER_SM4_GCM:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_SM4_GCM_IV_SIZE
+                            + TLS_CIPHER_SM4_GCM_KEY_SIZE
+                            + TLS_CIPHER_SM4_GCM_SALT_SIZE
+                            + TLS_CIPHER_SM4_GCM_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+#if defined(TLS_CIPHER_SM4_CCM)\
+    && defined(TLS_CIPHER_SM4_CCM_IV_SIZE) \
+    && defined(TLS_CIPHER_SM4_CCM_KEY_SIZE)\
+    && defined(TLS_CIPHER_SM4_CCM_SALT_SIZE) \
+    && defined(TLS_CIPHER_SM4_CCM_REC_SEQ_SIZE)
+                case TLS_CIPHER_SM4_CCM:
+                    if (
+                        ival !=
+                            4 + TLS_CIPHER_SM4_CCM_IV_SIZE
+                            + TLS_CIPHER_SM4_CCM_KEY_SIZE
+                            + TLS_CIPHER_SM4_CCM_SALT_SIZE
+                            + TLS_CIPHER_SM4_CCM_REC_SEQ_SIZE
+                    )
+                        return -1;
+                    break;
+#endif
+                default:
+                    return -1;
+            }
+
+            arg_ptr = ptr;
+            arg_sz = ival;
+            ptr += ival;
+            len -= ival;
+            propagate = 1; /* We do want to know if this fails */
+
+            break;
 #endif
 
 	default:

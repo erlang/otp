@@ -1,0 +1,143 @@
+-module(ktls_basic_SUITE).
+-include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
+-include("ssl_api.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_connection.hrl").
+
+%% Callback functions
+-export([
+    all/0,
+    groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_testcase/2,
+    end_per_testcase/2
+]).
+
+%% Testcases
+-export([
+    tls_1_3_aes_gcm_256/0,
+    tls_1_3_aes_gcm_256/1
+]).
+
+%% Apply export
+-export([
+    wait_and_send_recv_result/1,
+    set_ktls_and_send_recv_result/1
+]).
+
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
+all() ->
+    [{group, basic}].
+
+groups() ->
+    [{basic, [], [tls_1_3_aes_gcm_256]}].
+
+init_per_suite(Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            ssl_test_lib:clean_start(),
+            ssl_test_lib:make_rsa_cert(Config0)
+    catch _:_ ->
+        {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
+
+%%--------------------------------------------------------------------
+init_per_testcase(_TestCase, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap({seconds, 5}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->
+    Config.
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+tls_1_3_aes_gcm_256() ->
+    [{doc, "Test that ktls can communicate with ssl application"}].
+tls_1_3_aes_gcm_256(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([
+        {node, ServerNode},
+        {port, 0},
+        {from, self()},
+        {mfa, {?MODULE, wait_and_send_recv_result, []}},
+        {options, [
+            {keepalive, true},
+            {active, false},
+            {versions, ['tlsv1.3']},
+            {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]}
+            | ServerOpts
+        ]}
+    ]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([
+        {node, ClientNode},
+        {port, Port},
+        {host, Hostname},
+        {from, self()},
+        {mfa, {?MODULE, set_ktls_and_send_recv_result, []}},
+        {options, [
+            {keepalive, true},
+            {active, false},
+            {versions, ['tlsv1.3']},
+            {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]}
+            | ClientOpts
+        ]}
+    ]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+wait_and_send_recv_result(Socket) ->
+    timer:sleep(100),
+    Data = "Hello world",
+    ssl:send(Socket, Data),
+    {ok, Data} = ssl:recv(Socket, length(Data)),
+    ok.
+
+set_ktls_and_send_recv_result(#sslsocket{fd = {_, Socket, _, _}, pid = [Receiver | _]}) ->
+    inet:setopts(Socket, [list, {active, false}]),
+    ControlPid = self(),
+    State = sys:replace_state(
+        Receiver,
+        fun(State) ->
+            gen_tcp:controlling_process(Socket, ControlPid),
+            State
+        end
+    ),
+    {_, #state{connection_states = ConnectionStates}} = State,
+    CurrentWrite = maps:get(current_write, ConnectionStates),
+    CurrentRead = maps:get(current_read, ConnectionStates),
+    #cipher_state{iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>, key = WriteKey} = maps:get(cipher_state, CurrentWrite),
+    #cipher_state{iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>, key = ReadKey} = maps:get(cipher_state, CurrentRead),
+    WriteSeq = maps:get(sequence_number, CurrentWrite),
+    ReadSeq = maps:get(sequence_number, CurrentRead),
+    % SOL_TCP = 6, TCP_ULP = 31
+    % inet:setopts(Socket, [{raw, 6, 31, <<"tls">>}]),
+    inet:setopts(Socket, [{tcp_ulp, <<"tls">>}]),
+    % SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2, TLS_1_3_VERSION = <<4, 3>>, TLS_CIPHER_AES_GCM_256 = <<52, 0>>
+    % inet:setopts(Socket, [{raw, 282, 1, <<4, 3, 52, 0, WriteIV/binary, WriteKey/binary, WriteSalt/binary, WriteSeq:64>>}]),
+    % inet:setopts(Socket, [{raw, 282, 2, <<4, 3, 52, 0, ReadIV/binary, ReadKey/binary, ReadSalt/binary, ReadSeq:64>>}]),
+    inet:setopts(Socket, [{tls_tx, <<4, 3, 52, 0, WriteIV/binary, WriteKey/binary, WriteSalt/binary, WriteSeq:64>>}]),
+    inet:setopts(Socket, [{tls_rx, <<4, 3, 52, 0, ReadIV/binary, ReadKey/binary, ReadSalt/binary, ReadSeq:64>>}]),
+
+    Data = "Hello world",
+    gen_tcp:send(Socket, Data),
+    {ok, Data} = gen_tcp:recv(Socket, length(Data)),
+    ok.
