@@ -219,18 +219,23 @@ end_per_group(_, Config) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(Case, Config) ->
-    case string:tokens(atom_to_list(Case),"_") of
-        ["sign","verify",Type|_] ->
-            skip_if_unsup(list_to_atom(Type), Config);
-
-        ["priv","encrypt","pub","decrypt",Type|_] ->
-            skip_if_unsup(list_to_atom(Type), Config);
-
-        ["get","pub","from","priv","key",Type|_] ->
-            skip_if_unsup(list_to_atom(Type), Config);
-
+    HasMD5 = lists:member(md5, crypto:supports(hashs)),
+    case Case of
+        multiple_engine_load     when HasMD5==false -> {skip, "md5 not available"};
+        ensure_load              when HasMD5==false -> {skip, "md5 not available"};
+        engine_load_some_methods when HasMD5==false -> {skip, "md5 not available"};
+        engine_load_all_methods  when HasMD5==false -> {skip, "md5 not available"};
         _ ->
-            Config
+            case string:tokens(atom_to_list(Case),"_") of
+                ["sign","verify",Type|_] ->
+                    skip_if_unsup(list_to_atom(Type), Config);
+                ["priv","encrypt","pub","decrypt",Type|_] ->
+                    skip_if_unsup(list_to_atom(Type), Config);
+                ["get","pub","from","priv","key",Type|_] ->
+                    skip_if_unsup(list_to_atom(Type), Config);
+                _ ->
+                    Config
+            end
     end.
 
 end_per_testcase(_Case, _Config) ->
