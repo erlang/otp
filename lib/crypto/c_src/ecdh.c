@@ -21,14 +21,18 @@
 #include "ecdh.h"
 #include "ec.h"
 
-/*
-  (_OthersPublicKey, _MyPrivateKey)
-  (_OthersPublicKey, _MyEC_Point)
-*/
+#if !defined(HAVE_EC)
+ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+/* (OtherPublicKey, {CurveDef,CurveName}, My) */
+{
+    return EXCP_NOTSUP_N(env, 0, "EC not supported");
+}
+
+#else
+
 ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (OtherPublicKey, Curve, My) */
 {
-#if defined(HAVE_EC)
     ERL_NIF_TERM ret = atom_undefined;
     unsigned char *p;
     EC_KEY* key = NULL;
@@ -80,8 +84,5 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         EC_KEY_free(key);
 
     return ret;
-
-#else
-    return EXCP_NOTSUP_N(env, 0, "EC not supported");
 #endif
 }
