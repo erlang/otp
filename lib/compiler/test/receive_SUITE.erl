@@ -859,6 +859,9 @@ type_optimized_markers(_Config) ->
     self() ! Ref,
     gaffel = tom_2(Ref),
 
+    self() ! {inet_reply, self(), all_well},
+    all_well = tom_3(self(), undefined, 1),
+
     ok.
 
 tom_1(Ref) ->
@@ -895,6 +898,21 @@ tom_2(Ref) ->
             end;
         Ref ->
             gaffel
+    end.
+
+tom_3(S, Mref, ReplyTimeout) ->
+    receive
+        {inet_reply, S, Status} ->
+            case Mref of
+                undefined ->
+                    ok;
+                _ ->
+                    demonitor(Mref, [flush])
+            end,
+            Status
+    after
+        ReplyTimeout ->
+            tom_3(S, monitor(process, S), ReplyTimeout)
     end.
 
 %%%
