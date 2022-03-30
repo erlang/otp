@@ -817,10 +817,10 @@ sync(Config) ->
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_h_common,handle_cast,repeated_filesync},
+    OneSync = {logger_h_common,handle_info,{timeout,repeated_filesync}},
     %% receive 1 repeated_filesync per sec
-    start_tracer([{{logger_h_common,handle_cast,2},
-                   [{[repeated_filesync,'_'],[],[]}]}],
+    start_tracer([{{logger_h_common,handle_info,2},
+                   [{[{timeout,'_',repeated_filesync},'_'],[],[]}]}],
                  [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     ok = logger:update_handler_config(?MODULE, config,
@@ -2181,6 +2181,9 @@ tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[Data,_]}},
        {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
 tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func});
+tracer({trace,_,call,{logger_h_common = Mod,handle_info = Func,[{timeout,_,Op},_S]}},
+       {Pid,[{Mod,Func,{timeout,Op}}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func});
 tracer({trace,_,call,Call}, {Pid,Expected}) ->
     ct:log("Tracer got unexpected: ~p~nExpected: ~p~n",[Call,Expected]),
