@@ -964,6 +964,12 @@ extern void wxMenuBar_GetAutoWindowMenu(WxeApp *app, wxeMemEnv *memenv, wxeComma
 #if defined(__WXMAC__)
 extern void wxMenuBar_OSXGetAppleMenu(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 #endif // defined(__WXMAC__)
+#if defined(__WXMAC__)
+extern void wxMenuBar_MacGetCommonMenuBar(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // defined(__WXMAC__)
+#if defined(__WXMAC__)
+extern void wxMenuBar_MacSetCommonMenuBar(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
+#endif // defined(__WXMAC__)
 extern void wxMenuBar_IsEnabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_Remove(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
 extern void wxMenuBar_Replace(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd);
@@ -5368,3720 +5374,3730 @@ wxe_fns_t wxe_fns[] =
 #else
   {NULL, "wxMenuBar", "oSXGetAppleMenu", 0}, // 873
 #endif // defined(__WXMAC__)
-  {wxMenuBar_IsEnabled, "wxMenuBar", "isEnabled", 2}, // 874
-  {wxMenuBar_Remove, "wxMenuBar", "remove", 2}, // 875
-  {wxMenuBar_Replace, "wxMenuBar", "replace", 4}, // 876
-  {wxMenuBar_SetHelpString, "wxMenuBar", "setHelpString", 3}, // 877
-  {wxMenuBar_SetLabel, "wxMenuBar", "setLabel", 3}, // 878
-  {wxMenuBar_SetMenuLabel, "wxMenuBar", "setMenuLabel", 3}, // 879
-  {wxControl_GetLabel, "wxControl", "getLabel", 1}, // 880
-  {wxControl_SetLabel, "wxControl", "setLabel", 2}, // 881
-  {wxControlWithItems_Append_1, "wxControlWithItems", "append", 2}, // 882
-  {wxControlWithItems_Append_2, "wxControlWithItems", "append", 3}, // 883
-  {wxControlWithItems_appendStrings_1, "wxControlWithItems", "appendStrings", 2}, // 884
-  {wxControlWithItems_appendStrings_2, "wxControlWithItems", "appendStrings", 3}, // 885
-  {wxControlWithItems_Clear, "wxControlWithItems", "clear", 1}, // 886
-  {wxControlWithItems_Delete, "wxControlWithItems", "delete", 2}, // 887
-  {wxControlWithItems_FindString, "wxControlWithItems", "findString", 3}, // 888
-  {wxControlWithItems_getClientData, "wxControlWithItems", "getClientData", 2}, // 889
-  {wxControlWithItems_setClientData, "wxControlWithItems", "setClientData", 3}, // 890
-  {wxControlWithItems_GetCount, "wxControlWithItems", "getCount", 1}, // 891
-  {wxControlWithItems_GetSelection, "wxControlWithItems", "getSelection", 1}, // 892
-  {wxControlWithItems_GetString, "wxControlWithItems", "getString", 2}, // 893
-  {wxControlWithItems_GetStringSelection, "wxControlWithItems", "getStringSelection", 1}, // 894
-  {wxControlWithItems_Insert_2, "wxControlWithItems", "insert", 3}, // 895
-  {wxControlWithItems_Insert_3, "wxControlWithItems", "insert", 4}, // 896
-  {wxControlWithItems_insertStrings_2, "wxControlWithItems", "insertStrings", 3}, // 897
-  {wxControlWithItems_insertStrings_3, "wxControlWithItems", "insertStrings", 4}, // 898
-  {wxControlWithItems_IsEmpty, "wxControlWithItems", "isEmpty", 1}, // 899
-  {wxControlWithItems_Select, "wxControlWithItems", "select", 2}, // 900
-  {wxControlWithItems_SetSelection, "wxControlWithItems", "setSelection", 2}, // 901
-  {wxControlWithItems_SetString, "wxControlWithItems", "setString", 3}, // 902
-  {wxControlWithItems_SetStringSelection, "wxControlWithItems", "setStringSelection", 2}, // 903
-  {wxMenu_new_0, "wxMenu", "new", 0}, // 904
-  {wxMenu_new_1, "wxMenu", "new", 1}, // 905
-  {wxMenu_new_2, "wxMenu", "new", 2}, // 906
-  {NULL, "wxMenu", "destroy", 1}, // 907 obj destructor wxMenu_destruct
-  {wxMenu_Append_3, "wxMenu", "append", 4}, // 908
-  {wxMenu_Append_4, "wxMenu", "append", 5}, // 909
-  {wxMenu_Append_1, "wxMenu", "append", 2}, // 910
-  {wxMenu_AppendCheckItem, "wxMenu", "appendCheckItem", 4}, // 911
-  {wxMenu_AppendRadioItem, "wxMenu", "appendRadioItem", 4}, // 912
-  {wxMenu_AppendSeparator, "wxMenu", "appendSeparator", 1}, // 913
-  {wxMenu_Break, "wxMenu", "break", 1}, // 914
-  {wxMenu_Check, "wxMenu", "check", 3}, // 915
-  {wxMenu_Delete_1_0, "wxMenu", "delete", 2}, // 916
-  {wxMenu_Delete_1_1, "wxMenu", "delete", 2}, // 917
-  {wxMenu_Destroy_1_0, "wxMenu", "'Destroy'", 2}, // 918
-  {wxMenu_Destroy_1_1, "wxMenu", "'Destroy'", 2}, // 919
-  {wxMenu_Enable, "wxMenu", "enable", 3}, // 920
-  {wxMenu_FindItem_1, "wxMenu", "findItem", 2}, // 921
-  {wxMenu_FindItem_2, "wxMenu", "findItem", 2}, // 922
-  {wxMenu_FindItemByPosition, "wxMenu", "findItemByPosition", 2}, // 923
-  {wxMenu_GetHelpString, "wxMenu", "getHelpString", 2}, // 924
-  {wxMenu_GetLabel, "wxMenu", "getLabel", 2}, // 925
-  {wxMenu_GetMenuItemCount, "wxMenu", "getMenuItemCount", 1}, // 926
-  {NULL, "", "", 0}, // 927
-  {wxMenu_GetMenuItems, "wxMenu", "getMenuItems", 1}, // 928
-  {wxMenu_GetTitle, "wxMenu", "getTitle", 1}, // 929
-  {wxMenu_Insert_2, "wxMenu", "insert", 3}, // 930
-  {wxMenu_Insert_3, "wxMenu", "insert", 4}, // 931
-  {wxMenu_Insert_5, "wxMenu", "insert", 6}, // 932
-  {wxMenu_InsertCheckItem, "wxMenu", "insertCheckItem", 5}, // 933
-  {wxMenu_InsertRadioItem, "wxMenu", "insertRadioItem", 5}, // 934
-  {wxMenu_InsertSeparator, "wxMenu", "insertSeparator", 2}, // 935
-  {wxMenu_IsChecked, "wxMenu", "isChecked", 2}, // 936
-  {wxMenu_IsEnabled, "wxMenu", "isEnabled", 2}, // 937
-  {wxMenu_Prepend_1, "wxMenu", "prepend", 2}, // 938
-  {wxMenu_Prepend_2, "wxMenu", "prepend", 3}, // 939
-  {wxMenu_Prepend_4, "wxMenu", "prepend", 5}, // 940
-  {wxMenu_PrependCheckItem, "wxMenu", "prependCheckItem", 4}, // 941
-  {wxMenu_PrependRadioItem, "wxMenu", "prependRadioItem", 4}, // 942
-  {wxMenu_PrependSeparator, "wxMenu", "prependSeparator", 1}, // 943
-  {wxMenu_Remove_1_0, "wxMenu", "remove", 2}, // 944
-  {wxMenu_Remove_1_1, "wxMenu", "remove", 2}, // 945
-  {wxMenu_SetHelpString, "wxMenu", "setHelpString", 3}, // 946
-  {wxMenu_SetLabel, "wxMenu", "setLabel", 3}, // 947
-  {wxMenu_SetTitle, "wxMenu", "setTitle", 2}, // 948
-  {wxMenuItem_new, "wxMenuItem", "new", 1}, // 949
-  {NULL, "wxMenuItem", "destroy", 1}, // 950 obj destructor wxMenuItem_destruct
-  {wxMenuItem_Check, "wxMenuItem", "check", 2}, // 951
-  {wxMenuItem_Enable, "wxMenuItem", "enable", 2}, // 952
-  {wxMenuItem_GetBitmap, "wxMenuItem", "getBitmap", 1}, // 953
-  {wxMenuItem_GetHelp, "wxMenuItem", "getHelp", 1}, // 954
-  {wxMenuItem_GetId, "wxMenuItem", "getId", 1}, // 955
-  {wxMenuItem_GetKind, "wxMenuItem", "getKind", 1}, // 956
-  {wxMenuItem_GetLabelText, "wxMenuItem", "getLabelText", 1}, // 957
-  {wxMenuItem_GetItemLabel, "wxMenuItem", "getItemLabel", 1}, // 958
-  {wxMenuItem_GetItemLabelText, "wxMenuItem", "getItemLabelText", 1}, // 959
-  {wxMenuItem_GetMenu, "wxMenuItem", "getMenu", 1}, // 960
-  {wxMenuItem_GetSubMenu, "wxMenuItem", "getSubMenu", 1}, // 961
-  {wxMenuItem_IsCheckable, "wxMenuItem", "isCheckable", 1}, // 962
-  {wxMenuItem_IsChecked, "wxMenuItem", "isChecked", 1}, // 963
-  {wxMenuItem_IsEnabled, "wxMenuItem", "isEnabled", 1}, // 964
-  {wxMenuItem_IsSeparator, "wxMenuItem", "isSeparator", 1}, // 965
-  {wxMenuItem_IsSubMenu, "wxMenuItem", "isSubMenu", 1}, // 966
-  {wxMenuItem_SetBitmap, "wxMenuItem", "setBitmap", 2}, // 967
-  {wxMenuItem_SetHelp, "wxMenuItem", "setHelp", 2}, // 968
-  {wxMenuItem_SetMenu, "wxMenuItem", "setMenu", 2}, // 969
-  {wxMenuItem_SetSubMenu, "wxMenuItem", "setSubMenu", 2}, // 970
-  {wxMenuItem_SetItemLabel, "wxMenuItem", "setItemLabel", 2}, // 971
-  {wxToolBar_AddControl, "wxToolBar", "addControl", 3}, // 972
-  {wxToolBar_AddSeparator, "wxToolBar", "addSeparator", 1}, // 973
-  {wxToolBar_AddTool_1, "wxToolBar", "addTool", 2}, // 974
-  {wxToolBar_AddTool_4, "wxToolBar", "addTool", 5}, // 975
-  {wxToolBar_AddTool_5, "wxToolBar", "addTool", 6}, // 976
-  {wxToolBar_AddCheckTool, "wxToolBar", "addCheckTool", 5}, // 977
-  {wxToolBar_AddRadioTool, "wxToolBar", "addRadioTool", 5}, // 978
-  {wxToolBar_AddStretchableSpace, "wxToolBar", "addStretchableSpace", 1}, // 979
-  {wxToolBar_InsertStretchableSpace, "wxToolBar", "insertStretchableSpace", 2}, // 980
-  {wxToolBar_DeleteTool, "wxToolBar", "deleteTool", 2}, // 981
-  {wxToolBar_DeleteToolByPos, "wxToolBar", "deleteToolByPos", 2}, // 982
-  {wxToolBar_EnableTool, "wxToolBar", "enableTool", 3}, // 983
-  {wxToolBar_FindById, "wxToolBar", "findById", 2}, // 984
-  {wxToolBar_FindControl, "wxToolBar", "findControl", 2}, // 985
-  {wxToolBar_FindToolForPosition, "wxToolBar", "findToolForPosition", 3}, // 986
-  {wxToolBar_GetToolSize, "wxToolBar", "getToolSize", 1}, // 987
-  {wxToolBar_GetToolBitmapSize, "wxToolBar", "getToolBitmapSize", 1}, // 988
-  {wxToolBar_GetMargins, "wxToolBar", "getMargins", 1}, // 989
-  {wxToolBar_GetToolEnabled, "wxToolBar", "getToolEnabled", 2}, // 990
-  {wxToolBar_GetToolLongHelp, "wxToolBar", "getToolLongHelp", 2}, // 991
-  {wxToolBar_GetToolPacking, "wxToolBar", "getToolPacking", 1}, // 992
-  {wxToolBar_GetToolPos, "wxToolBar", "getToolPos", 2}, // 993
-  {wxToolBar_GetToolSeparation, "wxToolBar", "getToolSeparation", 1}, // 994
-  {wxToolBar_GetToolShortHelp, "wxToolBar", "getToolShortHelp", 2}, // 995
-  {wxToolBar_GetToolState, "wxToolBar", "getToolState", 2}, // 996
-  {wxToolBar_InsertControl, "wxToolBar", "insertControl", 4}, // 997
-  {wxToolBar_InsertSeparator, "wxToolBar", "insertSeparator", 2}, // 998
-  {wxToolBar_InsertTool_5, "wxToolBar", "insertTool", 6}, // 999
-  {wxToolBar_InsertTool_2, "wxToolBar", "insertTool", 3}, // 1000
-  {wxToolBar_Realize, "wxToolBar", "realize", 1}, // 1001
-  {wxToolBar_RemoveTool, "wxToolBar", "removeTool", 2}, // 1002
-  {wxToolBar_SetMargins, "wxToolBar", "setMargins", 3}, // 1003
-  {wxToolBar_SetToolBitmapSize, "wxToolBar", "setToolBitmapSize", 2}, // 1004
-  {wxToolBar_SetToolLongHelp, "wxToolBar", "setToolLongHelp", 3}, // 1005
-  {wxToolBar_SetToolPacking, "wxToolBar", "setToolPacking", 2}, // 1006
-  {wxToolBar_SetToolShortHelp, "wxToolBar", "setToolShortHelp", 3}, // 1007
-  {wxToolBar_SetToolSeparation, "wxToolBar", "setToolSeparation", 2}, // 1008
-  {wxToolBar_ToggleTool, "wxToolBar", "toggleTool", 3}, // 1009
-  {wxStatusBar_new_0, "wxStatusBar", "new", 0}, // 1010
-  {wxStatusBar_new_2, "wxStatusBar", "new", 2}, // 1011
-  {NULL, "wxStatusBar", "destroy", 1}, // 1012 obj destructor wxStatusBar_destruct
-  {wxStatusBar_Create, "wxStatusBar", "create", 3}, // 1013
-  {wxStatusBar_GetFieldRect, "wxStatusBar", "getFieldRect", 2}, // 1014
-  {wxStatusBar_GetFieldsCount, "wxStatusBar", "getFieldsCount", 1}, // 1015
-  {wxStatusBar_GetStatusText, "wxStatusBar", "getStatusText", 2}, // 1016
-  {wxStatusBar_PopStatusText, "wxStatusBar", "popStatusText", 2}, // 1017
-  {wxStatusBar_PushStatusText, "wxStatusBar", "pushStatusText", 3}, // 1018
-  {wxStatusBar_SetFieldsCount, "wxStatusBar", "setFieldsCount", 3}, // 1019
-  {wxStatusBar_SetMinHeight, "wxStatusBar", "setMinHeight", 2}, // 1020
-  {wxStatusBar_SetStatusText, "wxStatusBar", "setStatusText", 3}, // 1021
-  {wxStatusBar_SetStatusWidths, "wxStatusBar", "setStatusWidths", 2}, // 1022
-  {wxStatusBar_SetStatusStyles, "wxStatusBar", "setStatusStyles", 2}, // 1023
-  {wxBitmap_new_0, "wxBitmap", "new", 0}, // 1024
-  {NULL, "", "", 0}, // 1025
-  {wxBitmap_new_4, "wxBitmap", "new", 4}, // 1026
-  {wxBitmap_new_3, "wxBitmap", "new", 3}, // 1027
-  {wxBitmap_new_2_1, "wxBitmap", "new", 2}, // 1028
-  {wxBitmap_new_2_0, "wxBitmap", "new", 2}, // 1029
-  {wxBitmap_new_2_2, "wxBitmap", "new", 2}, // 1030
-  {wxBitmap_new_2_3, "wxBitmap", "new", 1}, // 1031
-  {NULL, "wxBitmap", "destroy", 1}, // 1032 obj destructor wxBitmap_destruct
-  {wxBitmap_ConvertToImage, "wxBitmap", "convertToImage", 1}, // 1033
-  {wxBitmap_CopyFromIcon, "wxBitmap", "copyFromIcon", 2}, // 1034
-  {wxBitmap_Create_3_0, "wxBitmap", "create", 4}, // 1035
-  {wxBitmap_Create_2, "wxBitmap", "create", 3}, // 1036
-  {wxBitmap_Create_3_1, "wxBitmap", "create", 4}, // 1037
-  {wxBitmap_GetDepth, "wxBitmap", "getDepth", 1}, // 1038
-  {wxBitmap_GetHeight, "wxBitmap", "getHeight", 1}, // 1039
-  {wxBitmap_GetPalette, "wxBitmap", "getPalette", 1}, // 1040
-  {wxBitmap_GetMask, "wxBitmap", "getMask", 1}, // 1041
-  {wxBitmap_GetWidth, "wxBitmap", "getWidth", 1}, // 1042
-  {wxBitmap_GetSubBitmap, "wxBitmap", "getSubBitmap", 2}, // 1043
-  {wxBitmap_LoadFile, "wxBitmap", "loadFile", 3}, // 1044
-  {wxBitmap_IsOk, "wxBitmap", "isOk", 1}, // 1045
-  {wxBitmap_SaveFile, "wxBitmap", "saveFile", 4}, // 1046
-  {wxBitmap_SetDepth, "wxBitmap", "setDepth", 2}, // 1047
-  {wxBitmap_SetHeight, "wxBitmap", "setHeight", 2}, // 1048
-  {wxBitmap_SetMask, "wxBitmap", "setMask", 2}, // 1049
-  {wxBitmap_SetPalette, "wxBitmap", "setPalette", 2}, // 1050
-  {wxBitmap_SetWidth, "wxBitmap", "setWidth", 2}, // 1051
-  {wxIcon_new_0, "wxIcon", "new", 0}, // 1052
-  {wxIcon_new_1, "wxIcon", "new", 1}, // 1053
-  {wxIcon_new_2, "wxIcon", "new", 2}, // 1054
-  {wxIcon_CopyFromBitmap, "wxIcon", "copyFromBitmap", 2}, // 1055
-  {NULL, "wxIcon", "destroy", 1}, // 1056 obj destructor wxIcon_destruct
-  {wxIconBundle_new_0, "wxIconBundle", "new", 0}, // 1057
-  {wxIconBundle_new_1_1, "wxIconBundle", "new", 1}, // 1058
-  {wxIconBundle_new_2, "wxIconBundle", "new", 2}, // 1059
-  {NULL, "", "", 0}, // 1060
-  {wxIconBundle_new_1_0, "wxIconBundle", "new", 1}, // 1061
-  {wxIconBundle_destruct, "wxIconBundle", "destroy", 1}, // 1062
-  {wxIconBundle_AddIcon_1_0, "wxIconBundle", "addIcon", 2}, // 1063
-  {wxIconBundle_AddIcon_2, "wxIconBundle", "addIcon", 3}, // 1064
-  {wxIconBundle_AddIcon_1_1, "wxIconBundle", "addIcon", 2}, // 1065
-  {wxIconBundle_GetIcon_2, "wxIconBundle", "getIcon", 3}, // 1066
-  {wxIconBundle_GetIcon_1, "wxIconBundle", "getIcon", 2}, // 1067
-  {wxCursor_new_0, "wxCursor", "new", 0}, // 1068
-  {wxCursor_new_2, "wxCursor", "new", 2}, // 1069
-  {wxCursor_new_1_1, "wxCursor", "new", 1}, // 1070
-  {wxCursor_new_1_0, "wxCursor", "new", 1}, // 1071
-  {NULL, "", "", 0}, // 1072
-  {NULL, "wxCursor", "destroy", 1}, // 1073 obj destructor wxCursor_destruct
-  {wxCursor_IsOk, "wxCursor", "isOk", 1}, // 1074
-  {wxMask_new_0, "wxMask", "new", 0}, // 1075
-  {wxMask_new_2_0, "wxMask", "new", 2}, // 1076
-  {wxMask_new_1, "wxMask", "new", 1}, // 1077
-  {wxMask_new_2_1, "wxMask", "new", 2}, // 1078
-  {NULL, "wxMask", "destroy", 1}, // 1079 obj destructor wxMask_destruct
-  {wxMask_Create_2_0, "wxMask", "create", 3}, // 1080
-  {wxMask_Create_1, "wxMask", "create", 2}, // 1081
-  {wxMask_Create_2_1, "wxMask", "create", 3}, // 1082
-  {wxImage_new_0, "wxImage", "new", 0}, // 1083
-  {wxImage_new_3_1, "wxImage", "new", 3}, // 1084
-  {wxImage_new_2_2, "wxImage", "new", 2}, // 1085
-  {wxImage_new_3_0, "wxImage", "new", 3}, // 1086
-  {wxImage_new_2_1, "wxImage", "new", 2}, // 1087
-  {wxImage_new_4, "wxImage", "new", 4}, // 1088
-  {wxImage_new_3_3, "wxImage", "new", 3}, // 1089
-  {wxImage_new_2_0, "wxImage", "new", 2}, // 1090
-  {wxImage_new_3_2, "wxImage", "new", 3}, // 1091
-  {NULL, "wxImage", "destroy", 1}, // 1092 obj destructor wxImage_destruct
-  {wxImage_Blur, "wxImage", "blur", 2}, // 1093
-  {wxImage_BlurHorizontal, "wxImage", "blurHorizontal", 2}, // 1094
-  {wxImage_BlurVertical, "wxImage", "blurVertical", 2}, // 1095
-  {wxImage_ConvertAlphaToMask_1, "wxImage", "convertAlphaToMask", 2}, // 1096
-  {wxImage_ConvertAlphaToMask_4, "wxImage", "convertAlphaToMask", 5}, // 1097
-  {wxImage_ConvertToGreyscale_3, "wxImage", "convertToGreyscale", 4}, // 1098
-  {wxImage_ConvertToGreyscale_0, "wxImage", "convertToGreyscale", 1}, // 1099
-  {wxImage_ConvertToMono, "wxImage", "convertToMono", 4}, // 1100
-  {wxImage_Copy, "wxImage", "copy", 1}, // 1101
-  {wxImage_Create_3_1, "wxImage", "create", 4}, // 1102
-  {wxImage_Create_2_1, "wxImage", "create", 3}, // 1103
-  {wxImage_Create_3_0, "wxImage", "create", 4}, // 1104
-  {wxImage_Create_2_0, "wxImage", "create", 3}, // 1105
-  {wxImage_Create_4, "wxImage", "create", 5}, // 1106
-  {wxImage_Create_3_2, "wxImage", "create", 4}, // 1107
-  {wxImage_Destroy, "wxImage", "'Destroy'", 1}, // 1108
-  {wxImage_FindFirstUnusedColour, "wxImage", "findFirstUnusedColour", 2}, // 1109
-  {wxImage_GetImageExtWildcard, "wxImage", "getImageExtWildcard", 0}, // 1110
-  {wxImage_GetAlpha_0, "wxImage", "getAlpha", 1}, // 1111
-  {wxImage_GetAlpha_2, "wxImage", "getAlpha", 3}, // 1112
-  {wxImage_GetBlue, "wxImage", "getBlue", 3}, // 1113
-  {wxImage_GetData, "wxImage", "getData", 1}, // 1114
-  {wxImage_GetGreen, "wxImage", "getGreen", 3}, // 1115
-  {wxImage_GetImageCount, "wxImage", "getImageCount", 2}, // 1116
-  {wxImage_GetHeight, "wxImage", "getHeight", 1}, // 1117
-  {wxImage_GetMaskBlue, "wxImage", "getMaskBlue", 1}, // 1118
-  {wxImage_GetMaskGreen, "wxImage", "getMaskGreen", 1}, // 1119
-  {wxImage_GetMaskRed, "wxImage", "getMaskRed", 1}, // 1120
-  {wxImage_GetOrFindMaskColour, "wxImage", "getOrFindMaskColour", 1}, // 1121
-  {wxImage_GetPalette, "wxImage", "getPalette", 1}, // 1122
-  {wxImage_GetRed, "wxImage", "getRed", 3}, // 1123
-  {wxImage_GetSubImage, "wxImage", "getSubImage", 2}, // 1124
-  {wxImage_GetWidth, "wxImage", "getWidth", 1}, // 1125
-  {wxImage_HasAlpha, "wxImage", "hasAlpha", 1}, // 1126
-  {wxImage_HasMask, "wxImage", "hasMask", 1}, // 1127
-  {wxImage_GetOption, "wxImage", "getOption", 2}, // 1128
-  {wxImage_GetOptionInt, "wxImage", "getOptionInt", 2}, // 1129
-  {wxImage_HasOption, "wxImage", "hasOption", 2}, // 1130
-  {wxImage_InitAlpha, "wxImage", "initAlpha", 1}, // 1131
-  {wxImage_InitStandardHandlers, "wxImage", "initStandardHandlers", 0}, // 1132
-  {wxImage_IsTransparent, "wxImage", "isTransparent", 4}, // 1133
-  {wxImage_LoadFile_2, "wxImage", "loadFile", 3}, // 1134
-  {wxImage_LoadFile_3, "wxImage", "loadFile", 4}, // 1135
-  {wxImage_IsOk, "wxImage", "isOk", 1}, // 1136
-  {wxImage_RemoveHandler, "wxImage", "removeHandler", 1}, // 1137
-  {wxImage_Mirror, "wxImage", "mirror", 2}, // 1138
-  {wxImage_Replace, "wxImage", "replace", 7}, // 1139
-  {wxImage_Rescale, "wxImage", "rescale", 4}, // 1140
-  {wxImage_Resize, "wxImage", "resize", 4}, // 1141
-  {wxImage_Rotate, "wxImage", "rotate", 4}, // 1142
-  {wxImage_RotateHue, "wxImage", "rotateHue", 2}, // 1143
-  {wxImage_Rotate90, "wxImage", "rotate90", 2}, // 1144
-  {wxImage_SaveFile_2_0, "wxImage", "saveFile", 3}, // 1145
-  {wxImage_SaveFile_2_1, "wxImage", "saveFile", 3}, // 1146
-  {wxImage_SaveFile_1, "wxImage", "saveFile", 2}, // 1147
-  {wxImage_Scale, "wxImage", "scale", 4}, // 1148
-  {wxImage_Size, "wxImage", "size", 4}, // 1149
-  {wxImage_SetAlpha_1, "wxImage", "setAlpha", 2}, // 1150
-  {wxImage_SetAlpha_3, "wxImage", "setAlpha", 4}, // 1151
-  {wxImage_SetData_1, "wxImage", "setData", 2}, // 1152
-  {wxImage_SetData_3, "wxImage", "setData", 4}, // 1153
-  {wxImage_SetMask, "wxImage", "setMask", 2}, // 1154
-  {wxImage_SetMaskColour, "wxImage", "setMaskColour", 4}, // 1155
-  {wxImage_SetMaskFromImage, "wxImage", "setMaskFromImage", 5}, // 1156
-  {wxImage_SetOption_2_1, "wxImage", "setOption", 3}, // 1157
-  {wxImage_SetOption_2_0, "wxImage", "setOption", 3}, // 1158
-  {wxImage_SetPalette, "wxImage", "setPalette", 2}, // 1159
-  {wxImage_SetRGB_5, "wxImage", "setRGB", 6}, // 1160
-  {wxImage_SetRGB_4, "wxImage", "setRGB", 5}, // 1161
-  {wxBrush_new_0, "wxBrush", "new", 0}, // 1162
-  {wxBrush_new_2, "wxBrush", "new", 2}, // 1163
-  {NULL, "", "", 0}, // 1164
-  {wxBrush_new_1, "wxBrush", "new", 1}, // 1165
-  {NULL, "wxBrush", "destroy", 1}, // 1166 obj destructor wxBrush_destruct
-  {wxBrush_GetColour, "wxBrush", "getColour", 1}, // 1167
-  {wxBrush_GetStipple, "wxBrush", "getStipple", 1}, // 1168
-  {wxBrush_GetStyle, "wxBrush", "getStyle", 1}, // 1169
-  {wxBrush_IsHatch, "wxBrush", "isHatch", 1}, // 1170
-  {wxBrush_IsOk, "wxBrush", "isOk", 1}, // 1171
-  {wxBrush_SetColour_1, "wxBrush", "setColour", 2}, // 1172
-  {wxBrush_SetColour_3, "wxBrush", "setColour", 4}, // 1173
-  {wxBrush_SetStipple, "wxBrush", "setStipple", 2}, // 1174
-  {wxBrush_SetStyle, "wxBrush", "setStyle", 2}, // 1175
-  {wxPen_new_0, "wxPen", "new", 0}, // 1176
-  {wxPen_new_2, "wxPen", "new", 2}, // 1177
-  {wxPen_new_1, "wxPen", "new", 1}, // 1178
-  {NULL, "wxPen", "destroy", 1}, // 1179 obj destructor wxPen_destruct
-  {wxPen_GetCap, "wxPen", "getCap", 1}, // 1180
-  {wxPen_GetColour, "wxPen", "getColour", 1}, // 1181
-  {wxPen_GetJoin, "wxPen", "getJoin", 1}, // 1182
-  {wxPen_GetStyle, "wxPen", "getStyle", 1}, // 1183
-  {wxPen_GetWidth, "wxPen", "getWidth", 1}, // 1184
-  {wxPen_IsOk, "wxPen", "isOk", 1}, // 1185
-  {wxPen_SetCap, "wxPen", "setCap", 2}, // 1186
-  {wxPen_SetColour_1, "wxPen", "setColour", 2}, // 1187
-  {wxPen_SetColour_3, "wxPen", "setColour", 4}, // 1188
-  {wxPen_SetJoin, "wxPen", "setJoin", 2}, // 1189
-  {wxPen_SetStyle, "wxPen", "setStyle", 2}, // 1190
-  {wxPen_SetWidth, "wxPen", "setWidth", 2}, // 1191
-  {wxRegion_new_0, "wxRegion", "new", 0}, // 1192
-  {wxRegion_new_4, "wxRegion", "new", 4}, // 1193
-  {wxRegion_new_2, "wxRegion", "new", 2}, // 1194
-  {wxRegion_new_1_0, "wxRegion", "new", 1}, // 1195
-  {NULL, "", "", 0}, // 1196
-  {wxRegion_new_1_1, "wxRegion", "new", 1}, // 1197
+#if defined(__WXMAC__)
+  {wxMenuBar_MacGetCommonMenuBar, "wxMenuBar", "macGetCommonMenuBar", 0}, // 874
+#else
+  {NULL, "wxMenuBar", "macGetCommonMenuBar", 0}, // 874
+#endif // defined(__WXMAC__)
+#if defined(__WXMAC__)
+  {wxMenuBar_MacSetCommonMenuBar, "wxMenuBar", "macSetCommonMenuBar", 1}, // 875
+#else
+  {NULL, "wxMenuBar", "macSetCommonMenuBar", 0}, // 875
+#endif // defined(__WXMAC__)
+  {wxMenuBar_IsEnabled, "wxMenuBar", "isEnabled", 2}, // 876
+  {wxMenuBar_Remove, "wxMenuBar", "remove", 2}, // 877
+  {wxMenuBar_Replace, "wxMenuBar", "replace", 4}, // 878
+  {wxMenuBar_SetHelpString, "wxMenuBar", "setHelpString", 3}, // 879
+  {wxMenuBar_SetLabel, "wxMenuBar", "setLabel", 3}, // 880
+  {wxMenuBar_SetMenuLabel, "wxMenuBar", "setMenuLabel", 3}, // 881
+  {wxControl_GetLabel, "wxControl", "getLabel", 1}, // 882
+  {wxControl_SetLabel, "wxControl", "setLabel", 2}, // 883
+  {wxControlWithItems_Append_1, "wxControlWithItems", "append", 2}, // 884
+  {wxControlWithItems_Append_2, "wxControlWithItems", "append", 3}, // 885
+  {wxControlWithItems_appendStrings_1, "wxControlWithItems", "appendStrings", 2}, // 886
+  {wxControlWithItems_appendStrings_2, "wxControlWithItems", "appendStrings", 3}, // 887
+  {wxControlWithItems_Clear, "wxControlWithItems", "clear", 1}, // 888
+  {wxControlWithItems_Delete, "wxControlWithItems", "delete", 2}, // 889
+  {wxControlWithItems_FindString, "wxControlWithItems", "findString", 3}, // 890
+  {wxControlWithItems_getClientData, "wxControlWithItems", "getClientData", 2}, // 891
+  {wxControlWithItems_setClientData, "wxControlWithItems", "setClientData", 3}, // 892
+  {wxControlWithItems_GetCount, "wxControlWithItems", "getCount", 1}, // 893
+  {wxControlWithItems_GetSelection, "wxControlWithItems", "getSelection", 1}, // 894
+  {wxControlWithItems_GetString, "wxControlWithItems", "getString", 2}, // 895
+  {wxControlWithItems_GetStringSelection, "wxControlWithItems", "getStringSelection", 1}, // 896
+  {wxControlWithItems_Insert_2, "wxControlWithItems", "insert", 3}, // 897
+  {wxControlWithItems_Insert_3, "wxControlWithItems", "insert", 4}, // 898
+  {wxControlWithItems_insertStrings_2, "wxControlWithItems", "insertStrings", 3}, // 899
+  {wxControlWithItems_insertStrings_3, "wxControlWithItems", "insertStrings", 4}, // 900
+  {wxControlWithItems_IsEmpty, "wxControlWithItems", "isEmpty", 1}, // 901
+  {wxControlWithItems_Select, "wxControlWithItems", "select", 2}, // 902
+  {wxControlWithItems_SetSelection, "wxControlWithItems", "setSelection", 2}, // 903
+  {wxControlWithItems_SetString, "wxControlWithItems", "setString", 3}, // 904
+  {wxControlWithItems_SetStringSelection, "wxControlWithItems", "setStringSelection", 2}, // 905
+  {wxMenu_new_0, "wxMenu", "new", 0}, // 906
+  {wxMenu_new_1, "wxMenu", "new", 1}, // 907
+  {wxMenu_new_2, "wxMenu", "new", 2}, // 908
+  {NULL, "wxMenu", "destroy", 1}, // 909 obj destructor wxMenu_destruct
+  {wxMenu_Append_3, "wxMenu", "append", 4}, // 910
+  {wxMenu_Append_4, "wxMenu", "append", 5}, // 911
+  {wxMenu_Append_1, "wxMenu", "append", 2}, // 912
+  {wxMenu_AppendCheckItem, "wxMenu", "appendCheckItem", 4}, // 913
+  {wxMenu_AppendRadioItem, "wxMenu", "appendRadioItem", 4}, // 914
+  {wxMenu_AppendSeparator, "wxMenu", "appendSeparator", 1}, // 915
+  {wxMenu_Break, "wxMenu", "break", 1}, // 916
+  {wxMenu_Check, "wxMenu", "check", 3}, // 917
+  {wxMenu_Delete_1_0, "wxMenu", "delete", 2}, // 918
+  {wxMenu_Delete_1_1, "wxMenu", "delete", 2}, // 919
+  {wxMenu_Destroy_1_0, "wxMenu", "'Destroy'", 2}, // 920
+  {wxMenu_Destroy_1_1, "wxMenu", "'Destroy'", 2}, // 921
+  {wxMenu_Enable, "wxMenu", "enable", 3}, // 922
+  {wxMenu_FindItem_1, "wxMenu", "findItem", 2}, // 923
+  {wxMenu_FindItem_2, "wxMenu", "findItem", 2}, // 924
+  {wxMenu_FindItemByPosition, "wxMenu", "findItemByPosition", 2}, // 925
+  {wxMenu_GetHelpString, "wxMenu", "getHelpString", 2}, // 926
+  {wxMenu_GetLabel, "wxMenu", "getLabel", 2}, // 927
+  {wxMenu_GetMenuItemCount, "wxMenu", "getMenuItemCount", 1}, // 928
+  {NULL, "", "", 0}, // 929
+  {wxMenu_GetMenuItems, "wxMenu", "getMenuItems", 1}, // 930
+  {wxMenu_GetTitle, "wxMenu", "getTitle", 1}, // 931
+  {wxMenu_Insert_2, "wxMenu", "insert", 3}, // 932
+  {wxMenu_Insert_3, "wxMenu", "insert", 4}, // 933
+  {wxMenu_Insert_5, "wxMenu", "insert", 6}, // 934
+  {wxMenu_InsertCheckItem, "wxMenu", "insertCheckItem", 5}, // 935
+  {wxMenu_InsertRadioItem, "wxMenu", "insertRadioItem", 5}, // 936
+  {wxMenu_InsertSeparator, "wxMenu", "insertSeparator", 2}, // 937
+  {wxMenu_IsChecked, "wxMenu", "isChecked", 2}, // 938
+  {wxMenu_IsEnabled, "wxMenu", "isEnabled", 2}, // 939
+  {wxMenu_Prepend_1, "wxMenu", "prepend", 2}, // 940
+  {wxMenu_Prepend_2, "wxMenu", "prepend", 3}, // 941
+  {wxMenu_Prepend_4, "wxMenu", "prepend", 5}, // 942
+  {wxMenu_PrependCheckItem, "wxMenu", "prependCheckItem", 4}, // 943
+  {wxMenu_PrependRadioItem, "wxMenu", "prependRadioItem", 4}, // 944
+  {wxMenu_PrependSeparator, "wxMenu", "prependSeparator", 1}, // 945
+  {wxMenu_Remove_1_0, "wxMenu", "remove", 2}, // 946
+  {wxMenu_Remove_1_1, "wxMenu", "remove", 2}, // 947
+  {wxMenu_SetHelpString, "wxMenu", "setHelpString", 3}, // 948
+  {wxMenu_SetLabel, "wxMenu", "setLabel", 3}, // 949
+  {wxMenu_SetTitle, "wxMenu", "setTitle", 2}, // 950
+  {wxMenuItem_new, "wxMenuItem", "new", 1}, // 951
+  {NULL, "wxMenuItem", "destroy", 1}, // 952 obj destructor wxMenuItem_destruct
+  {wxMenuItem_Check, "wxMenuItem", "check", 2}, // 953
+  {wxMenuItem_Enable, "wxMenuItem", "enable", 2}, // 954
+  {wxMenuItem_GetBitmap, "wxMenuItem", "getBitmap", 1}, // 955
+  {wxMenuItem_GetHelp, "wxMenuItem", "getHelp", 1}, // 956
+  {wxMenuItem_GetId, "wxMenuItem", "getId", 1}, // 957
+  {wxMenuItem_GetKind, "wxMenuItem", "getKind", 1}, // 958
+  {wxMenuItem_GetLabelText, "wxMenuItem", "getLabelText", 1}, // 959
+  {wxMenuItem_GetItemLabel, "wxMenuItem", "getItemLabel", 1}, // 960
+  {wxMenuItem_GetItemLabelText, "wxMenuItem", "getItemLabelText", 1}, // 961
+  {wxMenuItem_GetMenu, "wxMenuItem", "getMenu", 1}, // 962
+  {wxMenuItem_GetSubMenu, "wxMenuItem", "getSubMenu", 1}, // 963
+  {wxMenuItem_IsCheckable, "wxMenuItem", "isCheckable", 1}, // 964
+  {wxMenuItem_IsChecked, "wxMenuItem", "isChecked", 1}, // 965
+  {wxMenuItem_IsEnabled, "wxMenuItem", "isEnabled", 1}, // 966
+  {wxMenuItem_IsSeparator, "wxMenuItem", "isSeparator", 1}, // 967
+  {wxMenuItem_IsSubMenu, "wxMenuItem", "isSubMenu", 1}, // 968
+  {wxMenuItem_SetBitmap, "wxMenuItem", "setBitmap", 2}, // 969
+  {wxMenuItem_SetHelp, "wxMenuItem", "setHelp", 2}, // 970
+  {wxMenuItem_SetMenu, "wxMenuItem", "setMenu", 2}, // 971
+  {wxMenuItem_SetSubMenu, "wxMenuItem", "setSubMenu", 2}, // 972
+  {wxMenuItem_SetItemLabel, "wxMenuItem", "setItemLabel", 2}, // 973
+  {wxToolBar_AddControl, "wxToolBar", "addControl", 3}, // 974
+  {wxToolBar_AddSeparator, "wxToolBar", "addSeparator", 1}, // 975
+  {wxToolBar_AddTool_1, "wxToolBar", "addTool", 2}, // 976
+  {wxToolBar_AddTool_4, "wxToolBar", "addTool", 5}, // 977
+  {wxToolBar_AddTool_5, "wxToolBar", "addTool", 6}, // 978
+  {wxToolBar_AddCheckTool, "wxToolBar", "addCheckTool", 5}, // 979
+  {wxToolBar_AddRadioTool, "wxToolBar", "addRadioTool", 5}, // 980
+  {wxToolBar_AddStretchableSpace, "wxToolBar", "addStretchableSpace", 1}, // 981
+  {wxToolBar_InsertStretchableSpace, "wxToolBar", "insertStretchableSpace", 2}, // 982
+  {wxToolBar_DeleteTool, "wxToolBar", "deleteTool", 2}, // 983
+  {wxToolBar_DeleteToolByPos, "wxToolBar", "deleteToolByPos", 2}, // 984
+  {wxToolBar_EnableTool, "wxToolBar", "enableTool", 3}, // 985
+  {wxToolBar_FindById, "wxToolBar", "findById", 2}, // 986
+  {wxToolBar_FindControl, "wxToolBar", "findControl", 2}, // 987
+  {wxToolBar_FindToolForPosition, "wxToolBar", "findToolForPosition", 3}, // 988
+  {wxToolBar_GetToolSize, "wxToolBar", "getToolSize", 1}, // 989
+  {wxToolBar_GetToolBitmapSize, "wxToolBar", "getToolBitmapSize", 1}, // 990
+  {wxToolBar_GetMargins, "wxToolBar", "getMargins", 1}, // 991
+  {wxToolBar_GetToolEnabled, "wxToolBar", "getToolEnabled", 2}, // 992
+  {wxToolBar_GetToolLongHelp, "wxToolBar", "getToolLongHelp", 2}, // 993
+  {wxToolBar_GetToolPacking, "wxToolBar", "getToolPacking", 1}, // 994
+  {wxToolBar_GetToolPos, "wxToolBar", "getToolPos", 2}, // 995
+  {wxToolBar_GetToolSeparation, "wxToolBar", "getToolSeparation", 1}, // 996
+  {wxToolBar_GetToolShortHelp, "wxToolBar", "getToolShortHelp", 2}, // 997
+  {wxToolBar_GetToolState, "wxToolBar", "getToolState", 2}, // 998
+  {wxToolBar_InsertControl, "wxToolBar", "insertControl", 4}, // 999
+  {wxToolBar_InsertSeparator, "wxToolBar", "insertSeparator", 2}, // 1000
+  {wxToolBar_InsertTool_5, "wxToolBar", "insertTool", 6}, // 1001
+  {wxToolBar_InsertTool_2, "wxToolBar", "insertTool", 3}, // 1002
+  {wxToolBar_Realize, "wxToolBar", "realize", 1}, // 1003
+  {wxToolBar_RemoveTool, "wxToolBar", "removeTool", 2}, // 1004
+  {wxToolBar_SetMargins, "wxToolBar", "setMargins", 3}, // 1005
+  {wxToolBar_SetToolBitmapSize, "wxToolBar", "setToolBitmapSize", 2}, // 1006
+  {wxToolBar_SetToolLongHelp, "wxToolBar", "setToolLongHelp", 3}, // 1007
+  {wxToolBar_SetToolPacking, "wxToolBar", "setToolPacking", 2}, // 1008
+  {wxToolBar_SetToolShortHelp, "wxToolBar", "setToolShortHelp", 3}, // 1009
+  {wxToolBar_SetToolSeparation, "wxToolBar", "setToolSeparation", 2}, // 1010
+  {wxToolBar_ToggleTool, "wxToolBar", "toggleTool", 3}, // 1011
+  {wxStatusBar_new_0, "wxStatusBar", "new", 0}, // 1012
+  {wxStatusBar_new_2, "wxStatusBar", "new", 2}, // 1013
+  {NULL, "wxStatusBar", "destroy", 1}, // 1014 obj destructor wxStatusBar_destruct
+  {wxStatusBar_Create, "wxStatusBar", "create", 3}, // 1015
+  {wxStatusBar_GetFieldRect, "wxStatusBar", "getFieldRect", 2}, // 1016
+  {wxStatusBar_GetFieldsCount, "wxStatusBar", "getFieldsCount", 1}, // 1017
+  {wxStatusBar_GetStatusText, "wxStatusBar", "getStatusText", 2}, // 1018
+  {wxStatusBar_PopStatusText, "wxStatusBar", "popStatusText", 2}, // 1019
+  {wxStatusBar_PushStatusText, "wxStatusBar", "pushStatusText", 3}, // 1020
+  {wxStatusBar_SetFieldsCount, "wxStatusBar", "setFieldsCount", 3}, // 1021
+  {wxStatusBar_SetMinHeight, "wxStatusBar", "setMinHeight", 2}, // 1022
+  {wxStatusBar_SetStatusText, "wxStatusBar", "setStatusText", 3}, // 1023
+  {wxStatusBar_SetStatusWidths, "wxStatusBar", "setStatusWidths", 2}, // 1024
+  {wxStatusBar_SetStatusStyles, "wxStatusBar", "setStatusStyles", 2}, // 1025
+  {wxBitmap_new_0, "wxBitmap", "new", 0}, // 1026
+  {NULL, "", "", 0}, // 1027
+  {wxBitmap_new_4, "wxBitmap", "new", 4}, // 1028
+  {wxBitmap_new_3, "wxBitmap", "new", 3}, // 1029
+  {wxBitmap_new_2_1, "wxBitmap", "new", 2}, // 1030
+  {wxBitmap_new_2_0, "wxBitmap", "new", 2}, // 1031
+  {wxBitmap_new_2_2, "wxBitmap", "new", 2}, // 1032
+  {wxBitmap_new_2_3, "wxBitmap", "new", 1}, // 1033
+  {NULL, "wxBitmap", "destroy", 1}, // 1034 obj destructor wxBitmap_destruct
+  {wxBitmap_ConvertToImage, "wxBitmap", "convertToImage", 1}, // 1035
+  {wxBitmap_CopyFromIcon, "wxBitmap", "copyFromIcon", 2}, // 1036
+  {wxBitmap_Create_3_0, "wxBitmap", "create", 4}, // 1037
+  {wxBitmap_Create_2, "wxBitmap", "create", 3}, // 1038
+  {wxBitmap_Create_3_1, "wxBitmap", "create", 4}, // 1039
+  {wxBitmap_GetDepth, "wxBitmap", "getDepth", 1}, // 1040
+  {wxBitmap_GetHeight, "wxBitmap", "getHeight", 1}, // 1041
+  {wxBitmap_GetPalette, "wxBitmap", "getPalette", 1}, // 1042
+  {wxBitmap_GetMask, "wxBitmap", "getMask", 1}, // 1043
+  {wxBitmap_GetWidth, "wxBitmap", "getWidth", 1}, // 1044
+  {wxBitmap_GetSubBitmap, "wxBitmap", "getSubBitmap", 2}, // 1045
+  {wxBitmap_LoadFile, "wxBitmap", "loadFile", 3}, // 1046
+  {wxBitmap_IsOk, "wxBitmap", "isOk", 1}, // 1047
+  {wxBitmap_SaveFile, "wxBitmap", "saveFile", 4}, // 1048
+  {wxBitmap_SetDepth, "wxBitmap", "setDepth", 2}, // 1049
+  {wxBitmap_SetHeight, "wxBitmap", "setHeight", 2}, // 1050
+  {wxBitmap_SetMask, "wxBitmap", "setMask", 2}, // 1051
+  {wxBitmap_SetPalette, "wxBitmap", "setPalette", 2}, // 1052
+  {wxBitmap_SetWidth, "wxBitmap", "setWidth", 2}, // 1053
+  {wxIcon_new_0, "wxIcon", "new", 0}, // 1054
+  {wxIcon_new_1, "wxIcon", "new", 1}, // 1055
+  {wxIcon_new_2, "wxIcon", "new", 2}, // 1056
+  {wxIcon_CopyFromBitmap, "wxIcon", "copyFromBitmap", 2}, // 1057
+  {NULL, "wxIcon", "destroy", 1}, // 1058 obj destructor wxIcon_destruct
+  {wxIconBundle_new_0, "wxIconBundle", "new", 0}, // 1059
+  {wxIconBundle_new_1_1, "wxIconBundle", "new", 1}, // 1060
+  {wxIconBundle_new_2, "wxIconBundle", "new", 2}, // 1061
+  {NULL, "", "", 0}, // 1062
+  {wxIconBundle_new_1_0, "wxIconBundle", "new", 1}, // 1063
+  {wxIconBundle_destruct, "wxIconBundle", "destroy", 1}, // 1064
+  {wxIconBundle_AddIcon_1_0, "wxIconBundle", "addIcon", 2}, // 1065
+  {wxIconBundle_AddIcon_2, "wxIconBundle", "addIcon", 3}, // 1066
+  {wxIconBundle_AddIcon_1_1, "wxIconBundle", "addIcon", 2}, // 1067
+  {wxIconBundle_GetIcon_2, "wxIconBundle", "getIcon", 3}, // 1068
+  {wxIconBundle_GetIcon_1, "wxIconBundle", "getIcon", 2}, // 1069
+  {wxCursor_new_0, "wxCursor", "new", 0}, // 1070
+  {wxCursor_new_2, "wxCursor", "new", 2}, // 1071
+  {wxCursor_new_1_1, "wxCursor", "new", 1}, // 1072
+  {wxCursor_new_1_0, "wxCursor", "new", 1}, // 1073
+  {NULL, "", "", 0}, // 1074
+  {NULL, "wxCursor", "destroy", 1}, // 1075 obj destructor wxCursor_destruct
+  {wxCursor_IsOk, "wxCursor", "isOk", 1}, // 1076
+  {wxMask_new_0, "wxMask", "new", 0}, // 1077
+  {wxMask_new_2_0, "wxMask", "new", 2}, // 1078
+  {wxMask_new_1, "wxMask", "new", 1}, // 1079
+  {wxMask_new_2_1, "wxMask", "new", 2}, // 1080
+  {NULL, "wxMask", "destroy", 1}, // 1081 obj destructor wxMask_destruct
+  {wxMask_Create_2_0, "wxMask", "create", 3}, // 1082
+  {wxMask_Create_1, "wxMask", "create", 2}, // 1083
+  {wxMask_Create_2_1, "wxMask", "create", 3}, // 1084
+  {wxImage_new_0, "wxImage", "new", 0}, // 1085
+  {wxImage_new_3_1, "wxImage", "new", 3}, // 1086
+  {wxImage_new_2_2, "wxImage", "new", 2}, // 1087
+  {wxImage_new_3_0, "wxImage", "new", 3}, // 1088
+  {wxImage_new_2_1, "wxImage", "new", 2}, // 1089
+  {wxImage_new_4, "wxImage", "new", 4}, // 1090
+  {wxImage_new_3_3, "wxImage", "new", 3}, // 1091
+  {wxImage_new_2_0, "wxImage", "new", 2}, // 1092
+  {wxImage_new_3_2, "wxImage", "new", 3}, // 1093
+  {NULL, "wxImage", "destroy", 1}, // 1094 obj destructor wxImage_destruct
+  {wxImage_Blur, "wxImage", "blur", 2}, // 1095
+  {wxImage_BlurHorizontal, "wxImage", "blurHorizontal", 2}, // 1096
+  {wxImage_BlurVertical, "wxImage", "blurVertical", 2}, // 1097
+  {wxImage_ConvertAlphaToMask_1, "wxImage", "convertAlphaToMask", 2}, // 1098
+  {wxImage_ConvertAlphaToMask_4, "wxImage", "convertAlphaToMask", 5}, // 1099
+  {wxImage_ConvertToGreyscale_3, "wxImage", "convertToGreyscale", 4}, // 1100
+  {wxImage_ConvertToGreyscale_0, "wxImage", "convertToGreyscale", 1}, // 1101
+  {wxImage_ConvertToMono, "wxImage", "convertToMono", 4}, // 1102
+  {wxImage_Copy, "wxImage", "copy", 1}, // 1103
+  {wxImage_Create_3_1, "wxImage", "create", 4}, // 1104
+  {wxImage_Create_2_1, "wxImage", "create", 3}, // 1105
+  {wxImage_Create_3_0, "wxImage", "create", 4}, // 1106
+  {wxImage_Create_2_0, "wxImage", "create", 3}, // 1107
+  {wxImage_Create_4, "wxImage", "create", 5}, // 1108
+  {wxImage_Create_3_2, "wxImage", "create", 4}, // 1109
+  {wxImage_Destroy, "wxImage", "'Destroy'", 1}, // 1110
+  {wxImage_FindFirstUnusedColour, "wxImage", "findFirstUnusedColour", 2}, // 1111
+  {wxImage_GetImageExtWildcard, "wxImage", "getImageExtWildcard", 0}, // 1112
+  {wxImage_GetAlpha_0, "wxImage", "getAlpha", 1}, // 1113
+  {wxImage_GetAlpha_2, "wxImage", "getAlpha", 3}, // 1114
+  {wxImage_GetBlue, "wxImage", "getBlue", 3}, // 1115
+  {wxImage_GetData, "wxImage", "getData", 1}, // 1116
+  {wxImage_GetGreen, "wxImage", "getGreen", 3}, // 1117
+  {wxImage_GetImageCount, "wxImage", "getImageCount", 2}, // 1118
+  {wxImage_GetHeight, "wxImage", "getHeight", 1}, // 1119
+  {wxImage_GetMaskBlue, "wxImage", "getMaskBlue", 1}, // 1120
+  {wxImage_GetMaskGreen, "wxImage", "getMaskGreen", 1}, // 1121
+  {wxImage_GetMaskRed, "wxImage", "getMaskRed", 1}, // 1122
+  {wxImage_GetOrFindMaskColour, "wxImage", "getOrFindMaskColour", 1}, // 1123
+  {wxImage_GetPalette, "wxImage", "getPalette", 1}, // 1124
+  {wxImage_GetRed, "wxImage", "getRed", 3}, // 1125
+  {wxImage_GetSubImage, "wxImage", "getSubImage", 2}, // 1126
+  {wxImage_GetWidth, "wxImage", "getWidth", 1}, // 1127
+  {wxImage_HasAlpha, "wxImage", "hasAlpha", 1}, // 1128
+  {wxImage_HasMask, "wxImage", "hasMask", 1}, // 1129
+  {wxImage_GetOption, "wxImage", "getOption", 2}, // 1130
+  {wxImage_GetOptionInt, "wxImage", "getOptionInt", 2}, // 1131
+  {wxImage_HasOption, "wxImage", "hasOption", 2}, // 1132
+  {wxImage_InitAlpha, "wxImage", "initAlpha", 1}, // 1133
+  {wxImage_InitStandardHandlers, "wxImage", "initStandardHandlers", 0}, // 1134
+  {wxImage_IsTransparent, "wxImage", "isTransparent", 4}, // 1135
+  {wxImage_LoadFile_2, "wxImage", "loadFile", 3}, // 1136
+  {wxImage_LoadFile_3, "wxImage", "loadFile", 4}, // 1137
+  {wxImage_IsOk, "wxImage", "isOk", 1}, // 1138
+  {wxImage_RemoveHandler, "wxImage", "removeHandler", 1}, // 1139
+  {wxImage_Mirror, "wxImage", "mirror", 2}, // 1140
+  {wxImage_Replace, "wxImage", "replace", 7}, // 1141
+  {wxImage_Rescale, "wxImage", "rescale", 4}, // 1142
+  {wxImage_Resize, "wxImage", "resize", 4}, // 1143
+  {wxImage_Rotate, "wxImage", "rotate", 4}, // 1144
+  {wxImage_RotateHue, "wxImage", "rotateHue", 2}, // 1145
+  {wxImage_Rotate90, "wxImage", "rotate90", 2}, // 1146
+  {wxImage_SaveFile_2_0, "wxImage", "saveFile", 3}, // 1147
+  {wxImage_SaveFile_2_1, "wxImage", "saveFile", 3}, // 1148
+  {wxImage_SaveFile_1, "wxImage", "saveFile", 2}, // 1149
+  {wxImage_Scale, "wxImage", "scale", 4}, // 1150
+  {wxImage_Size, "wxImage", "size", 4}, // 1151
+  {wxImage_SetAlpha_1, "wxImage", "setAlpha", 2}, // 1152
+  {wxImage_SetAlpha_3, "wxImage", "setAlpha", 4}, // 1153
+  {wxImage_SetData_1, "wxImage", "setData", 2}, // 1154
+  {wxImage_SetData_3, "wxImage", "setData", 4}, // 1155
+  {wxImage_SetMask, "wxImage", "setMask", 2}, // 1156
+  {wxImage_SetMaskColour, "wxImage", "setMaskColour", 4}, // 1157
+  {wxImage_SetMaskFromImage, "wxImage", "setMaskFromImage", 5}, // 1158
+  {wxImage_SetOption_2_1, "wxImage", "setOption", 3}, // 1159
+  {wxImage_SetOption_2_0, "wxImage", "setOption", 3}, // 1160
+  {wxImage_SetPalette, "wxImage", "setPalette", 2}, // 1161
+  {wxImage_SetRGB_5, "wxImage", "setRGB", 6}, // 1162
+  {wxImage_SetRGB_4, "wxImage", "setRGB", 5}, // 1163
+  {wxBrush_new_0, "wxBrush", "new", 0}, // 1164
+  {wxBrush_new_2, "wxBrush", "new", 2}, // 1165
+  {NULL, "", "", 0}, // 1166
+  {wxBrush_new_1, "wxBrush", "new", 1}, // 1167
+  {NULL, "wxBrush", "destroy", 1}, // 1168 obj destructor wxBrush_destruct
+  {wxBrush_GetColour, "wxBrush", "getColour", 1}, // 1169
+  {wxBrush_GetStipple, "wxBrush", "getStipple", 1}, // 1170
+  {wxBrush_GetStyle, "wxBrush", "getStyle", 1}, // 1171
+  {wxBrush_IsHatch, "wxBrush", "isHatch", 1}, // 1172
+  {wxBrush_IsOk, "wxBrush", "isOk", 1}, // 1173
+  {wxBrush_SetColour_1, "wxBrush", "setColour", 2}, // 1174
+  {wxBrush_SetColour_3, "wxBrush", "setColour", 4}, // 1175
+  {wxBrush_SetStipple, "wxBrush", "setStipple", 2}, // 1176
+  {wxBrush_SetStyle, "wxBrush", "setStyle", 2}, // 1177
+  {wxPen_new_0, "wxPen", "new", 0}, // 1178
+  {wxPen_new_2, "wxPen", "new", 2}, // 1179
+  {wxPen_new_1, "wxPen", "new", 1}, // 1180
+  {NULL, "wxPen", "destroy", 1}, // 1181 obj destructor wxPen_destruct
+  {wxPen_GetCap, "wxPen", "getCap", 1}, // 1182
+  {wxPen_GetColour, "wxPen", "getColour", 1}, // 1183
+  {wxPen_GetJoin, "wxPen", "getJoin", 1}, // 1184
+  {wxPen_GetStyle, "wxPen", "getStyle", 1}, // 1185
+  {wxPen_GetWidth, "wxPen", "getWidth", 1}, // 1186
+  {wxPen_IsOk, "wxPen", "isOk", 1}, // 1187
+  {wxPen_SetCap, "wxPen", "setCap", 2}, // 1188
+  {wxPen_SetColour_1, "wxPen", "setColour", 2}, // 1189
+  {wxPen_SetColour_3, "wxPen", "setColour", 4}, // 1190
+  {wxPen_SetJoin, "wxPen", "setJoin", 2}, // 1191
+  {wxPen_SetStyle, "wxPen", "setStyle", 2}, // 1192
+  {wxPen_SetWidth, "wxPen", "setWidth", 2}, // 1193
+  {wxRegion_new_0, "wxRegion", "new", 0}, // 1194
+  {wxRegion_new_4, "wxRegion", "new", 4}, // 1195
+  {wxRegion_new_2, "wxRegion", "new", 2}, // 1196
+  {wxRegion_new_1_0, "wxRegion", "new", 1}, // 1197
   {NULL, "", "", 0}, // 1198
-  {NULL, "wxRegion", "destroy", 1}, // 1199 obj destructor wxRegion_destruct
-  {wxRegion_Clear, "wxRegion", "clear", 1}, // 1200
-  {wxRegion_Contains_2, "wxRegion", "contains", 3}, // 1201
-  {wxRegion_Contains_1_0, "wxRegion", "contains", 2}, // 1202
-  {wxRegion_Contains_4, "wxRegion", "contains", 5}, // 1203
-  {wxRegion_Contains_1_1, "wxRegion", "contains", 2}, // 1204
-  {wxRegion_ConvertToBitmap, "wxRegion", "convertToBitmap", 1}, // 1205
-  {wxRegion_GetBox, "wxRegion", "getBox", 1}, // 1206
-  {wxRegion_Intersect_4, "wxRegion", "intersect", 5}, // 1207
-  {wxRegion_Intersect_1_0, "wxRegion", "intersect", 2}, // 1208
-  {wxRegion_Intersect_1_1, "wxRegion", "intersect", 2}, // 1209
-  {wxRegion_IsEmpty, "wxRegion", "isEmpty", 1}, // 1210
-  {wxRegion_Subtract_1_0, "wxRegion", "subtract", 2}, // 1211
-  {wxRegion_Subtract_1_1, "wxRegion", "subtract", 2}, // 1212
-  {wxRegion_Offset_2, "wxRegion", "offset", 3}, // 1213
-  {wxRegion_Offset_1, "wxRegion", "offset", 2}, // 1214
-  {wxRegion_Union_4, "wxRegion", "union", 5}, // 1215
-  {wxRegion_Union_1_1, "wxRegion", "union", 2}, // 1216
-  {wxRegion_Union_1_0, "wxRegion", "union", 2}, // 1217
-  {NULL, "", "", 0}, // 1218
-  {wxRegion_Union_3, "wxRegion", "union", 4}, // 1219
-  {wxRegion_Xor_4, "wxRegion", "'Xor'", 5}, // 1220
-  {wxRegion_Xor_1_0, "wxRegion", "'Xor'", 2}, // 1221
-  {wxRegion_Xor_1_1, "wxRegion", "'Xor'", 2}, // 1222
-  {wxAcceleratorTable_new_0, "wxAcceleratorTable", "new", 0}, // 1223
-  {wxAcceleratorTable_new_2, "wxAcceleratorTable", "new", 2}, // 1224
-  {NULL, "", "", 0}, // 1225
-  {NULL, "wxAcceleratorTable", "destroy", 1}, // 1226 obj destructor wxAcceleratorTable_destruct
-  {wxAcceleratorTable_IsOk, "wxAcceleratorTable", "isOk", 1}, // 1227
-  {wxAcceleratorEntry_new_1_0, "wxAcceleratorEntry", "new", 1}, // 1228
-  {wxAcceleratorEntry_new_1_1, "wxAcceleratorEntry", "new", 1}, // 1229
-  {wxAcceleratorEntry_GetCommand, "wxAcceleratorEntry", "getCommand", 1}, // 1230
-  {wxAcceleratorEntry_GetFlags, "wxAcceleratorEntry", "getFlags", 1}, // 1231
-  {wxAcceleratorEntry_GetKeyCode, "wxAcceleratorEntry", "getKeyCode", 1}, // 1232
-  {wxAcceleratorEntry_Set, "wxAcceleratorEntry", "set", 5}, // 1233
-  {wxAcceleratorEntry_destroy, "wxAcceleratorEntry", "'Destroy'", 1}, // 1234
-  {NULL, "", "", 0}, // 1235
-  {wxCaret_new_3, "wxCaret", "new", 3}, // 1236
-  {wxCaret_new_2, "wxCaret", "new", 2}, // 1237
-  {wxCaret_Create_3, "wxCaret", "create", 4}, // 1238
-  {wxCaret_Create_2, "wxCaret", "create", 3}, // 1239
-  {wxCaret_GetBlinkTime, "wxCaret", "getBlinkTime", 0}, // 1240
-  {NULL, "", "", 0}, // 1241
-  {wxCaret_GetPosition, "wxCaret", "getPosition", 1}, // 1242
+  {wxRegion_new_1_1, "wxRegion", "new", 1}, // 1199
+  {NULL, "", "", 0}, // 1200
+  {NULL, "wxRegion", "destroy", 1}, // 1201 obj destructor wxRegion_destruct
+  {wxRegion_Clear, "wxRegion", "clear", 1}, // 1202
+  {wxRegion_Contains_2, "wxRegion", "contains", 3}, // 1203
+  {wxRegion_Contains_1_0, "wxRegion", "contains", 2}, // 1204
+  {wxRegion_Contains_4, "wxRegion", "contains", 5}, // 1205
+  {wxRegion_Contains_1_1, "wxRegion", "contains", 2}, // 1206
+  {wxRegion_ConvertToBitmap, "wxRegion", "convertToBitmap", 1}, // 1207
+  {wxRegion_GetBox, "wxRegion", "getBox", 1}, // 1208
+  {wxRegion_Intersect_4, "wxRegion", "intersect", 5}, // 1209
+  {wxRegion_Intersect_1_0, "wxRegion", "intersect", 2}, // 1210
+  {wxRegion_Intersect_1_1, "wxRegion", "intersect", 2}, // 1211
+  {wxRegion_IsEmpty, "wxRegion", "isEmpty", 1}, // 1212
+  {wxRegion_Subtract_1_0, "wxRegion", "subtract", 2}, // 1213
+  {wxRegion_Subtract_1_1, "wxRegion", "subtract", 2}, // 1214
+  {wxRegion_Offset_2, "wxRegion", "offset", 3}, // 1215
+  {wxRegion_Offset_1, "wxRegion", "offset", 2}, // 1216
+  {wxRegion_Union_4, "wxRegion", "union", 5}, // 1217
+  {wxRegion_Union_1_1, "wxRegion", "union", 2}, // 1218
+  {wxRegion_Union_1_0, "wxRegion", "union", 2}, // 1219
+  {NULL, "", "", 0}, // 1220
+  {wxRegion_Union_3, "wxRegion", "union", 4}, // 1221
+  {wxRegion_Xor_4, "wxRegion", "'Xor'", 5}, // 1222
+  {wxRegion_Xor_1_0, "wxRegion", "'Xor'", 2}, // 1223
+  {wxRegion_Xor_1_1, "wxRegion", "'Xor'", 2}, // 1224
+  {wxAcceleratorTable_new_0, "wxAcceleratorTable", "new", 0}, // 1225
+  {wxAcceleratorTable_new_2, "wxAcceleratorTable", "new", 2}, // 1226
+  {NULL, "", "", 0}, // 1227
+  {NULL, "wxAcceleratorTable", "destroy", 1}, // 1228 obj destructor wxAcceleratorTable_destruct
+  {wxAcceleratorTable_IsOk, "wxAcceleratorTable", "isOk", 1}, // 1229
+  {wxAcceleratorEntry_new_1_0, "wxAcceleratorEntry", "new", 1}, // 1230
+  {wxAcceleratorEntry_new_1_1, "wxAcceleratorEntry", "new", 1}, // 1231
+  {wxAcceleratorEntry_GetCommand, "wxAcceleratorEntry", "getCommand", 1}, // 1232
+  {wxAcceleratorEntry_GetFlags, "wxAcceleratorEntry", "getFlags", 1}, // 1233
+  {wxAcceleratorEntry_GetKeyCode, "wxAcceleratorEntry", "getKeyCode", 1}, // 1234
+  {wxAcceleratorEntry_Set, "wxAcceleratorEntry", "set", 5}, // 1235
+  {wxAcceleratorEntry_destroy, "wxAcceleratorEntry", "'Destroy'", 1}, // 1236
+  {NULL, "", "", 0}, // 1237
+  {wxCaret_new_3, "wxCaret", "new", 3}, // 1238
+  {wxCaret_new_2, "wxCaret", "new", 2}, // 1239
+  {wxCaret_Create_3, "wxCaret", "create", 4}, // 1240
+  {wxCaret_Create_2, "wxCaret", "create", 3}, // 1241
+  {wxCaret_GetBlinkTime, "wxCaret", "getBlinkTime", 0}, // 1242
   {NULL, "", "", 0}, // 1243
-  {wxCaret_GetSize, "wxCaret", "getSize", 1}, // 1244
-  {wxCaret_GetWindow, "wxCaret", "getWindow", 1}, // 1245
-  {wxCaret_Hide, "wxCaret", "hide", 1}, // 1246
-  {wxCaret_IsOk, "wxCaret", "isOk", 1}, // 1247
-  {wxCaret_IsVisible, "wxCaret", "isVisible", 1}, // 1248
-  {wxCaret_Move_2, "wxCaret", "move", 3}, // 1249
-  {wxCaret_Move_1, "wxCaret", "move", 2}, // 1250
-  {wxCaret_SetBlinkTime, "wxCaret", "setBlinkTime", 1}, // 1251
-  {wxCaret_SetSize_2, "wxCaret", "setSize", 3}, // 1252
-  {wxCaret_SetSize_1, "wxCaret", "setSize", 2}, // 1253
-  {wxCaret_Show, "wxCaret", "show", 2}, // 1254
-  {wxCaret_destroy, "wxCaret", "'Destroy'", 1}, // 1255
-  {wxSizer_Add_2_0, "wxSizer", "add", 3}, // 1256
-  {wxSizer_Add_2_1, "wxSizer", "add", 3}, // 1257
-  {NULL, "", "", 0}, // 1258
-  {NULL, "", "", 0}, // 1259
-  {wxSizer_Add_3_0, "wxSizer", "add", 4}, // 1260
-  {wxSizer_Add_3_1, "wxSizer", "add", 4}, // 1261
-  {wxSizer_AddSpacer, "wxSizer", "addSpacer", 2}, // 1262
-  {wxSizer_AddStretchSpacer, "wxSizer", "addStretchSpacer", 2}, // 1263
-  {wxSizer_CalcMin, "wxSizer", "calcMin", 1}, // 1264
-  {wxSizer_Clear, "wxSizer", "clear", 2}, // 1265
-  {wxSizer_Detach_1_0, "wxSizer", "detach", 2}, // 1266
-  {NULL, "", "", 0}, // 1267
-  {wxSizer_Detach_1_1, "wxSizer", "detach", 2}, // 1268
-  {wxSizer_Fit, "wxSizer", "fit", 2}, // 1269
-  {wxSizer_FitInside, "wxSizer", "fitInside", 2}, // 1270
-  {NULL, "", "", 0}, // 1271
-  {wxSizer_GetChildren, "wxSizer", "getChildren", 1}, // 1272
-  {wxSizer_GetItem_2, "wxSizer", "getItem", 3}, // 1273
-  {NULL, "", "", 0}, // 1274
-  {wxSizer_GetItem_1, "wxSizer", "getItem", 2}, // 1275
-  {wxSizer_GetSize, "wxSizer", "getSize", 1}, // 1276
-  {wxSizer_GetPosition, "wxSizer", "getPosition", 1}, // 1277
-  {wxSizer_GetMinSize, "wxSizer", "getMinSize", 1}, // 1278
-  {wxSizer_Hide_2, "wxSizer", "hide", 3}, // 1279
-  {NULL, "", "", 0}, // 1280
-  {wxSizer_Hide_1, "wxSizer", "hide", 2}, // 1281
-  {wxSizer_Insert_3_0, "wxSizer", "insert", 4}, // 1282
-  {wxSizer_Insert_3_1, "wxSizer", "insert", 4}, // 1283
-  {NULL, "", "", 0}, // 1284
-  {NULL, "", "", 0}, // 1285
-  {wxSizer_Insert_4_0, "wxSizer", "insert", 5}, // 1286
-  {wxSizer_Insert_4_1, "wxSizer", "insert", 5}, // 1287
-  {wxSizer_Insert_2, "wxSizer", "insert", 3}, // 1288
-  {wxSizer_InsertSpacer, "wxSizer", "insertSpacer", 3}, // 1289
-  {wxSizer_InsertStretchSpacer, "wxSizer", "insertStretchSpacer", 3}, // 1290
-  {wxSizer_IsShown_1_0, "wxSizer", "isShown", 2}, // 1291
-  {NULL, "", "", 0}, // 1292
-  {wxSizer_IsShown_1_1, "wxSizer", "isShown", 2}, // 1293
-  {wxSizer_Layout, "wxSizer", "layout", 1}, // 1294
-  {wxSizer_Prepend_2_0, "wxSizer", "prepend", 3}, // 1295
-  {wxSizer_Prepend_2_1, "wxSizer", "prepend", 3}, // 1296
-  {NULL, "", "", 0}, // 1297
-  {NULL, "", "", 0}, // 1298
-  {wxSizer_Prepend_3_0, "wxSizer", "prepend", 4}, // 1299
-  {wxSizer_Prepend_3_1, "wxSizer", "prepend", 4}, // 1300
-  {wxSizer_Prepend_1, "wxSizer", "prepend", 2}, // 1301
-  {wxSizer_PrependSpacer, "wxSizer", "prependSpacer", 2}, // 1302
-  {wxSizer_PrependStretchSpacer, "wxSizer", "prependStretchSpacer", 2}, // 1303
-  {wxSizer_Remove_1_1, "wxSizer", "remove", 2}, // 1304
-  {wxSizer_Remove_1_0, "wxSizer", "remove", 2}, // 1305
-  {wxSizer_Replace_3, "wxSizer", "replace", 4}, // 1306
-  {NULL, "", "", 0}, // 1307
-  {wxSizer_Replace_2, "wxSizer", "replace", 3}, // 1308
-  {wxSizer_SetDimension_4, "wxSizer", "setDimension", 5}, // 1309
-  {wxSizer_SetDimension_2, "wxSizer", "setDimension", 3}, // 1310
-  {wxSizer_SetMinSize_1, "wxSizer", "setMinSize", 2}, // 1311
-  {wxSizer_SetMinSize_2, "wxSizer", "setMinSize", 3}, // 1312
-  {wxSizer_SetItemMinSize_3_0, "wxSizer", "setItemMinSize", 4}, // 1313
-  {wxSizer_SetItemMinSize_2_0, "wxSizer", "setItemMinSize", 3}, // 1314
-  {NULL, "", "", 0}, // 1315
-  {NULL, "", "", 0}, // 1316
-  {wxSizer_SetItemMinSize_3_1, "wxSizer", "setItemMinSize", 4}, // 1317
-  {wxSizer_SetItemMinSize_2_1, "wxSizer", "setItemMinSize", 3}, // 1318
-  {wxSizer_SetSizeHints, "wxSizer", "setSizeHints", 2}, // 1319
-  {wxSizer_Show_2_0, "wxSizer", "show", 3}, // 1320
-  {NULL, "", "", 0}, // 1321
-  {wxSizer_Show_2_1, "wxSizer", "show", 3}, // 1322
-  {wxSizer_Show_1, "wxSizer", "show", 2}, // 1323
-  {wxSizer_ShowItems, "wxSizer", "showItems", 2}, // 1324
-  {wxSizerFlags_new, "wxSizerFlags", "new", 1}, // 1325
-  {wxSizerFlags_Align, "wxSizerFlags", "align", 2}, // 1326
-  {wxSizerFlags_Border_2, "wxSizerFlags", "border", 3}, // 1327
-  {wxSizerFlags_Border_1, "wxSizerFlags", "border", 2}, // 1328
-  {wxSizerFlags_Center, "wxSizerFlags", "center", 1}, // 1329
-  {wxSizerFlags_Expand, "wxSizerFlags", "expand", 1}, // 1330
-  {wxSizerFlags_Left, "wxSizerFlags", "left", 1}, // 1331
-  {wxSizerFlags_Proportion, "wxSizerFlags", "proportion", 2}, // 1332
-  {wxSizerFlags_Right, "wxSizerFlags", "right", 1}, // 1333
-  {wxSizerFlags_destroy, "wxSizerFlags", "'Destroy'", 1}, // 1334
-  {wxSizerItem_new_3, "wxSizerItem", "new", 3}, // 1335
-  {wxSizerItem_new_2_0, "wxSizerItem", "new", 2}, // 1336
-  {wxSizerItem_new_2_1, "wxSizerItem", "new", 2}, // 1337
-  {NULL, "", "", 0}, // 1338
-  {NULL, "", "", 0}, // 1339
-  {NULL, "wxSizerItem", "destroy", 1}, // 1340 obj destructor wxSizerItem_destruct
-  {wxSizerItem_CalcMin, "wxSizerItem", "calcMin", 1}, // 1341
-  {wxSizerItem_DeleteWindows, "wxSizerItem", "deleteWindows", 1}, // 1342
-  {wxSizerItem_DetachSizer, "wxSizerItem", "detachSizer", 1}, // 1343
-  {wxSizerItem_GetBorder, "wxSizerItem", "getBorder", 1}, // 1344
-  {wxSizerItem_GetFlag, "wxSizerItem", "getFlag", 1}, // 1345
-  {wxSizerItem_GetMinSize, "wxSizerItem", "getMinSize", 1}, // 1346
-  {wxSizerItem_GetPosition, "wxSizerItem", "getPosition", 1}, // 1347
-  {wxSizerItem_GetProportion, "wxSizerItem", "getProportion", 1}, // 1348
-  {wxSizerItem_GetRatio, "wxSizerItem", "getRatio", 1}, // 1349
-  {wxSizerItem_GetRect, "wxSizerItem", "getRect", 1}, // 1350
-  {wxSizerItem_GetSize, "wxSizerItem", "getSize", 1}, // 1351
-  {wxSizerItem_GetSizer, "wxSizerItem", "getSizer", 1}, // 1352
-  {wxSizerItem_GetSpacer, "wxSizerItem", "getSpacer", 1}, // 1353
-  {wxSizerItem_GetUserData, "wxSizerItem", "getUserData", 1}, // 1354
-  {wxSizerItem_GetWindow, "wxSizerItem", "getWindow", 1}, // 1355
-  {wxSizerItem_IsSizer, "wxSizerItem", "isSizer", 1}, // 1356
-  {wxSizerItem_IsShown, "wxSizerItem", "isShown", 1}, // 1357
-  {wxSizerItem_IsSpacer, "wxSizerItem", "isSpacer", 1}, // 1358
-  {wxSizerItem_IsWindow, "wxSizerItem", "isWindow", 1}, // 1359
-  {wxSizerItem_SetBorder, "wxSizerItem", "setBorder", 2}, // 1360
-  {wxSizerItem_SetDimension, "wxSizerItem", "setDimension", 3}, // 1361
-  {wxSizerItem_SetFlag, "wxSizerItem", "setFlag", 2}, // 1362
-  {wxSizerItem_SetInitSize, "wxSizerItem", "setInitSize", 3}, // 1363
-  {wxSizerItem_SetMinSize_1, "wxSizerItem", "setMinSize", 2}, // 1364
-  {wxSizerItem_SetMinSize_2, "wxSizerItem", "setMinSize", 3}, // 1365
-  {wxSizerItem_SetProportion, "wxSizerItem", "setProportion", 2}, // 1366
-  {wxSizerItem_SetRatio_2, "wxSizerItem", "setRatio", 3}, // 1367
-  {wxSizerItem_SetRatio_1_1, "wxSizerItem", "setRatio", 2}, // 1368
-  {wxSizerItem_SetRatio_1_0, "wxSizerItem", "setRatio", 2}, // 1369
-  {wxSizerItem_AssignSizer, "wxSizerItem", "assignSizer", 2}, // 1370
-  {wxSizerItem_AssignSpacer_1, "wxSizerItem", "assignSpacer", 2}, // 1371
-  {wxSizerItem_AssignSpacer_2, "wxSizerItem", "assignSpacer", 3}, // 1372
-  {wxSizerItem_AssignWindow, "wxSizerItem", "assignWindow", 2}, // 1373
-  {wxSizerItem_Show, "wxSizerItem", "show", 2}, // 1374
-  {wxBoxSizer_new, "wxBoxSizer", "new", 1}, // 1375
-  {wxBoxSizer_GetOrientation, "wxBoxSizer", "getOrientation", 1}, // 1376
-  {NULL, "wxBoxSizer", "'Destroy'", 1}, // 1377 obj destructor wxBoxSizer_destroy
-  {wxStaticBoxSizer_new_2, "wxStaticBoxSizer", "new", 2}, // 1378
-  {wxStaticBoxSizer_new_3, "wxStaticBoxSizer", "new", 3}, // 1379
-  {wxStaticBoxSizer_GetStaticBox, "wxStaticBoxSizer", "getStaticBox", 1}, // 1380
-  {NULL, "wxStaticBoxSizer", "'Destroy'", 1}, // 1381 obj destructor wxStaticBoxSizer_destroy
-  {wxGridSizer_new_3_0, "wxGridSizer", "new", 3}, // 1382
-  {wxGridSizer_new_2, "wxGridSizer", "new", 2}, // 1383
-  {wxGridSizer_new_4, "wxGridSizer", "new", 4}, // 1384
-  {wxGridSizer_new_3_1, "wxGridSizer", "new", 3}, // 1385
-  {wxGridSizer_GetCols, "wxGridSizer", "getCols", 1}, // 1386
-  {wxGridSizer_GetHGap, "wxGridSizer", "getHGap", 1}, // 1387
-  {wxGridSizer_GetRows, "wxGridSizer", "getRows", 1}, // 1388
-  {wxGridSizer_GetVGap, "wxGridSizer", "getVGap", 1}, // 1389
-  {wxGridSizer_SetCols, "wxGridSizer", "setCols", 2}, // 1390
-  {wxGridSizer_SetHGap, "wxGridSizer", "setHGap", 2}, // 1391
-  {wxGridSizer_SetRows, "wxGridSizer", "setRows", 2}, // 1392
-  {wxGridSizer_SetVGap, "wxGridSizer", "setVGap", 2}, // 1393
-  {NULL, "wxGridSizer", "'Destroy'", 1}, // 1394 obj destructor wxGridSizer_destroy
-  {wxFlexGridSizer_new_3_0, "wxFlexGridSizer", "new", 3}, // 1395
-  {wxFlexGridSizer_new_2, "wxFlexGridSizer", "new", 2}, // 1396
-  {wxFlexGridSizer_new_4, "wxFlexGridSizer", "new", 4}, // 1397
-  {wxFlexGridSizer_new_3_1, "wxFlexGridSizer", "new", 3}, // 1398
-  {wxFlexGridSizer_AddGrowableCol, "wxFlexGridSizer", "addGrowableCol", 3}, // 1399
-  {wxFlexGridSizer_AddGrowableRow, "wxFlexGridSizer", "addGrowableRow", 3}, // 1400
-  {wxFlexGridSizer_GetFlexibleDirection, "wxFlexGridSizer", "getFlexibleDirection", 1}, // 1401
-  {wxFlexGridSizer_GetNonFlexibleGrowMode, "wxFlexGridSizer", "getNonFlexibleGrowMode", 1}, // 1402
-  {wxFlexGridSizer_RemoveGrowableCol, "wxFlexGridSizer", "removeGrowableCol", 2}, // 1403
-  {wxFlexGridSizer_RemoveGrowableRow, "wxFlexGridSizer", "removeGrowableRow", 2}, // 1404
-  {wxFlexGridSizer_SetFlexibleDirection, "wxFlexGridSizer", "setFlexibleDirection", 2}, // 1405
-  {wxFlexGridSizer_SetNonFlexibleGrowMode, "wxFlexGridSizer", "setNonFlexibleGrowMode", 2}, // 1406
-  {NULL, "wxFlexGridSizer", "'Destroy'", 1}, // 1407 obj destructor wxFlexGridSizer_destroy
-  {wxGridBagSizer_new, "wxGridBagSizer", "new", 1}, // 1408
-  {wxGridBagSizer_Add_3, "wxGridBagSizer", "add", 4}, // 1409
-  {NULL, "", "", 0}, // 1410
-  {wxGridBagSizer_Add_1, "wxGridBagSizer", "add", 2}, // 1411
-  {wxGridBagSizer_Add_4, "wxGridBagSizer", "add", 5}, // 1412
-  {wxGridBagSizer_CalcMin, "wxGridBagSizer", "calcMin", 1}, // 1413
-  {wxGridBagSizer_CheckForIntersection_2, "wxGridBagSizer", "checkForIntersection", 3}, // 1414
-  {wxGridBagSizer_CheckForIntersection_3, "wxGridBagSizer", "checkForIntersection", 4}, // 1415
-  {wxGridBagSizer_FindItem, "wxGridBagSizer", "findItem", 2}, // 1416
-  {NULL, "", "", 0}, // 1417
-  {wxGridBagSizer_FindItemAtPoint, "wxGridBagSizer", "findItemAtPoint", 2}, // 1418
-  {wxGridBagSizer_FindItemAtPosition, "wxGridBagSizer", "findItemAtPosition", 2}, // 1419
-  {wxGridBagSizer_FindItemWithData, "wxGridBagSizer", "findItemWithData", 2}, // 1420
-  {wxGridBagSizer_GetCellSize, "wxGridBagSizer", "getCellSize", 3}, // 1421
-  {wxGridBagSizer_GetEmptyCellSize, "wxGridBagSizer", "getEmptyCellSize", 1}, // 1422
-  {wxGridBagSizer_GetItemPosition_1_0, "wxGridBagSizer", "getItemPosition", 2}, // 1423
-  {NULL, "", "", 0}, // 1424
-  {wxGridBagSizer_GetItemPosition_1_1, "wxGridBagSizer", "getItemPosition", 2}, // 1425
-  {wxGridBagSizer_GetItemSpan_1_0, "wxGridBagSizer", "getItemSpan", 2}, // 1426
-  {NULL, "", "", 0}, // 1427
-  {wxGridBagSizer_GetItemSpan_1_1, "wxGridBagSizer", "getItemSpan", 2}, // 1428
-  {wxGridBagSizer_SetEmptyCellSize, "wxGridBagSizer", "setEmptyCellSize", 2}, // 1429
-  {wxGridBagSizer_SetItemPosition_2_0, "wxGridBagSizer", "setItemPosition", 3}, // 1430
-  {NULL, "", "", 0}, // 1431
-  {wxGridBagSizer_SetItemPosition_2_1, "wxGridBagSizer", "setItemPosition", 3}, // 1432
-  {wxGridBagSizer_SetItemSpan_2_0, "wxGridBagSizer", "setItemSpan", 3}, // 1433
-  {NULL, "", "", 0}, // 1434
-  {wxGridBagSizer_SetItemSpan_2_1, "wxGridBagSizer", "setItemSpan", 3}, // 1435
-  {NULL, "wxGridBagSizer", "'Destroy'", 1}, // 1436 obj destructor wxGridBagSizer_destroy
-  {wxStdDialogButtonSizer_new, "wxStdDialogButtonSizer", "new", 0}, // 1437
-  {wxStdDialogButtonSizer_AddButton, "wxStdDialogButtonSizer", "addButton", 2}, // 1438
-  {wxStdDialogButtonSizer_Realize, "wxStdDialogButtonSizer", "realize", 1}, // 1439
-  {wxStdDialogButtonSizer_SetAffirmativeButton, "wxStdDialogButtonSizer", "setAffirmativeButton", 2}, // 1440
-  {wxStdDialogButtonSizer_SetCancelButton, "wxStdDialogButtonSizer", "setCancelButton", 2}, // 1441
-  {wxStdDialogButtonSizer_SetNegativeButton, "wxStdDialogButtonSizer", "setNegativeButton", 2}, // 1442
-  {NULL, "wxStdDialogButtonSizer", "'Destroy'", 1}, // 1443 obj destructor wxStdDialogButtonSizer_destroy
-  {wxFont_new_0, "wxFont", "new", 0}, // 1444
-  {wxFont_new_1_1, "wxFont", "new", 1}, // 1445
-  {wxFont_new_5_0, "wxFont", "new", 5}, // 1446
-  {wxFont_new_5_1, "wxFont", "new", 5}, // 1447
-  {wxFont_new_1_0, "wxFont", "new", 1}, // 1448
-  {NULL, "wxFont", "destroy", 1}, // 1449 obj destructor wxFont_destruct
-  {wxFont_IsFixedWidth, "wxFont", "isFixedWidth", 1}, // 1450
-  {wxFont_GetDefaultEncoding, "wxFont", "getDefaultEncoding", 0}, // 1451
-  {wxFont_GetFaceName, "wxFont", "getFaceName", 1}, // 1452
-  {wxFont_GetFamily, "wxFont", "getFamily", 1}, // 1453
-  {wxFont_GetNativeFontInfoDesc, "wxFont", "getNativeFontInfoDesc", 1}, // 1454
-  {wxFont_GetNativeFontInfoUserDesc, "wxFont", "getNativeFontInfoUserDesc", 1}, // 1455
-  {wxFont_GetPointSize, "wxFont", "getPointSize", 1}, // 1456
-  {wxFont_GetStyle, "wxFont", "getStyle", 1}, // 1457
-  {wxFont_GetUnderlined, "wxFont", "getUnderlined", 1}, // 1458
-  {wxFont_GetWeight, "wxFont", "getWeight", 1}, // 1459
-  {wxFont_IsOk, "wxFont", "isOk", 1}, // 1460
-  {wxFont_SetDefaultEncoding, "wxFont", "setDefaultEncoding", 1}, // 1461
-  {wxFont_SetFaceName, "wxFont", "setFaceName", 2}, // 1462
-  {wxFont_SetFamily, "wxFont", "setFamily", 2}, // 1463
-  {wxFont_SetPointSize, "wxFont", "setPointSize", 2}, // 1464
-  {wxFont_SetStyle, "wxFont", "setStyle", 2}, // 1465
-  {wxFont_SetUnderlined, "wxFont", "setUnderlined", 2}, // 1466
-  {wxFont_SetWeight, "wxFont", "setWeight", 2}, // 1467
-  {wxToolTip_Enable, "wxToolTip", "enable", 1}, // 1468
-  {wxToolTip_SetDelay, "wxToolTip", "setDelay", 1}, // 1469
-  {wxToolTip_new, "wxToolTip", "new", 1}, // 1470
-  {wxToolTip_SetTip, "wxToolTip", "setTip", 2}, // 1471
-  {wxToolTip_GetTip, "wxToolTip", "getTip", 1}, // 1472
-  {wxToolTip_GetWindow, "wxToolTip", "getWindow", 1}, // 1473
-  {NULL, "wxToolTip", "'Destroy'", 1}, // 1474 obj destructor wxToolTip_destroy
-  {wxButton_new_0, "wxButton", "new", 0}, // 1475
-  {wxButton_new_3, "wxButton", "new", 3}, // 1476
-  {wxButton_Create, "wxButton", "create", 4}, // 1477
-  {wxButton_GetDefaultSize_STAT_0, "wxButton", "getDefaultSize", 0}, // 1478
+  {wxCaret_GetPosition, "wxCaret", "getPosition", 1}, // 1244
+  {NULL, "", "", 0}, // 1245
+  {wxCaret_GetSize, "wxCaret", "getSize", 1}, // 1246
+  {wxCaret_GetWindow, "wxCaret", "getWindow", 1}, // 1247
+  {wxCaret_Hide, "wxCaret", "hide", 1}, // 1248
+  {wxCaret_IsOk, "wxCaret", "isOk", 1}, // 1249
+  {wxCaret_IsVisible, "wxCaret", "isVisible", 1}, // 1250
+  {wxCaret_Move_2, "wxCaret", "move", 3}, // 1251
+  {wxCaret_Move_1, "wxCaret", "move", 2}, // 1252
+  {wxCaret_SetBlinkTime, "wxCaret", "setBlinkTime", 1}, // 1253
+  {wxCaret_SetSize_2, "wxCaret", "setSize", 3}, // 1254
+  {wxCaret_SetSize_1, "wxCaret", "setSize", 2}, // 1255
+  {wxCaret_Show, "wxCaret", "show", 2}, // 1256
+  {wxCaret_destroy, "wxCaret", "'Destroy'", 1}, // 1257
+  {wxSizer_Add_2_0, "wxSizer", "add", 3}, // 1258
+  {wxSizer_Add_2_1, "wxSizer", "add", 3}, // 1259
+  {NULL, "", "", 0}, // 1260
+  {NULL, "", "", 0}, // 1261
+  {wxSizer_Add_3_0, "wxSizer", "add", 4}, // 1262
+  {wxSizer_Add_3_1, "wxSizer", "add", 4}, // 1263
+  {wxSizer_AddSpacer, "wxSizer", "addSpacer", 2}, // 1264
+  {wxSizer_AddStretchSpacer, "wxSizer", "addStretchSpacer", 2}, // 1265
+  {wxSizer_CalcMin, "wxSizer", "calcMin", 1}, // 1266
+  {wxSizer_Clear, "wxSizer", "clear", 2}, // 1267
+  {wxSizer_Detach_1_0, "wxSizer", "detach", 2}, // 1268
+  {NULL, "", "", 0}, // 1269
+  {wxSizer_Detach_1_1, "wxSizer", "detach", 2}, // 1270
+  {wxSizer_Fit, "wxSizer", "fit", 2}, // 1271
+  {wxSizer_FitInside, "wxSizer", "fitInside", 2}, // 1272
+  {NULL, "", "", 0}, // 1273
+  {wxSizer_GetChildren, "wxSizer", "getChildren", 1}, // 1274
+  {wxSizer_GetItem_2, "wxSizer", "getItem", 3}, // 1275
+  {NULL, "", "", 0}, // 1276
+  {wxSizer_GetItem_1, "wxSizer", "getItem", 2}, // 1277
+  {wxSizer_GetSize, "wxSizer", "getSize", 1}, // 1278
+  {wxSizer_GetPosition, "wxSizer", "getPosition", 1}, // 1279
+  {wxSizer_GetMinSize, "wxSizer", "getMinSize", 1}, // 1280
+  {wxSizer_Hide_2, "wxSizer", "hide", 3}, // 1281
+  {NULL, "", "", 0}, // 1282
+  {wxSizer_Hide_1, "wxSizer", "hide", 2}, // 1283
+  {wxSizer_Insert_3_0, "wxSizer", "insert", 4}, // 1284
+  {wxSizer_Insert_3_1, "wxSizer", "insert", 4}, // 1285
+  {NULL, "", "", 0}, // 1286
+  {NULL, "", "", 0}, // 1287
+  {wxSizer_Insert_4_0, "wxSizer", "insert", 5}, // 1288
+  {wxSizer_Insert_4_1, "wxSizer", "insert", 5}, // 1289
+  {wxSizer_Insert_2, "wxSizer", "insert", 3}, // 1290
+  {wxSizer_InsertSpacer, "wxSizer", "insertSpacer", 3}, // 1291
+  {wxSizer_InsertStretchSpacer, "wxSizer", "insertStretchSpacer", 3}, // 1292
+  {wxSizer_IsShown_1_0, "wxSizer", "isShown", 2}, // 1293
+  {NULL, "", "", 0}, // 1294
+  {wxSizer_IsShown_1_1, "wxSizer", "isShown", 2}, // 1295
+  {wxSizer_Layout, "wxSizer", "layout", 1}, // 1296
+  {wxSizer_Prepend_2_0, "wxSizer", "prepend", 3}, // 1297
+  {wxSizer_Prepend_2_1, "wxSizer", "prepend", 3}, // 1298
+  {NULL, "", "", 0}, // 1299
+  {NULL, "", "", 0}, // 1300
+  {wxSizer_Prepend_3_0, "wxSizer", "prepend", 4}, // 1301
+  {wxSizer_Prepend_3_1, "wxSizer", "prepend", 4}, // 1302
+  {wxSizer_Prepend_1, "wxSizer", "prepend", 2}, // 1303
+  {wxSizer_PrependSpacer, "wxSizer", "prependSpacer", 2}, // 1304
+  {wxSizer_PrependStretchSpacer, "wxSizer", "prependStretchSpacer", 2}, // 1305
+  {wxSizer_Remove_1_1, "wxSizer", "remove", 2}, // 1306
+  {wxSizer_Remove_1_0, "wxSizer", "remove", 2}, // 1307
+  {wxSizer_Replace_3, "wxSizer", "replace", 4}, // 1308
+  {NULL, "", "", 0}, // 1309
+  {wxSizer_Replace_2, "wxSizer", "replace", 3}, // 1310
+  {wxSizer_SetDimension_4, "wxSizer", "setDimension", 5}, // 1311
+  {wxSizer_SetDimension_2, "wxSizer", "setDimension", 3}, // 1312
+  {wxSizer_SetMinSize_1, "wxSizer", "setMinSize", 2}, // 1313
+  {wxSizer_SetMinSize_2, "wxSizer", "setMinSize", 3}, // 1314
+  {wxSizer_SetItemMinSize_3_0, "wxSizer", "setItemMinSize", 4}, // 1315
+  {wxSizer_SetItemMinSize_2_0, "wxSizer", "setItemMinSize", 3}, // 1316
+  {NULL, "", "", 0}, // 1317
+  {NULL, "", "", 0}, // 1318
+  {wxSizer_SetItemMinSize_3_1, "wxSizer", "setItemMinSize", 4}, // 1319
+  {wxSizer_SetItemMinSize_2_1, "wxSizer", "setItemMinSize", 3}, // 1320
+  {wxSizer_SetSizeHints, "wxSizer", "setSizeHints", 2}, // 1321
+  {wxSizer_Show_2_0, "wxSizer", "show", 3}, // 1322
+  {NULL, "", "", 0}, // 1323
+  {wxSizer_Show_2_1, "wxSizer", "show", 3}, // 1324
+  {wxSizer_Show_1, "wxSizer", "show", 2}, // 1325
+  {wxSizer_ShowItems, "wxSizer", "showItems", 2}, // 1326
+  {wxSizerFlags_new, "wxSizerFlags", "new", 1}, // 1327
+  {wxSizerFlags_Align, "wxSizerFlags", "align", 2}, // 1328
+  {wxSizerFlags_Border_2, "wxSizerFlags", "border", 3}, // 1329
+  {wxSizerFlags_Border_1, "wxSizerFlags", "border", 2}, // 1330
+  {wxSizerFlags_Center, "wxSizerFlags", "center", 1}, // 1331
+  {wxSizerFlags_Expand, "wxSizerFlags", "expand", 1}, // 1332
+  {wxSizerFlags_Left, "wxSizerFlags", "left", 1}, // 1333
+  {wxSizerFlags_Proportion, "wxSizerFlags", "proportion", 2}, // 1334
+  {wxSizerFlags_Right, "wxSizerFlags", "right", 1}, // 1335
+  {wxSizerFlags_destroy, "wxSizerFlags", "'Destroy'", 1}, // 1336
+  {wxSizerItem_new_3, "wxSizerItem", "new", 3}, // 1337
+  {wxSizerItem_new_2_0, "wxSizerItem", "new", 2}, // 1338
+  {wxSizerItem_new_2_1, "wxSizerItem", "new", 2}, // 1339
+  {NULL, "", "", 0}, // 1340
+  {NULL, "", "", 0}, // 1341
+  {NULL, "wxSizerItem", "destroy", 1}, // 1342 obj destructor wxSizerItem_destruct
+  {wxSizerItem_CalcMin, "wxSizerItem", "calcMin", 1}, // 1343
+  {wxSizerItem_DeleteWindows, "wxSizerItem", "deleteWindows", 1}, // 1344
+  {wxSizerItem_DetachSizer, "wxSizerItem", "detachSizer", 1}, // 1345
+  {wxSizerItem_GetBorder, "wxSizerItem", "getBorder", 1}, // 1346
+  {wxSizerItem_GetFlag, "wxSizerItem", "getFlag", 1}, // 1347
+  {wxSizerItem_GetMinSize, "wxSizerItem", "getMinSize", 1}, // 1348
+  {wxSizerItem_GetPosition, "wxSizerItem", "getPosition", 1}, // 1349
+  {wxSizerItem_GetProportion, "wxSizerItem", "getProportion", 1}, // 1350
+  {wxSizerItem_GetRatio, "wxSizerItem", "getRatio", 1}, // 1351
+  {wxSizerItem_GetRect, "wxSizerItem", "getRect", 1}, // 1352
+  {wxSizerItem_GetSize, "wxSizerItem", "getSize", 1}, // 1353
+  {wxSizerItem_GetSizer, "wxSizerItem", "getSizer", 1}, // 1354
+  {wxSizerItem_GetSpacer, "wxSizerItem", "getSpacer", 1}, // 1355
+  {wxSizerItem_GetUserData, "wxSizerItem", "getUserData", 1}, // 1356
+  {wxSizerItem_GetWindow, "wxSizerItem", "getWindow", 1}, // 1357
+  {wxSizerItem_IsSizer, "wxSizerItem", "isSizer", 1}, // 1358
+  {wxSizerItem_IsShown, "wxSizerItem", "isShown", 1}, // 1359
+  {wxSizerItem_IsSpacer, "wxSizerItem", "isSpacer", 1}, // 1360
+  {wxSizerItem_IsWindow, "wxSizerItem", "isWindow", 1}, // 1361
+  {wxSizerItem_SetBorder, "wxSizerItem", "setBorder", 2}, // 1362
+  {wxSizerItem_SetDimension, "wxSizerItem", "setDimension", 3}, // 1363
+  {wxSizerItem_SetFlag, "wxSizerItem", "setFlag", 2}, // 1364
+  {wxSizerItem_SetInitSize, "wxSizerItem", "setInitSize", 3}, // 1365
+  {wxSizerItem_SetMinSize_1, "wxSizerItem", "setMinSize", 2}, // 1366
+  {wxSizerItem_SetMinSize_2, "wxSizerItem", "setMinSize", 3}, // 1367
+  {wxSizerItem_SetProportion, "wxSizerItem", "setProportion", 2}, // 1368
+  {wxSizerItem_SetRatio_2, "wxSizerItem", "setRatio", 3}, // 1369
+  {wxSizerItem_SetRatio_1_1, "wxSizerItem", "setRatio", 2}, // 1370
+  {wxSizerItem_SetRatio_1_0, "wxSizerItem", "setRatio", 2}, // 1371
+  {wxSizerItem_AssignSizer, "wxSizerItem", "assignSizer", 2}, // 1372
+  {wxSizerItem_AssignSpacer_1, "wxSizerItem", "assignSpacer", 2}, // 1373
+  {wxSizerItem_AssignSpacer_2, "wxSizerItem", "assignSpacer", 3}, // 1374
+  {wxSizerItem_AssignWindow, "wxSizerItem", "assignWindow", 2}, // 1375
+  {wxSizerItem_Show, "wxSizerItem", "show", 2}, // 1376
+  {wxBoxSizer_new, "wxBoxSizer", "new", 1}, // 1377
+  {wxBoxSizer_GetOrientation, "wxBoxSizer", "getOrientation", 1}, // 1378
+  {NULL, "wxBoxSizer", "'Destroy'", 1}, // 1379 obj destructor wxBoxSizer_destroy
+  {wxStaticBoxSizer_new_2, "wxStaticBoxSizer", "new", 2}, // 1380
+  {wxStaticBoxSizer_new_3, "wxStaticBoxSizer", "new", 3}, // 1381
+  {wxStaticBoxSizer_GetStaticBox, "wxStaticBoxSizer", "getStaticBox", 1}, // 1382
+  {NULL, "wxStaticBoxSizer", "'Destroy'", 1}, // 1383 obj destructor wxStaticBoxSizer_destroy
+  {wxGridSizer_new_3_0, "wxGridSizer", "new", 3}, // 1384
+  {wxGridSizer_new_2, "wxGridSizer", "new", 2}, // 1385
+  {wxGridSizer_new_4, "wxGridSizer", "new", 4}, // 1386
+  {wxGridSizer_new_3_1, "wxGridSizer", "new", 3}, // 1387
+  {wxGridSizer_GetCols, "wxGridSizer", "getCols", 1}, // 1388
+  {wxGridSizer_GetHGap, "wxGridSizer", "getHGap", 1}, // 1389
+  {wxGridSizer_GetRows, "wxGridSizer", "getRows", 1}, // 1390
+  {wxGridSizer_GetVGap, "wxGridSizer", "getVGap", 1}, // 1391
+  {wxGridSizer_SetCols, "wxGridSizer", "setCols", 2}, // 1392
+  {wxGridSizer_SetHGap, "wxGridSizer", "setHGap", 2}, // 1393
+  {wxGridSizer_SetRows, "wxGridSizer", "setRows", 2}, // 1394
+  {wxGridSizer_SetVGap, "wxGridSizer", "setVGap", 2}, // 1395
+  {NULL, "wxGridSizer", "'Destroy'", 1}, // 1396 obj destructor wxGridSizer_destroy
+  {wxFlexGridSizer_new_3_0, "wxFlexGridSizer", "new", 3}, // 1397
+  {wxFlexGridSizer_new_2, "wxFlexGridSizer", "new", 2}, // 1398
+  {wxFlexGridSizer_new_4, "wxFlexGridSizer", "new", 4}, // 1399
+  {wxFlexGridSizer_new_3_1, "wxFlexGridSizer", "new", 3}, // 1400
+  {wxFlexGridSizer_AddGrowableCol, "wxFlexGridSizer", "addGrowableCol", 3}, // 1401
+  {wxFlexGridSizer_AddGrowableRow, "wxFlexGridSizer", "addGrowableRow", 3}, // 1402
+  {wxFlexGridSizer_GetFlexibleDirection, "wxFlexGridSizer", "getFlexibleDirection", 1}, // 1403
+  {wxFlexGridSizer_GetNonFlexibleGrowMode, "wxFlexGridSizer", "getNonFlexibleGrowMode", 1}, // 1404
+  {wxFlexGridSizer_RemoveGrowableCol, "wxFlexGridSizer", "removeGrowableCol", 2}, // 1405
+  {wxFlexGridSizer_RemoveGrowableRow, "wxFlexGridSizer", "removeGrowableRow", 2}, // 1406
+  {wxFlexGridSizer_SetFlexibleDirection, "wxFlexGridSizer", "setFlexibleDirection", 2}, // 1407
+  {wxFlexGridSizer_SetNonFlexibleGrowMode, "wxFlexGridSizer", "setNonFlexibleGrowMode", 2}, // 1408
+  {NULL, "wxFlexGridSizer", "'Destroy'", 1}, // 1409 obj destructor wxFlexGridSizer_destroy
+  {wxGridBagSizer_new, "wxGridBagSizer", "new", 1}, // 1410
+  {wxGridBagSizer_Add_3, "wxGridBagSizer", "add", 4}, // 1411
+  {NULL, "", "", 0}, // 1412
+  {wxGridBagSizer_Add_1, "wxGridBagSizer", "add", 2}, // 1413
+  {wxGridBagSizer_Add_4, "wxGridBagSizer", "add", 5}, // 1414
+  {wxGridBagSizer_CalcMin, "wxGridBagSizer", "calcMin", 1}, // 1415
+  {wxGridBagSizer_CheckForIntersection_2, "wxGridBagSizer", "checkForIntersection", 3}, // 1416
+  {wxGridBagSizer_CheckForIntersection_3, "wxGridBagSizer", "checkForIntersection", 4}, // 1417
+  {wxGridBagSizer_FindItem, "wxGridBagSizer", "findItem", 2}, // 1418
+  {NULL, "", "", 0}, // 1419
+  {wxGridBagSizer_FindItemAtPoint, "wxGridBagSizer", "findItemAtPoint", 2}, // 1420
+  {wxGridBagSizer_FindItemAtPosition, "wxGridBagSizer", "findItemAtPosition", 2}, // 1421
+  {wxGridBagSizer_FindItemWithData, "wxGridBagSizer", "findItemWithData", 2}, // 1422
+  {wxGridBagSizer_GetCellSize, "wxGridBagSizer", "getCellSize", 3}, // 1423
+  {wxGridBagSizer_GetEmptyCellSize, "wxGridBagSizer", "getEmptyCellSize", 1}, // 1424
+  {wxGridBagSizer_GetItemPosition_1_0, "wxGridBagSizer", "getItemPosition", 2}, // 1425
+  {NULL, "", "", 0}, // 1426
+  {wxGridBagSizer_GetItemPosition_1_1, "wxGridBagSizer", "getItemPosition", 2}, // 1427
+  {wxGridBagSizer_GetItemSpan_1_0, "wxGridBagSizer", "getItemSpan", 2}, // 1428
+  {NULL, "", "", 0}, // 1429
+  {wxGridBagSizer_GetItemSpan_1_1, "wxGridBagSizer", "getItemSpan", 2}, // 1430
+  {wxGridBagSizer_SetEmptyCellSize, "wxGridBagSizer", "setEmptyCellSize", 2}, // 1431
+  {wxGridBagSizer_SetItemPosition_2_0, "wxGridBagSizer", "setItemPosition", 3}, // 1432
+  {NULL, "", "", 0}, // 1433
+  {wxGridBagSizer_SetItemPosition_2_1, "wxGridBagSizer", "setItemPosition", 3}, // 1434
+  {wxGridBagSizer_SetItemSpan_2_0, "wxGridBagSizer", "setItemSpan", 3}, // 1435
+  {NULL, "", "", 0}, // 1436
+  {wxGridBagSizer_SetItemSpan_2_1, "wxGridBagSizer", "setItemSpan", 3}, // 1437
+  {NULL, "wxGridBagSizer", "'Destroy'", 1}, // 1438 obj destructor wxGridBagSizer_destroy
+  {wxStdDialogButtonSizer_new, "wxStdDialogButtonSizer", "new", 0}, // 1439
+  {wxStdDialogButtonSizer_AddButton, "wxStdDialogButtonSizer", "addButton", 2}, // 1440
+  {wxStdDialogButtonSizer_Realize, "wxStdDialogButtonSizer", "realize", 1}, // 1441
+  {wxStdDialogButtonSizer_SetAffirmativeButton, "wxStdDialogButtonSizer", "setAffirmativeButton", 2}, // 1442
+  {wxStdDialogButtonSizer_SetCancelButton, "wxStdDialogButtonSizer", "setCancelButton", 2}, // 1443
+  {wxStdDialogButtonSizer_SetNegativeButton, "wxStdDialogButtonSizer", "setNegativeButton", 2}, // 1444
+  {NULL, "wxStdDialogButtonSizer", "'Destroy'", 1}, // 1445 obj destructor wxStdDialogButtonSizer_destroy
+  {wxFont_new_0, "wxFont", "new", 0}, // 1446
+  {wxFont_new_1_1, "wxFont", "new", 1}, // 1447
+  {wxFont_new_5_0, "wxFont", "new", 5}, // 1448
+  {wxFont_new_5_1, "wxFont", "new", 5}, // 1449
+  {wxFont_new_1_0, "wxFont", "new", 1}, // 1450
+  {NULL, "wxFont", "destroy", 1}, // 1451 obj destructor wxFont_destruct
+  {wxFont_IsFixedWidth, "wxFont", "isFixedWidth", 1}, // 1452
+  {wxFont_GetDefaultEncoding, "wxFont", "getDefaultEncoding", 0}, // 1453
+  {wxFont_GetFaceName, "wxFont", "getFaceName", 1}, // 1454
+  {wxFont_GetFamily, "wxFont", "getFamily", 1}, // 1455
+  {wxFont_GetNativeFontInfoDesc, "wxFont", "getNativeFontInfoDesc", 1}, // 1456
+  {wxFont_GetNativeFontInfoUserDesc, "wxFont", "getNativeFontInfoUserDesc", 1}, // 1457
+  {wxFont_GetPointSize, "wxFont", "getPointSize", 1}, // 1458
+  {wxFont_GetStyle, "wxFont", "getStyle", 1}, // 1459
+  {wxFont_GetUnderlined, "wxFont", "getUnderlined", 1}, // 1460
+  {wxFont_GetWeight, "wxFont", "getWeight", 1}, // 1461
+  {wxFont_IsOk, "wxFont", "isOk", 1}, // 1462
+  {wxFont_SetDefaultEncoding, "wxFont", "setDefaultEncoding", 1}, // 1463
+  {wxFont_SetFaceName, "wxFont", "setFaceName", 2}, // 1464
+  {wxFont_SetFamily, "wxFont", "setFamily", 2}, // 1465
+  {wxFont_SetPointSize, "wxFont", "setPointSize", 2}, // 1466
+  {wxFont_SetStyle, "wxFont", "setStyle", 2}, // 1467
+  {wxFont_SetUnderlined, "wxFont", "setUnderlined", 2}, // 1468
+  {wxFont_SetWeight, "wxFont", "setWeight", 2}, // 1469
+  {wxToolTip_Enable, "wxToolTip", "enable", 1}, // 1470
+  {wxToolTip_SetDelay, "wxToolTip", "setDelay", 1}, // 1471
+  {wxToolTip_new, "wxToolTip", "new", 1}, // 1472
+  {wxToolTip_SetTip, "wxToolTip", "setTip", 2}, // 1473
+  {wxToolTip_GetTip, "wxToolTip", "getTip", 1}, // 1474
+  {wxToolTip_GetWindow, "wxToolTip", "getWindow", 1}, // 1475
+  {NULL, "wxToolTip", "'Destroy'", 1}, // 1476 obj destructor wxToolTip_destroy
+  {wxButton_new_0, "wxButton", "new", 0}, // 1477
+  {wxButton_new_3, "wxButton", "new", 3}, // 1478
+  {wxButton_Create, "wxButton", "create", 4}, // 1479
+  {wxButton_GetDefaultSize_STAT_0, "wxButton", "getDefaultSize", 0}, // 1480
 #if wxCHECK_VERSION(3,1,3)
-  {wxButton_GetDefaultSize_STAT_1, "wxButton", "getDefaultSize", 1}, // 1479
+  {wxButton_GetDefaultSize_STAT_1, "wxButton", "getDefaultSize", 1}, // 1481
 #else
-  {NULL, "wxButton", "getDefaultSize", 0}, // 1479
+  {NULL, "wxButton", "getDefaultSize", 0}, // 1481
 #endif // wxCHECK_VERSION(3,1,3)
-  {wxButton_SetDefault, "wxButton", "setDefault", 1}, // 1480
-  {wxButton_SetLabel, "wxButton", "setLabel", 2}, // 1481
-  {wxButton_GetBitmapDisabled, "wxButton", "getBitmapDisabled", 1}, // 1482
-  {wxButton_GetBitmapFocus, "wxButton", "getBitmapFocus", 1}, // 1483
-  {wxButton_GetBitmapLabel, "wxButton", "getBitmapLabel", 1}, // 1484
-  {wxButton_SetBitmapDisabled, "wxButton", "setBitmapDisabled", 2}, // 1485
-  {wxButton_SetBitmapFocus, "wxButton", "setBitmapFocus", 2}, // 1486
-  {wxButton_SetBitmapLabel, "wxButton", "setBitmapLabel", 2}, // 1487
-  {NULL, "wxButton", "'Destroy'", 1}, // 1488 obj destructor wxButton_destroy
-  {wxBitmapButton_new_0, "wxBitmapButton", "new", 0}, // 1489
-  {wxBitmapButton_new_4, "wxBitmapButton", "new", 4}, // 1490
-  {wxBitmapButton_Create, "wxBitmapButton", "create", 5}, // 1491
-  {wxBitmapButton_NewCloseButton, "wxBitmapButton", "newCloseButton", 2}, // 1492
-  {NULL, "wxBitmapButton", "'Destroy'", 1}, // 1493 obj destructor wxBitmapButton_destroy
-  {wxToggleButton_new_0, "wxToggleButton", "new", 0}, // 1494
-  {wxToggleButton_new_4, "wxToggleButton", "new", 4}, // 1495
-  {NULL, "wxToggleButton", "destroy", 1}, // 1496 obj destructor wxToggleButton_destruct
-  {wxToggleButton_Create, "wxToggleButton", "create", 5}, // 1497
-  {wxToggleButton_GetValue, "wxToggleButton", "getValue", 1}, // 1498
-  {wxToggleButton_SetValue, "wxToggleButton", "setValue", 2}, // 1499
-  {wxCalendarCtrl_new_0, "wxCalendarCtrl", "new", 0}, // 1500
-  {wxCalendarCtrl_new_3, "wxCalendarCtrl", "new", 3}, // 1501
-  {wxCalendarCtrl_Create, "wxCalendarCtrl", "create", 4}, // 1502
-  {NULL, "wxCalendarCtrl", "destroy", 1}, // 1503 obj destructor wxCalendarCtrl_destruct
-  {wxCalendarCtrl_SetDate, "wxCalendarCtrl", "setDate", 2}, // 1504
-  {wxCalendarCtrl_GetDate, "wxCalendarCtrl", "getDate", 1}, // 1505
+  {wxButton_SetDefault, "wxButton", "setDefault", 1}, // 1482
+  {wxButton_SetLabel, "wxButton", "setLabel", 2}, // 1483
+  {wxButton_GetBitmapDisabled, "wxButton", "getBitmapDisabled", 1}, // 1484
+  {wxButton_GetBitmapFocus, "wxButton", "getBitmapFocus", 1}, // 1485
+  {wxButton_GetBitmapLabel, "wxButton", "getBitmapLabel", 1}, // 1486
+  {wxButton_SetBitmapDisabled, "wxButton", "setBitmapDisabled", 2}, // 1487
+  {wxButton_SetBitmapFocus, "wxButton", "setBitmapFocus", 2}, // 1488
+  {wxButton_SetBitmapLabel, "wxButton", "setBitmapLabel", 2}, // 1489
+  {NULL, "wxButton", "'Destroy'", 1}, // 1490 obj destructor wxButton_destroy
+  {wxBitmapButton_new_0, "wxBitmapButton", "new", 0}, // 1491
+  {wxBitmapButton_new_4, "wxBitmapButton", "new", 4}, // 1492
+  {wxBitmapButton_Create, "wxBitmapButton", "create", 5}, // 1493
+  {wxBitmapButton_NewCloseButton, "wxBitmapButton", "newCloseButton", 2}, // 1494
+  {NULL, "wxBitmapButton", "'Destroy'", 1}, // 1495 obj destructor wxBitmapButton_destroy
+  {wxToggleButton_new_0, "wxToggleButton", "new", 0}, // 1496
+  {wxToggleButton_new_4, "wxToggleButton", "new", 4}, // 1497
+  {NULL, "wxToggleButton", "destroy", 1}, // 1498 obj destructor wxToggleButton_destruct
+  {wxToggleButton_Create, "wxToggleButton", "create", 5}, // 1499
+  {wxToggleButton_GetValue, "wxToggleButton", "getValue", 1}, // 1500
+  {wxToggleButton_SetValue, "wxToggleButton", "setValue", 2}, // 1501
+  {wxCalendarCtrl_new_0, "wxCalendarCtrl", "new", 0}, // 1502
+  {wxCalendarCtrl_new_3, "wxCalendarCtrl", "new", 3}, // 1503
+  {wxCalendarCtrl_Create, "wxCalendarCtrl", "create", 4}, // 1504
+  {NULL, "wxCalendarCtrl", "destroy", 1}, // 1505 obj destructor wxCalendarCtrl_destruct
+  {wxCalendarCtrl_SetDate, "wxCalendarCtrl", "setDate", 2}, // 1506
+  {wxCalendarCtrl_GetDate, "wxCalendarCtrl", "getDate", 1}, // 1507
 #if !wxCHECK_VERSION(2,9,0)
-  {wxCalendarCtrl_EnableYearChange, "wxCalendarCtrl", "enableYearChange", 2}, // 1506
+  {wxCalendarCtrl_EnableYearChange, "wxCalendarCtrl", "enableYearChange", 2}, // 1508
 #else
-  {NULL, "wxCalendarCtrl", "enableYearChange", 0}, // 1506
+  {NULL, "wxCalendarCtrl", "enableYearChange", 0}, // 1508
 #endif // !wxCHECK_VERSION(2,9,0)
-  {wxCalendarCtrl_EnableMonthChange, "wxCalendarCtrl", "enableMonthChange", 2}, // 1507
-  {wxCalendarCtrl_EnableHolidayDisplay, "wxCalendarCtrl", "enableHolidayDisplay", 2}, // 1508
-  {wxCalendarCtrl_SetHeaderColours, "wxCalendarCtrl", "setHeaderColours", 3}, // 1509
-  {wxCalendarCtrl_GetHeaderColourFg, "wxCalendarCtrl", "getHeaderColourFg", 1}, // 1510
-  {wxCalendarCtrl_GetHeaderColourBg, "wxCalendarCtrl", "getHeaderColourBg", 1}, // 1511
-  {wxCalendarCtrl_SetHighlightColours, "wxCalendarCtrl", "setHighlightColours", 3}, // 1512
-  {wxCalendarCtrl_GetHighlightColourFg, "wxCalendarCtrl", "getHighlightColourFg", 1}, // 1513
-  {wxCalendarCtrl_GetHighlightColourBg, "wxCalendarCtrl", "getHighlightColourBg", 1}, // 1514
-  {wxCalendarCtrl_SetHolidayColours, "wxCalendarCtrl", "setHolidayColours", 3}, // 1515
-  {wxCalendarCtrl_GetHolidayColourFg, "wxCalendarCtrl", "getHolidayColourFg", 1}, // 1516
-  {wxCalendarCtrl_GetHolidayColourBg, "wxCalendarCtrl", "getHolidayColourBg", 1}, // 1517
-  {wxCalendarCtrl_GetAttr, "wxCalendarCtrl", "getAttr", 2}, // 1518
-  {wxCalendarCtrl_SetAttr, "wxCalendarCtrl", "setAttr", 3}, // 1519
-  {wxCalendarCtrl_SetHoliday, "wxCalendarCtrl", "setHoliday", 2}, // 1520
-  {wxCalendarCtrl_ResetAttr, "wxCalendarCtrl", "resetAttr", 2}, // 1521
-  {wxCalendarCtrl_HitTest, "wxCalendarCtrl", "hitTest", 2}, // 1522
-  {wxCalendarDateAttr_new_1, "wxCalendarDateAttr", "new", 1}, // 1523
-  {wxCalendarDateAttr_new_2, "wxCalendarDateAttr", "new", 2}, // 1524
-  {wxCalendarDateAttr_SetTextColour, "wxCalendarDateAttr", "setTextColour", 2}, // 1525
-  {wxCalendarDateAttr_SetBackgroundColour, "wxCalendarDateAttr", "setBackgroundColour", 2}, // 1526
-  {wxCalendarDateAttr_SetBorderColour, "wxCalendarDateAttr", "setBorderColour", 2}, // 1527
-  {wxCalendarDateAttr_SetFont, "wxCalendarDateAttr", "setFont", 2}, // 1528
-  {wxCalendarDateAttr_SetBorder, "wxCalendarDateAttr", "setBorder", 2}, // 1529
-  {wxCalendarDateAttr_SetHoliday, "wxCalendarDateAttr", "setHoliday", 2}, // 1530
-  {wxCalendarDateAttr_HasTextColour, "wxCalendarDateAttr", "hasTextColour", 1}, // 1531
-  {wxCalendarDateAttr_HasBackgroundColour, "wxCalendarDateAttr", "hasBackgroundColour", 1}, // 1532
-  {wxCalendarDateAttr_HasBorderColour, "wxCalendarDateAttr", "hasBorderColour", 1}, // 1533
-  {wxCalendarDateAttr_HasFont, "wxCalendarDateAttr", "hasFont", 1}, // 1534
-  {wxCalendarDateAttr_HasBorder, "wxCalendarDateAttr", "hasBorder", 1}, // 1535
-  {wxCalendarDateAttr_IsHoliday, "wxCalendarDateAttr", "isHoliday", 1}, // 1536
-  {wxCalendarDateAttr_GetTextColour, "wxCalendarDateAttr", "getTextColour", 1}, // 1537
-  {wxCalendarDateAttr_GetBackgroundColour, "wxCalendarDateAttr", "getBackgroundColour", 1}, // 1538
-  {wxCalendarDateAttr_GetBorderColour, "wxCalendarDateAttr", "getBorderColour", 1}, // 1539
-  {wxCalendarDateAttr_GetFont, "wxCalendarDateAttr", "getFont", 1}, // 1540
-  {wxCalendarDateAttr_GetBorder, "wxCalendarDateAttr", "getBorder", 1}, // 1541
-  {wxCalendarDateAttr_destroy, "wxCalendarDateAttr", "'Destroy'", 1}, // 1542
-  {wxCheckBox_new_0, "wxCheckBox", "new", 0}, // 1543
-  {wxCheckBox_new_4, "wxCheckBox", "new", 4}, // 1544
-  {NULL, "wxCheckBox", "destroy", 1}, // 1545 obj destructor wxCheckBox_destruct
-  {wxCheckBox_Create, "wxCheckBox", "create", 5}, // 1546
-  {wxCheckBox_GetValue, "wxCheckBox", "getValue", 1}, // 1547
-  {wxCheckBox_Get3StateValue, "wxCheckBox", "get3StateValue", 1}, // 1548
-  {wxCheckBox_Is3rdStateAllowedForUser, "wxCheckBox", "is3rdStateAllowedForUser", 1}, // 1549
-  {wxCheckBox_Is3State, "wxCheckBox", "is3State", 1}, // 1550
-  {wxCheckBox_IsChecked, "wxCheckBox", "isChecked", 1}, // 1551
-  {wxCheckBox_SetValue, "wxCheckBox", "setValue", 2}, // 1552
-  {wxCheckBox_Set3StateValue, "wxCheckBox", "set3StateValue", 2}, // 1553
-  {wxCheckListBox_new_0, "wxCheckListBox", "new", 0}, // 1554
-  {NULL, "", "", 0}, // 1555
-  {wxCheckListBox_new_3, "wxCheckListBox", "new", 3}, // 1556
-  {NULL, "wxCheckListBox", "destroy", 1}, // 1557 obj destructor wxCheckListBox_destruct
-  {wxCheckListBox_Check, "wxCheckListBox", "check", 3}, // 1558
-  {wxCheckListBox_IsChecked, "wxCheckListBox", "isChecked", 2}, // 1559
-  {wxChoice_new_0, "wxChoice", "new", 0}, // 1560
-  {NULL, "", "", 0}, // 1561
-  {wxChoice_new_3, "wxChoice", "new", 3}, // 1562
-  {NULL, "wxChoice", "destroy", 1}, // 1563 obj destructor wxChoice_destruct
-  {NULL, "", "", 0}, // 1564
-  {wxChoice_Create, "wxChoice", "create", 7}, // 1565
-  {wxChoice_Delete, "wxChoice", "delete", 2}, // 1566
-  {wxChoice_GetColumns, "wxChoice", "getColumns", 1}, // 1567
-  {wxChoice_SetColumns, "wxChoice", "setColumns", 2}, // 1568
-  {wxComboBox_new_0, "wxComboBox", "new", 0}, // 1569
-  {NULL, "", "", 0}, // 1570
-  {wxComboBox_new_3, "wxComboBox", "new", 3}, // 1571
-  {NULL, "wxComboBox", "destroy", 1}, // 1572 obj destructor wxComboBox_destruct
-  {NULL, "", "", 0}, // 1573
-  {wxComboBox_Create, "wxComboBox", "create", 8}, // 1574
-  {wxComboBox_CanCopy, "wxComboBox", "canCopy", 1}, // 1575
-  {wxComboBox_CanCut, "wxComboBox", "canCut", 1}, // 1576
-  {wxComboBox_CanPaste, "wxComboBox", "canPaste", 1}, // 1577
-  {wxComboBox_CanRedo, "wxComboBox", "canRedo", 1}, // 1578
-  {wxComboBox_CanUndo, "wxComboBox", "canUndo", 1}, // 1579
-  {wxComboBox_Copy, "wxComboBox", "copy", 1}, // 1580
-  {wxComboBox_Cut, "wxComboBox", "cut", 1}, // 1581
-  {wxComboBox_GetInsertionPoint, "wxComboBox", "getInsertionPoint", 1}, // 1582
-  {wxComboBox_GetLastPosition, "wxComboBox", "getLastPosition", 1}, // 1583
-  {wxComboBox_GetValue, "wxComboBox", "getValue", 1}, // 1584
-  {wxComboBox_Paste, "wxComboBox", "paste", 1}, // 1585
-  {wxComboBox_Redo, "wxComboBox", "redo", 1}, // 1586
-  {wxComboBox_Replace, "wxComboBox", "replace", 4}, // 1587
-  {wxComboBox_Remove, "wxComboBox", "remove", 3}, // 1588
-  {wxComboBox_SetInsertionPoint, "wxComboBox", "setInsertionPoint", 2}, // 1589
-  {wxComboBox_SetInsertionPointEnd, "wxComboBox", "setInsertionPointEnd", 1}, // 1590
-  {wxComboBox_SetSelection_2, "wxComboBox", "setSelection", 3}, // 1591
-  {wxComboBox_SetSelection_1, "wxComboBox", "setSelection", 2}, // 1592
-  {wxComboBox_SetValue, "wxComboBox", "setValue", 2}, // 1593
-  {wxComboBox_Undo, "wxComboBox", "undo", 1}, // 1594
-  {wxGauge_new_0, "wxGauge", "new", 0}, // 1595
-  {wxGauge_new_4, "wxGauge", "new", 4}, // 1596
-  {NULL, "wxGauge", "destroy", 1}, // 1597 obj destructor wxGauge_destruct
-  {wxGauge_Create, "wxGauge", "create", 5}, // 1598
-  {wxGauge_GetRange, "wxGauge", "getRange", 1}, // 1599
-  {wxGauge_GetValue, "wxGauge", "getValue", 1}, // 1600
-  {wxGauge_IsVertical, "wxGauge", "isVertical", 1}, // 1601
-  {wxGauge_SetRange, "wxGauge", "setRange", 2}, // 1602
-  {wxGauge_SetValue, "wxGauge", "setValue", 2}, // 1603
-  {wxGauge_Pulse, "wxGauge", "pulse", 1}, // 1604
-  {wxGenericDirCtrl_new_0, "wxGenericDirCtrl", "new", 0}, // 1605
-  {wxGenericDirCtrl_new_2, "wxGenericDirCtrl", "new", 2}, // 1606
-  {NULL, "wxGenericDirCtrl", "destroy", 1}, // 1607 obj destructor wxGenericDirCtrl_destruct
-  {wxGenericDirCtrl_Create, "wxGenericDirCtrl", "create", 3}, // 1608
-  {wxGenericDirCtrl_Init, "wxGenericDirCtrl", "init", 1}, // 1609
-  {wxGenericDirCtrl_CollapseTree, "wxGenericDirCtrl", "collapseTree", 1}, // 1610
-  {wxGenericDirCtrl_ExpandPath, "wxGenericDirCtrl", "expandPath", 2}, // 1611
-  {wxGenericDirCtrl_GetDefaultPath, "wxGenericDirCtrl", "getDefaultPath", 1}, // 1612
-  {wxGenericDirCtrl_GetPath_0, "wxGenericDirCtrl", "getPath", 1}, // 1613
-  {wxGenericDirCtrl_GetPath_1, "wxGenericDirCtrl", "getPath", 2}, // 1614
-  {wxGenericDirCtrl_GetFilePath, "wxGenericDirCtrl", "getFilePath", 1}, // 1615
-  {wxGenericDirCtrl_GetFilter, "wxGenericDirCtrl", "getFilter", 1}, // 1616
-  {wxGenericDirCtrl_GetFilterIndex, "wxGenericDirCtrl", "getFilterIndex", 1}, // 1617
-  {wxGenericDirCtrl_GetRootId, "wxGenericDirCtrl", "getRootId", 1}, // 1618
-  {wxGenericDirCtrl_GetTreeCtrl, "wxGenericDirCtrl", "getTreeCtrl", 1}, // 1619
-  {wxGenericDirCtrl_ReCreateTree, "wxGenericDirCtrl", "reCreateTree", 1}, // 1620
-  {wxGenericDirCtrl_SetDefaultPath, "wxGenericDirCtrl", "setDefaultPath", 2}, // 1621
-  {wxGenericDirCtrl_SetFilter, "wxGenericDirCtrl", "setFilter", 2}, // 1622
-  {wxGenericDirCtrl_SetFilterIndex, "wxGenericDirCtrl", "setFilterIndex", 2}, // 1623
-  {wxGenericDirCtrl_SetPath, "wxGenericDirCtrl", "setPath", 2}, // 1624
-  {wxStaticBox_new_0, "wxStaticBox", "new", 0}, // 1625
-  {wxStaticBox_new_4, "wxStaticBox", "new", 4}, // 1626
-  {NULL, "wxStaticBox", "destroy", 1}, // 1627 obj destructor wxStaticBox_destruct
-  {wxStaticBox_Create, "wxStaticBox", "create", 5}, // 1628
-  {wxStaticLine_new_0, "wxStaticLine", "new", 0}, // 1629
-  {wxStaticLine_new_2, "wxStaticLine", "new", 2}, // 1630
-  {wxStaticLine_Create, "wxStaticLine", "create", 3}, // 1631
-  {wxStaticLine_IsVertical, "wxStaticLine", "isVertical", 1}, // 1632
-  {wxStaticLine_GetDefaultSize, "wxStaticLine", "getDefaultSize", 0}, // 1633
-  {NULL, "wxStaticLine", "'Destroy'", 1}, // 1634 obj destructor wxStaticLine_destroy
-  {wxListBox_new_0, "wxListBox", "new", 0}, // 1635
-  {NULL, "", "", 0}, // 1636
-  {wxListBox_new_3, "wxListBox", "new", 3}, // 1637
-  {NULL, "wxListBox", "destroy", 1}, // 1638 obj destructor wxListBox_destruct
-  {NULL, "", "", 0}, // 1639
-  {wxListBox_Create, "wxListBox", "create", 7}, // 1640
-  {wxListBox_Deselect, "wxListBox", "deselect", 2}, // 1641
-  {wxListBox_GetSelections, "wxListBox", "getSelections", 1}, // 1642
-  {wxListBox_InsertItems, "wxListBox", "insertItems", 3}, // 1643
-  {wxListBox_IsSelected, "wxListBox", "isSelected", 2}, // 1644
-  {NULL, "", "", 0}, // 1645
-  {NULL, "", "", 0}, // 1646
-  {wxListBox_Set, "wxListBox", "set", 2}, // 1647
-  {wxListBox_HitTest_1, "wxListBox", "hitTest", 2}, // 1648
-  {wxListBox_HitTest_2, "wxListBox", "hitTest", 3}, // 1649
-  {wxListBox_SetFirstItem_1_0, "wxListBox", "setFirstItem", 2}, // 1650
-  {wxListBox_SetFirstItem_1_1, "wxListBox", "setFirstItem", 2}, // 1651
-  {wxListCtrl_new_0, "wxListCtrl", "new", 0}, // 1652
-  {NULL, "wxListCtrl", "new", 2}, // 1653 TaylorMade erl only wxListCtrl_new_2
-  {NULL, "wxListCtrl", "destroy", 1}, // 1654 obj destructor wxListCtrl_destruct
-  {wxListCtrl_Arrange, "wxListCtrl", "arrange", 2}, // 1655
-  {wxListCtrl_AssignImageList, "wxListCtrl", "assignImageList", 3}, // 1656
-  {wxListCtrl_ClearAll, "wxListCtrl", "clearAll", 1}, // 1657
-  {wxListCtrl_Create, "wxListCtrl", "create", 3}, // 1658
-  {wxListCtrl_DeleteAllItems, "wxListCtrl", "deleteAllItems", 1}, // 1659
-  {wxListCtrl_DeleteColumn, "wxListCtrl", "deleteColumn", 2}, // 1660
-  {wxListCtrl_DeleteItem, "wxListCtrl", "deleteItem", 2}, // 1661
-  {wxListCtrl_EditLabel, "wxListCtrl", "editLabel", 2}, // 1662
-  {wxListCtrl_EnsureVisible, "wxListCtrl", "ensureVisible", 2}, // 1663
-  {wxListCtrl_FindItem_3_0, "wxListCtrl", "findItem", 4}, // 1664
-  {wxListCtrl_FindItem_3_1, "wxListCtrl", "findItem", 4}, // 1665
-  {wxListCtrl_GetColumn, "wxListCtrl", "getColumn", 3}, // 1666
-  {wxListCtrl_GetColumnCount, "wxListCtrl", "getColumnCount", 1}, // 1667
-  {wxListCtrl_GetColumnWidth, "wxListCtrl", "getColumnWidth", 2}, // 1668
-  {wxListCtrl_GetCountPerPage, "wxListCtrl", "getCountPerPage", 1}, // 1669
-  {wxListCtrl_GetEditControl, "wxListCtrl", "getEditControl", 1}, // 1670
-  {wxListCtrl_GetImageList, "wxListCtrl", "getImageList", 2}, // 1671
-  {wxListCtrl_GetItem, "wxListCtrl", "getItem", 2}, // 1672
-  {wxListCtrl_GetItemBackgroundColour, "wxListCtrl", "getItemBackgroundColour", 2}, // 1673
-  {wxListCtrl_GetItemCount, "wxListCtrl", "getItemCount", 1}, // 1674
-  {wxListCtrl_GetItemData, "wxListCtrl", "getItemData", 2}, // 1675
-  {wxListCtrl_GetItemFont, "wxListCtrl", "getItemFont", 2}, // 1676
-  {wxListCtrl_GetItemPosition, "wxListCtrl", "getItemPosition", 2}, // 1677
-  {wxListCtrl_GetItemRect, "wxListCtrl", "getItemRect", 3}, // 1678
-  {wxListCtrl_GetItemSpacing, "wxListCtrl", "getItemSpacing", 1}, // 1679
-  {wxListCtrl_GetItemState, "wxListCtrl", "getItemState", 3}, // 1680
-  {wxListCtrl_GetItemText, "wxListCtrl", "getItemText", 3}, // 1681
-  {wxListCtrl_GetItemTextColour, "wxListCtrl", "getItemTextColour", 2}, // 1682
-  {wxListCtrl_GetNextItem, "wxListCtrl", "getNextItem", 3}, // 1683
-  {wxListCtrl_GetSelectedItemCount, "wxListCtrl", "getSelectedItemCount", 1}, // 1684
-  {wxListCtrl_GetTextColour, "wxListCtrl", "getTextColour", 1}, // 1685
-  {wxListCtrl_GetTopItem, "wxListCtrl", "getTopItem", 1}, // 1686
-  {wxListCtrl_GetViewRect, "wxListCtrl", "getViewRect", 1}, // 1687
-  {wxListCtrl_HitTest, "wxListCtrl", "hitTest", 2}, // 1688
-  {wxListCtrl_InsertColumn_2, "wxListCtrl", "insertColumn", 3}, // 1689
-  {wxListCtrl_InsertColumn_3, "wxListCtrl", "insertColumn", 4}, // 1690
-  {wxListCtrl_InsertItem_1, "wxListCtrl", "insertItem", 2}, // 1691
-  {wxListCtrl_InsertItem_2_1, "wxListCtrl", "insertItem", 3}, // 1692
-  {wxListCtrl_InsertItem_2_0, "wxListCtrl", "insertItem", 3}, // 1693
-  {wxListCtrl_InsertItem_3, "wxListCtrl", "insertItem", 4}, // 1694
-  {wxListCtrl_RefreshItem, "wxListCtrl", "refreshItem", 2}, // 1695
-  {wxListCtrl_RefreshItems, "wxListCtrl", "refreshItems", 3}, // 1696
-  {wxListCtrl_ScrollList, "wxListCtrl", "scrollList", 3}, // 1697
-  {wxListCtrl_SetBackgroundColour, "wxListCtrl", "setBackgroundColour", 2}, // 1698
-  {wxListCtrl_SetColumn, "wxListCtrl", "setColumn", 3}, // 1699
-  {wxListCtrl_SetColumnWidth, "wxListCtrl", "setColumnWidth", 3}, // 1700
-  {wxListCtrl_SetImageList, "wxListCtrl", "setImageList", 3}, // 1701
-  {wxListCtrl_SetItem_1, "wxListCtrl", "setItem", 2}, // 1702
-  {wxListCtrl_SetItem_4, "wxListCtrl", "setItem", 5}, // 1703
-  {wxListCtrl_SetItemBackgroundColour, "wxListCtrl", "setItemBackgroundColour", 3}, // 1704
-  {wxListCtrl_SetItemCount, "wxListCtrl", "setItemCount", 2}, // 1705
-  {wxListCtrl_SetItemData, "wxListCtrl", "setItemData", 3}, // 1706
-  {wxListCtrl_SetItemFont, "wxListCtrl", "setItemFont", 3}, // 1707
-  {wxListCtrl_SetItemImage, "wxListCtrl", "setItemImage", 4}, // 1708
-  {wxListCtrl_SetItemColumnImage, "wxListCtrl", "setItemColumnImage", 4}, // 1709
-  {wxListCtrl_SetItemPosition, "wxListCtrl", "setItemPosition", 3}, // 1710
-  {wxListCtrl_SetItemState, "wxListCtrl", "setItemState", 4}, // 1711
-  {wxListCtrl_SetItemText, "wxListCtrl", "setItemText", 3}, // 1712
-  {wxListCtrl_SetItemTextColour, "wxListCtrl", "setItemTextColour", 3}, // 1713
-  {wxListCtrl_SetSingleStyle, "wxListCtrl", "setSingleStyle", 3}, // 1714
-  {wxListCtrl_SetTextColour, "wxListCtrl", "setTextColour", 2}, // 1715
-  {wxListCtrl_SetWindowStyleFlag, "wxListCtrl", "setWindowStyleFlag", 2}, // 1716
-  {wxListCtrl_SortItems, "wxListCtrl", "sortItems", 2}, // 1717
-  {wxListView_ClearColumnImage, "wxListView", "clearColumnImage", 2}, // 1718
-  {wxListView_Focus, "wxListView", "focus", 2}, // 1719
-  {wxListView_GetFirstSelected, "wxListView", "getFirstSelected", 1}, // 1720
-  {wxListView_GetFocusedItem, "wxListView", "getFocusedItem", 1}, // 1721
-  {wxListView_GetNextSelected, "wxListView", "getNextSelected", 2}, // 1722
-  {wxListView_IsSelected, "wxListView", "isSelected", 2}, // 1723
-  {wxListView_Select, "wxListView", "select", 3}, // 1724
-  {wxListView_SetColumnImage, "wxListView", "setColumnImage", 3}, // 1725
-  {wxListItem_new_0, "wxListItem", "new", 0}, // 1726
-  {wxListItem_new_1, "wxListItem", "new", 1}, // 1727
-  {wxListItem_Clear, "wxListItem", "clear", 1}, // 1728
-  {wxListItem_GetAlign, "wxListItem", "getAlign", 1}, // 1729
-  {wxListItem_GetBackgroundColour, "wxListItem", "getBackgroundColour", 1}, // 1730
-  {wxListItem_GetColumn, "wxListItem", "getColumn", 1}, // 1731
-  {wxListItem_GetFont, "wxListItem", "getFont", 1}, // 1732
-  {wxListItem_GetId, "wxListItem", "getId", 1}, // 1733
-  {wxListItem_GetImage, "wxListItem", "getImage", 1}, // 1734
-  {wxListItem_GetMask, "wxListItem", "getMask", 1}, // 1735
-  {wxListItem_GetState, "wxListItem", "getState", 1}, // 1736
-  {wxListItem_GetText, "wxListItem", "getText", 1}, // 1737
-  {wxListItem_GetTextColour, "wxListItem", "getTextColour", 1}, // 1738
-  {wxListItem_GetWidth, "wxListItem", "getWidth", 1}, // 1739
-  {wxListItem_SetAlign, "wxListItem", "setAlign", 2}, // 1740
-  {wxListItem_SetBackgroundColour, "wxListItem", "setBackgroundColour", 2}, // 1741
-  {wxListItem_SetColumn, "wxListItem", "setColumn", 2}, // 1742
-  {wxListItem_SetFont, "wxListItem", "setFont", 2}, // 1743
-  {wxListItem_SetId, "wxListItem", "setId", 2}, // 1744
-  {wxListItem_SetImage, "wxListItem", "setImage", 2}, // 1745
-  {wxListItem_SetMask, "wxListItem", "setMask", 2}, // 1746
-  {wxListItem_SetState, "wxListItem", "setState", 2}, // 1747
-  {wxListItem_SetStateMask, "wxListItem", "setStateMask", 2}, // 1748
-  {wxListItem_SetText, "wxListItem", "setText", 2}, // 1749
-  {wxListItem_SetTextColour, "wxListItem", "setTextColour", 2}, // 1750
-  {wxListItem_SetWidth, "wxListItem", "setWidth", 2}, // 1751
-  {NULL, "wxListItem", "'Destroy'", 1}, // 1752 obj destructor wxListItem_destroy
-  {wxListItemAttr_new_0, "wxListItemAttr", "new", 0}, // 1753
-  {wxListItemAttr_new_3, "wxListItemAttr", "new", 3}, // 1754
-  {wxListItemAttr_GetBackgroundColour, "wxListItemAttr", "getBackgroundColour", 1}, // 1755
-  {wxListItemAttr_GetFont, "wxListItemAttr", "getFont", 1}, // 1756
-  {wxListItemAttr_GetTextColour, "wxListItemAttr", "getTextColour", 1}, // 1757
-  {wxListItemAttr_HasBackgroundColour, "wxListItemAttr", "hasBackgroundColour", 1}, // 1758
-  {wxListItemAttr_HasFont, "wxListItemAttr", "hasFont", 1}, // 1759
-  {wxListItemAttr_HasTextColour, "wxListItemAttr", "hasTextColour", 1}, // 1760
-  {wxListItemAttr_SetBackgroundColour, "wxListItemAttr", "setBackgroundColour", 2}, // 1761
-  {wxListItemAttr_SetFont, "wxListItemAttr", "setFont", 2}, // 1762
-  {wxListItemAttr_SetTextColour, "wxListItemAttr", "setTextColour", 2}, // 1763
-  {wxListItemAttr_destroy, "wxListItemAttr", "'Destroy'", 1}, // 1764
-  {wxImageList_new_0, "wxImageList", "new", 0}, // 1765
-  {wxImageList_new_3, "wxImageList", "new", 3}, // 1766
-  {wxImageList_Add_2_0, "wxImageList", "add", 3}, // 1767
-  {NULL, "", "", 0}, // 1768
-  {wxImageList_Add_2_1, "wxImageList", "add", 3}, // 1769
-  {wxImageList_Add_1, "wxImageList", "add", 2}, // 1770
-  {wxImageList_Create, "wxImageList", "create", 4}, // 1771
-  {wxImageList_Draw, "wxImageList", "draw", 6}, // 1772
-  {wxImageList_GetBitmap, "wxImageList", "getBitmap", 2}, // 1773
-  {wxImageList_GetIcon, "wxImageList", "getIcon", 2}, // 1774
-  {wxImageList_GetImageCount, "wxImageList", "getImageCount", 1}, // 1775
-  {wxImageList_GetSize, "wxImageList", "getSize", 2}, // 1776
-  {NULL, "", "", 0}, // 1777
-  {wxImageList_Remove, "wxImageList", "remove", 2}, // 1778
-  {wxImageList_RemoveAll, "wxImageList", "removeAll", 1}, // 1779
-  {wxImageList_Replace_3, "wxImageList", "replace", 4}, // 1780
-  {NULL, "", "", 0}, // 1781
-  {wxImageList_Replace_2, "wxImageList", "replace", 3}, // 1782
-  {NULL, "wxImageList", "'Destroy'", 1}, // 1783 obj destructor wxImageList_destroy
-  {wxTextAttr_new_0, "wxTextAttr", "new", 0}, // 1784
-  {wxTextAttr_new_2, "wxTextAttr", "new", 2}, // 1785
-  {wxTextAttr_new_1, "wxTextAttr", "new", 1}, // 1786
-  {wxTextAttr_GetAlignment, "wxTextAttr", "getAlignment", 1}, // 1787
-  {wxTextAttr_GetBackgroundColour, "wxTextAttr", "getBackgroundColour", 1}, // 1788
-  {wxTextAttr_GetFont, "wxTextAttr", "getFont", 1}, // 1789
-  {wxTextAttr_GetFontEncoding, "wxTextAttr", "getFontEncoding", 1}, // 1790
-  {wxTextAttr_GetFontFaceName, "wxTextAttr", "getFontFaceName", 1}, // 1791
-  {wxTextAttr_GetFontSize, "wxTextAttr", "getFontSize", 1}, // 1792
-  {wxTextAttr_GetFontStyle, "wxTextAttr", "getFontStyle", 1}, // 1793
-  {wxTextAttr_GetFontUnderlined, "wxTextAttr", "getFontUnderlined", 1}, // 1794
-  {wxTextAttr_GetFontWeight, "wxTextAttr", "getFontWeight", 1}, // 1795
-  {wxTextAttr_GetLeftIndent, "wxTextAttr", "getLeftIndent", 1}, // 1796
-  {wxTextAttr_GetLeftSubIndent, "wxTextAttr", "getLeftSubIndent", 1}, // 1797
-  {wxTextAttr_GetRightIndent, "wxTextAttr", "getRightIndent", 1}, // 1798
-  {wxTextAttr_GetTabs, "wxTextAttr", "getTabs", 1}, // 1799
-  {wxTextAttr_GetTextColour, "wxTextAttr", "getTextColour", 1}, // 1800
-  {wxTextAttr_HasBackgroundColour, "wxTextAttr", "hasBackgroundColour", 1}, // 1801
-  {wxTextAttr_HasFont, "wxTextAttr", "hasFont", 1}, // 1802
-  {wxTextAttr_HasTextColour, "wxTextAttr", "hasTextColour", 1}, // 1803
-  {wxTextAttr_GetFlags, "wxTextAttr", "getFlags", 1}, // 1804
-  {wxTextAttr_IsDefault, "wxTextAttr", "isDefault", 1}, // 1805
-  {wxTextAttr_SetAlignment, "wxTextAttr", "setAlignment", 2}, // 1806
-  {wxTextAttr_SetBackgroundColour, "wxTextAttr", "setBackgroundColour", 2}, // 1807
-  {wxTextAttr_SetFlags, "wxTextAttr", "setFlags", 2}, // 1808
-  {wxTextAttr_SetFont, "wxTextAttr", "setFont", 3}, // 1809
-  {wxTextAttr_SetFontEncoding, "wxTextAttr", "setFontEncoding", 2}, // 1810
-  {wxTextAttr_SetFontFaceName, "wxTextAttr", "setFontFaceName", 2}, // 1811
-  {wxTextAttr_SetFontFamily, "wxTextAttr", "setFontFamily", 2}, // 1812
-  {wxTextAttr_SetFontSize, "wxTextAttr", "setFontSize", 2}, // 1813
-  {wxTextAttr_SetFontPointSize, "wxTextAttr", "setFontPointSize", 2}, // 1814
-  {wxTextAttr_SetFontPixelSize, "wxTextAttr", "setFontPixelSize", 2}, // 1815
-  {wxTextAttr_SetFontStyle, "wxTextAttr", "setFontStyle", 2}, // 1816
-  {wxTextAttr_SetFontUnderlined, "wxTextAttr", "setFontUnderlined", 2}, // 1817
-  {wxTextAttr_SetFontWeight, "wxTextAttr", "setFontWeight", 2}, // 1818
-  {wxTextAttr_SetLeftIndent, "wxTextAttr", "setLeftIndent", 3}, // 1819
-  {wxTextAttr_SetRightIndent, "wxTextAttr", "setRightIndent", 2}, // 1820
-  {wxTextAttr_SetTabs, "wxTextAttr", "setTabs", 2}, // 1821
-  {wxTextAttr_SetTextColour, "wxTextAttr", "setTextColour", 2}, // 1822
-  {wxTextAttr_destroy, "wxTextAttr", "'Destroy'", 1}, // 1823
-  {wxTextCtrl_new_0, "wxTextCtrl", "new", 0}, // 1824
-  {wxTextCtrl_new_3, "wxTextCtrl", "new", 3}, // 1825
-  {NULL, "wxTextCtrl", "destroy", 1}, // 1826 obj destructor wxTextCtrl_destruct
-  {wxTextCtrl_AppendText, "wxTextCtrl", "appendText", 2}, // 1827
-  {wxTextCtrl_CanCopy, "wxTextCtrl", "canCopy", 1}, // 1828
-  {wxTextCtrl_CanCut, "wxTextCtrl", "canCut", 1}, // 1829
-  {wxTextCtrl_CanPaste, "wxTextCtrl", "canPaste", 1}, // 1830
-  {wxTextCtrl_CanRedo, "wxTextCtrl", "canRedo", 1}, // 1831
-  {wxTextCtrl_CanUndo, "wxTextCtrl", "canUndo", 1}, // 1832
-  {wxTextCtrl_Clear, "wxTextCtrl", "clear", 1}, // 1833
-  {wxTextCtrl_Copy, "wxTextCtrl", "copy", 1}, // 1834
-  {wxTextCtrl_Create, "wxTextCtrl", "create", 4}, // 1835
-  {wxTextCtrl_Cut, "wxTextCtrl", "cut", 1}, // 1836
-  {wxTextCtrl_DiscardEdits, "wxTextCtrl", "discardEdits", 1}, // 1837
-  {wxTextCtrl_ChangeValue, "wxTextCtrl", "changeValue", 2}, // 1838
-  {wxTextCtrl_EmulateKeyPress, "wxTextCtrl", "emulateKeyPress", 2}, // 1839
-  {wxTextCtrl_GetDefaultStyle, "wxTextCtrl", "getDefaultStyle", 1}, // 1840
-  {wxTextCtrl_GetInsertionPoint, "wxTextCtrl", "getInsertionPoint", 1}, // 1841
-  {wxTextCtrl_GetLastPosition, "wxTextCtrl", "getLastPosition", 1}, // 1842
-  {wxTextCtrl_GetLineLength, "wxTextCtrl", "getLineLength", 2}, // 1843
-  {wxTextCtrl_GetLineText, "wxTextCtrl", "getLineText", 2}, // 1844
-  {wxTextCtrl_GetNumberOfLines, "wxTextCtrl", "getNumberOfLines", 1}, // 1845
-  {wxTextCtrl_GetRange, "wxTextCtrl", "getRange", 3}, // 1846
-  {wxTextCtrl_GetSelection, "wxTextCtrl", "getSelection", 1}, // 1847
-  {wxTextCtrl_GetStringSelection, "wxTextCtrl", "getStringSelection", 1}, // 1848
-  {wxTextCtrl_GetStyle, "wxTextCtrl", "getStyle", 3}, // 1849
-  {wxTextCtrl_GetValue, "wxTextCtrl", "getValue", 1}, // 1850
-  {wxTextCtrl_IsEditable, "wxTextCtrl", "isEditable", 1}, // 1851
-  {wxTextCtrl_IsModified, "wxTextCtrl", "isModified", 1}, // 1852
-  {wxTextCtrl_IsMultiLine, "wxTextCtrl", "isMultiLine", 1}, // 1853
-  {wxTextCtrl_IsSingleLine, "wxTextCtrl", "isSingleLine", 1}, // 1854
-  {wxTextCtrl_LoadFile, "wxTextCtrl", "loadFile", 3}, // 1855
-  {wxTextCtrl_MarkDirty, "wxTextCtrl", "markDirty", 1}, // 1856
-  {wxTextCtrl_Paste, "wxTextCtrl", "paste", 1}, // 1857
-  {wxTextCtrl_PositionToXY, "wxTextCtrl", "positionToXY", 2}, // 1858
-  {wxTextCtrl_Redo, "wxTextCtrl", "redo", 1}, // 1859
-  {wxTextCtrl_Remove, "wxTextCtrl", "remove", 3}, // 1860
-  {wxTextCtrl_Replace, "wxTextCtrl", "replace", 4}, // 1861
-  {wxTextCtrl_SaveFile, "wxTextCtrl", "saveFile", 2}, // 1862
-  {wxTextCtrl_SetDefaultStyle, "wxTextCtrl", "setDefaultStyle", 2}, // 1863
-  {wxTextCtrl_SetEditable, "wxTextCtrl", "setEditable", 2}, // 1864
-  {wxTextCtrl_SetInsertionPoint, "wxTextCtrl", "setInsertionPoint", 2}, // 1865
-  {wxTextCtrl_SetInsertionPointEnd, "wxTextCtrl", "setInsertionPointEnd", 1}, // 1866
-  {wxTextCtrl_SetMaxLength, "wxTextCtrl", "setMaxLength", 2}, // 1867
-  {wxTextCtrl_SetSelection, "wxTextCtrl", "setSelection", 3}, // 1868
-  {wxTextCtrl_SetStyle, "wxTextCtrl", "setStyle", 4}, // 1869
-  {wxTextCtrl_SetValue, "wxTextCtrl", "setValue", 2}, // 1870
-  {wxTextCtrl_ShowPosition, "wxTextCtrl", "showPosition", 2}, // 1871
-  {wxTextCtrl_Undo, "wxTextCtrl", "undo", 1}, // 1872
-  {wxTextCtrl_WriteText, "wxTextCtrl", "writeText", 2}, // 1873
-  {wxTextCtrl_XYToPosition, "wxTextCtrl", "xYToPosition", 3}, // 1874
-  {wxBookCtrlBase_AddPage, "wxBookCtrlBase", "addPage", 4}, // 1875
-  {wxBookCtrlBase_InsertPage, "wxBookCtrlBase", "insertPage", 5}, // 1876
-  {wxBookCtrlBase_DeletePage, "wxBookCtrlBase", "deletePage", 2}, // 1877
-  {wxBookCtrlBase_RemovePage, "wxBookCtrlBase", "removePage", 2}, // 1878
-  {wxBookCtrlBase_DeleteAllPages, "wxBookCtrlBase", "deleteAllPages", 1}, // 1879
-  {wxBookCtrlBase_GetPage, "wxBookCtrlBase", "getPage", 2}, // 1880
-  {wxBookCtrlBase_GetPageCount, "wxBookCtrlBase", "getPageCount", 1}, // 1881
-  {wxBookCtrlBase_GetCurrentPage, "wxBookCtrlBase", "getCurrentPage", 1}, // 1882
-  {wxBookCtrlBase_AdvanceSelection, "wxBookCtrlBase", "advanceSelection", 2}, // 1883
-  {wxBookCtrlBase_SetSelection, "wxBookCtrlBase", "setSelection", 2}, // 1884
-  {wxBookCtrlBase_GetSelection, "wxBookCtrlBase", "getSelection", 1}, // 1885
-  {wxBookCtrlBase_ChangeSelection, "wxBookCtrlBase", "changeSelection", 2}, // 1886
-  {wxBookCtrlBase_HitTest, "wxBookCtrlBase", "hitTest", 2}, // 1887
-  {wxBookCtrlBase_GetPageText, "wxBookCtrlBase", "getPageText", 2}, // 1888
-  {wxBookCtrlBase_SetPageText, "wxBookCtrlBase", "setPageText", 3}, // 1889
-  {wxNotebook_new_0, "wxNotebook", "new", 0}, // 1890
-  {wxNotebook_new_3, "wxNotebook", "new", 3}, // 1891
-  {NULL, "wxNotebook", "destroy", 1}, // 1892 obj destructor wxNotebook_destruct
-  {wxNotebook_AssignImageList, "wxNotebook", "assignImageList", 2}, // 1893
-  {wxNotebook_Create, "wxNotebook", "create", 4}, // 1894
-  {wxNotebook_GetImageList, "wxNotebook", "getImageList", 1}, // 1895
-  {wxNotebook_GetPageImage, "wxNotebook", "getPageImage", 2}, // 1896
-  {wxNotebook_GetRowCount, "wxNotebook", "getRowCount", 1}, // 1897
-  {wxNotebook_GetThemeBackgroundColour, "wxNotebook", "getThemeBackgroundColour", 1}, // 1898
-  {wxNotebook_SetImageList, "wxNotebook", "setImageList", 2}, // 1899
-  {wxNotebook_SetPadding, "wxNotebook", "setPadding", 2}, // 1900
-  {wxNotebook_SetPageSize, "wxNotebook", "setPageSize", 2}, // 1901
-  {wxNotebook_SetPageImage, "wxNotebook", "setPageImage", 3}, // 1902
-  {wxChoicebook_new_0, "wxChoicebook", "new", 0}, // 1903
-  {wxChoicebook_new_3, "wxChoicebook", "new", 3}, // 1904
-  {wxChoicebook_AddPage, "wxChoicebook", "addPage", 4}, // 1905
-  {wxChoicebook_AdvanceSelection, "wxChoicebook", "advanceSelection", 2}, // 1906
-  {wxChoicebook_AssignImageList, "wxChoicebook", "assignImageList", 2}, // 1907
-  {wxChoicebook_Create, "wxChoicebook", "create", 4}, // 1908
-  {wxChoicebook_DeleteAllPages, "wxChoicebook", "deleteAllPages", 1}, // 1909
-  {wxChoicebook_GetCurrentPage, "wxChoicebook", "getCurrentPage", 1}, // 1910
-  {wxChoicebook_GetImageList, "wxChoicebook", "getImageList", 1}, // 1911
-  {wxChoicebook_GetPage, "wxChoicebook", "getPage", 2}, // 1912
-  {wxChoicebook_GetPageCount, "wxChoicebook", "getPageCount", 1}, // 1913
-  {wxChoicebook_GetPageImage, "wxChoicebook", "getPageImage", 2}, // 1914
-  {wxChoicebook_GetPageText, "wxChoicebook", "getPageText", 2}, // 1915
-  {wxChoicebook_GetSelection, "wxChoicebook", "getSelection", 1}, // 1916
-  {wxChoicebook_HitTest, "wxChoicebook", "hitTest", 2}, // 1917
-  {wxChoicebook_InsertPage, "wxChoicebook", "insertPage", 5}, // 1918
-  {wxChoicebook_SetImageList, "wxChoicebook", "setImageList", 2}, // 1919
-  {wxChoicebook_SetPageSize, "wxChoicebook", "setPageSize", 2}, // 1920
-  {wxChoicebook_SetPageImage, "wxChoicebook", "setPageImage", 3}, // 1921
-  {wxChoicebook_SetPageText, "wxChoicebook", "setPageText", 3}, // 1922
-  {wxChoicebook_SetSelection, "wxChoicebook", "setSelection", 2}, // 1923
-  {wxChoicebook_ChangeSelection, "wxChoicebook", "changeSelection", 2}, // 1924
-  {NULL, "wxChoicebook", "'Destroy'", 1}, // 1925 obj destructor wxChoicebook_destroy
-  {wxToolbook_new_0, "wxToolbook", "new", 0}, // 1926
-  {wxToolbook_new_3, "wxToolbook", "new", 3}, // 1927
-  {wxToolbook_AddPage, "wxToolbook", "addPage", 4}, // 1928
-  {wxToolbook_AdvanceSelection, "wxToolbook", "advanceSelection", 2}, // 1929
-  {wxToolbook_AssignImageList, "wxToolbook", "assignImageList", 2}, // 1930
-  {wxToolbook_Create, "wxToolbook", "create", 4}, // 1931
-  {wxToolbook_DeleteAllPages, "wxToolbook", "deleteAllPages", 1}, // 1932
-  {wxToolbook_GetCurrentPage, "wxToolbook", "getCurrentPage", 1}, // 1933
-  {wxToolbook_GetImageList, "wxToolbook", "getImageList", 1}, // 1934
-  {wxToolbook_GetPage, "wxToolbook", "getPage", 2}, // 1935
-  {wxToolbook_GetPageCount, "wxToolbook", "getPageCount", 1}, // 1936
-  {wxToolbook_GetPageImage, "wxToolbook", "getPageImage", 2}, // 1937
-  {wxToolbook_GetPageText, "wxToolbook", "getPageText", 2}, // 1938
-  {wxToolbook_GetSelection, "wxToolbook", "getSelection", 1}, // 1939
-  {wxToolbook_HitTest, "wxToolbook", "hitTest", 2}, // 1940
-  {wxToolbook_InsertPage, "wxToolbook", "insertPage", 5}, // 1941
-  {wxToolbook_SetImageList, "wxToolbook", "setImageList", 2}, // 1942
-  {wxToolbook_SetPageSize, "wxToolbook", "setPageSize", 2}, // 1943
-  {wxToolbook_SetPageImage, "wxToolbook", "setPageImage", 3}, // 1944
-  {wxToolbook_SetPageText, "wxToolbook", "setPageText", 3}, // 1945
-  {wxToolbook_SetSelection, "wxToolbook", "setSelection", 2}, // 1946
-  {wxToolbook_ChangeSelection, "wxToolbook", "changeSelection", 2}, // 1947
-  {NULL, "wxToolbook", "'Destroy'", 1}, // 1948 obj destructor wxToolbook_destroy
-  {wxListbook_new_0, "wxListbook", "new", 0}, // 1949
-  {wxListbook_new_3, "wxListbook", "new", 3}, // 1950
-  {wxListbook_AddPage, "wxListbook", "addPage", 4}, // 1951
-  {wxListbook_AdvanceSelection, "wxListbook", "advanceSelection", 2}, // 1952
-  {wxListbook_AssignImageList, "wxListbook", "assignImageList", 2}, // 1953
-  {wxListbook_Create, "wxListbook", "create", 4}, // 1954
-  {wxListbook_DeleteAllPages, "wxListbook", "deleteAllPages", 1}, // 1955
-  {wxListbook_GetCurrentPage, "wxListbook", "getCurrentPage", 1}, // 1956
-  {wxListbook_GetImageList, "wxListbook", "getImageList", 1}, // 1957
-  {wxListbook_GetPage, "wxListbook", "getPage", 2}, // 1958
-  {wxListbook_GetPageCount, "wxListbook", "getPageCount", 1}, // 1959
-  {wxListbook_GetPageImage, "wxListbook", "getPageImage", 2}, // 1960
-  {wxListbook_GetPageText, "wxListbook", "getPageText", 2}, // 1961
-  {wxListbook_GetSelection, "wxListbook", "getSelection", 1}, // 1962
-  {wxListbook_HitTest, "wxListbook", "hitTest", 2}, // 1963
-  {wxListbook_InsertPage, "wxListbook", "insertPage", 5}, // 1964
-  {wxListbook_SetImageList, "wxListbook", "setImageList", 2}, // 1965
-  {wxListbook_SetPageSize, "wxListbook", "setPageSize", 2}, // 1966
-  {wxListbook_SetPageImage, "wxListbook", "setPageImage", 3}, // 1967
-  {wxListbook_SetPageText, "wxListbook", "setPageText", 3}, // 1968
-  {wxListbook_SetSelection, "wxListbook", "setSelection", 2}, // 1969
-  {wxListbook_ChangeSelection, "wxListbook", "changeSelection", 2}, // 1970
-  {NULL, "wxListbook", "'Destroy'", 1}, // 1971 obj destructor wxListbook_destroy
-  {wxTreebook_new_0, "wxTreebook", "new", 0}, // 1972
-  {wxTreebook_new_3, "wxTreebook", "new", 3}, // 1973
-  {NULL, "wxTreebook", "destroy", 1}, // 1974 obj destructor wxTreebook_destruct
-  {wxTreebook_AddPage, "wxTreebook", "addPage", 4}, // 1975
-  {wxTreebook_AdvanceSelection, "wxTreebook", "advanceSelection", 2}, // 1976
-  {wxTreebook_AssignImageList, "wxTreebook", "assignImageList", 2}, // 1977
-  {wxTreebook_Create, "wxTreebook", "create", 4}, // 1978
-  {wxTreebook_DeleteAllPages, "wxTreebook", "deleteAllPages", 1}, // 1979
-  {wxTreebook_GetCurrentPage, "wxTreebook", "getCurrentPage", 1}, // 1980
-  {wxTreebook_GetImageList, "wxTreebook", "getImageList", 1}, // 1981
-  {wxTreebook_GetPage, "wxTreebook", "getPage", 2}, // 1982
-  {wxTreebook_GetPageCount, "wxTreebook", "getPageCount", 1}, // 1983
-  {wxTreebook_GetPageImage, "wxTreebook", "getPageImage", 2}, // 1984
-  {wxTreebook_GetPageText, "wxTreebook", "getPageText", 2}, // 1985
-  {wxTreebook_GetSelection, "wxTreebook", "getSelection", 1}, // 1986
-  {wxTreebook_ExpandNode, "wxTreebook", "expandNode", 3}, // 1987
-  {wxTreebook_IsNodeExpanded, "wxTreebook", "isNodeExpanded", 2}, // 1988
-  {wxTreebook_HitTest, "wxTreebook", "hitTest", 2}, // 1989
-  {wxTreebook_InsertPage, "wxTreebook", "insertPage", 5}, // 1990
-  {wxTreebook_InsertSubPage, "wxTreebook", "insertSubPage", 5}, // 1991
-  {wxTreebook_SetImageList, "wxTreebook", "setImageList", 2}, // 1992
-  {wxTreebook_SetPageSize, "wxTreebook", "setPageSize", 2}, // 1993
-  {wxTreebook_SetPageImage, "wxTreebook", "setPageImage", 3}, // 1994
-  {wxTreebook_SetPageText, "wxTreebook", "setPageText", 3}, // 1995
-  {wxTreebook_SetSelection, "wxTreebook", "setSelection", 2}, // 1996
-  {wxTreebook_ChangeSelection, "wxTreebook", "changeSelection", 2}, // 1997
-  {wxTreeCtrl_new_0, "wxTreeCtrl", "new", 0}, // 1998
-  {wxTreeCtrl_new_2, "wxTreeCtrl", "new", 2}, // 1999
-  {NULL, "wxTreeCtrl", "destroy", 1}, // 2000 obj destructor wxTreeCtrl_destruct
-  {wxTreeCtrl_AddRoot, "wxTreeCtrl", "addRoot", 3}, // 2001
-  {wxTreeCtrl_AppendItem, "wxTreeCtrl", "appendItem", 4}, // 2002
-  {wxTreeCtrl_AssignImageList, "wxTreeCtrl", "assignImageList", 2}, // 2003
-  {wxTreeCtrl_AssignStateImageList, "wxTreeCtrl", "assignStateImageList", 2}, // 2004
-  {wxTreeCtrl_Collapse, "wxTreeCtrl", "collapse", 2}, // 2005
-  {wxTreeCtrl_CollapseAndReset, "wxTreeCtrl", "collapseAndReset", 2}, // 2006
-  {wxTreeCtrl_Create, "wxTreeCtrl", "create", 3}, // 2007
-  {wxTreeCtrl_Delete, "wxTreeCtrl", "delete", 2}, // 2008
-  {wxTreeCtrl_DeleteAllItems, "wxTreeCtrl", "deleteAllItems", 1}, // 2009
-  {wxTreeCtrl_DeleteChildren, "wxTreeCtrl", "deleteChildren", 2}, // 2010
-  {wxTreeCtrl_EditLabel, "wxTreeCtrl", "editLabel", 2}, // 2011
-  {wxTreeCtrl_EnsureVisible, "wxTreeCtrl", "ensureVisible", 2}, // 2012
-  {wxTreeCtrl_Expand, "wxTreeCtrl", "expand", 2}, // 2013
-  {wxTreeCtrl_GetBoundingRect, "wxTreeCtrl", "getBoundingRect", 3}, // 2014
-  {wxTreeCtrl_GetChildrenCount, "wxTreeCtrl", "getChildrenCount", 3}, // 2015
-  {wxTreeCtrl_GetCount, "wxTreeCtrl", "getCount", 1}, // 2016
-  {wxTreeCtrl_GetEditControl, "wxTreeCtrl", "getEditControl", 1}, // 2017
-  {wxTreeCtrl_GetFirstChild, "wxTreeCtrl", "getFirstChild", 2}, // 2018
-  {wxTreeCtrl_GetNextChild, "wxTreeCtrl", "getNextChild", 3}, // 2019
-  {wxTreeCtrl_GetFirstVisibleItem, "wxTreeCtrl", "getFirstVisibleItem", 1}, // 2020
-  {wxTreeCtrl_GetImageList, "wxTreeCtrl", "getImageList", 1}, // 2021
-  {wxTreeCtrl_GetIndent, "wxTreeCtrl", "getIndent", 1}, // 2022
-  {wxTreeCtrl_GetItemBackgroundColour, "wxTreeCtrl", "getItemBackgroundColour", 2}, // 2023
-  {wxTreeCtrl_GetItemData, "wxTreeCtrl", "getItemData", 2}, // 2024
-  {wxTreeCtrl_GetItemFont, "wxTreeCtrl", "getItemFont", 2}, // 2025
-  {wxTreeCtrl_GetItemImage, "wxTreeCtrl", "getItemImage", 3}, // 2026
-  {wxTreeCtrl_GetItemText, "wxTreeCtrl", "getItemText", 2}, // 2027
-  {wxTreeCtrl_GetItemTextColour, "wxTreeCtrl", "getItemTextColour", 2}, // 2028
-  {wxTreeCtrl_GetLastChild, "wxTreeCtrl", "getLastChild", 2}, // 2029
-  {wxTreeCtrl_GetNextSibling, "wxTreeCtrl", "getNextSibling", 2}, // 2030
-  {wxTreeCtrl_GetNextVisible, "wxTreeCtrl", "getNextVisible", 2}, // 2031
-  {wxTreeCtrl_GetItemParent, "wxTreeCtrl", "getItemParent", 2}, // 2032
-  {wxTreeCtrl_GetPrevSibling, "wxTreeCtrl", "getPrevSibling", 2}, // 2033
-  {wxTreeCtrl_GetPrevVisible, "wxTreeCtrl", "getPrevVisible", 2}, // 2034
-  {wxTreeCtrl_GetRootItem, "wxTreeCtrl", "getRootItem", 1}, // 2035
-  {wxTreeCtrl_GetSelection, "wxTreeCtrl", "getSelection", 1}, // 2036
-  {wxTreeCtrl_GetSelections, "wxTreeCtrl", "getSelections", 1}, // 2037
-  {wxTreeCtrl_GetStateImageList, "wxTreeCtrl", "getStateImageList", 1}, // 2038
-  {wxTreeCtrl_HitTest, "wxTreeCtrl", "hitTest", 2}, // 2039
-  {wxTreeCtrl_InsertItem, "wxTreeCtrl", "insertItem", 5}, // 2040
-  {NULL, "", "", 0}, // 2041
-  {wxTreeCtrl_IsBold, "wxTreeCtrl", "isBold", 2}, // 2042
-  {wxTreeCtrl_IsExpanded, "wxTreeCtrl", "isExpanded", 2}, // 2043
-  {wxTreeCtrl_IsSelected, "wxTreeCtrl", "isSelected", 2}, // 2044
-  {wxTreeCtrl_IsVisible, "wxTreeCtrl", "isVisible", 2}, // 2045
-  {wxTreeCtrl_ItemHasChildren, "wxTreeCtrl", "itemHasChildren", 2}, // 2046
-  {wxTreeCtrl_IsTreeItemIdOk, "wxTreeCtrl", "isTreeItemIdOk", 1}, // 2047
-  {wxTreeCtrl_PrependItem, "wxTreeCtrl", "prependItem", 4}, // 2048
-  {wxTreeCtrl_ScrollTo, "wxTreeCtrl", "scrollTo", 2}, // 2049
-  {wxTreeCtrl_SelectItem, "wxTreeCtrl", "selectItem", 3}, // 2050
-  {wxTreeCtrl_SetIndent, "wxTreeCtrl", "setIndent", 2}, // 2051
-  {wxTreeCtrl_SetImageList, "wxTreeCtrl", "setImageList", 2}, // 2052
-  {wxTreeCtrl_SetItemBackgroundColour, "wxTreeCtrl", "setItemBackgroundColour", 3}, // 2053
-  {wxTreeCtrl_SetItemBold, "wxTreeCtrl", "setItemBold", 3}, // 2054
-  {wxTreeCtrl_SetItemData, "wxTreeCtrl", "setItemData", 3}, // 2055
-  {wxTreeCtrl_SetItemDropHighlight, "wxTreeCtrl", "setItemDropHighlight", 3}, // 2056
-  {wxTreeCtrl_SetItemFont, "wxTreeCtrl", "setItemFont", 3}, // 2057
-  {wxTreeCtrl_SetItemHasChildren, "wxTreeCtrl", "setItemHasChildren", 3}, // 2058
-  {wxTreeCtrl_SetItemImage, "wxTreeCtrl", "setItemImage", 4}, // 2059
-  {wxTreeCtrl_SetItemText, "wxTreeCtrl", "setItemText", 3}, // 2060
-  {wxTreeCtrl_SetItemTextColour, "wxTreeCtrl", "setItemTextColour", 3}, // 2061
-  {wxTreeCtrl_SetStateImageList, "wxTreeCtrl", "setStateImageList", 2}, // 2062
-  {wxTreeCtrl_SetWindowStyle, "wxTreeCtrl", "setWindowStyle", 2}, // 2063
-  {wxTreeCtrl_SortChildren, "wxTreeCtrl", "sortChildren", 2}, // 2064
-  {wxTreeCtrl_Toggle, "wxTreeCtrl", "toggle", 2}, // 2065
-  {wxTreeCtrl_ToggleItemSelection, "wxTreeCtrl", "toggleItemSelection", 2}, // 2066
-  {wxTreeCtrl_Unselect, "wxTreeCtrl", "unselect", 1}, // 2067
-  {wxTreeCtrl_UnselectAll, "wxTreeCtrl", "unselectAll", 1}, // 2068
-  {wxTreeCtrl_UnselectItem, "wxTreeCtrl", "unselectItem", 2}, // 2069
-  {wxScrollBar_new_0, "wxScrollBar", "new", 0}, // 2070
-  {wxScrollBar_new_3, "wxScrollBar", "new", 3}, // 2071
-  {NULL, "wxScrollBar", "destroy", 1}, // 2072 obj destructor wxScrollBar_destruct
-  {wxScrollBar_Create, "wxScrollBar", "create", 4}, // 2073
-  {wxScrollBar_GetRange, "wxScrollBar", "getRange", 1}, // 2074
-  {wxScrollBar_GetPageSize, "wxScrollBar", "getPageSize", 1}, // 2075
-  {wxScrollBar_GetThumbPosition, "wxScrollBar", "getThumbPosition", 1}, // 2076
-  {wxScrollBar_GetThumbSize, "wxScrollBar", "getThumbSize", 1}, // 2077
-  {wxScrollBar_SetThumbPosition, "wxScrollBar", "setThumbPosition", 2}, // 2078
-  {wxScrollBar_SetScrollbar, "wxScrollBar", "setScrollbar", 6}, // 2079
-  {wxSpinButton_new_0, "wxSpinButton", "new", 0}, // 2080
-  {wxSpinButton_new_2, "wxSpinButton", "new", 2}, // 2081
-  {NULL, "wxSpinButton", "destroy", 1}, // 2082 obj destructor wxSpinButton_destruct
-  {wxSpinButton_Create, "wxSpinButton", "create", 3}, // 2083
-  {wxSpinButton_GetMax, "wxSpinButton", "getMax", 1}, // 2084
-  {wxSpinButton_GetMin, "wxSpinButton", "getMin", 1}, // 2085
-  {wxSpinButton_GetValue, "wxSpinButton", "getValue", 1}, // 2086
-  {wxSpinButton_SetRange, "wxSpinButton", "setRange", 3}, // 2087
-  {wxSpinButton_SetValue, "wxSpinButton", "setValue", 2}, // 2088
-  {wxSpinCtrl_new_0, "wxSpinCtrl", "new", 0}, // 2089
-  {wxSpinCtrl_new_2, "wxSpinCtrl", "new", 2}, // 2090
-  {wxSpinCtrl_Create, "wxSpinCtrl", "create", 3}, // 2091
-  {wxSpinCtrl_SetValue_1_1, "wxSpinCtrl", "setValue", 2}, // 2092
-  {wxSpinCtrl_SetValue_1_0, "wxSpinCtrl", "setValue", 2}, // 2093
-  {wxSpinCtrl_GetValue, "wxSpinCtrl", "getValue", 1}, // 2094
-  {wxSpinCtrl_SetRange, "wxSpinCtrl", "setRange", 3}, // 2095
-  {wxSpinCtrl_SetSelection, "wxSpinCtrl", "setSelection", 3}, // 2096
-  {wxSpinCtrl_GetMin, "wxSpinCtrl", "getMin", 1}, // 2097
-  {wxSpinCtrl_GetMax, "wxSpinCtrl", "getMax", 1}, // 2098
-  {NULL, "wxSpinCtrl", "'Destroy'", 1}, // 2099 obj destructor wxSpinCtrl_destroy
-  {wxStaticText_new_0, "wxStaticText", "new", 0}, // 2100
-  {wxStaticText_new_4, "wxStaticText", "new", 4}, // 2101
-  {wxStaticText_Create, "wxStaticText", "create", 5}, // 2102
-  {wxStaticText_GetLabel, "wxStaticText", "getLabel", 1}, // 2103
-  {wxStaticText_SetLabel, "wxStaticText", "setLabel", 2}, // 2104
-  {wxStaticText_Wrap, "wxStaticText", "wrap", 2}, // 2105
-  {NULL, "wxStaticText", "'Destroy'", 1}, // 2106 obj destructor wxStaticText_destroy
-  {wxStaticBitmap_new_0, "wxStaticBitmap", "new", 0}, // 2107
-  {wxStaticBitmap_new_4, "wxStaticBitmap", "new", 4}, // 2108
-  {wxStaticBitmap_Create, "wxStaticBitmap", "create", 5}, // 2109
-  {wxStaticBitmap_GetBitmap, "wxStaticBitmap", "getBitmap", 1}, // 2110
-  {wxStaticBitmap_SetBitmap, "wxStaticBitmap", "setBitmap", 2}, // 2111
-  {NULL, "wxStaticBitmap", "'Destroy'", 1}, // 2112 obj destructor wxStaticBitmap_destroy
-  {wxRadioBox_new, "wxRadioBox", "new", 7}, // 2113
-  {NULL, "wxRadioBox", "destroy", 1}, // 2114 obj destructor wxRadioBox_destruct
-  {wxRadioBox_Create, "wxRadioBox", "create", 8}, // 2115
-  {wxRadioBox_Enable_1, "wxRadioBox", "enable", 2}, // 2116
-  {wxRadioBox_Enable_2, "wxRadioBox", "enable", 3}, // 2117
-  {wxRadioBox_GetSelection, "wxRadioBox", "getSelection", 1}, // 2118
-  {wxRadioBox_GetString, "wxRadioBox", "getString", 2}, // 2119
-  {wxRadioBox_SetSelection, "wxRadioBox", "setSelection", 2}, // 2120
-  {wxRadioBox_Show, "wxRadioBox", "show", 3}, // 2121
-  {wxRadioBox_GetColumnCount, "wxRadioBox", "getColumnCount", 1}, // 2122
-  {wxRadioBox_GetItemHelpText, "wxRadioBox", "getItemHelpText", 2}, // 2123
-  {wxRadioBox_GetItemToolTip, "wxRadioBox", "getItemToolTip", 2}, // 2124
-  {wxRadioBox_GetItemFromPoint, "wxRadioBox", "getItemFromPoint", 2}, // 2125
-  {wxRadioBox_GetRowCount, "wxRadioBox", "getRowCount", 1}, // 2126
-  {wxRadioBox_IsItemEnabled, "wxRadioBox", "isItemEnabled", 2}, // 2127
-  {wxRadioBox_IsItemShown, "wxRadioBox", "isItemShown", 2}, // 2128
-  {wxRadioBox_SetItemHelpText, "wxRadioBox", "setItemHelpText", 3}, // 2129
-  {wxRadioBox_SetItemToolTip, "wxRadioBox", "setItemToolTip", 3}, // 2130
-  {wxRadioButton_new_0, "wxRadioButton", "new", 0}, // 2131
-  {wxRadioButton_new_4, "wxRadioButton", "new", 4}, // 2132
-  {NULL, "wxRadioButton", "destroy", 1}, // 2133 obj destructor wxRadioButton_destruct
-  {wxRadioButton_Create, "wxRadioButton", "create", 5}, // 2134
-  {wxRadioButton_GetValue, "wxRadioButton", "getValue", 1}, // 2135
-  {wxRadioButton_SetValue, "wxRadioButton", "setValue", 2}, // 2136
-  {wxSlider_new_0, "wxSlider", "new", 0}, // 2137
-  {wxSlider_new_6, "wxSlider", "new", 6}, // 2138
-  {NULL, "wxSlider", "destroy", 1}, // 2139 obj destructor wxSlider_destruct
-  {wxSlider_Create, "wxSlider", "create", 7}, // 2140
-  {wxSlider_GetLineSize, "wxSlider", "getLineSize", 1}, // 2141
-  {wxSlider_GetMax, "wxSlider", "getMax", 1}, // 2142
-  {wxSlider_GetMin, "wxSlider", "getMin", 1}, // 2143
-  {wxSlider_GetPageSize, "wxSlider", "getPageSize", 1}, // 2144
-  {wxSlider_GetThumbLength, "wxSlider", "getThumbLength", 1}, // 2145
-  {wxSlider_GetValue, "wxSlider", "getValue", 1}, // 2146
-  {wxSlider_SetLineSize, "wxSlider", "setLineSize", 2}, // 2147
-  {wxSlider_SetPageSize, "wxSlider", "setPageSize", 2}, // 2148
-  {wxSlider_SetRange, "wxSlider", "setRange", 3}, // 2149
-  {wxSlider_SetThumbLength, "wxSlider", "setThumbLength", 2}, // 2150
-  {wxSlider_SetValue, "wxSlider", "setValue", 2}, // 2151
-  {wxDialog_new_0, "wxDialog", "new", 0}, // 2152
-  {wxDialog_new_4, "wxDialog", "new", 4}, // 2153
-  {NULL, "wxDialog", "destroy", 1}, // 2154 obj destructor wxDialog_destruct
-  {wxDialog_Create, "wxDialog", "create", 5}, // 2155
-  {wxDialog_CreateButtonSizer, "wxDialog", "createButtonSizer", 2}, // 2156
-  {wxDialog_CreateStdDialogButtonSizer, "wxDialog", "createStdDialogButtonSizer", 2}, // 2157
-  {wxDialog_EndModal, "wxDialog", "endModal", 2}, // 2158
-  {wxDialog_GetAffirmativeId, "wxDialog", "getAffirmativeId", 1}, // 2159
-  {wxDialog_GetReturnCode, "wxDialog", "getReturnCode", 1}, // 2160
-  {wxDialog_IsModal, "wxDialog", "isModal", 1}, // 2161
-  {wxDialog_SetAffirmativeId, "wxDialog", "setAffirmativeId", 2}, // 2162
-  {wxDialog_SetReturnCode, "wxDialog", "setReturnCode", 2}, // 2163
-  {wxDialog_Show, "wxDialog", "show", 2}, // 2164
-  {wxDialog_ShowModal, "wxDialog", "showModal", 1}, // 2165
-  {wxColourDialog_new_0, "wxColourDialog", "new", 0}, // 2166
-  {wxColourDialog_new_2, "wxColourDialog", "new", 2}, // 2167
-  {NULL, "wxColourDialog", "destroy", 1}, // 2168 obj destructor wxColourDialog_destruct
-  {wxColourDialog_Create, "wxColourDialog", "create", 3}, // 2169
-  {wxColourDialog_GetColourData, "wxColourDialog", "getColourData", 1}, // 2170
-  {wxColourData_new, "wxColourData", "new", 0}, // 2171
-  {NULL, "wxColourData", "destroy", 1}, // 2172 obj destructor wxColourData_destruct
-  {wxColourData_GetChooseFull, "wxColourData", "getChooseFull", 1}, // 2173
-  {wxColourData_GetColour, "wxColourData", "getColour", 1}, // 2174
-  {wxColourData_GetCustomColour, "wxColourData", "getCustomColour", 2}, // 2175
-  {wxColourData_SetChooseFull, "wxColourData", "setChooseFull", 2}, // 2176
-  {wxColourData_SetColour, "wxColourData", "setColour", 2}, // 2177
-  {wxColourData_SetCustomColour, "wxColourData", "setCustomColour", 3}, // 2178
-  {wxPalette_new_0, "wxPalette", "new", 0}, // 2179
-  {wxPalette_new_1, "wxPalette", "new", 1}, // 2180
-  {wxPalette_new_4, "wxPalette", "new", 3}, // 2181
-  {NULL, "wxPalette", "destroy", 1}, // 2182 obj destructor wxPalette_destruct
-  {wxPalette_Create, "wxPalette", "create", 4}, // 2183
-  {wxPalette_GetColoursCount, "wxPalette", "getColoursCount", 1}, // 2184
-  {wxPalette_GetPixel, "wxPalette", "getPixel", 4}, // 2185
-  {wxPalette_GetRGB, "wxPalette", "getRGB", 2}, // 2186
-  {wxPalette_IsOk, "wxPalette", "isOk", 1}, // 2187
-  {wxDirDialog_new, "wxDirDialog", "new", 2}, // 2188
-  {NULL, "wxDirDialog", "destroy", 1}, // 2189 obj destructor wxDirDialog_destruct
-  {wxDirDialog_GetPath, "wxDirDialog", "getPath", 1}, // 2190
-  {wxDirDialog_GetMessage, "wxDirDialog", "getMessage", 1}, // 2191
-  {wxDirDialog_SetMessage, "wxDirDialog", "setMessage", 2}, // 2192
-  {wxDirDialog_SetPath, "wxDirDialog", "setPath", 2}, // 2193
-  {wxFileDialog_new, "wxFileDialog", "new", 2}, // 2194
-  {NULL, "wxFileDialog", "destroy", 1}, // 2195 obj destructor wxFileDialog_destruct
-  {wxFileDialog_GetDirectory, "wxFileDialog", "getDirectory", 1}, // 2196
-  {wxFileDialog_GetFilename, "wxFileDialog", "getFilename", 1}, // 2197
-  {wxFileDialog_GetFilenames, "wxFileDialog", "getFilenames", 1}, // 2198
-  {wxFileDialog_GetFilterIndex, "wxFileDialog", "getFilterIndex", 1}, // 2199
-  {wxFileDialog_GetMessage, "wxFileDialog", "getMessage", 1}, // 2200
-  {wxFileDialog_GetPath, "wxFileDialog", "getPath", 1}, // 2201
-  {wxFileDialog_GetPaths, "wxFileDialog", "getPaths", 1}, // 2202
-  {wxFileDialog_GetWildcard, "wxFileDialog", "getWildcard", 1}, // 2203
-  {wxFileDialog_SetDirectory, "wxFileDialog", "setDirectory", 2}, // 2204
-  {wxFileDialog_SetFilename, "wxFileDialog", "setFilename", 2}, // 2205
-  {wxFileDialog_SetFilterIndex, "wxFileDialog", "setFilterIndex", 2}, // 2206
-  {wxFileDialog_SetMessage, "wxFileDialog", "setMessage", 2}, // 2207
-  {wxFileDialog_SetPath, "wxFileDialog", "setPath", 2}, // 2208
-  {wxFileDialog_SetWildcard, "wxFileDialog", "setWildcard", 2}, // 2209
-  {wxPickerBase_SetInternalMargin, "wxPickerBase", "setInternalMargin", 2}, // 2210
-  {wxPickerBase_GetInternalMargin, "wxPickerBase", "getInternalMargin", 1}, // 2211
-  {wxPickerBase_SetTextCtrlProportion, "wxPickerBase", "setTextCtrlProportion", 2}, // 2212
-  {wxPickerBase_SetPickerCtrlProportion, "wxPickerBase", "setPickerCtrlProportion", 2}, // 2213
-  {wxPickerBase_GetTextCtrlProportion, "wxPickerBase", "getTextCtrlProportion", 1}, // 2214
-  {wxPickerBase_GetPickerCtrlProportion, "wxPickerBase", "getPickerCtrlProportion", 1}, // 2215
-  {wxPickerBase_HasTextCtrl, "wxPickerBase", "hasTextCtrl", 1}, // 2216
-  {wxPickerBase_GetTextCtrl, "wxPickerBase", "getTextCtrl", 1}, // 2217
-  {wxPickerBase_IsTextCtrlGrowable, "wxPickerBase", "isTextCtrlGrowable", 1}, // 2218
-  {wxPickerBase_SetPickerCtrlGrowable, "wxPickerBase", "setPickerCtrlGrowable", 2}, // 2219
-  {wxPickerBase_SetTextCtrlGrowable, "wxPickerBase", "setTextCtrlGrowable", 2}, // 2220
-  {wxPickerBase_IsPickerCtrlGrowable, "wxPickerBase", "isPickerCtrlGrowable", 1}, // 2221
-  {wxFilePickerCtrl_new_0, "wxFilePickerCtrl", "new", 0}, // 2222
-  {wxFilePickerCtrl_new_3, "wxFilePickerCtrl", "new", 3}, // 2223
-  {wxFilePickerCtrl_Create, "wxFilePickerCtrl", "create", 4}, // 2224
-  {wxFilePickerCtrl_GetPath, "wxFilePickerCtrl", "getPath", 1}, // 2225
-  {wxFilePickerCtrl_SetPath, "wxFilePickerCtrl", "setPath", 2}, // 2226
-  {NULL, "wxFilePickerCtrl", "'Destroy'", 1}, // 2227 obj destructor wxFilePickerCtrl_destroy
-  {wxDirPickerCtrl_new_0, "wxDirPickerCtrl", "new", 0}, // 2228
-  {wxDirPickerCtrl_new_3, "wxDirPickerCtrl", "new", 3}, // 2229
-  {wxDirPickerCtrl_Create, "wxDirPickerCtrl", "create", 4}, // 2230
-  {wxDirPickerCtrl_GetPath, "wxDirPickerCtrl", "getPath", 1}, // 2231
-  {wxDirPickerCtrl_SetPath, "wxDirPickerCtrl", "setPath", 2}, // 2232
-  {NULL, "wxDirPickerCtrl", "'Destroy'", 1}, // 2233 obj destructor wxDirPickerCtrl_destroy
-  {wxColourPickerCtrl_new_0, "wxColourPickerCtrl", "new", 0}, // 2234
-  {wxColourPickerCtrl_new_3, "wxColourPickerCtrl", "new", 3}, // 2235
-  {wxColourPickerCtrl_Create, "wxColourPickerCtrl", "create", 4}, // 2236
-  {wxColourPickerCtrl_GetColour, "wxColourPickerCtrl", "getColour", 1}, // 2237
-  {wxColourPickerCtrl_SetColour_1_1, "wxColourPickerCtrl", "setColour", 2}, // 2238
-  {wxColourPickerCtrl_SetColour_1_0, "wxColourPickerCtrl", "setColour", 2}, // 2239
-  {NULL, "wxColourPickerCtrl", "'Destroy'", 1}, // 2240 obj destructor wxColourPickerCtrl_destroy
-  {wxDatePickerCtrl_new_0, "wxDatePickerCtrl", "new", 0}, // 2241
-  {wxDatePickerCtrl_new_3, "wxDatePickerCtrl", "new", 3}, // 2242
-  {wxDatePickerCtrl_GetRange, "wxDatePickerCtrl", "getRange", 3}, // 2243
-  {wxDatePickerCtrl_GetValue, "wxDatePickerCtrl", "getValue", 1}, // 2244
-  {wxDatePickerCtrl_SetRange, "wxDatePickerCtrl", "setRange", 3}, // 2245
-  {wxDatePickerCtrl_SetValue, "wxDatePickerCtrl", "setValue", 2}, // 2246
-  {NULL, "wxDatePickerCtrl", "'Destroy'", 1}, // 2247 obj destructor wxDatePickerCtrl_destroy
-  {wxFontPickerCtrl_new_0, "wxFontPickerCtrl", "new", 0}, // 2248
-  {wxFontPickerCtrl_new_3, "wxFontPickerCtrl", "new", 3}, // 2249
-  {wxFontPickerCtrl_Create, "wxFontPickerCtrl", "create", 4}, // 2250
-  {wxFontPickerCtrl_GetSelectedFont, "wxFontPickerCtrl", "getSelectedFont", 1}, // 2251
-  {wxFontPickerCtrl_SetSelectedFont, "wxFontPickerCtrl", "setSelectedFont", 2}, // 2252
-  {wxFontPickerCtrl_GetMaxPointSize, "wxFontPickerCtrl", "getMaxPointSize", 1}, // 2253
-  {wxFontPickerCtrl_SetMaxPointSize, "wxFontPickerCtrl", "setMaxPointSize", 2}, // 2254
-  {NULL, "wxFontPickerCtrl", "'Destroy'", 1}, // 2255 obj destructor wxFontPickerCtrl_destroy
-  {wxFindReplaceDialog_new_0, "wxFindReplaceDialog", "new", 0}, // 2256
-  {wxFindReplaceDialog_new_4, "wxFindReplaceDialog", "new", 4}, // 2257
-  {NULL, "wxFindReplaceDialog", "destroy", 1}, // 2258 obj destructor wxFindReplaceDialog_destruct
-  {wxFindReplaceDialog_Create, "wxFindReplaceDialog", "create", 5}, // 2259
-  {wxFindReplaceDialog_GetData, "wxFindReplaceDialog", "getData", 1}, // 2260
-  {wxFindReplaceData_new, "wxFindReplaceData", "new", 1}, // 2261
-  {wxFindReplaceData_GetFindString, "wxFindReplaceData", "getFindString", 1}, // 2262
-  {wxFindReplaceData_GetReplaceString, "wxFindReplaceData", "getReplaceString", 1}, // 2263
-  {wxFindReplaceData_GetFlags, "wxFindReplaceData", "getFlags", 1}, // 2264
-  {wxFindReplaceData_SetFlags, "wxFindReplaceData", "setFlags", 2}, // 2265
-  {wxFindReplaceData_SetFindString, "wxFindReplaceData", "setFindString", 2}, // 2266
-  {wxFindReplaceData_SetReplaceString, "wxFindReplaceData", "setReplaceString", 2}, // 2267
-  {NULL, "wxFindReplaceData", "'Destroy'", 1}, // 2268 obj destructor wxFindReplaceData_destroy
-  {NULL, "", "", 0}, // 2269
-  {wxMultiChoiceDialog_new, "wxMultiChoiceDialog", "new", 5}, // 2270
-  {wxMultiChoiceDialog_GetSelections, "wxMultiChoiceDialog", "getSelections", 1}, // 2271
-  {wxMultiChoiceDialog_SetSelections, "wxMultiChoiceDialog", "setSelections", 2}, // 2272
-  {NULL, "wxMultiChoiceDialog", "'Destroy'", 1}, // 2273 obj destructor wxMultiChoiceDialog_destroy
-  {NULL, "", "", 0}, // 2274
-  {wxSingleChoiceDialog_new, "wxSingleChoiceDialog", "new", 5}, // 2275
-  {wxSingleChoiceDialog_GetSelection, "wxSingleChoiceDialog", "getSelection", 1}, // 2276
-  {wxSingleChoiceDialog_GetStringSelection, "wxSingleChoiceDialog", "getStringSelection", 1}, // 2277
-  {wxSingleChoiceDialog_SetSelection, "wxSingleChoiceDialog", "setSelection", 2}, // 2278
-  {NULL, "wxSingleChoiceDialog", "'Destroy'", 1}, // 2279 obj destructor wxSingleChoiceDialog_destroy
-  {wxTextEntryDialog_new_0, "wxTextEntryDialog", "new", 0}, // 2280
-  {wxTextEntryDialog_new_3, "wxTextEntryDialog", "new", 3}, // 2281
-  {NULL, "wxTextEntryDialog", "destroy", 1}, // 2282 obj destructor wxTextEntryDialog_destruct
-  {wxTextEntryDialog_GetValue, "wxTextEntryDialog", "getValue", 1}, // 2283
-  {wxTextEntryDialog_SetValue, "wxTextEntryDialog", "setValue", 2}, // 2284
-  {wxPasswordEntryDialog_new, "wxPasswordEntryDialog", "new", 3}, // 2285
-  {NULL, "wxPasswordEntryDialog", "'Destroy'", 1}, // 2286 obj destructor wxPasswordEntryDialog_destroy
-  {wxFontData_new_0, "wxFontData", "new", 0}, // 2287
-  {wxFontData_new_1, "wxFontData", "new", 1}, // 2288
-  {wxFontData_EnableEffects, "wxFontData", "enableEffects", 2}, // 2289
-  {wxFontData_GetAllowSymbols, "wxFontData", "getAllowSymbols", 1}, // 2290
-  {wxFontData_GetColour, "wxFontData", "getColour", 1}, // 2291
-  {wxFontData_GetChosenFont, "wxFontData", "getChosenFont", 1}, // 2292
-  {wxFontData_GetEnableEffects, "wxFontData", "getEnableEffects", 1}, // 2293
-  {wxFontData_GetInitialFont, "wxFontData", "getInitialFont", 1}, // 2294
-  {wxFontData_GetShowHelp, "wxFontData", "getShowHelp", 1}, // 2295
-  {wxFontData_SetAllowSymbols, "wxFontData", "setAllowSymbols", 2}, // 2296
-  {wxFontData_SetChosenFont, "wxFontData", "setChosenFont", 2}, // 2297
-  {wxFontData_SetColour, "wxFontData", "setColour", 2}, // 2298
-  {wxFontData_SetInitialFont, "wxFontData", "setInitialFont", 2}, // 2299
-  {wxFontData_SetRange, "wxFontData", "setRange", 3}, // 2300
-  {wxFontData_SetShowHelp, "wxFontData", "setShowHelp", 2}, // 2301
-  {NULL, "wxFontData", "'Destroy'", 1}, // 2302 obj destructor wxFontData_destroy
-  {wxFontDialog_new_0, "wxFontDialog", "new", 0}, // 2303
-  {NULL, "", "", 0}, // 2304
-  {wxFontDialog_new_2, "wxFontDialog", "new", 2}, // 2305
+  {wxCalendarCtrl_EnableMonthChange, "wxCalendarCtrl", "enableMonthChange", 2}, // 1509
+  {wxCalendarCtrl_EnableHolidayDisplay, "wxCalendarCtrl", "enableHolidayDisplay", 2}, // 1510
+  {wxCalendarCtrl_SetHeaderColours, "wxCalendarCtrl", "setHeaderColours", 3}, // 1511
+  {wxCalendarCtrl_GetHeaderColourFg, "wxCalendarCtrl", "getHeaderColourFg", 1}, // 1512
+  {wxCalendarCtrl_GetHeaderColourBg, "wxCalendarCtrl", "getHeaderColourBg", 1}, // 1513
+  {wxCalendarCtrl_SetHighlightColours, "wxCalendarCtrl", "setHighlightColours", 3}, // 1514
+  {wxCalendarCtrl_GetHighlightColourFg, "wxCalendarCtrl", "getHighlightColourFg", 1}, // 1515
+  {wxCalendarCtrl_GetHighlightColourBg, "wxCalendarCtrl", "getHighlightColourBg", 1}, // 1516
+  {wxCalendarCtrl_SetHolidayColours, "wxCalendarCtrl", "setHolidayColours", 3}, // 1517
+  {wxCalendarCtrl_GetHolidayColourFg, "wxCalendarCtrl", "getHolidayColourFg", 1}, // 1518
+  {wxCalendarCtrl_GetHolidayColourBg, "wxCalendarCtrl", "getHolidayColourBg", 1}, // 1519
+  {wxCalendarCtrl_GetAttr, "wxCalendarCtrl", "getAttr", 2}, // 1520
+  {wxCalendarCtrl_SetAttr, "wxCalendarCtrl", "setAttr", 3}, // 1521
+  {wxCalendarCtrl_SetHoliday, "wxCalendarCtrl", "setHoliday", 2}, // 1522
+  {wxCalendarCtrl_ResetAttr, "wxCalendarCtrl", "resetAttr", 2}, // 1523
+  {wxCalendarCtrl_HitTest, "wxCalendarCtrl", "hitTest", 2}, // 1524
+  {wxCalendarDateAttr_new_1, "wxCalendarDateAttr", "new", 1}, // 1525
+  {wxCalendarDateAttr_new_2, "wxCalendarDateAttr", "new", 2}, // 1526
+  {wxCalendarDateAttr_SetTextColour, "wxCalendarDateAttr", "setTextColour", 2}, // 1527
+  {wxCalendarDateAttr_SetBackgroundColour, "wxCalendarDateAttr", "setBackgroundColour", 2}, // 1528
+  {wxCalendarDateAttr_SetBorderColour, "wxCalendarDateAttr", "setBorderColour", 2}, // 1529
+  {wxCalendarDateAttr_SetFont, "wxCalendarDateAttr", "setFont", 2}, // 1530
+  {wxCalendarDateAttr_SetBorder, "wxCalendarDateAttr", "setBorder", 2}, // 1531
+  {wxCalendarDateAttr_SetHoliday, "wxCalendarDateAttr", "setHoliday", 2}, // 1532
+  {wxCalendarDateAttr_HasTextColour, "wxCalendarDateAttr", "hasTextColour", 1}, // 1533
+  {wxCalendarDateAttr_HasBackgroundColour, "wxCalendarDateAttr", "hasBackgroundColour", 1}, // 1534
+  {wxCalendarDateAttr_HasBorderColour, "wxCalendarDateAttr", "hasBorderColour", 1}, // 1535
+  {wxCalendarDateAttr_HasFont, "wxCalendarDateAttr", "hasFont", 1}, // 1536
+  {wxCalendarDateAttr_HasBorder, "wxCalendarDateAttr", "hasBorder", 1}, // 1537
+  {wxCalendarDateAttr_IsHoliday, "wxCalendarDateAttr", "isHoliday", 1}, // 1538
+  {wxCalendarDateAttr_GetTextColour, "wxCalendarDateAttr", "getTextColour", 1}, // 1539
+  {wxCalendarDateAttr_GetBackgroundColour, "wxCalendarDateAttr", "getBackgroundColour", 1}, // 1540
+  {wxCalendarDateAttr_GetBorderColour, "wxCalendarDateAttr", "getBorderColour", 1}, // 1541
+  {wxCalendarDateAttr_GetFont, "wxCalendarDateAttr", "getFont", 1}, // 1542
+  {wxCalendarDateAttr_GetBorder, "wxCalendarDateAttr", "getBorder", 1}, // 1543
+  {wxCalendarDateAttr_destroy, "wxCalendarDateAttr", "'Destroy'", 1}, // 1544
+  {wxCheckBox_new_0, "wxCheckBox", "new", 0}, // 1545
+  {wxCheckBox_new_4, "wxCheckBox", "new", 4}, // 1546
+  {NULL, "wxCheckBox", "destroy", 1}, // 1547 obj destructor wxCheckBox_destruct
+  {wxCheckBox_Create, "wxCheckBox", "create", 5}, // 1548
+  {wxCheckBox_GetValue, "wxCheckBox", "getValue", 1}, // 1549
+  {wxCheckBox_Get3StateValue, "wxCheckBox", "get3StateValue", 1}, // 1550
+  {wxCheckBox_Is3rdStateAllowedForUser, "wxCheckBox", "is3rdStateAllowedForUser", 1}, // 1551
+  {wxCheckBox_Is3State, "wxCheckBox", "is3State", 1}, // 1552
+  {wxCheckBox_IsChecked, "wxCheckBox", "isChecked", 1}, // 1553
+  {wxCheckBox_SetValue, "wxCheckBox", "setValue", 2}, // 1554
+  {wxCheckBox_Set3StateValue, "wxCheckBox", "set3StateValue", 2}, // 1555
+  {wxCheckListBox_new_0, "wxCheckListBox", "new", 0}, // 1556
+  {NULL, "", "", 0}, // 1557
+  {wxCheckListBox_new_3, "wxCheckListBox", "new", 3}, // 1558
+  {NULL, "wxCheckListBox", "destroy", 1}, // 1559 obj destructor wxCheckListBox_destruct
+  {wxCheckListBox_Check, "wxCheckListBox", "check", 3}, // 1560
+  {wxCheckListBox_IsChecked, "wxCheckListBox", "isChecked", 2}, // 1561
+  {wxChoice_new_0, "wxChoice", "new", 0}, // 1562
+  {NULL, "", "", 0}, // 1563
+  {wxChoice_new_3, "wxChoice", "new", 3}, // 1564
+  {NULL, "wxChoice", "destroy", 1}, // 1565 obj destructor wxChoice_destruct
+  {NULL, "", "", 0}, // 1566
+  {wxChoice_Create, "wxChoice", "create", 7}, // 1567
+  {wxChoice_Delete, "wxChoice", "delete", 2}, // 1568
+  {wxChoice_GetColumns, "wxChoice", "getColumns", 1}, // 1569
+  {wxChoice_SetColumns, "wxChoice", "setColumns", 2}, // 1570
+  {wxComboBox_new_0, "wxComboBox", "new", 0}, // 1571
+  {NULL, "", "", 0}, // 1572
+  {wxComboBox_new_3, "wxComboBox", "new", 3}, // 1573
+  {NULL, "wxComboBox", "destroy", 1}, // 1574 obj destructor wxComboBox_destruct
+  {NULL, "", "", 0}, // 1575
+  {wxComboBox_Create, "wxComboBox", "create", 8}, // 1576
+  {wxComboBox_CanCopy, "wxComboBox", "canCopy", 1}, // 1577
+  {wxComboBox_CanCut, "wxComboBox", "canCut", 1}, // 1578
+  {wxComboBox_CanPaste, "wxComboBox", "canPaste", 1}, // 1579
+  {wxComboBox_CanRedo, "wxComboBox", "canRedo", 1}, // 1580
+  {wxComboBox_CanUndo, "wxComboBox", "canUndo", 1}, // 1581
+  {wxComboBox_Copy, "wxComboBox", "copy", 1}, // 1582
+  {wxComboBox_Cut, "wxComboBox", "cut", 1}, // 1583
+  {wxComboBox_GetInsertionPoint, "wxComboBox", "getInsertionPoint", 1}, // 1584
+  {wxComboBox_GetLastPosition, "wxComboBox", "getLastPosition", 1}, // 1585
+  {wxComboBox_GetValue, "wxComboBox", "getValue", 1}, // 1586
+  {wxComboBox_Paste, "wxComboBox", "paste", 1}, // 1587
+  {wxComboBox_Redo, "wxComboBox", "redo", 1}, // 1588
+  {wxComboBox_Replace, "wxComboBox", "replace", 4}, // 1589
+  {wxComboBox_Remove, "wxComboBox", "remove", 3}, // 1590
+  {wxComboBox_SetInsertionPoint, "wxComboBox", "setInsertionPoint", 2}, // 1591
+  {wxComboBox_SetInsertionPointEnd, "wxComboBox", "setInsertionPointEnd", 1}, // 1592
+  {wxComboBox_SetSelection_2, "wxComboBox", "setSelection", 3}, // 1593
+  {wxComboBox_SetSelection_1, "wxComboBox", "setSelection", 2}, // 1594
+  {wxComboBox_SetValue, "wxComboBox", "setValue", 2}, // 1595
+  {wxComboBox_Undo, "wxComboBox", "undo", 1}, // 1596
+  {wxGauge_new_0, "wxGauge", "new", 0}, // 1597
+  {wxGauge_new_4, "wxGauge", "new", 4}, // 1598
+  {NULL, "wxGauge", "destroy", 1}, // 1599 obj destructor wxGauge_destruct
+  {wxGauge_Create, "wxGauge", "create", 5}, // 1600
+  {wxGauge_GetRange, "wxGauge", "getRange", 1}, // 1601
+  {wxGauge_GetValue, "wxGauge", "getValue", 1}, // 1602
+  {wxGauge_IsVertical, "wxGauge", "isVertical", 1}, // 1603
+  {wxGauge_SetRange, "wxGauge", "setRange", 2}, // 1604
+  {wxGauge_SetValue, "wxGauge", "setValue", 2}, // 1605
+  {wxGauge_Pulse, "wxGauge", "pulse", 1}, // 1606
+  {wxGenericDirCtrl_new_0, "wxGenericDirCtrl", "new", 0}, // 1607
+  {wxGenericDirCtrl_new_2, "wxGenericDirCtrl", "new", 2}, // 1608
+  {NULL, "wxGenericDirCtrl", "destroy", 1}, // 1609 obj destructor wxGenericDirCtrl_destruct
+  {wxGenericDirCtrl_Create, "wxGenericDirCtrl", "create", 3}, // 1610
+  {wxGenericDirCtrl_Init, "wxGenericDirCtrl", "init", 1}, // 1611
+  {wxGenericDirCtrl_CollapseTree, "wxGenericDirCtrl", "collapseTree", 1}, // 1612
+  {wxGenericDirCtrl_ExpandPath, "wxGenericDirCtrl", "expandPath", 2}, // 1613
+  {wxGenericDirCtrl_GetDefaultPath, "wxGenericDirCtrl", "getDefaultPath", 1}, // 1614
+  {wxGenericDirCtrl_GetPath_0, "wxGenericDirCtrl", "getPath", 1}, // 1615
+  {wxGenericDirCtrl_GetPath_1, "wxGenericDirCtrl", "getPath", 2}, // 1616
+  {wxGenericDirCtrl_GetFilePath, "wxGenericDirCtrl", "getFilePath", 1}, // 1617
+  {wxGenericDirCtrl_GetFilter, "wxGenericDirCtrl", "getFilter", 1}, // 1618
+  {wxGenericDirCtrl_GetFilterIndex, "wxGenericDirCtrl", "getFilterIndex", 1}, // 1619
+  {wxGenericDirCtrl_GetRootId, "wxGenericDirCtrl", "getRootId", 1}, // 1620
+  {wxGenericDirCtrl_GetTreeCtrl, "wxGenericDirCtrl", "getTreeCtrl", 1}, // 1621
+  {wxGenericDirCtrl_ReCreateTree, "wxGenericDirCtrl", "reCreateTree", 1}, // 1622
+  {wxGenericDirCtrl_SetDefaultPath, "wxGenericDirCtrl", "setDefaultPath", 2}, // 1623
+  {wxGenericDirCtrl_SetFilter, "wxGenericDirCtrl", "setFilter", 2}, // 1624
+  {wxGenericDirCtrl_SetFilterIndex, "wxGenericDirCtrl", "setFilterIndex", 2}, // 1625
+  {wxGenericDirCtrl_SetPath, "wxGenericDirCtrl", "setPath", 2}, // 1626
+  {wxStaticBox_new_0, "wxStaticBox", "new", 0}, // 1627
+  {wxStaticBox_new_4, "wxStaticBox", "new", 4}, // 1628
+  {NULL, "wxStaticBox", "destroy", 1}, // 1629 obj destructor wxStaticBox_destruct
+  {wxStaticBox_Create, "wxStaticBox", "create", 5}, // 1630
+  {wxStaticLine_new_0, "wxStaticLine", "new", 0}, // 1631
+  {wxStaticLine_new_2, "wxStaticLine", "new", 2}, // 1632
+  {wxStaticLine_Create, "wxStaticLine", "create", 3}, // 1633
+  {wxStaticLine_IsVertical, "wxStaticLine", "isVertical", 1}, // 1634
+  {wxStaticLine_GetDefaultSize, "wxStaticLine", "getDefaultSize", 0}, // 1635
+  {NULL, "wxStaticLine", "'Destroy'", 1}, // 1636 obj destructor wxStaticLine_destroy
+  {wxListBox_new_0, "wxListBox", "new", 0}, // 1637
+  {NULL, "", "", 0}, // 1638
+  {wxListBox_new_3, "wxListBox", "new", 3}, // 1639
+  {NULL, "wxListBox", "destroy", 1}, // 1640 obj destructor wxListBox_destruct
+  {NULL, "", "", 0}, // 1641
+  {wxListBox_Create, "wxListBox", "create", 7}, // 1642
+  {wxListBox_Deselect, "wxListBox", "deselect", 2}, // 1643
+  {wxListBox_GetSelections, "wxListBox", "getSelections", 1}, // 1644
+  {wxListBox_InsertItems, "wxListBox", "insertItems", 3}, // 1645
+  {wxListBox_IsSelected, "wxListBox", "isSelected", 2}, // 1646
+  {NULL, "", "", 0}, // 1647
+  {NULL, "", "", 0}, // 1648
+  {wxListBox_Set, "wxListBox", "set", 2}, // 1649
+  {wxListBox_HitTest_1, "wxListBox", "hitTest", 2}, // 1650
+  {wxListBox_HitTest_2, "wxListBox", "hitTest", 3}, // 1651
+  {wxListBox_SetFirstItem_1_0, "wxListBox", "setFirstItem", 2}, // 1652
+  {wxListBox_SetFirstItem_1_1, "wxListBox", "setFirstItem", 2}, // 1653
+  {wxListCtrl_new_0, "wxListCtrl", "new", 0}, // 1654
+  {NULL, "wxListCtrl", "new", 2}, // 1655 TaylorMade erl only wxListCtrl_new_2
+  {NULL, "wxListCtrl", "destroy", 1}, // 1656 obj destructor wxListCtrl_destruct
+  {wxListCtrl_Arrange, "wxListCtrl", "arrange", 2}, // 1657
+  {wxListCtrl_AssignImageList, "wxListCtrl", "assignImageList", 3}, // 1658
+  {wxListCtrl_ClearAll, "wxListCtrl", "clearAll", 1}, // 1659
+  {wxListCtrl_Create, "wxListCtrl", "create", 3}, // 1660
+  {wxListCtrl_DeleteAllItems, "wxListCtrl", "deleteAllItems", 1}, // 1661
+  {wxListCtrl_DeleteColumn, "wxListCtrl", "deleteColumn", 2}, // 1662
+  {wxListCtrl_DeleteItem, "wxListCtrl", "deleteItem", 2}, // 1663
+  {wxListCtrl_EditLabel, "wxListCtrl", "editLabel", 2}, // 1664
+  {wxListCtrl_EnsureVisible, "wxListCtrl", "ensureVisible", 2}, // 1665
+  {wxListCtrl_FindItem_3_0, "wxListCtrl", "findItem", 4}, // 1666
+  {wxListCtrl_FindItem_3_1, "wxListCtrl", "findItem", 4}, // 1667
+  {wxListCtrl_GetColumn, "wxListCtrl", "getColumn", 3}, // 1668
+  {wxListCtrl_GetColumnCount, "wxListCtrl", "getColumnCount", 1}, // 1669
+  {wxListCtrl_GetColumnWidth, "wxListCtrl", "getColumnWidth", 2}, // 1670
+  {wxListCtrl_GetCountPerPage, "wxListCtrl", "getCountPerPage", 1}, // 1671
+  {wxListCtrl_GetEditControl, "wxListCtrl", "getEditControl", 1}, // 1672
+  {wxListCtrl_GetImageList, "wxListCtrl", "getImageList", 2}, // 1673
+  {wxListCtrl_GetItem, "wxListCtrl", "getItem", 2}, // 1674
+  {wxListCtrl_GetItemBackgroundColour, "wxListCtrl", "getItemBackgroundColour", 2}, // 1675
+  {wxListCtrl_GetItemCount, "wxListCtrl", "getItemCount", 1}, // 1676
+  {wxListCtrl_GetItemData, "wxListCtrl", "getItemData", 2}, // 1677
+  {wxListCtrl_GetItemFont, "wxListCtrl", "getItemFont", 2}, // 1678
+  {wxListCtrl_GetItemPosition, "wxListCtrl", "getItemPosition", 2}, // 1679
+  {wxListCtrl_GetItemRect, "wxListCtrl", "getItemRect", 3}, // 1680
+  {wxListCtrl_GetItemSpacing, "wxListCtrl", "getItemSpacing", 1}, // 1681
+  {wxListCtrl_GetItemState, "wxListCtrl", "getItemState", 3}, // 1682
+  {wxListCtrl_GetItemText, "wxListCtrl", "getItemText", 3}, // 1683
+  {wxListCtrl_GetItemTextColour, "wxListCtrl", "getItemTextColour", 2}, // 1684
+  {wxListCtrl_GetNextItem, "wxListCtrl", "getNextItem", 3}, // 1685
+  {wxListCtrl_GetSelectedItemCount, "wxListCtrl", "getSelectedItemCount", 1}, // 1686
+  {wxListCtrl_GetTextColour, "wxListCtrl", "getTextColour", 1}, // 1687
+  {wxListCtrl_GetTopItem, "wxListCtrl", "getTopItem", 1}, // 1688
+  {wxListCtrl_GetViewRect, "wxListCtrl", "getViewRect", 1}, // 1689
+  {wxListCtrl_HitTest, "wxListCtrl", "hitTest", 2}, // 1690
+  {wxListCtrl_InsertColumn_2, "wxListCtrl", "insertColumn", 3}, // 1691
+  {wxListCtrl_InsertColumn_3, "wxListCtrl", "insertColumn", 4}, // 1692
+  {wxListCtrl_InsertItem_1, "wxListCtrl", "insertItem", 2}, // 1693
+  {wxListCtrl_InsertItem_2_1, "wxListCtrl", "insertItem", 3}, // 1694
+  {wxListCtrl_InsertItem_2_0, "wxListCtrl", "insertItem", 3}, // 1695
+  {wxListCtrl_InsertItem_3, "wxListCtrl", "insertItem", 4}, // 1696
+  {wxListCtrl_RefreshItem, "wxListCtrl", "refreshItem", 2}, // 1697
+  {wxListCtrl_RefreshItems, "wxListCtrl", "refreshItems", 3}, // 1698
+  {wxListCtrl_ScrollList, "wxListCtrl", "scrollList", 3}, // 1699
+  {wxListCtrl_SetBackgroundColour, "wxListCtrl", "setBackgroundColour", 2}, // 1700
+  {wxListCtrl_SetColumn, "wxListCtrl", "setColumn", 3}, // 1701
+  {wxListCtrl_SetColumnWidth, "wxListCtrl", "setColumnWidth", 3}, // 1702
+  {wxListCtrl_SetImageList, "wxListCtrl", "setImageList", 3}, // 1703
+  {wxListCtrl_SetItem_1, "wxListCtrl", "setItem", 2}, // 1704
+  {wxListCtrl_SetItem_4, "wxListCtrl", "setItem", 5}, // 1705
+  {wxListCtrl_SetItemBackgroundColour, "wxListCtrl", "setItemBackgroundColour", 3}, // 1706
+  {wxListCtrl_SetItemCount, "wxListCtrl", "setItemCount", 2}, // 1707
+  {wxListCtrl_SetItemData, "wxListCtrl", "setItemData", 3}, // 1708
+  {wxListCtrl_SetItemFont, "wxListCtrl", "setItemFont", 3}, // 1709
+  {wxListCtrl_SetItemImage, "wxListCtrl", "setItemImage", 4}, // 1710
+  {wxListCtrl_SetItemColumnImage, "wxListCtrl", "setItemColumnImage", 4}, // 1711
+  {wxListCtrl_SetItemPosition, "wxListCtrl", "setItemPosition", 3}, // 1712
+  {wxListCtrl_SetItemState, "wxListCtrl", "setItemState", 4}, // 1713
+  {wxListCtrl_SetItemText, "wxListCtrl", "setItemText", 3}, // 1714
+  {wxListCtrl_SetItemTextColour, "wxListCtrl", "setItemTextColour", 3}, // 1715
+  {wxListCtrl_SetSingleStyle, "wxListCtrl", "setSingleStyle", 3}, // 1716
+  {wxListCtrl_SetTextColour, "wxListCtrl", "setTextColour", 2}, // 1717
+  {wxListCtrl_SetWindowStyleFlag, "wxListCtrl", "setWindowStyleFlag", 2}, // 1718
+  {wxListCtrl_SortItems, "wxListCtrl", "sortItems", 2}, // 1719
+  {wxListView_ClearColumnImage, "wxListView", "clearColumnImage", 2}, // 1720
+  {wxListView_Focus, "wxListView", "focus", 2}, // 1721
+  {wxListView_GetFirstSelected, "wxListView", "getFirstSelected", 1}, // 1722
+  {wxListView_GetFocusedItem, "wxListView", "getFocusedItem", 1}, // 1723
+  {wxListView_GetNextSelected, "wxListView", "getNextSelected", 2}, // 1724
+  {wxListView_IsSelected, "wxListView", "isSelected", 2}, // 1725
+  {wxListView_Select, "wxListView", "select", 3}, // 1726
+  {wxListView_SetColumnImage, "wxListView", "setColumnImage", 3}, // 1727
+  {wxListItem_new_0, "wxListItem", "new", 0}, // 1728
+  {wxListItem_new_1, "wxListItem", "new", 1}, // 1729
+  {wxListItem_Clear, "wxListItem", "clear", 1}, // 1730
+  {wxListItem_GetAlign, "wxListItem", "getAlign", 1}, // 1731
+  {wxListItem_GetBackgroundColour, "wxListItem", "getBackgroundColour", 1}, // 1732
+  {wxListItem_GetColumn, "wxListItem", "getColumn", 1}, // 1733
+  {wxListItem_GetFont, "wxListItem", "getFont", 1}, // 1734
+  {wxListItem_GetId, "wxListItem", "getId", 1}, // 1735
+  {wxListItem_GetImage, "wxListItem", "getImage", 1}, // 1736
+  {wxListItem_GetMask, "wxListItem", "getMask", 1}, // 1737
+  {wxListItem_GetState, "wxListItem", "getState", 1}, // 1738
+  {wxListItem_GetText, "wxListItem", "getText", 1}, // 1739
+  {wxListItem_GetTextColour, "wxListItem", "getTextColour", 1}, // 1740
+  {wxListItem_GetWidth, "wxListItem", "getWidth", 1}, // 1741
+  {wxListItem_SetAlign, "wxListItem", "setAlign", 2}, // 1742
+  {wxListItem_SetBackgroundColour, "wxListItem", "setBackgroundColour", 2}, // 1743
+  {wxListItem_SetColumn, "wxListItem", "setColumn", 2}, // 1744
+  {wxListItem_SetFont, "wxListItem", "setFont", 2}, // 1745
+  {wxListItem_SetId, "wxListItem", "setId", 2}, // 1746
+  {wxListItem_SetImage, "wxListItem", "setImage", 2}, // 1747
+  {wxListItem_SetMask, "wxListItem", "setMask", 2}, // 1748
+  {wxListItem_SetState, "wxListItem", "setState", 2}, // 1749
+  {wxListItem_SetStateMask, "wxListItem", "setStateMask", 2}, // 1750
+  {wxListItem_SetText, "wxListItem", "setText", 2}, // 1751
+  {wxListItem_SetTextColour, "wxListItem", "setTextColour", 2}, // 1752
+  {wxListItem_SetWidth, "wxListItem", "setWidth", 2}, // 1753
+  {NULL, "wxListItem", "'Destroy'", 1}, // 1754 obj destructor wxListItem_destroy
+  {wxListItemAttr_new_0, "wxListItemAttr", "new", 0}, // 1755
+  {wxListItemAttr_new_3, "wxListItemAttr", "new", 3}, // 1756
+  {wxListItemAttr_GetBackgroundColour, "wxListItemAttr", "getBackgroundColour", 1}, // 1757
+  {wxListItemAttr_GetFont, "wxListItemAttr", "getFont", 1}, // 1758
+  {wxListItemAttr_GetTextColour, "wxListItemAttr", "getTextColour", 1}, // 1759
+  {wxListItemAttr_HasBackgroundColour, "wxListItemAttr", "hasBackgroundColour", 1}, // 1760
+  {wxListItemAttr_HasFont, "wxListItemAttr", "hasFont", 1}, // 1761
+  {wxListItemAttr_HasTextColour, "wxListItemAttr", "hasTextColour", 1}, // 1762
+  {wxListItemAttr_SetBackgroundColour, "wxListItemAttr", "setBackgroundColour", 2}, // 1763
+  {wxListItemAttr_SetFont, "wxListItemAttr", "setFont", 2}, // 1764
+  {wxListItemAttr_SetTextColour, "wxListItemAttr", "setTextColour", 2}, // 1765
+  {wxListItemAttr_destroy, "wxListItemAttr", "'Destroy'", 1}, // 1766
+  {wxImageList_new_0, "wxImageList", "new", 0}, // 1767
+  {wxImageList_new_3, "wxImageList", "new", 3}, // 1768
+  {wxImageList_Add_2_0, "wxImageList", "add", 3}, // 1769
+  {NULL, "", "", 0}, // 1770
+  {wxImageList_Add_2_1, "wxImageList", "add", 3}, // 1771
+  {wxImageList_Add_1, "wxImageList", "add", 2}, // 1772
+  {wxImageList_Create, "wxImageList", "create", 4}, // 1773
+  {wxImageList_Draw, "wxImageList", "draw", 6}, // 1774
+  {wxImageList_GetBitmap, "wxImageList", "getBitmap", 2}, // 1775
+  {wxImageList_GetIcon, "wxImageList", "getIcon", 2}, // 1776
+  {wxImageList_GetImageCount, "wxImageList", "getImageCount", 1}, // 1777
+  {wxImageList_GetSize, "wxImageList", "getSize", 2}, // 1778
+  {NULL, "", "", 0}, // 1779
+  {wxImageList_Remove, "wxImageList", "remove", 2}, // 1780
+  {wxImageList_RemoveAll, "wxImageList", "removeAll", 1}, // 1781
+  {wxImageList_Replace_3, "wxImageList", "replace", 4}, // 1782
+  {NULL, "", "", 0}, // 1783
+  {wxImageList_Replace_2, "wxImageList", "replace", 3}, // 1784
+  {NULL, "wxImageList", "'Destroy'", 1}, // 1785 obj destructor wxImageList_destroy
+  {wxTextAttr_new_0, "wxTextAttr", "new", 0}, // 1786
+  {wxTextAttr_new_2, "wxTextAttr", "new", 2}, // 1787
+  {wxTextAttr_new_1, "wxTextAttr", "new", 1}, // 1788
+  {wxTextAttr_GetAlignment, "wxTextAttr", "getAlignment", 1}, // 1789
+  {wxTextAttr_GetBackgroundColour, "wxTextAttr", "getBackgroundColour", 1}, // 1790
+  {wxTextAttr_GetFont, "wxTextAttr", "getFont", 1}, // 1791
+  {wxTextAttr_GetFontEncoding, "wxTextAttr", "getFontEncoding", 1}, // 1792
+  {wxTextAttr_GetFontFaceName, "wxTextAttr", "getFontFaceName", 1}, // 1793
+  {wxTextAttr_GetFontSize, "wxTextAttr", "getFontSize", 1}, // 1794
+  {wxTextAttr_GetFontStyle, "wxTextAttr", "getFontStyle", 1}, // 1795
+  {wxTextAttr_GetFontUnderlined, "wxTextAttr", "getFontUnderlined", 1}, // 1796
+  {wxTextAttr_GetFontWeight, "wxTextAttr", "getFontWeight", 1}, // 1797
+  {wxTextAttr_GetLeftIndent, "wxTextAttr", "getLeftIndent", 1}, // 1798
+  {wxTextAttr_GetLeftSubIndent, "wxTextAttr", "getLeftSubIndent", 1}, // 1799
+  {wxTextAttr_GetRightIndent, "wxTextAttr", "getRightIndent", 1}, // 1800
+  {wxTextAttr_GetTabs, "wxTextAttr", "getTabs", 1}, // 1801
+  {wxTextAttr_GetTextColour, "wxTextAttr", "getTextColour", 1}, // 1802
+  {wxTextAttr_HasBackgroundColour, "wxTextAttr", "hasBackgroundColour", 1}, // 1803
+  {wxTextAttr_HasFont, "wxTextAttr", "hasFont", 1}, // 1804
+  {wxTextAttr_HasTextColour, "wxTextAttr", "hasTextColour", 1}, // 1805
+  {wxTextAttr_GetFlags, "wxTextAttr", "getFlags", 1}, // 1806
+  {wxTextAttr_IsDefault, "wxTextAttr", "isDefault", 1}, // 1807
+  {wxTextAttr_SetAlignment, "wxTextAttr", "setAlignment", 2}, // 1808
+  {wxTextAttr_SetBackgroundColour, "wxTextAttr", "setBackgroundColour", 2}, // 1809
+  {wxTextAttr_SetFlags, "wxTextAttr", "setFlags", 2}, // 1810
+  {wxTextAttr_SetFont, "wxTextAttr", "setFont", 3}, // 1811
+  {wxTextAttr_SetFontEncoding, "wxTextAttr", "setFontEncoding", 2}, // 1812
+  {wxTextAttr_SetFontFaceName, "wxTextAttr", "setFontFaceName", 2}, // 1813
+  {wxTextAttr_SetFontFamily, "wxTextAttr", "setFontFamily", 2}, // 1814
+  {wxTextAttr_SetFontSize, "wxTextAttr", "setFontSize", 2}, // 1815
+  {wxTextAttr_SetFontPointSize, "wxTextAttr", "setFontPointSize", 2}, // 1816
+  {wxTextAttr_SetFontPixelSize, "wxTextAttr", "setFontPixelSize", 2}, // 1817
+  {wxTextAttr_SetFontStyle, "wxTextAttr", "setFontStyle", 2}, // 1818
+  {wxTextAttr_SetFontUnderlined, "wxTextAttr", "setFontUnderlined", 2}, // 1819
+  {wxTextAttr_SetFontWeight, "wxTextAttr", "setFontWeight", 2}, // 1820
+  {wxTextAttr_SetLeftIndent, "wxTextAttr", "setLeftIndent", 3}, // 1821
+  {wxTextAttr_SetRightIndent, "wxTextAttr", "setRightIndent", 2}, // 1822
+  {wxTextAttr_SetTabs, "wxTextAttr", "setTabs", 2}, // 1823
+  {wxTextAttr_SetTextColour, "wxTextAttr", "setTextColour", 2}, // 1824
+  {wxTextAttr_destroy, "wxTextAttr", "'Destroy'", 1}, // 1825
+  {wxTextCtrl_new_0, "wxTextCtrl", "new", 0}, // 1826
+  {wxTextCtrl_new_3, "wxTextCtrl", "new", 3}, // 1827
+  {NULL, "wxTextCtrl", "destroy", 1}, // 1828 obj destructor wxTextCtrl_destruct
+  {wxTextCtrl_AppendText, "wxTextCtrl", "appendText", 2}, // 1829
+  {wxTextCtrl_CanCopy, "wxTextCtrl", "canCopy", 1}, // 1830
+  {wxTextCtrl_CanCut, "wxTextCtrl", "canCut", 1}, // 1831
+  {wxTextCtrl_CanPaste, "wxTextCtrl", "canPaste", 1}, // 1832
+  {wxTextCtrl_CanRedo, "wxTextCtrl", "canRedo", 1}, // 1833
+  {wxTextCtrl_CanUndo, "wxTextCtrl", "canUndo", 1}, // 1834
+  {wxTextCtrl_Clear, "wxTextCtrl", "clear", 1}, // 1835
+  {wxTextCtrl_Copy, "wxTextCtrl", "copy", 1}, // 1836
+  {wxTextCtrl_Create, "wxTextCtrl", "create", 4}, // 1837
+  {wxTextCtrl_Cut, "wxTextCtrl", "cut", 1}, // 1838
+  {wxTextCtrl_DiscardEdits, "wxTextCtrl", "discardEdits", 1}, // 1839
+  {wxTextCtrl_ChangeValue, "wxTextCtrl", "changeValue", 2}, // 1840
+  {wxTextCtrl_EmulateKeyPress, "wxTextCtrl", "emulateKeyPress", 2}, // 1841
+  {wxTextCtrl_GetDefaultStyle, "wxTextCtrl", "getDefaultStyle", 1}, // 1842
+  {wxTextCtrl_GetInsertionPoint, "wxTextCtrl", "getInsertionPoint", 1}, // 1843
+  {wxTextCtrl_GetLastPosition, "wxTextCtrl", "getLastPosition", 1}, // 1844
+  {wxTextCtrl_GetLineLength, "wxTextCtrl", "getLineLength", 2}, // 1845
+  {wxTextCtrl_GetLineText, "wxTextCtrl", "getLineText", 2}, // 1846
+  {wxTextCtrl_GetNumberOfLines, "wxTextCtrl", "getNumberOfLines", 1}, // 1847
+  {wxTextCtrl_GetRange, "wxTextCtrl", "getRange", 3}, // 1848
+  {wxTextCtrl_GetSelection, "wxTextCtrl", "getSelection", 1}, // 1849
+  {wxTextCtrl_GetStringSelection, "wxTextCtrl", "getStringSelection", 1}, // 1850
+  {wxTextCtrl_GetStyle, "wxTextCtrl", "getStyle", 3}, // 1851
+  {wxTextCtrl_GetValue, "wxTextCtrl", "getValue", 1}, // 1852
+  {wxTextCtrl_IsEditable, "wxTextCtrl", "isEditable", 1}, // 1853
+  {wxTextCtrl_IsModified, "wxTextCtrl", "isModified", 1}, // 1854
+  {wxTextCtrl_IsMultiLine, "wxTextCtrl", "isMultiLine", 1}, // 1855
+  {wxTextCtrl_IsSingleLine, "wxTextCtrl", "isSingleLine", 1}, // 1856
+  {wxTextCtrl_LoadFile, "wxTextCtrl", "loadFile", 3}, // 1857
+  {wxTextCtrl_MarkDirty, "wxTextCtrl", "markDirty", 1}, // 1858
+  {wxTextCtrl_Paste, "wxTextCtrl", "paste", 1}, // 1859
+  {wxTextCtrl_PositionToXY, "wxTextCtrl", "positionToXY", 2}, // 1860
+  {wxTextCtrl_Redo, "wxTextCtrl", "redo", 1}, // 1861
+  {wxTextCtrl_Remove, "wxTextCtrl", "remove", 3}, // 1862
+  {wxTextCtrl_Replace, "wxTextCtrl", "replace", 4}, // 1863
+  {wxTextCtrl_SaveFile, "wxTextCtrl", "saveFile", 2}, // 1864
+  {wxTextCtrl_SetDefaultStyle, "wxTextCtrl", "setDefaultStyle", 2}, // 1865
+  {wxTextCtrl_SetEditable, "wxTextCtrl", "setEditable", 2}, // 1866
+  {wxTextCtrl_SetInsertionPoint, "wxTextCtrl", "setInsertionPoint", 2}, // 1867
+  {wxTextCtrl_SetInsertionPointEnd, "wxTextCtrl", "setInsertionPointEnd", 1}, // 1868
+  {wxTextCtrl_SetMaxLength, "wxTextCtrl", "setMaxLength", 2}, // 1869
+  {wxTextCtrl_SetSelection, "wxTextCtrl", "setSelection", 3}, // 1870
+  {wxTextCtrl_SetStyle, "wxTextCtrl", "setStyle", 4}, // 1871
+  {wxTextCtrl_SetValue, "wxTextCtrl", "setValue", 2}, // 1872
+  {wxTextCtrl_ShowPosition, "wxTextCtrl", "showPosition", 2}, // 1873
+  {wxTextCtrl_Undo, "wxTextCtrl", "undo", 1}, // 1874
+  {wxTextCtrl_WriteText, "wxTextCtrl", "writeText", 2}, // 1875
+  {wxTextCtrl_XYToPosition, "wxTextCtrl", "xYToPosition", 3}, // 1876
+  {wxBookCtrlBase_AddPage, "wxBookCtrlBase", "addPage", 4}, // 1877
+  {wxBookCtrlBase_InsertPage, "wxBookCtrlBase", "insertPage", 5}, // 1878
+  {wxBookCtrlBase_DeletePage, "wxBookCtrlBase", "deletePage", 2}, // 1879
+  {wxBookCtrlBase_RemovePage, "wxBookCtrlBase", "removePage", 2}, // 1880
+  {wxBookCtrlBase_DeleteAllPages, "wxBookCtrlBase", "deleteAllPages", 1}, // 1881
+  {wxBookCtrlBase_GetPage, "wxBookCtrlBase", "getPage", 2}, // 1882
+  {wxBookCtrlBase_GetPageCount, "wxBookCtrlBase", "getPageCount", 1}, // 1883
+  {wxBookCtrlBase_GetCurrentPage, "wxBookCtrlBase", "getCurrentPage", 1}, // 1884
+  {wxBookCtrlBase_AdvanceSelection, "wxBookCtrlBase", "advanceSelection", 2}, // 1885
+  {wxBookCtrlBase_SetSelection, "wxBookCtrlBase", "setSelection", 2}, // 1886
+  {wxBookCtrlBase_GetSelection, "wxBookCtrlBase", "getSelection", 1}, // 1887
+  {wxBookCtrlBase_ChangeSelection, "wxBookCtrlBase", "changeSelection", 2}, // 1888
+  {wxBookCtrlBase_HitTest, "wxBookCtrlBase", "hitTest", 2}, // 1889
+  {wxBookCtrlBase_GetPageText, "wxBookCtrlBase", "getPageText", 2}, // 1890
+  {wxBookCtrlBase_SetPageText, "wxBookCtrlBase", "setPageText", 3}, // 1891
+  {wxNotebook_new_0, "wxNotebook", "new", 0}, // 1892
+  {wxNotebook_new_3, "wxNotebook", "new", 3}, // 1893
+  {NULL, "wxNotebook", "destroy", 1}, // 1894 obj destructor wxNotebook_destruct
+  {wxNotebook_AssignImageList, "wxNotebook", "assignImageList", 2}, // 1895
+  {wxNotebook_Create, "wxNotebook", "create", 4}, // 1896
+  {wxNotebook_GetImageList, "wxNotebook", "getImageList", 1}, // 1897
+  {wxNotebook_GetPageImage, "wxNotebook", "getPageImage", 2}, // 1898
+  {wxNotebook_GetRowCount, "wxNotebook", "getRowCount", 1}, // 1899
+  {wxNotebook_GetThemeBackgroundColour, "wxNotebook", "getThemeBackgroundColour", 1}, // 1900
+  {wxNotebook_SetImageList, "wxNotebook", "setImageList", 2}, // 1901
+  {wxNotebook_SetPadding, "wxNotebook", "setPadding", 2}, // 1902
+  {wxNotebook_SetPageSize, "wxNotebook", "setPageSize", 2}, // 1903
+  {wxNotebook_SetPageImage, "wxNotebook", "setPageImage", 3}, // 1904
+  {wxChoicebook_new_0, "wxChoicebook", "new", 0}, // 1905
+  {wxChoicebook_new_3, "wxChoicebook", "new", 3}, // 1906
+  {wxChoicebook_AddPage, "wxChoicebook", "addPage", 4}, // 1907
+  {wxChoicebook_AdvanceSelection, "wxChoicebook", "advanceSelection", 2}, // 1908
+  {wxChoicebook_AssignImageList, "wxChoicebook", "assignImageList", 2}, // 1909
+  {wxChoicebook_Create, "wxChoicebook", "create", 4}, // 1910
+  {wxChoicebook_DeleteAllPages, "wxChoicebook", "deleteAllPages", 1}, // 1911
+  {wxChoicebook_GetCurrentPage, "wxChoicebook", "getCurrentPage", 1}, // 1912
+  {wxChoicebook_GetImageList, "wxChoicebook", "getImageList", 1}, // 1913
+  {wxChoicebook_GetPage, "wxChoicebook", "getPage", 2}, // 1914
+  {wxChoicebook_GetPageCount, "wxChoicebook", "getPageCount", 1}, // 1915
+  {wxChoicebook_GetPageImage, "wxChoicebook", "getPageImage", 2}, // 1916
+  {wxChoicebook_GetPageText, "wxChoicebook", "getPageText", 2}, // 1917
+  {wxChoicebook_GetSelection, "wxChoicebook", "getSelection", 1}, // 1918
+  {wxChoicebook_HitTest, "wxChoicebook", "hitTest", 2}, // 1919
+  {wxChoicebook_InsertPage, "wxChoicebook", "insertPage", 5}, // 1920
+  {wxChoicebook_SetImageList, "wxChoicebook", "setImageList", 2}, // 1921
+  {wxChoicebook_SetPageSize, "wxChoicebook", "setPageSize", 2}, // 1922
+  {wxChoicebook_SetPageImage, "wxChoicebook", "setPageImage", 3}, // 1923
+  {wxChoicebook_SetPageText, "wxChoicebook", "setPageText", 3}, // 1924
+  {wxChoicebook_SetSelection, "wxChoicebook", "setSelection", 2}, // 1925
+  {wxChoicebook_ChangeSelection, "wxChoicebook", "changeSelection", 2}, // 1926
+  {NULL, "wxChoicebook", "'Destroy'", 1}, // 1927 obj destructor wxChoicebook_destroy
+  {wxToolbook_new_0, "wxToolbook", "new", 0}, // 1928
+  {wxToolbook_new_3, "wxToolbook", "new", 3}, // 1929
+  {wxToolbook_AddPage, "wxToolbook", "addPage", 4}, // 1930
+  {wxToolbook_AdvanceSelection, "wxToolbook", "advanceSelection", 2}, // 1931
+  {wxToolbook_AssignImageList, "wxToolbook", "assignImageList", 2}, // 1932
+  {wxToolbook_Create, "wxToolbook", "create", 4}, // 1933
+  {wxToolbook_DeleteAllPages, "wxToolbook", "deleteAllPages", 1}, // 1934
+  {wxToolbook_GetCurrentPage, "wxToolbook", "getCurrentPage", 1}, // 1935
+  {wxToolbook_GetImageList, "wxToolbook", "getImageList", 1}, // 1936
+  {wxToolbook_GetPage, "wxToolbook", "getPage", 2}, // 1937
+  {wxToolbook_GetPageCount, "wxToolbook", "getPageCount", 1}, // 1938
+  {wxToolbook_GetPageImage, "wxToolbook", "getPageImage", 2}, // 1939
+  {wxToolbook_GetPageText, "wxToolbook", "getPageText", 2}, // 1940
+  {wxToolbook_GetSelection, "wxToolbook", "getSelection", 1}, // 1941
+  {wxToolbook_HitTest, "wxToolbook", "hitTest", 2}, // 1942
+  {wxToolbook_InsertPage, "wxToolbook", "insertPage", 5}, // 1943
+  {wxToolbook_SetImageList, "wxToolbook", "setImageList", 2}, // 1944
+  {wxToolbook_SetPageSize, "wxToolbook", "setPageSize", 2}, // 1945
+  {wxToolbook_SetPageImage, "wxToolbook", "setPageImage", 3}, // 1946
+  {wxToolbook_SetPageText, "wxToolbook", "setPageText", 3}, // 1947
+  {wxToolbook_SetSelection, "wxToolbook", "setSelection", 2}, // 1948
+  {wxToolbook_ChangeSelection, "wxToolbook", "changeSelection", 2}, // 1949
+  {NULL, "wxToolbook", "'Destroy'", 1}, // 1950 obj destructor wxToolbook_destroy
+  {wxListbook_new_0, "wxListbook", "new", 0}, // 1951
+  {wxListbook_new_3, "wxListbook", "new", 3}, // 1952
+  {wxListbook_AddPage, "wxListbook", "addPage", 4}, // 1953
+  {wxListbook_AdvanceSelection, "wxListbook", "advanceSelection", 2}, // 1954
+  {wxListbook_AssignImageList, "wxListbook", "assignImageList", 2}, // 1955
+  {wxListbook_Create, "wxListbook", "create", 4}, // 1956
+  {wxListbook_DeleteAllPages, "wxListbook", "deleteAllPages", 1}, // 1957
+  {wxListbook_GetCurrentPage, "wxListbook", "getCurrentPage", 1}, // 1958
+  {wxListbook_GetImageList, "wxListbook", "getImageList", 1}, // 1959
+  {wxListbook_GetPage, "wxListbook", "getPage", 2}, // 1960
+  {wxListbook_GetPageCount, "wxListbook", "getPageCount", 1}, // 1961
+  {wxListbook_GetPageImage, "wxListbook", "getPageImage", 2}, // 1962
+  {wxListbook_GetPageText, "wxListbook", "getPageText", 2}, // 1963
+  {wxListbook_GetSelection, "wxListbook", "getSelection", 1}, // 1964
+  {wxListbook_HitTest, "wxListbook", "hitTest", 2}, // 1965
+  {wxListbook_InsertPage, "wxListbook", "insertPage", 5}, // 1966
+  {wxListbook_SetImageList, "wxListbook", "setImageList", 2}, // 1967
+  {wxListbook_SetPageSize, "wxListbook", "setPageSize", 2}, // 1968
+  {wxListbook_SetPageImage, "wxListbook", "setPageImage", 3}, // 1969
+  {wxListbook_SetPageText, "wxListbook", "setPageText", 3}, // 1970
+  {wxListbook_SetSelection, "wxListbook", "setSelection", 2}, // 1971
+  {wxListbook_ChangeSelection, "wxListbook", "changeSelection", 2}, // 1972
+  {NULL, "wxListbook", "'Destroy'", 1}, // 1973 obj destructor wxListbook_destroy
+  {wxTreebook_new_0, "wxTreebook", "new", 0}, // 1974
+  {wxTreebook_new_3, "wxTreebook", "new", 3}, // 1975
+  {NULL, "wxTreebook", "destroy", 1}, // 1976 obj destructor wxTreebook_destruct
+  {wxTreebook_AddPage, "wxTreebook", "addPage", 4}, // 1977
+  {wxTreebook_AdvanceSelection, "wxTreebook", "advanceSelection", 2}, // 1978
+  {wxTreebook_AssignImageList, "wxTreebook", "assignImageList", 2}, // 1979
+  {wxTreebook_Create, "wxTreebook", "create", 4}, // 1980
+  {wxTreebook_DeleteAllPages, "wxTreebook", "deleteAllPages", 1}, // 1981
+  {wxTreebook_GetCurrentPage, "wxTreebook", "getCurrentPage", 1}, // 1982
+  {wxTreebook_GetImageList, "wxTreebook", "getImageList", 1}, // 1983
+  {wxTreebook_GetPage, "wxTreebook", "getPage", 2}, // 1984
+  {wxTreebook_GetPageCount, "wxTreebook", "getPageCount", 1}, // 1985
+  {wxTreebook_GetPageImage, "wxTreebook", "getPageImage", 2}, // 1986
+  {wxTreebook_GetPageText, "wxTreebook", "getPageText", 2}, // 1987
+  {wxTreebook_GetSelection, "wxTreebook", "getSelection", 1}, // 1988
+  {wxTreebook_ExpandNode, "wxTreebook", "expandNode", 3}, // 1989
+  {wxTreebook_IsNodeExpanded, "wxTreebook", "isNodeExpanded", 2}, // 1990
+  {wxTreebook_HitTest, "wxTreebook", "hitTest", 2}, // 1991
+  {wxTreebook_InsertPage, "wxTreebook", "insertPage", 5}, // 1992
+  {wxTreebook_InsertSubPage, "wxTreebook", "insertSubPage", 5}, // 1993
+  {wxTreebook_SetImageList, "wxTreebook", "setImageList", 2}, // 1994
+  {wxTreebook_SetPageSize, "wxTreebook", "setPageSize", 2}, // 1995
+  {wxTreebook_SetPageImage, "wxTreebook", "setPageImage", 3}, // 1996
+  {wxTreebook_SetPageText, "wxTreebook", "setPageText", 3}, // 1997
+  {wxTreebook_SetSelection, "wxTreebook", "setSelection", 2}, // 1998
+  {wxTreebook_ChangeSelection, "wxTreebook", "changeSelection", 2}, // 1999
+  {wxTreeCtrl_new_0, "wxTreeCtrl", "new", 0}, // 2000
+  {wxTreeCtrl_new_2, "wxTreeCtrl", "new", 2}, // 2001
+  {NULL, "wxTreeCtrl", "destroy", 1}, // 2002 obj destructor wxTreeCtrl_destruct
+  {wxTreeCtrl_AddRoot, "wxTreeCtrl", "addRoot", 3}, // 2003
+  {wxTreeCtrl_AppendItem, "wxTreeCtrl", "appendItem", 4}, // 2004
+  {wxTreeCtrl_AssignImageList, "wxTreeCtrl", "assignImageList", 2}, // 2005
+  {wxTreeCtrl_AssignStateImageList, "wxTreeCtrl", "assignStateImageList", 2}, // 2006
+  {wxTreeCtrl_Collapse, "wxTreeCtrl", "collapse", 2}, // 2007
+  {wxTreeCtrl_CollapseAndReset, "wxTreeCtrl", "collapseAndReset", 2}, // 2008
+  {wxTreeCtrl_Create, "wxTreeCtrl", "create", 3}, // 2009
+  {wxTreeCtrl_Delete, "wxTreeCtrl", "delete", 2}, // 2010
+  {wxTreeCtrl_DeleteAllItems, "wxTreeCtrl", "deleteAllItems", 1}, // 2011
+  {wxTreeCtrl_DeleteChildren, "wxTreeCtrl", "deleteChildren", 2}, // 2012
+  {wxTreeCtrl_EditLabel, "wxTreeCtrl", "editLabel", 2}, // 2013
+  {wxTreeCtrl_EnsureVisible, "wxTreeCtrl", "ensureVisible", 2}, // 2014
+  {wxTreeCtrl_Expand, "wxTreeCtrl", "expand", 2}, // 2015
+  {wxTreeCtrl_GetBoundingRect, "wxTreeCtrl", "getBoundingRect", 3}, // 2016
+  {wxTreeCtrl_GetChildrenCount, "wxTreeCtrl", "getChildrenCount", 3}, // 2017
+  {wxTreeCtrl_GetCount, "wxTreeCtrl", "getCount", 1}, // 2018
+  {wxTreeCtrl_GetEditControl, "wxTreeCtrl", "getEditControl", 1}, // 2019
+  {wxTreeCtrl_GetFirstChild, "wxTreeCtrl", "getFirstChild", 2}, // 2020
+  {wxTreeCtrl_GetNextChild, "wxTreeCtrl", "getNextChild", 3}, // 2021
+  {wxTreeCtrl_GetFirstVisibleItem, "wxTreeCtrl", "getFirstVisibleItem", 1}, // 2022
+  {wxTreeCtrl_GetImageList, "wxTreeCtrl", "getImageList", 1}, // 2023
+  {wxTreeCtrl_GetIndent, "wxTreeCtrl", "getIndent", 1}, // 2024
+  {wxTreeCtrl_GetItemBackgroundColour, "wxTreeCtrl", "getItemBackgroundColour", 2}, // 2025
+  {wxTreeCtrl_GetItemData, "wxTreeCtrl", "getItemData", 2}, // 2026
+  {wxTreeCtrl_GetItemFont, "wxTreeCtrl", "getItemFont", 2}, // 2027
+  {wxTreeCtrl_GetItemImage, "wxTreeCtrl", "getItemImage", 3}, // 2028
+  {wxTreeCtrl_GetItemText, "wxTreeCtrl", "getItemText", 2}, // 2029
+  {wxTreeCtrl_GetItemTextColour, "wxTreeCtrl", "getItemTextColour", 2}, // 2030
+  {wxTreeCtrl_GetLastChild, "wxTreeCtrl", "getLastChild", 2}, // 2031
+  {wxTreeCtrl_GetNextSibling, "wxTreeCtrl", "getNextSibling", 2}, // 2032
+  {wxTreeCtrl_GetNextVisible, "wxTreeCtrl", "getNextVisible", 2}, // 2033
+  {wxTreeCtrl_GetItemParent, "wxTreeCtrl", "getItemParent", 2}, // 2034
+  {wxTreeCtrl_GetPrevSibling, "wxTreeCtrl", "getPrevSibling", 2}, // 2035
+  {wxTreeCtrl_GetPrevVisible, "wxTreeCtrl", "getPrevVisible", 2}, // 2036
+  {wxTreeCtrl_GetRootItem, "wxTreeCtrl", "getRootItem", 1}, // 2037
+  {wxTreeCtrl_GetSelection, "wxTreeCtrl", "getSelection", 1}, // 2038
+  {wxTreeCtrl_GetSelections, "wxTreeCtrl", "getSelections", 1}, // 2039
+  {wxTreeCtrl_GetStateImageList, "wxTreeCtrl", "getStateImageList", 1}, // 2040
+  {wxTreeCtrl_HitTest, "wxTreeCtrl", "hitTest", 2}, // 2041
+  {wxTreeCtrl_InsertItem, "wxTreeCtrl", "insertItem", 5}, // 2042
+  {NULL, "", "", 0}, // 2043
+  {wxTreeCtrl_IsBold, "wxTreeCtrl", "isBold", 2}, // 2044
+  {wxTreeCtrl_IsExpanded, "wxTreeCtrl", "isExpanded", 2}, // 2045
+  {wxTreeCtrl_IsSelected, "wxTreeCtrl", "isSelected", 2}, // 2046
+  {wxTreeCtrl_IsVisible, "wxTreeCtrl", "isVisible", 2}, // 2047
+  {wxTreeCtrl_ItemHasChildren, "wxTreeCtrl", "itemHasChildren", 2}, // 2048
+  {wxTreeCtrl_IsTreeItemIdOk, "wxTreeCtrl", "isTreeItemIdOk", 1}, // 2049
+  {wxTreeCtrl_PrependItem, "wxTreeCtrl", "prependItem", 4}, // 2050
+  {wxTreeCtrl_ScrollTo, "wxTreeCtrl", "scrollTo", 2}, // 2051
+  {wxTreeCtrl_SelectItem, "wxTreeCtrl", "selectItem", 3}, // 2052
+  {wxTreeCtrl_SetIndent, "wxTreeCtrl", "setIndent", 2}, // 2053
+  {wxTreeCtrl_SetImageList, "wxTreeCtrl", "setImageList", 2}, // 2054
+  {wxTreeCtrl_SetItemBackgroundColour, "wxTreeCtrl", "setItemBackgroundColour", 3}, // 2055
+  {wxTreeCtrl_SetItemBold, "wxTreeCtrl", "setItemBold", 3}, // 2056
+  {wxTreeCtrl_SetItemData, "wxTreeCtrl", "setItemData", 3}, // 2057
+  {wxTreeCtrl_SetItemDropHighlight, "wxTreeCtrl", "setItemDropHighlight", 3}, // 2058
+  {wxTreeCtrl_SetItemFont, "wxTreeCtrl", "setItemFont", 3}, // 2059
+  {wxTreeCtrl_SetItemHasChildren, "wxTreeCtrl", "setItemHasChildren", 3}, // 2060
+  {wxTreeCtrl_SetItemImage, "wxTreeCtrl", "setItemImage", 4}, // 2061
+  {wxTreeCtrl_SetItemText, "wxTreeCtrl", "setItemText", 3}, // 2062
+  {wxTreeCtrl_SetItemTextColour, "wxTreeCtrl", "setItemTextColour", 3}, // 2063
+  {wxTreeCtrl_SetStateImageList, "wxTreeCtrl", "setStateImageList", 2}, // 2064
+  {wxTreeCtrl_SetWindowStyle, "wxTreeCtrl", "setWindowStyle", 2}, // 2065
+  {wxTreeCtrl_SortChildren, "wxTreeCtrl", "sortChildren", 2}, // 2066
+  {wxTreeCtrl_Toggle, "wxTreeCtrl", "toggle", 2}, // 2067
+  {wxTreeCtrl_ToggleItemSelection, "wxTreeCtrl", "toggleItemSelection", 2}, // 2068
+  {wxTreeCtrl_Unselect, "wxTreeCtrl", "unselect", 1}, // 2069
+  {wxTreeCtrl_UnselectAll, "wxTreeCtrl", "unselectAll", 1}, // 2070
+  {wxTreeCtrl_UnselectItem, "wxTreeCtrl", "unselectItem", 2}, // 2071
+  {wxScrollBar_new_0, "wxScrollBar", "new", 0}, // 2072
+  {wxScrollBar_new_3, "wxScrollBar", "new", 3}, // 2073
+  {NULL, "wxScrollBar", "destroy", 1}, // 2074 obj destructor wxScrollBar_destruct
+  {wxScrollBar_Create, "wxScrollBar", "create", 4}, // 2075
+  {wxScrollBar_GetRange, "wxScrollBar", "getRange", 1}, // 2076
+  {wxScrollBar_GetPageSize, "wxScrollBar", "getPageSize", 1}, // 2077
+  {wxScrollBar_GetThumbPosition, "wxScrollBar", "getThumbPosition", 1}, // 2078
+  {wxScrollBar_GetThumbSize, "wxScrollBar", "getThumbSize", 1}, // 2079
+  {wxScrollBar_SetThumbPosition, "wxScrollBar", "setThumbPosition", 2}, // 2080
+  {wxScrollBar_SetScrollbar, "wxScrollBar", "setScrollbar", 6}, // 2081
+  {wxSpinButton_new_0, "wxSpinButton", "new", 0}, // 2082
+  {wxSpinButton_new_2, "wxSpinButton", "new", 2}, // 2083
+  {NULL, "wxSpinButton", "destroy", 1}, // 2084 obj destructor wxSpinButton_destruct
+  {wxSpinButton_Create, "wxSpinButton", "create", 3}, // 2085
+  {wxSpinButton_GetMax, "wxSpinButton", "getMax", 1}, // 2086
+  {wxSpinButton_GetMin, "wxSpinButton", "getMin", 1}, // 2087
+  {wxSpinButton_GetValue, "wxSpinButton", "getValue", 1}, // 2088
+  {wxSpinButton_SetRange, "wxSpinButton", "setRange", 3}, // 2089
+  {wxSpinButton_SetValue, "wxSpinButton", "setValue", 2}, // 2090
+  {wxSpinCtrl_new_0, "wxSpinCtrl", "new", 0}, // 2091
+  {wxSpinCtrl_new_2, "wxSpinCtrl", "new", 2}, // 2092
+  {wxSpinCtrl_Create, "wxSpinCtrl", "create", 3}, // 2093
+  {wxSpinCtrl_SetValue_1_1, "wxSpinCtrl", "setValue", 2}, // 2094
+  {wxSpinCtrl_SetValue_1_0, "wxSpinCtrl", "setValue", 2}, // 2095
+  {wxSpinCtrl_GetValue, "wxSpinCtrl", "getValue", 1}, // 2096
+  {wxSpinCtrl_SetRange, "wxSpinCtrl", "setRange", 3}, // 2097
+  {wxSpinCtrl_SetSelection, "wxSpinCtrl", "setSelection", 3}, // 2098
+  {wxSpinCtrl_GetMin, "wxSpinCtrl", "getMin", 1}, // 2099
+  {wxSpinCtrl_GetMax, "wxSpinCtrl", "getMax", 1}, // 2100
+  {NULL, "wxSpinCtrl", "'Destroy'", 1}, // 2101 obj destructor wxSpinCtrl_destroy
+  {wxStaticText_new_0, "wxStaticText", "new", 0}, // 2102
+  {wxStaticText_new_4, "wxStaticText", "new", 4}, // 2103
+  {wxStaticText_Create, "wxStaticText", "create", 5}, // 2104
+  {wxStaticText_GetLabel, "wxStaticText", "getLabel", 1}, // 2105
+  {wxStaticText_SetLabel, "wxStaticText", "setLabel", 2}, // 2106
+  {wxStaticText_Wrap, "wxStaticText", "wrap", 2}, // 2107
+  {NULL, "wxStaticText", "'Destroy'", 1}, // 2108 obj destructor wxStaticText_destroy
+  {wxStaticBitmap_new_0, "wxStaticBitmap", "new", 0}, // 2109
+  {wxStaticBitmap_new_4, "wxStaticBitmap", "new", 4}, // 2110
+  {wxStaticBitmap_Create, "wxStaticBitmap", "create", 5}, // 2111
+  {wxStaticBitmap_GetBitmap, "wxStaticBitmap", "getBitmap", 1}, // 2112
+  {wxStaticBitmap_SetBitmap, "wxStaticBitmap", "setBitmap", 2}, // 2113
+  {NULL, "wxStaticBitmap", "'Destroy'", 1}, // 2114 obj destructor wxStaticBitmap_destroy
+  {wxRadioBox_new, "wxRadioBox", "new", 7}, // 2115
+  {NULL, "wxRadioBox", "destroy", 1}, // 2116 obj destructor wxRadioBox_destruct
+  {wxRadioBox_Create, "wxRadioBox", "create", 8}, // 2117
+  {wxRadioBox_Enable_1, "wxRadioBox", "enable", 2}, // 2118
+  {wxRadioBox_Enable_2, "wxRadioBox", "enable", 3}, // 2119
+  {wxRadioBox_GetSelection, "wxRadioBox", "getSelection", 1}, // 2120
+  {wxRadioBox_GetString, "wxRadioBox", "getString", 2}, // 2121
+  {wxRadioBox_SetSelection, "wxRadioBox", "setSelection", 2}, // 2122
+  {wxRadioBox_Show, "wxRadioBox", "show", 3}, // 2123
+  {wxRadioBox_GetColumnCount, "wxRadioBox", "getColumnCount", 1}, // 2124
+  {wxRadioBox_GetItemHelpText, "wxRadioBox", "getItemHelpText", 2}, // 2125
+  {wxRadioBox_GetItemToolTip, "wxRadioBox", "getItemToolTip", 2}, // 2126
+  {wxRadioBox_GetItemFromPoint, "wxRadioBox", "getItemFromPoint", 2}, // 2127
+  {wxRadioBox_GetRowCount, "wxRadioBox", "getRowCount", 1}, // 2128
+  {wxRadioBox_IsItemEnabled, "wxRadioBox", "isItemEnabled", 2}, // 2129
+  {wxRadioBox_IsItemShown, "wxRadioBox", "isItemShown", 2}, // 2130
+  {wxRadioBox_SetItemHelpText, "wxRadioBox", "setItemHelpText", 3}, // 2131
+  {wxRadioBox_SetItemToolTip, "wxRadioBox", "setItemToolTip", 3}, // 2132
+  {wxRadioButton_new_0, "wxRadioButton", "new", 0}, // 2133
+  {wxRadioButton_new_4, "wxRadioButton", "new", 4}, // 2134
+  {NULL, "wxRadioButton", "destroy", 1}, // 2135 obj destructor wxRadioButton_destruct
+  {wxRadioButton_Create, "wxRadioButton", "create", 5}, // 2136
+  {wxRadioButton_GetValue, "wxRadioButton", "getValue", 1}, // 2137
+  {wxRadioButton_SetValue, "wxRadioButton", "setValue", 2}, // 2138
+  {wxSlider_new_0, "wxSlider", "new", 0}, // 2139
+  {wxSlider_new_6, "wxSlider", "new", 6}, // 2140
+  {NULL, "wxSlider", "destroy", 1}, // 2141 obj destructor wxSlider_destruct
+  {wxSlider_Create, "wxSlider", "create", 7}, // 2142
+  {wxSlider_GetLineSize, "wxSlider", "getLineSize", 1}, // 2143
+  {wxSlider_GetMax, "wxSlider", "getMax", 1}, // 2144
+  {wxSlider_GetMin, "wxSlider", "getMin", 1}, // 2145
+  {wxSlider_GetPageSize, "wxSlider", "getPageSize", 1}, // 2146
+  {wxSlider_GetThumbLength, "wxSlider", "getThumbLength", 1}, // 2147
+  {wxSlider_GetValue, "wxSlider", "getValue", 1}, // 2148
+  {wxSlider_SetLineSize, "wxSlider", "setLineSize", 2}, // 2149
+  {wxSlider_SetPageSize, "wxSlider", "setPageSize", 2}, // 2150
+  {wxSlider_SetRange, "wxSlider", "setRange", 3}, // 2151
+  {wxSlider_SetThumbLength, "wxSlider", "setThumbLength", 2}, // 2152
+  {wxSlider_SetValue, "wxSlider", "setValue", 2}, // 2153
+  {wxDialog_new_0, "wxDialog", "new", 0}, // 2154
+  {wxDialog_new_4, "wxDialog", "new", 4}, // 2155
+  {NULL, "wxDialog", "destroy", 1}, // 2156 obj destructor wxDialog_destruct
+  {wxDialog_Create, "wxDialog", "create", 5}, // 2157
+  {wxDialog_CreateButtonSizer, "wxDialog", "createButtonSizer", 2}, // 2158
+  {wxDialog_CreateStdDialogButtonSizer, "wxDialog", "createStdDialogButtonSizer", 2}, // 2159
+  {wxDialog_EndModal, "wxDialog", "endModal", 2}, // 2160
+  {wxDialog_GetAffirmativeId, "wxDialog", "getAffirmativeId", 1}, // 2161
+  {wxDialog_GetReturnCode, "wxDialog", "getReturnCode", 1}, // 2162
+  {wxDialog_IsModal, "wxDialog", "isModal", 1}, // 2163
+  {wxDialog_SetAffirmativeId, "wxDialog", "setAffirmativeId", 2}, // 2164
+  {wxDialog_SetReturnCode, "wxDialog", "setReturnCode", 2}, // 2165
+  {wxDialog_Show, "wxDialog", "show", 2}, // 2166
+  {wxDialog_ShowModal, "wxDialog", "showModal", 1}, // 2167
+  {wxColourDialog_new_0, "wxColourDialog", "new", 0}, // 2168
+  {wxColourDialog_new_2, "wxColourDialog", "new", 2}, // 2169
+  {NULL, "wxColourDialog", "destroy", 1}, // 2170 obj destructor wxColourDialog_destruct
+  {wxColourDialog_Create, "wxColourDialog", "create", 3}, // 2171
+  {wxColourDialog_GetColourData, "wxColourDialog", "getColourData", 1}, // 2172
+  {wxColourData_new, "wxColourData", "new", 0}, // 2173
+  {NULL, "wxColourData", "destroy", 1}, // 2174 obj destructor wxColourData_destruct
+  {wxColourData_GetChooseFull, "wxColourData", "getChooseFull", 1}, // 2175
+  {wxColourData_GetColour, "wxColourData", "getColour", 1}, // 2176
+  {wxColourData_GetCustomColour, "wxColourData", "getCustomColour", 2}, // 2177
+  {wxColourData_SetChooseFull, "wxColourData", "setChooseFull", 2}, // 2178
+  {wxColourData_SetColour, "wxColourData", "setColour", 2}, // 2179
+  {wxColourData_SetCustomColour, "wxColourData", "setCustomColour", 3}, // 2180
+  {wxPalette_new_0, "wxPalette", "new", 0}, // 2181
+  {wxPalette_new_1, "wxPalette", "new", 1}, // 2182
+  {wxPalette_new_4, "wxPalette", "new", 3}, // 2183
+  {NULL, "wxPalette", "destroy", 1}, // 2184 obj destructor wxPalette_destruct
+  {wxPalette_Create, "wxPalette", "create", 4}, // 2185
+  {wxPalette_GetColoursCount, "wxPalette", "getColoursCount", 1}, // 2186
+  {wxPalette_GetPixel, "wxPalette", "getPixel", 4}, // 2187
+  {wxPalette_GetRGB, "wxPalette", "getRGB", 2}, // 2188
+  {wxPalette_IsOk, "wxPalette", "isOk", 1}, // 2189
+  {wxDirDialog_new, "wxDirDialog", "new", 2}, // 2190
+  {NULL, "wxDirDialog", "destroy", 1}, // 2191 obj destructor wxDirDialog_destruct
+  {wxDirDialog_GetPath, "wxDirDialog", "getPath", 1}, // 2192
+  {wxDirDialog_GetMessage, "wxDirDialog", "getMessage", 1}, // 2193
+  {wxDirDialog_SetMessage, "wxDirDialog", "setMessage", 2}, // 2194
+  {wxDirDialog_SetPath, "wxDirDialog", "setPath", 2}, // 2195
+  {wxFileDialog_new, "wxFileDialog", "new", 2}, // 2196
+  {NULL, "wxFileDialog", "destroy", 1}, // 2197 obj destructor wxFileDialog_destruct
+  {wxFileDialog_GetDirectory, "wxFileDialog", "getDirectory", 1}, // 2198
+  {wxFileDialog_GetFilename, "wxFileDialog", "getFilename", 1}, // 2199
+  {wxFileDialog_GetFilenames, "wxFileDialog", "getFilenames", 1}, // 2200
+  {wxFileDialog_GetFilterIndex, "wxFileDialog", "getFilterIndex", 1}, // 2201
+  {wxFileDialog_GetMessage, "wxFileDialog", "getMessage", 1}, // 2202
+  {wxFileDialog_GetPath, "wxFileDialog", "getPath", 1}, // 2203
+  {wxFileDialog_GetPaths, "wxFileDialog", "getPaths", 1}, // 2204
+  {wxFileDialog_GetWildcard, "wxFileDialog", "getWildcard", 1}, // 2205
+  {wxFileDialog_SetDirectory, "wxFileDialog", "setDirectory", 2}, // 2206
+  {wxFileDialog_SetFilename, "wxFileDialog", "setFilename", 2}, // 2207
+  {wxFileDialog_SetFilterIndex, "wxFileDialog", "setFilterIndex", 2}, // 2208
+  {wxFileDialog_SetMessage, "wxFileDialog", "setMessage", 2}, // 2209
+  {wxFileDialog_SetPath, "wxFileDialog", "setPath", 2}, // 2210
+  {wxFileDialog_SetWildcard, "wxFileDialog", "setWildcard", 2}, // 2211
+  {wxPickerBase_SetInternalMargin, "wxPickerBase", "setInternalMargin", 2}, // 2212
+  {wxPickerBase_GetInternalMargin, "wxPickerBase", "getInternalMargin", 1}, // 2213
+  {wxPickerBase_SetTextCtrlProportion, "wxPickerBase", "setTextCtrlProportion", 2}, // 2214
+  {wxPickerBase_SetPickerCtrlProportion, "wxPickerBase", "setPickerCtrlProportion", 2}, // 2215
+  {wxPickerBase_GetTextCtrlProportion, "wxPickerBase", "getTextCtrlProportion", 1}, // 2216
+  {wxPickerBase_GetPickerCtrlProportion, "wxPickerBase", "getPickerCtrlProportion", 1}, // 2217
+  {wxPickerBase_HasTextCtrl, "wxPickerBase", "hasTextCtrl", 1}, // 2218
+  {wxPickerBase_GetTextCtrl, "wxPickerBase", "getTextCtrl", 1}, // 2219
+  {wxPickerBase_IsTextCtrlGrowable, "wxPickerBase", "isTextCtrlGrowable", 1}, // 2220
+  {wxPickerBase_SetPickerCtrlGrowable, "wxPickerBase", "setPickerCtrlGrowable", 2}, // 2221
+  {wxPickerBase_SetTextCtrlGrowable, "wxPickerBase", "setTextCtrlGrowable", 2}, // 2222
+  {wxPickerBase_IsPickerCtrlGrowable, "wxPickerBase", "isPickerCtrlGrowable", 1}, // 2223
+  {wxFilePickerCtrl_new_0, "wxFilePickerCtrl", "new", 0}, // 2224
+  {wxFilePickerCtrl_new_3, "wxFilePickerCtrl", "new", 3}, // 2225
+  {wxFilePickerCtrl_Create, "wxFilePickerCtrl", "create", 4}, // 2226
+  {wxFilePickerCtrl_GetPath, "wxFilePickerCtrl", "getPath", 1}, // 2227
+  {wxFilePickerCtrl_SetPath, "wxFilePickerCtrl", "setPath", 2}, // 2228
+  {NULL, "wxFilePickerCtrl", "'Destroy'", 1}, // 2229 obj destructor wxFilePickerCtrl_destroy
+  {wxDirPickerCtrl_new_0, "wxDirPickerCtrl", "new", 0}, // 2230
+  {wxDirPickerCtrl_new_3, "wxDirPickerCtrl", "new", 3}, // 2231
+  {wxDirPickerCtrl_Create, "wxDirPickerCtrl", "create", 4}, // 2232
+  {wxDirPickerCtrl_GetPath, "wxDirPickerCtrl", "getPath", 1}, // 2233
+  {wxDirPickerCtrl_SetPath, "wxDirPickerCtrl", "setPath", 2}, // 2234
+  {NULL, "wxDirPickerCtrl", "'Destroy'", 1}, // 2235 obj destructor wxDirPickerCtrl_destroy
+  {wxColourPickerCtrl_new_0, "wxColourPickerCtrl", "new", 0}, // 2236
+  {wxColourPickerCtrl_new_3, "wxColourPickerCtrl", "new", 3}, // 2237
+  {wxColourPickerCtrl_Create, "wxColourPickerCtrl", "create", 4}, // 2238
+  {wxColourPickerCtrl_GetColour, "wxColourPickerCtrl", "getColour", 1}, // 2239
+  {wxColourPickerCtrl_SetColour_1_1, "wxColourPickerCtrl", "setColour", 2}, // 2240
+  {wxColourPickerCtrl_SetColour_1_0, "wxColourPickerCtrl", "setColour", 2}, // 2241
+  {NULL, "wxColourPickerCtrl", "'Destroy'", 1}, // 2242 obj destructor wxColourPickerCtrl_destroy
+  {wxDatePickerCtrl_new_0, "wxDatePickerCtrl", "new", 0}, // 2243
+  {wxDatePickerCtrl_new_3, "wxDatePickerCtrl", "new", 3}, // 2244
+  {wxDatePickerCtrl_GetRange, "wxDatePickerCtrl", "getRange", 3}, // 2245
+  {wxDatePickerCtrl_GetValue, "wxDatePickerCtrl", "getValue", 1}, // 2246
+  {wxDatePickerCtrl_SetRange, "wxDatePickerCtrl", "setRange", 3}, // 2247
+  {wxDatePickerCtrl_SetValue, "wxDatePickerCtrl", "setValue", 2}, // 2248
+  {NULL, "wxDatePickerCtrl", "'Destroy'", 1}, // 2249 obj destructor wxDatePickerCtrl_destroy
+  {wxFontPickerCtrl_new_0, "wxFontPickerCtrl", "new", 0}, // 2250
+  {wxFontPickerCtrl_new_3, "wxFontPickerCtrl", "new", 3}, // 2251
+  {wxFontPickerCtrl_Create, "wxFontPickerCtrl", "create", 4}, // 2252
+  {wxFontPickerCtrl_GetSelectedFont, "wxFontPickerCtrl", "getSelectedFont", 1}, // 2253
+  {wxFontPickerCtrl_SetSelectedFont, "wxFontPickerCtrl", "setSelectedFont", 2}, // 2254
+  {wxFontPickerCtrl_GetMaxPointSize, "wxFontPickerCtrl", "getMaxPointSize", 1}, // 2255
+  {wxFontPickerCtrl_SetMaxPointSize, "wxFontPickerCtrl", "setMaxPointSize", 2}, // 2256
+  {NULL, "wxFontPickerCtrl", "'Destroy'", 1}, // 2257 obj destructor wxFontPickerCtrl_destroy
+  {wxFindReplaceDialog_new_0, "wxFindReplaceDialog", "new", 0}, // 2258
+  {wxFindReplaceDialog_new_4, "wxFindReplaceDialog", "new", 4}, // 2259
+  {NULL, "wxFindReplaceDialog", "destroy", 1}, // 2260 obj destructor wxFindReplaceDialog_destruct
+  {wxFindReplaceDialog_Create, "wxFindReplaceDialog", "create", 5}, // 2261
+  {wxFindReplaceDialog_GetData, "wxFindReplaceDialog", "getData", 1}, // 2262
+  {wxFindReplaceData_new, "wxFindReplaceData", "new", 1}, // 2263
+  {wxFindReplaceData_GetFindString, "wxFindReplaceData", "getFindString", 1}, // 2264
+  {wxFindReplaceData_GetReplaceString, "wxFindReplaceData", "getReplaceString", 1}, // 2265
+  {wxFindReplaceData_GetFlags, "wxFindReplaceData", "getFlags", 1}, // 2266
+  {wxFindReplaceData_SetFlags, "wxFindReplaceData", "setFlags", 2}, // 2267
+  {wxFindReplaceData_SetFindString, "wxFindReplaceData", "setFindString", 2}, // 2268
+  {wxFindReplaceData_SetReplaceString, "wxFindReplaceData", "setReplaceString", 2}, // 2269
+  {NULL, "wxFindReplaceData", "'Destroy'", 1}, // 2270 obj destructor wxFindReplaceData_destroy
+  {NULL, "", "", 0}, // 2271
+  {wxMultiChoiceDialog_new, "wxMultiChoiceDialog", "new", 5}, // 2272
+  {wxMultiChoiceDialog_GetSelections, "wxMultiChoiceDialog", "getSelections", 1}, // 2273
+  {wxMultiChoiceDialog_SetSelections, "wxMultiChoiceDialog", "setSelections", 2}, // 2274
+  {NULL, "wxMultiChoiceDialog", "'Destroy'", 1}, // 2275 obj destructor wxMultiChoiceDialog_destroy
+  {NULL, "", "", 0}, // 2276
+  {wxSingleChoiceDialog_new, "wxSingleChoiceDialog", "new", 5}, // 2277
+  {wxSingleChoiceDialog_GetSelection, "wxSingleChoiceDialog", "getSelection", 1}, // 2278
+  {wxSingleChoiceDialog_GetStringSelection, "wxSingleChoiceDialog", "getStringSelection", 1}, // 2279
+  {wxSingleChoiceDialog_SetSelection, "wxSingleChoiceDialog", "setSelection", 2}, // 2280
+  {NULL, "wxSingleChoiceDialog", "'Destroy'", 1}, // 2281 obj destructor wxSingleChoiceDialog_destroy
+  {wxTextEntryDialog_new_0, "wxTextEntryDialog", "new", 0}, // 2282
+  {wxTextEntryDialog_new_3, "wxTextEntryDialog", "new", 3}, // 2283
+  {NULL, "wxTextEntryDialog", "destroy", 1}, // 2284 obj destructor wxTextEntryDialog_destruct
+  {wxTextEntryDialog_GetValue, "wxTextEntryDialog", "getValue", 1}, // 2285
+  {wxTextEntryDialog_SetValue, "wxTextEntryDialog", "setValue", 2}, // 2286
+  {wxPasswordEntryDialog_new, "wxPasswordEntryDialog", "new", 3}, // 2287
+  {NULL, "wxPasswordEntryDialog", "'Destroy'", 1}, // 2288 obj destructor wxPasswordEntryDialog_destroy
+  {wxFontData_new_0, "wxFontData", "new", 0}, // 2289
+  {wxFontData_new_1, "wxFontData", "new", 1}, // 2290
+  {wxFontData_EnableEffects, "wxFontData", "enableEffects", 2}, // 2291
+  {wxFontData_GetAllowSymbols, "wxFontData", "getAllowSymbols", 1}, // 2292
+  {wxFontData_GetColour, "wxFontData", "getColour", 1}, // 2293
+  {wxFontData_GetChosenFont, "wxFontData", "getChosenFont", 1}, // 2294
+  {wxFontData_GetEnableEffects, "wxFontData", "getEnableEffects", 1}, // 2295
+  {wxFontData_GetInitialFont, "wxFontData", "getInitialFont", 1}, // 2296
+  {wxFontData_GetShowHelp, "wxFontData", "getShowHelp", 1}, // 2297
+  {wxFontData_SetAllowSymbols, "wxFontData", "setAllowSymbols", 2}, // 2298
+  {wxFontData_SetChosenFont, "wxFontData", "setChosenFont", 2}, // 2299
+  {wxFontData_SetColour, "wxFontData", "setColour", 2}, // 2300
+  {wxFontData_SetInitialFont, "wxFontData", "setInitialFont", 2}, // 2301
+  {wxFontData_SetRange, "wxFontData", "setRange", 3}, // 2302
+  {wxFontData_SetShowHelp, "wxFontData", "setShowHelp", 2}, // 2303
+  {NULL, "wxFontData", "'Destroy'", 1}, // 2304 obj destructor wxFontData_destroy
+  {wxFontDialog_new_0, "wxFontDialog", "new", 0}, // 2305
   {NULL, "", "", 0}, // 2306
-  {wxFontDialog_Create, "wxFontDialog", "create", 3}, // 2307
-  {wxFontDialog_GetFontData, "wxFontDialog", "getFontData", 1}, // 2308
-  {NULL, "", "", 0}, // 2309
-  {NULL, "wxFontDialog", "'Destroy'", 1}, // 2310 obj destructor wxFontDialog_destroy
-  {wxProgressDialog_new, "wxProgressDialog", "new", 3}, // 2311
-  {wxProgressDialog_Resume, "wxProgressDialog", "resume", 1}, // 2312
-  {wxProgressDialog_Update, "wxProgressDialog", "update", 3}, // 2313
-  {NULL, "wxProgressDialog", "'Destroy'", 1}, // 2314 obj destructor wxProgressDialog_destroy
-  {wxMessageDialog_new, "wxMessageDialog", "new", 3}, // 2315
-  {NULL, "wxMessageDialog", "'Destroy'", 1}, // 2316 obj destructor wxMessageDialog_destroy
-  {wxPageSetupDialog_new, "wxPageSetupDialog", "new", 2}, // 2317
-  {NULL, "wxPageSetupDialog", "destroy", 1}, // 2318 obj destructor wxPageSetupDialog_destruct
-  {wxPageSetupDialog_GetPageSetupData, "wxPageSetupDialog", "getPageSetupData", 1}, // 2319
-  {wxPageSetupDialog_ShowModal, "wxPageSetupDialog", "showModal", 1}, // 2320
-  {wxPageSetupDialogData_new_0, "wxPageSetupDialogData", "new", 0}, // 2321
-  {NULL, "", "", 0}, // 2322
-  {wxPageSetupDialogData_new_1, "wxPageSetupDialogData", "new", 1}, // 2323
-  {NULL, "wxPageSetupDialogData", "destroy", 1}, // 2324 obj destructor wxPageSetupDialogData_destruct
-  {wxPageSetupDialogData_EnableHelp, "wxPageSetupDialogData", "enableHelp", 2}, // 2325
-  {wxPageSetupDialogData_EnableMargins, "wxPageSetupDialogData", "enableMargins", 2}, // 2326
-  {wxPageSetupDialogData_EnableOrientation, "wxPageSetupDialogData", "enableOrientation", 2}, // 2327
-  {wxPageSetupDialogData_EnablePaper, "wxPageSetupDialogData", "enablePaper", 2}, // 2328
-  {wxPageSetupDialogData_EnablePrinter, "wxPageSetupDialogData", "enablePrinter", 2}, // 2329
-  {wxPageSetupDialogData_GetDefaultMinMargins, "wxPageSetupDialogData", "getDefaultMinMargins", 1}, // 2330
-  {wxPageSetupDialogData_GetEnableMargins, "wxPageSetupDialogData", "getEnableMargins", 1}, // 2331
-  {wxPageSetupDialogData_GetEnableOrientation, "wxPageSetupDialogData", "getEnableOrientation", 1}, // 2332
-  {wxPageSetupDialogData_GetEnablePaper, "wxPageSetupDialogData", "getEnablePaper", 1}, // 2333
-  {wxPageSetupDialogData_GetEnablePrinter, "wxPageSetupDialogData", "getEnablePrinter", 1}, // 2334
-  {wxPageSetupDialogData_GetEnableHelp, "wxPageSetupDialogData", "getEnableHelp", 1}, // 2335
-  {wxPageSetupDialogData_GetDefaultInfo, "wxPageSetupDialogData", "getDefaultInfo", 1}, // 2336
-  {wxPageSetupDialogData_GetMarginTopLeft, "wxPageSetupDialogData", "getMarginTopLeft", 1}, // 2337
-  {wxPageSetupDialogData_GetMarginBottomRight, "wxPageSetupDialogData", "getMarginBottomRight", 1}, // 2338
-  {wxPageSetupDialogData_GetMinMarginTopLeft, "wxPageSetupDialogData", "getMinMarginTopLeft", 1}, // 2339
-  {wxPageSetupDialogData_GetMinMarginBottomRight, "wxPageSetupDialogData", "getMinMarginBottomRight", 1}, // 2340
-  {wxPageSetupDialogData_GetPaperId, "wxPageSetupDialogData", "getPaperId", 1}, // 2341
-  {wxPageSetupDialogData_GetPaperSize, "wxPageSetupDialogData", "getPaperSize", 1}, // 2342
-  {NULL, "", "", 0}, // 2343
-  {wxPageSetupDialogData_GetPrintData, "wxPageSetupDialogData", "getPrintData", 1}, // 2344
-  {wxPageSetupDialogData_IsOk, "wxPageSetupDialogData", "isOk", 1}, // 2345
-  {wxPageSetupDialogData_SetDefaultInfo, "wxPageSetupDialogData", "setDefaultInfo", 2}, // 2346
-  {wxPageSetupDialogData_SetDefaultMinMargins, "wxPageSetupDialogData", "setDefaultMinMargins", 2}, // 2347
-  {wxPageSetupDialogData_SetMarginTopLeft, "wxPageSetupDialogData", "setMarginTopLeft", 2}, // 2348
-  {wxPageSetupDialogData_SetMarginBottomRight, "wxPageSetupDialogData", "setMarginBottomRight", 2}, // 2349
-  {wxPageSetupDialogData_SetMinMarginTopLeft, "wxPageSetupDialogData", "setMinMarginTopLeft", 2}, // 2350
-  {wxPageSetupDialogData_SetMinMarginBottomRight, "wxPageSetupDialogData", "setMinMarginBottomRight", 2}, // 2351
-  {wxPageSetupDialogData_SetPaperId, "wxPageSetupDialogData", "setPaperId", 2}, // 2352
-  {wxPageSetupDialogData_SetPaperSize, "wxPageSetupDialogData", "setPaperSize", 2}, // 2353
-  {wxPageSetupDialogData_SetPrintData, "wxPageSetupDialogData", "setPrintData", 2}, // 2354
-  {wxPrintDialog_new_2_0, "wxPrintDialog", "new", 2}, // 2355
-  {wxPrintDialog_new_2_1, "wxPrintDialog", "new", 2}, // 2356
-  {NULL, "wxPrintDialog", "destroy", 1}, // 2357 obj destructor wxPrintDialog_destruct
-  {wxPrintDialog_GetPrintDialogData, "wxPrintDialog", "getPrintDialogData", 1}, // 2358
-  {wxPrintDialog_GetPrintDC, "wxPrintDialog", "getPrintDC", 1}, // 2359
-  {wxPrintDialogData_new_0, "wxPrintDialogData", "new", 0}, // 2360
-  {wxPrintDialogData_new_1, "wxPrintDialogData", "new", 1}, // 2361
-  {NULL, "", "", 0}, // 2362
-  {NULL, "wxPrintDialogData", "destroy", 1}, // 2363 obj destructor wxPrintDialogData_destruct
-  {wxPrintDialogData_EnableHelp, "wxPrintDialogData", "enableHelp", 2}, // 2364
-  {wxPrintDialogData_EnablePageNumbers, "wxPrintDialogData", "enablePageNumbers", 2}, // 2365
-  {wxPrintDialogData_EnablePrintToFile, "wxPrintDialogData", "enablePrintToFile", 2}, // 2366
-  {wxPrintDialogData_EnableSelection, "wxPrintDialogData", "enableSelection", 2}, // 2367
-  {wxPrintDialogData_GetAllPages, "wxPrintDialogData", "getAllPages", 1}, // 2368
-  {wxPrintDialogData_GetCollate, "wxPrintDialogData", "getCollate", 1}, // 2369
-  {wxPrintDialogData_GetFromPage, "wxPrintDialogData", "getFromPage", 1}, // 2370
-  {wxPrintDialogData_GetMaxPage, "wxPrintDialogData", "getMaxPage", 1}, // 2371
-  {wxPrintDialogData_GetMinPage, "wxPrintDialogData", "getMinPage", 1}, // 2372
-  {wxPrintDialogData_GetNoCopies, "wxPrintDialogData", "getNoCopies", 1}, // 2373
-  {wxPrintDialogData_GetPrintData, "wxPrintDialogData", "getPrintData", 1}, // 2374
-  {wxPrintDialogData_GetPrintToFile, "wxPrintDialogData", "getPrintToFile", 1}, // 2375
-  {wxPrintDialogData_GetSelection, "wxPrintDialogData", "getSelection", 1}, // 2376
-  {wxPrintDialogData_GetToPage, "wxPrintDialogData", "getToPage", 1}, // 2377
-  {wxPrintDialogData_IsOk, "wxPrintDialogData", "isOk", 1}, // 2378
-  {wxPrintDialogData_SetCollate, "wxPrintDialogData", "setCollate", 2}, // 2379
-  {wxPrintDialogData_SetFromPage, "wxPrintDialogData", "setFromPage", 2}, // 2380
-  {wxPrintDialogData_SetMaxPage, "wxPrintDialogData", "setMaxPage", 2}, // 2381
-  {wxPrintDialogData_SetMinPage, "wxPrintDialogData", "setMinPage", 2}, // 2382
-  {wxPrintDialogData_SetNoCopies, "wxPrintDialogData", "setNoCopies", 2}, // 2383
-  {wxPrintDialogData_SetPrintData, "wxPrintDialogData", "setPrintData", 2}, // 2384
-  {wxPrintDialogData_SetPrintToFile, "wxPrintDialogData", "setPrintToFile", 2}, // 2385
-  {wxPrintDialogData_SetSelection, "wxPrintDialogData", "setSelection", 2}, // 2386
-  {wxPrintDialogData_SetToPage, "wxPrintDialogData", "setToPage", 2}, // 2387
-  {wxPrintData_new_0, "wxPrintData", "new", 0}, // 2388
-  {wxPrintData_new_1, "wxPrintData", "new", 1}, // 2389
-  {NULL, "wxPrintData", "destroy", 1}, // 2390 obj destructor wxPrintData_destruct
-  {wxPrintData_GetCollate, "wxPrintData", "getCollate", 1}, // 2391
-  {wxPrintData_GetBin, "wxPrintData", "getBin", 1}, // 2392
-  {wxPrintData_GetColour, "wxPrintData", "getColour", 1}, // 2393
-  {wxPrintData_GetDuplex, "wxPrintData", "getDuplex", 1}, // 2394
-  {wxPrintData_GetNoCopies, "wxPrintData", "getNoCopies", 1}, // 2395
-  {wxPrintData_GetOrientation, "wxPrintData", "getOrientation", 1}, // 2396
-  {wxPrintData_GetPaperId, "wxPrintData", "getPaperId", 1}, // 2397
-  {wxPrintData_GetPrinterName, "wxPrintData", "getPrinterName", 1}, // 2398
-  {wxPrintData_GetQuality, "wxPrintData", "getQuality", 1}, // 2399
-  {wxPrintData_IsOk, "wxPrintData", "isOk", 1}, // 2400
-  {wxPrintData_SetBin, "wxPrintData", "setBin", 2}, // 2401
-  {wxPrintData_SetCollate, "wxPrintData", "setCollate", 2}, // 2402
-  {wxPrintData_SetColour, "wxPrintData", "setColour", 2}, // 2403
-  {wxPrintData_SetDuplex, "wxPrintData", "setDuplex", 2}, // 2404
-  {wxPrintData_SetNoCopies, "wxPrintData", "setNoCopies", 2}, // 2405
-  {wxPrintData_SetOrientation, "wxPrintData", "setOrientation", 2}, // 2406
-  {wxPrintData_SetPaperId, "wxPrintData", "setPaperId", 2}, // 2407
-  {wxPrintData_SetPrinterName, "wxPrintData", "setPrinterName", 2}, // 2408
-  {wxPrintData_SetQuality, "wxPrintData", "setQuality", 2}, // 2409
-  {wxPrintPreview_new_2, "wxPrintPreview", "new", 2}, // 2410
-  {wxPrintPreview_new_3, "wxPrintPreview", "new", 3}, // 2411
-  {NULL, "wxPrintPreview", "destroy", 1}, // 2412 obj destructor wxPrintPreview_destruct
-  {wxPrintPreview_GetCanvas, "wxPrintPreview", "getCanvas", 1}, // 2413
-  {wxPrintPreview_GetCurrentPage, "wxPrintPreview", "getCurrentPage", 1}, // 2414
-  {wxPrintPreview_GetFrame, "wxPrintPreview", "getFrame", 1}, // 2415
-  {wxPrintPreview_GetMaxPage, "wxPrintPreview", "getMaxPage", 1}, // 2416
-  {wxPrintPreview_GetMinPage, "wxPrintPreview", "getMinPage", 1}, // 2417
-  {wxPrintPreview_GetPrintout, "wxPrintPreview", "getPrintout", 1}, // 2418
-  {wxPrintPreview_GetPrintoutForPrinting, "wxPrintPreview", "getPrintoutForPrinting", 1}, // 2419
-  {wxPrintPreview_IsOk, "wxPrintPreview", "isOk", 1}, // 2420
-  {wxPrintPreview_PaintPage, "wxPrintPreview", "paintPage", 3}, // 2421
-  {wxPrintPreview_Print, "wxPrintPreview", "print", 2}, // 2422
-  {wxPrintPreview_RenderPage, "wxPrintPreview", "renderPage", 2}, // 2423
-  {wxPrintPreview_SetCanvas, "wxPrintPreview", "setCanvas", 2}, // 2424
-  {wxPrintPreview_SetCurrentPage, "wxPrintPreview", "setCurrentPage", 2}, // 2425
-  {wxPrintPreview_SetFrame, "wxPrintPreview", "setFrame", 2}, // 2426
-  {wxPrintPreview_SetPrintout, "wxPrintPreview", "setPrintout", 2}, // 2427
-  {wxPrintPreview_SetZoom, "wxPrintPreview", "setZoom", 2}, // 2428
-  {wxPreviewFrame_new, "wxPreviewFrame", "new", 3}, // 2429
-  {NULL, "wxPreviewFrame", "destroy", 1}, // 2430 obj destructor wxPreviewFrame_destruct
-  {wxPreviewFrame_CreateControlBar, "wxPreviewFrame", "createControlBar", 1}, // 2431
-  {wxPreviewFrame_CreateCanvas, "wxPreviewFrame", "createCanvas", 1}, // 2432
-  {wxPreviewFrame_Initialize, "wxPreviewFrame", "initialize", 1}, // 2433
-  {wxPreviewFrame_OnCloseWindow, "wxPreviewFrame", "onCloseWindow", 2}, // 2434
-  {wxPreviewControlBar_new, "wxPreviewControlBar", "new", 4}, // 2435
-  {NULL, "wxPreviewControlBar", "destroy", 1}, // 2436 obj destructor wxPreviewControlBar_destruct
-  {wxPreviewControlBar_CreateButtons, "wxPreviewControlBar", "createButtons", 1}, // 2437
-  {wxPreviewControlBar_GetPrintPreview, "wxPreviewControlBar", "getPrintPreview", 1}, // 2438
-  {wxPreviewControlBar_GetZoomControl, "wxPreviewControlBar", "getZoomControl", 1}, // 2439
-  {wxPreviewControlBar_SetZoomControl, "wxPreviewControlBar", "setZoomControl", 2}, // 2440
-  {wxPrinter_new, "wxPrinter", "new", 1}, // 2441
-  {wxPrinter_CreateAbortWindow, "wxPrinter", "createAbortWindow", 3}, // 2442
-  {wxPrinter_GetAbort, "wxPrinter", "getAbort", 1}, // 2443
-  {wxPrinter_GetLastError, "wxPrinter", "getLastError", 0}, // 2444
-  {wxPrinter_GetPrintDialogData, "wxPrinter", "getPrintDialogData", 1}, // 2445
-  {wxPrinter_Print, "wxPrinter", "print", 4}, // 2446
-  {wxPrinter_PrintDialog, "wxPrinter", "printDialog", 2}, // 2447
-  {wxPrinter_ReportError, "wxPrinter", "reportError", 4}, // 2448
-  {wxPrinter_Setup, "wxPrinter", "setup", 2}, // 2449
-  {NULL, "wxPrinter", "'Destroy'", 1}, // 2450 obj destructor wxPrinter_destroy
-  {wxXmlResource_new_2, "wxXmlResource", "new", 2}, // 2451
-  {wxXmlResource_new_1, "wxXmlResource", "new", 1}, // 2452
-  {NULL, "wxXmlResource", "destroy", 1}, // 2453 obj destructor wxXmlResource_destruct
-  {wxXmlResource_AttachUnknownControl, "wxXmlResource", "attachUnknownControl", 4}, // 2454
-  {wxXmlResource_ClearHandlers, "wxXmlResource", "clearHandlers", 1}, // 2455
-  {wxXmlResource_CompareVersion, "wxXmlResource", "compareVersion", 5}, // 2456
-  {wxXmlResource_Get, "wxXmlResource", "get", 0}, // 2457
-  {wxXmlResource_GetFlags, "wxXmlResource", "getFlags", 1}, // 2458
-  {wxXmlResource_GetVersion, "wxXmlResource", "getVersion", 1}, // 2459
-  {wxXmlResource_GetXRCID, "wxXmlResource", "getXRCID", 2}, // 2460
-  {wxXmlResource_InitAllHandlers, "wxXmlResource", "initAllHandlers", 1}, // 2461
-  {wxXmlResource_Load, "wxXmlResource", "load", 2}, // 2462
-  {wxXmlResource_LoadBitmap, "wxXmlResource", "loadBitmap", 2}, // 2463
-  {wxXmlResource_LoadDialog_2, "wxXmlResource", "loadDialog", 3}, // 2464
-  {wxXmlResource_LoadDialog_3, "wxXmlResource", "loadDialog", 4}, // 2465
-  {wxXmlResource_LoadFrame_2, "wxXmlResource", "loadFrame", 3}, // 2466
-  {wxXmlResource_LoadFrame_3, "wxXmlResource", "loadFrame", 4}, // 2467
-  {wxXmlResource_LoadIcon, "wxXmlResource", "loadIcon", 2}, // 2468
-  {wxXmlResource_LoadMenu, "wxXmlResource", "loadMenu", 2}, // 2469
-  {wxXmlResource_LoadMenuBar_2, "wxXmlResource", "loadMenuBar", 3}, // 2470
-  {wxXmlResource_LoadMenuBar_1, "wxXmlResource", "loadMenuBar", 2}, // 2471
-  {wxXmlResource_LoadPanel_2, "wxXmlResource", "loadPanel", 3}, // 2472
-  {wxXmlResource_LoadPanel_3, "wxXmlResource", "loadPanel", 4}, // 2473
-  {wxXmlResource_LoadToolBar, "wxXmlResource", "loadToolBar", 3}, // 2474
-  {wxXmlResource_Set, "wxXmlResource", "set", 1}, // 2475
-  {wxXmlResource_SetFlags, "wxXmlResource", "setFlags", 2}, // 2476
-  {wxXmlResource_Unload, "wxXmlResource", "unload", 2}, // 2477
-  {NULL, "wxXmlResource", "xrcctrl", 3}, // 2478 TaylorMade erl only wxXmlResource_xrcctrl
-  {wxHtmlEasyPrinting_new, "wxHtmlEasyPrinting", "new", 1}, // 2479
-  {wxHtmlEasyPrinting_GetPrintData, "wxHtmlEasyPrinting", "getPrintData", 1}, // 2480
-  {wxHtmlEasyPrinting_GetPageSetupData, "wxHtmlEasyPrinting", "getPageSetupData", 1}, // 2481
-  {wxHtmlEasyPrinting_PreviewFile, "wxHtmlEasyPrinting", "previewFile", 2}, // 2482
-  {wxHtmlEasyPrinting_PreviewText, "wxHtmlEasyPrinting", "previewText", 3}, // 2483
-  {wxHtmlEasyPrinting_PrintFile, "wxHtmlEasyPrinting", "printFile", 2}, // 2484
-  {wxHtmlEasyPrinting_PrintText, "wxHtmlEasyPrinting", "printText", 3}, // 2485
-  {wxHtmlEasyPrinting_PageSetup, "wxHtmlEasyPrinting", "pageSetup", 1}, // 2486
-  {wxHtmlEasyPrinting_SetFonts, "wxHtmlEasyPrinting", "setFonts", 4}, // 2487
-  {wxHtmlEasyPrinting_SetHeader, "wxHtmlEasyPrinting", "setHeader", 3}, // 2488
-  {wxHtmlEasyPrinting_SetFooter, "wxHtmlEasyPrinting", "setFooter", 3}, // 2489
-  {NULL, "wxHtmlEasyPrinting", "'Destroy'", 1}, // 2490 obj destructor wxHtmlEasyPrinting_destroy
+  {wxFontDialog_new_2, "wxFontDialog", "new", 2}, // 2307
+  {NULL, "", "", 0}, // 2308
+  {wxFontDialog_Create, "wxFontDialog", "create", 3}, // 2309
+  {wxFontDialog_GetFontData, "wxFontDialog", "getFontData", 1}, // 2310
+  {NULL, "", "", 0}, // 2311
+  {NULL, "wxFontDialog", "'Destroy'", 1}, // 2312 obj destructor wxFontDialog_destroy
+  {wxProgressDialog_new, "wxProgressDialog", "new", 3}, // 2313
+  {wxProgressDialog_Resume, "wxProgressDialog", "resume", 1}, // 2314
+  {wxProgressDialog_Update, "wxProgressDialog", "update", 3}, // 2315
+  {NULL, "wxProgressDialog", "'Destroy'", 1}, // 2316 obj destructor wxProgressDialog_destroy
+  {wxMessageDialog_new, "wxMessageDialog", "new", 3}, // 2317
+  {NULL, "wxMessageDialog", "'Destroy'", 1}, // 2318 obj destructor wxMessageDialog_destroy
+  {wxPageSetupDialog_new, "wxPageSetupDialog", "new", 2}, // 2319
+  {NULL, "wxPageSetupDialog", "destroy", 1}, // 2320 obj destructor wxPageSetupDialog_destruct
+  {wxPageSetupDialog_GetPageSetupData, "wxPageSetupDialog", "getPageSetupData", 1}, // 2321
+  {wxPageSetupDialog_ShowModal, "wxPageSetupDialog", "showModal", 1}, // 2322
+  {wxPageSetupDialogData_new_0, "wxPageSetupDialogData", "new", 0}, // 2323
+  {NULL, "", "", 0}, // 2324
+  {wxPageSetupDialogData_new_1, "wxPageSetupDialogData", "new", 1}, // 2325
+  {NULL, "wxPageSetupDialogData", "destroy", 1}, // 2326 obj destructor wxPageSetupDialogData_destruct
+  {wxPageSetupDialogData_EnableHelp, "wxPageSetupDialogData", "enableHelp", 2}, // 2327
+  {wxPageSetupDialogData_EnableMargins, "wxPageSetupDialogData", "enableMargins", 2}, // 2328
+  {wxPageSetupDialogData_EnableOrientation, "wxPageSetupDialogData", "enableOrientation", 2}, // 2329
+  {wxPageSetupDialogData_EnablePaper, "wxPageSetupDialogData", "enablePaper", 2}, // 2330
+  {wxPageSetupDialogData_EnablePrinter, "wxPageSetupDialogData", "enablePrinter", 2}, // 2331
+  {wxPageSetupDialogData_GetDefaultMinMargins, "wxPageSetupDialogData", "getDefaultMinMargins", 1}, // 2332
+  {wxPageSetupDialogData_GetEnableMargins, "wxPageSetupDialogData", "getEnableMargins", 1}, // 2333
+  {wxPageSetupDialogData_GetEnableOrientation, "wxPageSetupDialogData", "getEnableOrientation", 1}, // 2334
+  {wxPageSetupDialogData_GetEnablePaper, "wxPageSetupDialogData", "getEnablePaper", 1}, // 2335
+  {wxPageSetupDialogData_GetEnablePrinter, "wxPageSetupDialogData", "getEnablePrinter", 1}, // 2336
+  {wxPageSetupDialogData_GetEnableHelp, "wxPageSetupDialogData", "getEnableHelp", 1}, // 2337
+  {wxPageSetupDialogData_GetDefaultInfo, "wxPageSetupDialogData", "getDefaultInfo", 1}, // 2338
+  {wxPageSetupDialogData_GetMarginTopLeft, "wxPageSetupDialogData", "getMarginTopLeft", 1}, // 2339
+  {wxPageSetupDialogData_GetMarginBottomRight, "wxPageSetupDialogData", "getMarginBottomRight", 1}, // 2340
+  {wxPageSetupDialogData_GetMinMarginTopLeft, "wxPageSetupDialogData", "getMinMarginTopLeft", 1}, // 2341
+  {wxPageSetupDialogData_GetMinMarginBottomRight, "wxPageSetupDialogData", "getMinMarginBottomRight", 1}, // 2342
+  {wxPageSetupDialogData_GetPaperId, "wxPageSetupDialogData", "getPaperId", 1}, // 2343
+  {wxPageSetupDialogData_GetPaperSize, "wxPageSetupDialogData", "getPaperSize", 1}, // 2344
+  {NULL, "", "", 0}, // 2345
+  {wxPageSetupDialogData_GetPrintData, "wxPageSetupDialogData", "getPrintData", 1}, // 2346
+  {wxPageSetupDialogData_IsOk, "wxPageSetupDialogData", "isOk", 1}, // 2347
+  {wxPageSetupDialogData_SetDefaultInfo, "wxPageSetupDialogData", "setDefaultInfo", 2}, // 2348
+  {wxPageSetupDialogData_SetDefaultMinMargins, "wxPageSetupDialogData", "setDefaultMinMargins", 2}, // 2349
+  {wxPageSetupDialogData_SetMarginTopLeft, "wxPageSetupDialogData", "setMarginTopLeft", 2}, // 2350
+  {wxPageSetupDialogData_SetMarginBottomRight, "wxPageSetupDialogData", "setMarginBottomRight", 2}, // 2351
+  {wxPageSetupDialogData_SetMinMarginTopLeft, "wxPageSetupDialogData", "setMinMarginTopLeft", 2}, // 2352
+  {wxPageSetupDialogData_SetMinMarginBottomRight, "wxPageSetupDialogData", "setMinMarginBottomRight", 2}, // 2353
+  {wxPageSetupDialogData_SetPaperId, "wxPageSetupDialogData", "setPaperId", 2}, // 2354
+  {wxPageSetupDialogData_SetPaperSize, "wxPageSetupDialogData", "setPaperSize", 2}, // 2355
+  {wxPageSetupDialogData_SetPrintData, "wxPageSetupDialogData", "setPrintData", 2}, // 2356
+  {wxPrintDialog_new_2_0, "wxPrintDialog", "new", 2}, // 2357
+  {wxPrintDialog_new_2_1, "wxPrintDialog", "new", 2}, // 2358
+  {NULL, "wxPrintDialog", "destroy", 1}, // 2359 obj destructor wxPrintDialog_destruct
+  {wxPrintDialog_GetPrintDialogData, "wxPrintDialog", "getPrintDialogData", 1}, // 2360
+  {wxPrintDialog_GetPrintDC, "wxPrintDialog", "getPrintDC", 1}, // 2361
+  {wxPrintDialogData_new_0, "wxPrintDialogData", "new", 0}, // 2362
+  {wxPrintDialogData_new_1, "wxPrintDialogData", "new", 1}, // 2363
+  {NULL, "", "", 0}, // 2364
+  {NULL, "wxPrintDialogData", "destroy", 1}, // 2365 obj destructor wxPrintDialogData_destruct
+  {wxPrintDialogData_EnableHelp, "wxPrintDialogData", "enableHelp", 2}, // 2366
+  {wxPrintDialogData_EnablePageNumbers, "wxPrintDialogData", "enablePageNumbers", 2}, // 2367
+  {wxPrintDialogData_EnablePrintToFile, "wxPrintDialogData", "enablePrintToFile", 2}, // 2368
+  {wxPrintDialogData_EnableSelection, "wxPrintDialogData", "enableSelection", 2}, // 2369
+  {wxPrintDialogData_GetAllPages, "wxPrintDialogData", "getAllPages", 1}, // 2370
+  {wxPrintDialogData_GetCollate, "wxPrintDialogData", "getCollate", 1}, // 2371
+  {wxPrintDialogData_GetFromPage, "wxPrintDialogData", "getFromPage", 1}, // 2372
+  {wxPrintDialogData_GetMaxPage, "wxPrintDialogData", "getMaxPage", 1}, // 2373
+  {wxPrintDialogData_GetMinPage, "wxPrintDialogData", "getMinPage", 1}, // 2374
+  {wxPrintDialogData_GetNoCopies, "wxPrintDialogData", "getNoCopies", 1}, // 2375
+  {wxPrintDialogData_GetPrintData, "wxPrintDialogData", "getPrintData", 1}, // 2376
+  {wxPrintDialogData_GetPrintToFile, "wxPrintDialogData", "getPrintToFile", 1}, // 2377
+  {wxPrintDialogData_GetSelection, "wxPrintDialogData", "getSelection", 1}, // 2378
+  {wxPrintDialogData_GetToPage, "wxPrintDialogData", "getToPage", 1}, // 2379
+  {wxPrintDialogData_IsOk, "wxPrintDialogData", "isOk", 1}, // 2380
+  {wxPrintDialogData_SetCollate, "wxPrintDialogData", "setCollate", 2}, // 2381
+  {wxPrintDialogData_SetFromPage, "wxPrintDialogData", "setFromPage", 2}, // 2382
+  {wxPrintDialogData_SetMaxPage, "wxPrintDialogData", "setMaxPage", 2}, // 2383
+  {wxPrintDialogData_SetMinPage, "wxPrintDialogData", "setMinPage", 2}, // 2384
+  {wxPrintDialogData_SetNoCopies, "wxPrintDialogData", "setNoCopies", 2}, // 2385
+  {wxPrintDialogData_SetPrintData, "wxPrintDialogData", "setPrintData", 2}, // 2386
+  {wxPrintDialogData_SetPrintToFile, "wxPrintDialogData", "setPrintToFile", 2}, // 2387
+  {wxPrintDialogData_SetSelection, "wxPrintDialogData", "setSelection", 2}, // 2388
+  {wxPrintDialogData_SetToPage, "wxPrintDialogData", "setToPage", 2}, // 2389
+  {wxPrintData_new_0, "wxPrintData", "new", 0}, // 2390
+  {wxPrintData_new_1, "wxPrintData", "new", 1}, // 2391
+  {NULL, "wxPrintData", "destroy", 1}, // 2392 obj destructor wxPrintData_destruct
+  {wxPrintData_GetCollate, "wxPrintData", "getCollate", 1}, // 2393
+  {wxPrintData_GetBin, "wxPrintData", "getBin", 1}, // 2394
+  {wxPrintData_GetColour, "wxPrintData", "getColour", 1}, // 2395
+  {wxPrintData_GetDuplex, "wxPrintData", "getDuplex", 1}, // 2396
+  {wxPrintData_GetNoCopies, "wxPrintData", "getNoCopies", 1}, // 2397
+  {wxPrintData_GetOrientation, "wxPrintData", "getOrientation", 1}, // 2398
+  {wxPrintData_GetPaperId, "wxPrintData", "getPaperId", 1}, // 2399
+  {wxPrintData_GetPrinterName, "wxPrintData", "getPrinterName", 1}, // 2400
+  {wxPrintData_GetQuality, "wxPrintData", "getQuality", 1}, // 2401
+  {wxPrintData_IsOk, "wxPrintData", "isOk", 1}, // 2402
+  {wxPrintData_SetBin, "wxPrintData", "setBin", 2}, // 2403
+  {wxPrintData_SetCollate, "wxPrintData", "setCollate", 2}, // 2404
+  {wxPrintData_SetColour, "wxPrintData", "setColour", 2}, // 2405
+  {wxPrintData_SetDuplex, "wxPrintData", "setDuplex", 2}, // 2406
+  {wxPrintData_SetNoCopies, "wxPrintData", "setNoCopies", 2}, // 2407
+  {wxPrintData_SetOrientation, "wxPrintData", "setOrientation", 2}, // 2408
+  {wxPrintData_SetPaperId, "wxPrintData", "setPaperId", 2}, // 2409
+  {wxPrintData_SetPrinterName, "wxPrintData", "setPrinterName", 2}, // 2410
+  {wxPrintData_SetQuality, "wxPrintData", "setQuality", 2}, // 2411
+  {wxPrintPreview_new_2, "wxPrintPreview", "new", 2}, // 2412
+  {wxPrintPreview_new_3, "wxPrintPreview", "new", 3}, // 2413
+  {NULL, "wxPrintPreview", "destroy", 1}, // 2414 obj destructor wxPrintPreview_destruct
+  {wxPrintPreview_GetCanvas, "wxPrintPreview", "getCanvas", 1}, // 2415
+  {wxPrintPreview_GetCurrentPage, "wxPrintPreview", "getCurrentPage", 1}, // 2416
+  {wxPrintPreview_GetFrame, "wxPrintPreview", "getFrame", 1}, // 2417
+  {wxPrintPreview_GetMaxPage, "wxPrintPreview", "getMaxPage", 1}, // 2418
+  {wxPrintPreview_GetMinPage, "wxPrintPreview", "getMinPage", 1}, // 2419
+  {wxPrintPreview_GetPrintout, "wxPrintPreview", "getPrintout", 1}, // 2420
+  {wxPrintPreview_GetPrintoutForPrinting, "wxPrintPreview", "getPrintoutForPrinting", 1}, // 2421
+  {wxPrintPreview_IsOk, "wxPrintPreview", "isOk", 1}, // 2422
+  {wxPrintPreview_PaintPage, "wxPrintPreview", "paintPage", 3}, // 2423
+  {wxPrintPreview_Print, "wxPrintPreview", "print", 2}, // 2424
+  {wxPrintPreview_RenderPage, "wxPrintPreview", "renderPage", 2}, // 2425
+  {wxPrintPreview_SetCanvas, "wxPrintPreview", "setCanvas", 2}, // 2426
+  {wxPrintPreview_SetCurrentPage, "wxPrintPreview", "setCurrentPage", 2}, // 2427
+  {wxPrintPreview_SetFrame, "wxPrintPreview", "setFrame", 2}, // 2428
+  {wxPrintPreview_SetPrintout, "wxPrintPreview", "setPrintout", 2}, // 2429
+  {wxPrintPreview_SetZoom, "wxPrintPreview", "setZoom", 2}, // 2430
+  {wxPreviewFrame_new, "wxPreviewFrame", "new", 3}, // 2431
+  {NULL, "wxPreviewFrame", "destroy", 1}, // 2432 obj destructor wxPreviewFrame_destruct
+  {wxPreviewFrame_CreateControlBar, "wxPreviewFrame", "createControlBar", 1}, // 2433
+  {wxPreviewFrame_CreateCanvas, "wxPreviewFrame", "createCanvas", 1}, // 2434
+  {wxPreviewFrame_Initialize, "wxPreviewFrame", "initialize", 1}, // 2435
+  {wxPreviewFrame_OnCloseWindow, "wxPreviewFrame", "onCloseWindow", 2}, // 2436
+  {wxPreviewControlBar_new, "wxPreviewControlBar", "new", 4}, // 2437
+  {NULL, "wxPreviewControlBar", "destroy", 1}, // 2438 obj destructor wxPreviewControlBar_destruct
+  {wxPreviewControlBar_CreateButtons, "wxPreviewControlBar", "createButtons", 1}, // 2439
+  {wxPreviewControlBar_GetPrintPreview, "wxPreviewControlBar", "getPrintPreview", 1}, // 2440
+  {wxPreviewControlBar_GetZoomControl, "wxPreviewControlBar", "getZoomControl", 1}, // 2441
+  {wxPreviewControlBar_SetZoomControl, "wxPreviewControlBar", "setZoomControl", 2}, // 2442
+  {wxPrinter_new, "wxPrinter", "new", 1}, // 2443
+  {wxPrinter_CreateAbortWindow, "wxPrinter", "createAbortWindow", 3}, // 2444
+  {wxPrinter_GetAbort, "wxPrinter", "getAbort", 1}, // 2445
+  {wxPrinter_GetLastError, "wxPrinter", "getLastError", 0}, // 2446
+  {wxPrinter_GetPrintDialogData, "wxPrinter", "getPrintDialogData", 1}, // 2447
+  {wxPrinter_Print, "wxPrinter", "print", 4}, // 2448
+  {wxPrinter_PrintDialog, "wxPrinter", "printDialog", 2}, // 2449
+  {wxPrinter_ReportError, "wxPrinter", "reportError", 4}, // 2450
+  {wxPrinter_Setup, "wxPrinter", "setup", 2}, // 2451
+  {NULL, "wxPrinter", "'Destroy'", 1}, // 2452 obj destructor wxPrinter_destroy
+  {wxXmlResource_new_2, "wxXmlResource", "new", 2}, // 2453
+  {wxXmlResource_new_1, "wxXmlResource", "new", 1}, // 2454
+  {NULL, "wxXmlResource", "destroy", 1}, // 2455 obj destructor wxXmlResource_destruct
+  {wxXmlResource_AttachUnknownControl, "wxXmlResource", "attachUnknownControl", 4}, // 2456
+  {wxXmlResource_ClearHandlers, "wxXmlResource", "clearHandlers", 1}, // 2457
+  {wxXmlResource_CompareVersion, "wxXmlResource", "compareVersion", 5}, // 2458
+  {wxXmlResource_Get, "wxXmlResource", "get", 0}, // 2459
+  {wxXmlResource_GetFlags, "wxXmlResource", "getFlags", 1}, // 2460
+  {wxXmlResource_GetVersion, "wxXmlResource", "getVersion", 1}, // 2461
+  {wxXmlResource_GetXRCID, "wxXmlResource", "getXRCID", 2}, // 2462
+  {wxXmlResource_InitAllHandlers, "wxXmlResource", "initAllHandlers", 1}, // 2463
+  {wxXmlResource_Load, "wxXmlResource", "load", 2}, // 2464
+  {wxXmlResource_LoadBitmap, "wxXmlResource", "loadBitmap", 2}, // 2465
+  {wxXmlResource_LoadDialog_2, "wxXmlResource", "loadDialog", 3}, // 2466
+  {wxXmlResource_LoadDialog_3, "wxXmlResource", "loadDialog", 4}, // 2467
+  {wxXmlResource_LoadFrame_2, "wxXmlResource", "loadFrame", 3}, // 2468
+  {wxXmlResource_LoadFrame_3, "wxXmlResource", "loadFrame", 4}, // 2469
+  {wxXmlResource_LoadIcon, "wxXmlResource", "loadIcon", 2}, // 2470
+  {wxXmlResource_LoadMenu, "wxXmlResource", "loadMenu", 2}, // 2471
+  {wxXmlResource_LoadMenuBar_2, "wxXmlResource", "loadMenuBar", 3}, // 2472
+  {wxXmlResource_LoadMenuBar_1, "wxXmlResource", "loadMenuBar", 2}, // 2473
+  {wxXmlResource_LoadPanel_2, "wxXmlResource", "loadPanel", 3}, // 2474
+  {wxXmlResource_LoadPanel_3, "wxXmlResource", "loadPanel", 4}, // 2475
+  {wxXmlResource_LoadToolBar, "wxXmlResource", "loadToolBar", 3}, // 2476
+  {wxXmlResource_Set, "wxXmlResource", "set", 1}, // 2477
+  {wxXmlResource_SetFlags, "wxXmlResource", "setFlags", 2}, // 2478
+  {wxXmlResource_Unload, "wxXmlResource", "unload", 2}, // 2479
+  {NULL, "wxXmlResource", "xrcctrl", 3}, // 2480 TaylorMade erl only wxXmlResource_xrcctrl
+  {wxHtmlEasyPrinting_new, "wxHtmlEasyPrinting", "new", 1}, // 2481
+  {wxHtmlEasyPrinting_GetPrintData, "wxHtmlEasyPrinting", "getPrintData", 1}, // 2482
+  {wxHtmlEasyPrinting_GetPageSetupData, "wxHtmlEasyPrinting", "getPageSetupData", 1}, // 2483
+  {wxHtmlEasyPrinting_PreviewFile, "wxHtmlEasyPrinting", "previewFile", 2}, // 2484
+  {wxHtmlEasyPrinting_PreviewText, "wxHtmlEasyPrinting", "previewText", 3}, // 2485
+  {wxHtmlEasyPrinting_PrintFile, "wxHtmlEasyPrinting", "printFile", 2}, // 2486
+  {wxHtmlEasyPrinting_PrintText, "wxHtmlEasyPrinting", "printText", 3}, // 2487
+  {wxHtmlEasyPrinting_PageSetup, "wxHtmlEasyPrinting", "pageSetup", 1}, // 2488
+  {wxHtmlEasyPrinting_SetFonts, "wxHtmlEasyPrinting", "setFonts", 4}, // 2489
+  {wxHtmlEasyPrinting_SetHeader, "wxHtmlEasyPrinting", "setHeader", 3}, // 2490
+  {wxHtmlEasyPrinting_SetFooter, "wxHtmlEasyPrinting", "setFooter", 3}, // 2491
+  {NULL, "wxHtmlEasyPrinting", "'Destroy'", 1}, // 2492 obj destructor wxHtmlEasyPrinting_destroy
 #if wxUSE_GLCANVAS
-  {wxGLCanvas_new, "wxGLCanvas", "new", 2}, // 2491
+  {wxGLCanvas_new, "wxGLCanvas", "new", 2}, // 2493
 #else
-  {NULL, "wxGLCanvas", "new", 0}, // 2491
+  {NULL, "wxGLCanvas", "new", 0}, // 2493
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {wxGLCanvas_SetCurrent, "wxGLCanvas", "setCurrent", 2}, // 2492
+  {wxGLCanvas_SetCurrent, "wxGLCanvas", "setCurrent", 2}, // 2494
 #else
-  {NULL, "wxGLCanvas", "setCurrent", 0}, // 2492
+  {NULL, "wxGLCanvas", "setCurrent", 0}, // 2494
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {wxGLCanvas_SwapBuffers, "wxGLCanvas", "swapBuffers", 1}, // 2493
+  {wxGLCanvas_SwapBuffers, "wxGLCanvas", "swapBuffers", 1}, // 2495
 #else
-  {NULL, "wxGLCanvas", "swapBuffers", 0}, // 2493
+  {NULL, "wxGLCanvas", "swapBuffers", 0}, // 2495
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {NULL, "wxGLCanvas", "'Destroy'", 1}, // 2494 obj destructor wxGLCanvas_destroy
+  {NULL, "wxGLCanvas", "'Destroy'", 1}, // 2496 obj destructor wxGLCanvas_destroy
 #else
-  {NULL, "wxGLCanvas", "'Destroy'", 0}, // 2494
+  {NULL, "wxGLCanvas", "'Destroy'", 0}, // 2496
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {wxGLContext_new, "wxGLContext", "new", 2}, // 2495
+  {wxGLContext_new, "wxGLContext", "new", 2}, // 2497
 #else
-  {NULL, "wxGLContext", "new", 0}, // 2495
+  {NULL, "wxGLContext", "new", 0}, // 2497
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {wxGLContext_SetCurrent, "wxGLContext", "setCurrent", 2}, // 2496
+  {wxGLContext_SetCurrent, "wxGLContext", "setCurrent", 2}, // 2498
 #else
-  {NULL, "wxGLContext", "setCurrent", 0}, // 2496
+  {NULL, "wxGLContext", "setCurrent", 0}, // 2498
 #endif // wxUSE_GLCANVAS
 #if wxUSE_GLCANVAS
-  {NULL, "wxGLContext", "'Destroy'", 1}, // 2497 obj destructor wxGLContext_destroy
+  {NULL, "wxGLContext", "'Destroy'", 1}, // 2499 obj destructor wxGLContext_destroy
 #else
-  {NULL, "wxGLContext", "'Destroy'", 0}, // 2497
+  {NULL, "wxGLContext", "'Destroy'", 0}, // 2499
 #endif // wxUSE_GLCANVAS
 #if wxUSE_AUI
-  {wxAuiManager_new, "wxAuiManager", "new", 1}, // 2498
+  {wxAuiManager_new, "wxAuiManager", "new", 1}, // 2500
 #else
-  {NULL, "wxAuiManager", "new", 0}, // 2498
+  {NULL, "wxAuiManager", "new", 0}, // 2500
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {NULL, "wxAuiManager", "destroy", 1}, // 2499 obj destructor wxAuiManager_destruct
+  {NULL, "wxAuiManager", "destroy", 1}, // 2501 obj destructor wxAuiManager_destruct
 #else
-  {NULL, "wxAuiManager", "destroy", 0}, // 2499
+  {NULL, "wxAuiManager", "destroy", 0}, // 2501
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_AddPane_2_1, "wxAuiManager", "addPane", 3}, // 2500
-#else
-  {NULL, "wxAuiManager", "addPane", 0}, // 2500
-#endif // wxUSE_AUI
-#if wxUSE_AUI
-  {wxAuiManager_AddPane_2_0, "wxAuiManager", "addPane", 3}, // 2501
-#else
-  {NULL, "wxAuiManager", "addPane", 0}, // 2501
-#endif // wxUSE_AUI
-#if wxUSE_AUI
-  {wxAuiManager_AddPane_3, "wxAuiManager", "addPane", 4}, // 2502
+  {wxAuiManager_AddPane_2_1, "wxAuiManager", "addPane", 3}, // 2502
 #else
   {NULL, "wxAuiManager", "addPane", 0}, // 2502
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_DetachPane, "wxAuiManager", "detachPane", 2}, // 2503
+  {wxAuiManager_AddPane_2_0, "wxAuiManager", "addPane", 3}, // 2503
 #else
-  {NULL, "wxAuiManager", "detachPane", 0}, // 2503
+  {NULL, "wxAuiManager", "addPane", 0}, // 2503
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetAllPanes, "wxAuiManager", "getAllPanes", 1}, // 2504
+  {wxAuiManager_AddPane_3, "wxAuiManager", "addPane", 4}, // 2504
 #else
-  {NULL, "wxAuiManager", "getAllPanes", 0}, // 2504
+  {NULL, "wxAuiManager", "addPane", 0}, // 2504
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetArtProvider, "wxAuiManager", "getArtProvider", 1}, // 2505
+  {wxAuiManager_DetachPane, "wxAuiManager", "detachPane", 2}, // 2505
 #else
-  {NULL, "wxAuiManager", "getArtProvider", 0}, // 2505
+  {NULL, "wxAuiManager", "detachPane", 0}, // 2505
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetDockSizeConstraint, "wxAuiManager", "getDockSizeConstraint", 1}, // 2506
+  {wxAuiManager_GetAllPanes, "wxAuiManager", "getAllPanes", 1}, // 2506
 #else
-  {NULL, "wxAuiManager", "getDockSizeConstraint", 0}, // 2506
+  {NULL, "wxAuiManager", "getAllPanes", 0}, // 2506
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetFlags, "wxAuiManager", "getFlags", 1}, // 2507
+  {wxAuiManager_GetArtProvider, "wxAuiManager", "getArtProvider", 1}, // 2507
 #else
-  {NULL, "wxAuiManager", "getFlags", 0}, // 2507
+  {NULL, "wxAuiManager", "getArtProvider", 0}, // 2507
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetManagedWindow, "wxAuiManager", "getManagedWindow", 1}, // 2508
+  {wxAuiManager_GetDockSizeConstraint, "wxAuiManager", "getDockSizeConstraint", 1}, // 2508
 #else
-  {NULL, "wxAuiManager", "getManagedWindow", 0}, // 2508
+  {NULL, "wxAuiManager", "getDockSizeConstraint", 0}, // 2508
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetManager, "wxAuiManager", "getManager", 1}, // 2509
+  {wxAuiManager_GetFlags, "wxAuiManager", "getFlags", 1}, // 2509
 #else
-  {NULL, "wxAuiManager", "getManager", 0}, // 2509
+  {NULL, "wxAuiManager", "getFlags", 0}, // 2509
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetPane_1_1, "wxAuiManager", "getPane", 2}, // 2510
+  {wxAuiManager_GetManagedWindow, "wxAuiManager", "getManagedWindow", 1}, // 2510
 #else
-  {NULL, "wxAuiManager", "getPane", 0}, // 2510
+  {NULL, "wxAuiManager", "getManagedWindow", 0}, // 2510
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_GetPane_1_0, "wxAuiManager", "getPane", 2}, // 2511
+  {wxAuiManager_GetManager, "wxAuiManager", "getManager", 1}, // 2511
 #else
-  {NULL, "wxAuiManager", "getPane", 0}, // 2511
+  {NULL, "wxAuiManager", "getManager", 0}, // 2511
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_HideHint, "wxAuiManager", "hideHint", 1}, // 2512
+  {wxAuiManager_GetPane_1_1, "wxAuiManager", "getPane", 2}, // 2512
 #else
-  {NULL, "wxAuiManager", "hideHint", 0}, // 2512
+  {NULL, "wxAuiManager", "getPane", 0}, // 2512
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_InsertPane, "wxAuiManager", "insertPane", 4}, // 2513
+  {wxAuiManager_GetPane_1_0, "wxAuiManager", "getPane", 2}, // 2513
 #else
-  {NULL, "wxAuiManager", "insertPane", 0}, // 2513
+  {NULL, "wxAuiManager", "getPane", 0}, // 2513
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_LoadPaneInfo, "wxAuiManager", "loadPaneInfo", 3}, // 2514
+  {wxAuiManager_HideHint, "wxAuiManager", "hideHint", 1}, // 2514
 #else
-  {NULL, "wxAuiManager", "loadPaneInfo", 0}, // 2514
+  {NULL, "wxAuiManager", "hideHint", 0}, // 2514
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_LoadPerspective, "wxAuiManager", "loadPerspective", 3}, // 2515
+  {wxAuiManager_InsertPane, "wxAuiManager", "insertPane", 4}, // 2515
 #else
-  {NULL, "wxAuiManager", "loadPerspective", 0}, // 2515
+  {NULL, "wxAuiManager", "insertPane", 0}, // 2515
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SavePaneInfo, "wxAuiManager", "savePaneInfo", 2}, // 2516
+  {wxAuiManager_LoadPaneInfo, "wxAuiManager", "loadPaneInfo", 3}, // 2516
 #else
-  {NULL, "wxAuiManager", "savePaneInfo", 0}, // 2516
+  {NULL, "wxAuiManager", "loadPaneInfo", 0}, // 2516
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SavePerspective, "wxAuiManager", "savePerspective", 1}, // 2517
+  {wxAuiManager_LoadPerspective, "wxAuiManager", "loadPerspective", 3}, // 2517
 #else
-  {NULL, "wxAuiManager", "savePerspective", 0}, // 2517
+  {NULL, "wxAuiManager", "loadPerspective", 0}, // 2517
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SetArtProvider, "wxAuiManager", "setArtProvider", 2}, // 2518
+  {wxAuiManager_SavePaneInfo, "wxAuiManager", "savePaneInfo", 2}, // 2518
 #else
-  {NULL, "wxAuiManager", "setArtProvider", 0}, // 2518
+  {NULL, "wxAuiManager", "savePaneInfo", 0}, // 2518
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SetDockSizeConstraint, "wxAuiManager", "setDockSizeConstraint", 3}, // 2519
+  {wxAuiManager_SavePerspective, "wxAuiManager", "savePerspective", 1}, // 2519
 #else
-  {NULL, "wxAuiManager", "setDockSizeConstraint", 0}, // 2519
+  {NULL, "wxAuiManager", "savePerspective", 0}, // 2519
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SetFlags, "wxAuiManager", "setFlags", 2}, // 2520
+  {wxAuiManager_SetArtProvider, "wxAuiManager", "setArtProvider", 2}, // 2520
 #else
-  {NULL, "wxAuiManager", "setFlags", 0}, // 2520
+  {NULL, "wxAuiManager", "setArtProvider", 0}, // 2520
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_SetManagedWindow, "wxAuiManager", "setManagedWindow", 2}, // 2521
+  {wxAuiManager_SetDockSizeConstraint, "wxAuiManager", "setDockSizeConstraint", 3}, // 2521
 #else
-  {NULL, "wxAuiManager", "setManagedWindow", 0}, // 2521
+  {NULL, "wxAuiManager", "setDockSizeConstraint", 0}, // 2521
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_ShowHint, "wxAuiManager", "showHint", 2}, // 2522
+  {wxAuiManager_SetFlags, "wxAuiManager", "setFlags", 2}, // 2522
 #else
-  {NULL, "wxAuiManager", "showHint", 0}, // 2522
+  {NULL, "wxAuiManager", "setFlags", 0}, // 2522
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_UnInit, "wxAuiManager", "unInit", 1}, // 2523
+  {wxAuiManager_SetManagedWindow, "wxAuiManager", "setManagedWindow", 2}, // 2523
 #else
-  {NULL, "wxAuiManager", "unInit", 0}, // 2523
+  {NULL, "wxAuiManager", "setManagedWindow", 0}, // 2523
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiManager_Update, "wxAuiManager", "update", 1}, // 2524
+  {wxAuiManager_ShowHint, "wxAuiManager", "showHint", 2}, // 2524
 #else
-  {NULL, "wxAuiManager", "update", 0}, // 2524
+  {NULL, "wxAuiManager", "showHint", 0}, // 2524
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_new_0, "wxAuiPaneInfo", "new", 0}, // 2525
+  {wxAuiManager_UnInit, "wxAuiManager", "unInit", 1}, // 2525
 #else
-  {NULL, "wxAuiPaneInfo", "new", 0}, // 2525
+  {NULL, "wxAuiManager", "unInit", 0}, // 2525
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_new_1, "wxAuiPaneInfo", "new", 1}, // 2526
+  {wxAuiManager_Update, "wxAuiManager", "update", 1}, // 2526
 #else
-  {NULL, "wxAuiPaneInfo", "new", 0}, // 2526
+  {NULL, "wxAuiManager", "update", 0}, // 2526
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_BestSize_1, "wxAuiPaneInfo", "bestSize", 2}, // 2527
+  {wxAuiPaneInfo_new_0, "wxAuiPaneInfo", "new", 0}, // 2527
 #else
-  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2527
+  {NULL, "wxAuiPaneInfo", "new", 0}, // 2527
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_BestSize_2, "wxAuiPaneInfo", "bestSize", 3}, // 2528
+  {wxAuiPaneInfo_new_1, "wxAuiPaneInfo", "new", 1}, // 2528
 #else
-  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2528
+  {NULL, "wxAuiPaneInfo", "new", 0}, // 2528
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Bottom, "wxAuiPaneInfo", "bottom", 1}, // 2529
+  {wxAuiPaneInfo_BestSize_1, "wxAuiPaneInfo", "bestSize", 2}, // 2529
 #else
-  {NULL, "wxAuiPaneInfo", "bottom", 0}, // 2529
+  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2529
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_BottomDockable, "wxAuiPaneInfo", "bottomDockable", 2}, // 2530
+  {wxAuiPaneInfo_BestSize_2, "wxAuiPaneInfo", "bestSize", 3}, // 2530
 #else
-  {NULL, "wxAuiPaneInfo", "bottomDockable", 0}, // 2530
+  {NULL, "wxAuiPaneInfo", "bestSize", 0}, // 2530
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Caption, "wxAuiPaneInfo", "caption", 2}, // 2531
+  {wxAuiPaneInfo_Bottom, "wxAuiPaneInfo", "bottom", 1}, // 2531
 #else
-  {NULL, "wxAuiPaneInfo", "caption", 0}, // 2531
+  {NULL, "wxAuiPaneInfo", "bottom", 0}, // 2531
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_CaptionVisible, "wxAuiPaneInfo", "captionVisible", 2}, // 2532
+  {wxAuiPaneInfo_BottomDockable, "wxAuiPaneInfo", "bottomDockable", 2}, // 2532
 #else
-  {NULL, "wxAuiPaneInfo", "captionVisible", 0}, // 2532
+  {NULL, "wxAuiPaneInfo", "bottomDockable", 0}, // 2532
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Centre, "wxAuiPaneInfo", "centre", 1}, // 2533
+  {wxAuiPaneInfo_Caption, "wxAuiPaneInfo", "caption", 2}, // 2533
 #else
-  {NULL, "wxAuiPaneInfo", "centre", 0}, // 2533
+  {NULL, "wxAuiPaneInfo", "caption", 0}, // 2533
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_CentrePane, "wxAuiPaneInfo", "centrePane", 1}, // 2534
+  {wxAuiPaneInfo_CaptionVisible, "wxAuiPaneInfo", "captionVisible", 2}, // 2534
 #else
-  {NULL, "wxAuiPaneInfo", "centrePane", 0}, // 2534
+  {NULL, "wxAuiPaneInfo", "captionVisible", 0}, // 2534
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_CloseButton, "wxAuiPaneInfo", "closeButton", 2}, // 2535
+  {wxAuiPaneInfo_Centre, "wxAuiPaneInfo", "centre", 1}, // 2535
 #else
-  {NULL, "wxAuiPaneInfo", "closeButton", 0}, // 2535
+  {NULL, "wxAuiPaneInfo", "centre", 0}, // 2535
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_DefaultPane, "wxAuiPaneInfo", "defaultPane", 1}, // 2536
+  {wxAuiPaneInfo_CentrePane, "wxAuiPaneInfo", "centrePane", 1}, // 2536
 #else
-  {NULL, "wxAuiPaneInfo", "defaultPane", 0}, // 2536
+  {NULL, "wxAuiPaneInfo", "centrePane", 0}, // 2536
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_DestroyOnClose, "wxAuiPaneInfo", "destroyOnClose", 2}, // 2537
+  {wxAuiPaneInfo_CloseButton, "wxAuiPaneInfo", "closeButton", 2}, // 2537
 #else
-  {NULL, "wxAuiPaneInfo", "destroyOnClose", 0}, // 2537
+  {NULL, "wxAuiPaneInfo", "closeButton", 0}, // 2537
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Direction, "wxAuiPaneInfo", "direction", 2}, // 2538
+  {wxAuiPaneInfo_DefaultPane, "wxAuiPaneInfo", "defaultPane", 1}, // 2538
 #else
-  {NULL, "wxAuiPaneInfo", "direction", 0}, // 2538
+  {NULL, "wxAuiPaneInfo", "defaultPane", 0}, // 2538
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Dock, "wxAuiPaneInfo", "dock", 1}, // 2539
+  {wxAuiPaneInfo_DestroyOnClose, "wxAuiPaneInfo", "destroyOnClose", 2}, // 2539
 #else
-  {NULL, "wxAuiPaneInfo", "dock", 0}, // 2539
+  {NULL, "wxAuiPaneInfo", "destroyOnClose", 0}, // 2539
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Dockable, "wxAuiPaneInfo", "dockable", 2}, // 2540
+  {wxAuiPaneInfo_Direction, "wxAuiPaneInfo", "direction", 2}, // 2540
 #else
-  {NULL, "wxAuiPaneInfo", "dockable", 0}, // 2540
+  {NULL, "wxAuiPaneInfo", "direction", 0}, // 2540
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Fixed, "wxAuiPaneInfo", "fixed", 1}, // 2541
+  {wxAuiPaneInfo_Dock, "wxAuiPaneInfo", "dock", 1}, // 2541
 #else
-  {NULL, "wxAuiPaneInfo", "fixed", 0}, // 2541
+  {NULL, "wxAuiPaneInfo", "dock", 0}, // 2541
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Float, "wxAuiPaneInfo", "float", 1}, // 2542
+  {wxAuiPaneInfo_Dockable, "wxAuiPaneInfo", "dockable", 2}, // 2542
 #else
-  {NULL, "wxAuiPaneInfo", "float", 0}, // 2542
+  {NULL, "wxAuiPaneInfo", "dockable", 0}, // 2542
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Floatable, "wxAuiPaneInfo", "floatable", 2}, // 2543
+  {wxAuiPaneInfo_Fixed, "wxAuiPaneInfo", "fixed", 1}, // 2543
 #else
-  {NULL, "wxAuiPaneInfo", "floatable", 0}, // 2543
+  {NULL, "wxAuiPaneInfo", "fixed", 0}, // 2543
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_FloatingPosition_1, "wxAuiPaneInfo", "floatingPosition", 2}, // 2544
+  {wxAuiPaneInfo_Float, "wxAuiPaneInfo", "float", 1}, // 2544
 #else
-  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2544
+  {NULL, "wxAuiPaneInfo", "float", 0}, // 2544
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_FloatingPosition_2, "wxAuiPaneInfo", "floatingPosition", 3}, // 2545
+  {wxAuiPaneInfo_Floatable, "wxAuiPaneInfo", "floatable", 2}, // 2545
 #else
-  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2545
+  {NULL, "wxAuiPaneInfo", "floatable", 0}, // 2545
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_FloatingSize_1, "wxAuiPaneInfo", "floatingSize", 2}, // 2546
+  {wxAuiPaneInfo_FloatingPosition_1, "wxAuiPaneInfo", "floatingPosition", 2}, // 2546
 #else
-  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2546
+  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2546
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_FloatingSize_2, "wxAuiPaneInfo", "floatingSize", 3}, // 2547
+  {wxAuiPaneInfo_FloatingPosition_2, "wxAuiPaneInfo", "floatingPosition", 3}, // 2547
 #else
-  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2547
+  {NULL, "wxAuiPaneInfo", "floatingPosition", 0}, // 2547
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Gripper, "wxAuiPaneInfo", "gripper", 2}, // 2548
+  {wxAuiPaneInfo_FloatingSize_1, "wxAuiPaneInfo", "floatingSize", 2}, // 2548
 #else
-  {NULL, "wxAuiPaneInfo", "gripper", 0}, // 2548
+  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2548
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GripperTop, "wxAuiPaneInfo", "gripperTop", 2}, // 2549
+  {wxAuiPaneInfo_FloatingSize_2, "wxAuiPaneInfo", "floatingSize", 3}, // 2549
 #else
-  {NULL, "wxAuiPaneInfo", "gripperTop", 0}, // 2549
+  {NULL, "wxAuiPaneInfo", "floatingSize", 0}, // 2549
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasBorder, "wxAuiPaneInfo", "hasBorder", 1}, // 2550
+  {wxAuiPaneInfo_Gripper, "wxAuiPaneInfo", "gripper", 2}, // 2550
 #else
-  {NULL, "wxAuiPaneInfo", "hasBorder", 0}, // 2550
+  {NULL, "wxAuiPaneInfo", "gripper", 0}, // 2550
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasCaption, "wxAuiPaneInfo", "hasCaption", 1}, // 2551
+  {wxAuiPaneInfo_GripperTop, "wxAuiPaneInfo", "gripperTop", 2}, // 2551
 #else
-  {NULL, "wxAuiPaneInfo", "hasCaption", 0}, // 2551
+  {NULL, "wxAuiPaneInfo", "gripperTop", 0}, // 2551
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasCloseButton, "wxAuiPaneInfo", "hasCloseButton", 1}, // 2552
+  {wxAuiPaneInfo_HasBorder, "wxAuiPaneInfo", "hasBorder", 1}, // 2552
 #else
-  {NULL, "wxAuiPaneInfo", "hasCloseButton", 0}, // 2552
+  {NULL, "wxAuiPaneInfo", "hasBorder", 0}, // 2552
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasFlag, "wxAuiPaneInfo", "hasFlag", 2}, // 2553
+  {wxAuiPaneInfo_HasCaption, "wxAuiPaneInfo", "hasCaption", 1}, // 2553
 #else
-  {NULL, "wxAuiPaneInfo", "hasFlag", 0}, // 2553
+  {NULL, "wxAuiPaneInfo", "hasCaption", 0}, // 2553
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasGripper, "wxAuiPaneInfo", "hasGripper", 1}, // 2554
+  {wxAuiPaneInfo_HasCloseButton, "wxAuiPaneInfo", "hasCloseButton", 1}, // 2554
 #else
-  {NULL, "wxAuiPaneInfo", "hasGripper", 0}, // 2554
+  {NULL, "wxAuiPaneInfo", "hasCloseButton", 0}, // 2554
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasGripperTop, "wxAuiPaneInfo", "hasGripperTop", 1}, // 2555
+  {wxAuiPaneInfo_HasFlag, "wxAuiPaneInfo", "hasFlag", 2}, // 2555
 #else
-  {NULL, "wxAuiPaneInfo", "hasGripperTop", 0}, // 2555
+  {NULL, "wxAuiPaneInfo", "hasFlag", 0}, // 2555
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasMaximizeButton, "wxAuiPaneInfo", "hasMaximizeButton", 1}, // 2556
+  {wxAuiPaneInfo_HasGripper, "wxAuiPaneInfo", "hasGripper", 1}, // 2556
 #else
-  {NULL, "wxAuiPaneInfo", "hasMaximizeButton", 0}, // 2556
+  {NULL, "wxAuiPaneInfo", "hasGripper", 0}, // 2556
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasMinimizeButton, "wxAuiPaneInfo", "hasMinimizeButton", 1}, // 2557
+  {wxAuiPaneInfo_HasGripperTop, "wxAuiPaneInfo", "hasGripperTop", 1}, // 2557
 #else
-  {NULL, "wxAuiPaneInfo", "hasMinimizeButton", 0}, // 2557
+  {NULL, "wxAuiPaneInfo", "hasGripperTop", 0}, // 2557
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_HasPinButton, "wxAuiPaneInfo", "hasPinButton", 1}, // 2558
+  {wxAuiPaneInfo_HasMaximizeButton, "wxAuiPaneInfo", "hasMaximizeButton", 1}, // 2558
 #else
-  {NULL, "wxAuiPaneInfo", "hasPinButton", 0}, // 2558
+  {NULL, "wxAuiPaneInfo", "hasMaximizeButton", 0}, // 2558
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Hide, "wxAuiPaneInfo", "hide", 1}, // 2559
+  {wxAuiPaneInfo_HasMinimizeButton, "wxAuiPaneInfo", "hasMinimizeButton", 1}, // 2559
 #else
-  {NULL, "wxAuiPaneInfo", "hide", 0}, // 2559
+  {NULL, "wxAuiPaneInfo", "hasMinimizeButton", 0}, // 2559
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsBottomDockable, "wxAuiPaneInfo", "isBottomDockable", 1}, // 2560
+  {wxAuiPaneInfo_HasPinButton, "wxAuiPaneInfo", "hasPinButton", 1}, // 2560
 #else
-  {NULL, "wxAuiPaneInfo", "isBottomDockable", 0}, // 2560
+  {NULL, "wxAuiPaneInfo", "hasPinButton", 0}, // 2560
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsDocked, "wxAuiPaneInfo", "isDocked", 1}, // 2561
+  {wxAuiPaneInfo_Hide, "wxAuiPaneInfo", "hide", 1}, // 2561
 #else
-  {NULL, "wxAuiPaneInfo", "isDocked", 0}, // 2561
+  {NULL, "wxAuiPaneInfo", "hide", 0}, // 2561
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsFixed, "wxAuiPaneInfo", "isFixed", 1}, // 2562
+  {wxAuiPaneInfo_IsBottomDockable, "wxAuiPaneInfo", "isBottomDockable", 1}, // 2562
 #else
-  {NULL, "wxAuiPaneInfo", "isFixed", 0}, // 2562
+  {NULL, "wxAuiPaneInfo", "isBottomDockable", 0}, // 2562
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsFloatable, "wxAuiPaneInfo", "isFloatable", 1}, // 2563
+  {wxAuiPaneInfo_IsDocked, "wxAuiPaneInfo", "isDocked", 1}, // 2563
 #else
-  {NULL, "wxAuiPaneInfo", "isFloatable", 0}, // 2563
+  {NULL, "wxAuiPaneInfo", "isDocked", 0}, // 2563
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsFloating, "wxAuiPaneInfo", "isFloating", 1}, // 2564
+  {wxAuiPaneInfo_IsFixed, "wxAuiPaneInfo", "isFixed", 1}, // 2564
 #else
-  {NULL, "wxAuiPaneInfo", "isFloating", 0}, // 2564
+  {NULL, "wxAuiPaneInfo", "isFixed", 0}, // 2564
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsLeftDockable, "wxAuiPaneInfo", "isLeftDockable", 1}, // 2565
+  {wxAuiPaneInfo_IsFloatable, "wxAuiPaneInfo", "isFloatable", 1}, // 2565
 #else
-  {NULL, "wxAuiPaneInfo", "isLeftDockable", 0}, // 2565
+  {NULL, "wxAuiPaneInfo", "isFloatable", 0}, // 2565
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsMovable, "wxAuiPaneInfo", "isMovable", 1}, // 2566
+  {wxAuiPaneInfo_IsFloating, "wxAuiPaneInfo", "isFloating", 1}, // 2566
 #else
-  {NULL, "wxAuiPaneInfo", "isMovable", 0}, // 2566
+  {NULL, "wxAuiPaneInfo", "isFloating", 0}, // 2566
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsOk, "wxAuiPaneInfo", "isOk", 1}, // 2567
+  {wxAuiPaneInfo_IsLeftDockable, "wxAuiPaneInfo", "isLeftDockable", 1}, // 2567
 #else
-  {NULL, "wxAuiPaneInfo", "isOk", 0}, // 2567
+  {NULL, "wxAuiPaneInfo", "isLeftDockable", 0}, // 2567
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsResizable, "wxAuiPaneInfo", "isResizable", 1}, // 2568
+  {wxAuiPaneInfo_IsMovable, "wxAuiPaneInfo", "isMovable", 1}, // 2568
 #else
-  {NULL, "wxAuiPaneInfo", "isResizable", 0}, // 2568
+  {NULL, "wxAuiPaneInfo", "isMovable", 0}, // 2568
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsRightDockable, "wxAuiPaneInfo", "isRightDockable", 1}, // 2569
+  {wxAuiPaneInfo_IsOk, "wxAuiPaneInfo", "isOk", 1}, // 2569
 #else
-  {NULL, "wxAuiPaneInfo", "isRightDockable", 0}, // 2569
+  {NULL, "wxAuiPaneInfo", "isOk", 0}, // 2569
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsShown, "wxAuiPaneInfo", "isShown", 1}, // 2570
+  {wxAuiPaneInfo_IsResizable, "wxAuiPaneInfo", "isResizable", 1}, // 2570
 #else
-  {NULL, "wxAuiPaneInfo", "isShown", 0}, // 2570
+  {NULL, "wxAuiPaneInfo", "isResizable", 0}, // 2570
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsToolbar, "wxAuiPaneInfo", "isToolbar", 1}, // 2571
+  {wxAuiPaneInfo_IsRightDockable, "wxAuiPaneInfo", "isRightDockable", 1}, // 2571
 #else
-  {NULL, "wxAuiPaneInfo", "isToolbar", 0}, // 2571
+  {NULL, "wxAuiPaneInfo", "isRightDockable", 0}, // 2571
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_IsTopDockable, "wxAuiPaneInfo", "isTopDockable", 1}, // 2572
+  {wxAuiPaneInfo_IsShown, "wxAuiPaneInfo", "isShown", 1}, // 2572
 #else
-  {NULL, "wxAuiPaneInfo", "isTopDockable", 0}, // 2572
+  {NULL, "wxAuiPaneInfo", "isShown", 0}, // 2572
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Layer, "wxAuiPaneInfo", "layer", 2}, // 2573
+  {wxAuiPaneInfo_IsToolbar, "wxAuiPaneInfo", "isToolbar", 1}, // 2573
 #else
-  {NULL, "wxAuiPaneInfo", "layer", 0}, // 2573
+  {NULL, "wxAuiPaneInfo", "isToolbar", 0}, // 2573
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Left, "wxAuiPaneInfo", "left", 1}, // 2574
+  {wxAuiPaneInfo_IsTopDockable, "wxAuiPaneInfo", "isTopDockable", 1}, // 2574
 #else
-  {NULL, "wxAuiPaneInfo", "left", 0}, // 2574
+  {NULL, "wxAuiPaneInfo", "isTopDockable", 0}, // 2574
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_LeftDockable, "wxAuiPaneInfo", "leftDockable", 2}, // 2575
+  {wxAuiPaneInfo_Layer, "wxAuiPaneInfo", "layer", 2}, // 2575
 #else
-  {NULL, "wxAuiPaneInfo", "leftDockable", 0}, // 2575
+  {NULL, "wxAuiPaneInfo", "layer", 0}, // 2575
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MaxSize_1, "wxAuiPaneInfo", "maxSize", 2}, // 2576
+  {wxAuiPaneInfo_Left, "wxAuiPaneInfo", "left", 1}, // 2576
 #else
-  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2576
+  {NULL, "wxAuiPaneInfo", "left", 0}, // 2576
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MaxSize_2, "wxAuiPaneInfo", "maxSize", 3}, // 2577
+  {wxAuiPaneInfo_LeftDockable, "wxAuiPaneInfo", "leftDockable", 2}, // 2577
 #else
-  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2577
+  {NULL, "wxAuiPaneInfo", "leftDockable", 0}, // 2577
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MaximizeButton, "wxAuiPaneInfo", "maximizeButton", 2}, // 2578
+  {wxAuiPaneInfo_MaxSize_1, "wxAuiPaneInfo", "maxSize", 2}, // 2578
 #else
-  {NULL, "wxAuiPaneInfo", "maximizeButton", 0}, // 2578
+  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2578
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MinSize_1, "wxAuiPaneInfo", "minSize", 2}, // 2579
+  {wxAuiPaneInfo_MaxSize_2, "wxAuiPaneInfo", "maxSize", 3}, // 2579
 #else
-  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2579
+  {NULL, "wxAuiPaneInfo", "maxSize", 0}, // 2579
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MinSize_2, "wxAuiPaneInfo", "minSize", 3}, // 2580
+  {wxAuiPaneInfo_MaximizeButton, "wxAuiPaneInfo", "maximizeButton", 2}, // 2580
 #else
-  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2580
+  {NULL, "wxAuiPaneInfo", "maximizeButton", 0}, // 2580
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_MinimizeButton, "wxAuiPaneInfo", "minimizeButton", 2}, // 2581
+  {wxAuiPaneInfo_MinSize_1, "wxAuiPaneInfo", "minSize", 2}, // 2581
 #else
-  {NULL, "wxAuiPaneInfo", "minimizeButton", 0}, // 2581
+  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2581
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Movable, "wxAuiPaneInfo", "movable", 2}, // 2582
+  {wxAuiPaneInfo_MinSize_2, "wxAuiPaneInfo", "minSize", 3}, // 2582
 #else
-  {NULL, "wxAuiPaneInfo", "movable", 0}, // 2582
+  {NULL, "wxAuiPaneInfo", "minSize", 0}, // 2582
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Name, "wxAuiPaneInfo", "name", 2}, // 2583
+  {wxAuiPaneInfo_MinimizeButton, "wxAuiPaneInfo", "minimizeButton", 2}, // 2583
 #else
-  {NULL, "wxAuiPaneInfo", "name", 0}, // 2583
+  {NULL, "wxAuiPaneInfo", "minimizeButton", 0}, // 2583
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_PaneBorder, "wxAuiPaneInfo", "paneBorder", 2}, // 2584
+  {wxAuiPaneInfo_Movable, "wxAuiPaneInfo", "movable", 2}, // 2584
 #else
-  {NULL, "wxAuiPaneInfo", "paneBorder", 0}, // 2584
+  {NULL, "wxAuiPaneInfo", "movable", 0}, // 2584
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_PinButton, "wxAuiPaneInfo", "pinButton", 2}, // 2585
+  {wxAuiPaneInfo_Name, "wxAuiPaneInfo", "name", 2}, // 2585
 #else
-  {NULL, "wxAuiPaneInfo", "pinButton", 0}, // 2585
+  {NULL, "wxAuiPaneInfo", "name", 0}, // 2585
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Position, "wxAuiPaneInfo", "position", 2}, // 2586
+  {wxAuiPaneInfo_PaneBorder, "wxAuiPaneInfo", "paneBorder", 2}, // 2586
 #else
-  {NULL, "wxAuiPaneInfo", "position", 0}, // 2586
+  {NULL, "wxAuiPaneInfo", "paneBorder", 0}, // 2586
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Resizable, "wxAuiPaneInfo", "resizable", 2}, // 2587
+  {wxAuiPaneInfo_PinButton, "wxAuiPaneInfo", "pinButton", 2}, // 2587
 #else
-  {NULL, "wxAuiPaneInfo", "resizable", 0}, // 2587
+  {NULL, "wxAuiPaneInfo", "pinButton", 0}, // 2587
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Right, "wxAuiPaneInfo", "right", 1}, // 2588
+  {wxAuiPaneInfo_Position, "wxAuiPaneInfo", "position", 2}, // 2588
 #else
-  {NULL, "wxAuiPaneInfo", "right", 0}, // 2588
+  {NULL, "wxAuiPaneInfo", "position", 0}, // 2588
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_RightDockable, "wxAuiPaneInfo", "rightDockable", 2}, // 2589
+  {wxAuiPaneInfo_Resizable, "wxAuiPaneInfo", "resizable", 2}, // 2589
 #else
-  {NULL, "wxAuiPaneInfo", "rightDockable", 0}, // 2589
+  {NULL, "wxAuiPaneInfo", "resizable", 0}, // 2589
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Row, "wxAuiPaneInfo", "row", 2}, // 2590
+  {wxAuiPaneInfo_Right, "wxAuiPaneInfo", "right", 1}, // 2590
 #else
-  {NULL, "wxAuiPaneInfo", "row", 0}, // 2590
+  {NULL, "wxAuiPaneInfo", "right", 0}, // 2590
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_SafeSet, "wxAuiPaneInfo", "safeSet", 2}, // 2591
+  {wxAuiPaneInfo_RightDockable, "wxAuiPaneInfo", "rightDockable", 2}, // 2591
 #else
-  {NULL, "wxAuiPaneInfo", "safeSet", 0}, // 2591
+  {NULL, "wxAuiPaneInfo", "rightDockable", 0}, // 2591
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_SetFlag, "wxAuiPaneInfo", "setFlag", 3}, // 2592
+  {wxAuiPaneInfo_Row, "wxAuiPaneInfo", "row", 2}, // 2592
 #else
-  {NULL, "wxAuiPaneInfo", "setFlag", 0}, // 2592
+  {NULL, "wxAuiPaneInfo", "row", 0}, // 2592
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Show, "wxAuiPaneInfo", "show", 2}, // 2593
+  {wxAuiPaneInfo_SafeSet, "wxAuiPaneInfo", "safeSet", 2}, // 2593
 #else
-  {NULL, "wxAuiPaneInfo", "show", 0}, // 2593
+  {NULL, "wxAuiPaneInfo", "safeSet", 0}, // 2593
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_ToolbarPane, "wxAuiPaneInfo", "toolbarPane", 1}, // 2594
+  {wxAuiPaneInfo_SetFlag, "wxAuiPaneInfo", "setFlag", 3}, // 2594
 #else
-  {NULL, "wxAuiPaneInfo", "toolbarPane", 0}, // 2594
+  {NULL, "wxAuiPaneInfo", "setFlag", 0}, // 2594
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Top, "wxAuiPaneInfo", "top", 1}, // 2595
+  {wxAuiPaneInfo_Show, "wxAuiPaneInfo", "show", 2}, // 2595
 #else
-  {NULL, "wxAuiPaneInfo", "top", 0}, // 2595
+  {NULL, "wxAuiPaneInfo", "show", 0}, // 2595
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_TopDockable, "wxAuiPaneInfo", "topDockable", 2}, // 2596
+  {wxAuiPaneInfo_ToolbarPane, "wxAuiPaneInfo", "toolbarPane", 1}, // 2596
 #else
-  {NULL, "wxAuiPaneInfo", "topDockable", 0}, // 2596
+  {NULL, "wxAuiPaneInfo", "toolbarPane", 0}, // 2596
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_Window, "wxAuiPaneInfo", "window", 2}, // 2597
+  {wxAuiPaneInfo_Top, "wxAuiPaneInfo", "top", 1}, // 2597
 #else
-  {NULL, "wxAuiPaneInfo", "window", 0}, // 2597
+  {NULL, "wxAuiPaneInfo", "top", 0}, // 2597
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetWindow, "wxAuiPaneInfo", "getWindow", 1}, // 2598
+  {wxAuiPaneInfo_TopDockable, "wxAuiPaneInfo", "topDockable", 2}, // 2598
 #else
-  {NULL, "wxAuiPaneInfo", "getWindow", 0}, // 2598
+  {NULL, "wxAuiPaneInfo", "topDockable", 0}, // 2598
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetFrame, "wxAuiPaneInfo", "getFrame", 1}, // 2599
+  {wxAuiPaneInfo_Window, "wxAuiPaneInfo", "window", 2}, // 2599
 #else
-  {NULL, "wxAuiPaneInfo", "getFrame", 0}, // 2599
+  {NULL, "wxAuiPaneInfo", "window", 0}, // 2599
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetDirection, "wxAuiPaneInfo", "getDirection", 1}, // 2600
+  {wxAuiPaneInfo_GetWindow, "wxAuiPaneInfo", "getWindow", 1}, // 2600
 #else
-  {NULL, "wxAuiPaneInfo", "getDirection", 0}, // 2600
+  {NULL, "wxAuiPaneInfo", "getWindow", 0}, // 2600
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetLayer, "wxAuiPaneInfo", "getLayer", 1}, // 2601
+  {wxAuiPaneInfo_GetFrame, "wxAuiPaneInfo", "getFrame", 1}, // 2601
 #else
-  {NULL, "wxAuiPaneInfo", "getLayer", 0}, // 2601
+  {NULL, "wxAuiPaneInfo", "getFrame", 0}, // 2601
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetRow, "wxAuiPaneInfo", "getRow", 1}, // 2602
+  {wxAuiPaneInfo_GetDirection, "wxAuiPaneInfo", "getDirection", 1}, // 2602
 #else
-  {NULL, "wxAuiPaneInfo", "getRow", 0}, // 2602
+  {NULL, "wxAuiPaneInfo", "getDirection", 0}, // 2602
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetPosition, "wxAuiPaneInfo", "getPosition", 1}, // 2603
+  {wxAuiPaneInfo_GetLayer, "wxAuiPaneInfo", "getLayer", 1}, // 2603
 #else
-  {NULL, "wxAuiPaneInfo", "getPosition", 0}, // 2603
+  {NULL, "wxAuiPaneInfo", "getLayer", 0}, // 2603
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetFloatingPosition, "wxAuiPaneInfo", "getFloatingPosition", 1}, // 2604
+  {wxAuiPaneInfo_GetRow, "wxAuiPaneInfo", "getRow", 1}, // 2604
 #else
-  {NULL, "wxAuiPaneInfo", "getFloatingPosition", 0}, // 2604
+  {NULL, "wxAuiPaneInfo", "getRow", 0}, // 2604
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_GetFloatingSize, "wxAuiPaneInfo", "getFloatingSize", 1}, // 2605
+  {wxAuiPaneInfo_GetPosition, "wxAuiPaneInfo", "getPosition", 1}, // 2605
 #else
-  {NULL, "wxAuiPaneInfo", "getFloatingSize", 0}, // 2605
+  {NULL, "wxAuiPaneInfo", "getPosition", 0}, // 2605
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiPaneInfo_destroy, "wxAuiPaneInfo", "'Destroy'", 1}, // 2606
+  {wxAuiPaneInfo_GetFloatingPosition, "wxAuiPaneInfo", "getFloatingPosition", 1}, // 2606
 #else
-  {NULL, "wxAuiPaneInfo", "'Destroy'", 0}, // 2606
+  {NULL, "wxAuiPaneInfo", "getFloatingPosition", 0}, // 2606
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_new_0, "wxAuiNotebook", "new", 0}, // 2607
+  {wxAuiPaneInfo_GetFloatingSize, "wxAuiPaneInfo", "getFloatingSize", 1}, // 2607
 #else
-  {NULL, "wxAuiNotebook", "new", 0}, // 2607
+  {NULL, "wxAuiPaneInfo", "getFloatingSize", 0}, // 2607
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_new_2, "wxAuiNotebook", "new", 2}, // 2608
+  {wxAuiPaneInfo_destroy, "wxAuiPaneInfo", "'Destroy'", 1}, // 2608
 #else
-  {NULL, "wxAuiNotebook", "new", 0}, // 2608
+  {NULL, "wxAuiPaneInfo", "'Destroy'", 0}, // 2608
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_AddPage_3, "wxAuiNotebook", "addPage", 4}, // 2609
+  {wxAuiNotebook_new_0, "wxAuiNotebook", "new", 0}, // 2609
 #else
-  {NULL, "wxAuiNotebook", "addPage", 0}, // 2609
+  {NULL, "wxAuiNotebook", "new", 0}, // 2609
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_AddPage_4, "wxAuiNotebook", "addPage", 5}, // 2610
+  {wxAuiNotebook_new_2, "wxAuiNotebook", "new", 2}, // 2610
 #else
-  {NULL, "wxAuiNotebook", "addPage", 0}, // 2610
+  {NULL, "wxAuiNotebook", "new", 0}, // 2610
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_Create_2, "wxAuiNotebook", "create", 3}, // 2611
+  {wxAuiNotebook_AddPage_3, "wxAuiNotebook", "addPage", 4}, // 2611
 #else
-  {NULL, "wxAuiNotebook", "create", 0}, // 2611
+  {NULL, "wxAuiNotebook", "addPage", 0}, // 2611
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_Create_3, "wxAuiNotebook", "create", 4}, // 2612
+  {wxAuiNotebook_AddPage_4, "wxAuiNotebook", "addPage", 5}, // 2612
 #else
-  {NULL, "wxAuiNotebook", "create", 0}, // 2612
+  {NULL, "wxAuiNotebook", "addPage", 0}, // 2612
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_DeletePage, "wxAuiNotebook", "deletePage", 2}, // 2613
+  {wxAuiNotebook_Create_2, "wxAuiNotebook", "create", 3}, // 2613
 #else
-  {NULL, "wxAuiNotebook", "deletePage", 0}, // 2613
+  {NULL, "wxAuiNotebook", "create", 0}, // 2613
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetArtProvider, "wxAuiNotebook", "getArtProvider", 1}, // 2614
+  {wxAuiNotebook_Create_3, "wxAuiNotebook", "create", 4}, // 2614
 #else
-  {NULL, "wxAuiNotebook", "getArtProvider", 0}, // 2614
+  {NULL, "wxAuiNotebook", "create", 0}, // 2614
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetPage, "wxAuiNotebook", "getPage", 2}, // 2615
+  {wxAuiNotebook_DeletePage, "wxAuiNotebook", "deletePage", 2}, // 2615
 #else
-  {NULL, "wxAuiNotebook", "getPage", 0}, // 2615
+  {NULL, "wxAuiNotebook", "deletePage", 0}, // 2615
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetPageBitmap, "wxAuiNotebook", "getPageBitmap", 2}, // 2616
+  {wxAuiNotebook_GetArtProvider, "wxAuiNotebook", "getArtProvider", 1}, // 2616
 #else
-  {NULL, "wxAuiNotebook", "getPageBitmap", 0}, // 2616
+  {NULL, "wxAuiNotebook", "getArtProvider", 0}, // 2616
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetPageCount, "wxAuiNotebook", "getPageCount", 1}, // 2617
+  {wxAuiNotebook_GetPage, "wxAuiNotebook", "getPage", 2}, // 2617
 #else
-  {NULL, "wxAuiNotebook", "getPageCount", 0}, // 2617
+  {NULL, "wxAuiNotebook", "getPage", 0}, // 2617
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetPageIndex, "wxAuiNotebook", "getPageIndex", 2}, // 2618
+  {wxAuiNotebook_GetPageBitmap, "wxAuiNotebook", "getPageBitmap", 2}, // 2618
 #else
-  {NULL, "wxAuiNotebook", "getPageIndex", 0}, // 2618
+  {NULL, "wxAuiNotebook", "getPageBitmap", 0}, // 2618
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetPageText, "wxAuiNotebook", "getPageText", 2}, // 2619
+  {wxAuiNotebook_GetPageCount, "wxAuiNotebook", "getPageCount", 1}, // 2619
 #else
-  {NULL, "wxAuiNotebook", "getPageText", 0}, // 2619
+  {NULL, "wxAuiNotebook", "getPageCount", 0}, // 2619
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_GetSelection, "wxAuiNotebook", "getSelection", 1}, // 2620
+  {wxAuiNotebook_GetPageIndex, "wxAuiNotebook", "getPageIndex", 2}, // 2620
 #else
-  {NULL, "wxAuiNotebook", "getSelection", 0}, // 2620
+  {NULL, "wxAuiNotebook", "getPageIndex", 0}, // 2620
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_InsertPage_4, "wxAuiNotebook", "insertPage", 5}, // 2621
+  {wxAuiNotebook_GetPageText, "wxAuiNotebook", "getPageText", 2}, // 2621
 #else
-  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2621
+  {NULL, "wxAuiNotebook", "getPageText", 0}, // 2621
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_InsertPage_5, "wxAuiNotebook", "insertPage", 6}, // 2622
+  {wxAuiNotebook_GetSelection, "wxAuiNotebook", "getSelection", 1}, // 2622
 #else
-  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2622
+  {NULL, "wxAuiNotebook", "getSelection", 0}, // 2622
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_RemovePage, "wxAuiNotebook", "removePage", 2}, // 2623
+  {wxAuiNotebook_InsertPage_4, "wxAuiNotebook", "insertPage", 5}, // 2623
 #else
-  {NULL, "wxAuiNotebook", "removePage", 0}, // 2623
+  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2623
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetArtProvider, "wxAuiNotebook", "setArtProvider", 2}, // 2624
+  {wxAuiNotebook_InsertPage_5, "wxAuiNotebook", "insertPage", 6}, // 2624
 #else
-  {NULL, "wxAuiNotebook", "setArtProvider", 0}, // 2624
+  {NULL, "wxAuiNotebook", "insertPage", 0}, // 2624
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetFont, "wxAuiNotebook", "setFont", 2}, // 2625
+  {wxAuiNotebook_RemovePage, "wxAuiNotebook", "removePage", 2}, // 2625
 #else
-  {NULL, "wxAuiNotebook", "setFont", 0}, // 2625
+  {NULL, "wxAuiNotebook", "removePage", 0}, // 2625
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetPageBitmap, "wxAuiNotebook", "setPageBitmap", 3}, // 2626
+  {wxAuiNotebook_SetArtProvider, "wxAuiNotebook", "setArtProvider", 2}, // 2626
 #else
-  {NULL, "wxAuiNotebook", "setPageBitmap", 0}, // 2626
+  {NULL, "wxAuiNotebook", "setArtProvider", 0}, // 2626
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetPageText, "wxAuiNotebook", "setPageText", 3}, // 2627
+  {wxAuiNotebook_SetFont, "wxAuiNotebook", "setFont", 2}, // 2627
 #else
-  {NULL, "wxAuiNotebook", "setPageText", 0}, // 2627
+  {NULL, "wxAuiNotebook", "setFont", 0}, // 2627
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetSelection, "wxAuiNotebook", "setSelection", 2}, // 2628
+  {wxAuiNotebook_SetPageBitmap, "wxAuiNotebook", "setPageBitmap", 3}, // 2628
 #else
-  {NULL, "wxAuiNotebook", "setSelection", 0}, // 2628
+  {NULL, "wxAuiNotebook", "setPageBitmap", 0}, // 2628
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetTabCtrlHeight, "wxAuiNotebook", "setTabCtrlHeight", 2}, // 2629
+  {wxAuiNotebook_SetPageText, "wxAuiNotebook", "setPageText", 3}, // 2629
 #else
-  {NULL, "wxAuiNotebook", "setTabCtrlHeight", 0}, // 2629
+  {NULL, "wxAuiNotebook", "setPageText", 0}, // 2629
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiNotebook_SetUniformBitmapSize, "wxAuiNotebook", "setUniformBitmapSize", 2}, // 2630
+  {wxAuiNotebook_SetSelection, "wxAuiNotebook", "setSelection", 2}, // 2630
 #else
-  {NULL, "wxAuiNotebook", "setUniformBitmapSize", 0}, // 2630
+  {NULL, "wxAuiNotebook", "setSelection", 0}, // 2630
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {NULL, "wxAuiNotebook", "'Destroy'", 1}, // 2631 obj destructor wxAuiNotebook_destroy
+  {wxAuiNotebook_SetTabCtrlHeight, "wxAuiNotebook", "setTabCtrlHeight", 2}, // 2631
 #else
-  {NULL, "wxAuiNotebook", "'Destroy'", 0}, // 2631
+  {NULL, "wxAuiNotebook", "setTabCtrlHeight", 0}, // 2631
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetFlags, "wxAuiTabArt", "setFlags", 2}, // 2632
+  {wxAuiNotebook_SetUniformBitmapSize, "wxAuiNotebook", "setUniformBitmapSize", 2}, // 2632
 #else
-  {NULL, "wxAuiTabArt", "setFlags", 0}, // 2632
+  {NULL, "wxAuiNotebook", "setUniformBitmapSize", 0}, // 2632
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetMeasuringFont, "wxAuiTabArt", "setMeasuringFont", 2}, // 2633
+  {NULL, "wxAuiNotebook", "'Destroy'", 1}, // 2633 obj destructor wxAuiNotebook_destroy
 #else
-  {NULL, "wxAuiTabArt", "setMeasuringFont", 0}, // 2633
+  {NULL, "wxAuiNotebook", "'Destroy'", 0}, // 2633
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetNormalFont, "wxAuiTabArt", "setNormalFont", 2}, // 2634
+  {wxAuiTabArt_SetFlags, "wxAuiTabArt", "setFlags", 2}, // 2634
 #else
-  {NULL, "wxAuiTabArt", "setNormalFont", 0}, // 2634
+  {NULL, "wxAuiTabArt", "setFlags", 0}, // 2634
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetSelectedFont, "wxAuiTabArt", "setSelectedFont", 2}, // 2635
+  {wxAuiTabArt_SetMeasuringFont, "wxAuiTabArt", "setMeasuringFont", 2}, // 2635
 #else
-  {NULL, "wxAuiTabArt", "setSelectedFont", 0}, // 2635
+  {NULL, "wxAuiTabArt", "setMeasuringFont", 0}, // 2635
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetColour, "wxAuiTabArt", "setColour", 2}, // 2636
+  {wxAuiTabArt_SetNormalFont, "wxAuiTabArt", "setNormalFont", 2}, // 2636
 #else
-  {NULL, "wxAuiTabArt", "setColour", 0}, // 2636
+  {NULL, "wxAuiTabArt", "setNormalFont", 0}, // 2636
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiTabArt_SetActiveColour, "wxAuiTabArt", "setActiveColour", 2}, // 2637
+  {wxAuiTabArt_SetSelectedFont, "wxAuiTabArt", "setSelectedFont", 2}, // 2637
 #else
-  {NULL, "wxAuiTabArt", "setActiveColour", 0}, // 2637
+  {NULL, "wxAuiTabArt", "setSelectedFont", 0}, // 2637
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_GetColour, "wxAuiDockArt", "getColour", 2}, // 2638
+  {wxAuiTabArt_SetColour, "wxAuiTabArt", "setColour", 2}, // 2638
 #else
-  {NULL, "wxAuiDockArt", "getColour", 0}, // 2638
+  {NULL, "wxAuiTabArt", "setColour", 0}, // 2638
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_GetFont, "wxAuiDockArt", "getFont", 2}, // 2639
+  {wxAuiTabArt_SetActiveColour, "wxAuiTabArt", "setActiveColour", 2}, // 2639
 #else
-  {NULL, "wxAuiDockArt", "getFont", 0}, // 2639
+  {NULL, "wxAuiTabArt", "setActiveColour", 0}, // 2639
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_GetMetric, "wxAuiDockArt", "getMetric", 2}, // 2640
+  {wxAuiDockArt_GetColour, "wxAuiDockArt", "getColour", 2}, // 2640
 #else
-  {NULL, "wxAuiDockArt", "getMetric", 0}, // 2640
+  {NULL, "wxAuiDockArt", "getColour", 0}, // 2640
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_SetColour, "wxAuiDockArt", "setColour", 3}, // 2641
+  {wxAuiDockArt_GetFont, "wxAuiDockArt", "getFont", 2}, // 2641
 #else
-  {NULL, "wxAuiDockArt", "setColour", 0}, // 2641
+  {NULL, "wxAuiDockArt", "getFont", 0}, // 2641
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_SetFont, "wxAuiDockArt", "setFont", 3}, // 2642
+  {wxAuiDockArt_GetMetric, "wxAuiDockArt", "getMetric", 2}, // 2642
 #else
-  {NULL, "wxAuiDockArt", "setFont", 0}, // 2642
+  {NULL, "wxAuiDockArt", "getMetric", 0}, // 2642
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiDockArt_SetMetric, "wxAuiDockArt", "setMetric", 3}, // 2643
+  {wxAuiDockArt_SetColour, "wxAuiDockArt", "setColour", 3}, // 2643
 #else
-  {NULL, "wxAuiDockArt", "setMetric", 0}, // 2643
+  {NULL, "wxAuiDockArt", "setColour", 0}, // 2643
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiSimpleTabArt_new, "wxAuiSimpleTabArt", "new", 0}, // 2644
+  {wxAuiDockArt_SetFont, "wxAuiDockArt", "setFont", 3}, // 2644
 #else
-  {NULL, "wxAuiSimpleTabArt", "new", 0}, // 2644
+  {NULL, "wxAuiDockArt", "setFont", 0}, // 2644
 #endif // wxUSE_AUI
 #if wxUSE_AUI
-  {wxAuiSimpleTabArt_destroy, "wxAuiSimpleTabArt", "'Destroy'", 1}, // 2645
+  {wxAuiDockArt_SetMetric, "wxAuiDockArt", "setMetric", 3}, // 2645
 #else
-  {NULL, "wxAuiSimpleTabArt", "'Destroy'", 0}, // 2645
+  {NULL, "wxAuiDockArt", "setMetric", 0}, // 2645
 #endif // wxUSE_AUI
-  {wxMDIParentFrame_new_0, "wxMDIParentFrame", "new", 0}, // 2646
-  {wxMDIParentFrame_new_4, "wxMDIParentFrame", "new", 4}, // 2647
-  {NULL, "wxMDIParentFrame", "destroy", 1}, // 2648 obj destructor wxMDIParentFrame_destruct
-  {wxMDIParentFrame_ActivateNext, "wxMDIParentFrame", "activateNext", 1}, // 2649
-  {wxMDIParentFrame_ActivatePrevious, "wxMDIParentFrame", "activatePrevious", 1}, // 2650
-  {wxMDIParentFrame_ArrangeIcons, "wxMDIParentFrame", "arrangeIcons", 1}, // 2651
-  {wxMDIParentFrame_Cascade, "wxMDIParentFrame", "cascade", 1}, // 2652
-  {wxMDIParentFrame_Create, "wxMDIParentFrame", "create", 5}, // 2653
-  {wxMDIParentFrame_GetActiveChild, "wxMDIParentFrame", "getActiveChild", 1}, // 2654
-  {wxMDIParentFrame_GetClientWindow, "wxMDIParentFrame", "getClientWindow", 1}, // 2655
-  {wxMDIParentFrame_Tile, "wxMDIParentFrame", "tile", 2}, // 2656
-  {wxMDIChildFrame_new_0, "wxMDIChildFrame", "new", 0}, // 2657
-  {wxMDIChildFrame_new_4, "wxMDIChildFrame", "new", 4}, // 2658
-  {NULL, "wxMDIChildFrame", "destroy", 1}, // 2659 obj destructor wxMDIChildFrame_destruct
-  {wxMDIChildFrame_Activate, "wxMDIChildFrame", "activate", 1}, // 2660
-  {wxMDIChildFrame_Create, "wxMDIChildFrame", "create", 5}, // 2661
-  {wxMDIChildFrame_Maximize, "wxMDIChildFrame", "maximize", 2}, // 2662
-  {wxMDIChildFrame_Restore, "wxMDIChildFrame", "restore", 1}, // 2663
-  {wxMDIClientWindow_new, "wxMDIClientWindow", "new", 0}, // 2664
-  {wxMDIClientWindow_CreateClient, "wxMDIClientWindow", "createClient", 3}, // 2665
-  {NULL, "wxMDIClientWindow", "'Destroy'", 1}, // 2666 obj destructor wxMDIClientWindow_destroy
-  {wxLayoutAlgorithm_new, "wxLayoutAlgorithm", "new", 0}, // 2667
-  {NULL, "wxLayoutAlgorithm", "destroy", 1}, // 2668 obj destructor wxLayoutAlgorithm_destruct
-  {wxLayoutAlgorithm_LayoutFrame, "wxLayoutAlgorithm", "layoutFrame", 3}, // 2669
-  {wxLayoutAlgorithm_LayoutMDIFrame, "wxLayoutAlgorithm", "layoutMDIFrame", 3}, // 2670
-  {wxLayoutAlgorithm_LayoutWindow, "wxLayoutAlgorithm", "layoutWindow", 3}, // 2671
-  {wxEvent_GetId, "wxEvent", "getId", 1}, // 2672
-  {wxEvent_GetSkipped, "wxEvent", "getSkipped", 1}, // 2673
-  {wxEvent_GetTimestamp, "wxEvent", "getTimestamp", 1}, // 2674
-  {wxEvent_IsCommandEvent, "wxEvent", "isCommandEvent", 1}, // 2675
-  {wxEvent_ResumePropagation, "wxEvent", "resumePropagation", 2}, // 2676
-  {wxEvent_ShouldPropagate, "wxEvent", "shouldPropagate", 1}, // 2677
-  {wxEvent_Skip, "wxEvent", "skip", 2}, // 2678
-  {wxEvent_StopPropagation, "wxEvent", "stopPropagation", 1}, // 2679
-  {wxCommandEvent_getClientData, "wxCommandEvent", "getClientData", 1}, // 2680
-  {wxCommandEvent_GetExtraLong, "wxCommandEvent", "getExtraLong", 1}, // 2681
-  {wxCommandEvent_GetInt, "wxCommandEvent", "getInt", 1}, // 2682
-  {wxCommandEvent_GetSelection, "wxCommandEvent", "getSelection", 1}, // 2683
-  {wxCommandEvent_GetString, "wxCommandEvent", "getString", 1}, // 2684
-  {wxCommandEvent_IsChecked, "wxCommandEvent", "isChecked", 1}, // 2685
-  {wxCommandEvent_IsSelection, "wxCommandEvent", "isSelection", 1}, // 2686
-  {wxCommandEvent_SetInt, "wxCommandEvent", "setInt", 2}, // 2687
-  {wxCommandEvent_SetString, "wxCommandEvent", "setString", 2}, // 2688
-  {wxScrollEvent_GetOrientation, "wxScrollEvent", "getOrientation", 1}, // 2689
-  {wxScrollEvent_GetPosition, "wxScrollEvent", "getPosition", 1}, // 2690
-  {wxScrollWinEvent_GetOrientation, "wxScrollWinEvent", "getOrientation", 1}, // 2691
-  {wxScrollWinEvent_GetPosition, "wxScrollWinEvent", "getPosition", 1}, // 2692
-  {wxMouseEvent_AltDown, "wxMouseEvent", "altDown", 1}, // 2693
-  {wxMouseEvent_Button, "wxMouseEvent", "button", 2}, // 2694
-  {wxMouseEvent_ButtonDClick, "wxMouseEvent", "buttonDClick", 2}, // 2695
-  {wxMouseEvent_ButtonDown, "wxMouseEvent", "buttonDown", 2}, // 2696
-  {wxMouseEvent_ButtonUp, "wxMouseEvent", "buttonUp", 2}, // 2697
-  {wxMouseEvent_CmdDown, "wxMouseEvent", "cmdDown", 1}, // 2698
-  {wxMouseEvent_ControlDown, "wxMouseEvent", "controlDown", 1}, // 2699
-  {wxMouseEvent_Dragging, "wxMouseEvent", "dragging", 1}, // 2700
-  {wxMouseEvent_Entering, "wxMouseEvent", "entering", 1}, // 2701
-  {wxMouseEvent_GetButton, "wxMouseEvent", "getButton", 1}, // 2702
-  {wxMouseEvent_GetPosition, "wxMouseEvent", "getPosition", 1}, // 2703
-  {NULL, "", "", 0}, // 2704
-  {wxMouseEvent_GetLogicalPosition, "wxMouseEvent", "getLogicalPosition", 2}, // 2705
-  {wxMouseEvent_GetLinesPerAction, "wxMouseEvent", "getLinesPerAction", 1}, // 2706
-  {wxMouseEvent_GetWheelRotation, "wxMouseEvent", "getWheelRotation", 1}, // 2707
-  {wxMouseEvent_GetWheelDelta, "wxMouseEvent", "getWheelDelta", 1}, // 2708
-  {wxMouseEvent_GetX, "wxMouseEvent", "getX", 1}, // 2709
-  {wxMouseEvent_GetY, "wxMouseEvent", "getY", 1}, // 2710
-  {wxMouseEvent_IsButton, "wxMouseEvent", "isButton", 1}, // 2711
-  {wxMouseEvent_IsPageScroll, "wxMouseEvent", "isPageScroll", 1}, // 2712
-  {wxMouseEvent_Leaving, "wxMouseEvent", "leaving", 1}, // 2713
-  {wxMouseEvent_LeftDClick, "wxMouseEvent", "leftDClick", 1}, // 2714
-  {wxMouseEvent_LeftDown, "wxMouseEvent", "leftDown", 1}, // 2715
-  {wxMouseEvent_LeftIsDown, "wxMouseEvent", "leftIsDown", 1}, // 2716
-  {wxMouseEvent_LeftUp, "wxMouseEvent", "leftUp", 1}, // 2717
-  {wxMouseEvent_MetaDown, "wxMouseEvent", "metaDown", 1}, // 2718
-  {wxMouseEvent_MiddleDClick, "wxMouseEvent", "middleDClick", 1}, // 2719
-  {wxMouseEvent_MiddleDown, "wxMouseEvent", "middleDown", 1}, // 2720
-  {wxMouseEvent_MiddleIsDown, "wxMouseEvent", "middleIsDown", 1}, // 2721
-  {wxMouseEvent_MiddleUp, "wxMouseEvent", "middleUp", 1}, // 2722
-  {wxMouseEvent_Moving, "wxMouseEvent", "moving", 1}, // 2723
-  {wxMouseEvent_RightDClick, "wxMouseEvent", "rightDClick", 1}, // 2724
-  {wxMouseEvent_RightDown, "wxMouseEvent", "rightDown", 1}, // 2725
-  {wxMouseEvent_RightIsDown, "wxMouseEvent", "rightIsDown", 1}, // 2726
-  {wxMouseEvent_RightUp, "wxMouseEvent", "rightUp", 1}, // 2727
-  {wxMouseEvent_ShiftDown, "wxMouseEvent", "shiftDown", 1}, // 2728
-  {wxMouseEvent_GetWheelAxis, "wxMouseEvent", "getWheelAxis", 1}, // 2729
-  {wxMouseEvent_Aux1DClick, "wxMouseEvent", "aux1DClick", 1}, // 2730
-  {wxMouseEvent_Aux1Down, "wxMouseEvent", "aux1Down", 1}, // 2731
-  {wxMouseEvent_Aux1Up, "wxMouseEvent", "aux1Up", 1}, // 2732
-  {wxMouseEvent_Aux2DClick, "wxMouseEvent", "aux2DClick", 1}, // 2733
-  {wxMouseEvent_Aux2Down, "wxMouseEvent", "aux2Down", 1}, // 2734
-  {wxMouseEvent_Aux2Up, "wxMouseEvent", "aux2Up", 1}, // 2735
-  {wxSetCursorEvent_GetCursor, "wxSetCursorEvent", "getCursor", 1}, // 2736
-  {wxSetCursorEvent_GetX, "wxSetCursorEvent", "getX", 1}, // 2737
-  {wxSetCursorEvent_GetY, "wxSetCursorEvent", "getY", 1}, // 2738
-  {wxSetCursorEvent_HasCursor, "wxSetCursorEvent", "hasCursor", 1}, // 2739
-  {wxSetCursorEvent_SetCursor, "wxSetCursorEvent", "setCursor", 2}, // 2740
-  {wxKeyEvent_AltDown, "wxKeyEvent", "altDown", 1}, // 2741
-  {wxKeyEvent_CmdDown, "wxKeyEvent", "cmdDown", 1}, // 2742
-  {wxKeyEvent_ControlDown, "wxKeyEvent", "controlDown", 1}, // 2743
-  {wxKeyEvent_GetKeyCode, "wxKeyEvent", "getKeyCode", 1}, // 2744
-  {wxKeyEvent_GetModifiers, "wxKeyEvent", "getModifiers", 1}, // 2745
-  {wxKeyEvent_GetPosition, "wxKeyEvent", "getPosition", 1}, // 2746
-  {NULL, "", "", 0}, // 2747
-  {wxKeyEvent_GetRawKeyCode, "wxKeyEvent", "getRawKeyCode", 1}, // 2748
-  {wxKeyEvent_GetRawKeyFlags, "wxKeyEvent", "getRawKeyFlags", 1}, // 2749
-  {wxKeyEvent_GetUnicodeKey, "wxKeyEvent", "getUnicodeKey", 1}, // 2750
-  {wxKeyEvent_GetX, "wxKeyEvent", "getX", 1}, // 2751
-  {wxKeyEvent_GetY, "wxKeyEvent", "getY", 1}, // 2752
-  {wxKeyEvent_HasModifiers, "wxKeyEvent", "hasModifiers", 1}, // 2753
-  {wxKeyEvent_MetaDown, "wxKeyEvent", "metaDown", 1}, // 2754
-  {wxKeyEvent_ShiftDown, "wxKeyEvent", "shiftDown", 1}, // 2755
-  {wxSizeEvent_GetSize, "wxSizeEvent", "getSize", 1}, // 2756
-  {wxSizeEvent_GetRect, "wxSizeEvent", "getRect", 1}, // 2757
-  {wxMoveEvent_GetPosition, "wxMoveEvent", "getPosition", 1}, // 2758
-  {wxMoveEvent_GetRect, "wxMoveEvent", "getRect", 1}, // 2759
-  {wxEraseEvent_GetDC, "wxEraseEvent", "getDC", 1}, // 2760
-  {wxFocusEvent_GetWindow, "wxFocusEvent", "getWindow", 1}, // 2761
-  {wxChildFocusEvent_GetWindow, "wxChildFocusEvent", "getWindow", 1}, // 2762
-  {wxMenuEvent_GetMenu, "wxMenuEvent", "getMenu", 1}, // 2763
-  {wxMenuEvent_GetMenuId, "wxMenuEvent", "getMenuId", 1}, // 2764
-  {wxMenuEvent_IsPopup, "wxMenuEvent", "isPopup", 1}, // 2765
-  {wxCloseEvent_CanVeto, "wxCloseEvent", "canVeto", 1}, // 2766
-  {wxCloseEvent_GetLoggingOff, "wxCloseEvent", "getLoggingOff", 1}, // 2767
-  {wxCloseEvent_SetCanVeto, "wxCloseEvent", "setCanVeto", 2}, // 2768
-  {wxCloseEvent_SetLoggingOff, "wxCloseEvent", "setLoggingOff", 2}, // 2769
-  {wxCloseEvent_Veto, "wxCloseEvent", "veto", 2}, // 2770
-  {wxShowEvent_SetShow, "wxShowEvent", "setShow", 2}, // 2771
-  {wxShowEvent_IsShown, "wxShowEvent", "isShown", 1}, // 2772
-  {wxIconizeEvent_IsIconized, "wxIconizeEvent", "isIconized", 1}, // 2773
-  {wxJoystickEvent_ButtonDown, "wxJoystickEvent", "buttonDown", 2}, // 2774
-  {wxJoystickEvent_ButtonIsDown, "wxJoystickEvent", "buttonIsDown", 2}, // 2775
-  {wxJoystickEvent_ButtonUp, "wxJoystickEvent", "buttonUp", 2}, // 2776
-  {wxJoystickEvent_GetButtonChange, "wxJoystickEvent", "getButtonChange", 1}, // 2777
-  {wxJoystickEvent_GetButtonState, "wxJoystickEvent", "getButtonState", 1}, // 2778
-  {wxJoystickEvent_GetJoystick, "wxJoystickEvent", "getJoystick", 1}, // 2779
-  {wxJoystickEvent_GetPosition, "wxJoystickEvent", "getPosition", 1}, // 2780
-  {wxJoystickEvent_GetZPosition, "wxJoystickEvent", "getZPosition", 1}, // 2781
-  {wxJoystickEvent_IsButton, "wxJoystickEvent", "isButton", 1}, // 2782
-  {wxJoystickEvent_IsMove, "wxJoystickEvent", "isMove", 1}, // 2783
-  {wxJoystickEvent_IsZMove, "wxJoystickEvent", "isZMove", 1}, // 2784
-  {wxUpdateUIEvent_CanUpdate, "wxUpdateUIEvent", "canUpdate", 1}, // 2785
-  {wxUpdateUIEvent_Check, "wxUpdateUIEvent", "check", 2}, // 2786
-  {wxUpdateUIEvent_Enable, "wxUpdateUIEvent", "enable", 2}, // 2787
-  {wxUpdateUIEvent_Show, "wxUpdateUIEvent", "show", 2}, // 2788
-  {wxUpdateUIEvent_GetChecked, "wxUpdateUIEvent", "getChecked", 1}, // 2789
-  {wxUpdateUIEvent_GetEnabled, "wxUpdateUIEvent", "getEnabled", 1}, // 2790
-  {wxUpdateUIEvent_GetShown, "wxUpdateUIEvent", "getShown", 1}, // 2791
-  {wxUpdateUIEvent_GetSetChecked, "wxUpdateUIEvent", "getSetChecked", 1}, // 2792
-  {wxUpdateUIEvent_GetSetEnabled, "wxUpdateUIEvent", "getSetEnabled", 1}, // 2793
-  {wxUpdateUIEvent_GetSetShown, "wxUpdateUIEvent", "getSetShown", 1}, // 2794
-  {wxUpdateUIEvent_GetSetText, "wxUpdateUIEvent", "getSetText", 1}, // 2795
-  {wxUpdateUIEvent_GetText, "wxUpdateUIEvent", "getText", 1}, // 2796
-  {wxUpdateUIEvent_GetMode, "wxUpdateUIEvent", "getMode", 0}, // 2797
-  {wxUpdateUIEvent_GetUpdateInterval, "wxUpdateUIEvent", "getUpdateInterval", 0}, // 2798
-  {wxUpdateUIEvent_ResetUpdateTime, "wxUpdateUIEvent", "resetUpdateTime", 0}, // 2799
-  {wxUpdateUIEvent_SetMode, "wxUpdateUIEvent", "setMode", 1}, // 2800
-  {wxUpdateUIEvent_SetText, "wxUpdateUIEvent", "setText", 2}, // 2801
-  {wxUpdateUIEvent_SetUpdateInterval, "wxUpdateUIEvent", "setUpdateInterval", 1}, // 2802
-  {wxMouseCaptureChangedEvent_GetCapturedWindow, "wxMouseCaptureChangedEvent", "getCapturedWindow", 1}, // 2803
-  {wxPaletteChangedEvent_SetChangedWindow, "wxPaletteChangedEvent", "setChangedWindow", 2}, // 2804
-  {wxPaletteChangedEvent_GetChangedWindow, "wxPaletteChangedEvent", "getChangedWindow", 1}, // 2805
-  {wxQueryNewPaletteEvent_SetPaletteRealized, "wxQueryNewPaletteEvent", "setPaletteRealized", 2}, // 2806
-  {wxQueryNewPaletteEvent_GetPaletteRealized, "wxQueryNewPaletteEvent", "getPaletteRealized", 1}, // 2807
-  {wxNavigationKeyEvent_GetDirection, "wxNavigationKeyEvent", "getDirection", 1}, // 2808
-  {wxNavigationKeyEvent_SetDirection, "wxNavigationKeyEvent", "setDirection", 2}, // 2809
-  {wxNavigationKeyEvent_IsWindowChange, "wxNavigationKeyEvent", "isWindowChange", 1}, // 2810
-  {wxNavigationKeyEvent_SetWindowChange, "wxNavigationKeyEvent", "setWindowChange", 2}, // 2811
-  {wxNavigationKeyEvent_IsFromTab, "wxNavigationKeyEvent", "isFromTab", 1}, // 2812
-  {wxNavigationKeyEvent_SetFromTab, "wxNavigationKeyEvent", "setFromTab", 2}, // 2813
-  {wxNavigationKeyEvent_GetCurrentFocus, "wxNavigationKeyEvent", "getCurrentFocus", 1}, // 2814
-  {wxNavigationKeyEvent_SetCurrentFocus, "wxNavigationKeyEvent", "setCurrentFocus", 2}, // 2815
-  {wxHelpEvent_GetOrigin, "wxHelpEvent", "getOrigin", 1}, // 2816
-  {wxHelpEvent_GetPosition, "wxHelpEvent", "getPosition", 1}, // 2817
-  {wxHelpEvent_SetOrigin, "wxHelpEvent", "setOrigin", 2}, // 2818
-  {wxHelpEvent_SetPosition, "wxHelpEvent", "setPosition", 2}, // 2819
-  {wxContextMenuEvent_GetPosition, "wxContextMenuEvent", "getPosition", 1}, // 2820
-  {wxContextMenuEvent_SetPosition, "wxContextMenuEvent", "setPosition", 2}, // 2821
-  {wxIdleEvent_GetMode, "wxIdleEvent", "getMode", 0}, // 2822
-  {wxIdleEvent_RequestMore, "wxIdleEvent", "requestMore", 2}, // 2823
-  {wxIdleEvent_MoreRequested, "wxIdleEvent", "moreRequested", 1}, // 2824
-  {wxIdleEvent_SetMode, "wxIdleEvent", "setMode", 1}, // 2825
-  {wxGridEvent_AltDown, "wxGridEvent", "altDown", 1}, // 2826
-  {wxGridEvent_ControlDown, "wxGridEvent", "controlDown", 1}, // 2827
-  {wxGridEvent_GetCol, "wxGridEvent", "getCol", 1}, // 2828
-  {wxGridEvent_GetPosition, "wxGridEvent", "getPosition", 1}, // 2829
-  {wxGridEvent_GetRow, "wxGridEvent", "getRow", 1}, // 2830
-  {wxGridEvent_MetaDown, "wxGridEvent", "metaDown", 1}, // 2831
-  {wxGridEvent_Selecting, "wxGridEvent", "selecting", 1}, // 2832
-  {wxGridEvent_ShiftDown, "wxGridEvent", "shiftDown", 1}, // 2833
-  {wxNotifyEvent_Allow, "wxNotifyEvent", "allow", 1}, // 2834
-  {wxNotifyEvent_IsAllowed, "wxNotifyEvent", "isAllowed", 1}, // 2835
-  {wxNotifyEvent_Veto, "wxNotifyEvent", "veto", 1}, // 2836
-  {wxSashEvent_GetEdge, "wxSashEvent", "getEdge", 1}, // 2837
-  {wxSashEvent_GetDragRect, "wxSashEvent", "getDragRect", 1}, // 2838
-  {wxSashEvent_GetDragStatus, "wxSashEvent", "getDragStatus", 1}, // 2839
-  {wxListEvent_GetCacheFrom, "wxListEvent", "getCacheFrom", 1}, // 2840
-  {wxListEvent_GetCacheTo, "wxListEvent", "getCacheTo", 1}, // 2841
-  {wxListEvent_GetKeyCode, "wxListEvent", "getKeyCode", 1}, // 2842
-  {wxListEvent_GetIndex, "wxListEvent", "getIndex", 1}, // 2843
-  {wxListEvent_GetColumn, "wxListEvent", "getColumn", 1}, // 2844
-  {wxListEvent_GetPoint, "wxListEvent", "getPoint", 1}, // 2845
-  {wxListEvent_GetLabel, "wxListEvent", "getLabel", 1}, // 2846
-  {wxListEvent_GetText, "wxListEvent", "getText", 1}, // 2847
-  {wxListEvent_GetImage, "wxListEvent", "getImage", 1}, // 2848
-  {wxListEvent_GetData, "wxListEvent", "getData", 1}, // 2849
-  {wxListEvent_GetMask, "wxListEvent", "getMask", 1}, // 2850
-  {wxListEvent_GetItem, "wxListEvent", "getItem", 1}, // 2851
-  {wxListEvent_IsEditCancelled, "wxListEvent", "isEditCancelled", 1}, // 2852
-  {wxDateEvent_GetDate, "wxDateEvent", "getDate", 1}, // 2853
-  {wxCalendarEvent_GetWeekDay, "wxCalendarEvent", "getWeekDay", 1}, // 2854
-  {wxCalendarEvent_GetDate, "wxCalendarEvent", "getDate", 1}, // 2855
-  {wxFileDirPickerEvent_GetPath, "wxFileDirPickerEvent", "getPath", 1}, // 2856
-  {wxColourPickerEvent_GetColour, "wxColourPickerEvent", "getColour", 1}, // 2857
-  {wxFontPickerEvent_GetFont, "wxFontPickerEvent", "getFont", 1}, // 2858
-  {wxStyledTextEvent_GetPosition, "wxStyledTextEvent", "getPosition", 1}, // 2859
-  {wxStyledTextEvent_GetKey, "wxStyledTextEvent", "getKey", 1}, // 2860
-  {wxStyledTextEvent_GetModifiers, "wxStyledTextEvent", "getModifiers", 1}, // 2861
-  {wxStyledTextEvent_GetModificationType, "wxStyledTextEvent", "getModificationType", 1}, // 2862
-  {wxStyledTextEvent_GetText, "wxStyledTextEvent", "getText", 1}, // 2863
-  {wxStyledTextEvent_GetLength, "wxStyledTextEvent", "getLength", 1}, // 2864
-  {wxStyledTextEvent_GetLinesAdded, "wxStyledTextEvent", "getLinesAdded", 1}, // 2865
-  {wxStyledTextEvent_GetLine, "wxStyledTextEvent", "getLine", 1}, // 2866
-  {wxStyledTextEvent_GetFoldLevelNow, "wxStyledTextEvent", "getFoldLevelNow", 1}, // 2867
-  {wxStyledTextEvent_GetFoldLevelPrev, "wxStyledTextEvent", "getFoldLevelPrev", 1}, // 2868
-  {wxStyledTextEvent_GetMargin, "wxStyledTextEvent", "getMargin", 1}, // 2869
-  {wxStyledTextEvent_GetMessage, "wxStyledTextEvent", "getMessage", 1}, // 2870
-  {wxStyledTextEvent_GetWParam, "wxStyledTextEvent", "getWParam", 1}, // 2871
-  {wxStyledTextEvent_GetLParam, "wxStyledTextEvent", "getLParam", 1}, // 2872
-  {wxStyledTextEvent_GetListType, "wxStyledTextEvent", "getListType", 1}, // 2873
-  {wxStyledTextEvent_GetX, "wxStyledTextEvent", "getX", 1}, // 2874
-  {wxStyledTextEvent_GetY, "wxStyledTextEvent", "getY", 1}, // 2875
-  {wxStyledTextEvent_GetDragText, "wxStyledTextEvent", "getDragText", 1}, // 2876
-  {wxStyledTextEvent_GetDragAllowMove, "wxStyledTextEvent", "getDragAllowMove", 1}, // 2877
-  {wxStyledTextEvent_GetDragResult, "wxStyledTextEvent", "getDragResult", 1}, // 2878
-  {wxStyledTextEvent_GetShift, "wxStyledTextEvent", "getShift", 1}, // 2879
-  {wxStyledTextEvent_GetControl, "wxStyledTextEvent", "getControl", 1}, // 2880
-  {wxStyledTextEvent_GetAlt, "wxStyledTextEvent", "getAlt", 1}, // 2881
-  {utils_wxGetKeyState, "utils", "getKeyState", 1}, // 2882
-  {utils_wxGetMousePosition, "utils", "getMousePosition", 0}, // 2883
-  {utils_wxGetMouseState, "utils", "getMouseState", 0}, // 2884
-  {utils_wxSetDetectableAutoRepeat, "utils", "setDetectableAutoRepeat", 1}, // 2885
-  {utils_wxBell, "utils", "bell", 0}, // 2886
-  {utils_wxFindMenuItemId, "utils", "findMenuItemId", 3}, // 2887
-  {utils_wxFindWindowAtPoint, "utils", "findWindowAtPoint", 1}, // 2888
-  {utils_wxBeginBusyCursor, "utils", "beginBusyCursor", 1}, // 2889
-  {utils_wxEndBusyCursor, "utils", "endBusyCursor", 0}, // 2890
-  {utils_wxIsBusy, "utils", "isBusy", 0}, // 2891
-  {utils_wxShutdown, "utils", "shutdown", 1}, // 2892
-  {utils_wxShell, "utils", "shell", 1}, // 2893
-  {utils_wxLaunchDefaultBrowser, "utils", "launchDefaultBrowser", 2}, // 2894
-  {utils_wxGetEmailAddress, "utils", "getEmailAddress", 0}, // 2895
-  {utils_wxGetUserId, "utils", "getUserId", 0}, // 2896
-  {utils_wxGetHomeDir, "utils", "getHomeDir", 0}, // 2897
-  {utils_wxNewId, "utils", "newId", 0}, // 2898
-  {utils_wxRegisterId, "utils", "registerId", 1}, // 2899
-  {utils_wxGetCurrentId, "utils", "getCurrentId", 0}, // 2900
-  {utils_wxGetOsDescription, "utils", "getOsDescription", 0}, // 2901
-  {utils_wxIsPlatformLittleEndian, "utils", "isPlatformLittleEndian", 0}, // 2902
-  {utils_wxIsPlatform64Bit, "utils", "isPlatform64Bit", 0}, // 2903
-  {gdicmn_wxDisplaySize, "gdicmn", "displaySize", 0}, // 2904
-  {gdicmn_wxSetCursor, "gdicmn", "setCursor", 1}, // 2905
-  {wxPrintout_new, "wxPrintout", "new", 3}, // 2906
-  {NULL, "wxPrintout", "destroy", 1}, // 2907 obj destructor wxPrintout_destruct
-  {wxPrintout_GetDC, "wxPrintout", "getDC", 1}, // 2908
-  {wxPrintout_GetPageSizeMM, "wxPrintout", "getPageSizeMM", 1}, // 2909
-  {wxPrintout_GetPageSizePixels, "wxPrintout", "getPageSizePixels", 1}, // 2910
-  {wxPrintout_GetPaperRectPixels, "wxPrintout", "getPaperRectPixels", 1}, // 2911
-  {wxPrintout_GetPPIPrinter, "wxPrintout", "getPPIPrinter", 1}, // 2912
-  {wxPrintout_GetPPIScreen, "wxPrintout", "getPPIScreen", 1}, // 2913
-  {wxPrintout_GetTitle, "wxPrintout", "getTitle", 1}, // 2914
-  {wxPrintout_IsPreview, "wxPrintout", "isPreview", 1}, // 2915
-  {wxPrintout_FitThisSizeToPaper, "wxPrintout", "fitThisSizeToPaper", 2}, // 2916
-  {wxPrintout_FitThisSizeToPage, "wxPrintout", "fitThisSizeToPage", 2}, // 2917
-  {wxPrintout_FitThisSizeToPageMargins, "wxPrintout", "fitThisSizeToPageMargins", 3}, // 2918
-  {wxPrintout_MapScreenSizeToPaper, "wxPrintout", "mapScreenSizeToPaper", 1}, // 2919
-  {wxPrintout_MapScreenSizeToPage, "wxPrintout", "mapScreenSizeToPage", 1}, // 2920
-  {wxPrintout_MapScreenSizeToPageMargins, "wxPrintout", "mapScreenSizeToPageMargins", 2}, // 2921
-  {wxPrintout_MapScreenSizeToDevice, "wxPrintout", "mapScreenSizeToDevice", 1}, // 2922
-  {wxPrintout_GetLogicalPaperRect, "wxPrintout", "getLogicalPaperRect", 1}, // 2923
-  {wxPrintout_GetLogicalPageRect, "wxPrintout", "getLogicalPageRect", 1}, // 2924
-  {wxPrintout_GetLogicalPageMarginsRect, "wxPrintout", "getLogicalPageMarginsRect", 2}, // 2925
-  {wxPrintout_SetLogicalOrigin, "wxPrintout", "setLogicalOrigin", 3}, // 2926
-  {wxPrintout_OffsetLogicalOrigin, "wxPrintout", "offsetLogicalOrigin", 3}, // 2927
-  {wxStyledTextCtrl_new_2, "wxStyledTextCtrl", "new", 2}, // 2928
-  {wxStyledTextCtrl_new_0, "wxStyledTextCtrl", "new", 0}, // 2929
-  {NULL, "wxStyledTextCtrl", "destroy", 1}, // 2930 obj destructor wxStyledTextCtrl_destruct
-  {wxStyledTextCtrl_Create, "wxStyledTextCtrl", "create", 3}, // 2931
-  {wxStyledTextCtrl_AddText, "wxStyledTextCtrl", "addText", 2}, // 2932
-  {wxStyledTextCtrl_InsertText, "wxStyledTextCtrl", "insertText", 3}, // 2933
-  {wxStyledTextCtrl_ClearAll, "wxStyledTextCtrl", "clearAll", 1}, // 2934
-  {wxStyledTextCtrl_ClearDocumentStyle, "wxStyledTextCtrl", "clearDocumentStyle", 1}, // 2935
-  {wxStyledTextCtrl_GetLength, "wxStyledTextCtrl", "getLength", 1}, // 2936
-  {wxStyledTextCtrl_GetCharAt, "wxStyledTextCtrl", "getCharAt", 2}, // 2937
-  {wxStyledTextCtrl_GetCurrentPos, "wxStyledTextCtrl", "getCurrentPos", 1}, // 2938
-  {wxStyledTextCtrl_GetAnchor, "wxStyledTextCtrl", "getAnchor", 1}, // 2939
-  {wxStyledTextCtrl_GetStyleAt, "wxStyledTextCtrl", "getStyleAt", 2}, // 2940
-  {wxStyledTextCtrl_Redo, "wxStyledTextCtrl", "redo", 1}, // 2941
-  {wxStyledTextCtrl_SetUndoCollection, "wxStyledTextCtrl", "setUndoCollection", 2}, // 2942
-  {wxStyledTextCtrl_SelectAll, "wxStyledTextCtrl", "selectAll", 1}, // 2943
-  {wxStyledTextCtrl_SetSavePoint, "wxStyledTextCtrl", "setSavePoint", 1}, // 2944
-  {wxStyledTextCtrl_CanRedo, "wxStyledTextCtrl", "canRedo", 1}, // 2945
-  {wxStyledTextCtrl_MarkerLineFromHandle, "wxStyledTextCtrl", "markerLineFromHandle", 2}, // 2946
-  {wxStyledTextCtrl_MarkerDeleteHandle, "wxStyledTextCtrl", "markerDeleteHandle", 2}, // 2947
-  {wxStyledTextCtrl_GetUndoCollection, "wxStyledTextCtrl", "getUndoCollection", 1}, // 2948
-  {wxStyledTextCtrl_GetViewWhiteSpace, "wxStyledTextCtrl", "getViewWhiteSpace", 1}, // 2949
-  {wxStyledTextCtrl_SetViewWhiteSpace, "wxStyledTextCtrl", "setViewWhiteSpace", 2}, // 2950
-  {wxStyledTextCtrl_PositionFromPoint, "wxStyledTextCtrl", "positionFromPoint", 2}, // 2951
-  {wxStyledTextCtrl_PositionFromPointClose, "wxStyledTextCtrl", "positionFromPointClose", 3}, // 2952
-  {wxStyledTextCtrl_GotoLine, "wxStyledTextCtrl", "gotoLine", 2}, // 2953
-  {wxStyledTextCtrl_GotoPos, "wxStyledTextCtrl", "gotoPos", 2}, // 2954
-  {wxStyledTextCtrl_SetAnchor, "wxStyledTextCtrl", "setAnchor", 2}, // 2955
-  {wxStyledTextCtrl_GetCurLine, "wxStyledTextCtrl", "getCurLine", 1}, // 2956
-  {wxStyledTextCtrl_GetEndStyled, "wxStyledTextCtrl", "getEndStyled", 1}, // 2957
-  {wxStyledTextCtrl_ConvertEOLs, "wxStyledTextCtrl", "convertEOLs", 2}, // 2958
-  {wxStyledTextCtrl_GetEOLMode, "wxStyledTextCtrl", "getEOLMode", 1}, // 2959
-  {wxStyledTextCtrl_SetEOLMode, "wxStyledTextCtrl", "setEOLMode", 2}, // 2960
-  {wxStyledTextCtrl_StartStyling, "wxStyledTextCtrl", "startStyling", 2}, // 2961
-  {wxStyledTextCtrl_SetStyling, "wxStyledTextCtrl", "setStyling", 3}, // 2962
-  {wxStyledTextCtrl_GetBufferedDraw, "wxStyledTextCtrl", "getBufferedDraw", 1}, // 2963
-  {wxStyledTextCtrl_SetBufferedDraw, "wxStyledTextCtrl", "setBufferedDraw", 2}, // 2964
-  {wxStyledTextCtrl_SetTabWidth, "wxStyledTextCtrl", "setTabWidth", 2}, // 2965
-  {wxStyledTextCtrl_GetTabWidth, "wxStyledTextCtrl", "getTabWidth", 1}, // 2966
-  {wxStyledTextCtrl_SetCodePage, "wxStyledTextCtrl", "setCodePage", 2}, // 2967
-  {wxStyledTextCtrl_MarkerDefine, "wxStyledTextCtrl", "markerDefine", 4}, // 2968
-  {wxStyledTextCtrl_MarkerSetForeground, "wxStyledTextCtrl", "markerSetForeground", 3}, // 2969
-  {wxStyledTextCtrl_MarkerSetBackground, "wxStyledTextCtrl", "markerSetBackground", 3}, // 2970
-  {wxStyledTextCtrl_MarkerAdd, "wxStyledTextCtrl", "markerAdd", 3}, // 2971
-  {wxStyledTextCtrl_MarkerDelete, "wxStyledTextCtrl", "markerDelete", 3}, // 2972
-  {wxStyledTextCtrl_MarkerDeleteAll, "wxStyledTextCtrl", "markerDeleteAll", 2}, // 2973
-  {wxStyledTextCtrl_MarkerGet, "wxStyledTextCtrl", "markerGet", 2}, // 2974
-  {wxStyledTextCtrl_MarkerNext, "wxStyledTextCtrl", "markerNext", 3}, // 2975
-  {wxStyledTextCtrl_MarkerPrevious, "wxStyledTextCtrl", "markerPrevious", 3}, // 2976
-  {wxStyledTextCtrl_MarkerDefineBitmap, "wxStyledTextCtrl", "markerDefineBitmap", 3}, // 2977
-  {wxStyledTextCtrl_MarkerAddSet, "wxStyledTextCtrl", "markerAddSet", 3}, // 2978
-  {wxStyledTextCtrl_MarkerSetAlpha, "wxStyledTextCtrl", "markerSetAlpha", 3}, // 2979
-  {wxStyledTextCtrl_SetMarginType, "wxStyledTextCtrl", "setMarginType", 3}, // 2980
-  {wxStyledTextCtrl_GetMarginType, "wxStyledTextCtrl", "getMarginType", 2}, // 2981
-  {wxStyledTextCtrl_SetMarginWidth, "wxStyledTextCtrl", "setMarginWidth", 3}, // 2982
-  {wxStyledTextCtrl_GetMarginWidth, "wxStyledTextCtrl", "getMarginWidth", 2}, // 2983
-  {wxStyledTextCtrl_SetMarginMask, "wxStyledTextCtrl", "setMarginMask", 3}, // 2984
-  {wxStyledTextCtrl_GetMarginMask, "wxStyledTextCtrl", "getMarginMask", 2}, // 2985
-  {wxStyledTextCtrl_SetMarginSensitive, "wxStyledTextCtrl", "setMarginSensitive", 3}, // 2986
-  {wxStyledTextCtrl_GetMarginSensitive, "wxStyledTextCtrl", "getMarginSensitive", 2}, // 2987
-  {wxStyledTextCtrl_StyleClearAll, "wxStyledTextCtrl", "styleClearAll", 1}, // 2988
-  {wxStyledTextCtrl_StyleSetForeground, "wxStyledTextCtrl", "styleSetForeground", 3}, // 2989
-  {wxStyledTextCtrl_StyleSetBackground, "wxStyledTextCtrl", "styleSetBackground", 3}, // 2990
-  {wxStyledTextCtrl_StyleSetBold, "wxStyledTextCtrl", "styleSetBold", 3}, // 2991
-  {wxStyledTextCtrl_StyleSetItalic, "wxStyledTextCtrl", "styleSetItalic", 3}, // 2992
-  {wxStyledTextCtrl_StyleSetSize, "wxStyledTextCtrl", "styleSetSize", 3}, // 2993
-  {wxStyledTextCtrl_StyleSetFaceName, "wxStyledTextCtrl", "styleSetFaceName", 3}, // 2994
-  {wxStyledTextCtrl_StyleSetEOLFilled, "wxStyledTextCtrl", "styleSetEOLFilled", 3}, // 2995
-  {wxStyledTextCtrl_StyleResetDefault, "wxStyledTextCtrl", "styleResetDefault", 1}, // 2996
-  {wxStyledTextCtrl_StyleSetUnderline, "wxStyledTextCtrl", "styleSetUnderline", 3}, // 2997
-  {wxStyledTextCtrl_StyleSetCase, "wxStyledTextCtrl", "styleSetCase", 3}, // 2998
-  {wxStyledTextCtrl_StyleSetHotSpot, "wxStyledTextCtrl", "styleSetHotSpot", 3}, // 2999
-  {wxStyledTextCtrl_SetSelForeground, "wxStyledTextCtrl", "setSelForeground", 3}, // 3000
-  {wxStyledTextCtrl_SetSelBackground, "wxStyledTextCtrl", "setSelBackground", 3}, // 3001
-  {wxStyledTextCtrl_GetSelAlpha, "wxStyledTextCtrl", "getSelAlpha", 1}, // 3002
-  {wxStyledTextCtrl_SetSelAlpha, "wxStyledTextCtrl", "setSelAlpha", 2}, // 3003
-  {wxStyledTextCtrl_SetCaretForeground, "wxStyledTextCtrl", "setCaretForeground", 2}, // 3004
-  {wxStyledTextCtrl_CmdKeyAssign, "wxStyledTextCtrl", "cmdKeyAssign", 4}, // 3005
-  {wxStyledTextCtrl_CmdKeyClear, "wxStyledTextCtrl", "cmdKeyClear", 3}, // 3006
-  {wxStyledTextCtrl_CmdKeyClearAll, "wxStyledTextCtrl", "cmdKeyClearAll", 1}, // 3007
-  {wxStyledTextCtrl_SetStyleBytes, "wxStyledTextCtrl", "setStyleBytes", 2}, // 3008
-  {wxStyledTextCtrl_StyleSetVisible, "wxStyledTextCtrl", "styleSetVisible", 3}, // 3009
-  {wxStyledTextCtrl_GetCaretPeriod, "wxStyledTextCtrl", "getCaretPeriod", 1}, // 3010
-  {wxStyledTextCtrl_SetCaretPeriod, "wxStyledTextCtrl", "setCaretPeriod", 2}, // 3011
-  {wxStyledTextCtrl_SetWordChars, "wxStyledTextCtrl", "setWordChars", 2}, // 3012
-  {wxStyledTextCtrl_BeginUndoAction, "wxStyledTextCtrl", "beginUndoAction", 1}, // 3013
-  {wxStyledTextCtrl_EndUndoAction, "wxStyledTextCtrl", "endUndoAction", 1}, // 3014
-  {wxStyledTextCtrl_IndicatorSetStyle, "wxStyledTextCtrl", "indicatorSetStyle", 3}, // 3015
-  {wxStyledTextCtrl_IndicatorGetStyle, "wxStyledTextCtrl", "indicatorGetStyle", 2}, // 3016
-  {wxStyledTextCtrl_IndicatorSetForeground, "wxStyledTextCtrl", "indicatorSetForeground", 3}, // 3017
-  {wxStyledTextCtrl_IndicatorGetForeground, "wxStyledTextCtrl", "indicatorGetForeground", 2}, // 3018
-  {wxStyledTextCtrl_SetWhitespaceForeground, "wxStyledTextCtrl", "setWhitespaceForeground", 3}, // 3019
-  {wxStyledTextCtrl_SetWhitespaceBackground, "wxStyledTextCtrl", "setWhitespaceBackground", 3}, // 3020
-  {wxStyledTextCtrl_GetStyleBits, "wxStyledTextCtrl", "getStyleBits", 1}, // 3021
-  {wxStyledTextCtrl_SetLineState, "wxStyledTextCtrl", "setLineState", 3}, // 3022
-  {wxStyledTextCtrl_GetLineState, "wxStyledTextCtrl", "getLineState", 2}, // 3023
-  {wxStyledTextCtrl_GetMaxLineState, "wxStyledTextCtrl", "getMaxLineState", 1}, // 3024
-  {wxStyledTextCtrl_GetCaretLineVisible, "wxStyledTextCtrl", "getCaretLineVisible", 1}, // 3025
-  {wxStyledTextCtrl_SetCaretLineVisible, "wxStyledTextCtrl", "setCaretLineVisible", 2}, // 3026
-  {wxStyledTextCtrl_GetCaretLineBackground, "wxStyledTextCtrl", "getCaretLineBackground", 1}, // 3027
-  {wxStyledTextCtrl_SetCaretLineBackground, "wxStyledTextCtrl", "setCaretLineBackground", 2}, // 3028
-  {wxStyledTextCtrl_AutoCompShow, "wxStyledTextCtrl", "autoCompShow", 3}, // 3029
-  {wxStyledTextCtrl_AutoCompCancel, "wxStyledTextCtrl", "autoCompCancel", 1}, // 3030
-  {wxStyledTextCtrl_AutoCompActive, "wxStyledTextCtrl", "autoCompActive", 1}, // 3031
-  {wxStyledTextCtrl_AutoCompPosStart, "wxStyledTextCtrl", "autoCompPosStart", 1}, // 3032
-  {wxStyledTextCtrl_AutoCompComplete, "wxStyledTextCtrl", "autoCompComplete", 1}, // 3033
-  {wxStyledTextCtrl_AutoCompStops, "wxStyledTextCtrl", "autoCompStops", 2}, // 3034
-  {wxStyledTextCtrl_AutoCompSetSeparator, "wxStyledTextCtrl", "autoCompSetSeparator", 2}, // 3035
-  {wxStyledTextCtrl_AutoCompGetSeparator, "wxStyledTextCtrl", "autoCompGetSeparator", 1}, // 3036
-  {wxStyledTextCtrl_AutoCompSelect, "wxStyledTextCtrl", "autoCompSelect", 2}, // 3037
-  {wxStyledTextCtrl_AutoCompSetCancelAtStart, "wxStyledTextCtrl", "autoCompSetCancelAtStart", 2}, // 3038
-  {wxStyledTextCtrl_AutoCompGetCancelAtStart, "wxStyledTextCtrl", "autoCompGetCancelAtStart", 1}, // 3039
-  {wxStyledTextCtrl_AutoCompSetFillUps, "wxStyledTextCtrl", "autoCompSetFillUps", 2}, // 3040
-  {wxStyledTextCtrl_AutoCompSetChooseSingle, "wxStyledTextCtrl", "autoCompSetChooseSingle", 2}, // 3041
-  {wxStyledTextCtrl_AutoCompGetChooseSingle, "wxStyledTextCtrl", "autoCompGetChooseSingle", 1}, // 3042
-  {wxStyledTextCtrl_AutoCompSetIgnoreCase, "wxStyledTextCtrl", "autoCompSetIgnoreCase", 2}, // 3043
-  {wxStyledTextCtrl_AutoCompGetIgnoreCase, "wxStyledTextCtrl", "autoCompGetIgnoreCase", 1}, // 3044
-  {wxStyledTextCtrl_UserListShow, "wxStyledTextCtrl", "userListShow", 3}, // 3045
-  {wxStyledTextCtrl_AutoCompSetAutoHide, "wxStyledTextCtrl", "autoCompSetAutoHide", 2}, // 3046
-  {wxStyledTextCtrl_AutoCompGetAutoHide, "wxStyledTextCtrl", "autoCompGetAutoHide", 1}, // 3047
-  {wxStyledTextCtrl_AutoCompSetDropRestOfWord, "wxStyledTextCtrl", "autoCompSetDropRestOfWord", 2}, // 3048
-  {wxStyledTextCtrl_AutoCompGetDropRestOfWord, "wxStyledTextCtrl", "autoCompGetDropRestOfWord", 1}, // 3049
-  {wxStyledTextCtrl_RegisterImage, "wxStyledTextCtrl", "registerImage", 3}, // 3050
-  {wxStyledTextCtrl_ClearRegisteredImages, "wxStyledTextCtrl", "clearRegisteredImages", 1}, // 3051
-  {wxStyledTextCtrl_AutoCompGetTypeSeparator, "wxStyledTextCtrl", "autoCompGetTypeSeparator", 1}, // 3052
-  {wxStyledTextCtrl_AutoCompSetTypeSeparator, "wxStyledTextCtrl", "autoCompSetTypeSeparator", 2}, // 3053
-  {wxStyledTextCtrl_AutoCompSetMaxWidth, "wxStyledTextCtrl", "autoCompSetMaxWidth", 2}, // 3054
-  {wxStyledTextCtrl_AutoCompGetMaxWidth, "wxStyledTextCtrl", "autoCompGetMaxWidth", 1}, // 3055
-  {wxStyledTextCtrl_AutoCompSetMaxHeight, "wxStyledTextCtrl", "autoCompSetMaxHeight", 2}, // 3056
-  {wxStyledTextCtrl_AutoCompGetMaxHeight, "wxStyledTextCtrl", "autoCompGetMaxHeight", 1}, // 3057
-  {wxStyledTextCtrl_SetIndent, "wxStyledTextCtrl", "setIndent", 2}, // 3058
-  {wxStyledTextCtrl_GetIndent, "wxStyledTextCtrl", "getIndent", 1}, // 3059
-  {wxStyledTextCtrl_SetUseTabs, "wxStyledTextCtrl", "setUseTabs", 2}, // 3060
-  {wxStyledTextCtrl_GetUseTabs, "wxStyledTextCtrl", "getUseTabs", 1}, // 3061
-  {wxStyledTextCtrl_SetLineIndentation, "wxStyledTextCtrl", "setLineIndentation", 3}, // 3062
-  {wxStyledTextCtrl_GetLineIndentation, "wxStyledTextCtrl", "getLineIndentation", 2}, // 3063
-  {wxStyledTextCtrl_GetLineIndentPosition, "wxStyledTextCtrl", "getLineIndentPosition", 2}, // 3064
-  {wxStyledTextCtrl_GetColumn, "wxStyledTextCtrl", "getColumn", 2}, // 3065
-  {wxStyledTextCtrl_SetUseHorizontalScrollBar, "wxStyledTextCtrl", "setUseHorizontalScrollBar", 2}, // 3066
-  {wxStyledTextCtrl_GetUseHorizontalScrollBar, "wxStyledTextCtrl", "getUseHorizontalScrollBar", 1}, // 3067
-  {wxStyledTextCtrl_SetIndentationGuides, "wxStyledTextCtrl", "setIndentationGuides", 2}, // 3068
-  {wxStyledTextCtrl_GetIndentationGuides, "wxStyledTextCtrl", "getIndentationGuides", 1}, // 3069
-  {wxStyledTextCtrl_SetHighlightGuide, "wxStyledTextCtrl", "setHighlightGuide", 2}, // 3070
-  {wxStyledTextCtrl_GetHighlightGuide, "wxStyledTextCtrl", "getHighlightGuide", 1}, // 3071
-  {wxStyledTextCtrl_GetLineEndPosition, "wxStyledTextCtrl", "getLineEndPosition", 2}, // 3072
-  {wxStyledTextCtrl_GetCodePage, "wxStyledTextCtrl", "getCodePage", 1}, // 3073
-  {wxStyledTextCtrl_GetCaretForeground, "wxStyledTextCtrl", "getCaretForeground", 1}, // 3074
-  {wxStyledTextCtrl_GetReadOnly, "wxStyledTextCtrl", "getReadOnly", 1}, // 3075
-  {wxStyledTextCtrl_SetCurrentPos, "wxStyledTextCtrl", "setCurrentPos", 2}, // 3076
-  {wxStyledTextCtrl_SetSelectionStart, "wxStyledTextCtrl", "setSelectionStart", 2}, // 3077
-  {wxStyledTextCtrl_GetSelectionStart, "wxStyledTextCtrl", "getSelectionStart", 1}, // 3078
-  {wxStyledTextCtrl_SetSelectionEnd, "wxStyledTextCtrl", "setSelectionEnd", 2}, // 3079
-  {wxStyledTextCtrl_GetSelectionEnd, "wxStyledTextCtrl", "getSelectionEnd", 1}, // 3080
-  {wxStyledTextCtrl_SetPrintMagnification, "wxStyledTextCtrl", "setPrintMagnification", 2}, // 3081
-  {wxStyledTextCtrl_GetPrintMagnification, "wxStyledTextCtrl", "getPrintMagnification", 1}, // 3082
-  {wxStyledTextCtrl_SetPrintColourMode, "wxStyledTextCtrl", "setPrintColourMode", 2}, // 3083
-  {wxStyledTextCtrl_GetPrintColourMode, "wxStyledTextCtrl", "getPrintColourMode", 1}, // 3084
-  {wxStyledTextCtrl_FindText, "wxStyledTextCtrl", "findText", 5}, // 3085
-  {wxStyledTextCtrl_FormatRange, "wxStyledTextCtrl", "formatRange", 8}, // 3086
-  {wxStyledTextCtrl_GetFirstVisibleLine, "wxStyledTextCtrl", "getFirstVisibleLine", 1}, // 3087
-  {wxStyledTextCtrl_GetLine, "wxStyledTextCtrl", "getLine", 2}, // 3088
-  {wxStyledTextCtrl_GetLineCount, "wxStyledTextCtrl", "getLineCount", 1}, // 3089
-  {wxStyledTextCtrl_SetMarginLeft, "wxStyledTextCtrl", "setMarginLeft", 2}, // 3090
-  {wxStyledTextCtrl_GetMarginLeft, "wxStyledTextCtrl", "getMarginLeft", 1}, // 3091
-  {wxStyledTextCtrl_SetMarginRight, "wxStyledTextCtrl", "setMarginRight", 2}, // 3092
-  {wxStyledTextCtrl_GetMarginRight, "wxStyledTextCtrl", "getMarginRight", 1}, // 3093
-  {wxStyledTextCtrl_GetModify, "wxStyledTextCtrl", "getModify", 1}, // 3094
-  {wxStyledTextCtrl_SetSelection, "wxStyledTextCtrl", "setSelection", 3}, // 3095
-  {wxStyledTextCtrl_GetSelectedText, "wxStyledTextCtrl", "getSelectedText", 1}, // 3096
-  {wxStyledTextCtrl_GetTextRange, "wxStyledTextCtrl", "getTextRange", 3}, // 3097
-  {wxStyledTextCtrl_HideSelection, "wxStyledTextCtrl", "hideSelection", 2}, // 3098
-  {wxStyledTextCtrl_LineFromPosition, "wxStyledTextCtrl", "lineFromPosition", 2}, // 3099
-  {wxStyledTextCtrl_PositionFromLine, "wxStyledTextCtrl", "positionFromLine", 2}, // 3100
-  {wxStyledTextCtrl_LineScroll, "wxStyledTextCtrl", "lineScroll", 3}, // 3101
-  {wxStyledTextCtrl_EnsureCaretVisible, "wxStyledTextCtrl", "ensureCaretVisible", 1}, // 3102
-  {wxStyledTextCtrl_ReplaceSelection, "wxStyledTextCtrl", "replaceSelection", 2}, // 3103
-  {wxStyledTextCtrl_SetReadOnly, "wxStyledTextCtrl", "setReadOnly", 2}, // 3104
-  {wxStyledTextCtrl_CanPaste, "wxStyledTextCtrl", "canPaste", 1}, // 3105
-  {wxStyledTextCtrl_CanUndo, "wxStyledTextCtrl", "canUndo", 1}, // 3106
-  {wxStyledTextCtrl_EmptyUndoBuffer, "wxStyledTextCtrl", "emptyUndoBuffer", 1}, // 3107
-  {wxStyledTextCtrl_Undo, "wxStyledTextCtrl", "undo", 1}, // 3108
-  {wxStyledTextCtrl_Cut, "wxStyledTextCtrl", "cut", 1}, // 3109
-  {wxStyledTextCtrl_Copy, "wxStyledTextCtrl", "copy", 1}, // 3110
-  {wxStyledTextCtrl_Paste, "wxStyledTextCtrl", "paste", 1}, // 3111
-  {wxStyledTextCtrl_Clear, "wxStyledTextCtrl", "clear", 1}, // 3112
-  {wxStyledTextCtrl_SetText, "wxStyledTextCtrl", "setText", 2}, // 3113
-  {wxStyledTextCtrl_GetText, "wxStyledTextCtrl", "getText", 1}, // 3114
-  {wxStyledTextCtrl_GetTextLength, "wxStyledTextCtrl", "getTextLength", 1}, // 3115
-  {wxStyledTextCtrl_GetOvertype, "wxStyledTextCtrl", "getOvertype", 1}, // 3116
-  {wxStyledTextCtrl_SetCaretWidth, "wxStyledTextCtrl", "setCaretWidth", 2}, // 3117
-  {wxStyledTextCtrl_GetCaretWidth, "wxStyledTextCtrl", "getCaretWidth", 1}, // 3118
-  {wxStyledTextCtrl_SetTargetStart, "wxStyledTextCtrl", "setTargetStart", 2}, // 3119
-  {wxStyledTextCtrl_GetTargetStart, "wxStyledTextCtrl", "getTargetStart", 1}, // 3120
-  {wxStyledTextCtrl_SetTargetEnd, "wxStyledTextCtrl", "setTargetEnd", 2}, // 3121
-  {wxStyledTextCtrl_GetTargetEnd, "wxStyledTextCtrl", "getTargetEnd", 1}, // 3122
-  {wxStyledTextCtrl_ReplaceTarget, "wxStyledTextCtrl", "replaceTarget", 2}, // 3123
-  {wxStyledTextCtrl_SearchInTarget, "wxStyledTextCtrl", "searchInTarget", 2}, // 3124
-  {wxStyledTextCtrl_SetSearchFlags, "wxStyledTextCtrl", "setSearchFlags", 2}, // 3125
-  {wxStyledTextCtrl_GetSearchFlags, "wxStyledTextCtrl", "getSearchFlags", 1}, // 3126
-  {wxStyledTextCtrl_CallTipShow, "wxStyledTextCtrl", "callTipShow", 3}, // 3127
-  {wxStyledTextCtrl_CallTipCancel, "wxStyledTextCtrl", "callTipCancel", 1}, // 3128
-  {wxStyledTextCtrl_CallTipActive, "wxStyledTextCtrl", "callTipActive", 1}, // 3129
-  {wxStyledTextCtrl_CallTipPosAtStart, "wxStyledTextCtrl", "callTipPosAtStart", 1}, // 3130
-  {wxStyledTextCtrl_CallTipSetHighlight, "wxStyledTextCtrl", "callTipSetHighlight", 3}, // 3131
-  {wxStyledTextCtrl_CallTipSetBackground, "wxStyledTextCtrl", "callTipSetBackground", 2}, // 3132
-  {wxStyledTextCtrl_CallTipSetForeground, "wxStyledTextCtrl", "callTipSetForeground", 2}, // 3133
-  {wxStyledTextCtrl_CallTipSetForegroundHighlight, "wxStyledTextCtrl", "callTipSetForegroundHighlight", 2}, // 3134
-  {wxStyledTextCtrl_CallTipUseStyle, "wxStyledTextCtrl", "callTipUseStyle", 2}, // 3135
-  {wxStyledTextCtrl_VisibleFromDocLine, "wxStyledTextCtrl", "visibleFromDocLine", 2}, // 3136
-  {wxStyledTextCtrl_DocLineFromVisible, "wxStyledTextCtrl", "docLineFromVisible", 2}, // 3137
-  {wxStyledTextCtrl_WrapCount, "wxStyledTextCtrl", "wrapCount", 2}, // 3138
-  {wxStyledTextCtrl_SetFoldLevel, "wxStyledTextCtrl", "setFoldLevel", 3}, // 3139
-  {wxStyledTextCtrl_GetFoldLevel, "wxStyledTextCtrl", "getFoldLevel", 2}, // 3140
-  {wxStyledTextCtrl_GetLastChild, "wxStyledTextCtrl", "getLastChild", 3}, // 3141
-  {wxStyledTextCtrl_GetFoldParent, "wxStyledTextCtrl", "getFoldParent", 2}, // 3142
-  {wxStyledTextCtrl_ShowLines, "wxStyledTextCtrl", "showLines", 3}, // 3143
-  {wxStyledTextCtrl_HideLines, "wxStyledTextCtrl", "hideLines", 3}, // 3144
-  {wxStyledTextCtrl_GetLineVisible, "wxStyledTextCtrl", "getLineVisible", 2}, // 3145
-  {wxStyledTextCtrl_SetFoldExpanded, "wxStyledTextCtrl", "setFoldExpanded", 3}, // 3146
-  {wxStyledTextCtrl_GetFoldExpanded, "wxStyledTextCtrl", "getFoldExpanded", 2}, // 3147
-  {wxStyledTextCtrl_ToggleFold, "wxStyledTextCtrl", "toggleFold", 2}, // 3148
-  {wxStyledTextCtrl_EnsureVisible, "wxStyledTextCtrl", "ensureVisible", 2}, // 3149
-  {wxStyledTextCtrl_SetFoldFlags, "wxStyledTextCtrl", "setFoldFlags", 2}, // 3150
-  {wxStyledTextCtrl_EnsureVisibleEnforcePolicy, "wxStyledTextCtrl", "ensureVisibleEnforcePolicy", 2}, // 3151
-  {wxStyledTextCtrl_SetTabIndents, "wxStyledTextCtrl", "setTabIndents", 2}, // 3152
-  {wxStyledTextCtrl_GetTabIndents, "wxStyledTextCtrl", "getTabIndents", 1}, // 3153
-  {wxStyledTextCtrl_SetBackSpaceUnIndents, "wxStyledTextCtrl", "setBackSpaceUnIndents", 2}, // 3154
-  {wxStyledTextCtrl_GetBackSpaceUnIndents, "wxStyledTextCtrl", "getBackSpaceUnIndents", 1}, // 3155
-  {wxStyledTextCtrl_SetMouseDwellTime, "wxStyledTextCtrl", "setMouseDwellTime", 2}, // 3156
-  {wxStyledTextCtrl_GetMouseDwellTime, "wxStyledTextCtrl", "getMouseDwellTime", 1}, // 3157
-  {wxStyledTextCtrl_WordStartPosition, "wxStyledTextCtrl", "wordStartPosition", 3}, // 3158
-  {wxStyledTextCtrl_WordEndPosition, "wxStyledTextCtrl", "wordEndPosition", 3}, // 3159
-  {wxStyledTextCtrl_SetWrapMode, "wxStyledTextCtrl", "setWrapMode", 2}, // 3160
-  {wxStyledTextCtrl_GetWrapMode, "wxStyledTextCtrl", "getWrapMode", 1}, // 3161
-  {wxStyledTextCtrl_SetWrapVisualFlags, "wxStyledTextCtrl", "setWrapVisualFlags", 2}, // 3162
-  {wxStyledTextCtrl_GetWrapVisualFlags, "wxStyledTextCtrl", "getWrapVisualFlags", 1}, // 3163
-  {wxStyledTextCtrl_SetWrapVisualFlagsLocation, "wxStyledTextCtrl", "setWrapVisualFlagsLocation", 2}, // 3164
-  {wxStyledTextCtrl_GetWrapVisualFlagsLocation, "wxStyledTextCtrl", "getWrapVisualFlagsLocation", 1}, // 3165
-  {wxStyledTextCtrl_SetWrapStartIndent, "wxStyledTextCtrl", "setWrapStartIndent", 2}, // 3166
-  {wxStyledTextCtrl_GetWrapStartIndent, "wxStyledTextCtrl", "getWrapStartIndent", 1}, // 3167
-  {wxStyledTextCtrl_SetLayoutCache, "wxStyledTextCtrl", "setLayoutCache", 2}, // 3168
-  {wxStyledTextCtrl_GetLayoutCache, "wxStyledTextCtrl", "getLayoutCache", 1}, // 3169
-  {wxStyledTextCtrl_SetScrollWidth, "wxStyledTextCtrl", "setScrollWidth", 2}, // 3170
-  {wxStyledTextCtrl_GetScrollWidth, "wxStyledTextCtrl", "getScrollWidth", 1}, // 3171
-  {wxStyledTextCtrl_TextWidth, "wxStyledTextCtrl", "textWidth", 3}, // 3172
-  {wxStyledTextCtrl_GetEndAtLastLine, "wxStyledTextCtrl", "getEndAtLastLine", 1}, // 3173
-  {wxStyledTextCtrl_TextHeight, "wxStyledTextCtrl", "textHeight", 2}, // 3174
-  {wxStyledTextCtrl_SetUseVerticalScrollBar, "wxStyledTextCtrl", "setUseVerticalScrollBar", 2}, // 3175
-  {wxStyledTextCtrl_GetUseVerticalScrollBar, "wxStyledTextCtrl", "getUseVerticalScrollBar", 1}, // 3176
-  {wxStyledTextCtrl_AppendText, "wxStyledTextCtrl", "appendText", 2}, // 3177
-  {wxStyledTextCtrl_GetTwoPhaseDraw, "wxStyledTextCtrl", "getTwoPhaseDraw", 1}, // 3178
-  {wxStyledTextCtrl_SetTwoPhaseDraw, "wxStyledTextCtrl", "setTwoPhaseDraw", 2}, // 3179
-  {wxStyledTextCtrl_TargetFromSelection, "wxStyledTextCtrl", "targetFromSelection", 1}, // 3180
-  {wxStyledTextCtrl_LinesJoin, "wxStyledTextCtrl", "linesJoin", 1}, // 3181
-  {wxStyledTextCtrl_LinesSplit, "wxStyledTextCtrl", "linesSplit", 2}, // 3182
-  {wxStyledTextCtrl_SetFoldMarginColour, "wxStyledTextCtrl", "setFoldMarginColour", 3}, // 3183
-  {wxStyledTextCtrl_SetFoldMarginHiColour, "wxStyledTextCtrl", "setFoldMarginHiColour", 3}, // 3184
-  {wxStyledTextCtrl_LineDown, "wxStyledTextCtrl", "lineDown", 1}, // 3185
-  {wxStyledTextCtrl_LineDownExtend, "wxStyledTextCtrl", "lineDownExtend", 1}, // 3186
-  {wxStyledTextCtrl_LineUp, "wxStyledTextCtrl", "lineUp", 1}, // 3187
-  {wxStyledTextCtrl_LineUpExtend, "wxStyledTextCtrl", "lineUpExtend", 1}, // 3188
-  {wxStyledTextCtrl_CharLeft, "wxStyledTextCtrl", "charLeft", 1}, // 3189
-  {wxStyledTextCtrl_CharLeftExtend, "wxStyledTextCtrl", "charLeftExtend", 1}, // 3190
-  {wxStyledTextCtrl_CharRight, "wxStyledTextCtrl", "charRight", 1}, // 3191
-  {wxStyledTextCtrl_CharRightExtend, "wxStyledTextCtrl", "charRightExtend", 1}, // 3192
-  {wxStyledTextCtrl_WordLeft, "wxStyledTextCtrl", "wordLeft", 1}, // 3193
-  {wxStyledTextCtrl_WordLeftExtend, "wxStyledTextCtrl", "wordLeftExtend", 1}, // 3194
-  {wxStyledTextCtrl_WordRight, "wxStyledTextCtrl", "wordRight", 1}, // 3195
-  {wxStyledTextCtrl_WordRightExtend, "wxStyledTextCtrl", "wordRightExtend", 1}, // 3196
-  {wxStyledTextCtrl_Home, "wxStyledTextCtrl", "home", 1}, // 3197
-  {wxStyledTextCtrl_HomeExtend, "wxStyledTextCtrl", "homeExtend", 1}, // 3198
-  {wxStyledTextCtrl_LineEnd, "wxStyledTextCtrl", "lineEnd", 1}, // 3199
-  {wxStyledTextCtrl_LineEndExtend, "wxStyledTextCtrl", "lineEndExtend", 1}, // 3200
-  {wxStyledTextCtrl_DocumentStart, "wxStyledTextCtrl", "documentStart", 1}, // 3201
-  {wxStyledTextCtrl_DocumentStartExtend, "wxStyledTextCtrl", "documentStartExtend", 1}, // 3202
-  {wxStyledTextCtrl_DocumentEnd, "wxStyledTextCtrl", "documentEnd", 1}, // 3203
-  {wxStyledTextCtrl_DocumentEndExtend, "wxStyledTextCtrl", "documentEndExtend", 1}, // 3204
-  {wxStyledTextCtrl_PageUp, "wxStyledTextCtrl", "pageUp", 1}, // 3205
-  {wxStyledTextCtrl_PageUpExtend, "wxStyledTextCtrl", "pageUpExtend", 1}, // 3206
-  {wxStyledTextCtrl_PageDown, "wxStyledTextCtrl", "pageDown", 1}, // 3207
-  {wxStyledTextCtrl_PageDownExtend, "wxStyledTextCtrl", "pageDownExtend", 1}, // 3208
-  {wxStyledTextCtrl_EditToggleOvertype, "wxStyledTextCtrl", "editToggleOvertype", 1}, // 3209
-  {wxStyledTextCtrl_Cancel, "wxStyledTextCtrl", "cancel", 1}, // 3210
-  {wxStyledTextCtrl_DeleteBack, "wxStyledTextCtrl", "deleteBack", 1}, // 3211
-  {wxStyledTextCtrl_Tab, "wxStyledTextCtrl", "tab", 1}, // 3212
-  {wxStyledTextCtrl_BackTab, "wxStyledTextCtrl", "backTab", 1}, // 3213
-  {wxStyledTextCtrl_NewLine, "wxStyledTextCtrl", "newLine", 1}, // 3214
-  {wxStyledTextCtrl_FormFeed, "wxStyledTextCtrl", "formFeed", 1}, // 3215
-  {wxStyledTextCtrl_VCHome, "wxStyledTextCtrl", "vCHome", 1}, // 3216
-  {wxStyledTextCtrl_VCHomeExtend, "wxStyledTextCtrl", "vCHomeExtend", 1}, // 3217
-  {wxStyledTextCtrl_ZoomIn, "wxStyledTextCtrl", "zoomIn", 1}, // 3218
-  {wxStyledTextCtrl_ZoomOut, "wxStyledTextCtrl", "zoomOut", 1}, // 3219
-  {wxStyledTextCtrl_DelWordLeft, "wxStyledTextCtrl", "delWordLeft", 1}, // 3220
-  {wxStyledTextCtrl_DelWordRight, "wxStyledTextCtrl", "delWordRight", 1}, // 3221
-  {wxStyledTextCtrl_LineCut, "wxStyledTextCtrl", "lineCut", 1}, // 3222
-  {wxStyledTextCtrl_LineDelete, "wxStyledTextCtrl", "lineDelete", 1}, // 3223
-  {wxStyledTextCtrl_LineTranspose, "wxStyledTextCtrl", "lineTranspose", 1}, // 3224
-  {wxStyledTextCtrl_LineDuplicate, "wxStyledTextCtrl", "lineDuplicate", 1}, // 3225
-  {wxStyledTextCtrl_LowerCase, "wxStyledTextCtrl", "lowerCase", 1}, // 3226
-  {wxStyledTextCtrl_UpperCase, "wxStyledTextCtrl", "upperCase", 1}, // 3227
-  {wxStyledTextCtrl_LineScrollDown, "wxStyledTextCtrl", "lineScrollDown", 1}, // 3228
-  {wxStyledTextCtrl_LineScrollUp, "wxStyledTextCtrl", "lineScrollUp", 1}, // 3229
-  {wxStyledTextCtrl_DeleteBackNotLine, "wxStyledTextCtrl", "deleteBackNotLine", 1}, // 3230
-  {wxStyledTextCtrl_HomeDisplay, "wxStyledTextCtrl", "homeDisplay", 1}, // 3231
-  {wxStyledTextCtrl_HomeDisplayExtend, "wxStyledTextCtrl", "homeDisplayExtend", 1}, // 3232
-  {wxStyledTextCtrl_LineEndDisplay, "wxStyledTextCtrl", "lineEndDisplay", 1}, // 3233
-  {wxStyledTextCtrl_LineEndDisplayExtend, "wxStyledTextCtrl", "lineEndDisplayExtend", 1}, // 3234
-  {wxStyledTextCtrl_HomeWrapExtend, "wxStyledTextCtrl", "homeWrapExtend", 1}, // 3235
-  {wxStyledTextCtrl_LineEndWrap, "wxStyledTextCtrl", "lineEndWrap", 1}, // 3236
-  {wxStyledTextCtrl_LineEndWrapExtend, "wxStyledTextCtrl", "lineEndWrapExtend", 1}, // 3237
-  {wxStyledTextCtrl_VCHomeWrap, "wxStyledTextCtrl", "vCHomeWrap", 1}, // 3238
-  {wxStyledTextCtrl_VCHomeWrapExtend, "wxStyledTextCtrl", "vCHomeWrapExtend", 1}, // 3239
-  {wxStyledTextCtrl_LineCopy, "wxStyledTextCtrl", "lineCopy", 1}, // 3240
-  {wxStyledTextCtrl_MoveCaretInsideView, "wxStyledTextCtrl", "moveCaretInsideView", 1}, // 3241
-  {wxStyledTextCtrl_LineLength, "wxStyledTextCtrl", "lineLength", 2}, // 3242
-  {wxStyledTextCtrl_BraceHighlight, "wxStyledTextCtrl", "braceHighlight", 3}, // 3243
-  {wxStyledTextCtrl_BraceBadLight, "wxStyledTextCtrl", "braceBadLight", 2}, // 3244
-  {wxStyledTextCtrl_BraceMatch, "wxStyledTextCtrl", "braceMatch", 2}, // 3245
-  {wxStyledTextCtrl_GetViewEOL, "wxStyledTextCtrl", "getViewEOL", 1}, // 3246
-  {wxStyledTextCtrl_SetViewEOL, "wxStyledTextCtrl", "setViewEOL", 2}, // 3247
-  {wxStyledTextCtrl_SetModEventMask, "wxStyledTextCtrl", "setModEventMask", 2}, // 3248
-  {wxStyledTextCtrl_GetEdgeColumn, "wxStyledTextCtrl", "getEdgeColumn", 1}, // 3249
-  {wxStyledTextCtrl_SetEdgeColumn, "wxStyledTextCtrl", "setEdgeColumn", 2}, // 3250
-  {wxStyledTextCtrl_SetEdgeMode, "wxStyledTextCtrl", "setEdgeMode", 2}, // 3251
-  {wxStyledTextCtrl_GetEdgeMode, "wxStyledTextCtrl", "getEdgeMode", 1}, // 3252
-  {wxStyledTextCtrl_GetEdgeColour, "wxStyledTextCtrl", "getEdgeColour", 1}, // 3253
-  {wxStyledTextCtrl_SetEdgeColour, "wxStyledTextCtrl", "setEdgeColour", 2}, // 3254
-  {wxStyledTextCtrl_SearchAnchor, "wxStyledTextCtrl", "searchAnchor", 1}, // 3255
-  {wxStyledTextCtrl_SearchNext, "wxStyledTextCtrl", "searchNext", 3}, // 3256
-  {wxStyledTextCtrl_SearchPrev, "wxStyledTextCtrl", "searchPrev", 3}, // 3257
-  {wxStyledTextCtrl_LinesOnScreen, "wxStyledTextCtrl", "linesOnScreen", 1}, // 3258
-  {wxStyledTextCtrl_UsePopUp, "wxStyledTextCtrl", "usePopUp", 2}, // 3259
-  {wxStyledTextCtrl_SelectionIsRectangle, "wxStyledTextCtrl", "selectionIsRectangle", 1}, // 3260
-  {wxStyledTextCtrl_SetZoom, "wxStyledTextCtrl", "setZoom", 2}, // 3261
-  {wxStyledTextCtrl_GetZoom, "wxStyledTextCtrl", "getZoom", 1}, // 3262
-  {wxStyledTextCtrl_GetModEventMask, "wxStyledTextCtrl", "getModEventMask", 1}, // 3263
-  {wxStyledTextCtrl_SetSTCFocus, "wxStyledTextCtrl", "setSTCFocus", 2}, // 3264
-  {wxStyledTextCtrl_GetSTCFocus, "wxStyledTextCtrl", "getSTCFocus", 1}, // 3265
-  {wxStyledTextCtrl_SetStatus, "wxStyledTextCtrl", "setStatus", 2}, // 3266
-  {wxStyledTextCtrl_GetStatus, "wxStyledTextCtrl", "getStatus", 1}, // 3267
-  {wxStyledTextCtrl_SetMouseDownCaptures, "wxStyledTextCtrl", "setMouseDownCaptures", 2}, // 3268
-  {wxStyledTextCtrl_GetMouseDownCaptures, "wxStyledTextCtrl", "getMouseDownCaptures", 1}, // 3269
-  {wxStyledTextCtrl_SetSTCCursor, "wxStyledTextCtrl", "setSTCCursor", 2}, // 3270
-  {wxStyledTextCtrl_GetSTCCursor, "wxStyledTextCtrl", "getSTCCursor", 1}, // 3271
-  {wxStyledTextCtrl_SetControlCharSymbol, "wxStyledTextCtrl", "setControlCharSymbol", 2}, // 3272
-  {wxStyledTextCtrl_GetControlCharSymbol, "wxStyledTextCtrl", "getControlCharSymbol", 1}, // 3273
-  {wxStyledTextCtrl_WordPartLeft, "wxStyledTextCtrl", "wordPartLeft", 1}, // 3274
-  {wxStyledTextCtrl_WordPartLeftExtend, "wxStyledTextCtrl", "wordPartLeftExtend", 1}, // 3275
-  {wxStyledTextCtrl_WordPartRight, "wxStyledTextCtrl", "wordPartRight", 1}, // 3276
-  {wxStyledTextCtrl_WordPartRightExtend, "wxStyledTextCtrl", "wordPartRightExtend", 1}, // 3277
-  {wxStyledTextCtrl_SetVisiblePolicy, "wxStyledTextCtrl", "setVisiblePolicy", 3}, // 3278
-  {wxStyledTextCtrl_DelLineLeft, "wxStyledTextCtrl", "delLineLeft", 1}, // 3279
-  {wxStyledTextCtrl_DelLineRight, "wxStyledTextCtrl", "delLineRight", 1}, // 3280
-  {wxStyledTextCtrl_GetXOffset, "wxStyledTextCtrl", "getXOffset", 1}, // 3281
-  {wxStyledTextCtrl_ChooseCaretX, "wxStyledTextCtrl", "chooseCaretX", 1}, // 3282
-  {wxStyledTextCtrl_SetXCaretPolicy, "wxStyledTextCtrl", "setXCaretPolicy", 3}, // 3283
-  {wxStyledTextCtrl_SetYCaretPolicy, "wxStyledTextCtrl", "setYCaretPolicy", 3}, // 3284
-  {wxStyledTextCtrl_GetPrintWrapMode, "wxStyledTextCtrl", "getPrintWrapMode", 1}, // 3285
-  {wxStyledTextCtrl_SetHotspotActiveForeground, "wxStyledTextCtrl", "setHotspotActiveForeground", 3}, // 3286
-  {wxStyledTextCtrl_SetHotspotActiveBackground, "wxStyledTextCtrl", "setHotspotActiveBackground", 3}, // 3287
-  {wxStyledTextCtrl_SetHotspotActiveUnderline, "wxStyledTextCtrl", "setHotspotActiveUnderline", 2}, // 3288
-  {wxStyledTextCtrl_SetHotspotSingleLine, "wxStyledTextCtrl", "setHotspotSingleLine", 2}, // 3289
-  {wxStyledTextCtrl_ParaDownExtend, "wxStyledTextCtrl", "paraDownExtend", 1}, // 3290
-  {wxStyledTextCtrl_ParaUp, "wxStyledTextCtrl", "paraUp", 1}, // 3291
-  {wxStyledTextCtrl_ParaUpExtend, "wxStyledTextCtrl", "paraUpExtend", 1}, // 3292
-  {wxStyledTextCtrl_PositionBefore, "wxStyledTextCtrl", "positionBefore", 2}, // 3293
-  {wxStyledTextCtrl_PositionAfter, "wxStyledTextCtrl", "positionAfter", 2}, // 3294
-  {wxStyledTextCtrl_CopyRange, "wxStyledTextCtrl", "copyRange", 3}, // 3295
-  {wxStyledTextCtrl_CopyText, "wxStyledTextCtrl", "copyText", 3}, // 3296
-  {wxStyledTextCtrl_SetSelectionMode, "wxStyledTextCtrl", "setSelectionMode", 2}, // 3297
-  {wxStyledTextCtrl_GetSelectionMode, "wxStyledTextCtrl", "getSelectionMode", 1}, // 3298
-  {wxStyledTextCtrl_LineDownRectExtend, "wxStyledTextCtrl", "lineDownRectExtend", 1}, // 3299
-  {wxStyledTextCtrl_LineUpRectExtend, "wxStyledTextCtrl", "lineUpRectExtend", 1}, // 3300
-  {wxStyledTextCtrl_CharLeftRectExtend, "wxStyledTextCtrl", "charLeftRectExtend", 1}, // 3301
-  {wxStyledTextCtrl_CharRightRectExtend, "wxStyledTextCtrl", "charRightRectExtend", 1}, // 3302
-  {wxStyledTextCtrl_HomeRectExtend, "wxStyledTextCtrl", "homeRectExtend", 1}, // 3303
-  {wxStyledTextCtrl_VCHomeRectExtend, "wxStyledTextCtrl", "vCHomeRectExtend", 1}, // 3304
-  {wxStyledTextCtrl_LineEndRectExtend, "wxStyledTextCtrl", "lineEndRectExtend", 1}, // 3305
-  {wxStyledTextCtrl_PageUpRectExtend, "wxStyledTextCtrl", "pageUpRectExtend", 1}, // 3306
-  {wxStyledTextCtrl_PageDownRectExtend, "wxStyledTextCtrl", "pageDownRectExtend", 1}, // 3307
-  {wxStyledTextCtrl_StutteredPageUp, "wxStyledTextCtrl", "stutteredPageUp", 1}, // 3308
-  {wxStyledTextCtrl_StutteredPageUpExtend, "wxStyledTextCtrl", "stutteredPageUpExtend", 1}, // 3309
-  {wxStyledTextCtrl_StutteredPageDown, "wxStyledTextCtrl", "stutteredPageDown", 1}, // 3310
-  {wxStyledTextCtrl_StutteredPageDownExtend, "wxStyledTextCtrl", "stutteredPageDownExtend", 1}, // 3311
-  {wxStyledTextCtrl_WordLeftEnd, "wxStyledTextCtrl", "wordLeftEnd", 1}, // 3312
-  {wxStyledTextCtrl_WordLeftEndExtend, "wxStyledTextCtrl", "wordLeftEndExtend", 1}, // 3313
-  {wxStyledTextCtrl_WordRightEnd, "wxStyledTextCtrl", "wordRightEnd", 1}, // 3314
-  {wxStyledTextCtrl_WordRightEndExtend, "wxStyledTextCtrl", "wordRightEndExtend", 1}, // 3315
-  {wxStyledTextCtrl_SetWhitespaceChars, "wxStyledTextCtrl", "setWhitespaceChars", 2}, // 3316
-  {wxStyledTextCtrl_SetCharsDefault, "wxStyledTextCtrl", "setCharsDefault", 1}, // 3317
-  {wxStyledTextCtrl_AutoCompGetCurrent, "wxStyledTextCtrl", "autoCompGetCurrent", 1}, // 3318
-  {wxStyledTextCtrl_Allocate, "wxStyledTextCtrl", "allocate", 2}, // 3319
-  {wxStyledTextCtrl_FindColumn, "wxStyledTextCtrl", "findColumn", 3}, // 3320
-  {wxStyledTextCtrl_GetCaretSticky, "wxStyledTextCtrl", "getCaretSticky", 1}, // 3321
-  {wxStyledTextCtrl_SetCaretSticky, "wxStyledTextCtrl", "setCaretSticky", 2}, // 3322
-  {wxStyledTextCtrl_ToggleCaretSticky, "wxStyledTextCtrl", "toggleCaretSticky", 1}, // 3323
-  {wxStyledTextCtrl_SetPasteConvertEndings, "wxStyledTextCtrl", "setPasteConvertEndings", 2}, // 3324
-  {wxStyledTextCtrl_GetPasteConvertEndings, "wxStyledTextCtrl", "getPasteConvertEndings", 1}, // 3325
-  {wxStyledTextCtrl_SelectionDuplicate, "wxStyledTextCtrl", "selectionDuplicate", 1}, // 3326
-  {wxStyledTextCtrl_SetCaretLineBackAlpha, "wxStyledTextCtrl", "setCaretLineBackAlpha", 2}, // 3327
-  {wxStyledTextCtrl_GetCaretLineBackAlpha, "wxStyledTextCtrl", "getCaretLineBackAlpha", 1}, // 3328
-  {wxStyledTextCtrl_StartRecord, "wxStyledTextCtrl", "startRecord", 1}, // 3329
-  {wxStyledTextCtrl_StopRecord, "wxStyledTextCtrl", "stopRecord", 1}, // 3330
-  {wxStyledTextCtrl_SetLexer, "wxStyledTextCtrl", "setLexer", 2}, // 3331
-  {wxStyledTextCtrl_GetLexer, "wxStyledTextCtrl", "getLexer", 1}, // 3332
-  {wxStyledTextCtrl_Colourise, "wxStyledTextCtrl", "colourise", 3}, // 3333
-  {wxStyledTextCtrl_SetProperty, "wxStyledTextCtrl", "setProperty", 3}, // 3334
-  {wxStyledTextCtrl_SetKeyWords, "wxStyledTextCtrl", "setKeyWords", 3}, // 3335
-  {wxStyledTextCtrl_SetLexerLanguage, "wxStyledTextCtrl", "setLexerLanguage", 2}, // 3336
-  {wxStyledTextCtrl_GetProperty, "wxStyledTextCtrl", "getProperty", 2}, // 3337
-  {wxStyledTextCtrl_GetStyleBitsNeeded, "wxStyledTextCtrl", "getStyleBitsNeeded", 1}, // 3338
-  {wxStyledTextCtrl_GetCurrentLine, "wxStyledTextCtrl", "getCurrentLine", 1}, // 3339
-  {wxStyledTextCtrl_StyleSetSpec, "wxStyledTextCtrl", "styleSetSpec", 3}, // 3340
-  {wxStyledTextCtrl_StyleSetFont, "wxStyledTextCtrl", "styleSetFont", 3}, // 3341
-  {wxStyledTextCtrl_StyleSetFontAttr, "wxStyledTextCtrl", "styleSetFontAttr", 8}, // 3342
-  {wxStyledTextCtrl_StyleSetCharacterSet, "wxStyledTextCtrl", "styleSetCharacterSet", 3}, // 3343
-  {wxStyledTextCtrl_StyleSetFontEncoding, "wxStyledTextCtrl", "styleSetFontEncoding", 3}, // 3344
-  {wxStyledTextCtrl_CmdKeyExecute, "wxStyledTextCtrl", "cmdKeyExecute", 2}, // 3345
-  {wxStyledTextCtrl_SetMargins, "wxStyledTextCtrl", "setMargins", 3}, // 3346
-  {wxStyledTextCtrl_GetSelection, "wxStyledTextCtrl", "getSelection", 1}, // 3347
-  {wxStyledTextCtrl_PointFromPosition, "wxStyledTextCtrl", "pointFromPosition", 2}, // 3348
-  {wxStyledTextCtrl_ScrollToLine, "wxStyledTextCtrl", "scrollToLine", 2}, // 3349
-  {wxStyledTextCtrl_ScrollToColumn, "wxStyledTextCtrl", "scrollToColumn", 2}, // 3350
-  {wxStyledTextCtrl_SetVScrollBar, "wxStyledTextCtrl", "setVScrollBar", 2}, // 3351
-  {wxStyledTextCtrl_SetHScrollBar, "wxStyledTextCtrl", "setHScrollBar", 2}, // 3352
-  {wxStyledTextCtrl_GetLastKeydownProcessed, "wxStyledTextCtrl", "getLastKeydownProcessed", 1}, // 3353
-  {wxStyledTextCtrl_SetLastKeydownProcessed, "wxStyledTextCtrl", "setLastKeydownProcessed", 2}, // 3354
-  {wxStyledTextCtrl_SaveFile, "wxStyledTextCtrl", "saveFile", 2}, // 3355
-  {wxStyledTextCtrl_LoadFile, "wxStyledTextCtrl", "loadFile", 2}, // 3356
-  {wxStyledTextCtrl_DoDragOver, "wxStyledTextCtrl", "doDragOver", 4}, // 3357
-  {wxStyledTextCtrl_DoDropText, "wxStyledTextCtrl", "doDropText", 4}, // 3358
-  {wxStyledTextCtrl_GetUseAntiAliasing, "wxStyledTextCtrl", "getUseAntiAliasing", 1}, // 3359
-  {wxStyledTextCtrl_AddTextRaw, "wxStyledTextCtrl", "addTextRaw", 3}, // 3360
-  {wxStyledTextCtrl_InsertTextRaw, "wxStyledTextCtrl", "insertTextRaw", 3}, // 3361
-  {wxStyledTextCtrl_GetCurLineRaw, "wxStyledTextCtrl", "getCurLineRaw", 1}, // 3362
-  {wxStyledTextCtrl_GetLineRaw, "wxStyledTextCtrl", "getLineRaw", 2}, // 3363
-  {wxStyledTextCtrl_GetSelectedTextRaw, "wxStyledTextCtrl", "getSelectedTextRaw", 1}, // 3364
-  {wxStyledTextCtrl_GetTextRangeRaw, "wxStyledTextCtrl", "getTextRangeRaw", 3}, // 3365
-  {wxStyledTextCtrl_SetTextRaw, "wxStyledTextCtrl", "setTextRaw", 2}, // 3366
-  {wxStyledTextCtrl_GetTextRaw, "wxStyledTextCtrl", "getTextRaw", 1}, // 3367
-  {wxStyledTextCtrl_AppendTextRaw, "wxStyledTextCtrl", "appendTextRaw", 3}, // 3368
-  {wxArtProvider_GetBitmap, "wxArtProvider", "getBitmap", 2}, // 3369
-  {wxArtProvider_GetIcon, "wxArtProvider", "getIcon", 2}, // 3370
-  {wxTreeEvent_GetKeyCode, "wxTreeEvent", "getKeyCode", 1}, // 3371
-  {wxTreeEvent_GetItem, "wxTreeEvent", "getItem", 1}, // 3372
-  {wxTreeEvent_GetKeyEvent, "wxTreeEvent", "getKeyEvent", 1}, // 3373
-  {wxTreeEvent_GetLabel, "wxTreeEvent", "getLabel", 1}, // 3374
-  {wxTreeEvent_GetOldItem, "wxTreeEvent", "getOldItem", 1}, // 3375
-  {wxTreeEvent_GetPoint, "wxTreeEvent", "getPoint", 1}, // 3376
-  {wxTreeEvent_IsEditCancelled, "wxTreeEvent", "isEditCancelled", 1}, // 3377
-  {wxTreeEvent_SetToolTip, "wxTreeEvent", "setToolTip", 2}, // 3378
-  {wxBookCtrlEvent_GetOldSelection, "wxBookCtrlEvent", "getOldSelection", 1}, // 3379
-  {wxBookCtrlEvent_GetSelection, "wxBookCtrlEvent", "getSelection", 1}, // 3380
-  {wxBookCtrlEvent_SetOldSelection, "wxBookCtrlEvent", "setOldSelection", 2}, // 3381
-  {wxBookCtrlEvent_SetSelection, "wxBookCtrlEvent", "setSelection", 2}, // 3382
-  {wxFileDataObject_new, "wxFileDataObject", "new", 0}, // 3383
-  {wxFileDataObject_AddFile, "wxFileDataObject", "addFile", 2}, // 3384
-  {wxFileDataObject_GetFilenames, "wxFileDataObject", "getFilenames", 1}, // 3385
-  {wxFileDataObject_destroy, "wxFileDataObject", "'Destroy'", 1}, // 3386
-  {wxTextDataObject_new, "wxTextDataObject", "new", 1}, // 3387
-  {wxTextDataObject_GetTextLength, "wxTextDataObject", "getTextLength", 1}, // 3388
-  {wxTextDataObject_GetText, "wxTextDataObject", "getText", 1}, // 3389
-  {wxTextDataObject_SetText, "wxTextDataObject", "setText", 2}, // 3390
-  {wxTextDataObject_destroy, "wxTextDataObject", "'Destroy'", 1}, // 3391
-  {wxBitmapDataObject_new_1_1, "wxBitmapDataObject", "new", 1}, // 3392
-  {wxBitmapDataObject_new_1_0, "wxBitmapDataObject", "new", 1}, // 3393
-  {wxBitmapDataObject_GetBitmap, "wxBitmapDataObject", "getBitmap", 1}, // 3394
-  {wxBitmapDataObject_SetBitmap, "wxBitmapDataObject", "setBitmap", 2}, // 3395
-  {wxBitmapDataObject_destroy, "wxBitmapDataObject", "'Destroy'", 1}, // 3396
-  {wxClipboard_new, "wxClipboard", "new", 0}, // 3397
-  {NULL, "wxClipboard", "destroy", 1}, // 3398 obj destructor wxClipboard_destruct
-  {wxClipboard_AddData, "wxClipboard", "addData", 2}, // 3399
-  {wxClipboard_Clear, "wxClipboard", "clear", 1}, // 3400
-  {wxClipboard_Close, "wxClipboard", "close", 1}, // 3401
-  {wxClipboard_Flush, "wxClipboard", "flush", 1}, // 3402
-  {wxClipboard_GetData, "wxClipboard", "getData", 2}, // 3403
-  {wxClipboard_IsOpened, "wxClipboard", "isOpened", 1}, // 3404
-  {wxClipboard_Open, "wxClipboard", "open", 1}, // 3405
-  {wxClipboard_SetData, "wxClipboard", "setData", 2}, // 3406
-  {wxClipboard_UsePrimarySelection, "wxClipboard", "usePrimarySelection", 2}, // 3407
-  {wxClipboard_IsSupported, "wxClipboard", "isSupported", 2}, // 3408
-  {wxClipboard_Get, "wxClipboard", "get", 0}, // 3409
-  {wxSpinEvent_GetPosition, "wxSpinEvent", "getPosition", 1}, // 3410
-  {wxSpinEvent_SetPosition, "wxSpinEvent", "setPosition", 2}, // 3411
-  {wxSplitterWindow_new_0, "wxSplitterWindow", "new", 0}, // 3412
-  {wxSplitterWindow_new_2, "wxSplitterWindow", "new", 2}, // 3413
-  {NULL, "wxSplitterWindow", "destroy", 1}, // 3414 obj destructor wxSplitterWindow_destruct
-  {wxSplitterWindow_Create, "wxSplitterWindow", "create", 3}, // 3415
-  {wxSplitterWindow_GetMinimumPaneSize, "wxSplitterWindow", "getMinimumPaneSize", 1}, // 3416
-  {wxSplitterWindow_GetSashGravity, "wxSplitterWindow", "getSashGravity", 1}, // 3417
-  {wxSplitterWindow_GetSashPosition, "wxSplitterWindow", "getSashPosition", 1}, // 3418
-  {wxSplitterWindow_GetSplitMode, "wxSplitterWindow", "getSplitMode", 1}, // 3419
-  {wxSplitterWindow_GetWindow1, "wxSplitterWindow", "getWindow1", 1}, // 3420
-  {wxSplitterWindow_GetWindow2, "wxSplitterWindow", "getWindow2", 1}, // 3421
-  {wxSplitterWindow_Initialize, "wxSplitterWindow", "initialize", 2}, // 3422
-  {wxSplitterWindow_IsSplit, "wxSplitterWindow", "isSplit", 1}, // 3423
-  {wxSplitterWindow_ReplaceWindow, "wxSplitterWindow", "replaceWindow", 3}, // 3424
-  {wxSplitterWindow_SetSashGravity, "wxSplitterWindow", "setSashGravity", 2}, // 3425
-  {wxSplitterWindow_SetSashPosition, "wxSplitterWindow", "setSashPosition", 3}, // 3426
-  {wxSplitterWindow_SetMinimumPaneSize, "wxSplitterWindow", "setMinimumPaneSize", 2}, // 3427
-  {wxSplitterWindow_SetSplitMode, "wxSplitterWindow", "setSplitMode", 2}, // 3428
-  {wxSplitterWindow_SplitHorizontally, "wxSplitterWindow", "splitHorizontally", 4}, // 3429
-  {wxSplitterWindow_SplitVertically, "wxSplitterWindow", "splitVertically", 4}, // 3430
-  {wxSplitterWindow_Unsplit, "wxSplitterWindow", "unsplit", 2}, // 3431
-  {wxSplitterWindow_UpdateSize, "wxSplitterWindow", "updateSize", 1}, // 3432
-  {wxSplitterEvent_GetSashPosition, "wxSplitterEvent", "getSashPosition", 1}, // 3433
-  {wxSplitterEvent_GetX, "wxSplitterEvent", "getX", 1}, // 3434
-  {wxSplitterEvent_GetY, "wxSplitterEvent", "getY", 1}, // 3435
-  {wxSplitterEvent_GetWindowBeingRemoved, "wxSplitterEvent", "getWindowBeingRemoved", 1}, // 3436
-  {wxSplitterEvent_SetSashPosition, "wxSplitterEvent", "setSashPosition", 2}, // 3437
-  {wxHtmlWindow_new_0, "wxHtmlWindow", "new", 0}, // 3438
-  {wxHtmlWindow_new_2, "wxHtmlWindow", "new", 2}, // 3439
-  {wxHtmlWindow_AppendToPage, "wxHtmlWindow", "appendToPage", 2}, // 3440
-  {wxHtmlWindow_GetOpenedAnchor, "wxHtmlWindow", "getOpenedAnchor", 1}, // 3441
-  {wxHtmlWindow_GetOpenedPage, "wxHtmlWindow", "getOpenedPage", 1}, // 3442
-  {wxHtmlWindow_GetOpenedPageTitle, "wxHtmlWindow", "getOpenedPageTitle", 1}, // 3443
-  {wxHtmlWindow_GetRelatedFrame, "wxHtmlWindow", "getRelatedFrame", 1}, // 3444
-  {wxHtmlWindow_HistoryBack, "wxHtmlWindow", "historyBack", 1}, // 3445
-  {wxHtmlWindow_HistoryCanBack, "wxHtmlWindow", "historyCanBack", 1}, // 3446
-  {wxHtmlWindow_HistoryCanForward, "wxHtmlWindow", "historyCanForward", 1}, // 3447
-  {wxHtmlWindow_HistoryClear, "wxHtmlWindow", "historyClear", 1}, // 3448
-  {wxHtmlWindow_HistoryForward, "wxHtmlWindow", "historyForward", 1}, // 3449
-  {wxHtmlWindow_LoadFile, "wxHtmlWindow", "loadFile", 2}, // 3450
-  {wxHtmlWindow_LoadPage, "wxHtmlWindow", "loadPage", 2}, // 3451
-  {wxHtmlWindow_SelectAll, "wxHtmlWindow", "selectAll", 1}, // 3452
-  {wxHtmlWindow_SelectionToText, "wxHtmlWindow", "selectionToText", 1}, // 3453
-  {wxHtmlWindow_SelectLine, "wxHtmlWindow", "selectLine", 2}, // 3454
-  {wxHtmlWindow_SelectWord, "wxHtmlWindow", "selectWord", 2}, // 3455
-  {wxHtmlWindow_SetBorders, "wxHtmlWindow", "setBorders", 2}, // 3456
-  {wxHtmlWindow_SetFonts, "wxHtmlWindow", "setFonts", 4}, // 3457
-  {wxHtmlWindow_SetPage, "wxHtmlWindow", "setPage", 2}, // 3458
-  {wxHtmlWindow_SetRelatedFrame, "wxHtmlWindow", "setRelatedFrame", 3}, // 3459
-  {wxHtmlWindow_SetRelatedStatusBar_1, "wxHtmlWindow", "setRelatedStatusBar", 2}, // 3460
-  {wxHtmlWindow_SetRelatedStatusBar_2, "wxHtmlWindow", "setRelatedStatusBar", 3}, // 3461
-  {wxHtmlWindow_ToText, "wxHtmlWindow", "toText", 1}, // 3462
-  {NULL, "wxHtmlWindow", "'Destroy'", 1}, // 3463 obj destructor wxHtmlWindow_destroy
-  {wxHtmlLinkEvent_GetLinkInfo, "wxHtmlLinkEvent", "getLinkInfo", 1}, // 3464
-  {wxSystemSettings_GetColour, "wxSystemSettings", "getColour", 1}, // 3465
-  {wxSystemSettings_GetFont, "wxSystemSettings", "getFont", 1}, // 3466
-  {wxSystemSettings_GetMetric, "wxSystemSettings", "getMetric", 2}, // 3467
-  {wxSystemSettings_GetScreenType, "wxSystemSettings", "getScreenType", 0}, // 3468
-  {wxSystemOptions_GetOption, "wxSystemOptions", "getOption", 1}, // 3469
-  {wxSystemOptions_GetOptionInt, "wxSystemOptions", "getOptionInt", 1}, // 3470
-  {wxSystemOptions_HasOption, "wxSystemOptions", "hasOption", 1}, // 3471
-  {wxSystemOptions_IsFalse, "wxSystemOptions", "isFalse", 1}, // 3472
-  {wxSystemOptions_SetOption_2_1, "wxSystemOptions", "setOption", 2}, // 3473
-  {wxSystemOptions_SetOption_2_0, "wxSystemOptions", "setOption", 2}, // 3474
-  {wxAuiNotebookEvent_SetSelection, "wxAuiNotebookEvent", "setSelection", 2}, // 3475
-  {wxAuiNotebookEvent_GetSelection, "wxAuiNotebookEvent", "getSelection", 1}, // 3476
-  {wxAuiNotebookEvent_SetOldSelection, "wxAuiNotebookEvent", "setOldSelection", 2}, // 3477
-  {wxAuiNotebookEvent_GetOldSelection, "wxAuiNotebookEvent", "getOldSelection", 1}, // 3478
-  {wxAuiNotebookEvent_SetDragSource, "wxAuiNotebookEvent", "setDragSource", 2}, // 3479
-  {wxAuiNotebookEvent_GetDragSource, "wxAuiNotebookEvent", "getDragSource", 1}, // 3480
-  {wxAuiManagerEvent_SetManager, "wxAuiManagerEvent", "setManager", 2}, // 3481
-  {wxAuiManagerEvent_GetManager, "wxAuiManagerEvent", "getManager", 1}, // 3482
-  {wxAuiManagerEvent_SetPane, "wxAuiManagerEvent", "setPane", 2}, // 3483
-  {wxAuiManagerEvent_GetPane, "wxAuiManagerEvent", "getPane", 1}, // 3484
-  {wxAuiManagerEvent_SetButton, "wxAuiManagerEvent", "setButton", 2}, // 3485
-  {wxAuiManagerEvent_GetButton, "wxAuiManagerEvent", "getButton", 1}, // 3486
-  {wxAuiManagerEvent_SetDC, "wxAuiManagerEvent", "setDC", 2}, // 3487
-  {wxAuiManagerEvent_GetDC, "wxAuiManagerEvent", "getDC", 1}, // 3488
-  {wxAuiManagerEvent_Veto, "wxAuiManagerEvent", "veto", 2}, // 3489
-  {wxAuiManagerEvent_GetVeto, "wxAuiManagerEvent", "getVeto", 1}, // 3490
-  {wxAuiManagerEvent_SetCanVeto, "wxAuiManagerEvent", "setCanVeto", 2}, // 3491
-  {wxAuiManagerEvent_CanVeto, "wxAuiManagerEvent", "canVeto", 1}, // 3492
-  {wxLogNull_new, "wxLogNull", "new", 0}, // 3493
-  {wxLogNull_destruct, "wxLogNull", "destroy", 1}, // 3494
-  {wxTaskBarIcon_new, "wxTaskBarIcon", "new", 1}, // 3495
-  {NULL, "wxTaskBarIcon", "destroy", 1}, // 3496 obj destructor wxTaskBarIcon_destruct
-  {wxTaskBarIcon_PopupMenu, "wxTaskBarIcon", "popupMenu", 2}, // 3497
-  {wxTaskBarIcon_RemoveIcon, "wxTaskBarIcon", "removeIcon", 1}, // 3498
-  {wxTaskBarIcon_SetIcon, "wxTaskBarIcon", "setIcon", 3}, // 3499
-  {wxLocale_new_0, "wxLocale", "new", 0}, // 3500
-  {wxLocale_new_2_0, "wxLocale", "new", 2}, // 3501
-  {wxLocale_new_2_1, "wxLocale", "new", 2}, // 3502
-  {wxLocale_destruct, "wxLocale", "destroy", 1}, // 3503
-  {wxLocale_Init_1, "wxLocale", "init", 2}, // 3504
-  {wxLocale_Init_2, "wxLocale", "init", 3}, // 3505
-  {wxLocale_AddCatalog_1, "wxLocale", "addCatalog", 2}, // 3506
-  {wxLocale_AddCatalog_2, "wxLocale", "addCatalog", 3}, // 3507
-  {wxLocale_AddCatalog_3, "wxLocale", "addCatalog", 4}, // 3508
-  {wxLocale_AddCatalogLookupPathPrefix, "wxLocale", "addCatalogLookupPathPrefix", 1}, // 3509
-  {wxLocale_GetCanonicalName, "wxLocale", "getCanonicalName", 1}, // 3510
-  {wxLocale_GetLanguage, "wxLocale", "getLanguage", 1}, // 3511
-  {wxLocale_GetLanguageName, "wxLocale", "getLanguageName", 1}, // 3512
-  {wxLocale_GetLocale, "wxLocale", "getLocale", 1}, // 3513
-  {wxLocale_GetName, "wxLocale", "getName", 1}, // 3514
-  {wxLocale_GetString_2, "wxLocale", "getString", 3}, // 3515
-  {wxLocale_GetString_4, "wxLocale", "getString", 5}, // 3516
-  {wxLocale_GetHeaderValue, "wxLocale", "getHeaderValue", 3}, // 3517
-  {wxLocale_GetSysName, "wxLocale", "getSysName", 1}, // 3518
-  {wxLocale_GetSystemEncoding, "wxLocale", "getSystemEncoding", 0}, // 3519
-  {wxLocale_GetSystemEncodingName, "wxLocale", "getSystemEncodingName", 0}, // 3520
-  {wxLocale_GetSystemLanguage, "wxLocale", "getSystemLanguage", 0}, // 3521
-  {wxLocale_IsLoaded, "wxLocale", "isLoaded", 2}, // 3522
-  {wxLocale_IsOk, "wxLocale", "isOk", 1}, // 3523
-  {wxActivateEvent_GetActive, "wxActivateEvent", "getActive", 1}, // 3524
+#if wxUSE_AUI
+  {wxAuiSimpleTabArt_new, "wxAuiSimpleTabArt", "new", 0}, // 2646
+#else
+  {NULL, "wxAuiSimpleTabArt", "new", 0}, // 2646
+#endif // wxUSE_AUI
+#if wxUSE_AUI
+  {wxAuiSimpleTabArt_destroy, "wxAuiSimpleTabArt", "'Destroy'", 1}, // 2647
+#else
+  {NULL, "wxAuiSimpleTabArt", "'Destroy'", 0}, // 2647
+#endif // wxUSE_AUI
+  {wxMDIParentFrame_new_0, "wxMDIParentFrame", "new", 0}, // 2648
+  {wxMDIParentFrame_new_4, "wxMDIParentFrame", "new", 4}, // 2649
+  {NULL, "wxMDIParentFrame", "destroy", 1}, // 2650 obj destructor wxMDIParentFrame_destruct
+  {wxMDIParentFrame_ActivateNext, "wxMDIParentFrame", "activateNext", 1}, // 2651
+  {wxMDIParentFrame_ActivatePrevious, "wxMDIParentFrame", "activatePrevious", 1}, // 2652
+  {wxMDIParentFrame_ArrangeIcons, "wxMDIParentFrame", "arrangeIcons", 1}, // 2653
+  {wxMDIParentFrame_Cascade, "wxMDIParentFrame", "cascade", 1}, // 2654
+  {wxMDIParentFrame_Create, "wxMDIParentFrame", "create", 5}, // 2655
+  {wxMDIParentFrame_GetActiveChild, "wxMDIParentFrame", "getActiveChild", 1}, // 2656
+  {wxMDIParentFrame_GetClientWindow, "wxMDIParentFrame", "getClientWindow", 1}, // 2657
+  {wxMDIParentFrame_Tile, "wxMDIParentFrame", "tile", 2}, // 2658
+  {wxMDIChildFrame_new_0, "wxMDIChildFrame", "new", 0}, // 2659
+  {wxMDIChildFrame_new_4, "wxMDIChildFrame", "new", 4}, // 2660
+  {NULL, "wxMDIChildFrame", "destroy", 1}, // 2661 obj destructor wxMDIChildFrame_destruct
+  {wxMDIChildFrame_Activate, "wxMDIChildFrame", "activate", 1}, // 2662
+  {wxMDIChildFrame_Create, "wxMDIChildFrame", "create", 5}, // 2663
+  {wxMDIChildFrame_Maximize, "wxMDIChildFrame", "maximize", 2}, // 2664
+  {wxMDIChildFrame_Restore, "wxMDIChildFrame", "restore", 1}, // 2665
+  {wxMDIClientWindow_new, "wxMDIClientWindow", "new", 0}, // 2666
+  {wxMDIClientWindow_CreateClient, "wxMDIClientWindow", "createClient", 3}, // 2667
+  {NULL, "wxMDIClientWindow", "'Destroy'", 1}, // 2668 obj destructor wxMDIClientWindow_destroy
+  {wxLayoutAlgorithm_new, "wxLayoutAlgorithm", "new", 0}, // 2669
+  {NULL, "wxLayoutAlgorithm", "destroy", 1}, // 2670 obj destructor wxLayoutAlgorithm_destruct
+  {wxLayoutAlgorithm_LayoutFrame, "wxLayoutAlgorithm", "layoutFrame", 3}, // 2671
+  {wxLayoutAlgorithm_LayoutMDIFrame, "wxLayoutAlgorithm", "layoutMDIFrame", 3}, // 2672
+  {wxLayoutAlgorithm_LayoutWindow, "wxLayoutAlgorithm", "layoutWindow", 3}, // 2673
+  {wxEvent_GetId, "wxEvent", "getId", 1}, // 2674
+  {wxEvent_GetSkipped, "wxEvent", "getSkipped", 1}, // 2675
+  {wxEvent_GetTimestamp, "wxEvent", "getTimestamp", 1}, // 2676
+  {wxEvent_IsCommandEvent, "wxEvent", "isCommandEvent", 1}, // 2677
+  {wxEvent_ResumePropagation, "wxEvent", "resumePropagation", 2}, // 2678
+  {wxEvent_ShouldPropagate, "wxEvent", "shouldPropagate", 1}, // 2679
+  {wxEvent_Skip, "wxEvent", "skip", 2}, // 2680
+  {wxEvent_StopPropagation, "wxEvent", "stopPropagation", 1}, // 2681
+  {wxCommandEvent_getClientData, "wxCommandEvent", "getClientData", 1}, // 2682
+  {wxCommandEvent_GetExtraLong, "wxCommandEvent", "getExtraLong", 1}, // 2683
+  {wxCommandEvent_GetInt, "wxCommandEvent", "getInt", 1}, // 2684
+  {wxCommandEvent_GetSelection, "wxCommandEvent", "getSelection", 1}, // 2685
+  {wxCommandEvent_GetString, "wxCommandEvent", "getString", 1}, // 2686
+  {wxCommandEvent_IsChecked, "wxCommandEvent", "isChecked", 1}, // 2687
+  {wxCommandEvent_IsSelection, "wxCommandEvent", "isSelection", 1}, // 2688
+  {wxCommandEvent_SetInt, "wxCommandEvent", "setInt", 2}, // 2689
+  {wxCommandEvent_SetString, "wxCommandEvent", "setString", 2}, // 2690
+  {wxScrollEvent_GetOrientation, "wxScrollEvent", "getOrientation", 1}, // 2691
+  {wxScrollEvent_GetPosition, "wxScrollEvent", "getPosition", 1}, // 2692
+  {wxScrollWinEvent_GetOrientation, "wxScrollWinEvent", "getOrientation", 1}, // 2693
+  {wxScrollWinEvent_GetPosition, "wxScrollWinEvent", "getPosition", 1}, // 2694
+  {wxMouseEvent_AltDown, "wxMouseEvent", "altDown", 1}, // 2695
+  {wxMouseEvent_Button, "wxMouseEvent", "button", 2}, // 2696
+  {wxMouseEvent_ButtonDClick, "wxMouseEvent", "buttonDClick", 2}, // 2697
+  {wxMouseEvent_ButtonDown, "wxMouseEvent", "buttonDown", 2}, // 2698
+  {wxMouseEvent_ButtonUp, "wxMouseEvent", "buttonUp", 2}, // 2699
+  {wxMouseEvent_CmdDown, "wxMouseEvent", "cmdDown", 1}, // 2700
+  {wxMouseEvent_ControlDown, "wxMouseEvent", "controlDown", 1}, // 2701
+  {wxMouseEvent_Dragging, "wxMouseEvent", "dragging", 1}, // 2702
+  {wxMouseEvent_Entering, "wxMouseEvent", "entering", 1}, // 2703
+  {wxMouseEvent_GetButton, "wxMouseEvent", "getButton", 1}, // 2704
+  {wxMouseEvent_GetPosition, "wxMouseEvent", "getPosition", 1}, // 2705
+  {NULL, "", "", 0}, // 2706
+  {wxMouseEvent_GetLogicalPosition, "wxMouseEvent", "getLogicalPosition", 2}, // 2707
+  {wxMouseEvent_GetLinesPerAction, "wxMouseEvent", "getLinesPerAction", 1}, // 2708
+  {wxMouseEvent_GetWheelRotation, "wxMouseEvent", "getWheelRotation", 1}, // 2709
+  {wxMouseEvent_GetWheelDelta, "wxMouseEvent", "getWheelDelta", 1}, // 2710
+  {wxMouseEvent_GetX, "wxMouseEvent", "getX", 1}, // 2711
+  {wxMouseEvent_GetY, "wxMouseEvent", "getY", 1}, // 2712
+  {wxMouseEvent_IsButton, "wxMouseEvent", "isButton", 1}, // 2713
+  {wxMouseEvent_IsPageScroll, "wxMouseEvent", "isPageScroll", 1}, // 2714
+  {wxMouseEvent_Leaving, "wxMouseEvent", "leaving", 1}, // 2715
+  {wxMouseEvent_LeftDClick, "wxMouseEvent", "leftDClick", 1}, // 2716
+  {wxMouseEvent_LeftDown, "wxMouseEvent", "leftDown", 1}, // 2717
+  {wxMouseEvent_LeftIsDown, "wxMouseEvent", "leftIsDown", 1}, // 2718
+  {wxMouseEvent_LeftUp, "wxMouseEvent", "leftUp", 1}, // 2719
+  {wxMouseEvent_MetaDown, "wxMouseEvent", "metaDown", 1}, // 2720
+  {wxMouseEvent_MiddleDClick, "wxMouseEvent", "middleDClick", 1}, // 2721
+  {wxMouseEvent_MiddleDown, "wxMouseEvent", "middleDown", 1}, // 2722
+  {wxMouseEvent_MiddleIsDown, "wxMouseEvent", "middleIsDown", 1}, // 2723
+  {wxMouseEvent_MiddleUp, "wxMouseEvent", "middleUp", 1}, // 2724
+  {wxMouseEvent_Moving, "wxMouseEvent", "moving", 1}, // 2725
+  {wxMouseEvent_RightDClick, "wxMouseEvent", "rightDClick", 1}, // 2726
+  {wxMouseEvent_RightDown, "wxMouseEvent", "rightDown", 1}, // 2727
+  {wxMouseEvent_RightIsDown, "wxMouseEvent", "rightIsDown", 1}, // 2728
+  {wxMouseEvent_RightUp, "wxMouseEvent", "rightUp", 1}, // 2729
+  {wxMouseEvent_ShiftDown, "wxMouseEvent", "shiftDown", 1}, // 2730
+  {wxMouseEvent_GetWheelAxis, "wxMouseEvent", "getWheelAxis", 1}, // 2731
+  {wxMouseEvent_Aux1DClick, "wxMouseEvent", "aux1DClick", 1}, // 2732
+  {wxMouseEvent_Aux1Down, "wxMouseEvent", "aux1Down", 1}, // 2733
+  {wxMouseEvent_Aux1Up, "wxMouseEvent", "aux1Up", 1}, // 2734
+  {wxMouseEvent_Aux2DClick, "wxMouseEvent", "aux2DClick", 1}, // 2735
+  {wxMouseEvent_Aux2Down, "wxMouseEvent", "aux2Down", 1}, // 2736
+  {wxMouseEvent_Aux2Up, "wxMouseEvent", "aux2Up", 1}, // 2737
+  {wxSetCursorEvent_GetCursor, "wxSetCursorEvent", "getCursor", 1}, // 2738
+  {wxSetCursorEvent_GetX, "wxSetCursorEvent", "getX", 1}, // 2739
+  {wxSetCursorEvent_GetY, "wxSetCursorEvent", "getY", 1}, // 2740
+  {wxSetCursorEvent_HasCursor, "wxSetCursorEvent", "hasCursor", 1}, // 2741
+  {wxSetCursorEvent_SetCursor, "wxSetCursorEvent", "setCursor", 2}, // 2742
+  {wxKeyEvent_AltDown, "wxKeyEvent", "altDown", 1}, // 2743
+  {wxKeyEvent_CmdDown, "wxKeyEvent", "cmdDown", 1}, // 2744
+  {wxKeyEvent_ControlDown, "wxKeyEvent", "controlDown", 1}, // 2745
+  {wxKeyEvent_GetKeyCode, "wxKeyEvent", "getKeyCode", 1}, // 2746
+  {wxKeyEvent_GetModifiers, "wxKeyEvent", "getModifiers", 1}, // 2747
+  {wxKeyEvent_GetPosition, "wxKeyEvent", "getPosition", 1}, // 2748
+  {NULL, "", "", 0}, // 2749
+  {wxKeyEvent_GetRawKeyCode, "wxKeyEvent", "getRawKeyCode", 1}, // 2750
+  {wxKeyEvent_GetRawKeyFlags, "wxKeyEvent", "getRawKeyFlags", 1}, // 2751
+  {wxKeyEvent_GetUnicodeKey, "wxKeyEvent", "getUnicodeKey", 1}, // 2752
+  {wxKeyEvent_GetX, "wxKeyEvent", "getX", 1}, // 2753
+  {wxKeyEvent_GetY, "wxKeyEvent", "getY", 1}, // 2754
+  {wxKeyEvent_HasModifiers, "wxKeyEvent", "hasModifiers", 1}, // 2755
+  {wxKeyEvent_MetaDown, "wxKeyEvent", "metaDown", 1}, // 2756
+  {wxKeyEvent_ShiftDown, "wxKeyEvent", "shiftDown", 1}, // 2757
+  {wxSizeEvent_GetSize, "wxSizeEvent", "getSize", 1}, // 2758
+  {wxSizeEvent_GetRect, "wxSizeEvent", "getRect", 1}, // 2759
+  {wxMoveEvent_GetPosition, "wxMoveEvent", "getPosition", 1}, // 2760
+  {wxMoveEvent_GetRect, "wxMoveEvent", "getRect", 1}, // 2761
+  {wxEraseEvent_GetDC, "wxEraseEvent", "getDC", 1}, // 2762
+  {wxFocusEvent_GetWindow, "wxFocusEvent", "getWindow", 1}, // 2763
+  {wxChildFocusEvent_GetWindow, "wxChildFocusEvent", "getWindow", 1}, // 2764
+  {wxMenuEvent_GetMenu, "wxMenuEvent", "getMenu", 1}, // 2765
+  {wxMenuEvent_GetMenuId, "wxMenuEvent", "getMenuId", 1}, // 2766
+  {wxMenuEvent_IsPopup, "wxMenuEvent", "isPopup", 1}, // 2767
+  {wxCloseEvent_CanVeto, "wxCloseEvent", "canVeto", 1}, // 2768
+  {wxCloseEvent_GetLoggingOff, "wxCloseEvent", "getLoggingOff", 1}, // 2769
+  {wxCloseEvent_SetCanVeto, "wxCloseEvent", "setCanVeto", 2}, // 2770
+  {wxCloseEvent_SetLoggingOff, "wxCloseEvent", "setLoggingOff", 2}, // 2771
+  {wxCloseEvent_Veto, "wxCloseEvent", "veto", 2}, // 2772
+  {wxShowEvent_SetShow, "wxShowEvent", "setShow", 2}, // 2773
+  {wxShowEvent_IsShown, "wxShowEvent", "isShown", 1}, // 2774
+  {wxIconizeEvent_IsIconized, "wxIconizeEvent", "isIconized", 1}, // 2775
+  {wxJoystickEvent_ButtonDown, "wxJoystickEvent", "buttonDown", 2}, // 2776
+  {wxJoystickEvent_ButtonIsDown, "wxJoystickEvent", "buttonIsDown", 2}, // 2777
+  {wxJoystickEvent_ButtonUp, "wxJoystickEvent", "buttonUp", 2}, // 2778
+  {wxJoystickEvent_GetButtonChange, "wxJoystickEvent", "getButtonChange", 1}, // 2779
+  {wxJoystickEvent_GetButtonState, "wxJoystickEvent", "getButtonState", 1}, // 2780
+  {wxJoystickEvent_GetJoystick, "wxJoystickEvent", "getJoystick", 1}, // 2781
+  {wxJoystickEvent_GetPosition, "wxJoystickEvent", "getPosition", 1}, // 2782
+  {wxJoystickEvent_GetZPosition, "wxJoystickEvent", "getZPosition", 1}, // 2783
+  {wxJoystickEvent_IsButton, "wxJoystickEvent", "isButton", 1}, // 2784
+  {wxJoystickEvent_IsMove, "wxJoystickEvent", "isMove", 1}, // 2785
+  {wxJoystickEvent_IsZMove, "wxJoystickEvent", "isZMove", 1}, // 2786
+  {wxUpdateUIEvent_CanUpdate, "wxUpdateUIEvent", "canUpdate", 1}, // 2787
+  {wxUpdateUIEvent_Check, "wxUpdateUIEvent", "check", 2}, // 2788
+  {wxUpdateUIEvent_Enable, "wxUpdateUIEvent", "enable", 2}, // 2789
+  {wxUpdateUIEvent_Show, "wxUpdateUIEvent", "show", 2}, // 2790
+  {wxUpdateUIEvent_GetChecked, "wxUpdateUIEvent", "getChecked", 1}, // 2791
+  {wxUpdateUIEvent_GetEnabled, "wxUpdateUIEvent", "getEnabled", 1}, // 2792
+  {wxUpdateUIEvent_GetShown, "wxUpdateUIEvent", "getShown", 1}, // 2793
+  {wxUpdateUIEvent_GetSetChecked, "wxUpdateUIEvent", "getSetChecked", 1}, // 2794
+  {wxUpdateUIEvent_GetSetEnabled, "wxUpdateUIEvent", "getSetEnabled", 1}, // 2795
+  {wxUpdateUIEvent_GetSetShown, "wxUpdateUIEvent", "getSetShown", 1}, // 2796
+  {wxUpdateUIEvent_GetSetText, "wxUpdateUIEvent", "getSetText", 1}, // 2797
+  {wxUpdateUIEvent_GetText, "wxUpdateUIEvent", "getText", 1}, // 2798
+  {wxUpdateUIEvent_GetMode, "wxUpdateUIEvent", "getMode", 0}, // 2799
+  {wxUpdateUIEvent_GetUpdateInterval, "wxUpdateUIEvent", "getUpdateInterval", 0}, // 2800
+  {wxUpdateUIEvent_ResetUpdateTime, "wxUpdateUIEvent", "resetUpdateTime", 0}, // 2801
+  {wxUpdateUIEvent_SetMode, "wxUpdateUIEvent", "setMode", 1}, // 2802
+  {wxUpdateUIEvent_SetText, "wxUpdateUIEvent", "setText", 2}, // 2803
+  {wxUpdateUIEvent_SetUpdateInterval, "wxUpdateUIEvent", "setUpdateInterval", 1}, // 2804
+  {wxMouseCaptureChangedEvent_GetCapturedWindow, "wxMouseCaptureChangedEvent", "getCapturedWindow", 1}, // 2805
+  {wxPaletteChangedEvent_SetChangedWindow, "wxPaletteChangedEvent", "setChangedWindow", 2}, // 2806
+  {wxPaletteChangedEvent_GetChangedWindow, "wxPaletteChangedEvent", "getChangedWindow", 1}, // 2807
+  {wxQueryNewPaletteEvent_SetPaletteRealized, "wxQueryNewPaletteEvent", "setPaletteRealized", 2}, // 2808
+  {wxQueryNewPaletteEvent_GetPaletteRealized, "wxQueryNewPaletteEvent", "getPaletteRealized", 1}, // 2809
+  {wxNavigationKeyEvent_GetDirection, "wxNavigationKeyEvent", "getDirection", 1}, // 2810
+  {wxNavigationKeyEvent_SetDirection, "wxNavigationKeyEvent", "setDirection", 2}, // 2811
+  {wxNavigationKeyEvent_IsWindowChange, "wxNavigationKeyEvent", "isWindowChange", 1}, // 2812
+  {wxNavigationKeyEvent_SetWindowChange, "wxNavigationKeyEvent", "setWindowChange", 2}, // 2813
+  {wxNavigationKeyEvent_IsFromTab, "wxNavigationKeyEvent", "isFromTab", 1}, // 2814
+  {wxNavigationKeyEvent_SetFromTab, "wxNavigationKeyEvent", "setFromTab", 2}, // 2815
+  {wxNavigationKeyEvent_GetCurrentFocus, "wxNavigationKeyEvent", "getCurrentFocus", 1}, // 2816
+  {wxNavigationKeyEvent_SetCurrentFocus, "wxNavigationKeyEvent", "setCurrentFocus", 2}, // 2817
+  {wxHelpEvent_GetOrigin, "wxHelpEvent", "getOrigin", 1}, // 2818
+  {wxHelpEvent_GetPosition, "wxHelpEvent", "getPosition", 1}, // 2819
+  {wxHelpEvent_SetOrigin, "wxHelpEvent", "setOrigin", 2}, // 2820
+  {wxHelpEvent_SetPosition, "wxHelpEvent", "setPosition", 2}, // 2821
+  {wxContextMenuEvent_GetPosition, "wxContextMenuEvent", "getPosition", 1}, // 2822
+  {wxContextMenuEvent_SetPosition, "wxContextMenuEvent", "setPosition", 2}, // 2823
+  {wxIdleEvent_GetMode, "wxIdleEvent", "getMode", 0}, // 2824
+  {wxIdleEvent_RequestMore, "wxIdleEvent", "requestMore", 2}, // 2825
+  {wxIdleEvent_MoreRequested, "wxIdleEvent", "moreRequested", 1}, // 2826
+  {wxIdleEvent_SetMode, "wxIdleEvent", "setMode", 1}, // 2827
+  {wxGridEvent_AltDown, "wxGridEvent", "altDown", 1}, // 2828
+  {wxGridEvent_ControlDown, "wxGridEvent", "controlDown", 1}, // 2829
+  {wxGridEvent_GetCol, "wxGridEvent", "getCol", 1}, // 2830
+  {wxGridEvent_GetPosition, "wxGridEvent", "getPosition", 1}, // 2831
+  {wxGridEvent_GetRow, "wxGridEvent", "getRow", 1}, // 2832
+  {wxGridEvent_MetaDown, "wxGridEvent", "metaDown", 1}, // 2833
+  {wxGridEvent_Selecting, "wxGridEvent", "selecting", 1}, // 2834
+  {wxGridEvent_ShiftDown, "wxGridEvent", "shiftDown", 1}, // 2835
+  {wxNotifyEvent_Allow, "wxNotifyEvent", "allow", 1}, // 2836
+  {wxNotifyEvent_IsAllowed, "wxNotifyEvent", "isAllowed", 1}, // 2837
+  {wxNotifyEvent_Veto, "wxNotifyEvent", "veto", 1}, // 2838
+  {wxSashEvent_GetEdge, "wxSashEvent", "getEdge", 1}, // 2839
+  {wxSashEvent_GetDragRect, "wxSashEvent", "getDragRect", 1}, // 2840
+  {wxSashEvent_GetDragStatus, "wxSashEvent", "getDragStatus", 1}, // 2841
+  {wxListEvent_GetCacheFrom, "wxListEvent", "getCacheFrom", 1}, // 2842
+  {wxListEvent_GetCacheTo, "wxListEvent", "getCacheTo", 1}, // 2843
+  {wxListEvent_GetKeyCode, "wxListEvent", "getKeyCode", 1}, // 2844
+  {wxListEvent_GetIndex, "wxListEvent", "getIndex", 1}, // 2845
+  {wxListEvent_GetColumn, "wxListEvent", "getColumn", 1}, // 2846
+  {wxListEvent_GetPoint, "wxListEvent", "getPoint", 1}, // 2847
+  {wxListEvent_GetLabel, "wxListEvent", "getLabel", 1}, // 2848
+  {wxListEvent_GetText, "wxListEvent", "getText", 1}, // 2849
+  {wxListEvent_GetImage, "wxListEvent", "getImage", 1}, // 2850
+  {wxListEvent_GetData, "wxListEvent", "getData", 1}, // 2851
+  {wxListEvent_GetMask, "wxListEvent", "getMask", 1}, // 2852
+  {wxListEvent_GetItem, "wxListEvent", "getItem", 1}, // 2853
+  {wxListEvent_IsEditCancelled, "wxListEvent", "isEditCancelled", 1}, // 2854
+  {wxDateEvent_GetDate, "wxDateEvent", "getDate", 1}, // 2855
+  {wxCalendarEvent_GetWeekDay, "wxCalendarEvent", "getWeekDay", 1}, // 2856
+  {wxCalendarEvent_GetDate, "wxCalendarEvent", "getDate", 1}, // 2857
+  {wxFileDirPickerEvent_GetPath, "wxFileDirPickerEvent", "getPath", 1}, // 2858
+  {wxColourPickerEvent_GetColour, "wxColourPickerEvent", "getColour", 1}, // 2859
+  {wxFontPickerEvent_GetFont, "wxFontPickerEvent", "getFont", 1}, // 2860
+  {wxStyledTextEvent_GetPosition, "wxStyledTextEvent", "getPosition", 1}, // 2861
+  {wxStyledTextEvent_GetKey, "wxStyledTextEvent", "getKey", 1}, // 2862
+  {wxStyledTextEvent_GetModifiers, "wxStyledTextEvent", "getModifiers", 1}, // 2863
+  {wxStyledTextEvent_GetModificationType, "wxStyledTextEvent", "getModificationType", 1}, // 2864
+  {wxStyledTextEvent_GetText, "wxStyledTextEvent", "getText", 1}, // 2865
+  {wxStyledTextEvent_GetLength, "wxStyledTextEvent", "getLength", 1}, // 2866
+  {wxStyledTextEvent_GetLinesAdded, "wxStyledTextEvent", "getLinesAdded", 1}, // 2867
+  {wxStyledTextEvent_GetLine, "wxStyledTextEvent", "getLine", 1}, // 2868
+  {wxStyledTextEvent_GetFoldLevelNow, "wxStyledTextEvent", "getFoldLevelNow", 1}, // 2869
+  {wxStyledTextEvent_GetFoldLevelPrev, "wxStyledTextEvent", "getFoldLevelPrev", 1}, // 2870
+  {wxStyledTextEvent_GetMargin, "wxStyledTextEvent", "getMargin", 1}, // 2871
+  {wxStyledTextEvent_GetMessage, "wxStyledTextEvent", "getMessage", 1}, // 2872
+  {wxStyledTextEvent_GetWParam, "wxStyledTextEvent", "getWParam", 1}, // 2873
+  {wxStyledTextEvent_GetLParam, "wxStyledTextEvent", "getLParam", 1}, // 2874
+  {wxStyledTextEvent_GetListType, "wxStyledTextEvent", "getListType", 1}, // 2875
+  {wxStyledTextEvent_GetX, "wxStyledTextEvent", "getX", 1}, // 2876
+  {wxStyledTextEvent_GetY, "wxStyledTextEvent", "getY", 1}, // 2877
+  {wxStyledTextEvent_GetDragText, "wxStyledTextEvent", "getDragText", 1}, // 2878
+  {wxStyledTextEvent_GetDragAllowMove, "wxStyledTextEvent", "getDragAllowMove", 1}, // 2879
+  {wxStyledTextEvent_GetDragResult, "wxStyledTextEvent", "getDragResult", 1}, // 2880
+  {wxStyledTextEvent_GetShift, "wxStyledTextEvent", "getShift", 1}, // 2881
+  {wxStyledTextEvent_GetControl, "wxStyledTextEvent", "getControl", 1}, // 2882
+  {wxStyledTextEvent_GetAlt, "wxStyledTextEvent", "getAlt", 1}, // 2883
+  {utils_wxGetKeyState, "utils", "getKeyState", 1}, // 2884
+  {utils_wxGetMousePosition, "utils", "getMousePosition", 0}, // 2885
+  {utils_wxGetMouseState, "utils", "getMouseState", 0}, // 2886
+  {utils_wxSetDetectableAutoRepeat, "utils", "setDetectableAutoRepeat", 1}, // 2887
+  {utils_wxBell, "utils", "bell", 0}, // 2888
+  {utils_wxFindMenuItemId, "utils", "findMenuItemId", 3}, // 2889
+  {utils_wxFindWindowAtPoint, "utils", "findWindowAtPoint", 1}, // 2890
+  {utils_wxBeginBusyCursor, "utils", "beginBusyCursor", 1}, // 2891
+  {utils_wxEndBusyCursor, "utils", "endBusyCursor", 0}, // 2892
+  {utils_wxIsBusy, "utils", "isBusy", 0}, // 2893
+  {utils_wxShutdown, "utils", "shutdown", 1}, // 2894
+  {utils_wxShell, "utils", "shell", 1}, // 2895
+  {utils_wxLaunchDefaultBrowser, "utils", "launchDefaultBrowser", 2}, // 2896
+  {utils_wxGetEmailAddress, "utils", "getEmailAddress", 0}, // 2897
+  {utils_wxGetUserId, "utils", "getUserId", 0}, // 2898
+  {utils_wxGetHomeDir, "utils", "getHomeDir", 0}, // 2899
+  {utils_wxNewId, "utils", "newId", 0}, // 2900
+  {utils_wxRegisterId, "utils", "registerId", 1}, // 2901
+  {utils_wxGetCurrentId, "utils", "getCurrentId", 0}, // 2902
+  {utils_wxGetOsDescription, "utils", "getOsDescription", 0}, // 2903
+  {utils_wxIsPlatformLittleEndian, "utils", "isPlatformLittleEndian", 0}, // 2904
+  {utils_wxIsPlatform64Bit, "utils", "isPlatform64Bit", 0}, // 2905
+  {gdicmn_wxDisplaySize, "gdicmn", "displaySize", 0}, // 2906
+  {gdicmn_wxSetCursor, "gdicmn", "setCursor", 1}, // 2907
+  {wxPrintout_new, "wxPrintout", "new", 3}, // 2908
+  {NULL, "wxPrintout", "destroy", 1}, // 2909 obj destructor wxPrintout_destruct
+  {wxPrintout_GetDC, "wxPrintout", "getDC", 1}, // 2910
+  {wxPrintout_GetPageSizeMM, "wxPrintout", "getPageSizeMM", 1}, // 2911
+  {wxPrintout_GetPageSizePixels, "wxPrintout", "getPageSizePixels", 1}, // 2912
+  {wxPrintout_GetPaperRectPixels, "wxPrintout", "getPaperRectPixels", 1}, // 2913
+  {wxPrintout_GetPPIPrinter, "wxPrintout", "getPPIPrinter", 1}, // 2914
+  {wxPrintout_GetPPIScreen, "wxPrintout", "getPPIScreen", 1}, // 2915
+  {wxPrintout_GetTitle, "wxPrintout", "getTitle", 1}, // 2916
+  {wxPrintout_IsPreview, "wxPrintout", "isPreview", 1}, // 2917
+  {wxPrintout_FitThisSizeToPaper, "wxPrintout", "fitThisSizeToPaper", 2}, // 2918
+  {wxPrintout_FitThisSizeToPage, "wxPrintout", "fitThisSizeToPage", 2}, // 2919
+  {wxPrintout_FitThisSizeToPageMargins, "wxPrintout", "fitThisSizeToPageMargins", 3}, // 2920
+  {wxPrintout_MapScreenSizeToPaper, "wxPrintout", "mapScreenSizeToPaper", 1}, // 2921
+  {wxPrintout_MapScreenSizeToPage, "wxPrintout", "mapScreenSizeToPage", 1}, // 2922
+  {wxPrintout_MapScreenSizeToPageMargins, "wxPrintout", "mapScreenSizeToPageMargins", 2}, // 2923
+  {wxPrintout_MapScreenSizeToDevice, "wxPrintout", "mapScreenSizeToDevice", 1}, // 2924
+  {wxPrintout_GetLogicalPaperRect, "wxPrintout", "getLogicalPaperRect", 1}, // 2925
+  {wxPrintout_GetLogicalPageRect, "wxPrintout", "getLogicalPageRect", 1}, // 2926
+  {wxPrintout_GetLogicalPageMarginsRect, "wxPrintout", "getLogicalPageMarginsRect", 2}, // 2927
+  {wxPrintout_SetLogicalOrigin, "wxPrintout", "setLogicalOrigin", 3}, // 2928
+  {wxPrintout_OffsetLogicalOrigin, "wxPrintout", "offsetLogicalOrigin", 3}, // 2929
+  {wxStyledTextCtrl_new_2, "wxStyledTextCtrl", "new", 2}, // 2930
+  {wxStyledTextCtrl_new_0, "wxStyledTextCtrl", "new", 0}, // 2931
+  {NULL, "wxStyledTextCtrl", "destroy", 1}, // 2932 obj destructor wxStyledTextCtrl_destruct
+  {wxStyledTextCtrl_Create, "wxStyledTextCtrl", "create", 3}, // 2933
+  {wxStyledTextCtrl_AddText, "wxStyledTextCtrl", "addText", 2}, // 2934
+  {wxStyledTextCtrl_InsertText, "wxStyledTextCtrl", "insertText", 3}, // 2935
+  {wxStyledTextCtrl_ClearAll, "wxStyledTextCtrl", "clearAll", 1}, // 2936
+  {wxStyledTextCtrl_ClearDocumentStyle, "wxStyledTextCtrl", "clearDocumentStyle", 1}, // 2937
+  {wxStyledTextCtrl_GetLength, "wxStyledTextCtrl", "getLength", 1}, // 2938
+  {wxStyledTextCtrl_GetCharAt, "wxStyledTextCtrl", "getCharAt", 2}, // 2939
+  {wxStyledTextCtrl_GetCurrentPos, "wxStyledTextCtrl", "getCurrentPos", 1}, // 2940
+  {wxStyledTextCtrl_GetAnchor, "wxStyledTextCtrl", "getAnchor", 1}, // 2941
+  {wxStyledTextCtrl_GetStyleAt, "wxStyledTextCtrl", "getStyleAt", 2}, // 2942
+  {wxStyledTextCtrl_Redo, "wxStyledTextCtrl", "redo", 1}, // 2943
+  {wxStyledTextCtrl_SetUndoCollection, "wxStyledTextCtrl", "setUndoCollection", 2}, // 2944
+  {wxStyledTextCtrl_SelectAll, "wxStyledTextCtrl", "selectAll", 1}, // 2945
+  {wxStyledTextCtrl_SetSavePoint, "wxStyledTextCtrl", "setSavePoint", 1}, // 2946
+  {wxStyledTextCtrl_CanRedo, "wxStyledTextCtrl", "canRedo", 1}, // 2947
+  {wxStyledTextCtrl_MarkerLineFromHandle, "wxStyledTextCtrl", "markerLineFromHandle", 2}, // 2948
+  {wxStyledTextCtrl_MarkerDeleteHandle, "wxStyledTextCtrl", "markerDeleteHandle", 2}, // 2949
+  {wxStyledTextCtrl_GetUndoCollection, "wxStyledTextCtrl", "getUndoCollection", 1}, // 2950
+  {wxStyledTextCtrl_GetViewWhiteSpace, "wxStyledTextCtrl", "getViewWhiteSpace", 1}, // 2951
+  {wxStyledTextCtrl_SetViewWhiteSpace, "wxStyledTextCtrl", "setViewWhiteSpace", 2}, // 2952
+  {wxStyledTextCtrl_PositionFromPoint, "wxStyledTextCtrl", "positionFromPoint", 2}, // 2953
+  {wxStyledTextCtrl_PositionFromPointClose, "wxStyledTextCtrl", "positionFromPointClose", 3}, // 2954
+  {wxStyledTextCtrl_GotoLine, "wxStyledTextCtrl", "gotoLine", 2}, // 2955
+  {wxStyledTextCtrl_GotoPos, "wxStyledTextCtrl", "gotoPos", 2}, // 2956
+  {wxStyledTextCtrl_SetAnchor, "wxStyledTextCtrl", "setAnchor", 2}, // 2957
+  {wxStyledTextCtrl_GetCurLine, "wxStyledTextCtrl", "getCurLine", 1}, // 2958
+  {wxStyledTextCtrl_GetEndStyled, "wxStyledTextCtrl", "getEndStyled", 1}, // 2959
+  {wxStyledTextCtrl_ConvertEOLs, "wxStyledTextCtrl", "convertEOLs", 2}, // 2960
+  {wxStyledTextCtrl_GetEOLMode, "wxStyledTextCtrl", "getEOLMode", 1}, // 2961
+  {wxStyledTextCtrl_SetEOLMode, "wxStyledTextCtrl", "setEOLMode", 2}, // 2962
+  {wxStyledTextCtrl_StartStyling, "wxStyledTextCtrl", "startStyling", 2}, // 2963
+  {wxStyledTextCtrl_SetStyling, "wxStyledTextCtrl", "setStyling", 3}, // 2964
+  {wxStyledTextCtrl_GetBufferedDraw, "wxStyledTextCtrl", "getBufferedDraw", 1}, // 2965
+  {wxStyledTextCtrl_SetBufferedDraw, "wxStyledTextCtrl", "setBufferedDraw", 2}, // 2966
+  {wxStyledTextCtrl_SetTabWidth, "wxStyledTextCtrl", "setTabWidth", 2}, // 2967
+  {wxStyledTextCtrl_GetTabWidth, "wxStyledTextCtrl", "getTabWidth", 1}, // 2968
+  {wxStyledTextCtrl_SetCodePage, "wxStyledTextCtrl", "setCodePage", 2}, // 2969
+  {wxStyledTextCtrl_MarkerDefine, "wxStyledTextCtrl", "markerDefine", 4}, // 2970
+  {wxStyledTextCtrl_MarkerSetForeground, "wxStyledTextCtrl", "markerSetForeground", 3}, // 2971
+  {wxStyledTextCtrl_MarkerSetBackground, "wxStyledTextCtrl", "markerSetBackground", 3}, // 2972
+  {wxStyledTextCtrl_MarkerAdd, "wxStyledTextCtrl", "markerAdd", 3}, // 2973
+  {wxStyledTextCtrl_MarkerDelete, "wxStyledTextCtrl", "markerDelete", 3}, // 2974
+  {wxStyledTextCtrl_MarkerDeleteAll, "wxStyledTextCtrl", "markerDeleteAll", 2}, // 2975
+  {wxStyledTextCtrl_MarkerGet, "wxStyledTextCtrl", "markerGet", 2}, // 2976
+  {wxStyledTextCtrl_MarkerNext, "wxStyledTextCtrl", "markerNext", 3}, // 2977
+  {wxStyledTextCtrl_MarkerPrevious, "wxStyledTextCtrl", "markerPrevious", 3}, // 2978
+  {wxStyledTextCtrl_MarkerDefineBitmap, "wxStyledTextCtrl", "markerDefineBitmap", 3}, // 2979
+  {wxStyledTextCtrl_MarkerAddSet, "wxStyledTextCtrl", "markerAddSet", 3}, // 2980
+  {wxStyledTextCtrl_MarkerSetAlpha, "wxStyledTextCtrl", "markerSetAlpha", 3}, // 2981
+  {wxStyledTextCtrl_SetMarginType, "wxStyledTextCtrl", "setMarginType", 3}, // 2982
+  {wxStyledTextCtrl_GetMarginType, "wxStyledTextCtrl", "getMarginType", 2}, // 2983
+  {wxStyledTextCtrl_SetMarginWidth, "wxStyledTextCtrl", "setMarginWidth", 3}, // 2984
+  {wxStyledTextCtrl_GetMarginWidth, "wxStyledTextCtrl", "getMarginWidth", 2}, // 2985
+  {wxStyledTextCtrl_SetMarginMask, "wxStyledTextCtrl", "setMarginMask", 3}, // 2986
+  {wxStyledTextCtrl_GetMarginMask, "wxStyledTextCtrl", "getMarginMask", 2}, // 2987
+  {wxStyledTextCtrl_SetMarginSensitive, "wxStyledTextCtrl", "setMarginSensitive", 3}, // 2988
+  {wxStyledTextCtrl_GetMarginSensitive, "wxStyledTextCtrl", "getMarginSensitive", 2}, // 2989
+  {wxStyledTextCtrl_StyleClearAll, "wxStyledTextCtrl", "styleClearAll", 1}, // 2990
+  {wxStyledTextCtrl_StyleSetForeground, "wxStyledTextCtrl", "styleSetForeground", 3}, // 2991
+  {wxStyledTextCtrl_StyleSetBackground, "wxStyledTextCtrl", "styleSetBackground", 3}, // 2992
+  {wxStyledTextCtrl_StyleSetBold, "wxStyledTextCtrl", "styleSetBold", 3}, // 2993
+  {wxStyledTextCtrl_StyleSetItalic, "wxStyledTextCtrl", "styleSetItalic", 3}, // 2994
+  {wxStyledTextCtrl_StyleSetSize, "wxStyledTextCtrl", "styleSetSize", 3}, // 2995
+  {wxStyledTextCtrl_StyleSetFaceName, "wxStyledTextCtrl", "styleSetFaceName", 3}, // 2996
+  {wxStyledTextCtrl_StyleSetEOLFilled, "wxStyledTextCtrl", "styleSetEOLFilled", 3}, // 2997
+  {wxStyledTextCtrl_StyleResetDefault, "wxStyledTextCtrl", "styleResetDefault", 1}, // 2998
+  {wxStyledTextCtrl_StyleSetUnderline, "wxStyledTextCtrl", "styleSetUnderline", 3}, // 2999
+  {wxStyledTextCtrl_StyleSetCase, "wxStyledTextCtrl", "styleSetCase", 3}, // 3000
+  {wxStyledTextCtrl_StyleSetHotSpot, "wxStyledTextCtrl", "styleSetHotSpot", 3}, // 3001
+  {wxStyledTextCtrl_SetSelForeground, "wxStyledTextCtrl", "setSelForeground", 3}, // 3002
+  {wxStyledTextCtrl_SetSelBackground, "wxStyledTextCtrl", "setSelBackground", 3}, // 3003
+  {wxStyledTextCtrl_GetSelAlpha, "wxStyledTextCtrl", "getSelAlpha", 1}, // 3004
+  {wxStyledTextCtrl_SetSelAlpha, "wxStyledTextCtrl", "setSelAlpha", 2}, // 3005
+  {wxStyledTextCtrl_SetCaretForeground, "wxStyledTextCtrl", "setCaretForeground", 2}, // 3006
+  {wxStyledTextCtrl_CmdKeyAssign, "wxStyledTextCtrl", "cmdKeyAssign", 4}, // 3007
+  {wxStyledTextCtrl_CmdKeyClear, "wxStyledTextCtrl", "cmdKeyClear", 3}, // 3008
+  {wxStyledTextCtrl_CmdKeyClearAll, "wxStyledTextCtrl", "cmdKeyClearAll", 1}, // 3009
+  {wxStyledTextCtrl_SetStyleBytes, "wxStyledTextCtrl", "setStyleBytes", 2}, // 3010
+  {wxStyledTextCtrl_StyleSetVisible, "wxStyledTextCtrl", "styleSetVisible", 3}, // 3011
+  {wxStyledTextCtrl_GetCaretPeriod, "wxStyledTextCtrl", "getCaretPeriod", 1}, // 3012
+  {wxStyledTextCtrl_SetCaretPeriod, "wxStyledTextCtrl", "setCaretPeriod", 2}, // 3013
+  {wxStyledTextCtrl_SetWordChars, "wxStyledTextCtrl", "setWordChars", 2}, // 3014
+  {wxStyledTextCtrl_BeginUndoAction, "wxStyledTextCtrl", "beginUndoAction", 1}, // 3015
+  {wxStyledTextCtrl_EndUndoAction, "wxStyledTextCtrl", "endUndoAction", 1}, // 3016
+  {wxStyledTextCtrl_IndicatorSetStyle, "wxStyledTextCtrl", "indicatorSetStyle", 3}, // 3017
+  {wxStyledTextCtrl_IndicatorGetStyle, "wxStyledTextCtrl", "indicatorGetStyle", 2}, // 3018
+  {wxStyledTextCtrl_IndicatorSetForeground, "wxStyledTextCtrl", "indicatorSetForeground", 3}, // 3019
+  {wxStyledTextCtrl_IndicatorGetForeground, "wxStyledTextCtrl", "indicatorGetForeground", 2}, // 3020
+  {wxStyledTextCtrl_SetWhitespaceForeground, "wxStyledTextCtrl", "setWhitespaceForeground", 3}, // 3021
+  {wxStyledTextCtrl_SetWhitespaceBackground, "wxStyledTextCtrl", "setWhitespaceBackground", 3}, // 3022
+  {wxStyledTextCtrl_GetStyleBits, "wxStyledTextCtrl", "getStyleBits", 1}, // 3023
+  {wxStyledTextCtrl_SetLineState, "wxStyledTextCtrl", "setLineState", 3}, // 3024
+  {wxStyledTextCtrl_GetLineState, "wxStyledTextCtrl", "getLineState", 2}, // 3025
+  {wxStyledTextCtrl_GetMaxLineState, "wxStyledTextCtrl", "getMaxLineState", 1}, // 3026
+  {wxStyledTextCtrl_GetCaretLineVisible, "wxStyledTextCtrl", "getCaretLineVisible", 1}, // 3027
+  {wxStyledTextCtrl_SetCaretLineVisible, "wxStyledTextCtrl", "setCaretLineVisible", 2}, // 3028
+  {wxStyledTextCtrl_GetCaretLineBackground, "wxStyledTextCtrl", "getCaretLineBackground", 1}, // 3029
+  {wxStyledTextCtrl_SetCaretLineBackground, "wxStyledTextCtrl", "setCaretLineBackground", 2}, // 3030
+  {wxStyledTextCtrl_AutoCompShow, "wxStyledTextCtrl", "autoCompShow", 3}, // 3031
+  {wxStyledTextCtrl_AutoCompCancel, "wxStyledTextCtrl", "autoCompCancel", 1}, // 3032
+  {wxStyledTextCtrl_AutoCompActive, "wxStyledTextCtrl", "autoCompActive", 1}, // 3033
+  {wxStyledTextCtrl_AutoCompPosStart, "wxStyledTextCtrl", "autoCompPosStart", 1}, // 3034
+  {wxStyledTextCtrl_AutoCompComplete, "wxStyledTextCtrl", "autoCompComplete", 1}, // 3035
+  {wxStyledTextCtrl_AutoCompStops, "wxStyledTextCtrl", "autoCompStops", 2}, // 3036
+  {wxStyledTextCtrl_AutoCompSetSeparator, "wxStyledTextCtrl", "autoCompSetSeparator", 2}, // 3037
+  {wxStyledTextCtrl_AutoCompGetSeparator, "wxStyledTextCtrl", "autoCompGetSeparator", 1}, // 3038
+  {wxStyledTextCtrl_AutoCompSelect, "wxStyledTextCtrl", "autoCompSelect", 2}, // 3039
+  {wxStyledTextCtrl_AutoCompSetCancelAtStart, "wxStyledTextCtrl", "autoCompSetCancelAtStart", 2}, // 3040
+  {wxStyledTextCtrl_AutoCompGetCancelAtStart, "wxStyledTextCtrl", "autoCompGetCancelAtStart", 1}, // 3041
+  {wxStyledTextCtrl_AutoCompSetFillUps, "wxStyledTextCtrl", "autoCompSetFillUps", 2}, // 3042
+  {wxStyledTextCtrl_AutoCompSetChooseSingle, "wxStyledTextCtrl", "autoCompSetChooseSingle", 2}, // 3043
+  {wxStyledTextCtrl_AutoCompGetChooseSingle, "wxStyledTextCtrl", "autoCompGetChooseSingle", 1}, // 3044
+  {wxStyledTextCtrl_AutoCompSetIgnoreCase, "wxStyledTextCtrl", "autoCompSetIgnoreCase", 2}, // 3045
+  {wxStyledTextCtrl_AutoCompGetIgnoreCase, "wxStyledTextCtrl", "autoCompGetIgnoreCase", 1}, // 3046
+  {wxStyledTextCtrl_UserListShow, "wxStyledTextCtrl", "userListShow", 3}, // 3047
+  {wxStyledTextCtrl_AutoCompSetAutoHide, "wxStyledTextCtrl", "autoCompSetAutoHide", 2}, // 3048
+  {wxStyledTextCtrl_AutoCompGetAutoHide, "wxStyledTextCtrl", "autoCompGetAutoHide", 1}, // 3049
+  {wxStyledTextCtrl_AutoCompSetDropRestOfWord, "wxStyledTextCtrl", "autoCompSetDropRestOfWord", 2}, // 3050
+  {wxStyledTextCtrl_AutoCompGetDropRestOfWord, "wxStyledTextCtrl", "autoCompGetDropRestOfWord", 1}, // 3051
+  {wxStyledTextCtrl_RegisterImage, "wxStyledTextCtrl", "registerImage", 3}, // 3052
+  {wxStyledTextCtrl_ClearRegisteredImages, "wxStyledTextCtrl", "clearRegisteredImages", 1}, // 3053
+  {wxStyledTextCtrl_AutoCompGetTypeSeparator, "wxStyledTextCtrl", "autoCompGetTypeSeparator", 1}, // 3054
+  {wxStyledTextCtrl_AutoCompSetTypeSeparator, "wxStyledTextCtrl", "autoCompSetTypeSeparator", 2}, // 3055
+  {wxStyledTextCtrl_AutoCompSetMaxWidth, "wxStyledTextCtrl", "autoCompSetMaxWidth", 2}, // 3056
+  {wxStyledTextCtrl_AutoCompGetMaxWidth, "wxStyledTextCtrl", "autoCompGetMaxWidth", 1}, // 3057
+  {wxStyledTextCtrl_AutoCompSetMaxHeight, "wxStyledTextCtrl", "autoCompSetMaxHeight", 2}, // 3058
+  {wxStyledTextCtrl_AutoCompGetMaxHeight, "wxStyledTextCtrl", "autoCompGetMaxHeight", 1}, // 3059
+  {wxStyledTextCtrl_SetIndent, "wxStyledTextCtrl", "setIndent", 2}, // 3060
+  {wxStyledTextCtrl_GetIndent, "wxStyledTextCtrl", "getIndent", 1}, // 3061
+  {wxStyledTextCtrl_SetUseTabs, "wxStyledTextCtrl", "setUseTabs", 2}, // 3062
+  {wxStyledTextCtrl_GetUseTabs, "wxStyledTextCtrl", "getUseTabs", 1}, // 3063
+  {wxStyledTextCtrl_SetLineIndentation, "wxStyledTextCtrl", "setLineIndentation", 3}, // 3064
+  {wxStyledTextCtrl_GetLineIndentation, "wxStyledTextCtrl", "getLineIndentation", 2}, // 3065
+  {wxStyledTextCtrl_GetLineIndentPosition, "wxStyledTextCtrl", "getLineIndentPosition", 2}, // 3066
+  {wxStyledTextCtrl_GetColumn, "wxStyledTextCtrl", "getColumn", 2}, // 3067
+  {wxStyledTextCtrl_SetUseHorizontalScrollBar, "wxStyledTextCtrl", "setUseHorizontalScrollBar", 2}, // 3068
+  {wxStyledTextCtrl_GetUseHorizontalScrollBar, "wxStyledTextCtrl", "getUseHorizontalScrollBar", 1}, // 3069
+  {wxStyledTextCtrl_SetIndentationGuides, "wxStyledTextCtrl", "setIndentationGuides", 2}, // 3070
+  {wxStyledTextCtrl_GetIndentationGuides, "wxStyledTextCtrl", "getIndentationGuides", 1}, // 3071
+  {wxStyledTextCtrl_SetHighlightGuide, "wxStyledTextCtrl", "setHighlightGuide", 2}, // 3072
+  {wxStyledTextCtrl_GetHighlightGuide, "wxStyledTextCtrl", "getHighlightGuide", 1}, // 3073
+  {wxStyledTextCtrl_GetLineEndPosition, "wxStyledTextCtrl", "getLineEndPosition", 2}, // 3074
+  {wxStyledTextCtrl_GetCodePage, "wxStyledTextCtrl", "getCodePage", 1}, // 3075
+  {wxStyledTextCtrl_GetCaretForeground, "wxStyledTextCtrl", "getCaretForeground", 1}, // 3076
+  {wxStyledTextCtrl_GetReadOnly, "wxStyledTextCtrl", "getReadOnly", 1}, // 3077
+  {wxStyledTextCtrl_SetCurrentPos, "wxStyledTextCtrl", "setCurrentPos", 2}, // 3078
+  {wxStyledTextCtrl_SetSelectionStart, "wxStyledTextCtrl", "setSelectionStart", 2}, // 3079
+  {wxStyledTextCtrl_GetSelectionStart, "wxStyledTextCtrl", "getSelectionStart", 1}, // 3080
+  {wxStyledTextCtrl_SetSelectionEnd, "wxStyledTextCtrl", "setSelectionEnd", 2}, // 3081
+  {wxStyledTextCtrl_GetSelectionEnd, "wxStyledTextCtrl", "getSelectionEnd", 1}, // 3082
+  {wxStyledTextCtrl_SetPrintMagnification, "wxStyledTextCtrl", "setPrintMagnification", 2}, // 3083
+  {wxStyledTextCtrl_GetPrintMagnification, "wxStyledTextCtrl", "getPrintMagnification", 1}, // 3084
+  {wxStyledTextCtrl_SetPrintColourMode, "wxStyledTextCtrl", "setPrintColourMode", 2}, // 3085
+  {wxStyledTextCtrl_GetPrintColourMode, "wxStyledTextCtrl", "getPrintColourMode", 1}, // 3086
+  {wxStyledTextCtrl_FindText, "wxStyledTextCtrl", "findText", 5}, // 3087
+  {wxStyledTextCtrl_FormatRange, "wxStyledTextCtrl", "formatRange", 8}, // 3088
+  {wxStyledTextCtrl_GetFirstVisibleLine, "wxStyledTextCtrl", "getFirstVisibleLine", 1}, // 3089
+  {wxStyledTextCtrl_GetLine, "wxStyledTextCtrl", "getLine", 2}, // 3090
+  {wxStyledTextCtrl_GetLineCount, "wxStyledTextCtrl", "getLineCount", 1}, // 3091
+  {wxStyledTextCtrl_SetMarginLeft, "wxStyledTextCtrl", "setMarginLeft", 2}, // 3092
+  {wxStyledTextCtrl_GetMarginLeft, "wxStyledTextCtrl", "getMarginLeft", 1}, // 3093
+  {wxStyledTextCtrl_SetMarginRight, "wxStyledTextCtrl", "setMarginRight", 2}, // 3094
+  {wxStyledTextCtrl_GetMarginRight, "wxStyledTextCtrl", "getMarginRight", 1}, // 3095
+  {wxStyledTextCtrl_GetModify, "wxStyledTextCtrl", "getModify", 1}, // 3096
+  {wxStyledTextCtrl_SetSelection, "wxStyledTextCtrl", "setSelection", 3}, // 3097
+  {wxStyledTextCtrl_GetSelectedText, "wxStyledTextCtrl", "getSelectedText", 1}, // 3098
+  {wxStyledTextCtrl_GetTextRange, "wxStyledTextCtrl", "getTextRange", 3}, // 3099
+  {wxStyledTextCtrl_HideSelection, "wxStyledTextCtrl", "hideSelection", 2}, // 3100
+  {wxStyledTextCtrl_LineFromPosition, "wxStyledTextCtrl", "lineFromPosition", 2}, // 3101
+  {wxStyledTextCtrl_PositionFromLine, "wxStyledTextCtrl", "positionFromLine", 2}, // 3102
+  {wxStyledTextCtrl_LineScroll, "wxStyledTextCtrl", "lineScroll", 3}, // 3103
+  {wxStyledTextCtrl_EnsureCaretVisible, "wxStyledTextCtrl", "ensureCaretVisible", 1}, // 3104
+  {wxStyledTextCtrl_ReplaceSelection, "wxStyledTextCtrl", "replaceSelection", 2}, // 3105
+  {wxStyledTextCtrl_SetReadOnly, "wxStyledTextCtrl", "setReadOnly", 2}, // 3106
+  {wxStyledTextCtrl_CanPaste, "wxStyledTextCtrl", "canPaste", 1}, // 3107
+  {wxStyledTextCtrl_CanUndo, "wxStyledTextCtrl", "canUndo", 1}, // 3108
+  {wxStyledTextCtrl_EmptyUndoBuffer, "wxStyledTextCtrl", "emptyUndoBuffer", 1}, // 3109
+  {wxStyledTextCtrl_Undo, "wxStyledTextCtrl", "undo", 1}, // 3110
+  {wxStyledTextCtrl_Cut, "wxStyledTextCtrl", "cut", 1}, // 3111
+  {wxStyledTextCtrl_Copy, "wxStyledTextCtrl", "copy", 1}, // 3112
+  {wxStyledTextCtrl_Paste, "wxStyledTextCtrl", "paste", 1}, // 3113
+  {wxStyledTextCtrl_Clear, "wxStyledTextCtrl", "clear", 1}, // 3114
+  {wxStyledTextCtrl_SetText, "wxStyledTextCtrl", "setText", 2}, // 3115
+  {wxStyledTextCtrl_GetText, "wxStyledTextCtrl", "getText", 1}, // 3116
+  {wxStyledTextCtrl_GetTextLength, "wxStyledTextCtrl", "getTextLength", 1}, // 3117
+  {wxStyledTextCtrl_GetOvertype, "wxStyledTextCtrl", "getOvertype", 1}, // 3118
+  {wxStyledTextCtrl_SetCaretWidth, "wxStyledTextCtrl", "setCaretWidth", 2}, // 3119
+  {wxStyledTextCtrl_GetCaretWidth, "wxStyledTextCtrl", "getCaretWidth", 1}, // 3120
+  {wxStyledTextCtrl_SetTargetStart, "wxStyledTextCtrl", "setTargetStart", 2}, // 3121
+  {wxStyledTextCtrl_GetTargetStart, "wxStyledTextCtrl", "getTargetStart", 1}, // 3122
+  {wxStyledTextCtrl_SetTargetEnd, "wxStyledTextCtrl", "setTargetEnd", 2}, // 3123
+  {wxStyledTextCtrl_GetTargetEnd, "wxStyledTextCtrl", "getTargetEnd", 1}, // 3124
+  {wxStyledTextCtrl_ReplaceTarget, "wxStyledTextCtrl", "replaceTarget", 2}, // 3125
+  {wxStyledTextCtrl_SearchInTarget, "wxStyledTextCtrl", "searchInTarget", 2}, // 3126
+  {wxStyledTextCtrl_SetSearchFlags, "wxStyledTextCtrl", "setSearchFlags", 2}, // 3127
+  {wxStyledTextCtrl_GetSearchFlags, "wxStyledTextCtrl", "getSearchFlags", 1}, // 3128
+  {wxStyledTextCtrl_CallTipShow, "wxStyledTextCtrl", "callTipShow", 3}, // 3129
+  {wxStyledTextCtrl_CallTipCancel, "wxStyledTextCtrl", "callTipCancel", 1}, // 3130
+  {wxStyledTextCtrl_CallTipActive, "wxStyledTextCtrl", "callTipActive", 1}, // 3131
+  {wxStyledTextCtrl_CallTipPosAtStart, "wxStyledTextCtrl", "callTipPosAtStart", 1}, // 3132
+  {wxStyledTextCtrl_CallTipSetHighlight, "wxStyledTextCtrl", "callTipSetHighlight", 3}, // 3133
+  {wxStyledTextCtrl_CallTipSetBackground, "wxStyledTextCtrl", "callTipSetBackground", 2}, // 3134
+  {wxStyledTextCtrl_CallTipSetForeground, "wxStyledTextCtrl", "callTipSetForeground", 2}, // 3135
+  {wxStyledTextCtrl_CallTipSetForegroundHighlight, "wxStyledTextCtrl", "callTipSetForegroundHighlight", 2}, // 3136
+  {wxStyledTextCtrl_CallTipUseStyle, "wxStyledTextCtrl", "callTipUseStyle", 2}, // 3137
+  {wxStyledTextCtrl_VisibleFromDocLine, "wxStyledTextCtrl", "visibleFromDocLine", 2}, // 3138
+  {wxStyledTextCtrl_DocLineFromVisible, "wxStyledTextCtrl", "docLineFromVisible", 2}, // 3139
+  {wxStyledTextCtrl_WrapCount, "wxStyledTextCtrl", "wrapCount", 2}, // 3140
+  {wxStyledTextCtrl_SetFoldLevel, "wxStyledTextCtrl", "setFoldLevel", 3}, // 3141
+  {wxStyledTextCtrl_GetFoldLevel, "wxStyledTextCtrl", "getFoldLevel", 2}, // 3142
+  {wxStyledTextCtrl_GetLastChild, "wxStyledTextCtrl", "getLastChild", 3}, // 3143
+  {wxStyledTextCtrl_GetFoldParent, "wxStyledTextCtrl", "getFoldParent", 2}, // 3144
+  {wxStyledTextCtrl_ShowLines, "wxStyledTextCtrl", "showLines", 3}, // 3145
+  {wxStyledTextCtrl_HideLines, "wxStyledTextCtrl", "hideLines", 3}, // 3146
+  {wxStyledTextCtrl_GetLineVisible, "wxStyledTextCtrl", "getLineVisible", 2}, // 3147
+  {wxStyledTextCtrl_SetFoldExpanded, "wxStyledTextCtrl", "setFoldExpanded", 3}, // 3148
+  {wxStyledTextCtrl_GetFoldExpanded, "wxStyledTextCtrl", "getFoldExpanded", 2}, // 3149
+  {wxStyledTextCtrl_ToggleFold, "wxStyledTextCtrl", "toggleFold", 2}, // 3150
+  {wxStyledTextCtrl_EnsureVisible, "wxStyledTextCtrl", "ensureVisible", 2}, // 3151
+  {wxStyledTextCtrl_SetFoldFlags, "wxStyledTextCtrl", "setFoldFlags", 2}, // 3152
+  {wxStyledTextCtrl_EnsureVisibleEnforcePolicy, "wxStyledTextCtrl", "ensureVisibleEnforcePolicy", 2}, // 3153
+  {wxStyledTextCtrl_SetTabIndents, "wxStyledTextCtrl", "setTabIndents", 2}, // 3154
+  {wxStyledTextCtrl_GetTabIndents, "wxStyledTextCtrl", "getTabIndents", 1}, // 3155
+  {wxStyledTextCtrl_SetBackSpaceUnIndents, "wxStyledTextCtrl", "setBackSpaceUnIndents", 2}, // 3156
+  {wxStyledTextCtrl_GetBackSpaceUnIndents, "wxStyledTextCtrl", "getBackSpaceUnIndents", 1}, // 3157
+  {wxStyledTextCtrl_SetMouseDwellTime, "wxStyledTextCtrl", "setMouseDwellTime", 2}, // 3158
+  {wxStyledTextCtrl_GetMouseDwellTime, "wxStyledTextCtrl", "getMouseDwellTime", 1}, // 3159
+  {wxStyledTextCtrl_WordStartPosition, "wxStyledTextCtrl", "wordStartPosition", 3}, // 3160
+  {wxStyledTextCtrl_WordEndPosition, "wxStyledTextCtrl", "wordEndPosition", 3}, // 3161
+  {wxStyledTextCtrl_SetWrapMode, "wxStyledTextCtrl", "setWrapMode", 2}, // 3162
+  {wxStyledTextCtrl_GetWrapMode, "wxStyledTextCtrl", "getWrapMode", 1}, // 3163
+  {wxStyledTextCtrl_SetWrapVisualFlags, "wxStyledTextCtrl", "setWrapVisualFlags", 2}, // 3164
+  {wxStyledTextCtrl_GetWrapVisualFlags, "wxStyledTextCtrl", "getWrapVisualFlags", 1}, // 3165
+  {wxStyledTextCtrl_SetWrapVisualFlagsLocation, "wxStyledTextCtrl", "setWrapVisualFlagsLocation", 2}, // 3166
+  {wxStyledTextCtrl_GetWrapVisualFlagsLocation, "wxStyledTextCtrl", "getWrapVisualFlagsLocation", 1}, // 3167
+  {wxStyledTextCtrl_SetWrapStartIndent, "wxStyledTextCtrl", "setWrapStartIndent", 2}, // 3168
+  {wxStyledTextCtrl_GetWrapStartIndent, "wxStyledTextCtrl", "getWrapStartIndent", 1}, // 3169
+  {wxStyledTextCtrl_SetLayoutCache, "wxStyledTextCtrl", "setLayoutCache", 2}, // 3170
+  {wxStyledTextCtrl_GetLayoutCache, "wxStyledTextCtrl", "getLayoutCache", 1}, // 3171
+  {wxStyledTextCtrl_SetScrollWidth, "wxStyledTextCtrl", "setScrollWidth", 2}, // 3172
+  {wxStyledTextCtrl_GetScrollWidth, "wxStyledTextCtrl", "getScrollWidth", 1}, // 3173
+  {wxStyledTextCtrl_TextWidth, "wxStyledTextCtrl", "textWidth", 3}, // 3174
+  {wxStyledTextCtrl_GetEndAtLastLine, "wxStyledTextCtrl", "getEndAtLastLine", 1}, // 3175
+  {wxStyledTextCtrl_TextHeight, "wxStyledTextCtrl", "textHeight", 2}, // 3176
+  {wxStyledTextCtrl_SetUseVerticalScrollBar, "wxStyledTextCtrl", "setUseVerticalScrollBar", 2}, // 3177
+  {wxStyledTextCtrl_GetUseVerticalScrollBar, "wxStyledTextCtrl", "getUseVerticalScrollBar", 1}, // 3178
+  {wxStyledTextCtrl_AppendText, "wxStyledTextCtrl", "appendText", 2}, // 3179
+  {wxStyledTextCtrl_GetTwoPhaseDraw, "wxStyledTextCtrl", "getTwoPhaseDraw", 1}, // 3180
+  {wxStyledTextCtrl_SetTwoPhaseDraw, "wxStyledTextCtrl", "setTwoPhaseDraw", 2}, // 3181
+  {wxStyledTextCtrl_TargetFromSelection, "wxStyledTextCtrl", "targetFromSelection", 1}, // 3182
+  {wxStyledTextCtrl_LinesJoin, "wxStyledTextCtrl", "linesJoin", 1}, // 3183
+  {wxStyledTextCtrl_LinesSplit, "wxStyledTextCtrl", "linesSplit", 2}, // 3184
+  {wxStyledTextCtrl_SetFoldMarginColour, "wxStyledTextCtrl", "setFoldMarginColour", 3}, // 3185
+  {wxStyledTextCtrl_SetFoldMarginHiColour, "wxStyledTextCtrl", "setFoldMarginHiColour", 3}, // 3186
+  {wxStyledTextCtrl_LineDown, "wxStyledTextCtrl", "lineDown", 1}, // 3187
+  {wxStyledTextCtrl_LineDownExtend, "wxStyledTextCtrl", "lineDownExtend", 1}, // 3188
+  {wxStyledTextCtrl_LineUp, "wxStyledTextCtrl", "lineUp", 1}, // 3189
+  {wxStyledTextCtrl_LineUpExtend, "wxStyledTextCtrl", "lineUpExtend", 1}, // 3190
+  {wxStyledTextCtrl_CharLeft, "wxStyledTextCtrl", "charLeft", 1}, // 3191
+  {wxStyledTextCtrl_CharLeftExtend, "wxStyledTextCtrl", "charLeftExtend", 1}, // 3192
+  {wxStyledTextCtrl_CharRight, "wxStyledTextCtrl", "charRight", 1}, // 3193
+  {wxStyledTextCtrl_CharRightExtend, "wxStyledTextCtrl", "charRightExtend", 1}, // 3194
+  {wxStyledTextCtrl_WordLeft, "wxStyledTextCtrl", "wordLeft", 1}, // 3195
+  {wxStyledTextCtrl_WordLeftExtend, "wxStyledTextCtrl", "wordLeftExtend", 1}, // 3196
+  {wxStyledTextCtrl_WordRight, "wxStyledTextCtrl", "wordRight", 1}, // 3197
+  {wxStyledTextCtrl_WordRightExtend, "wxStyledTextCtrl", "wordRightExtend", 1}, // 3198
+  {wxStyledTextCtrl_Home, "wxStyledTextCtrl", "home", 1}, // 3199
+  {wxStyledTextCtrl_HomeExtend, "wxStyledTextCtrl", "homeExtend", 1}, // 3200
+  {wxStyledTextCtrl_LineEnd, "wxStyledTextCtrl", "lineEnd", 1}, // 3201
+  {wxStyledTextCtrl_LineEndExtend, "wxStyledTextCtrl", "lineEndExtend", 1}, // 3202
+  {wxStyledTextCtrl_DocumentStart, "wxStyledTextCtrl", "documentStart", 1}, // 3203
+  {wxStyledTextCtrl_DocumentStartExtend, "wxStyledTextCtrl", "documentStartExtend", 1}, // 3204
+  {wxStyledTextCtrl_DocumentEnd, "wxStyledTextCtrl", "documentEnd", 1}, // 3205
+  {wxStyledTextCtrl_DocumentEndExtend, "wxStyledTextCtrl", "documentEndExtend", 1}, // 3206
+  {wxStyledTextCtrl_PageUp, "wxStyledTextCtrl", "pageUp", 1}, // 3207
+  {wxStyledTextCtrl_PageUpExtend, "wxStyledTextCtrl", "pageUpExtend", 1}, // 3208
+  {wxStyledTextCtrl_PageDown, "wxStyledTextCtrl", "pageDown", 1}, // 3209
+  {wxStyledTextCtrl_PageDownExtend, "wxStyledTextCtrl", "pageDownExtend", 1}, // 3210
+  {wxStyledTextCtrl_EditToggleOvertype, "wxStyledTextCtrl", "editToggleOvertype", 1}, // 3211
+  {wxStyledTextCtrl_Cancel, "wxStyledTextCtrl", "cancel", 1}, // 3212
+  {wxStyledTextCtrl_DeleteBack, "wxStyledTextCtrl", "deleteBack", 1}, // 3213
+  {wxStyledTextCtrl_Tab, "wxStyledTextCtrl", "tab", 1}, // 3214
+  {wxStyledTextCtrl_BackTab, "wxStyledTextCtrl", "backTab", 1}, // 3215
+  {wxStyledTextCtrl_NewLine, "wxStyledTextCtrl", "newLine", 1}, // 3216
+  {wxStyledTextCtrl_FormFeed, "wxStyledTextCtrl", "formFeed", 1}, // 3217
+  {wxStyledTextCtrl_VCHome, "wxStyledTextCtrl", "vCHome", 1}, // 3218
+  {wxStyledTextCtrl_VCHomeExtend, "wxStyledTextCtrl", "vCHomeExtend", 1}, // 3219
+  {wxStyledTextCtrl_ZoomIn, "wxStyledTextCtrl", "zoomIn", 1}, // 3220
+  {wxStyledTextCtrl_ZoomOut, "wxStyledTextCtrl", "zoomOut", 1}, // 3221
+  {wxStyledTextCtrl_DelWordLeft, "wxStyledTextCtrl", "delWordLeft", 1}, // 3222
+  {wxStyledTextCtrl_DelWordRight, "wxStyledTextCtrl", "delWordRight", 1}, // 3223
+  {wxStyledTextCtrl_LineCut, "wxStyledTextCtrl", "lineCut", 1}, // 3224
+  {wxStyledTextCtrl_LineDelete, "wxStyledTextCtrl", "lineDelete", 1}, // 3225
+  {wxStyledTextCtrl_LineTranspose, "wxStyledTextCtrl", "lineTranspose", 1}, // 3226
+  {wxStyledTextCtrl_LineDuplicate, "wxStyledTextCtrl", "lineDuplicate", 1}, // 3227
+  {wxStyledTextCtrl_LowerCase, "wxStyledTextCtrl", "lowerCase", 1}, // 3228
+  {wxStyledTextCtrl_UpperCase, "wxStyledTextCtrl", "upperCase", 1}, // 3229
+  {wxStyledTextCtrl_LineScrollDown, "wxStyledTextCtrl", "lineScrollDown", 1}, // 3230
+  {wxStyledTextCtrl_LineScrollUp, "wxStyledTextCtrl", "lineScrollUp", 1}, // 3231
+  {wxStyledTextCtrl_DeleteBackNotLine, "wxStyledTextCtrl", "deleteBackNotLine", 1}, // 3232
+  {wxStyledTextCtrl_HomeDisplay, "wxStyledTextCtrl", "homeDisplay", 1}, // 3233
+  {wxStyledTextCtrl_HomeDisplayExtend, "wxStyledTextCtrl", "homeDisplayExtend", 1}, // 3234
+  {wxStyledTextCtrl_LineEndDisplay, "wxStyledTextCtrl", "lineEndDisplay", 1}, // 3235
+  {wxStyledTextCtrl_LineEndDisplayExtend, "wxStyledTextCtrl", "lineEndDisplayExtend", 1}, // 3236
+  {wxStyledTextCtrl_HomeWrapExtend, "wxStyledTextCtrl", "homeWrapExtend", 1}, // 3237
+  {wxStyledTextCtrl_LineEndWrap, "wxStyledTextCtrl", "lineEndWrap", 1}, // 3238
+  {wxStyledTextCtrl_LineEndWrapExtend, "wxStyledTextCtrl", "lineEndWrapExtend", 1}, // 3239
+  {wxStyledTextCtrl_VCHomeWrap, "wxStyledTextCtrl", "vCHomeWrap", 1}, // 3240
+  {wxStyledTextCtrl_VCHomeWrapExtend, "wxStyledTextCtrl", "vCHomeWrapExtend", 1}, // 3241
+  {wxStyledTextCtrl_LineCopy, "wxStyledTextCtrl", "lineCopy", 1}, // 3242
+  {wxStyledTextCtrl_MoveCaretInsideView, "wxStyledTextCtrl", "moveCaretInsideView", 1}, // 3243
+  {wxStyledTextCtrl_LineLength, "wxStyledTextCtrl", "lineLength", 2}, // 3244
+  {wxStyledTextCtrl_BraceHighlight, "wxStyledTextCtrl", "braceHighlight", 3}, // 3245
+  {wxStyledTextCtrl_BraceBadLight, "wxStyledTextCtrl", "braceBadLight", 2}, // 3246
+  {wxStyledTextCtrl_BraceMatch, "wxStyledTextCtrl", "braceMatch", 2}, // 3247
+  {wxStyledTextCtrl_GetViewEOL, "wxStyledTextCtrl", "getViewEOL", 1}, // 3248
+  {wxStyledTextCtrl_SetViewEOL, "wxStyledTextCtrl", "setViewEOL", 2}, // 3249
+  {wxStyledTextCtrl_SetModEventMask, "wxStyledTextCtrl", "setModEventMask", 2}, // 3250
+  {wxStyledTextCtrl_GetEdgeColumn, "wxStyledTextCtrl", "getEdgeColumn", 1}, // 3251
+  {wxStyledTextCtrl_SetEdgeColumn, "wxStyledTextCtrl", "setEdgeColumn", 2}, // 3252
+  {wxStyledTextCtrl_SetEdgeMode, "wxStyledTextCtrl", "setEdgeMode", 2}, // 3253
+  {wxStyledTextCtrl_GetEdgeMode, "wxStyledTextCtrl", "getEdgeMode", 1}, // 3254
+  {wxStyledTextCtrl_GetEdgeColour, "wxStyledTextCtrl", "getEdgeColour", 1}, // 3255
+  {wxStyledTextCtrl_SetEdgeColour, "wxStyledTextCtrl", "setEdgeColour", 2}, // 3256
+  {wxStyledTextCtrl_SearchAnchor, "wxStyledTextCtrl", "searchAnchor", 1}, // 3257
+  {wxStyledTextCtrl_SearchNext, "wxStyledTextCtrl", "searchNext", 3}, // 3258
+  {wxStyledTextCtrl_SearchPrev, "wxStyledTextCtrl", "searchPrev", 3}, // 3259
+  {wxStyledTextCtrl_LinesOnScreen, "wxStyledTextCtrl", "linesOnScreen", 1}, // 3260
+  {wxStyledTextCtrl_UsePopUp, "wxStyledTextCtrl", "usePopUp", 2}, // 3261
+  {wxStyledTextCtrl_SelectionIsRectangle, "wxStyledTextCtrl", "selectionIsRectangle", 1}, // 3262
+  {wxStyledTextCtrl_SetZoom, "wxStyledTextCtrl", "setZoom", 2}, // 3263
+  {wxStyledTextCtrl_GetZoom, "wxStyledTextCtrl", "getZoom", 1}, // 3264
+  {wxStyledTextCtrl_GetModEventMask, "wxStyledTextCtrl", "getModEventMask", 1}, // 3265
+  {wxStyledTextCtrl_SetSTCFocus, "wxStyledTextCtrl", "setSTCFocus", 2}, // 3266
+  {wxStyledTextCtrl_GetSTCFocus, "wxStyledTextCtrl", "getSTCFocus", 1}, // 3267
+  {wxStyledTextCtrl_SetStatus, "wxStyledTextCtrl", "setStatus", 2}, // 3268
+  {wxStyledTextCtrl_GetStatus, "wxStyledTextCtrl", "getStatus", 1}, // 3269
+  {wxStyledTextCtrl_SetMouseDownCaptures, "wxStyledTextCtrl", "setMouseDownCaptures", 2}, // 3270
+  {wxStyledTextCtrl_GetMouseDownCaptures, "wxStyledTextCtrl", "getMouseDownCaptures", 1}, // 3271
+  {wxStyledTextCtrl_SetSTCCursor, "wxStyledTextCtrl", "setSTCCursor", 2}, // 3272
+  {wxStyledTextCtrl_GetSTCCursor, "wxStyledTextCtrl", "getSTCCursor", 1}, // 3273
+  {wxStyledTextCtrl_SetControlCharSymbol, "wxStyledTextCtrl", "setControlCharSymbol", 2}, // 3274
+  {wxStyledTextCtrl_GetControlCharSymbol, "wxStyledTextCtrl", "getControlCharSymbol", 1}, // 3275
+  {wxStyledTextCtrl_WordPartLeft, "wxStyledTextCtrl", "wordPartLeft", 1}, // 3276
+  {wxStyledTextCtrl_WordPartLeftExtend, "wxStyledTextCtrl", "wordPartLeftExtend", 1}, // 3277
+  {wxStyledTextCtrl_WordPartRight, "wxStyledTextCtrl", "wordPartRight", 1}, // 3278
+  {wxStyledTextCtrl_WordPartRightExtend, "wxStyledTextCtrl", "wordPartRightExtend", 1}, // 3279
+  {wxStyledTextCtrl_SetVisiblePolicy, "wxStyledTextCtrl", "setVisiblePolicy", 3}, // 3280
+  {wxStyledTextCtrl_DelLineLeft, "wxStyledTextCtrl", "delLineLeft", 1}, // 3281
+  {wxStyledTextCtrl_DelLineRight, "wxStyledTextCtrl", "delLineRight", 1}, // 3282
+  {wxStyledTextCtrl_GetXOffset, "wxStyledTextCtrl", "getXOffset", 1}, // 3283
+  {wxStyledTextCtrl_ChooseCaretX, "wxStyledTextCtrl", "chooseCaretX", 1}, // 3284
+  {wxStyledTextCtrl_SetXCaretPolicy, "wxStyledTextCtrl", "setXCaretPolicy", 3}, // 3285
+  {wxStyledTextCtrl_SetYCaretPolicy, "wxStyledTextCtrl", "setYCaretPolicy", 3}, // 3286
+  {wxStyledTextCtrl_GetPrintWrapMode, "wxStyledTextCtrl", "getPrintWrapMode", 1}, // 3287
+  {wxStyledTextCtrl_SetHotspotActiveForeground, "wxStyledTextCtrl", "setHotspotActiveForeground", 3}, // 3288
+  {wxStyledTextCtrl_SetHotspotActiveBackground, "wxStyledTextCtrl", "setHotspotActiveBackground", 3}, // 3289
+  {wxStyledTextCtrl_SetHotspotActiveUnderline, "wxStyledTextCtrl", "setHotspotActiveUnderline", 2}, // 3290
+  {wxStyledTextCtrl_SetHotspotSingleLine, "wxStyledTextCtrl", "setHotspotSingleLine", 2}, // 3291
+  {wxStyledTextCtrl_ParaDownExtend, "wxStyledTextCtrl", "paraDownExtend", 1}, // 3292
+  {wxStyledTextCtrl_ParaUp, "wxStyledTextCtrl", "paraUp", 1}, // 3293
+  {wxStyledTextCtrl_ParaUpExtend, "wxStyledTextCtrl", "paraUpExtend", 1}, // 3294
+  {wxStyledTextCtrl_PositionBefore, "wxStyledTextCtrl", "positionBefore", 2}, // 3295
+  {wxStyledTextCtrl_PositionAfter, "wxStyledTextCtrl", "positionAfter", 2}, // 3296
+  {wxStyledTextCtrl_CopyRange, "wxStyledTextCtrl", "copyRange", 3}, // 3297
+  {wxStyledTextCtrl_CopyText, "wxStyledTextCtrl", "copyText", 3}, // 3298
+  {wxStyledTextCtrl_SetSelectionMode, "wxStyledTextCtrl", "setSelectionMode", 2}, // 3299
+  {wxStyledTextCtrl_GetSelectionMode, "wxStyledTextCtrl", "getSelectionMode", 1}, // 3300
+  {wxStyledTextCtrl_LineDownRectExtend, "wxStyledTextCtrl", "lineDownRectExtend", 1}, // 3301
+  {wxStyledTextCtrl_LineUpRectExtend, "wxStyledTextCtrl", "lineUpRectExtend", 1}, // 3302
+  {wxStyledTextCtrl_CharLeftRectExtend, "wxStyledTextCtrl", "charLeftRectExtend", 1}, // 3303
+  {wxStyledTextCtrl_CharRightRectExtend, "wxStyledTextCtrl", "charRightRectExtend", 1}, // 3304
+  {wxStyledTextCtrl_HomeRectExtend, "wxStyledTextCtrl", "homeRectExtend", 1}, // 3305
+  {wxStyledTextCtrl_VCHomeRectExtend, "wxStyledTextCtrl", "vCHomeRectExtend", 1}, // 3306
+  {wxStyledTextCtrl_LineEndRectExtend, "wxStyledTextCtrl", "lineEndRectExtend", 1}, // 3307
+  {wxStyledTextCtrl_PageUpRectExtend, "wxStyledTextCtrl", "pageUpRectExtend", 1}, // 3308
+  {wxStyledTextCtrl_PageDownRectExtend, "wxStyledTextCtrl", "pageDownRectExtend", 1}, // 3309
+  {wxStyledTextCtrl_StutteredPageUp, "wxStyledTextCtrl", "stutteredPageUp", 1}, // 3310
+  {wxStyledTextCtrl_StutteredPageUpExtend, "wxStyledTextCtrl", "stutteredPageUpExtend", 1}, // 3311
+  {wxStyledTextCtrl_StutteredPageDown, "wxStyledTextCtrl", "stutteredPageDown", 1}, // 3312
+  {wxStyledTextCtrl_StutteredPageDownExtend, "wxStyledTextCtrl", "stutteredPageDownExtend", 1}, // 3313
+  {wxStyledTextCtrl_WordLeftEnd, "wxStyledTextCtrl", "wordLeftEnd", 1}, // 3314
+  {wxStyledTextCtrl_WordLeftEndExtend, "wxStyledTextCtrl", "wordLeftEndExtend", 1}, // 3315
+  {wxStyledTextCtrl_WordRightEnd, "wxStyledTextCtrl", "wordRightEnd", 1}, // 3316
+  {wxStyledTextCtrl_WordRightEndExtend, "wxStyledTextCtrl", "wordRightEndExtend", 1}, // 3317
+  {wxStyledTextCtrl_SetWhitespaceChars, "wxStyledTextCtrl", "setWhitespaceChars", 2}, // 3318
+  {wxStyledTextCtrl_SetCharsDefault, "wxStyledTextCtrl", "setCharsDefault", 1}, // 3319
+  {wxStyledTextCtrl_AutoCompGetCurrent, "wxStyledTextCtrl", "autoCompGetCurrent", 1}, // 3320
+  {wxStyledTextCtrl_Allocate, "wxStyledTextCtrl", "allocate", 2}, // 3321
+  {wxStyledTextCtrl_FindColumn, "wxStyledTextCtrl", "findColumn", 3}, // 3322
+  {wxStyledTextCtrl_GetCaretSticky, "wxStyledTextCtrl", "getCaretSticky", 1}, // 3323
+  {wxStyledTextCtrl_SetCaretSticky, "wxStyledTextCtrl", "setCaretSticky", 2}, // 3324
+  {wxStyledTextCtrl_ToggleCaretSticky, "wxStyledTextCtrl", "toggleCaretSticky", 1}, // 3325
+  {wxStyledTextCtrl_SetPasteConvertEndings, "wxStyledTextCtrl", "setPasteConvertEndings", 2}, // 3326
+  {wxStyledTextCtrl_GetPasteConvertEndings, "wxStyledTextCtrl", "getPasteConvertEndings", 1}, // 3327
+  {wxStyledTextCtrl_SelectionDuplicate, "wxStyledTextCtrl", "selectionDuplicate", 1}, // 3328
+  {wxStyledTextCtrl_SetCaretLineBackAlpha, "wxStyledTextCtrl", "setCaretLineBackAlpha", 2}, // 3329
+  {wxStyledTextCtrl_GetCaretLineBackAlpha, "wxStyledTextCtrl", "getCaretLineBackAlpha", 1}, // 3330
+  {wxStyledTextCtrl_StartRecord, "wxStyledTextCtrl", "startRecord", 1}, // 3331
+  {wxStyledTextCtrl_StopRecord, "wxStyledTextCtrl", "stopRecord", 1}, // 3332
+  {wxStyledTextCtrl_SetLexer, "wxStyledTextCtrl", "setLexer", 2}, // 3333
+  {wxStyledTextCtrl_GetLexer, "wxStyledTextCtrl", "getLexer", 1}, // 3334
+  {wxStyledTextCtrl_Colourise, "wxStyledTextCtrl", "colourise", 3}, // 3335
+  {wxStyledTextCtrl_SetProperty, "wxStyledTextCtrl", "setProperty", 3}, // 3336
+  {wxStyledTextCtrl_SetKeyWords, "wxStyledTextCtrl", "setKeyWords", 3}, // 3337
+  {wxStyledTextCtrl_SetLexerLanguage, "wxStyledTextCtrl", "setLexerLanguage", 2}, // 3338
+  {wxStyledTextCtrl_GetProperty, "wxStyledTextCtrl", "getProperty", 2}, // 3339
+  {wxStyledTextCtrl_GetStyleBitsNeeded, "wxStyledTextCtrl", "getStyleBitsNeeded", 1}, // 3340
+  {wxStyledTextCtrl_GetCurrentLine, "wxStyledTextCtrl", "getCurrentLine", 1}, // 3341
+  {wxStyledTextCtrl_StyleSetSpec, "wxStyledTextCtrl", "styleSetSpec", 3}, // 3342
+  {wxStyledTextCtrl_StyleSetFont, "wxStyledTextCtrl", "styleSetFont", 3}, // 3343
+  {wxStyledTextCtrl_StyleSetFontAttr, "wxStyledTextCtrl", "styleSetFontAttr", 8}, // 3344
+  {wxStyledTextCtrl_StyleSetCharacterSet, "wxStyledTextCtrl", "styleSetCharacterSet", 3}, // 3345
+  {wxStyledTextCtrl_StyleSetFontEncoding, "wxStyledTextCtrl", "styleSetFontEncoding", 3}, // 3346
+  {wxStyledTextCtrl_CmdKeyExecute, "wxStyledTextCtrl", "cmdKeyExecute", 2}, // 3347
+  {wxStyledTextCtrl_SetMargins, "wxStyledTextCtrl", "setMargins", 3}, // 3348
+  {wxStyledTextCtrl_GetSelection, "wxStyledTextCtrl", "getSelection", 1}, // 3349
+  {wxStyledTextCtrl_PointFromPosition, "wxStyledTextCtrl", "pointFromPosition", 2}, // 3350
+  {wxStyledTextCtrl_ScrollToLine, "wxStyledTextCtrl", "scrollToLine", 2}, // 3351
+  {wxStyledTextCtrl_ScrollToColumn, "wxStyledTextCtrl", "scrollToColumn", 2}, // 3352
+  {wxStyledTextCtrl_SetVScrollBar, "wxStyledTextCtrl", "setVScrollBar", 2}, // 3353
+  {wxStyledTextCtrl_SetHScrollBar, "wxStyledTextCtrl", "setHScrollBar", 2}, // 3354
+  {wxStyledTextCtrl_GetLastKeydownProcessed, "wxStyledTextCtrl", "getLastKeydownProcessed", 1}, // 3355
+  {wxStyledTextCtrl_SetLastKeydownProcessed, "wxStyledTextCtrl", "setLastKeydownProcessed", 2}, // 3356
+  {wxStyledTextCtrl_SaveFile, "wxStyledTextCtrl", "saveFile", 2}, // 3357
+  {wxStyledTextCtrl_LoadFile, "wxStyledTextCtrl", "loadFile", 2}, // 3358
+  {wxStyledTextCtrl_DoDragOver, "wxStyledTextCtrl", "doDragOver", 4}, // 3359
+  {wxStyledTextCtrl_DoDropText, "wxStyledTextCtrl", "doDropText", 4}, // 3360
+  {wxStyledTextCtrl_GetUseAntiAliasing, "wxStyledTextCtrl", "getUseAntiAliasing", 1}, // 3361
+  {wxStyledTextCtrl_AddTextRaw, "wxStyledTextCtrl", "addTextRaw", 3}, // 3362
+  {wxStyledTextCtrl_InsertTextRaw, "wxStyledTextCtrl", "insertTextRaw", 3}, // 3363
+  {wxStyledTextCtrl_GetCurLineRaw, "wxStyledTextCtrl", "getCurLineRaw", 1}, // 3364
+  {wxStyledTextCtrl_GetLineRaw, "wxStyledTextCtrl", "getLineRaw", 2}, // 3365
+  {wxStyledTextCtrl_GetSelectedTextRaw, "wxStyledTextCtrl", "getSelectedTextRaw", 1}, // 3366
+  {wxStyledTextCtrl_GetTextRangeRaw, "wxStyledTextCtrl", "getTextRangeRaw", 3}, // 3367
+  {wxStyledTextCtrl_SetTextRaw, "wxStyledTextCtrl", "setTextRaw", 2}, // 3368
+  {wxStyledTextCtrl_GetTextRaw, "wxStyledTextCtrl", "getTextRaw", 1}, // 3369
+  {wxStyledTextCtrl_AppendTextRaw, "wxStyledTextCtrl", "appendTextRaw", 3}, // 3370
+  {wxArtProvider_GetBitmap, "wxArtProvider", "getBitmap", 2}, // 3371
+  {wxArtProvider_GetIcon, "wxArtProvider", "getIcon", 2}, // 3372
+  {wxTreeEvent_GetKeyCode, "wxTreeEvent", "getKeyCode", 1}, // 3373
+  {wxTreeEvent_GetItem, "wxTreeEvent", "getItem", 1}, // 3374
+  {wxTreeEvent_GetKeyEvent, "wxTreeEvent", "getKeyEvent", 1}, // 3375
+  {wxTreeEvent_GetLabel, "wxTreeEvent", "getLabel", 1}, // 3376
+  {wxTreeEvent_GetOldItem, "wxTreeEvent", "getOldItem", 1}, // 3377
+  {wxTreeEvent_GetPoint, "wxTreeEvent", "getPoint", 1}, // 3378
+  {wxTreeEvent_IsEditCancelled, "wxTreeEvent", "isEditCancelled", 1}, // 3379
+  {wxTreeEvent_SetToolTip, "wxTreeEvent", "setToolTip", 2}, // 3380
+  {wxBookCtrlEvent_GetOldSelection, "wxBookCtrlEvent", "getOldSelection", 1}, // 3381
+  {wxBookCtrlEvent_GetSelection, "wxBookCtrlEvent", "getSelection", 1}, // 3382
+  {wxBookCtrlEvent_SetOldSelection, "wxBookCtrlEvent", "setOldSelection", 2}, // 3383
+  {wxBookCtrlEvent_SetSelection, "wxBookCtrlEvent", "setSelection", 2}, // 3384
+  {wxFileDataObject_new, "wxFileDataObject", "new", 0}, // 3385
+  {wxFileDataObject_AddFile, "wxFileDataObject", "addFile", 2}, // 3386
+  {wxFileDataObject_GetFilenames, "wxFileDataObject", "getFilenames", 1}, // 3387
+  {wxFileDataObject_destroy, "wxFileDataObject", "'Destroy'", 1}, // 3388
+  {wxTextDataObject_new, "wxTextDataObject", "new", 1}, // 3389
+  {wxTextDataObject_GetTextLength, "wxTextDataObject", "getTextLength", 1}, // 3390
+  {wxTextDataObject_GetText, "wxTextDataObject", "getText", 1}, // 3391
+  {wxTextDataObject_SetText, "wxTextDataObject", "setText", 2}, // 3392
+  {wxTextDataObject_destroy, "wxTextDataObject", "'Destroy'", 1}, // 3393
+  {wxBitmapDataObject_new_1_1, "wxBitmapDataObject", "new", 1}, // 3394
+  {wxBitmapDataObject_new_1_0, "wxBitmapDataObject", "new", 1}, // 3395
+  {wxBitmapDataObject_GetBitmap, "wxBitmapDataObject", "getBitmap", 1}, // 3396
+  {wxBitmapDataObject_SetBitmap, "wxBitmapDataObject", "setBitmap", 2}, // 3397
+  {wxBitmapDataObject_destroy, "wxBitmapDataObject", "'Destroy'", 1}, // 3398
+  {wxClipboard_new, "wxClipboard", "new", 0}, // 3399
+  {NULL, "wxClipboard", "destroy", 1}, // 3400 obj destructor wxClipboard_destruct
+  {wxClipboard_AddData, "wxClipboard", "addData", 2}, // 3401
+  {wxClipboard_Clear, "wxClipboard", "clear", 1}, // 3402
+  {wxClipboard_Close, "wxClipboard", "close", 1}, // 3403
+  {wxClipboard_Flush, "wxClipboard", "flush", 1}, // 3404
+  {wxClipboard_GetData, "wxClipboard", "getData", 2}, // 3405
+  {wxClipboard_IsOpened, "wxClipboard", "isOpened", 1}, // 3406
+  {wxClipboard_Open, "wxClipboard", "open", 1}, // 3407
+  {wxClipboard_SetData, "wxClipboard", "setData", 2}, // 3408
+  {wxClipboard_UsePrimarySelection, "wxClipboard", "usePrimarySelection", 2}, // 3409
+  {wxClipboard_IsSupported, "wxClipboard", "isSupported", 2}, // 3410
+  {wxClipboard_Get, "wxClipboard", "get", 0}, // 3411
+  {wxSpinEvent_GetPosition, "wxSpinEvent", "getPosition", 1}, // 3412
+  {wxSpinEvent_SetPosition, "wxSpinEvent", "setPosition", 2}, // 3413
+  {wxSplitterWindow_new_0, "wxSplitterWindow", "new", 0}, // 3414
+  {wxSplitterWindow_new_2, "wxSplitterWindow", "new", 2}, // 3415
+  {NULL, "wxSplitterWindow", "destroy", 1}, // 3416 obj destructor wxSplitterWindow_destruct
+  {wxSplitterWindow_Create, "wxSplitterWindow", "create", 3}, // 3417
+  {wxSplitterWindow_GetMinimumPaneSize, "wxSplitterWindow", "getMinimumPaneSize", 1}, // 3418
+  {wxSplitterWindow_GetSashGravity, "wxSplitterWindow", "getSashGravity", 1}, // 3419
+  {wxSplitterWindow_GetSashPosition, "wxSplitterWindow", "getSashPosition", 1}, // 3420
+  {wxSplitterWindow_GetSplitMode, "wxSplitterWindow", "getSplitMode", 1}, // 3421
+  {wxSplitterWindow_GetWindow1, "wxSplitterWindow", "getWindow1", 1}, // 3422
+  {wxSplitterWindow_GetWindow2, "wxSplitterWindow", "getWindow2", 1}, // 3423
+  {wxSplitterWindow_Initialize, "wxSplitterWindow", "initialize", 2}, // 3424
+  {wxSplitterWindow_IsSplit, "wxSplitterWindow", "isSplit", 1}, // 3425
+  {wxSplitterWindow_ReplaceWindow, "wxSplitterWindow", "replaceWindow", 3}, // 3426
+  {wxSplitterWindow_SetSashGravity, "wxSplitterWindow", "setSashGravity", 2}, // 3427
+  {wxSplitterWindow_SetSashPosition, "wxSplitterWindow", "setSashPosition", 3}, // 3428
+  {wxSplitterWindow_SetMinimumPaneSize, "wxSplitterWindow", "setMinimumPaneSize", 2}, // 3429
+  {wxSplitterWindow_SetSplitMode, "wxSplitterWindow", "setSplitMode", 2}, // 3430
+  {wxSplitterWindow_SplitHorizontally, "wxSplitterWindow", "splitHorizontally", 4}, // 3431
+  {wxSplitterWindow_SplitVertically, "wxSplitterWindow", "splitVertically", 4}, // 3432
+  {wxSplitterWindow_Unsplit, "wxSplitterWindow", "unsplit", 2}, // 3433
+  {wxSplitterWindow_UpdateSize, "wxSplitterWindow", "updateSize", 1}, // 3434
+  {wxSplitterEvent_GetSashPosition, "wxSplitterEvent", "getSashPosition", 1}, // 3435
+  {wxSplitterEvent_GetX, "wxSplitterEvent", "getX", 1}, // 3436
+  {wxSplitterEvent_GetY, "wxSplitterEvent", "getY", 1}, // 3437
+  {wxSplitterEvent_GetWindowBeingRemoved, "wxSplitterEvent", "getWindowBeingRemoved", 1}, // 3438
+  {wxSplitterEvent_SetSashPosition, "wxSplitterEvent", "setSashPosition", 2}, // 3439
+  {wxHtmlWindow_new_0, "wxHtmlWindow", "new", 0}, // 3440
+  {wxHtmlWindow_new_2, "wxHtmlWindow", "new", 2}, // 3441
+  {wxHtmlWindow_AppendToPage, "wxHtmlWindow", "appendToPage", 2}, // 3442
+  {wxHtmlWindow_GetOpenedAnchor, "wxHtmlWindow", "getOpenedAnchor", 1}, // 3443
+  {wxHtmlWindow_GetOpenedPage, "wxHtmlWindow", "getOpenedPage", 1}, // 3444
+  {wxHtmlWindow_GetOpenedPageTitle, "wxHtmlWindow", "getOpenedPageTitle", 1}, // 3445
+  {wxHtmlWindow_GetRelatedFrame, "wxHtmlWindow", "getRelatedFrame", 1}, // 3446
+  {wxHtmlWindow_HistoryBack, "wxHtmlWindow", "historyBack", 1}, // 3447
+  {wxHtmlWindow_HistoryCanBack, "wxHtmlWindow", "historyCanBack", 1}, // 3448
+  {wxHtmlWindow_HistoryCanForward, "wxHtmlWindow", "historyCanForward", 1}, // 3449
+  {wxHtmlWindow_HistoryClear, "wxHtmlWindow", "historyClear", 1}, // 3450
+  {wxHtmlWindow_HistoryForward, "wxHtmlWindow", "historyForward", 1}, // 3451
+  {wxHtmlWindow_LoadFile, "wxHtmlWindow", "loadFile", 2}, // 3452
+  {wxHtmlWindow_LoadPage, "wxHtmlWindow", "loadPage", 2}, // 3453
+  {wxHtmlWindow_SelectAll, "wxHtmlWindow", "selectAll", 1}, // 3454
+  {wxHtmlWindow_SelectionToText, "wxHtmlWindow", "selectionToText", 1}, // 3455
+  {wxHtmlWindow_SelectLine, "wxHtmlWindow", "selectLine", 2}, // 3456
+  {wxHtmlWindow_SelectWord, "wxHtmlWindow", "selectWord", 2}, // 3457
+  {wxHtmlWindow_SetBorders, "wxHtmlWindow", "setBorders", 2}, // 3458
+  {wxHtmlWindow_SetFonts, "wxHtmlWindow", "setFonts", 4}, // 3459
+  {wxHtmlWindow_SetPage, "wxHtmlWindow", "setPage", 2}, // 3460
+  {wxHtmlWindow_SetRelatedFrame, "wxHtmlWindow", "setRelatedFrame", 3}, // 3461
+  {wxHtmlWindow_SetRelatedStatusBar_1, "wxHtmlWindow", "setRelatedStatusBar", 2}, // 3462
+  {wxHtmlWindow_SetRelatedStatusBar_2, "wxHtmlWindow", "setRelatedStatusBar", 3}, // 3463
+  {wxHtmlWindow_ToText, "wxHtmlWindow", "toText", 1}, // 3464
+  {NULL, "wxHtmlWindow", "'Destroy'", 1}, // 3465 obj destructor wxHtmlWindow_destroy
+  {wxHtmlLinkEvent_GetLinkInfo, "wxHtmlLinkEvent", "getLinkInfo", 1}, // 3466
+  {wxSystemSettings_GetColour, "wxSystemSettings", "getColour", 1}, // 3467
+  {wxSystemSettings_GetFont, "wxSystemSettings", "getFont", 1}, // 3468
+  {wxSystemSettings_GetMetric, "wxSystemSettings", "getMetric", 2}, // 3469
+  {wxSystemSettings_GetScreenType, "wxSystemSettings", "getScreenType", 0}, // 3470
+  {wxSystemOptions_GetOption, "wxSystemOptions", "getOption", 1}, // 3471
+  {wxSystemOptions_GetOptionInt, "wxSystemOptions", "getOptionInt", 1}, // 3472
+  {wxSystemOptions_HasOption, "wxSystemOptions", "hasOption", 1}, // 3473
+  {wxSystemOptions_IsFalse, "wxSystemOptions", "isFalse", 1}, // 3474
+  {wxSystemOptions_SetOption_2_1, "wxSystemOptions", "setOption", 2}, // 3475
+  {wxSystemOptions_SetOption_2_0, "wxSystemOptions", "setOption", 2}, // 3476
+  {wxAuiNotebookEvent_SetSelection, "wxAuiNotebookEvent", "setSelection", 2}, // 3477
+  {wxAuiNotebookEvent_GetSelection, "wxAuiNotebookEvent", "getSelection", 1}, // 3478
+  {wxAuiNotebookEvent_SetOldSelection, "wxAuiNotebookEvent", "setOldSelection", 2}, // 3479
+  {wxAuiNotebookEvent_GetOldSelection, "wxAuiNotebookEvent", "getOldSelection", 1}, // 3480
+  {wxAuiNotebookEvent_SetDragSource, "wxAuiNotebookEvent", "setDragSource", 2}, // 3481
+  {wxAuiNotebookEvent_GetDragSource, "wxAuiNotebookEvent", "getDragSource", 1}, // 3482
+  {wxAuiManagerEvent_SetManager, "wxAuiManagerEvent", "setManager", 2}, // 3483
+  {wxAuiManagerEvent_GetManager, "wxAuiManagerEvent", "getManager", 1}, // 3484
+  {wxAuiManagerEvent_SetPane, "wxAuiManagerEvent", "setPane", 2}, // 3485
+  {wxAuiManagerEvent_GetPane, "wxAuiManagerEvent", "getPane", 1}, // 3486
+  {wxAuiManagerEvent_SetButton, "wxAuiManagerEvent", "setButton", 2}, // 3487
+  {wxAuiManagerEvent_GetButton, "wxAuiManagerEvent", "getButton", 1}, // 3488
+  {wxAuiManagerEvent_SetDC, "wxAuiManagerEvent", "setDC", 2}, // 3489
+  {wxAuiManagerEvent_GetDC, "wxAuiManagerEvent", "getDC", 1}, // 3490
+  {wxAuiManagerEvent_Veto, "wxAuiManagerEvent", "veto", 2}, // 3491
+  {wxAuiManagerEvent_GetVeto, "wxAuiManagerEvent", "getVeto", 1}, // 3492
+  {wxAuiManagerEvent_SetCanVeto, "wxAuiManagerEvent", "setCanVeto", 2}, // 3493
+  {wxAuiManagerEvent_CanVeto, "wxAuiManagerEvent", "canVeto", 1}, // 3494
+  {wxLogNull_new, "wxLogNull", "new", 0}, // 3495
+  {wxLogNull_destruct, "wxLogNull", "destroy", 1}, // 3496
+  {wxTaskBarIcon_new, "wxTaskBarIcon", "new", 1}, // 3497
+  {NULL, "wxTaskBarIcon", "destroy", 1}, // 3498 obj destructor wxTaskBarIcon_destruct
+  {wxTaskBarIcon_PopupMenu, "wxTaskBarIcon", "popupMenu", 2}, // 3499
+  {wxTaskBarIcon_RemoveIcon, "wxTaskBarIcon", "removeIcon", 1}, // 3500
+  {wxTaskBarIcon_SetIcon, "wxTaskBarIcon", "setIcon", 3}, // 3501
+  {wxLocale_new_0, "wxLocale", "new", 0}, // 3502
+  {wxLocale_new_2_0, "wxLocale", "new", 2}, // 3503
+  {wxLocale_new_2_1, "wxLocale", "new", 2}, // 3504
+  {wxLocale_destruct, "wxLocale", "destroy", 1}, // 3505
+  {wxLocale_Init_1, "wxLocale", "init", 2}, // 3506
+  {wxLocale_Init_2, "wxLocale", "init", 3}, // 3507
+  {wxLocale_AddCatalog_1, "wxLocale", "addCatalog", 2}, // 3508
+  {wxLocale_AddCatalog_2, "wxLocale", "addCatalog", 3}, // 3509
+  {wxLocale_AddCatalog_3, "wxLocale", "addCatalog", 4}, // 3510
+  {wxLocale_AddCatalogLookupPathPrefix, "wxLocale", "addCatalogLookupPathPrefix", 1}, // 3511
+  {wxLocale_GetCanonicalName, "wxLocale", "getCanonicalName", 1}, // 3512
+  {wxLocale_GetLanguage, "wxLocale", "getLanguage", 1}, // 3513
+  {wxLocale_GetLanguageName, "wxLocale", "getLanguageName", 1}, // 3514
+  {wxLocale_GetLocale, "wxLocale", "getLocale", 1}, // 3515
+  {wxLocale_GetName, "wxLocale", "getName", 1}, // 3516
+  {wxLocale_GetString_2, "wxLocale", "getString", 3}, // 3517
+  {wxLocale_GetString_4, "wxLocale", "getString", 5}, // 3518
+  {wxLocale_GetHeaderValue, "wxLocale", "getHeaderValue", 3}, // 3519
+  {wxLocale_GetSysName, "wxLocale", "getSysName", 1}, // 3520
+  {wxLocale_GetSystemEncoding, "wxLocale", "getSystemEncoding", 0}, // 3521
+  {wxLocale_GetSystemEncodingName, "wxLocale", "getSystemEncodingName", 0}, // 3522
+  {wxLocale_GetSystemLanguage, "wxLocale", "getSystemLanguage", 0}, // 3523
+  {wxLocale_IsLoaded, "wxLocale", "isLoaded", 2}, // 3524
+  {wxLocale_IsOk, "wxLocale", "isOk", 1}, // 3525
+  {wxActivateEvent_GetActive, "wxActivateEvent", "getActive", 1}, // 3526
 #if wxUSE_POPUPWIN
-  {wxPopupWindow_new_0, "wxPopupWindow", "new", 0}, // 3525
+  {wxPopupWindow_new_0, "wxPopupWindow", "new", 0}, // 3527
 #else
-  {NULL, "wxPopupWindow", "new", 0}, // 3525
+  {NULL, "wxPopupWindow", "new", 0}, // 3527
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupWindow_new_2, "wxPopupWindow", "new", 2}, // 3526
+  {wxPopupWindow_new_2, "wxPopupWindow", "new", 2}, // 3528
 #else
-  {NULL, "wxPopupWindow", "new", 0}, // 3526
+  {NULL, "wxPopupWindow", "new", 0}, // 3528
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupWindow_Create, "wxPopupWindow", "create", 3}, // 3527
+  {wxPopupWindow_Create, "wxPopupWindow", "create", 3}, // 3529
 #else
-  {NULL, "wxPopupWindow", "create", 0}, // 3527
+  {NULL, "wxPopupWindow", "create", 0}, // 3529
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupWindow_Position, "wxPopupWindow", "position", 3}, // 3528
+  {wxPopupWindow_Position, "wxPopupWindow", "position", 3}, // 3530
 #else
-  {NULL, "wxPopupWindow", "position", 0}, // 3528
+  {NULL, "wxPopupWindow", "position", 0}, // 3530
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {NULL, "wxPopupWindow", "'Destroy'", 1}, // 3529 obj destructor wxPopupWindow_destroy
+  {NULL, "wxPopupWindow", "'Destroy'", 1}, // 3531 obj destructor wxPopupWindow_destroy
 #else
-  {NULL, "wxPopupWindow", "'Destroy'", 0}, // 3529
+  {NULL, "wxPopupWindow", "'Destroy'", 0}, // 3531
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupTransientWindow_new_0, "wxPopupTransientWindow", "new", 0}, // 3530
+  {wxPopupTransientWindow_new_0, "wxPopupTransientWindow", "new", 0}, // 3532
 #else
-  {NULL, "wxPopupTransientWindow", "new", 0}, // 3530
+  {NULL, "wxPopupTransientWindow", "new", 0}, // 3532
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupTransientWindow_new_2, "wxPopupTransientWindow", "new", 2}, // 3531
+  {wxPopupTransientWindow_new_2, "wxPopupTransientWindow", "new", 2}, // 3533
 #else
-  {NULL, "wxPopupTransientWindow", "new", 0}, // 3531
+  {NULL, "wxPopupTransientWindow", "new", 0}, // 3533
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupTransientWindow_Popup, "wxPopupTransientWindow", "popup", 2}, // 3532
+  {wxPopupTransientWindow_Popup, "wxPopupTransientWindow", "popup", 2}, // 3534
 #else
-  {NULL, "wxPopupTransientWindow", "popup", 0}, // 3532
+  {NULL, "wxPopupTransientWindow", "popup", 0}, // 3534
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {wxPopupTransientWindow_Dismiss, "wxPopupTransientWindow", "dismiss", 1}, // 3533
+  {wxPopupTransientWindow_Dismiss, "wxPopupTransientWindow", "dismiss", 1}, // 3535
 #else
-  {NULL, "wxPopupTransientWindow", "dismiss", 0}, // 3533
+  {NULL, "wxPopupTransientWindow", "dismiss", 0}, // 3535
 #endif // wxUSE_POPUPWIN
 #if wxUSE_POPUPWIN
-  {NULL, "wxPopupTransientWindow", "'Destroy'", 1}, // 3534 obj destructor wxPopupTransientWindow_destroy
+  {NULL, "wxPopupTransientWindow", "'Destroy'", 1}, // 3536 obj destructor wxPopupTransientWindow_destroy
 #else
-  {NULL, "wxPopupTransientWindow", "'Destroy'", 0}, // 3534
+  {NULL, "wxPopupTransientWindow", "'Destroy'", 0}, // 3536
 #endif // wxUSE_POPUPWIN
-  {wxOverlay_new, "wxOverlay", "new", 0}, // 3535
-  {wxOverlay_destruct, "wxOverlay", "destroy", 1}, // 3536
-  {wxOverlay_Reset, "wxOverlay", "reset", 1}, // 3537
-  {wxDCOverlay_new_6, "wxDCOverlay", "new", 6}, // 3538
-  {wxDCOverlay_new_2, "wxDCOverlay", "new", 2}, // 3539
-  {wxDCOverlay_destruct, "wxDCOverlay", "destroy", 1}, // 3540
-  {wxDCOverlay_Clear, "wxDCOverlay", "clear", 1}, // 3541
-  {wxDropFilesEvent_GetPosition, "wxDropFilesEvent", "getPosition", 1}, // 3542
-  {wxDropFilesEvent_GetNumberOfFiles, "wxDropFilesEvent", "getNumberOfFiles", 1}, // 3543
-  {wxDropFilesEvent_GetFiles, "wxDropFilesEvent", "getFiles", 1}, // 3544
+  {wxOverlay_new, "wxOverlay", "new", 0}, // 3537
+  {wxOverlay_destruct, "wxOverlay", "destroy", 1}, // 3538
+  {wxOverlay_Reset, "wxOverlay", "reset", 1}, // 3539
+  {wxDCOverlay_new_6, "wxDCOverlay", "new", 6}, // 3540
+  {wxDCOverlay_new_2, "wxDCOverlay", "new", 2}, // 3541
+  {wxDCOverlay_destruct, "wxDCOverlay", "destroy", 1}, // 3542
+  {wxDCOverlay_Clear, "wxDCOverlay", "clear", 1}, // 3543
+  {wxDropFilesEvent_GetPosition, "wxDropFilesEvent", "getPosition", 1}, // 3544
+  {wxDropFilesEvent_GetNumberOfFiles, "wxDropFilesEvent", "getNumberOfFiles", 1}, // 3545
+  {wxDropFilesEvent_GetFiles, "wxDropFilesEvent", "getFiles", 1}, // 3546
 #if wxUSE_DISPLAY
-  {wxDisplay_new_0, "wxDisplay", "new", 0}, // 3545
-#else
-  {NULL, "wxDisplay", "new", 0}, // 3545
-#endif // wxUSE_DISPLAY
-#if wxUSE_DISPLAY
-  {wxDisplay_new_1_0, "wxDisplay", "new", 1}, // 3546
-#else
-  {NULL, "wxDisplay", "new", 0}, // 3546
-#endif // wxUSE_DISPLAY
-#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
-  {wxDisplay_new_1_1, "wxDisplay", "new", 1}, // 3547
+  {wxDisplay_new_0, "wxDisplay", "new", 0}, // 3547
 #else
   {NULL, "wxDisplay", "new", 0}, // 3547
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY
+  {wxDisplay_new_1_0, "wxDisplay", "new", 1}, // 3548
+#else
+  {NULL, "wxDisplay", "new", 0}, // 3548
+#endif // wxUSE_DISPLAY
+#if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
+  {wxDisplay_new_1_1, "wxDisplay", "new", 1}, // 3549
+#else
+  {NULL, "wxDisplay", "new", 0}, // 3549
 #endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,3)
 #if wxUSE_DISPLAY
-  {wxDisplay_destruct, "wxDisplay", "destroy", 1}, // 3548
+  {wxDisplay_destruct, "wxDisplay", "destroy", 1}, // 3550
 #else
-  {NULL, "wxDisplay", "destroy", 0}, // 3548
+  {NULL, "wxDisplay", "destroy", 0}, // 3550
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_IsOk, "wxDisplay", "isOk", 1}, // 3549
+  {wxDisplay_IsOk, "wxDisplay", "isOk", 1}, // 3551
 #else
-  {NULL, "wxDisplay", "isOk", 0}, // 3549
+  {NULL, "wxDisplay", "isOk", 0}, // 3551
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetClientArea, "wxDisplay", "getClientArea", 1}, // 3550
+  {wxDisplay_GetClientArea, "wxDisplay", "getClientArea", 1}, // 3552
 #else
-  {NULL, "wxDisplay", "getClientArea", 0}, // 3550
+  {NULL, "wxDisplay", "getClientArea", 0}, // 3552
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetGeometry, "wxDisplay", "getGeometry", 1}, // 3551
+  {wxDisplay_GetGeometry, "wxDisplay", "getGeometry", 1}, // 3553
 #else
-  {NULL, "wxDisplay", "getGeometry", 0}, // 3551
+  {NULL, "wxDisplay", "getGeometry", 0}, // 3553
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetName, "wxDisplay", "getName", 1}, // 3552
+  {wxDisplay_GetName, "wxDisplay", "getName", 1}, // 3554
 #else
-  {NULL, "wxDisplay", "getName", 0}, // 3552
+  {NULL, "wxDisplay", "getName", 0}, // 3554
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_IsPrimary, "wxDisplay", "isPrimary", 1}, // 3553
+  {wxDisplay_IsPrimary, "wxDisplay", "isPrimary", 1}, // 3555
 #else
-  {NULL, "wxDisplay", "isPrimary", 0}, // 3553
+  {NULL, "wxDisplay", "isPrimary", 0}, // 3555
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetCount, "wxDisplay", "getCount", 0}, // 3554
+  {wxDisplay_GetCount, "wxDisplay", "getCount", 0}, // 3556
 #else
-  {NULL, "wxDisplay", "getCount", 0}, // 3554
+  {NULL, "wxDisplay", "getCount", 0}, // 3556
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetFromPoint, "wxDisplay", "getFromPoint", 1}, // 3555
+  {wxDisplay_GetFromPoint, "wxDisplay", "getFromPoint", 1}, // 3557
 #else
-  {NULL, "wxDisplay", "getFromPoint", 0}, // 3555
+  {NULL, "wxDisplay", "getFromPoint", 0}, // 3557
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY
-  {wxDisplay_GetFromWindow, "wxDisplay", "getFromWindow", 1}, // 3556
+  {wxDisplay_GetFromWindow, "wxDisplay", "getFromWindow", 1}, // 3558
 #else
-  {NULL, "wxDisplay", "getFromWindow", 0}, // 3556
+  {NULL, "wxDisplay", "getFromWindow", 0}, // 3558
 #endif // wxUSE_DISPLAY
 #if wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
-  {wxDisplay_GetPPI, "wxDisplay", "getPPI", 1}, // 3557
+  {wxDisplay_GetPPI, "wxDisplay", "getPPI", 1}, // 3559
 #else
-  {NULL, "wxDisplay", "getPPI", 0}, // 3557
+  {NULL, "wxDisplay", "getPPI", 0}, // 3559
 #endif // wxUSE_DISPLAY && wxCHECK_VERSION(3,1,2)
 #if wxUSE_GRAPHICS_CONTEXT
-  {wxGCDC_new_1, "wxGCDC", "new", 1}, // 3558
+  {wxGCDC_new_1, "wxGCDC", "new", 1}, // 3560
 #else
-  {NULL, "wxGCDC", "new", 0}, // 3558
+  {NULL, "wxGCDC", "new", 0}, // 3560
 #endif // wxUSE_GRAPHICS_CONTEXT
-  {NULL, "", "", 0}, // 3559
-  {NULL, "", "", 0}, // 3560
+  {NULL, "", "", 0}, // 3561
+  {NULL, "", "", 0}, // 3562
 #if wxUSE_GRAPHICS_CONTEXT
-  {wxGCDC_new_0, "wxGCDC", "new", 0}, // 3561
+  {wxGCDC_new_0, "wxGCDC", "new", 0}, // 3563
 #else
-  {NULL, "wxGCDC", "new", 0}, // 3561
-#endif // wxUSE_GRAPHICS_CONTEXT
-#if wxUSE_GRAPHICS_CONTEXT
-  {NULL, "wxGCDC", "destroy", 1}, // 3562 obj destructor wxGCDC_destruct
-#else
-  {NULL, "wxGCDC", "destroy", 0}, // 3562
+  {NULL, "wxGCDC", "new", 0}, // 3563
 #endif // wxUSE_GRAPHICS_CONTEXT
 #if wxUSE_GRAPHICS_CONTEXT
-  {wxGCDC_GetGraphicsContext, "wxGCDC", "getGraphicsContext", 1}, // 3563
+  {NULL, "wxGCDC", "destroy", 1}, // 3564 obj destructor wxGCDC_destruct
 #else
-  {NULL, "wxGCDC", "getGraphicsContext", 0}, // 3563
+  {NULL, "wxGCDC", "destroy", 0}, // 3564
 #endif // wxUSE_GRAPHICS_CONTEXT
 #if wxUSE_GRAPHICS_CONTEXT
-  {wxGCDC_SetGraphicsContext, "wxGCDC", "setGraphicsContext", 2}, // 3564
+  {wxGCDC_GetGraphicsContext, "wxGCDC", "getGraphicsContext", 1}, // 3565
 #else
-  {NULL, "wxGCDC", "setGraphicsContext", 0}, // 3564
+  {NULL, "wxGCDC", "getGraphicsContext", 0}, // 3565
 #endif // wxUSE_GRAPHICS_CONTEXT
-  {wxNotificationMessage_new_0, "wxNotificationMessage", "new", 0}, // 3565
-  {wxNotificationMessage_new_2, "wxNotificationMessage", "new", 2}, // 3566
-  {NULL, "wxNotificationMessage", "destroy", 1}, // 3567 obj destructor wxNotificationMessage_destruct
+#if wxUSE_GRAPHICS_CONTEXT
+  {wxGCDC_SetGraphicsContext, "wxGCDC", "setGraphicsContext", 2}, // 3566
+#else
+  {NULL, "wxGCDC", "setGraphicsContext", 0}, // 3566
+#endif // wxUSE_GRAPHICS_CONTEXT
+  {wxNotificationMessage_new_0, "wxNotificationMessage", "new", 0}, // 3567
+  {wxNotificationMessage_new_2, "wxNotificationMessage", "new", 2}, // 3568
+  {NULL, "wxNotificationMessage", "destroy", 1}, // 3569 obj destructor wxNotificationMessage_destruct
 #if wxCHECK_VERSION(3,1,0)
-  {wxNotificationMessage_AddAction, "wxNotificationMessage", "addAction", 3}, // 3568
+  {wxNotificationMessage_AddAction, "wxNotificationMessage", "addAction", 3}, // 3570
 #else
-  {NULL, "wxNotificationMessage", "addAction", 0}, // 3568
+  {NULL, "wxNotificationMessage", "addAction", 0}, // 3570
 #endif // wxCHECK_VERSION(3,1,0)
-  {wxNotificationMessage_Close, "wxNotificationMessage", "close", 1}, // 3569
-  {wxNotificationMessage_SetFlags, "wxNotificationMessage", "setFlags", 2}, // 3570
+  {wxNotificationMessage_Close, "wxNotificationMessage", "close", 1}, // 3571
+  {wxNotificationMessage_SetFlags, "wxNotificationMessage", "setFlags", 2}, // 3572
 #if wxCHECK_VERSION(3,1,0)
-  {wxNotificationMessage_SetIcon, "wxNotificationMessage", "setIcon", 2}, // 3571
+  {wxNotificationMessage_SetIcon, "wxNotificationMessage", "setIcon", 2}, // 3573
 #else
-  {NULL, "wxNotificationMessage", "setIcon", 0}, // 3571
+  {NULL, "wxNotificationMessage", "setIcon", 0}, // 3573
 #endif // wxCHECK_VERSION(3,1,0)
-  {wxNotificationMessage_SetMessage, "wxNotificationMessage", "setMessage", 2}, // 3572
-  {wxNotificationMessage_SetParent, "wxNotificationMessage", "setParent", 2}, // 3573
-  {wxNotificationMessage_SetTitle, "wxNotificationMessage", "setTitle", 2}, // 3574
-  {wxNotificationMessage_Show, "wxNotificationMessage", "show", 2}, // 3575
+  {wxNotificationMessage_SetMessage, "wxNotificationMessage", "setMessage", 2}, // 3574
+  {wxNotificationMessage_SetParent, "wxNotificationMessage", "setParent", 2}, // 3575
+  {wxNotificationMessage_SetTitle, "wxNotificationMessage", "setTitle", 2}, // 3576
+  {wxNotificationMessage_Show, "wxNotificationMessage", "show", 2}, // 3577
 #if __WXMSW__ 
-  {wxNotificationMessage_UseTaskBarIcon, "wxNotificationMessage", "useTaskBarIcon", 1}, // 3576
+  {wxNotificationMessage_UseTaskBarIcon, "wxNotificationMessage", "useTaskBarIcon", 1}, // 3578
 #else
-  {NULL, "wxNotificationMessage", "useTaskBarIcon", 0}, // 3576
+  {NULL, "wxNotificationMessage", "useTaskBarIcon", 0}, // 3578
 #endif // __WXMSW__ 
 #if __WXMSW__ && wxCHECK_VERSION(3,1,0)
-  {wxNotificationMessage_MSWUseToasts, "wxNotificationMessage", "mSWUseToasts", 1}, // 3577
+  {wxNotificationMessage_MSWUseToasts, "wxNotificationMessage", "mSWUseToasts", 1}, // 3579
 #else
-  {NULL, "wxNotificationMessage", "mSWUseToasts", 0}, // 3577
+  {NULL, "wxNotificationMessage", "mSWUseToasts", 0}, // 3579
 #endif // __WXMSW__ && wxCHECK_VERSION(3,1,0)
-  {NULL, "", "", 0}, // 3578
+  {NULL, "", "", 0}, // 3580
 #if WXE_WEBVIEW
-  {wxWebView_New, "wxWebView", "new", 3}, // 3579
+  {wxWebView_New, "wxWebView", "new", 3}, // 3581
 #else
-  {NULL, "wxWebView", "new", 0}, // 3579
+  {NULL, "wxWebView", "new", 0}, // 3581
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetCurrentTitle, "wxWebView", "getCurrentTitle", 1}, // 3580
+  {wxWebView_GetCurrentTitle, "wxWebView", "getCurrentTitle", 1}, // 3582
 #else
-  {NULL, "wxWebView", "getCurrentTitle", 0}, // 3580
+  {NULL, "wxWebView", "getCurrentTitle", 0}, // 3582
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetCurrentURL, "wxWebView", "getCurrentURL", 1}, // 3581
+  {wxWebView_GetCurrentURL, "wxWebView", "getCurrentURL", 1}, // 3583
 #else
-  {NULL, "wxWebView", "getCurrentURL", 0}, // 3581
+  {NULL, "wxWebView", "getCurrentURL", 0}, // 3583
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetPageSource, "wxWebView", "getPageSource", 1}, // 3582
+  {wxWebView_GetPageSource, "wxWebView", "getPageSource", 1}, // 3584
 #else
-  {NULL, "wxWebView", "getPageSource", 0}, // 3582
+  {NULL, "wxWebView", "getPageSource", 0}, // 3584
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetPageText, "wxWebView", "getPageText", 1}, // 3583
+  {wxWebView_GetPageText, "wxWebView", "getPageText", 1}, // 3585
 #else
-  {NULL, "wxWebView", "getPageText", 0}, // 3583
+  {NULL, "wxWebView", "getPageText", 0}, // 3585
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsBusy, "wxWebView", "isBusy", 1}, // 3584
+  {wxWebView_IsBusy, "wxWebView", "isBusy", 1}, // 3586
 #else
-  {NULL, "wxWebView", "isBusy", 0}, // 3584
+  {NULL, "wxWebView", "isBusy", 0}, // 3586
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsEditable, "wxWebView", "isEditable", 1}, // 3585
+  {wxWebView_IsEditable, "wxWebView", "isEditable", 1}, // 3587
 #else
-  {NULL, "wxWebView", "isEditable", 0}, // 3585
+  {NULL, "wxWebView", "isEditable", 0}, // 3587
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_LoadURL, "wxWebView", "loadURL", 2}, // 3586
+  {wxWebView_LoadURL, "wxWebView", "loadURL", 2}, // 3588
 #else
-  {NULL, "wxWebView", "loadURL", 0}, // 3586
+  {NULL, "wxWebView", "loadURL", 0}, // 3588
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Print, "wxWebView", "print", 1}, // 3587
+  {wxWebView_Print, "wxWebView", "print", 1}, // 3589
 #else
-  {NULL, "wxWebView", "print", 0}, // 3587
+  {NULL, "wxWebView", "print", 0}, // 3589
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Reload, "wxWebView", "reload", 2}, // 3588
+  {wxWebView_Reload, "wxWebView", "reload", 2}, // 3590
 #else
-  {NULL, "wxWebView", "reload", 0}, // 3588
+  {NULL, "wxWebView", "reload", 0}, // 3590
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
-  {wxWebView_RunScript, "wxWebView", "runScript", 2}, // 3589
+  {wxWebView_RunScript, "wxWebView", "runScript", 2}, // 3591
 #else
-  {NULL, "wxWebView", "runScript", 0}, // 3589
+  {NULL, "wxWebView", "runScript", 0}, // 3591
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,1)
 #if WXE_WEBVIEW
-  {wxWebView_SetEditable, "wxWebView", "setEditable", 2}, // 3590
+  {wxWebView_SetEditable, "wxWebView", "setEditable", 2}, // 3592
 #else
-  {NULL, "wxWebView", "setEditable", 0}, // 3590
+  {NULL, "wxWebView", "setEditable", 0}, // 3592
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetPage, "wxWebView", "setPage", 3}, // 3591
+  {wxWebView_SetPage, "wxWebView", "setPage", 3}, // 3593
 #else
-  {NULL, "wxWebView", "setPage", 0}, // 3591
+  {NULL, "wxWebView", "setPage", 0}, // 3593
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Stop, "wxWebView", "stop", 1}, // 3592
+  {wxWebView_Stop, "wxWebView", "stop", 1}, // 3594
 #else
-  {NULL, "wxWebView", "stop", 0}, // 3592
+  {NULL, "wxWebView", "stop", 0}, // 3594
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanCopy, "wxWebView", "canCopy", 1}, // 3593
+  {wxWebView_CanCopy, "wxWebView", "canCopy", 1}, // 3595
 #else
-  {NULL, "wxWebView", "canCopy", 0}, // 3593
+  {NULL, "wxWebView", "canCopy", 0}, // 3595
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanCut, "wxWebView", "canCut", 1}, // 3594
+  {wxWebView_CanCut, "wxWebView", "canCut", 1}, // 3596
 #else
-  {NULL, "wxWebView", "canCut", 0}, // 3594
+  {NULL, "wxWebView", "canCut", 0}, // 3596
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanPaste, "wxWebView", "canPaste", 1}, // 3595
+  {wxWebView_CanPaste, "wxWebView", "canPaste", 1}, // 3597
 #else
-  {NULL, "wxWebView", "canPaste", 0}, // 3595
+  {NULL, "wxWebView", "canPaste", 0}, // 3597
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Copy, "wxWebView", "copy", 1}, // 3596
+  {wxWebView_Copy, "wxWebView", "copy", 1}, // 3598
 #else
-  {NULL, "wxWebView", "copy", 0}, // 3596
+  {NULL, "wxWebView", "copy", 0}, // 3598
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Cut, "wxWebView", "cut", 1}, // 3597
+  {wxWebView_Cut, "wxWebView", "cut", 1}, // 3599
 #else
-  {NULL, "wxWebView", "cut", 0}, // 3597
+  {NULL, "wxWebView", "cut", 0}, // 3599
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Paste, "wxWebView", "paste", 1}, // 3598
+  {wxWebView_Paste, "wxWebView", "paste", 1}, // 3600
 #else
-  {NULL, "wxWebView", "paste", 0}, // 3598
+  {NULL, "wxWebView", "paste", 0}, // 3600
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_EnableContextMenu, "wxWebView", "enableContextMenu", 2}, // 3599
+  {wxWebView_EnableContextMenu, "wxWebView", "enableContextMenu", 2}, // 3601
 #else
-  {NULL, "wxWebView", "enableContextMenu", 0}, // 3599
+  {NULL, "wxWebView", "enableContextMenu", 0}, // 3601
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_IsContextMenuEnabled, "wxWebView", "isContextMenuEnabled", 1}, // 3600
+  {wxWebView_IsContextMenuEnabled, "wxWebView", "isContextMenuEnabled", 1}, // 3602
 #else
-  {NULL, "wxWebView", "isContextMenuEnabled", 0}, // 3600
+  {NULL, "wxWebView", "isContextMenuEnabled", 0}, // 3602
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanGoBack, "wxWebView", "canGoBack", 1}, // 3601
+  {wxWebView_CanGoBack, "wxWebView", "canGoBack", 1}, // 3603
 #else
-  {NULL, "wxWebView", "canGoBack", 0}, // 3601
+  {NULL, "wxWebView", "canGoBack", 0}, // 3603
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanGoForward, "wxWebView", "canGoForward", 1}, // 3602
+  {wxWebView_CanGoForward, "wxWebView", "canGoForward", 1}, // 3604
 #else
-  {NULL, "wxWebView", "canGoForward", 0}, // 3602
+  {NULL, "wxWebView", "canGoForward", 0}, // 3604
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_ClearHistory, "wxWebView", "clearHistory", 1}, // 3603
+  {wxWebView_ClearHistory, "wxWebView", "clearHistory", 1}, // 3605
 #else
-  {NULL, "wxWebView", "clearHistory", 0}, // 3603
+  {NULL, "wxWebView", "clearHistory", 0}, // 3605
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_EnableHistory, "wxWebView", "enableHistory", 2}, // 3604
+  {wxWebView_EnableHistory, "wxWebView", "enableHistory", 2}, // 3606
 #else
-  {NULL, "wxWebView", "enableHistory", 0}, // 3604
+  {NULL, "wxWebView", "enableHistory", 0}, // 3606
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GoBack, "wxWebView", "goBack", 1}, // 3605
+  {wxWebView_GoBack, "wxWebView", "goBack", 1}, // 3607
 #else
-  {NULL, "wxWebView", "goBack", 0}, // 3605
+  {NULL, "wxWebView", "goBack", 0}, // 3607
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GoForward, "wxWebView", "goForward", 1}, // 3606
+  {wxWebView_GoForward, "wxWebView", "goForward", 1}, // 3608
 #else
-  {NULL, "wxWebView", "goForward", 0}, // 3606
+  {NULL, "wxWebView", "goForward", 0}, // 3608
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_ClearSelection, "wxWebView", "clearSelection", 1}, // 3607
+  {wxWebView_ClearSelection, "wxWebView", "clearSelection", 1}, // 3609
 #else
-  {NULL, "wxWebView", "clearSelection", 0}, // 3607
+  {NULL, "wxWebView", "clearSelection", 0}, // 3609
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_DeleteSelection, "wxWebView", "deleteSelection", 1}, // 3608
+  {wxWebView_DeleteSelection, "wxWebView", "deleteSelection", 1}, // 3610
 #else
-  {NULL, "wxWebView", "deleteSelection", 0}, // 3608
+  {NULL, "wxWebView", "deleteSelection", 0}, // 3610
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetSelectedSource, "wxWebView", "getSelectedSource", 1}, // 3609
+  {wxWebView_GetSelectedSource, "wxWebView", "getSelectedSource", 1}, // 3611
 #else
-  {NULL, "wxWebView", "getSelectedSource", 0}, // 3609
+  {NULL, "wxWebView", "getSelectedSource", 0}, // 3611
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetSelectedText, "wxWebView", "getSelectedText", 1}, // 3610
+  {wxWebView_GetSelectedText, "wxWebView", "getSelectedText", 1}, // 3612
 #else
-  {NULL, "wxWebView", "getSelectedText", 0}, // 3610
+  {NULL, "wxWebView", "getSelectedText", 0}, // 3612
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_HasSelection, "wxWebView", "hasSelection", 1}, // 3611
+  {wxWebView_HasSelection, "wxWebView", "hasSelection", 1}, // 3613
 #else
-  {NULL, "wxWebView", "hasSelection", 0}, // 3611
+  {NULL, "wxWebView", "hasSelection", 0}, // 3613
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SelectAll, "wxWebView", "selectAll", 1}, // 3612
+  {wxWebView_SelectAll, "wxWebView", "selectAll", 1}, // 3614
 #else
-  {NULL, "wxWebView", "selectAll", 0}, // 3612
+  {NULL, "wxWebView", "selectAll", 0}, // 3614
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanRedo, "wxWebView", "canRedo", 1}, // 3613
+  {wxWebView_CanRedo, "wxWebView", "canRedo", 1}, // 3615
 #else
-  {NULL, "wxWebView", "canRedo", 0}, // 3613
+  {NULL, "wxWebView", "canRedo", 0}, // 3615
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanUndo, "wxWebView", "canUndo", 1}, // 3614
+  {wxWebView_CanUndo, "wxWebView", "canUndo", 1}, // 3616
 #else
-  {NULL, "wxWebView", "canUndo", 0}, // 3614
+  {NULL, "wxWebView", "canUndo", 0}, // 3616
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Redo, "wxWebView", "redo", 1}, // 3615
+  {wxWebView_Redo, "wxWebView", "redo", 1}, // 3617
 #else
-  {NULL, "wxWebView", "redo", 0}, // 3615
+  {NULL, "wxWebView", "redo", 0}, // 3617
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Undo, "wxWebView", "undo", 1}, // 3616
+  {wxWebView_Undo, "wxWebView", "undo", 1}, // 3618
 #else
-  {NULL, "wxWebView", "undo", 0}, // 3616
+  {NULL, "wxWebView", "undo", 0}, // 3618
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_Find, "wxWebView", "find", 3}, // 3617
+  {wxWebView_Find, "wxWebView", "find", 3}, // 3619
 #else
-  {NULL, "wxWebView", "find", 0}, // 3617
+  {NULL, "wxWebView", "find", 0}, // 3619
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_CanSetZoomType, "wxWebView", "canSetZoomType", 2}, // 3618
+  {wxWebView_CanSetZoomType, "wxWebView", "canSetZoomType", 2}, // 3620
 #else
-  {NULL, "wxWebView", "canSetZoomType", 0}, // 3618
+  {NULL, "wxWebView", "canSetZoomType", 0}, // 3620
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetZoom, "wxWebView", "getZoom", 1}, // 3619
+  {wxWebView_GetZoom, "wxWebView", "getZoom", 1}, // 3621
 #else
-  {NULL, "wxWebView", "getZoom", 0}, // 3619
+  {NULL, "wxWebView", "getZoom", 0}, // 3621
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_GetZoomType, "wxWebView", "getZoomType", 1}, // 3620
+  {wxWebView_GetZoomType, "wxWebView", "getZoomType", 1}, // 3622
 #else
-  {NULL, "wxWebView", "getZoomType", 0}, // 3620
+  {NULL, "wxWebView", "getZoomType", 0}, // 3622
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetZoom, "wxWebView", "setZoom", 2}, // 3621
+  {wxWebView_SetZoom, "wxWebView", "setZoom", 2}, // 3623
 #else
-  {NULL, "wxWebView", "setZoom", 0}, // 3621
+  {NULL, "wxWebView", "setZoom", 0}, // 3623
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebView_SetZoomType, "wxWebView", "setZoomType", 2}, // 3622
+  {wxWebView_SetZoomType, "wxWebView", "setZoomType", 2}, // 3624
 #else
-  {NULL, "wxWebView", "setZoomType", 0}, // 3622
+  {NULL, "wxWebView", "setZoomType", 0}, // 3624
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_GetZoomFactor, "wxWebView", "getZoomFactor", 1}, // 3623
+  {wxWebView_GetZoomFactor, "wxWebView", "getZoomFactor", 1}, // 3625
 #else
-  {NULL, "wxWebView", "getZoomFactor", 0}, // 3623
+  {NULL, "wxWebView", "getZoomFactor", 0}, // 3625
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_SetZoomFactor, "wxWebView", "setZoomFactor", 2}, // 3624
+  {wxWebView_SetZoomFactor, "wxWebView", "setZoomFactor", 2}, // 3626
 #else
-  {NULL, "wxWebView", "setZoomFactor", 0}, // 3624
+  {NULL, "wxWebView", "setZoomFactor", 0}, // 3626
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
-  {wxWebView_IsBackendAvailable, "wxWebView", "isBackendAvailable", 1}, // 3625
+  {wxWebView_IsBackendAvailable, "wxWebView", "isBackendAvailable", 1}, // 3627
 #else
-  {NULL, "wxWebView", "isBackendAvailable", 0}, // 3625
+  {NULL, "wxWebView", "isBackendAvailable", 0}, // 3627
 #endif // WXE_WEBVIEW && wxCHECK_VERSION(3,1,4)
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetString, "wxWebViewEvent", "getString", 1}, // 3626
+  {wxWebViewEvent_GetString, "wxWebViewEvent", "getString", 1}, // 3628
 #else
-  {NULL, "wxWebViewEvent", "getString", 0}, // 3626
+  {NULL, "wxWebViewEvent", "getString", 0}, // 3628
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetInt, "wxWebViewEvent", "getInt", 1}, // 3627
+  {wxWebViewEvent_GetInt, "wxWebViewEvent", "getInt", 1}, // 3629
 #else
-  {NULL, "wxWebViewEvent", "getInt", 0}, // 3627
+  {NULL, "wxWebViewEvent", "getInt", 0}, // 3629
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetTarget, "wxWebViewEvent", "getTarget", 1}, // 3628
+  {wxWebViewEvent_GetTarget, "wxWebViewEvent", "getTarget", 1}, // 3630
 #else
-  {NULL, "wxWebViewEvent", "getTarget", 0}, // 3628
+  {NULL, "wxWebViewEvent", "getTarget", 0}, // 3630
 #endif // WXE_WEBVIEW
 #if WXE_WEBVIEW
-  {wxWebViewEvent_GetURL, "wxWebViewEvent", "getURL", 1}, // 3629
+  {wxWebViewEvent_GetURL, "wxWebViewEvent", "getURL", 1}, // 3631
 #else
-  {NULL, "wxWebViewEvent", "getURL", 0}, // 3629
+  {NULL, "wxWebViewEvent", "getURL", 0}, // 3631
 #endif // WXE_WEBVIEW
 };
