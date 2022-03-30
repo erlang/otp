@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,9 @@
 #define LONG(L)  ((long) (L))
 #define ULONG(L) ((unsigned long) (L))
 #define SZT(I)   ((size_t) (I))
+#ifndef VOID
 #define VOID(D)  ((void) (D))
+#endif
 #define VOIDP(P) ((void*) (P))
 #define CHARP(P) ((char*) (P))
 #define UCHARP(P) ((unsigned char*) (P))
@@ -54,13 +56,13 @@ extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ERL_NIF_TERM  eIOV,
                            ErlNifBinary* bufs,
-                           struct iovec* iov,
+                           SysIOVec*     iov,
                            size_t        len,
                            ssize_t*      totSize);
 extern
 void esock_encode_iov(ErlNifEnv*    env,
                       ssize_t       read,
-                      struct iovec* iov,
+                      SysIOVec*     iov,
                       size_t        len,
                       ErlNifBinary* data,
                       ERL_NIF_TERM* eIOV);

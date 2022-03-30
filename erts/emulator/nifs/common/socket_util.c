@@ -34,9 +34,11 @@
 #include <time.h>
 #include <stddef.h>
 #include <sys/types.h>
+#if !defined(__WIN32__)
 #include <sys/socket.h>
+#endif
 
-#ifndef __IOS__
+#if !defined(__IOS__) && !defined(__WIN32__)
 #include <net/if_arp.h>
 #endif
 
@@ -64,6 +66,10 @@
 #endif
 
 #define UDBG( proto ) ESOCK_DBG_PRINTF( UTIL_DEBUG , proto )
+
+#if defined(__WIN32__)
+typedef u_short sa_family_t;
+#endif
 
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
@@ -93,7 +99,7 @@ static void esock_encode_sockaddr_native(ErlNifEnv*       env,
 
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* sa,
-                                         socklen_t        len,
+                                         SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr);
 
 static void make_sockaddr_in(ErlNifEnv*    env,
@@ -163,14 +169,14 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
 extern
 void esock_encode_iov(ErlNifEnv*    env,
                       ssize_t       read,
-                      struct iovec* iov,
+                      SysIOVec*     iov,
                       size_t        len,
                       ErlNifBinary* data,
                       ERL_NIF_TERM* eIOV)
 {
-    ssize_t      rem = read;
-    size_t       i;
-    ERL_NIF_TERM a[len]; // At most this length
+    ssize_t       rem = read;
+    size_t        i;
+    ERL_NIF_TERM* a;
 
     UDBG( ("SUTIL", "esock_encode_iov -> entry with"
            "\r\n   read:      %ld"
@@ -178,8 +184,11 @@ void esock_encode_iov(ErlNifEnv*    env,
            "\r\n", (long) read, (unsigned long) len) );
 
     if (len == 0) {
+        UDBG( ("SUTIL", "esock_encode_iov -> done when empty\r\n") );
         *eIOV = MKEL(env);
         return;
+    } else {
+        a = MALLOC(len * sizeof(ERL_NIF_TERM)); // At most this length
     }
 
     for (i = 0;  i < len;  i++) {
@@ -215,6 +224,8 @@ void esock_encode_iov(ErlNifEnv*    env,
 
     *eIOV = MKLA(env, a, i);
 
+    FREE(a);
+
     UDBG( ("SUTIL", "esock_encode_msghdr -> done\r\n") );
 }
 
@@ -233,7 +244,7 @@ extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ERL_NIF_TERM  eIOV,
                            ErlNifBinary* bufs,
-                           struct iovec* iov,
+                           SysIOVec*     iov,
                            size_t        len,
                            ssize_t*      totSize)
 {
@@ -258,7 +269,7 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
         if (IS_BIN(env, elem) && GET_BIN(env, elem, &bufs[i])) {
             ssize_t z;
 
-            iov[i].iov_base  = (caddr_t) bufs[i].data;
+            iov[i].iov_base  = (void*) bufs[i].data;
             iov[i].iov_len   = bufs[i].size;
 
             z = sz;
@@ -1776,7 +1787,7 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
                                     unsigned char* addr,
                                     ERL_NIF_TERM*  eAddr)
 {
-    ERL_NIF_TERM  array[len];
+    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
     unsigned char i;
 
     for (i = 0; i < len; i++) {
@@ -1784,6 +1795,9 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
     }
 
     *eAddr = MKTA(env, array, len);
+
+    FREE(array);
+
 }
 
 
