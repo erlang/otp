@@ -191,9 +191,9 @@ key_map($\^E, none) -> end_of_line;
 key_map($\^F, none) -> forward_char;
 key_map($\^H, none) -> backward_delete_char;
 key_map($\t, none) -> tab_expand;
+key_map($\^K, none) -> kill_line;
 key_map($\^L, none) -> redraw_line;
 key_map($\n, none) -> new_line;
-key_map($\^K, none) -> kill_line;
 key_map($\r, none) -> new_line;
 key_map($\^T, none) -> transpose_char;
 key_map($\^U, none) -> ctlu;
@@ -320,9 +320,9 @@ do_op({search, backward_delete_char}, [_|Bef], Aft, Rs) ->
     {{Bef,NAft},
      [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
      search};
-do_op({search, backward_delete_char}, [], _Aft, Rs) ->
-    Aft="': ",
-    {{[],Aft}, Rs, search};
+do_op({search, backward_delete_char}, [], Aft, Rs) ->
+    NAft="': ",
+    {{[],NAft}, [{insert_chars, unicode, NAft}, {delete_chars,-cp_len(Aft)}|Rs], search};
 do_op({search, skip_up}, Bef, Aft, Rs) ->
     Offset= cp_len(Aft),
     NAft = "': ",
