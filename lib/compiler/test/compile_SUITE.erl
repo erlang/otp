@@ -178,6 +178,16 @@ file_1(Config) when is_list(Config) ->
     error = compile:file(filename:join(DataDir, "bad_core"), [from_core,report]),
     error = compile:file(filename:join(DataDir, "bad_core_tokens"), [from_core,report]),
 
+    %% Cover handling of obsolete options.
+    ObsoleteOptions = [r18,r19,r20,r21,no_bsm3,no_get_hd_tl,no_put_tuple2,no_utf8_atoms],
+    _ = [begin
+             {error,[{_Simple,
+                      [{none,compile,{obsolete_option,Opt}}]}],
+              []} =
+                 compile:file(Simple, [Opt,return]),
+             error = compile:file(Simple, [Opt,report])
+         end || Opt <- ObsoleteOptions],
+
     %% Create a directory with the same name as the temp file to cover
     %% handling of write errors.
     Simple = filename:join(DataDir, "simple"),
