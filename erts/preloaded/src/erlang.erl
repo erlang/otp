@@ -1917,8 +1917,8 @@ setnode(_P1, _P2) ->
 -spec erlang:setnode(Node, DistCtrlr, Opts) -> dist_handle() when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
-      Opts :: {integer(), integer(), pos_integer()}.
-setnode(Node, DistCtrlr, {_Flags, _Ver, _Creation} = Opts) ->
+      Opts :: {integer(), pos_integer()}.
+setnode(Node, DistCtrlr, {_Flags, _Creation} = Opts) ->
     case case erts_internal:create_dist_channel(Node, DistCtrlr, Opts) of
              {ok, DH} -> DH;
              {message, Ref} -> receive {Ref, Res} -> Res end;
