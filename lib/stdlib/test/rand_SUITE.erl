@@ -35,7 +35,8 @@ all() ->
     [seed, interval_int, interval_float,
      bytes_count,
      api_eq,
-     mcg35_api, mcg35_rem, lcg35_api, exsp_next_api, exsp_jump_api,
+     mcg35_api, mcg35_rem, lcg35_api,
+     exsp_next_api, exsp_jump_api, splitmix64_next_api,
      reference,
      {group, basic_stats},
      {group, distr_stats},
@@ -287,6 +288,22 @@ exsp_jump_api(State, AlgState, N) ->
       rand:jump(NewState),
       rand:exsp_jump(NewAlgState),
       N - 1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify splitmix64_next behaviour
+%%
+splitmix64_next_api(Config) when is_list(Config) ->
+    splitmix64_next_api(55555555, 100000, 0).
+
+splitmix64_next_api(_State, 0, X) ->
+    X0 = 13069087632117122295,
+    {X0, X0} = {X, X0},
+    ok;
+splitmix64_next_api(AlgState, N, X)
+  when is_integer(X), 0 =< X, X < 1 bsl 64 ->
+    {X1, NewAlgState} = rand:splitmix64_next(AlgState),
+    splitmix64_next_api(NewAlgState, N - 1, X1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
