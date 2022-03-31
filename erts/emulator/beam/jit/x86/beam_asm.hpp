@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <map>
 #include <algorithm>
+#include <cmath>
 
 #ifndef ASMJIT_ASMJIT_H_INCLUDED
 #    include <asmjit/asmjit.hpp>
@@ -1295,8 +1296,8 @@ protected:
         } else {
             auto [min1, max1] = getIntRange(LHS);
             auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(abs(min1), abs(max1));
-            auto mag2 = std::max(abs(min2), abs(max2));
+            auto mag1 = std::max(std::abs(min1), std::abs(max1));
+            auto mag2 = std::max(std::abs(min2), std::abs(max2));
 
             /*
              * mag1 * mag2 <= MAX_SMALL
