@@ -870,15 +870,13 @@ mixed_arith_types([FirstType | _]=Args0) ->
 erlang_hd_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{type=Type} -> Type;
-        none -> none;
-        _ -> any
+        none -> none
     end.
 
 erlang_tl_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{terminator=Term}=Cons -> beam_types:join(Cons, Term);
-        none -> none;
-        _ -> any
+        none -> none
     end.
 
 erlang_band_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
