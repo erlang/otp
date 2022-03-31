@@ -5984,10 +5984,13 @@ str_which_retry_timeout() ->
                     100
             end;
         {unix, freebsd} ->
-            %% Has only seen this on FreeBSD 13, but...
+            %% Has seen this on FreeBSD 12.2 and later.
             case os:version() of
                 {Major, _, _} when (Major >= 13) ->
-                    50;
+                    25;
+                {Major, Minor, _} when (Major =:= 12) andalso
+                                       (Minor >= 2) ->
+                    25;
                 _ ->
                     100
             end;
