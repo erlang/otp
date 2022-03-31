@@ -313,10 +313,10 @@ types(erlang, 'list_to_bitstring', [_]) ->
     sub_unsafe(#t_bitstring{}, [proper_list()]);
 
 %% Process operations
+types(erlang, alias, []) ->
+    sub_unsafe(reference, []);
 types(erlang, alias, [_]) ->
-    sub_unsafe(reference, [any]);
-types(erlang, alias, [_, _]) ->
-    sub_unsafe(reference, [any, proper_list()]);
+    sub_unsafe(reference, [proper_list()]);
 types(erlang, monitor, [_, _]) ->
     sub_unsafe(reference, [any, any]);
 types(erlang, monitor, [_, _, _]) ->
