@@ -63,7 +63,7 @@ vsn() ->
 socket_info() ->
     Info0             = socket:info(),
     {Counters, Info1} = maps:take(counters, Info0),
-    IovMax            = maps:get(iov_max , Info1),
+    IovMax            = maps:get(iov_max, Info1),
     NumMons           = socket:number_of_monitors(),
     [{iov_max, IovMax}, {num_monitors, NumMons} | maps:to_list(Counters)].
     
@@ -240,14 +240,19 @@ get_sock_opts(Port, [Opt|Opts], Acc) ->
         {ok, [Res]} ->
             get_sock_opts(Port, Opts, [Res|Acc]);
         {ok, []} -> % No value?
-            get_sock_opts(Port, Opts, Acc);
+            Res = {Opt, "-"},
+            get_sock_opts(Port, Opts, [Res|Acc]);
         {error, einval} ->
-            get_sock_opts(Port, Opts, Acc);
+            Res = {Opt, "Not Supported"},
+            get_sock_opts(Port, Opts, [Res|Acc]);
 
         %% If the option is "invalid", the reason would be 'einval',
-        %% so this error must be something else => fail
-        {error, _} = ERROR ->
-            ERROR
+        %% so this error must be something else.
+        %% But if the option just vanish, we don't know what is
+        %% going on. So, do something similar to socket (see below).
+        {error, Reason} ->
+            Res = {Opt, f("error:~p", [Reason])},
+            get_sock_opts(Port, Opts, [Res|Acc])
     end.
 
 
