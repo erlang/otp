@@ -1456,8 +1456,13 @@ dummy_seed({A1, A2, A3}) ->
 -type mcg35_state() :: 1..(?MCG35_M-1).
 
 -spec mcg35(X0 :: mcg35_state()) -> X1 :: mcg35_state().
-mcg35(X0) ->
-    X = ?MCG35_A * X0,
+mcg35(X0) -> % when is_integer(X0), 1 =< X0, X0 < ?MCG35_M ->
+    %% The mask operation on the input tricks the JIT into
+    %% realizing that all following operations does not
+    %% need bignum handling.  The suggested guard test above
+    %% could have had the same effect but it did not, and, alas,
+    %% needs much more native code to execute than a 'band'.
+    X = ?MCG35_A * ?MASK(?MCG35_B, X0),
     %% rem M = rem (2^B - D), optimization to avoid 'rem'
     X1 = ?MASK(?MCG35_B, X) + ?MCG35_D*(X bsr ?MCG35_B),
     if
@@ -1497,8 +1502,14 @@ mcg35(X0) ->
 -type lcg35_state() :: 0..?MASK(?LCG35_B).
 
 -spec lcg35(X0 :: lcg35_state()) -> X1 :: lcg35_state().
+%%lcg35(X0) when is_integer(X0), 0 =< X0, X0 =< ?MASK(?LCG35_B) ->
 lcg35(X0) ->
-    ?MASK(?LCG35_B, ?LCG35_A * X0 + ?LCG35_C).
+    %% The mask operation on the input tricks the JIT into
+    %% realizing that all following operations does not
+    %% need bignum handling.  The suggested guard test above
+    %% could have had the same effect but it did not, and, alas,
+    %% needs much more native code to execute than a 'band'.
+    ?MASK(?LCG35_B, ?LCG35_A * ?MASK(?LCG35_B, X0) + ?LCG35_C).
 
 
 %% =====================================================================

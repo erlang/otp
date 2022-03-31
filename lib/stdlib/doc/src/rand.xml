@@ -912,7 +912,7 @@ end.</pre>
             few bits (under 35),
             is not a power of 2 generator (range 1 .. (2^35 - 32)),
             offers no help in generating numbers on a specified range,
-            etc...
+            and so on.
           </p>
           <p>
             But for pseudo random load distribution
@@ -974,8 +974,8 @@ end.</pre>
             But for pseudo random load distribution
             and such it might be useful, since it is extremely fast.
             The <seemfa marker="#mcg35/1"><c>mcg35/1</c></seemfa>
-            generator above has got less statistical artifacts,
-            but instead other pecularities since it is not
+            generator above has less statistical artifacts,
+            but instead it has other peculiarities since it is not
             a power of 2 generator.
           </p>
         </note>

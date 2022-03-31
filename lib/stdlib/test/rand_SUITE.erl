@@ -1184,6 +1184,22 @@ do_measure(_Config) ->
                     State)
           end,
           unique_phash2, TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_) -> 10000 end,
+          fun (State, Range, _) ->
+                  measure_loop(
+                    fun (State0) ->
+                            %% Just a 'rem' with slightly skewed distribution
+                            case os:system_time(microsecond) rem Range of
+                                R
+                                  when is_integer(R), 0 =< R, R < Range ->
+                                    State0
+                            end
+                    end,
+                    State)
+          end,
+          system_time_rem, TMarkUniformRange10000, OverheadUniformRange1000),
     %%
     ct:pal("~nRNG uniform integer 32 bit performance~n",[]),
     [TMarkUniform32Bit,OverheadUniform32Bit|_] =
@@ -1245,6 +1261,24 @@ do_measure(_Config) ->
                     State)
           end,
           unique_phash2, TMarkUniform32Bit, OverheadUniform32Bit),
+    _ =
+        measure_1(
+          fun (_) -> 1 bsl 32 end,
+          fun (State, Range, _) ->
+                  measure_loop(
+                    fun (State0) ->
+                            case
+                                os:system_time(microsecond)
+                                band ((1 bsl 32) - 1)
+                            of
+                                R
+                                  when is_integer(R), 0 =< R, R < Range ->
+                                    State0
+                            end
+                    end,
+                    State)
+          end,
+          system_time_rem, TMarkUniform32Bit, OverheadUniform32Bit),
     %%
     ct:pal("~nRNG uniform integer half range performance~n",[]),
     _ =
@@ -1365,7 +1399,10 @@ do_measure(_Config) ->
           unique_phash2, TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (State) -> half_range(State) bsl 1 end,
+          fun (State) ->
+                  rand:seed(State),
+                  half_range(State) bsl 1
+          end,
           fun (State, Range, Mod) ->
                   measure_loop(
                     fun (St) ->
@@ -1377,6 +1414,26 @@ do_measure(_Config) ->
                     State)
           end,
           procdict, TMarkUniformFullRange, OverheadUniformFullRange),
+    _ =
+        measure_1(
+          fun (State) ->
+                  _ = put(lcg35_procdict, State),
+                  1 bsl 35
+          end,
+          fun (State, Range, _) ->
+                  measure_loop(
+                    fun (State0) ->
+                            case
+                                put(lcg35_procdict,
+                                    rand:lcg35(get(lcg35_procdict)))
+                            of
+                                R when is_integer(R), 0 =< R, R < Range ->
+                                    State0
+                            end
+                    end,
+                    State)
+          end,
+          lcg35_procdict, TMarkUniformFullRange, OverheadUniformFullRange),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
     _ =
@@ -1629,23 +1686,28 @@ measure_1(RangeFun, Fun, Alg, TMark, Overhead) ->
                 {?MODULE, <<>>};
             unique_phash2 ->
                 {?MODULE, ignored_state};
+            system_time_rem ->
+                {?MODULE, ignored_state};
             mcg35_inline ->
                 {_, S} = rand:seed_s(dummy),
                 {?MODULE, (S rem ((1 bsl 35)-31 - 1)) + 1};
             lcg35_inline ->
                 {_, S} = rand:seed_s(dummy),
                 {?MODULE, S bsr (58-35)};
+            lcg35_procdict ->
+                {_, S} = rand:seed_s(dummy),
+                {?MODULE, S bsr (58-35)};
             exsp_inline ->
                 {_, S} = rand:seed_s(exsp),
                 {?MODULE, S};
             procdict ->
-                {rand, rand:seed(exsss)};
+                {rand, rand:seed_s(exsss)};
             _ ->
                 {rand, rand:seed_s(Alg)}
         end,
-    Range = RangeFun(State),
     Pid = spawn_link(
             fun() ->
+                    Range = RangeFun(State),
                     {T, ok} = timer:tc(fun () -> Fun(State, Range, Mod) end),
                     Time = T - Overhead,
                     Percent =
