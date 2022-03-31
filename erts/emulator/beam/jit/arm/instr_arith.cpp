@@ -952,8 +952,21 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    Label next = a.newLabel();
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        auto dst = init_destination(Dst, ARG1);
+        comment("skipped test for small operands because they are always "
+                "small");
+
+        /* TAG ^ TAG = 0, so we'll need to tag it again. */
+        a.eor(dst.reg, lhs.reg, rhs.reg);
+        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        flush_var(dst);
+        return;
+    }
+
+    Label next = a.newLabel();
     auto dst = init_destination(Dst, ARG1);
 
     /* TAG ^ TAG = 0, so we'll need to tag it again. */

@@ -1103,10 +1103,19 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    Label generic = a.newLabel(), next = a.newLabel();
-
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+        /* TAG ^ TAG = 0, so we need to tag it again. */
+        a.xor_(RET, ARG2);
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+        return;
+    }
+
+    Label generic = a.newLabel(), next = a.newLabel();
 
     if (always_small(RHS)) {
         emit_is_small(generic, LHS, ARG2);
