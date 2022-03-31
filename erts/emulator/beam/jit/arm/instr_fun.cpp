@@ -366,7 +366,7 @@ arm::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     }
 
     if (!skip_arity_test) {
-        a.ldr(TMP2, arm::Mem(TMP2, offsetof(ErlFunThing, arity)));
+        a.ldrb(TMP2.w(), arm::Mem(TMP2, offsetof(ErlFunThing, arity)));
         a.cmp(TMP2, ARG3);
     } else {
         comment("skipped arity test since source always has right arity");

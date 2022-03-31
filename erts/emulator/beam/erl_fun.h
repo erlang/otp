@@ -69,8 +69,8 @@ typedef struct erl_fun_thing {
     /* Next off-heap object, must be NULL when this is an external fun. */
     struct erl_off_heap_header *next;
 
-    Uint arity;             /* The _apparent_ arity of the fun. */
-    Uint num_free;          /* Number of free variables (in env). */
+    byte arity;             /* The _apparent_ arity of the fun. */
+    byte num_free;          /* Number of free variables (in env). */
 
     /* -- The following may be compound Erlang terms ---------------------- */
     Eterm creator;          /* Pid of creator process (contains node). */
