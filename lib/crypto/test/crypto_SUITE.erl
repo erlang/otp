@@ -1194,6 +1194,18 @@ use_all_ec_sign_verify(_Config) ->
             ok;
         _ ->
             ct:log("Fails:~n~p",[Fails]),
+            Errors = lists:usort([Err || {_,Err} <- Fails]),
+            FailedCurves = [Curve || {Curve,_} <- Fails],
+            FailedCurvesPerError = [{E, [C || {C,E0} <- Fails,
+                                              E0 == E]}
+                                    || E <- Errors],
+            ct:pal("~p failed curves: ~p", [length(FailedCurves), FailedCurves]),
+            ct:pal("Failed curves per error:~n~s", 
+                   [
+                    [io_lib:format("  Error: ~p~n Curves: ~p~n~n", [E,Cs])
+                     || {E,Cs} <- FailedCurvesPerError]
+                   ]
+                  ), 
             ct:fail("Bad curve(s)",[])
     end.
 
@@ -1238,13 +1250,31 @@ do_dh_curves(_Config, Curves) ->
                         (_) -> true
                      end, Results),
 
+    Succedes =
+        lists:filter(fun({_,true}) -> true;
+                        (_) -> false
+                     end, Results),
+
     case Fails of
         [] ->
             ct:comment("All ~p passed",[length(Results)]),
             ok;
         _ ->
-            ct:comment("passed: ~p, failed: ~p",[length(Results),length(Fails)]),
+            ct:comment("passed: ~p, failed: ~p",[length(Results)-length(Fails),length(Fails)]),
+            ct:log("Succedes:~n~p",[Succedes]),
             ct:log("Fails:~n~p",[Fails]),
+            Errors = lists:usort([Err || {_,Err} <- Fails]),
+            FailedCurves = [C || {C,_} <- Fails],
+            FailedCurvesPerError = [{E, [C || {C,E0} <- Fails,
+                                              E == E0]}
+                                    || E <- Errors],
+            ct:pal("~p (~p) failed curves: ~p", [length(FailedCurves), length(Results), FailedCurves]),
+            ct:pal("Failed curves per error:~n~s", 
+                   [
+                    [io_lib:format("  Error: ~p~n Curves: ~p~n~n", [E,Cs])
+                     || {E,Cs} <- FailedCurvesPerError]
+                   ]
+                  ), 
             ct:fail("Bad curve(s)",[])
     end.
 
