@@ -360,6 +360,20 @@ setelement(_Config) ->
     {b,_} = setelement(1, T0, b),
     {z,b} = do_setelement_1(<<(id(1)):32>>, {a,b}, z),
     {new,two} = do_setelement_2(<<(id(1)):1>>, {one,two}, new),
+    {x,b} = setelement(id(1), id({a,b}), x),
+
+    Index0 = case id(1) of
+                 0 -> 1;
+                 1 -> 2
+            end,
+    {a,x,c} = setelement(Index0, {a,b,c}, x),
+
+    Index1 = case id(1) of
+                 0 -> 4;
+                 1 -> 5
+             end,
+    {'EXIT',{badarg,_}} = catch setelement(Index1, {a,b,c}, y),
+
     ok.
 
 do_setelement_1(<<N:32>>, Tuple, NewValue) ->
