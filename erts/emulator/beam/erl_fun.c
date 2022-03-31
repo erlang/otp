@@ -292,6 +292,13 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
 
 #ifdef DEBUG
     {
+        /* FIXME: This assertion can fail because it may point to new code that
+         * has not been committed yet. This is an actual bug but the fix is too
+         * too involved and risky to release in a patch.
+         *
+         * As this problem has existed since the introduction of funs and is
+         * very unlikely to cause actual issues in the wild, we've decided to
+         * postpone the fix until OTP 26. See OTP-18016 for details. */
         const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
         ASSERT(funp->arity == mfa->arity - num_free);
         ASSERT(arity == fe->arity);
