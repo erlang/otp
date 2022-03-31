@@ -1636,7 +1636,15 @@ do_measure(_Config) ->
 measure_loop(Fun, State) ->
     measure_loop(Fun, State, ?LOOP_MEASURE).
 %%
-measure_loop(Fun, State, N) when 0 < N ->
+measure_loop(Fun, State, N) when 10 =< N ->
+    %% Loop unrolling to dilute benchmark overhead...
+    measure_loop(
+      Fun,
+      Fun(Fun(Fun(Fun(Fun(
+                        Fun(Fun(Fun(Fun(Fun(
+                                          State)))))))))),
+      N - 10);
+measure_loop(Fun, State, N) when 1 =< N ->
     measure_loop(Fun, Fun(State), N-1);
 measure_loop(_, _, _) ->
     ok.
@@ -1712,13 +1720,15 @@ measure_1(RangeFun, Fun, Alg, TMark, Overhead) ->
                     Time = T - Overhead,
                     Percent =
                         case TMark of
-                            warm_up   -> TMark;
-                            undefined -> 100;
-                            _         -> (Time * 100 + 50) div TMark
+                            warm_up   -> "(warm-up)";
+                            undefined -> "   100.0%";
+                            _ ->
+                                io_lib:format(
+                                  "~8.1f%", [(Time * 100 + 50) / TMark])
                         end,
                     io:format(
-                      "~.20w: ~p ns ~p% [16#~.16b]~n",
-                      [Alg, (Time * 1000 + 500) div ?LOOP_MEASURE,
+                      "~.24w: ~8.1f ns ~s [16#~.16b]~n",
+                      [Alg, (Time * 1000 + 500) / ?LOOP_MEASURE,
                        Percent, Range]),
                     Parent ! {self(), Time},
                     normal
