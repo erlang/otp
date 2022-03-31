@@ -1291,22 +1291,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
      (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
      (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
      make_flatmap(hp))
-#define MAP4(hp, k1, v1, k2, v2, k3, v3, k4, v4)                \
-    (MAP_HEADER(hp, 4, TUPLE4(hp+4+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4)), \
-     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
-     make_flatmap(hp))
-#define MAP5(hp, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5)                \
-    (MAP_HEADER(hp, 5, TUPLE5(hp+5+MAP_HEADER_FLATMAP_SZ, k1, k2, k3, k4, k5)), \
-     (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+1] = v2,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+2] = v3,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+3] = v4,                                \
-     (hp)[MAP_HEADER_FLATMAP_SZ+4] = v5,                                \
-     make_flatmap(hp))
-
+/* MAP4 and greater have to be created with erts_map_from_ks_and_vs as in the
+   debug emulator maps > 3 are hashmaps. */
 
 /* number tests */
 
