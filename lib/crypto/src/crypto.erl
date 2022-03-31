@@ -132,6 +132,29 @@
          ensure_engine_unloaded/2
         ]).
 
+-nifs([info_nif/0, info_lib/0, info_fips/0, enable_fips_mode_nif/1,
+       hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
+       mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
+       hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
+       hash_final_nif/1, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
+       mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
+       ng_crypto_update_nif/2, ng_crypto_update_nif/3, ng_crypto_final_nif/1,
+       ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
+       strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
+       mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
+       pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
+       rsa_generate_key_nif/2, dh_generate_key_nif/4, dh_compute_key_nif/3,
+       evp_compute_key_nif/3, evp_generate_key_nif/2, privkey_to_pubkey_nif/2,
+       srp_value_B_nif/5, srp_user_secret_nif/7, srp_host_secret_nif/5,
+       ec_generate_key_nif/2, ecdh_compute_key_nif/3, rand_seed_nif/1,
+       aead_cipher_nif/7, engine_by_id_nif/1, engine_init_nif/1,
+       engine_free_nif/1, engine_load_dynamic_nif/0,
+       engine_ctrl_cmd_strings_nif/3, engine_register_nif/2,
+       engine_unregister_nif/2, engine_add_nif/1, engine_remove_nif/1,
+       engine_get_first_nif/0, engine_get_next_nif/1, engine_get_id_nif/1,
+       engine_get_name_nif/1, engine_get_all_methods_nif/0
+      ]).
+
 -export_type([ %% A minimum exported: only what public_key needs.
                dh_private/0,
                dh_public/0,

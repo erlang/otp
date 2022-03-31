@@ -1010,6 +1010,8 @@ handle_primop(Tree, Map, State) ->
       end;
     remove_message ->
       {State, Map, t_any()};
+    nif_start ->
+      {State, Map, t_any()};
     Other ->
       error({'Unsupported primop', Other})
   end.

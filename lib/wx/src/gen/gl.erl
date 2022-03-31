@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -300,6 +300,7 @@
   blendBarrierKHR/0,maxShaderCompilerThreadsKHR/1,depthBoundsEXT/2]).
 
 -export([get_interface/0, rec/1, lookup_func/0]).
+-nifs([lookup_func/0]).
 -define(nif_stub,nif_stub_error(?LINE)).
 %% @hidden
 nif_stub_error(Line) ->

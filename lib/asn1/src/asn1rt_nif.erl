@@ -26,6 +26,10 @@
 	 decode_ber_tlv/1,
 	 encode_ber_tlv/1]).
 
+-nifs([encode_per_complete/1,
+       decode_ber_tlv_raw/1,
+       encode_ber_tlv/1]).
+
 -compile(no_native).
 -on_load(load_nif/0).
 

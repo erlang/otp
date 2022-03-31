@@ -52,6 +52,14 @@
 -export_type([zstream/0, zflush/0, zlevel/0, zwindowbits/0, zmemlevel/0,
               zstrategy/0]).
 
+-nifs([close_nif/1, open_nif/0, set_controller_nif/2, deflateInit_nif/6,
+       deflateSetDictionary_nif/2, deflateReset_nif/1, deflateEnd_nif/1,
+       deflateParams_nif/3, deflate_nif/4, inflateInit_nif/3,
+       inflateSetDictionary_nif/2, inflateGetDictionary_nif/1,
+       inflateReset_nif/1, inflateEnd_nif/1, inflate_nif/4, crc32_nif/1,
+       getStash_nif/1, clearStash_nif/1, setStash_nif/2, getBufSize_nif/1,
+       setBufSize_nif/2, enqueue_nif/2]).
+
 %% flush argument encoding
 -define(Z_NO_FLUSH,      0).
 -define(Z_SYNC_FLUSH,    2).

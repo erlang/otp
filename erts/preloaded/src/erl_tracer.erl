@@ -2,6 +2,8 @@
 
 -export([enabled/3, trace/5, on_load/0]).
 
+-nifs([enabled/3, trace/5]).
+
 -type tracee() :: port() | pid() | undefined.
 
 -type trace_tag_running_ports() :: in | out | in_exiting | out_exiting | out_exited.
