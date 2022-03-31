@@ -1336,6 +1336,17 @@ void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgLabel &Fail,
                                      const ArgRegister &Dst) {
+    if (is_bsl_small(LHS, RHS)) {
+        comment("skipped tests because operands and result are always small");
+        mov_arg(RET, LHS);
+        ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+        a.xor_(RET, imm(_TAG_IMMED1_MASK));
+        a.sal(RET, imm(RHS.as<ArgSmall>().getSigned()));
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+        return;
+    }
+
     bool inline_shift = hasCpuFeature(CpuFeatures::X86::kLZCNT);
     Label generic = a.newLabel(), next = a.newLabel();
 
