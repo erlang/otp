@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2021</year>
+      <year>2009</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -117,7 +117,7 @@
       <desc><p>A string with no adjacent dots.</p></desc>
     </datatype>
     <datatype>
-      <name name="rr_type"/>
+      <name name="dns_rr_type"/>
     </datatype>
     <datatype>
       <name name="dns_class"/>
@@ -153,7 +153,7 @@ dns_header() = DnsHeader
         | {rcode, integer(0..16)} ]
     inet_dns:header(DnsHeader, Field) -> Value
 
-query_type() = axfr | mailb | maila | any | rr_type()
+query_type() = axfr | mailb | maila | any | dns_rr_type()
 
 dns_query() = DnsQuery
     inet_dns:dns_query(DnsQuery) ->
@@ -165,7 +165,7 @@ dns_query() = DnsQuery
 dns_rr() = DnsRr
     inet_dns:rr(DnsRr) -> DnsRrFields | DnsRrOptFields
     DnsRrFields = [ {domain, dns_name()}
-                  | {type, rr_type()}
+                  | {type, dns_rr_type()}
                   | {class, dns_class()}
                   | {ttl, integer()}
                   | {data, dns_data()} ]
@@ -195,6 +195,9 @@ inet_dns:record_type(_) -> undefined.</pre>
           in the UTF-8 coding standard.</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="hostent"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -204,9 +207,23 @@ inet_dns:record_type(_) -> undefined.</pre>
       <fsummary>Resolve a DNS record of the specified type for the specified
       host.</fsummary>
       <desc>
-        <p>Resolves a DNS record of the specified type for the specified host,
-          of class <c>in</c>. Returns, on success, a <c>hostent()</c> record
-          with <c>dns_data()</c> elements in the address list field.</p>
+        <p>Resolves a DNS record of the specified <c><anno>Type</anno></c>
+          for the specified host, of class <c>in</c>.
+          Returns, on success, when resolving a
+          <c><anno>Type</anno>&nbsp;=&nbsp;a|aaaa</c> DNS record,
+          a <c>#hostent{}</c> record with
+          <c>#hostent.h_addrtype&nbsp;=&nbsp;inet|inet6</c>,
+          respectively; see
+          <seetype marker="inet#hostent"><c>inet:hostent()</c></seetype>.</p>
+        <p>When resolving other
+          <c><anno>Type</anno>&nbsp;=&nbsp;dns_rr_type()</c>:s
+          (of class <c>in</c>),
+          also returns a <c>#hostent{}</c> record but with
+          <seetype marker="#dns_rr_type"><c>dns_rr_type()</c></seetype>
+          in <c>#hostent.h_addrtype</c>, and the resolved
+          <seetype marker="#dns_data"><c>dns_data()</c></seetype> in
+          <c>#hostent.h_addr_list</c>; see
+          <seetype marker="#hostent"><c>hostent()</c></seetype>.</p>
         <p>This function uses resolver option <c>search</c> that
           is a list of domain names. If the name to resolve contains
           no dots, it is prepended to each domain name in the
