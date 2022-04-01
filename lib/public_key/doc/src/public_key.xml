@@ -271,6 +271,34 @@
 <funcs>    
 
   <func>
+    <name name="cacerts_get" arity="0" since="OTP @OTP-17789@"/>
+    <fsummary>Returns CA certificates.</fsummary>
+    <desc>
+      <p>Returns the trusted CA certificates if any are loaded, otherwise
+      uses <seemfa marker="#cacerts_load/0">cacerts_load/0</seemfa> to load them.
+      The function fails if no <c>cacerts</c> could be loaded.</p>
+    </desc>
+  </func>
+
+  <func>
+    <name name="cacerts_load" arity="0" since="OTP @OTP-17789@"/>
+    <fsummary>Loads OS specific CA certificates.</fsummary>
+    <desc>
+      <p>Loads the OS supplied trusted CA certificates.
+      </p>
+    </desc>
+  </func>
+
+  <func>
+    <name name="cacerts_load" arity="1" since="OTP @OTP-17789@"/>
+    <fsummary>Loads CA certificates.</fsummary>
+    <desc>
+      <p>Loads the trusted CA certificates from a file.
+      </p>
+    </desc>
+  </func>
+
+  <func>
     <name name="compute_key" arity="2" since="OTP R16B01"/>
     <fsummary>Computes shared secret.</fsummary>
   <desc>
