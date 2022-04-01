@@ -1033,7 +1033,6 @@ public abstract class AbstractConnection extends Thread {
             sendStatus("ok");
             final int our_challenge = genChallenge();
             sendChallenge(peer.flags, localNode.flags, our_challenge);
-            recvComplement(send_name_tag);
             final int her_challenge = recvChallengeReply(our_challenge);
             final byte[] our_digest = genDigest(her_challenge,
                     localNode.cookie());
@@ -1090,7 +1089,6 @@ public abstract class AbstractConnection extends Thread {
             final byte[] our_digest = genDigest(her_challenge,
                     localNode.cookie());
             final int our_challenge = genChallenge();
-            sendComplement(send_name_tag);
             sendChallengeReply(our_challenge, our_digest);
             recvChallengeAck(our_challenge);
             cookieOk = true;
@@ -1182,54 +1180,21 @@ public abstract class AbstractConnection extends Thread {
         final OtpOutputStream obuf = new OtpOutputStream();
         final String str = localNode.node();
         int send_name_tag;
-        if (dist == 5) {
-            obuf.write2BE(1+2+4 + str.length());
-            send_name_tag = 'n';
-            obuf.write1(send_name_tag);
-            obuf.write2BE(dist);
-            obuf.write4BE(aflags);
-            obuf.write(str.getBytes());
-        }
-        else {
-            obuf.write2BE(1+8+4+2 + str.length());
-            send_name_tag = 'N';
-            obuf.write1(send_name_tag);
-            obuf.write8BE(aflags);
-            obuf.write4BE(creation);
-            obuf.write2BE(str.length());
-            obuf.write(str.getBytes());
-        }
+        obuf.write2BE(1+8+4+2 + str.length());
+        send_name_tag = 'N';
+        obuf.write1(send_name_tag);
+        obuf.write8BE(aflags);
+        obuf.write4BE(creation);
+        obuf.write2BE(str.length());
+        obuf.write(str.getBytes());
 
         obuf.writeToAndFlush(socket.getOutputStream());
 
         if (traceLevel >= handshakeThreshold) {
             System.out.println("-> " + "HANDSHAKE sendName" + " flags="
-                    + aflags + " dist=" + dist + " local=" + localNode);
+                    + aflags + " local=" + localNode);
         }
         return send_name_tag;
-    }
-
-    protected void sendComplement(final int send_name_tag)
-            throws IOException {
-
-        if (send_name_tag == 'n' &&
-            (peer.flags & AbstractNode.dFlagHandshake23) != 0) {
-            @SuppressWarnings("resource")
-            final OtpOutputStream obuf = new OtpOutputStream();
-            obuf.write2BE(1+4+4);
-            obuf.write1('c');
-            final int flagsHigh = (int)(localNode.flags >> 32);
-            obuf.write4BE(flagsHigh);
-            obuf.write4BE(localNode.creation());
-
-            obuf.writeToAndFlush(socket.getOutputStream());
-
-            if (traceLevel >= handshakeThreshold) {
-                System.out.println("-> " + "HANDSHAKE sendComplement" +
-                                   " flagsHigh=" + flagsHigh +
-                                   " creation=" + localNode.creation());
-            }
-        }
     }
 
     protected void sendChallenge(final long her_flags, final long our_flags,
@@ -1238,23 +1203,13 @@ public abstract class AbstractConnection extends Thread {
         @SuppressWarnings("resource")
         final OtpOutputStream obuf = new OtpOutputStream();
         final String str = localNode.node();
-        if ((her_flags & AbstractNode.dFlagHandshake23) == 0) {
-            obuf.write2BE(1+2+4+4 + str.length());
-            obuf.write1('n');
-            obuf.write2BE(5);
-            obuf.write4BE(our_flags & 0xffffffff);
-            obuf.write4BE(challenge);
-            obuf.write(str.getBytes());
-        }
-        else {
-            obuf.write2BE(1+8+4+4+2 + str.length());
-            obuf.write1('N');
-            obuf.write8BE(our_flags);
-            obuf.write4BE(challenge);
-            obuf.write4BE(localNode.creation());
-            obuf.write2BE(str.length());
-            obuf.write(str.getBytes());
-        }
+        obuf.write2BE(1+8+4+4+2 + str.length());
+        obuf.write1('N');
+        obuf.write8BE(our_flags);
+        obuf.write4BE(challenge);
+        obuf.write4BE(localNode.creation());
+        obuf.write2BE(str.length());
+        obuf.write(str.getBytes());
 
         obuf.writeToAndFlush(socket.getOutputStream());
 
@@ -1292,18 +1247,12 @@ public abstract class AbstractConnection extends Thread {
             final int len = tmpbuf.length;
             send_name_tag = ibuf.read1();
             switch (send_name_tag) {
-            case 'n':
-                apeer.distLow = apeer.distHigh = ibuf.read2BE();
-                if (apeer.distLow != 5)
-                    throw new IOException("Invalid handshake version");
-                apeer.flags = ibuf.read4BE();
-                tmpname = new byte[len - 7];
-                ibuf.readN(tmpname);
-                hisname = OtpErlangString.newString(tmpname);
-                break;
             case 'N':
                 apeer.distLow = apeer.distHigh = 6;
                 apeer.flags = ibuf.read8BE();
+                if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                    apeer.flags |= AbstractNode.mandatoryFlags25;
+                }
                 if ((apeer.flags & AbstractNode.dFlagHandshake23) == 0)
                     throw new IOException("Missing DFLAG_HANDSHAKE_23");
                 apeer.setCreation(ibuf.read4BE());
@@ -1314,10 +1263,6 @@ public abstract class AbstractConnection extends Thread {
                 break;
             default:
                 throw new IOException("Unknown remote node type");
-            }
-
-            if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
-                apeer.flags |= AbstractNode.mandatoryFlags25;
             }
 
             if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
@@ -1351,19 +1296,12 @@ public abstract class AbstractConnection extends Thread {
             final OtpInputStream ibuf = new OtpInputStream(buf, 0);
             int namelen;
             switch (ibuf.read1()) {
-            case 'n':
-                if (peer.distChoose != 5)
-                    throw new IOException("Old challenge wrong version");
-                peer.distLow = peer.distHigh = ibuf.read2BE();
-                peer.flags = ibuf.read4BE();
-                if ((peer.flags & AbstractNode.dFlagHandshake23) != 0)
-                    throw new IOException("Old challenge unexpected DFLAG_HANDHAKE_23");
-                challenge = ibuf.read4BE();
-                namelen = buf.length - (1+2+4+4);
-                break;
             case 'N':
                 peer.distLow = peer.distHigh = peer.distChoose = 6;
                 peer.flags = ibuf.read8BE();
+                if ((peer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                    peer.flags |= AbstractNode.mandatoryFlags25;
+                }
                 if ((peer.flags & AbstractNode.dFlagHandshake23) == 0)
                     throw new IOException("New challenge missing DFLAG_HANDHAKE_23");
                 challenge = ibuf.read4BE();
@@ -1380,11 +1318,6 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException(
                         "Handshake failed - peer has wrong name: " + hisname);
             }
-
-            if ((peer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
-                peer.flags |= AbstractNode.mandatoryFlags25;
-            }
-
             if ((peer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
                         "Handshake failed - peer cannot handle all mandatory capabilities");
@@ -1401,27 +1334,6 @@ public abstract class AbstractConnection extends Thread {
         }
 
         return challenge;
-    }
-
-    protected void recvComplement(int send_name_tag) throws IOException {
-
-        if (send_name_tag == 'n' &&
-            (peer.flags & AbstractNode.dFlagHandshake23) != 0) {
-            try {
-                final byte[] tmpbuf = read2BytePackage();
-                @SuppressWarnings("resource")
-                final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
-                if (ibuf.read1() != 'c')
-                    throw new IOException("Not a complement tag");
-
-                final long flagsHigh = ibuf.read4BE();
-                peer.flags |= flagsHigh << 32;
-                peer.setCreation(ibuf.read4BE());
-
-            } catch (final OtpErlangDecodeException e) {
-                throw new IOException("Handshake failed - not enough data");
-            }
-        }
     }
 
     protected void sendChallengeReply(final int challenge, final byte[] digest)
