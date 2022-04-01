@@ -1480,7 +1480,7 @@ do_measure(Iterations) ->
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
     ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
-    _ =
+    [TMarkBytes16,OverheadBytes16|_] =
         measure_1(
           fun (Mod, _State) ->
                   Generator = fun Mod:bytes_s/2,
@@ -1495,6 +1495,15 @@ do_measure(Iterations) ->
               _ ->
                   Algs
           end, Iterations),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             lcg35_bytes(ByteSize, St0), ByteSize, Bin, St1)
+                  end
+          end, lcg35_bytes, Iterations,
+          TMarkBytes16, OverheadBytes16),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
     [TMarkUniformFloat,OverheadUniformFloat|_] =
@@ -1680,6 +1689,9 @@ measure_init(Alg) ->
         lcg35_inline ->
             {_, S} = rand:seed_s(dummy),
             {rand, S bsr (58-35)};
+        lcg35_bytes ->
+            {_, S} = rand:seed_s(dummy),
+            {rand, S bsr (58-35)};
         splitmix64_inline ->
             {rand, erlang:unique_integer()};
         lcg35_procdict ->
@@ -1709,6 +1721,20 @@ bytes_s(N, Cache) when is_binary(Cache) ->
 bytes_s(N, undefined = St) ->
     %% crypto_bytes
     {crypto:strong_rand_bytes(N), St}.
+
+lcg35_bytes(N, R0) ->
+    lcg35_bytes(N, R0, <<>>).
+%%
+lcg35_bytes(N, R0, Bin) when N < 4 ->
+    R1 = rand:lcg35(R0),
+    Bits = N bsl 3,
+    V = R1 bsr (35 - Bits),
+    {<<Bin/binary, V:Bits>>, R1};
+lcg35_bytes(N, R0, Bin) ->
+    R1 = rand:lcg35(R0),
+    V = R1 bsr (35 - 32),
+    lcg35_bytes(N - 4, R1, <<Bin/binary, V:32>>).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% The jump sequence tests has two parts
