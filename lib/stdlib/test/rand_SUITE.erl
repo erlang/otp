@@ -1064,12 +1064,15 @@ measure(Config) when is_list(Config) ->
     ct:timetrap({minutes,60}), %% valgrind needs a lot of time
     case ct:get_timetrap_info() of
         {_,{_,1}} -> % No scaling
-            Iterations = ?LOOP div 5,
             Effort = proplists:get_value(measure_effort, Config, 1),
-            do_measure(Iterations * Effort);
+            measure(Effort);
         {_,{_,Scale}} ->
             {skip,{will_not_run_in_scaled_time,Scale}}
-    end.
+    end;
+measure(Effort) when is_integer(Effort) ->
+    Iterations = ?LOOP div 5,
+    do_measure(Iterations * Effort).
+
 
 -define(CHECK_UNIFORM_RANGE(Gen, Range, X, St),
         case (Gen) of
@@ -1190,7 +1193,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          system_time_rem, Iterations,
+          system_time, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     %%
     ct:pal("~nRNG uniform integer 32 bit performance~n",[]),
@@ -1263,7 +1266,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          system_time_rem, Iterations,
+          system_time, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     %%
     ct:pal("~nRNG uniform integer half range performance~n",[]),
@@ -1343,11 +1346,25 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
+                  Range = 1 bsl 64,
+                  fun (St0) ->
+                          {V, St1} = rand:splitmix64_next(St0),
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          splitmix64_inline, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
                   Range = 1 bsl 58,
                   fun (St0) ->
                           {V, St1} = rand:exsp_next(St0),
-                          case V of
-                              V when is_integer(V), 0 =< V, V < Range ->
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
                                   St1
                           end
                   end
@@ -1436,7 +1453,7 @@ do_measure(Iterations) ->
           end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer 64 bit performance~n",[]),
-    _ =
+    [TMarkUniform64Bit, OverheadUniform64Bit | _] =
         measure_1(
           fun (Mod, _State) ->
                   Range = 1 bsl 64,
@@ -1446,6 +1463,20 @@ do_measure(Iterations) ->
                              Generator(Range, St0), Range, X, St1)
                   end
           end, Algs, Iterations),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 64,
+                  fun (St0) ->
+                          {V, St1} = rand:splitmix64_next(St0),
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          splitmix64_inline, Iterations,
+          TMarkUniform64Bit, OverheadUniform64Bit),
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
     ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
@@ -1565,11 +1596,8 @@ do_measure(Iterations) ->
 measure_loop(State, Fun, I) when 10 =< I ->
     %% Loop unrolling to dilute benchmark overhead...
     measure_loop(
-      Fun(Fun(Fun(Fun(Fun(
-                        Fun(Fun(Fun(Fun(Fun(
-                                          State)))))))))),
-      Fun,
-      I - 10);
+      Fun(Fun(Fun(Fun(Fun(  Fun(Fun(Fun(Fun(Fun(State))))) ))))),
+      Fun, I - 10);
 measure_loop(State, Fun, I) when 1 =< I ->
     measure_loop(Fun(State), Fun, I - 1);
 measure_loop(_, _, _) ->
@@ -1644,7 +1672,7 @@ measure_init(Alg) ->
             {?MODULE, <<>>};
         unique_phash2 ->
             {?MODULE, undefined};
-        system_time_rem ->
+        system_time ->
             {?MODULE, undefined};
         mcg35_inline ->
             {_, S} = rand:seed_s(dummy),
@@ -1652,6 +1680,8 @@ measure_init(Alg) ->
         lcg35_inline ->
             {_, S} = rand:seed_s(dummy),
             {rand, S bsr (58-35)};
+        splitmix64_inline ->
+            {rand, erlang:unique_integer()};
         lcg35_procdict ->
             {_, S} = rand:seed_s(dummy),
             _ = put(Alg, S bsr (58-35)),
