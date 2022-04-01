@@ -21,7 +21,6 @@
 -define(input_files_directory, "src").
 -define(result_files_directory, "results").
 -define(plt_filename,"dialyzer_plt").
--define(home_plt_filename,".dialyzer_plt").
 -define(plt_lockfile,"plt_lock").
 -define(required_modules, [erts, kernel, stdlib]).
 
@@ -90,14 +89,13 @@ explain_fail_with_lock() ->
 
 obtain_plt(PltFilename) ->
     io:format("Obtaining plt:"),
-    HomeDir = os:getenv("HOME"),
-    HomePlt = filename:join(HomeDir, ?home_plt_filename),
+    InitPlt = dialyzer_plt:get_default_plt(),
     io:format("Will try to use ~s as a starting point and add otp apps ~w.",
-	      [HomePlt, ?required_modules]),
+	      [InitPlt, ?required_modules]),
     try dialyzer:run([{analysis_type, plt_add},
 		      {apps, ?required_modules},
 		      {output_plt, PltFilename},
-		      {init_plt, HomePlt}]) of
+		      {init_plt, InitPlt}]) of
 	[] ->
 	    io:format("Successfully added everything!"),
 	    ok
