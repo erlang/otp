@@ -851,7 +851,8 @@ end.</pre>
             statistical properties of this generator when doing either.
             Note also the caveat about weak low bits that
             this generator suffers from.
-            The generator is exported in this form primarily for speed.
+            The generator is exported in this form
+            primarily for performance.
           </p>
         </note>
       </desc>
@@ -890,7 +891,7 @@ end.</pre>
           from the paper "Tables of Linear Congruential Generators
           of different sizes and good lattice structure" by
           Pierre L'Ecuyer (1997) and they are selected
-          for speed to keep the computation under
+          for performance to keep the computation under
           the Erlang bignum limit.
         </p>
         <p>
@@ -939,7 +940,7 @@ end.</pre>
           from the paper "Tables of Linear Congruential Generators
           of different sizes and good lattice structure" by
           Pierre L'Ecuyer (1997) and they are selected
-          for speed to keep the computation under
+          for performance to keep the computation under
           the Erlang bignum limit.
           The addition constant has been selected to
           15366142135 (it has to be odd) which looks
