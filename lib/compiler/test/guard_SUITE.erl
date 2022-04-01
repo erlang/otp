@@ -2529,6 +2529,7 @@ beam_bool_SUITE(_Config) ->
     erl1384(),
     gh4788(),
     beam_ssa_bool_coverage(),
+    bad_map_in_guard(),
     ok.
 
 before_and_inside_if() ->
@@ -3038,6 +3039,15 @@ collect_modifiers(Rest, Buffer) ->
 beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
     ok;
 beam_ssa_bool_coverage_1(_) ->
+    error.
+
+-record(bad_map_in_guard, {name}).
+bad_map_in_guard() ->
+    error = bad_map_in_guard_1().
+
+bad_map_in_guard_1() when (a#{key => value})#bad_map_in_guard.name ->
+    ok;
+bad_map_in_guard_1() ->
     error.
 
 %%%

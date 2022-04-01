@@ -369,12 +369,17 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
     {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
 
+    {'EXIT',{badarg,_}} = catch fail_2(true),
+
     ok.
 
 fail_1() ->
     case <<(V0 = 1),[]/utf32>> of
         _ when V0 -> true
     end.
+
+fail_2(True) when True ->
+    <<0,True/bitstring>>.
 
 float_bin(Config) when is_list(Config) ->
     %% Some more coverage.

@@ -612,12 +612,14 @@ opt_anno_types_1(I, [#b_var{}=Var | Args], Ts, Index, Acc0) ->
     end;
 opt_anno_types_1(I, [_Arg | Args], Ts, Index, Acc) ->
     opt_anno_types_1(I, Args, Ts, Index + 1, Acc);
-opt_anno_types_1(#b_set{}=I, [], _Ts, _Index, Acc) when Acc =:= #{} ->
-    I;
 opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     case Anno0 of
         #{ arg_types := Acc } ->
             I;
+        #{ arg_types := _ } when Acc =:= #{} ->
+            %% One or more arguments have been simplified to literal values.
+            Anno = maps:remove(arg_types, Anno0),
+            I#b_set{anno=Anno};
         #{} ->
             Anno = Anno0#{ arg_types => Acc },
             I#b_set{anno=Anno}
