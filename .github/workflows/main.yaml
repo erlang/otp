@@ -350,12 +350,12 @@ jobs:
         run: |
           docker build -t otp - <<EOF
           FROM otp
-          RUN make docs
+          RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
         run: |
           docker run -v $PWD/:/github otp \
-            "make release docs release_docs && make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
+            "make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
             sudo chown -R `whoami` docs
             cd docs
             tar czf ../otp_doc_man.tar.gz man

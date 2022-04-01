@@ -31,7 +31,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = "$(RELEASE_PATH)/doc"
+RELSYSDIR = $(RELEASE_PATH)/doc
 
 GIF_FILES = 
 
@@ -102,14 +102,33 @@ PDFREFDIR= pdf
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 TOPDOC=true
 
+sp :=
+
+sp +=
+
+## qs translates ' ' to '\ ', sq translates '\ ' to ' '
+## These function are used when the make target is a path that can
+## contain spaces. This is needed a the target 'foo bar:' needs to be
+## written as 'foo\ bar:' in order for make to interpret it as a single
+## target. Unfortunately, when this is done $@ will contain '\ ', which
+## means that we have to use sq to remove the escape again. A small example
+## looks like this:
+##
+## $(call qs, /path/with space/file.o): $(call qs, /path/with space/file.c)
+##   	gcc -c -o "$(call sq, $@)" "$(call sq, $^)"
+qs = $(subst $(sp),\$(sp),$1)
+sq = $(subst \$(sp),$(sp),$1)
+
 ifdef RELEASE_PATH
 INST_TYPE=rel
 INST_TYPE_SRC_DIR=$(RELEASE_PATH)
 # We build to the 'temporary' dir in order to be able to install
 # results using INSTALL_DATA (in order to get correct access
 # rights on installed files)
+# The temporary folder needs to be in the released system as we do
+# not know if we have write permissions in the source release.
 INST_TYPE_DEST_DIR=$(RELSYSDIR)/temporary
-INST_TYPE_DEST_DIR_DEP=$(INST_TYPE_DEST_DIR)
+INST_TYPE_DEST_DIR_DEP=$(call qs,$(INST_TYPE_DEST_DIR))
 INST_TYPE_JS_DEST_DIR=$(INST_TYPE_DEST_DIR)
 INST_TYPE_VSN_FILE=$(INST_TYPE_DEST_DIR)/OTP_VERSION
 else
@@ -131,17 +150,17 @@ EBIN = ebin
 INDEX_SCRIPT = $(EBIN)/erl_html_tools.$(EMULATOR)
 INDEX_SRC = src/erl_html_tools.erl
 
-INDEX_HTML=$(INST_TYPE_DEST_DIR)/index.html
-APPLICATIONS_HTML=$(INST_TYPE_DEST_DIR)/applications.html
+INDEX_HTML=$(call qs,$(INST_TYPE_DEST_DIR)/index.html)
+APPLICATIONS_HTML=$(call qs,$(INST_TYPE_DEST_DIR)/applications.html)
 INDEX_FILES = $(INDEX_HTML) $(APPLICATIONS_HTML)
 
-JAVASCRIPT = $(INST_TYPE_JS_DEST_DIR)/erlresolvelinks.js
+JAVASCRIPT = $(call qs,$(INST_TYPE_JS_DEST_DIR)/erlresolvelinks.js)
 JAVASCRIPT_BUILD_SCRIPT = $(EBIN)/erlresolvelinks.$(EMULATOR)
 JAVASCRIPT_BUILD_SCRIPT_SRC = src/erlresolvelinks.erl
 
 MAN_INDEX_SCRIPT = $(EBIN)/otp_man_index.$(EMULATOR)
 MAN_INDEX_SRC = src/otp_man_index.erl
-MAN_INDEX = $(INST_TYPE_DEST_DIR)/man_index.html
+MAN_INDEX = $(call qs,$(INST_TYPE_DEST_DIR)/man_index.html)
 
 GLOSSARY  = $(HTMLDIR)/glossary.html
 GLOSSARY_SRC = $(ERL_TOP)/system/internal_tools/doctools/src/glossary.erl
@@ -156,18 +175,18 @@ TEMPLATES = \
 $(INDEX_SCRIPT): $(INDEX_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
-$(INST_TYPE_DEST_DIR)/OTP_VERSION: $(INST_TYPE_DEST_DIR_DEP)
+$(call qs,$(INST_TYPE_DEST_DIR)/OTP_VERSION): $(INST_TYPE_DEST_DIR_DEP)
 	if test -f "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/OTP_VERSION"; then \
-		$(CP) "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/OTP_VERSION" $@; \
+		$(CP) "$(RELEASE_PATH)/releases/$(SYSTEM_VSN)/OTP_VERSION" "$(call sq,$@)"; \
 	else \
-		$(CP) $(ERL_TOP)/OTP_VERSION $@; \
+		$(CP) "$(ERL_TOP)/OTP_VERSION" "$(call sq,$@)"; \
 	fi
 
 # We don't list toc_*.html as targets because we don't know
-$(INDEX_HTML) + $(APPLICATIONS_HTML): $(INST_TYPE_DEST_DIR_DEP) $(INDEX_SCRIPT) $(TEMPLATES) $(INST_TYPE_VSN_FILE)
+$(INDEX_HTML) + $(APPLICATIONS_HTML): $(INST_TYPE_DEST_DIR_DEP) $(INDEX_SCRIPT) $(TEMPLATES) $(call qs,$(INST_TYPE_VSN_FILE))
 	echo "Generating index $@"
-	$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index $(INST_TYPE) \
-		$(INST_TYPE_SRC_DIR) $(INST_TYPE_DEST_DIR) \
+	$(ERL) +pc unicode -noshell -pa $(EBIN) -s erl_html_tools top_index $(INST_TYPE) \
+		"$(INST_TYPE_SRC_DIR)" "$(INST_TYPE_DEST_DIR)" \
 		`cat "$(INST_TYPE_VSN_FILE)"` -s erlang halt
 
 
@@ -177,8 +196,8 @@ $(JAVASCRIPT_BUILD_SCRIPT): $(JAVASCRIPT_BUILD_SCRIPT_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 $(JAVASCRIPT): $(INST_TYPE_DEST_DIR_DEP) $(JAVASCRIPT_BUILD_SCRIPT)
-	erl -noshell -pa $(EBIN) -run erlresolvelinks make $(ERL_TOP) \
-		$(INST_TYPE_SRC_DIR) $(INST_TYPE_JS_DEST_DIR) -s erlang halt
+	$(ERL) +pc unicode -noshell -pa $(EBIN) -run erlresolvelinks make $(ERL_TOP) \
+		"$(INST_TYPE_SRC_DIR)" "$(INST_TYPE_JS_DEST_DIR)" -s erlang halt
 
 #--------------------------------------------------------------------------
 
@@ -186,8 +205,8 @@ $(MAN_INDEX_SCRIPT): $(MAN_INDEX_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 $(MAN_INDEX): $(INST_TYPE_DEST_DIR_DEP) $(MAN_INDEX_SCRIPT)
-	$(ERL) -noshell -pa $(EBIN) -s otp_man_index gen $(INST_TYPE) \
-		$(INST_TYPE_SRC_DIR) $@ -s erlang halt
+	$(ERL) +pc unicode -noshell -pa $(EBIN) -s otp_man_index gen $(INST_TYPE) \
+		"$(INST_TYPE_SRC_DIR)" "$(call sq,$@)" -s erlang halt
 
 #--------------------------------------------------------------------------
 
@@ -280,31 +299,31 @@ clean:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-$(RELSYSDIR)/temporary:
-	$(INSTALL_DIR) $(RELSYSDIR)/temporary
+$(call qs,$(RELSYSDIR)/temporary):
+	$(INSTALL_DIR) "$(RELSYSDIR)/temporary"
 
-$(RELSYSDIR)/docbuild:
-	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
+$(call qs,$(RELSYSDIR)/docbuild):
+	$(INSTALL_DIR) "$(RELSYSDIR)/docbuild"
 
-release_man_spec: man $(RELSYSDIR)/docbuild
+release_man_spec: man $(call qs,$(RELSYSDIR)/docbuild)
 
-release_html_spec: html $(RELSYSDIR)/docbuild
-	$(INSTALL_DATA) $(MAN_INDEX) $(RELSYSDIR)
-	$(INSTALL_DATA) $(MAN_INDEX_SRC) $(MAN_INDEX_SCRIPT) $(RELSYSDIR)/docbuild
-	$(INSTALL_DIR)  $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(JAVASCRIPT) $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(INDEX_FILES) $(RELSYSDIR)
+release_html_spec: html $(call qs,$(RELSYSDIR)/docbuild)
+	$(INSTALL_DATA) $(MAN_INDEX) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(MAN_INDEX_SRC) $(MAN_INDEX_SCRIPT) "$(RELSYSDIR)/docbuild"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/js"
+	$(INSTALL_DATA) $(JAVASCRIPT) "$(RELSYSDIR)/js"
+	$(INSTALL_DATA) $(INDEX_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
 		$(INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
-		$(TEMPLATES) $(RELSYSDIR)/docbuild
+		$(TEMPLATES) "$(RELSYSDIR)/docbuild"
 
 release_pdf_spec: pdf
-	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
+	$(INSTALL_DIR)  "$(RELSYSDIR)/pdf"
 	$(INSTALL_DATA)  \
-		$(TOP_PDF_FILE) $(RELSYSDIR)/pdf
+		$(TOP_PDF_FILE) "$(RELSYSDIR)/pdf"
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec) $(INFO_FILES)
 	$(INSTALL_DATA) $(INFO_FILES) "$(RELEASE_PATH)"
-	$(RM) -r $(RELSYSDIR)/temporary
+	$(RM) -r "$(RELSYSDIR)/temporary"
 
 release_spec:

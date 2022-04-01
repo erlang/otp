@@ -550,7 +550,7 @@ in order to fetch the base image. If you want to build the base image locally
 you can do that like this:
 
 ```bash
-docker built -t docker.pkg.github.com/erlang/otp/ubuntu-base \
+docker build -t docker.pkg.github.com/erlang/otp/ubuntu-base \
   --build-arg BASE=ubuntu --build-arg USER=otptest --build-arg uid=$(id -u) \
   --build-arg GROUP=uucp --build-arg gid=$(id -g) \
   -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
