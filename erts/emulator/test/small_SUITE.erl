@@ -23,6 +23,7 @@
 
 -export([all/0, suite/0, groups/0]).
 -export([edge_cases/1, addition/1, subtraction/1, multiplication/1,
+         test_bitwise/1, test_bsl/1,
          element/1,
          range_optimization/1]).
 
@@ -38,6 +39,7 @@ all() ->
 groups() ->
     [{p, [parallel],
       [edge_cases, addition, subtraction, multiplication,
+       test_bitwise, test_bsl,
        element,
        range_optimization]}].
 
@@ -127,7 +129,7 @@ addition(_Config) ->
     io:format("Seed: ~p", [rand:export_seed()]),
     Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
     Pairs = add_gen_pairs(),
-    io:format("~p\n", [Pairs]),
+    %% io:format("~p\n", [Pairs]),
     Fs0 = gen_func_names(Pairs, 0),
     Fs = [gen_add_function(F) || F <- Fs0],
     Tree = ?Q(["-module('@Mod@').",
@@ -329,6 +331,130 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
 
     test_multiplication(T, Mod);
 test_multiplication([], _) ->
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+test_bitwise(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = bitwise_gen_pairs(),
+    %% io:format("~p\n", [Pairs]),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_bitwise_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_bitwise(Fs0, Mod),
+    ok.
+
+bitwise_gen_pairs() ->
+    {MinSmall, MaxSmall} = determine_small_limits(0),
+
+    %% Generate random pairs of smalls.
+    N = 1000,
+    M = MaxSmall + N div 2,
+    Pairs0 = [{M - rand:uniform(N), rand:uniform(N)} ||
+                 _ <- lists:seq(1, 75)],
+
+    Seq = lists:seq(MinSmall-3, MinSmall+2) ++
+        lists:seq(-5, 5),
+        lists:seq(MaxSmall-2, MaxSmall+2),
+    [{N1, N2} || N1 <- Seq, N2 <- Seq] ++ Pairs0.
+
+gen_bitwise_function({Name,{A,B}}) ->
+    APlusOne = abs(A) + 1,
+    BPlusOne = abs(B) + 1,
+    ?Q("'@Name@'(X0, Y0) when is_integer(X0), is_integer(Y0)->
+           X1 = X0 rem _@APlusOne@,
+           Y1 = Y0 rem _@BPlusOne@,
+
+           AndRes = X0 band Y0,
+           AndRes = X1 band Y1,
+           AndRes = Y1 band X1,
+           AndRes = X0 band Y1,
+           AndRes = X1 band Y0,
+
+           OrRes = X0 bor Y0,
+           OrRes = X1 bor Y1,
+           OrRes = Y1 bor X1,
+           OrRes = X0 bor Y1,
+           OrRes = X1 bor Y0,
+
+           XorRes = X0 bxor Y0,
+           XorRes = X1 bxor Y1,
+           XorRes = Y1 bxor X1,
+           XorRes = X0 bxor Y1,
+           XorRes = X1 bxor Y0,
+
+           {AndRes, OrRes, XorRes}. ").
+
+test_bitwise([{Name,{A,B}}|T], Mod) ->
+    try
+        test_bitwise_1(A, B, Mod, Name),
+        test_bitwise_1(-A, B, Mod, Name),
+        test_bitwise_1(A, -B, Mod, Name),
+        test_bitwise_1(-A, -B, Mod, Name)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
+            erlang:raise(C, R, Stk)
+    end,
+    test_bitwise(T, Mod);
+test_bitwise([], _) ->
+    ok.
+
+test_bitwise_1(A, B, Mod, Name) ->
+    AndRes = A band B,
+    OrRes = A bor B,
+    XorRes = A bxor B,
+    {AndRes, OrRes, XorRes} = Mod:Name(A, B),
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+test_bsl(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = bsl_gen_pairs(),
+    %% io:format("~p\n", [Pairs]),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_bsl_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_bsl(Fs0, Mod),
+    ok.
+
+bsl_gen_pairs() ->
+    {_MinSmall, MaxSmall} = determine_small_limits(0),
+    SmallBits = num_bits(MaxSmall),
+
+    [{N,S} ||
+        P <- lists:seq(20, SmallBits),
+        N <- [(1 bsl P)-rand:uniform(1000), (1 bsl P)-1, 1 bsl P],
+        S <- lists:seq(SmallBits-P-4, SmallBits - P + 3)].
+
+gen_bsl_function({Name,{N,S}}) ->
+    Mask = (1 bsl num_bits(N)) - 1,
+    ?Q("'@Name@'(N0) ->
+           N = N0 band _@Mask@,
+           N bsl _@S@. ").
+
+test_bsl([{Name,{N,S}}|T], Mod) ->
+    Res = N bsl S,
+    try Mod:Name(N) of
+        Res ->
+            ok
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,N,S]),
+            erlang:raise(C, R, Stk)
+    end,
+    test_bsl(T, Mod);
+test_bsl([], _) ->
     ok.
 
 element(_Config) ->
