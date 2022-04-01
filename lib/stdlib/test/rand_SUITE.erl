@@ -1060,11 +1060,13 @@ crypto64_uniform_n(N, State0) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Not a test but measures the time characteristics of the different algorithms
-measure(Config) ->
+measure(Config) when is_list(Config) ->
     ct:timetrap({minutes,60}), %% valgrind needs a lot of time
     case ct:get_timetrap_info() of
         {_,{_,1}} -> % No scaling
-            do_measure(Config);
+            Iterations = ?LOOP div 5,
+            Effort = proplists:get_value(measure_effort, Config, 1),
+            do_measure(Iterations * Effort);
         {_,{_,Scale}} ->
             {skip,{will_not_run_in_scaled_time,Scale}}
     end.
@@ -1095,7 +1097,7 @@ measure(Config) ->
                 St
         end).
 
-do_measure(_Config) ->
+do_measure(Iterations) ->
     Algs =
         case crypto_support() of
             ok ->
@@ -1107,504 +1109,435 @@ do_measure(_Config) ->
     ct:pal("~nRNG uniform integer range 10000 performance~n",[]),
     [TMarkUniformRange10000,OverheadUniformRange1000|_] =
         measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, _State) ->
+                  Range = 10000,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     _ =
         measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            State1 = rand:mcg35(State0),
-                            %% Just a 'rem' with slightly skewed distribution
-                            case (State1 rem Range) + 1 of
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mcg35(St0),
+                          %% Just a 'rem' with slightly skewed distribution
+                          case (St1 rem Range) + 1 of
+                              R when is_integer(R), 0 < R, R =< Range ->
+                                  St1
+                          end
+                  end
+          end, mcg35_inline, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:lcg35(St0),
+                          %% Just a 'rem' with slightly skewed distribution
+                            case (St1 rem Range) + 1 of
                                 R when is_integer(R), 0 < R, R =< Range ->
-                                    State1
+                                    St1
                             end
-                    end,
-                    State)
+                  end
           end,
-          mcg35_inline, TMarkUniformRange10000, OverheadUniformRange1000),
+          lcg35_inline, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            State1 = rand:lcg35(State0),
-                            %% Just a 'rem' with slightly skewed distribution
-                            case (State1 rem Range) + 1 of
-                                R when is_integer(R), 0 < R, R =< Range ->
-                                    State1
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          {V,St1} = rand:exsp_next(St0),
+                          %% Just a 'rem' with slightly skewed distribution
+                          case (V rem Range) + 1 of
+                              X when is_integer(X), 0 < X, X =< Range ->
+                                  St1
                             end
-                    end,
-                    State)
+                  end
           end,
-          lcg35_inline, TMarkUniformRange10000, OverheadUniformRange1000),
+          exsp_inline, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            {V,State1} = rand:exsp_next(State0),
-                            %% Just a 'rem' with slightly skewed distribution
-                            case (V rem Range) + 1 of
-                                R when is_integer(R), 0 < R, R =< Range ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          %% Just a 'rem' with slightly skewed distribution
+                          case
+                              erlang:phash2(erlang:unique_integer(), Range)
+                          of
+                              X when is_integer(X), 0 =< X, X < Range ->
+                                  St0
+                          end
+                  end
           end,
-          exsp_inline, TMarkUniformRange10000, OverheadUniformRange1000),
+          unique_phash2, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            %% Just a 'rem' with slightly skewed distribution
-                            case
-                                erlang:phash2(erlang:unique_integer(), Range)
-                            of
-                                R
-                                  when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          %% Just a 'rem' with slightly skewed distribution
+                          case os:system_time(microsecond) rem Range of
+                              R
+                                when is_integer(R), 0 =< R, R < Range ->
+                                  St0
+                          end
+                  end
           end,
-          unique_phash2, TMarkUniformRange10000, OverheadUniformRange1000),
-    _ =
-        measure_1(
-          fun (_) -> 10000 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            %% Just a 'rem' with slightly skewed distribution
-                            case os:system_time(microsecond) rem Range of
-                                R
-                                  when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
-          end,
-          system_time_rem, TMarkUniformRange10000, OverheadUniformRange1000),
+          system_time_rem, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
     %%
     ct:pal("~nRNG uniform integer 32 bit performance~n",[]),
     [TMarkUniform32Bit,OverheadUniform32Bit|_] =
         measure_1(
-          fun (_) -> 1 bsl 32 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  Range = 1 bsl 32,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
           end,
-          Algs),
+          Algs, Iterations),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 32 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case rand:lcg35(State0) bsr (35-32) of
-                                R when is_integer(R), 0 =< R, R < Range ->
-                                    R
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          St1 = rand:lcg35(St0),
+                          case St1 bsr (35-32) of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  St1
+                          end
+                  end
           end,
-          lcg35_inline, TMarkUniform32Bit, OverheadUniform32Bit),
+          lcg35_inline, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 32 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            {V, State1} = rand:exsp_next(State0),
-                            case V bsr (58-32) of
-                                R when is_integer(R), 0 =< R, R < Range ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          {V, St1} = rand:exsp_next(St0),
+                          case V bsr (58-32) of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  St1
+                          end
+                  end
           end,
-          exsp_inline, TMarkUniform32Bit, OverheadUniform32Bit),
+          exsp_inline, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 32 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case
-                                erlang:phash2(erlang:unique_integer(), Range)
-                            of
-                                R
-                                  when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          case
+                              erlang:phash2(erlang:unique_integer(), Range)
+                          of
+                              R
+                                when is_integer(R), 0 =< R, R < Range ->
+                                  St0
+                          end
+                  end
           end,
-          unique_phash2, TMarkUniform32Bit, OverheadUniform32Bit),
+          unique_phash2, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 32 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case
-                                os:system_time(microsecond)
-                                band ((1 bsl 32) - 1)
-                            of
-                                R
-                                  when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          case
+                              os:system_time(microsecond)
+                              band ((1 bsl 32) - 1)
+                          of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  St0
+                          end
+                  end
           end,
-          system_time_rem, TMarkUniform32Bit, OverheadUniform32Bit),
+          system_time_rem, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
     %%
     ct:pal("~nRNG uniform integer half range performance~n",[]),
     _ =
         measure_1(
-          fun (State) -> half_range(State) end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
+          fun (Mod, State) ->
+                  Range = half_range(State),
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
           end,
-          Algs),
+          Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer half range + 1 performance~n",[]),
     _ =
         measure_1(
-          fun (State) -> half_range(State) + 1 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, State) ->
+                  Range = half_range(State) + 1,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer full range - 1 performance~n",[]),
     _ =
         measure_1(
-          fun (State) -> (half_range(State) bsl 1) - 1 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, State) ->
+                  Range = (half_range(State) bsl 1) - 1,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer full range performance~n",[]),
     [TMarkUniformFullRange,OverheadUniformFullRange|_] =
         measure_1(
-          fun (State) -> half_range(State) bsl 1 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs ++ [dummy]),
+          fun (Mod, State) ->
+                  Range = half_range(State) bsl 1,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs ++ [dummy], Iterations),
     _ =
         measure_1(
-          fun (_) -> ((1 bsl 35) - 31) - 1 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case rand:mcg35(State0) of
-                                R when is_integer(R), 1 =< R, R =< Range ->
-                                    R
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = (1 bsl 35) - 31,
+                  fun (St0) ->
+                          case rand:mcg35(St0) of
+                              R when is_integer(R), 1 =< R, R =< Range ->
+                                  R
+                          end
+                  end
           end,
-          mcg35_inline, TMarkUniformFullRange, OverheadUniformFullRange),
+          mcg35_inline, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 35 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case rand:lcg35(State0) of
-                                R when is_integer(R), 0 =< R, R < Range ->
-                                    R
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 35,
+                  fun (St0) ->
+                          case rand:lcg35(St0) of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  R
+                          end
+                  end
           end,
-          lcg35_inline, TMarkUniformFullRange, OverheadUniformFullRange),
+          lcg35_inline, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 58 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            {V, State1} = rand:exsp_next(State0),
-                            case V of
-                                V when is_integer(V), 0 =< V, V < Range ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 58,
+                  fun (St0) ->
+                          {V, St1} = rand:exsp_next(St0),
+                          case V of
+                              V when is_integer(V), 0 =< V, V < Range ->
+                                  St1
+                          end
+                  end
           end,
-          exsp_inline, TMarkUniformFullRange, OverheadUniformFullRange),
+          exsp_inline, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 27 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case erlang:phash2(erlang:unique_integer()) of
-                                R
-                                  when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 27,
+                  fun (St0) ->
+                          case erlang:phash2(erlang:unique_integer()) of
+                              X
+                                when is_integer(X), 0 =< X, X < Range ->
+                                  St0
+                          end
+                  end
           end,
-          unique_phash2, TMarkUniformFullRange, OverheadUniformFullRange),
+          unique_phash2, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (State) ->
-                  rand:seed(State),
-                  half_range(State) bsl 1
+          fun (Mod, _State) ->
+                  Range = 1 bsl 27,
+                  Generator = fun Mod:uniform/1,
+                  fun (St0) ->
+                          case Generator(Range) of
+                              X when is_integer(X), 1 =< X, X =< Range ->
+                                  St0
+                          end
+                  end
           end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St) ->
-                            case Mod:uniform(Range) of
-                                X when is_integer(X), 1 =< X, X =< Range ->
-                                    St
-                            end
-                    end,
-                    State)
-          end,
-          procdict, TMarkUniformFullRange, OverheadUniformFullRange),
+          procdict, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
-          fun (State) ->
-                  _ = put(lcg35_procdict, State),
-                  1 bsl 35
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 35,
+                  fun (St0) ->
+                          case
+                              put(lcg35_procdict,
+                                  rand:lcg35(get(lcg35_procdict)))
+                          of
+                              X when is_integer(X), 0 =< X, X < Range ->
+                                  St0
+                          end
+                  end
           end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            case
-                                put(lcg35_procdict,
-                                    rand:lcg35(get(lcg35_procdict)))
-                            of
-                                R when is_integer(R), 0 =< R, R < Range ->
-                                    State0
-                            end
-                    end,
-                    State)
-          end,
-          lcg35_procdict, TMarkUniformFullRange, OverheadUniformFullRange),
+          lcg35_procdict, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
     _ =
         measure_1(
-          fun (State) -> (half_range(State) bsl 1) + 1 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, State) ->
+                  Range = (half_range(State) bsl 1) + 1,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer double range performance~n",[]),
     _ =
         measure_1(
-          fun (State) ->
-                  half_range(State) bsl 2
-          end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, State) ->
+                  Range = half_range(State) bsl 2,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer double range + 1  performance~n",[]),
     _ =
         measure_1(
-          fun (State) ->
-                  (half_range(State) bsl 2) + 1
-          end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, State) ->
+                  Range = (half_range(State) bsl 2) + 1,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ct:pal("~nRNG uniform integer 64 bit performance~n",[]),
     _ =
         measure_1(
-          fun (_) -> 1 bsl 64 end,
-          fun (State, Range, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM_RANGE(
-                               Mod:uniform_s(Range, St0), Range,
-                               X, St1)
-                    end,
-                    State)
-          end,
-          Algs),
+          fun (Mod, _State) ->
+                  Range = 1 bsl 64,
+                  Generator = fun Mod:uniform_s/2,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM_RANGE(
+                             Generator(Range, St0), Range, X, St1)
+                  end
+          end, Algs, Iterations),
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
     ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
     _ =
         measure_1(
-          fun (_) -> ByteSize end,
-          fun (State, Size, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_BYTE_SIZE(
-                               Mod:bytes_s(Size, St0), Size,
-                               Bin, St1)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  Generator = fun Mod:bytes_s/2,
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             Generator(ByteSize, St0), ByteSize, Bin, St1)
+                  end
           end,
           case crypto_support() of
               ok ->
                   Algs ++ [crypto_bytes, crypto_bytes_cached];
               _ ->
                   Algs
-          end),
+          end, Iterations),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
     [TMarkUniformFloat,OverheadUniformFloat|_] =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM(Mod:uniform_s(St0), X, St)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  Generator = fun Mod:uniform_s/1,
+                  fun (St0) ->
+                            ?CHECK_UNIFORM(Generator(St0), X, St)
+                  end
           end,
-          Algs),
+          Algs, Iterations),
     _ =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            State1 = rand:mcg35(State0),
-                            %% Too few bits for full mantissa
-                            case (State1 - 1) * (1/((1 bsl 35) - 31)) of
-                                R when is_float(R), 0.0 =< R, R < 1.0 ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          St1 = rand:mcg35(St0),
+                          %% Too few bits for full mantissa
+                          case (St1 - 1) * (1/((1 bsl 35) - 31)) of
+                              R when is_float(R), 0.0 =< R, R < 1.0 ->
+                                  St1
+                          end
+                    end
           end,
-          mcg35_inline, TMarkUniformFloat, OverheadUniformFloat),
+          mcg35_inline, Iterations,
+          TMarkUniformFloat, OverheadUniformFloat),
     _ =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            State1 = rand:lcg35(State0),
-                            %% Too few bits for full mantissa
-                            case State1 * (1/(1 bsl 35)) of
-                                R when is_float(R), 0.0 =< R, R < 1.0 ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          St1 = rand:lcg35(St0),
+                          %% Too few bits for full mantissa
+                          case St1 * (1/(1 bsl 35)) of
+                              R when is_float(R), 0.0 =< R, R < 1.0 ->
+                                  St1
+                          end
+                  end
           end,
-          lcg35_inline, TMarkUniformFloat, OverheadUniformFloat),
+          lcg35_inline, Iterations,
+          TMarkUniformFloat, OverheadUniformFloat),
     _ =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, _) ->
-                  measure_loop(
-                    fun (State0) ->
-                            {V,State1} = rand:exsp_next(State0),
-                            case V * (1/(1 bsl 58)) of
-                                R when is_float(R), 0.0 =< R, R < 1.0 ->
-                                    State1
-                            end
-                    end,
-                    State)
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          {V,St1} = rand:exsp_next(St0),
+                          case V * (1/(1 bsl 58)) of
+                              R when is_float(R), 0.0 =< R, R < 1.0 ->
+                                  St1
+                          end
+                  end
           end,
-          exsp_inline, TMarkUniformFloat, OverheadUniformFloat),
+          exsp_inline, Iterations,
+          TMarkUniformFloat, OverheadUniformFloat),
     %%
     ct:pal("~nRNG uniform_real float performance~n",[]),
     _ =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_UNIFORM(Mod:uniform_real_s(St0), X, St)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  Generator = fun Mod:uniform_real_s/1,
+                  fun (St0) ->
+                          ?CHECK_UNIFORM(Generator(St0), X, St)
+                  end
           end,
-          Algs),
+          Algs, Iterations),
     %%
     ct:pal("~nRNG normal float performance~n",[]),
     [TMarkNormalFloat, OverheadNormalFloat|_] =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, Mod) ->
-                  measure_loop(
-                    fun (St0) ->
-                            ?CHECK_NORMAL(Mod:normal_s(St0), X, St1)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  Generator = fun Mod:normal_s/1,
+                  fun (St0) ->
+                          ?CHECK_NORMAL(Generator(St0), X, St1)
+                  end
           end,
-          Algs),
+          Algs, Iterations),
     %% Just for fun try an implementation of the Box-Muller
     %% transformation for creating normal distribution floats
     %% to compare with our Ziggurat implementation.
@@ -1614,127 +1547,122 @@ do_measure(_Config) ->
     TwoPi = 2 * math:pi(),
     _ =
         measure_1(
-          fun (_) -> 0 end,
-          fun (State, _, Mod) ->
-                  measure_loop(
-                    fun (State0) ->
-                            {U1, State1} = Mod:uniform_real_s(State0),
-                            {U2, State2} = Mod:uniform_s(State1),
-                            R = math:sqrt(-2.0 * math:log(U1)),
-                            T = TwoPi * U2,
-                            Z0 = R * math:cos(T),
-                            Z1 = R * math:sin(T),
-                            ?CHECK_NORMAL({Z0 + Z1, State2}, X, State3)
-                    end,
-                    State)
+          fun (Mod, _State) ->
+                  fun (St0) ->
+                          {U1, St1} = Mod:uniform_real_s(St0),
+                          {U2, St2} = Mod:uniform_s(St1),
+                          R = math:sqrt(-2.0 * math:log(U1)),
+                          T = TwoPi * U2,
+                          Z0 = R * math:cos(T),
+                          Z1 = R * math:sin(T),
+                          ?CHECK_NORMAL({Z0 + Z1, St2}, X, St3)
+                  end
           end,
-          exsss, TMarkNormalFloat, OverheadNormalFloat),
+          exsss, Iterations,
+          TMarkNormalFloat, OverheadNormalFloat),
     ok.
 
--define(LOOP_MEASURE, (?LOOP div 5)).
-
-measure_loop(Fun, State) ->
-    measure_loop(Fun, State, ?LOOP_MEASURE).
-%%
-measure_loop(Fun, State, N) when 10 =< N ->
+measure_loop(State, Fun, I) when 10 =< I ->
     %% Loop unrolling to dilute benchmark overhead...
     measure_loop(
-      Fun,
       Fun(Fun(Fun(Fun(Fun(
                         Fun(Fun(Fun(Fun(Fun(
                                           State)))))))))),
-      N - 10);
-measure_loop(Fun, State, N) when 1 =< N ->
-    measure_loop(Fun, Fun(State), N-1);
+      Fun,
+      I - 10);
+measure_loop(State, Fun, I) when 1 =< I ->
+    measure_loop(Fun(State), Fun, I - 1);
 measure_loop(_, _, _) ->
     ok.
 
-measure_1(RangeFun, Fun, Algs) ->
-    WMark = measure_1(RangeFun, Fun, hd(Algs), warm_up, 0),
+measure_1(InitFun, Algs, Iterations) ->
+    WMark = measure_1(InitFun, hd(Algs), Iterations, warm_up, 0),
     Overhead =
         measure_1(
-          fun (_) -> 1 end,
-          fun (State, Range, _) ->
-                  measure_loop(
-                    fun (State0)
-                          when
-                              is_integer(State0),
-                              1 =< State0,
-                              State0 =< Range ->
-                            State0
-                    end,
-                    State)
-          end,
-          overhead, WMark, 0),
-    TMark = measure_1(RangeFun, Fun, hd(Algs), undefined, Overhead),
+          fun (_Mod, _State) ->
+                  Range = 1,
+                  fun (St0)
+                      when is_integer(St0), 1 =< St0, St0 =< Range ->
+                          St0
+                  end
+          end, overhead, Iterations, WMark, 0),
+    TMark = measure_1(InitFun, hd(Algs), Iterations, undefined, Overhead),
     [TMark,Overhead] ++
-        [measure_1(RangeFun, Fun, Alg, TMark, Overhead) || Alg <- tl(Algs)].
+        [measure_1(InitFun, Alg, Iterations, TMark, Overhead)
+         || Alg <- tl(Algs)].
 
-measure_1(RangeFun, Fun, Alg, TMark, Overhead) ->
+measure_1(InitFun, Alg, Iterations, TMark, Overhead) ->
     Parent = self(),
-    {Mod, State} =
-        case Alg of
-            overhead ->
-                {?MODULE, 1};
-            crypto64 ->
-                {rand, crypto64_seed()};
-            crypto_cache ->
-                {rand, crypto:rand_seed_alg(crypto_cache)};
-            crypto ->
-                {rand, crypto:rand_seed_s()};
-            crypto_aes ->
-                {rand,
-		 crypto:rand_seed_alg(
-		   crypto_aes, crypto:strong_rand_bytes(256))};
-            random ->
-                {random, random:seed(os:timestamp()), get(random_seed)};
-            crypto_bytes ->
-                {?MODULE, ignored_state};
-            crypto_bytes_cached ->
-                {?MODULE, <<>>};
-            unique_phash2 ->
-                {?MODULE, ignored_state};
-            system_time_rem ->
-                {?MODULE, ignored_state};
-            mcg35_inline ->
-                {_, S} = rand:seed_s(dummy),
-                {?MODULE, (S rem ((1 bsl 35)-31 - 1)) + 1};
-            lcg35_inline ->
-                {_, S} = rand:seed_s(dummy),
-                {?MODULE, S bsr (58-35)};
-            lcg35_procdict ->
-                {_, S} = rand:seed_s(dummy),
-                {?MODULE, S bsr (58-35)};
-            exsp_inline ->
-                {_, S} = rand:seed_s(exsp),
-                {?MODULE, S};
-            procdict ->
-                {rand, rand:seed_s(exsss)};
-            _ ->
-                {rand, rand:seed_s(Alg)}
+    MeasureFun =
+        fun () ->
+                {Mod, State} = measure_init(Alg),
+                IterFun = InitFun(Mod, State),
+                {T, ok} =
+                    timer:tc(
+                      fun () ->
+                              measure_loop(State, IterFun, Iterations)
+                      end),
+                Time = T - Overhead,
+                Percent =
+                    case TMark of
+                        warm_up   -> "(warm-up)";
+                        undefined -> "   100.0%";
+                        _ ->
+                            io_lib:format(
+                              "~8.1f%", [(Time * 100 + 50) / TMark])
+                    end,
+                io:format(
+                  "~.24w: ~8.1f ns ~s~n",
+                  [Alg, (Time * 1000 + 500) / Iterations, Percent]),
+                Parent ! {self(), Time},
+                ok
         end,
-    Pid = spawn_link(
-            fun() ->
-                    Range = RangeFun(State),
-                    {T, ok} = timer:tc(fun () -> Fun(State, Range, Mod) end),
-                    Time = T - Overhead,
-                    Percent =
-                        case TMark of
-                            warm_up   -> "(warm-up)";
-                            undefined -> "   100.0%";
-                            _ ->
-                                io_lib:format(
-                                  "~8.1f%", [(Time * 100 + 50) / TMark])
-                        end,
-                    io:format(
-                      "~.24w: ~8.1f ns ~s [16#~.16b]~n",
-                      [Alg, (Time * 1000 + 500) / ?LOOP_MEASURE,
-                       Percent, Range]),
-                    Parent ! {self(), Time},
-                    normal
-            end),
+    Pid = spawn_link(MeasureFun),
     receive
 	{Pid, Msg} -> Msg
+    end.
+
+measure_init(Alg) ->
+    case Alg of
+        overhead ->
+            {?MODULE, 1};
+        crypto64 ->
+            {rand, crypto64_seed()};
+        crypto_cache ->
+            {rand, crypto:rand_seed_alg(crypto_cache)};
+        crypto ->
+            {rand, crypto:rand_seed_s()};
+        crypto_aes ->
+            {rand,
+             crypto:rand_seed_alg(
+               crypto_aes, crypto:strong_rand_bytes(256))};
+        random ->
+            {random, random:seed(os:timestamp()), get(random_seed)};
+        crypto_bytes ->
+            {?MODULE, undefined};
+        crypto_bytes_cached ->
+            {?MODULE, <<>>};
+        unique_phash2 ->
+            {?MODULE, undefined};
+        system_time_rem ->
+            {?MODULE, undefined};
+        mcg35_inline ->
+            {_, S} = rand:seed_s(dummy),
+            {rand, (S rem ((1 bsl 35)-31 - 1)) + 1};
+        lcg35_inline ->
+            {_, S} = rand:seed_s(dummy),
+            {rand, S bsr (58-35)};
+        lcg35_procdict ->
+            {_, S} = rand:seed_s(dummy),
+            _ = put(Alg, S bsr (58-35)),
+            {rand, undefined};
+        exsp_inline ->
+            {_, S} = rand:seed_s(exsp),
+            {rand, S};
+        procdict ->
+            {rand, rand:seed(exsss)};
+        _ ->
+            {rand, rand:seed_s(Alg)}
     end.
 
 %% Comparison algorithm for rand:bytes_s/2 vs. crypto:strong_rand_bytes/1
@@ -1748,7 +1676,7 @@ bytes_s(N, Cache) when is_binary(Cache) ->
                 <<Part/binary, (crypto:strong_rand_bytes(N * 16))/binary>>,
             {Bytes, Rest}
     end;
-bytes_s(N, ignored_state = St) ->
+bytes_s(N, undefined = St) ->
     %% crypto_bytes
     {crypto:strong_rand_bytes(N), St}.
 
