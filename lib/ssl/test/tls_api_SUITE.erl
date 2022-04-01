@@ -47,6 +47,8 @@
          tls_upgrade_new_opts/1,
          tls_upgrade_with_timeout/0,
          tls_upgrade_with_timeout/1,
+         tls_upgrade_with_client_timeout/0,
+         tls_upgrade_with_client_timeout/1,
          tls_downgrade/0,
          tls_downgrade/1,
          tls_shutdown/0,
@@ -144,6 +146,7 @@ api_tests() ->
      tls_upgrade,
      tls_upgrade_new_opts,
      tls_upgrade_with_timeout,
+     tls_upgrade_with_client_timeout,
      tls_downgrade,
      tls_shutdown,
      tls_shutdown_write,
@@ -314,6 +317,37 @@ tls_upgrade_with_timeout(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+tls_upgrade_with_client_timeout() ->
+    [{doc,"Test upgrade with connect/3 and a timeout value"}].
+
+tls_upgrade_with_client_timeout(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{mfa, {?MODULE,
+						       upgrade_result, []}},
+						{tcp_options,
+						 [{active, false} | TcpOpts]},
+						{ssl_options, [{verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_upgrade_client_error([{node, ClientNode},
+						{port, Port},
+				   {host, Hostname},
+				   {from, self()},
+                                   {timeout, 0},
+				   {mfa, {?MODULE, upgrade_result, []}},
+				   {tcp_options, [binary]},
+				   {ssl_options,  [{verify, verify_peer},
+                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+
+    ct:log("Testcase ~p, Client ~p  Server ~p", [self(), Client, Server]),
+    ok = ssl_test_lib:check_result(Client, {error, timeout}),
+    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 tls_downgrade() ->

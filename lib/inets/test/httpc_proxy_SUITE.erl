@@ -78,14 +78,15 @@ local_proxy_cases() ->
      http_not_modified_otp_6821].
 
 local_proxy_https_cases() ->
-    [https_connect_error].
+    [https_connect_error,
+     http_timeout].
 
 %%--------------------------------------------------------------------
 
 init_per_suite(Config0) ->
     case init_apps(suite_apps(), Config0) of
 	Config when is_list(Config) ->
-	    make_cert_files(dsa, "server-", Config),
+	    make_cert_files(Config),
 	    Config;
 	Other ->
 	    Other
@@ -445,6 +446,21 @@ https_connect_error(Config) when is_list(Config) ->
 	httpc:request(Method, Request, HttpOpts, Opts).
 
 %%--------------------------------------------------------------------
+http_timeout(doc) ->
+    ["Test http/https connect and upgrade timeouts."];
+http_timeout(Config) when is_list(Config) ->
+    Method = get,
+    URL = url("/index.html", Config),
+    Request = {URL,[]},
+    Timeout = timer:seconds(1),
+    HttpOpts1 = [{timeout, Timeout}, {connect_timeout, 0}],
+    {error,
+     {failed_connect,
+      [{to_address,{"localhost",8000}},
+       {inet,[inet],timeout}]}}
+	= httpc:request(Method, Request, HttpOpts1, []),
+    ok.
+%%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -489,7 +505,7 @@ app_start(App, Config) ->
 app_stop(App) ->
     application:stop(App).
 
-make_cert_files(Alg, Prefix, Config) ->
+make_cert_files(Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server"]),
     GenCertData =
