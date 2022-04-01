@@ -889,6 +889,7 @@ do_boot(Flags,Start) ->
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
     Root = get_root(Flags),
+    true = check_bindir(Flags),
     Path = get_flag_list(path, Flags, false),
     {Pa,Pz} = PathFls = path_flags(Flags),
     start_prim_loader(Init, bs2ss(Path), PathFls),
@@ -921,6 +922,14 @@ get_root(Flags) ->
 	    Root;
 	_ ->
 	    exit(no_or_multiple_root_variables)
+    end.
+
+check_bindir(Flags) ->
+    case get_argument(bindir, Flags) of
+	{ok,[[_Bindir]]} ->
+	    true;
+	_ ->
+	    exit(no_or_multiple_bindir_variables)
     end.
 
 get_boot_vars(Root, Flags) ->

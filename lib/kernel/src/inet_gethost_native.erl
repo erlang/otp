@@ -394,38 +394,20 @@ do_open_port(Poolsize, ExtraArgs) ->
     Args = [integer_to_list(Poolsize)] ++ ExtraArgs,
     %% open_executable/2 below assumes overlapped_io is at the head
     Opts = [overlapped_io, {args, Args}, {packet,4}, eof, binary],
-    RootDir = code:root_dir(),
-    Prog = filename:join([RootDir, erts(), "bin", ?PORT_PROGRAM]),
-    Cont =
-        fun () ->
-                [filename:join([RootDir, "bin", target(), ?PORT_PROGRAM])]
-        end,
-    open_executable([Prog|Cont], Opts).
+    {ok,[BinDir]} = init:get_argument(bindir),
+    Prog = filename:join(BinDir, ?PORT_PROGRAM),
+    open_executable(Prog, Opts).
 
-open_executable([Prog|Tail] = Progs, Opts) ->
+open_executable(Prog, Opts) ->
     try open_port({spawn_executable, Prog}, Opts)
     catch
         error : badarg when hd(Opts) =:= overlapped_io ->
-            open_executable(Progs, tl(Opts));
-        error : enoent ->
-            open_executable(Tail, Opts);
+            open_executable(Prog, tl(Opts));
         error : Reason ->
             erlang:halt(
               "Can not execute "++Prog++" : "++term2string(Reason))
-    end;
-open_executable([], _Opts) ->
-    erlang:halt(
-      "Can not find "++?PORT_PROGRAM++" for "++erts()++"/"++target());
-open_executable(Cont, Opts) ->
-    open_executable(Cont(), Opts).
-%% We regard not being able to start the resolver helper program
-%% as a node fatal error to avoid getting weird malfunction
-%% of name lookups
+    end.
 
-erts() ->
-    "erts-"++erlang:system_info(version).
-target() ->
-    erlang:system_info(system_architecture).
 term2string(Term) ->
     unicode:characters_to_list(io_lib:format("~tw", [Term])).
 
