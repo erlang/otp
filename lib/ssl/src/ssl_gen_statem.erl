@@ -225,6 +225,9 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
     case call(Pid, {start, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        ktls ->
+            #sslsocket{fd = {gen_tcp, Port, _, _}} = Socket,
+            {ok, #sslsocket{fd = Port, pid = {ktls, gen_tcp}}};
         {ok, Ext} ->
             {ok, Socket, no_records(Ext)};
 	Error ->
@@ -241,6 +244,9 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
     case call(Pid, {start, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        ktls ->
+            #sslsocket{fd = {gen_tcp, Port, _, _}} = Socket,
+            {ok, #sslsocket{fd = Port, pid = {ktls, gen_tcp}}};
 	Error ->
 	    Error
     end.
@@ -255,6 +261,9 @@ handshake_continue(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
     case call(Pid, {handshake_continue, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        ktls ->
+            #sslsocket{fd = {gen_tcp, Port, _, _}} = Socket,
+            {ok, #sslsocket{fd = Port, pid = {ktls, gen_tcp}}};
 	Error ->
 	    Error
     end.
@@ -302,6 +311,32 @@ socket_control(dtls_gen_connection = Connection, {PeerAddrPort, Socket}, [Pid|_]
 	    {error, Reason}
     end.
 
+prepare_connection(
+    #state{
+        static_env = #static_env{
+            transport_cb = gen_tcp,
+            socket = Socket
+        },
+        ssl_options = #{use_ktls := true},
+        socket_options = #socket_options{
+            mode = Mode,
+            packet = Packet,
+            packet_size = PacketSize,
+            header = Header,
+            active = Active
+        },
+        handshake_env = #handshake_env{renegotiation = {false, first}},
+        connection_env = #connection_env{user_application = {_Mon, Pid}},
+        connection_states = ConnectionStates,
+        start_or_recv_from = StartFrom
+    } = State,
+    _Connection
+) ->
+    gen_tcp:controlling_process(Socket, Pid),
+    set_ktls(tls_1_3_aes_gcm_256, ConnectionStates, Socket),
+    inet:setopts(Socket, [Mode, {packet, Packet}, {packet_size, PacketSize}, {header, Header}, {active, Active}]),
+    gen_statem:reply(StartFrom, ktls),
+    {ktls, State};
 prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegotiate},
 			  start_or_recv_from = RecvFrom} = State0, Connection)
   when Renegotiate =/= {false, first},
@@ -311,6 +346,24 @@ prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegot
 prepare_connection(State0, Connection) ->
     State = Connection:reinit(State0),
     {no_record, ack_connection(State)}.
+
+set_ktls(
+    tls_1_3_aes_gcm_256,
+    #{
+        current_write := #{
+            cipher_state := #cipher_state{iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>, key = WriteKey},
+            sequence_number := WriteSeq
+        },
+        current_read := #{
+            cipher_state := #cipher_state{iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>, key = ReadKey},
+            sequence_number := ReadSeq
+        }
+    },
+    Socket
+) ->
+    inet:setopts(Socket, [{raw, 6, 31, <<"tls">>}]),
+    inet:setopts(Socket, [{raw, 282, 1, <<4, 3, 52, 0, WriteIV/binary, WriteKey/binary, WriteSalt/binary, WriteSeq:64>>}]),
+    inet:setopts(Socket, [{raw, 282, 2, <<4, 3, 52, 0, ReadIV/binary, ReadKey/binary, ReadSalt/binary, ReadSeq:64>>}]).
 
 %%====================================================================
 %% User events
@@ -713,6 +766,8 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _) ->
     {keep_state_and_data, [hibernate]};
+handle_common_event(timeout, ktls_next_record, StateName, State) ->
+    tls_gen_connection:handle_info(ktls_next_record, StateName, State);
 handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, State) ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), StateName, State);
 handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State) ->
@@ -1120,6 +1175,9 @@ maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
 maybe_invalidate_session(_, _, _, _, _) ->
     ok.
 
+terminate({shutdown, ktls}, wait_finished, State) ->
+    %% Socket shall not be closed as it should be returned to user
+    handle_trusted_certs_db(State);
 terminate({shutdown, downgrade}, downgrade, State) ->
     %% Socket shall not be closed as it should be returned to user
     handle_trusted_certs_db(State);

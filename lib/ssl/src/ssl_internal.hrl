@@ -194,6 +194,7 @@
           sni_hosts                  => {[],        [versions]},
           srp_identity               => {undefined, [versions]},
           supported_groups           => {undefined, [versions]},
+          use_ktls                   => {undefined, [versions]},
           use_ticket                 => {undefined, [versions]},
           user_lookup_fun            => {undefined, [versions]},
           verify                     => {verify_none, [versions,

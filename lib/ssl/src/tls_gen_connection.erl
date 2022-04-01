@@ -325,6 +325,38 @@ handle_info({CloseTag, Socket}, StateName,
             %% is called after all data has been deliver.
             {next_state, StateName, State#state{protocol_specific = PS#{active_n_toggle => true}}, []}
     end;
+handle_info(ktls_next_record, StateName,
+            #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
+                   protocol_specific = #{ktls_inactive := true, size := Size} = ProtocolSpecific,
+                   static_env = #static_env{socket = Socket,
+                                            data_tag = Protocol,
+                                            close_tag = CloseTag,
+                                            transport_cb = Transport}} = State) ->
+    % Read next ssl record in socket
+    case Size of
+        -1 ->
+            case Transport:recv(Socket, 5, 1000) of
+                {ok, <<Type, 3, 3, Len:16>> = Data} when Type >= 20, Type =< 24 ->
+                    self() ! {Protocol, Socket, Data},
+                    {next_state, StateName, State#state{protocol_specific = ProtocolSpecific#{size => Len}}, []};
+                {error, timeout} ->
+                    {next_state, StateName, State, [{timeout, 0, ktls_next_record}]};
+                _ ->
+                    self() ! {CloseTag, Socket},
+                    {next_state, StateName, State, []}
+            end;
+        _ ->
+            case Transport:recv(Socket, Size, 1000) of
+                {ok, Data} ->
+                    self() ! {Protocol, Socket, Data},
+                    {next_state, StateName, State#state{protocol_specific = ProtocolSpecific#{size => -1}}, []};
+                {error, timeout} ->
+                    {next_state, StateName, State, [{timeout, 0, ktls_next_record}]};
+                _ ->
+                    self() ! {CloseTag, Socket},
+                    {next_state, StateName, State, []}
+            end
+    end;
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
@@ -334,6 +366,21 @@ handle_info(Msg, StateName, State) ->
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
+next_event(StateName, no_record, #state{static_env = #static_env{role = Role},
+                                        protocol_specific = #{ktls_inactive := true}} = State0, Actions) ->
+    case next_record(StateName, State0) of
+        {no_record, State} ->
+            {next_state, StateName, State, [{timeout, 0, ktls_next_record} | Actions]};
+        {Record, State} ->
+            next_event(StateName, Record, State, Actions);
+        #alert{} = Alert ->
+            ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0),
+            {stop, {shutdown, own_alert}, State0}
+    end;
+next_event(StateName,  #ssl_tls{} = Record, #state{protocol_specific = #{ktls_inactive := true}} = State, Actions) ->
+    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions] ++ [{next_event, timeout, ktls_next_record}]};
+next_event(StateName,  #alert{} = Alert, #state{protocol_specific = #{ktls_inactive := true}} = State, Actions) ->
+    {next_state, StateName, State, [{next_event, internal, Alert} | Actions] ++ [{next_event, timeout, ktls_next_record}]};
 next_event(StateName, no_record, #state{static_env = #static_env{role = Role}} = State0, Actions) ->
     case next_record(StateName, State0) of
  	{no_record, State} ->
@@ -605,6 +652,10 @@ next_record(_, #state{protocol_buffers =
     %% and will not be present otherwise that is we regard it to always be true
     Check = maps:get(padding_check, SslOpts, true),
     next_record(State, CipherTexts, ConnectionStates, Check);
+next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
+                      protocol_specific = #{ktls_inactive := true}
+                     } = State) ->
+    {no_record, State};
 next_record(connection, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                                protocol_specific = #{active_n_toggle := true}
                               } = State) ->

@@ -347,9 +347,13 @@ wait_finished(internal,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, finished, State0);
         State1 ->
-            {Record, State} = ssl_gen_statem:prepare_connection(State1, tls_gen_connection),
-            tls_gen_connection:next_event(connection, Record, State,
-                                      [{{timeout, handshake}, cancel}])
+            case ssl_gen_statem:prepare_connection(State1, tls_gen_connection) of
+                {ktls, State} ->
+                    {stop, {shutdown, ktls}, State};
+                {Record, State} ->
+                    tls_gen_connection:next_event(connection, Record, State,
+                                              [{{timeout, handshake}, cancel}])
+            end
     end;
 wait_finished(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
@@ -467,6 +471,7 @@ downgrade(Type, Event, State) ->
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{erl_dist := IsErlDist,
+      use_ktls := UseKtls,
       %% Use highest supported version for client/server random nonce generation
       versions := [Version|_],
       client_renegotiation := ClientRenegotiation} = SSLOptions,
@@ -489,6 +494,20 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                      socket = Socket,
                      trackers = Trackers
                     },
+    ProtocolSpecific = case UseKtls of
+        true ->
+            #{
+                sender => Sender,
+                ktls_inactive => true,
+                size => -1
+            };
+        _ ->
+            #{
+                sender => Sender,
+                active_n => internal_active_n(IsErlDist),
+                active_n_toggle => true
+            }
+    end,
     #state{
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
@@ -506,10 +525,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        user_data_buffer = {[],0,[]},
        start_or_recv_from = undefined,
        flight_buffer = [],
-       protocol_specific = #{sender => Sender,
-                             active_n => internal_active_n(IsErlDist),
-                             active_n_toggle => true
-                            }
+       protocol_specific = ProtocolSpecific
       }.
 
 internal_active_n(true) ->

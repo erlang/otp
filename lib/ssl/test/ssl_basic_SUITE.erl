@@ -77,7 +77,9 @@
          fake_intermediate_cert/0,
          fake_intermediate_cert/1,
          incompleat_chain_length/0,
-         incompleat_chain_length/1
+         incompleat_chain_length/1,
+         ktls/0,
+         ktls/1
         ]).
 
 %% Apply export
@@ -131,7 +133,8 @@ basic_tests() ->
      fake_root_legacy,
      fake_root_no_intermediate_legacy,
      fake_intermediate_cert,
-     incompleat_chain_length
+     incompleat_chain_length,
+     ktls
     ].
 
 options_tests() ->
@@ -162,6 +165,38 @@ init_per_testcase(eccs, Config) ->
             ssl_test_lib:ct_log_supported_protocol_versions(Config),
             ct:timetrap({seconds, 5}),
             Config
+    end;
+init_per_testcase(ktls, Config) ->
+    try
+        {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+        {ok, Port} = inet:port(Listen),
+        {ok, Client} = gen_tcp:connect("localhost", Port, [{active, false}]),
+        {ok, Server} = gen_tcp:accept(Listen),
+        ServerTx = <<4,3,52,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,0,0,0,0,0,0,0,0>>,
+        ServerRx = <<4,3,52,0,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,0,0,0,0,0,0,0,0>>,
+        ClientTx = ServerRx,
+        ClientRx = ServerTx,
+        inet:setopts(Server, [{raw, 6, 31, <<"tls">>}]),
+        inet:setopts(Server, [{raw, 282, 1, ServerTx}]),
+        inet:setopts(Server, [{raw, 282, 2, ServerRx}]),
+        inet:setopts(Client, [{raw, 6, 31, <<"tls">>}]),
+        inet:setopts(Client, [{raw, 282, 1, ClientTx}]),
+        inet:setopts(Client, [{raw, 282, 2, ClientRx}]),
+        {ok, [{raw, 6, 31, <<"tls">>}]} = inet:getopts(Server, [{raw, 6, 31, 3}]),
+        {ok, [{raw, 282, 1, ServerTx}]} = inet:getopts(Server, [{raw, 282, 1, 56}]),
+        {ok, [{raw, 6, 31, <<"tls">>}]} = inet:getopts(Client, [{raw, 6, 31, 3}]),
+        {ok, [{raw, 282, 1, ClientTx}]} = inet:getopts(Client, [{raw, 282, 1, 56}]),
+        ok = gen_tcp:send(Client, "client"),
+        {ok, "client"} = gen_tcp:recv(Server, 6, 1000),
+        ok = gen_tcp:send(Server, "server"),
+        {ok, "server"} = gen_tcp:recv(Client, 6, 1000),
+        gen_tcp:close(Server),
+        gen_tcp:close(Client),
+        gen_tcp:close(Listen),
+        Config
+    catch
+        Class:Reason:Stacktrace ->
+            {skip, lists:flatten(io_lib:format("ktls not supported, ~p:~p:~0p", [Class, Reason, Stacktrace]))}
     end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -985,4 +1020,51 @@ chipher_suite_checks(Version) ->
         'dtlsv1.2' ->
             ok
     end.
+
+%%--------------------------------------------------------------------
+ktls() ->
+    [{doc, ""}].
+ktls(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([
+        {node, ServerNode},
+        {port, 0},
+        {from, self()},
+        {mfa, {ssl_test_lib, send_recv_result, []}},
+        {options, [
+            {keepalive, true},
+            {active, false},
+            {versions, ['tlsv1.3']},
+            {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]}
+            | ServerOpts
+        ]}
+    ]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([
+        {node, ClientNode},
+        {port, Port},
+        {host, Hostname},
+        {from, self()},
+        {mfa, {ssl_test_lib, send_recv_result, []}},
+        {options, [
+            {keepalive, true},
+            {active, false},
+            {use_ktls, true},
+            {versions, ['tlsv1.3']},
+            {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]}
+            | ClientOpts
+        ]}
+    ]),
+
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+                         [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
    

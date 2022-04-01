@@ -338,7 +338,8 @@
                                 {key_update_at, key_update_at()} |
                                 {middlebox_comp_mode, middlebox_comp_mode()} |
                                 {receiver_spawn_opts, spawn_opts()} |
-                                {sender_spawn_opts, spawn_opts()}.
+                                {sender_spawn_opts, spawn_opts()} |
+                                {use_ktls, use_ktls()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -402,6 +403,7 @@
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
+-type use_ktls()                 :: boolean().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -812,6 +814,8 @@ close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:close(Pid, {close, ?DEFAULT_TIMEOUT});
 close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen) ->
     dtls_socket:close(DTLSListen);
+close(#sslsocket{fd = Fd, pid = {ktls, Transport}}) ->
+    Transport:close(Fd);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
     Transport:close(ListenSocket).
 
@@ -839,7 +843,9 @@ close(#sslsocket{pid = [TLSPid|_]}, Timeout) when is_pid(TLSPid),
 					      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     ssl_gen_statem:close(TLSPid, {close, Timeout});
 close(#sslsocket{pid = {dtls = ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
-    dtls_socket:close(Transport, ListenSocket);    
+    dtls_socket:close(Transport, ListenSocket);
+close(#sslsocket{fd = Fd, pid = {ktls, Transport}}, _) ->
+    Transport:close(Fd);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
     tls_socket:close(Transport, ListenSocket).
 
@@ -858,6 +864,8 @@ send(#sslsocket{pid = {_, #config{transport_info={_, udp, _, _}}}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
 send(#sslsocket{pid = {dtls,_}}, _) ->
     {error,enotconn};  %% Emulate connection behaviour
+send(#sslsocket{fd = Fd, pid = {ktls, Transport}}, Data) ->
+    Transport:send(Fd, Data);
 send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
     Transport = element(1, Info),
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
@@ -887,6 +895,8 @@ recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
     ssl_gen_statem:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};
+recv(#sslsocket{fd = Fd, pid = {ktls, Transport}}, Length, Timeout) ->
+    Transport:recv(Fd, Length, Timeout);
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = Info}}},_,_) ->
     Transport = element(1, Info),
@@ -2421,6 +2431,9 @@ validate_option(user_lookup_fun, undefined, _) ->
 validate_option(user_lookup_fun, {Fun, _} = Value, _)
   when is_function(Fun, 3) ->
    Value;
+validate_option(use_ktls, Value, _)
+  when is_boolean(Value) ->
+    Value;
 validate_option(use_ticket, Value, _)
   when is_list(Value) ->
     Value;
