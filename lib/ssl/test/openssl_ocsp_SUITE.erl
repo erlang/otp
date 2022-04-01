@@ -121,13 +121,7 @@ end_per_group(GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    Timetrap = case group_name(Config) of
-                   'dtlsv1.2' ->
-                       {seconds, 300}; % DTLS require more time for handling retransmissions
-                   _ ->
-                       {seconds, 10}
-               end,
-    ct:timetrap(Timetrap),
+    ct:timetrap({seconds, 10}),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config.
 
@@ -282,7 +276,3 @@ get_free_port() ->
     {ok, Port} = inet:port(Listen),
     ok = gen_tcp:close(Listen),
     Port.
-
-group_name(Config) ->
-    GroupProp = proplists:get_value(tc_group_properties, Config),
-    proplists:get_value(name, GroupProp).
