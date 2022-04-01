@@ -3976,6 +3976,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(addrform);                        \
     GLOBAL_ATOM_DECL(add_membership);                  \
     GLOBAL_ATOM_DECL(add_source_membership);           \
+    GLOBAL_ATOM_DECL(alen);                            \
     GLOBAL_ATOM_DECL(allmulti);                        \
     GLOBAL_ATOM_DECL(any);                             \
     GLOBAL_ATOM_DECL(appletlk);                        \
@@ -4066,6 +4067,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(implink);                         \
+    GLOBAL_ATOM_DECL(index);                           \
     GLOBAL_ATOM_DECL(inet);                            \
     GLOBAL_ATOM_DECL(inet6);                           \
     GLOBAL_ATOM_DECL(infiniband);                      \
@@ -4120,6 +4122,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
     GLOBAL_ATOM_DECL(name);                            \
     GLOBAL_ATOM_DECL(netrom);                          \
+    GLOBAL_ATOM_DECL(nlen);                            \
     GLOBAL_ATOM_DECL(noarp);                           \
     GLOBAL_ATOM_DECL(nodelay);                         \
     GLOBAL_ATOM_DECL(nodefrag);                        \
@@ -4207,6 +4210,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(set_peer_primary_addr);           \
     GLOBAL_ATOM_DECL(simplex);			       \
     GLOBAL_ATOM_DECL(slave);                           \
+    GLOBAL_ATOM_DECL(slen);                            \
     GLOBAL_ATOM_DECL(sndbuf);                          \
     GLOBAL_ATOM_DECL(sndbufforce);                     \
     GLOBAL_ATOM_DECL(sndlowat);                        \

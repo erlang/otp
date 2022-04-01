@@ -91,6 +91,12 @@ static void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
                                            unsigned char* addr,
                                            ERL_NIF_TERM*  eAddr);
 
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static void esock_encode_sockaddr_dl(ErlNifEnv*          env,
+                                     struct sockaddr_dl* sockAddrP,
+                                     SOCKLEN_T           addrLen,
+                                     ERL_NIF_TERM*       eSockAddr);
+#endif
 static void esock_encode_sockaddr_native(ErlNifEnv*       env,
                                          struct sockaddr* sa,
                                          SOCKLEN_T        len,
@@ -122,6 +128,16 @@ static void make_sockaddr_ll(ErlNifEnv*    env,
                              ERL_NIF_TERM  hatype,
                              ERL_NIF_TERM  pkttype,
                              ERL_NIF_TERM  addr,
+                             ERL_NIF_TERM* sa);
+#endif
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static void make_sockaddr_dl(ErlNifEnv*    env,
+                             ERL_NIF_TERM  index,
+                             ERL_NIF_TERM  type,
+                             ERL_NIF_TERM  nlen,
+                             ERL_NIF_TERM  alen,
+                             ERL_NIF_TERM  slen,
+                             ERL_NIF_TERM  data,
                              ERL_NIF_TERM* sa);
 #endif
 #ifdef HAS_AF_LOCAL
@@ -483,7 +499,7 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
       break;
 #endif
 
-#if defined(AF_LINK)
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
   case AF_LINK:
       /*
        * macOS (Darwin Kernel Version 21.4.0):
@@ -522,8 +538,7 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
        */
       // len = SALEN(addrLen, sizeof(struct sockaddr_dl));      
       len = SALEN(addrLen, sockAddrP->dl.sdl_len);
-      esock_encode_sockaddr_dl(env, &sockAddrP->dl,
-                               len, esock_atom_link, eSockAddr);
+      esock_encode_sockaddr_dl(env, &sockAddrP->dl, len, eSockAddr);
     break;
 #endif
 
@@ -976,6 +991,10 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
     ERL_NIF_TERM ePath;
     size_t       n, m;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr_un -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
+
     n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
     if (addrLen >= n) {
         n = addrLen - n; // sun_path length
@@ -1041,6 +1060,10 @@ void esock_encode_sockaddr_ll(ErlNifEnv*          env,
 {
     ERL_NIF_TERM eProto, eIfIdx, eHaType, ePktType, eAddr;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr_ll -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
+
     if (addrLen >= sizeof(struct sockaddr_ll)) {
 
         /* protocol - the standard ethernet protocol type */
@@ -1092,7 +1115,7 @@ void esock_encode_sockaddr_ll(ErlNifEnv*          env,
  *    data:  binary()
  */
 
-#if defined(AF_LINK)
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
 extern
 void esock_encode_sockaddr_dl(ErlNifEnv*          env,
                               struct sockaddr_dl* sockAddrP,
@@ -1102,28 +1125,32 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
     ERL_NIF_TERM eindex, etype, enlen, ealen, eslen, edata;
     SOCKLEN_T    dlen;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
+
     /* There is a minumum length (defined by the size of the data field) */
     if (addrLen >= sizeof(struct sockaddr_dl)) {
 
         /* index - if != 0, system given index for interface */
-        eindex = MKUI(env, sockAddrP->dl.sdl_index);
+        eindex = MKUI(env, sockAddrP->sdl_index);
 
         /* type -  interface type */
-        etype = MKUI(env, sockAddrP->dl.sdl_type);
+        etype = MKUI(env, sockAddrP->sdl_type);
 
         /* nlen - interface name length, no trailing 0 reqd. */
-        enlen = MKUI(env, sockAddrP->dl.sdl_nlen);
+        enlen = MKUI(env, sockAddrP->sdl_nlen);
 
         /* alen - link level address length */
-        ealen = MKUI(env, sockAddrP->dl.sdl_alen);
+        ealen = MKUI(env, sockAddrP->sdl_alen);
 
         /* slen - ink layer selector length */
-        eslen = MKUI(env, sockAddrP->dl.sdl_slen);
+        eslen = MKUI(env, sockAddrP->sdl_slen);
 
         /* data - minimum work area, can be larger;    *
          *        contains both if name and ll address */
-        dlen  = addrLen - (CHARP(sockAddrP->dl.sdl_data)) - CHARP(sockAddrP));
-        edata = esock_make_new_binary(env, &sockAddrP->dl.sdl_data, dlen);
+        dlen  = addrLen - (CHARP(sockAddrP->sdl_data) - CHARP(sockAddrP));
+        edata = esock_make_new_binary(env, &sockAddrP->sdl_data, dlen);
 
         make_sockaddr_dl(env,
                          eindex, etype, enlen, ealen, eslen, edata,
@@ -2016,8 +2043,17 @@ void esock_encode_sockaddr_native(ErlNifEnv*       env,
     size_t size;
     ERL_NIF_TERM eData;
 
-    size = ((char*)addr + len) - (char*)&addr->sa_data;
-    eData = esock_make_new_binary(env, &addr->sa_data, size);
+    UDBG( ("SUTIL", "esock_encode_sockaddr_native -> entry with"
+           "\r\n.  len:     %d"
+           "\r\n.  eFamily: %T"
+           "\r\n", len, eFamily) );
+
+    if (len > 0) {
+        size = ((char*)addr + len) - (char*)&addr->sa_data;
+        eData = esock_make_new_binary(env, &addr->sa_data, size);
+    } else {
+        eData = esock_make_new_binary(env, &addr->sa_data, 0);
+    }
 
     {
         ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_addr};
@@ -2030,24 +2066,6 @@ void esock_encode_sockaddr_native(ErlNifEnv*       env,
 }
 
 
-/* Encode as #{family := atom() | integer(), addr := undefined}
- * assuming at least the ->family field can be accessed
- * and the rest is unknown.
- */
-static
-void esock_encode_sockaddr_undef(ErlNifEnv*    env,
-                                 ERL_NIF_TERM  eFamily,
-                                 ERL_NIF_TERM* eSockAddr)
-{
-    ERL_NIF_TERM keys[]  = {esock_atom_family, esock_atom_addr};
-    ERL_NIF_TERM vals[]  = {eFamily, esock_atom_undefined};
-    size_t       numKeys = NUM(keys);
-
-    ESOCK_ASSERT( numKeys == NUM(vals) );
-    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
-}
-
-
 /* Encode as a raw binary() regarding the whole address
  * structure as a blob
  */
@@ -2055,6 +2073,10 @@ static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* addr,
                                          SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr) {
+    UDBG( ("SUTIL", "esock_encode_sockaddr_broken -> entry with"
+           "\r\n.  len: %d"
+           "\r\n", len) );
+
     *eSockAddr = esock_make_new_binary(env, addr, len);
 }
 
@@ -2617,17 +2639,51 @@ void make_sockaddr_ll(ErlNifEnv*    env,
                       ERL_NIF_TERM* sa)
 {
     ERL_NIF_TERM keys[]  = {esock_atom_family,
-                            esock_atom_protocol,
-                            esock_atom_ifindex,
-                            esock_atom_hatype,
-                            esock_atom_pkttype,
-                            esock_atom_addr};
+        esock_atom_protocol,
+        esock_atom_ifindex,
+        esock_atom_hatype,
+        esock_atom_pkttype,
+        esock_atom_addr};
     ERL_NIF_TERM vals[]  = {esock_atom_packet,
-                            proto,
-                            ifindex,
-                            hatype,
-                            pkttype,
-                            addr};
+        proto,
+        ifindex,
+        hatype,
+        pkttype,
+        addr};
+    size_t       numKeys = NUM(keys);
+    
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
+}
+#endif
+
+
+/* Construct the Link-Level socket address */
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static
+void make_sockaddr_dl(ErlNifEnv*    env,
+                      ERL_NIF_TERM  index,
+                      ERL_NIF_TERM  type,
+                      ERL_NIF_TERM  nlen,
+                      ERL_NIF_TERM  alen,
+                      ERL_NIF_TERM  slen,
+                      ERL_NIF_TERM  data,
+                      ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+        esock_atom_index,
+        esock_atom_type,
+        esock_atom_nlen,
+        esock_atom_alen,
+        esock_atom_slen,
+        esock_atom_data};
+    ERL_NIF_TERM vals[]  = {esock_atom_link,
+        index,
+        type,
+        nlen,
+        alen,
+        slen,
+        data};
     size_t       numKeys = NUM(keys);
     
     ESOCK_ASSERT( numKeys == NUM(vals) );
