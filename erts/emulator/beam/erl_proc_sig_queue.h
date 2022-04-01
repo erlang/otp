@@ -755,16 +755,9 @@ erts_proc_sig_send_dist_demonitor(Eterm from, Eterm to, Eterm ref);
 
 /**
  *
- * @brief Send a persistent monitor triggered signal to a process.
- *
- * Used by monitors that are not auto disabled such as for
- * example 'time_offset' monitors.
- *
- * @param[in]     type          Monitor type.
+ * @brief Send a persistent "node down" monitor signal to a process
  *
  * @param[in]     key           Monitor key.
- *
- * @param[in]     from          Identifier of sender.
  *
  * @param[in]     to            Identifier of receiver.
  *
@@ -774,9 +767,25 @@ erts_proc_sig_send_dist_demonitor(Eterm from, Eterm to, Eterm ref);
  *
  */
 void
-erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
-                                          Eterm from, Eterm to,
-                                          Eterm msg, Uint msg_sz);
+erts_proc_sig_send_monitor_nodes_msg(Eterm key, Eterm to,
+                                     Eterm msg, Uint msg_sz);
+
+/**
+ *
+ * @brief Send a persistent "time offset changed" monitor signal to a process
+ *
+ * @param[in]     key           Monitor key.
+ *
+ * @param[in]     to            Identifier of receiver.
+ *
+ * @param[in]     msg           Message template.
+ *
+ * @param[in]     msg_sz        Heap size of message template.
+ *
+ */
+void
+erts_proc_sig_send_monitor_time_offset_msg(Eterm key, Eterm to,
+                                           Eterm msg, Uint msg_sz);
 
 /**
  *

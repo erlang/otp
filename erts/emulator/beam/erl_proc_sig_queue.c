@@ -1759,12 +1759,17 @@ erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
     }
 }
 
-
-void
+/**
+ * @brief Send a persistent monitor triggered signal to a process.
+ *
+ * Used by monitors that are not auto disabled such as for
+ * example 'time_offset' monitors.
+ */
+static void
 erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
                                           Eterm from, Eterm to,
-                                          Eterm msg, Uint msg_sz)
-{
+                                          Eterm msg, Uint msg_sz,
+                                          int force_flush) {
     ErtsPersistMonMsg *prst_mon;
     ErtsMessage *mp;
     ErlHeapFragment *hfrag;
@@ -1816,11 +1821,28 @@ erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
     ERL_MESSAGE_FROM(mp) = from;
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
 
-    if (!proc_queue_signal(NULL, from, to, (ErtsSignal *) mp, 0,
+    if (!proc_queue_signal(NULL, from, to, (ErtsSignal *) mp, force_flush,
                            ERTS_SIG_Q_OP_PERSISTENT_MON_MSG)) {
         mp->next = NULL;
         erts_cleanup_messages(mp);
     }
+}
+
+void
+erts_proc_sig_send_monitor_nodes_msg(Eterm key, Eterm to,
+                                     Eterm msg, Uint msg_sz) {
+    erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_NODES,
+                                              key, am_system, to,
+                                              msg, msg_sz, 1);
+}
+
+void
+erts_proc_sig_send_monitor_time_offset_msg(Eterm key, Eterm to,
+                                           Eterm msg, Uint msg_sz) {
+    erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_TIME_OFFSET,
+                                              key, am_clock_service, to,
+                                              msg, msg_sz, 0);
+
 }
 
 static ERTS_INLINE Eterm

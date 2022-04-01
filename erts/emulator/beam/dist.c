@@ -6460,12 +6460,8 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 
         hsz += hp - &tmp_heap[0];
 
-        erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_NODES,
-                                                  nmdp[i].options,
-                                                  am_system,
-                                                  nmdp[i].pid,
-                                                  msg,
-                                                  hsz);
+        erts_proc_sig_send_monitor_nodes_msg(nmdp[i].options, nmdp[i].pid,
+                                             msg, hsz);
     }
 
     if (nmdp != &def_buf[0])
