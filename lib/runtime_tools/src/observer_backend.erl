@@ -205,10 +205,7 @@ inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
                 [{local_address,LAddr}];
             {error, _} -> []
         end ++
-        case get_sock_opts(Port) of
-            {ok, Opts} -> [{options, Opts}];
-            {error, _} -> []
-        end,
+        [{options, get_sock_opts(Port)}],
     [{inet,Data}];
 inet_port_extra(_,_) ->
     [].
@@ -234,7 +231,7 @@ get_sock_opts(Port, Opts) ->
 %% that option and continue with the next.
 %% Better to have some options then none.
 get_sock_opts(_Port, [], Acc) ->
-    {ok, lists:reverse(Acc)};
+    lists:reverse(Acc);
 get_sock_opts(Port, [Opt|Opts], Acc) ->
     case inet:getopts(Port, [Opt]) of
         {ok, [Res]} ->
