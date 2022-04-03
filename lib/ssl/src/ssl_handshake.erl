@@ -2232,17 +2232,20 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, ext, LogLevel) ->
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer, LogLevel) ->    
     DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
 	public_key:pkix_dist_point(OtpCert),
-    CRLs = lists:flatmap(fun({directoryName, Issuer}) -> 
-				 case Callback:select(Issuer, CRLDbHandle) of
-                                     {logger, LogInfo, Return} ->
-                                         handle_log(LogLevel, LogInfo),
-                                         Return;
-                                     Return ->
-                                         Return
-                                 end;
-			    (_) ->
-				 []
-			 end, GenNames),
+    Filter = fun({directoryName, Issuer}) ->
+                     case Callback:select(Issuer, CRLDbHandle) of
+                         [] ->
+                             false;
+                         {logger, LogInfo, Return} ->
+                             handle_log(LogLevel, LogInfo),
+                             {true, Return};
+                         Return ->
+                             {true, Return}
+                     end;
+                (_) ->
+                     false
+             end,
+    CRLs = lists:flatten(lists:filtermap(Filter, GenNames)),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
 dps_and_crls([], _, Acc) ->
