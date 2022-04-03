@@ -178,6 +178,16 @@ file_1(Config) when is_list(Config) ->
     error = compile:file(filename:join(DataDir, "bad_core"), [from_core,report]),
     error = compile:file(filename:join(DataDir, "bad_core_tokens"), [from_core,report]),
 
+    %% Cover handling of obsolete options.
+    ObsoleteOptions = [r18,r19,r20,r21,no_bsm3,no_get_hd_tl,no_put_tuple2,no_utf8_atoms],
+    _ = [begin
+             {error,[{_Simple,
+                      [{none,compile,{obsolete_option,Opt}}]}],
+              []} =
+                 compile:file(Simple, [Opt,return]),
+             error = compile:file(Simple, [Opt,report])
+         end || Opt <- ObsoleteOptions],
+
     %% Create a directory with the same name as the temp file to cover
     %% handling of write errors.
     Simple = filename:join(DataDir, "simple"),
@@ -1349,12 +1359,13 @@ do_asm(Beam, Outdir) ->
     {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     try
-	{ok,M,Asm} = compile:forms(A, ['S']),
+        Opts = test_lib:opt_opts(M),
+	{ok,M,Asm} = compile:forms(A, ['S'|Opts]),
 	AsmFile = filename:join(Outdir, atom_to_list(M)++".S"),
 	{ok,Fd} = file:open(AsmFile, [write,{encoding,utf8}]),
 	beam_listing:module(Fd, Asm),
 	ok = file:close(Fd),
-	case compile:file(AsmFile, [from_asm,binary,report]) of
+        case compile:file(AsmFile, [from_asm,binary,report|Opts]) of
 	    {ok,M,_} ->
 		ok = file:delete(AsmFile);
 	    Other ->

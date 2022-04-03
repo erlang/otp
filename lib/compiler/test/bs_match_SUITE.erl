@@ -851,6 +851,8 @@ coverage(Config) when is_list(Config) ->
 
     {<<"abc">>,<<"tag">>} = coverage_trim_3([<<"abc","tag">>], 3),
 
+    <<57348:16/native>> = coverage_trim_4(<<"abc">>),
+
     %% Cover code in beam_ssa_codegen.
     ok = coverage_beam_ssa_codegen(<<2>>),
 
@@ -981,6 +983,15 @@ coverage_trim_3(CipherTextFragment, TagLen) ->
     <<CipherText:CipherLen/bytes, CipherTag:TagLen/bytes>> =
         iolist_to_binary(CipherTextFragment),
     {CipherText, CipherTag}.
+
+coverage_trim_4(Bin) ->
+    << <<X:16>> || <<X:8>> <= Bin >>,
+    try
+        <<57348:16/native>>
+    catch
+        _:_ ->
+            error
+    end.
 
 printable_char($a) -> true;
 printable_char(_) -> false.

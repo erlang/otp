@@ -49,6 +49,9 @@
 %% opaque types from attributes in v3_kernel.
 -opaque misc_SUITE_test_cases() :: [atom()].
 
+%% Cover handling of the `nifs` attribute.
+-nifs([all/0]).
+
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Config.
 
@@ -71,6 +74,13 @@ groups() ->
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
+    if
+        is_atom(Config) ->
+            %% Cover handling of load_nif. Will never actually be called.
+            _ = erlang:load_nif("no_real_nif", 42);
+        true ->
+            ok
+    end,
     Config.
 
 end_per_suite(_Config) ->

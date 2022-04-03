@@ -1126,6 +1126,8 @@ redundant_br_1(Specs0) ->
         end,
     id({Join,Specs}).
 
+-record(coverage, {name}).
+
 coverage(_Config) ->
 
     %% Cover beam_ssa_codegen:force_reg/2
@@ -1142,6 +1144,8 @@ coverage(_Config) ->
 
     error = coverage_2(),
     ok = coverage_3(),
+    #coverage{name=whatever} = coverage_4(),
+    {'EXIT',{{badrecord,ok},_}} = catch coverage_5(),
 
     ok.
 
@@ -1155,6 +1159,24 @@ coverage_3() ->
     %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2.
     get(),
     ok.
+
+coverage_4() ->
+    try
+        << <<42>> || false >>,
+        #coverage{}
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
+
+coverage_5() ->
+    try
+        << <<42>> || false >>,
+        ok
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
 
 %% The identity function.
 id(I) -> I.

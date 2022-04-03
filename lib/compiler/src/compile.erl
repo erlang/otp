@@ -262,9 +262,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(no_bsm3, Os) ->
-    %% The new bsm pass requires bsm3 instructions.
-    [no_bsm3,no_bsm_opt|expand_opt(no_bsm4, Os)];
 expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
