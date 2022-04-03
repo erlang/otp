@@ -1308,6 +1308,26 @@ protected:
         }
     }
 
+    bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
+        /*
+         * In the code compiled by scripts/diffable, there never
+         * seems to be any range information for the RHS. Therefore,
+         * don't bother unless RHS is an immediate small.
+         */
+        if (!(always_small(LHS) && RHS.isSmall())) {
+            return false;
+        } else {
+            auto [min1, max1] = getIntRange(LHS);
+            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+
+            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+                return false;
+            }
+
+            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
+        }
+    }
+
     /* Helpers */
     void emit_gc_test(const ArgWord &Stack,
                       const ArgWord &Heap,

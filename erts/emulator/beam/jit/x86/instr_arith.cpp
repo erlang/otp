@@ -1008,7 +1008,7 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
     if (always_small(RHS)) {
         emit_is_small(generic, LHS, ARG2);
     } else {
-        emit_are_both_small(generic, LHS, RET, RHS, ARG2);
+        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
     }
 
     /* TAG & TAG = TAG, so we don't need to tag it again. */
@@ -1063,7 +1063,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
     if (always_small(RHS)) {
         emit_is_small(generic, LHS, ARG2);
     } else {
-        emit_are_both_small(generic, LHS, RET, RHS, ARG2);
+        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
     }
 
     /* TAG | TAG = TAG, so we don't need to tag it again. */
@@ -1103,15 +1103,24 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    Label generic = a.newLabel(), next = a.newLabel();
-
     mov_arg(ARG2, LHS);
     mov_arg(RET, RHS);
+
+    if (always_small(LHS) && always_small(RHS)) {
+        comment("skipped test for small operands since they are always small");
+        /* TAG ^ TAG = 0, so we need to tag it again. */
+        a.xor_(RET, ARG2);
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+        return;
+    }
+
+    Label generic = a.newLabel(), next = a.newLabel();
 
     if (always_small(RHS)) {
         emit_is_small(generic, LHS, ARG2);
     } else {
-        emit_are_both_small(generic, LHS, RET, RHS, ARG2);
+        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
     }
 
     /* TAG ^ TAG = 0, so we need to tag it again. */
@@ -1327,6 +1336,17 @@ void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgLabel &Fail,
                                      const ArgRegister &Dst) {
+    if (is_bsl_small(LHS, RHS)) {
+        comment("skipped tests because operands and result are always small");
+        mov_arg(RET, LHS);
+        ERTS_CT_ASSERT(_TAG_IMMED1_MASK == _TAG_IMMED1_SMALL);
+        a.xor_(RET, imm(_TAG_IMMED1_MASK));
+        a.sal(RET, imm(RHS.as<ArgSmall>().getSigned()));
+        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+        return;
+    }
+
     bool inline_shift = hasCpuFeature(CpuFeatures::X86::kLZCNT);
     Label generic = a.newLabel(), next = a.newLabel();
 
