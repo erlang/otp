@@ -330,8 +330,9 @@ check_io_debug_test() ->
 has_gethost() ->
     has_gethost(erlang:ports()).
 has_gethost([P|T]) ->
-    case erlang:port_info(P, name) of
-        {name,"inet_gethost"++_} ->
+    {name, Name} = erlang:port_info(P, name),
+    case filename:basename(Name) of
+        "inet_gethost"++_ ->
             true;
         _ ->
             has_gethost(T)
