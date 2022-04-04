@@ -535,9 +535,28 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
        *    char    sdl_data[46];   // minimum work area, can be larger;
        *                            // contains both if name and ll address
        * };
+       *
+       * OpenIndiana 2021.10
+       * struct sockaddr_dl {
+       *    ushort_t sdl_family;   // AF_LINK
+       *    ushort_t sdl_index;    // if != 0,
+       *                           // system given index for interface
+       *    uchar_t sdl_type;      // interface type
+       *    uchar_t sdl_nlen;      // interface name length, no trailing 0 reqd
+       *    uchar_t sdl_alen;      // link level address length
+       *    uchar_t sdl_slen;      // link layer selector length
+       *    char    sdl_data[244]; // contains both if name and ll address
+       * };
+       *
        */
-      // len = SALEN(addrLen, sizeof(struct sockaddr_dl));      
+#if defined(ESOCK_SDL_LEN)
       len = SALEN(addrLen, sockAddrP->dl.sdl_len);
+#else
+      // The data area is dlen = nlen + alen
+      len = SALEN(addrLen,
+                  (CHARP(sockAddrP->dl.sdl_data) - CHARP(sockAddrP)) +
+                  sockAddrP->dl.sdl_nlen + sockAddrP->dl.sdl_alen);
+#endif
       esock_encode_sockaddr_dl(env, &sockAddrP->dl, len, eSockAddr);
     break;
 #endif
