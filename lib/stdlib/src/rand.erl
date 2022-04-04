@@ -832,7 +832,7 @@ exsss_seed({A1, A2, A3}) ->
 -define(
    exs_next(S0, S1, S1_b),
    begin
-       S1_b = S1 bxor ?BSL(58, S1, 24),
+       S1_b = ?MASK(58, S1) bxor ?BSL(58, S1, 24),
        S1_b bxor S0 bxor (S1_b bsr 11) bxor (S0 bsr 41)
    end).
 
@@ -842,9 +842,12 @@ exsss_seed({A1, A2, A3}) ->
        %% The multiply by add shifted trick avoids creating bignums
        %% which improves performance significantly
        %%
-       V_a = ?MASK(58, S + ?BSL(58, S, 2)), % V_a = S * 5
-       V_b = ?ROTL(58, V_a, 7),
-       ?MASK(58, V_b + ?BSL(58, V_b, 3)) % V_b * 9
+       %% Scramble ** (all operations modulo word size)
+       %% ((S * 5) rotl 7) * 9
+       %%
+       V_a = S + ?BSL(58, S, 2),                             % * 5
+       V_b = ?BSL(58, V_a, 7) bor ?MASK(7, V_a bsr (58-7)),  % rotl 7
+       ?MASK(58, V_b + ?BSL(58, V_b, 3))                     % * 9
    end).
 
 
@@ -855,16 +858,20 @@ exsss_seed({A1, A2, A3}) ->
                        {X :: uint58(), NewAlgState :: exsplus_state()}.
 exsp_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    %% Scramble + (all operations modulo word size)
+    %% S0 + NewS1
+    {?MASK(58, S0_1 + NewS1), [S0_1|NewS1]}.
 
 -dialyzer({no_improper_lists, exsss_next/1}).
 
 -spec exsss_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsss_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?scramble_starstar(S0, V_0, V_1), [S0|NewS1]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    {?scramble_starstar(S0_1, V_1, V_2), [S0_1|NewS1]}.
 
 exsp_uniform({AlgHandler, R0}) ->
     {I, R1} = exsp_next(R0),
@@ -1168,13 +1175,6 @@ exro928ss_next({[S15,S0|Ss], Rs}) ->
     %% const uint64_t result_starstar = rotl(s0 * S, R) * T;
     %%
     {?scramble_starstar(S0, V_0, V_1), SR};
-%%    %% The multiply by add shifted trick avoids creating bignums
-%%    %% which improves performance significantly
-%%    %%
-%%    V0 = ?MASK(58, S0 + ?BSL(58, S0, 2)), % V0 = S0 * 5
-%%    V1 = ?ROTL(58, V0, 7),
-%%    V = ?MASK(58, V1 + ?BSL(58, V1, 3)), % V = V1 * 9
-%%    {V, SR};
 exro928ss_next({[S15], Rs}) ->
     exro928ss_next({[S15|lists:reverse(Rs)], []}).
 
@@ -1199,8 +1199,9 @@ exro928_next_state(Ss, Rs, S15, S0) ->
     %% NewS15: s[q] = rotl(s0, A) ^ s15 ^ (s15 << B);
     %% NewS0: s[p] = rotl(s15, C);
     %%
-    Q = S15 bxor S0,
-    NewS15 = ?ROTL(58, S0, 44) bxor Q bxor ?BSL(58, Q, 9),
+    S0_1 = ?MASK(58, S0),
+    Q = ?MASK(58, S15) bxor S0_1,
+    NewS15 = ?ROTL(58, S0_1, 44) bxor Q bxor ?BSL(58, Q, 9),
     NewS0 = ?ROTL(58, Q, 45),
     {[NewS0|Ss], [NewS15|Rs]}.
 
