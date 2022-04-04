@@ -49,7 +49,9 @@
 -export([get_own_nodes/0, get_own_nodes_with_errors/0]).
 -export([publish_on_nodes/0]).
 
--export([config_scan/1, config_scan/2]).
+%% Application internal exports (probably more above...)
+
+-export([set_publish_type/1, member/1, publish/1]).
 
 %% Internal exports
 -export([sync_init/4]).
@@ -91,8 +93,31 @@
 		other_grps = [], 
 		node_name = node()          :: node(),
 		monitor = [],
-		publish_type = normal       :: publish_type(),
 		group_publish_type = normal :: publish_type()}).
+
+%%%====================================================================================
+%%% Configuration record. Returned by:
+%%% * fetch_new_group_conf/0          -- Fetch and install new configuration
+%%% * new_group_conf/1                -- Install new configuration
+%%% * lookup_group_conf/0             -- Lookup installed configuration (will fetch
+%%%                                      and install configuration if it has not
+%%%                                      been initialized)
+%%% * alive_state_change_group_conf/0 -- Adjust configuration according to alive
+%%%                                      state
+%%%====================================================================================
+-record(gconf, {parameter_value = invalid   :: [group_tuple()],
+                is_alive                    :: boolean(),
+                own_publish_type            :: publish_type(),
+                group_name = []             :: group_name(),
+                group_publish_type = normal :: publish_type(),
+                group_list = []             :: [node()],
+                group_map = all             :: 'all' | #{ node() => ok },
+                other_groups = []           :: [group_tuple()],
+                state = no_conf             :: 'no_conf'
+                                             | 'conf'
+                                             | {error,
+                                                term(),
+                                                [group_tuple()]}}).
 
 
 %%%====================================================================================
@@ -244,36 +269,28 @@ init([]) ->
 	     _ ->
 		 true
 	 end,
-    PT = publish_arg(),
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    update_publish_nodes(PT),
-	    {ok, #state{publish_type = PT,
-			connect_all = Ca}};
-	{ok, []} ->
-	    update_publish_nodes(PT),
-	    {ok, #state{publish_type = PT,
-			connect_all = Ca}};
-	{ok, NodeGrps} ->
-	    {DefGroupName, PubTpGrp, DefNodes, DefOther} = 
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			update_publish_nodes(PT),
-			exit({error, {'invalid global_groups definition', NodeGrps}});
-		    {DefGroupNameT, PubType, DefNodesT, DefOtherT} ->
-			update_publish_nodes(PT, {PubType, DefNodesT}),
-			%% First disconnect any nodes not belonging to our own group
-			disconnect_nodes(nodes(connected) -- DefNodesT),
-			lists:foreach(fun(Node) ->
-					      erlang:monitor_node(Node, true)
-				      end,
-				      DefNodesT),
-			{DefGroupNameT, PubType, lists:delete(node(), DefNodesT), DefOtherT}
-		end,
-	    {ok, #state{publish_type = PT, group_publish_type = PubTpGrp,
-			sync_state = synced, group_name = DefGroupName, 
-			no_contact = lists:sort(DefNodes), 
-			other_grps = DefOther, connect_all = Ca}}
+    case fetch_new_group_conf() of
+        #gconf{state = no_conf} ->
+            {ok, #state{connect_all = Ca, node_name = node()}};
+
+        #gconf{state = {error, _Err, NodeGrps}} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+
+        #gconf{group_name = DefGroupName,
+               group_list = DefNodesT,
+               group_publish_type = PubTpGrp,
+               other_groups = DefOther} ->
+            DefNodes = lists:delete(node(), DefNodesT),
+            %% First disconnect any nodes not belonging to our own group
+            disconnect_nodes(nodes(connected) -- DefNodes),
+            lists:foreach(fun(Node) ->
+                                  erlang:monitor_node(Node, true)
+                          end,
+                          DefNodes),
+	    {ok, #state{node_name = node(), group_publish_type = PubTpGrp,
+			sync_state = synced, group_name = DefGroupName,
+			no_contact = DefNodes, other_grps = DefOther,
+                        connect_all = Ca}}
     end.
 
 
@@ -286,32 +303,29 @@ init([]) ->
 %%%====================================================================================
 handle_call(sync, _From, S) ->
 %    io:format("~p sync ~p~n",[node(), application:get_env(kernel, global_groups)]),
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    update_publish_nodes(S#state.publish_type),
+
+    case fetch_new_group_conf() of
+        #gconf{state = no_conf} ->
 	    {reply, ok, S};
-	{ok, []} ->
-	    update_publish_nodes(S#state.publish_type),
-	    {reply, ok, S};
-	{ok, NodeGrps} ->
-	    {DefGroupName, PubTpGrp, DefNodes, DefOther} = 
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			exit({error, {'invalid global_groups definition', NodeGrps}});
-		    {DefGroupNameT, PubType, DefNodesT, DefOtherT} ->
-			update_publish_nodes(S#state.publish_type, {PubType, DefNodesT}),
-			%% First inform global on all nodes not belonging to our own group
-			disconnect_nodes(nodes(connected) -- DefNodesT),
-			%% Sync with the nodes in the own group
-			kill_global_group_check(),
-			Pid = spawn_link(?MODULE, sync_init, 
-					 [sync, DefGroupNameT, PubType, DefNodesT]),
-			register(global_group_check, Pid),
-			{DefGroupNameT, PubType, lists:delete(node(), DefNodesT), DefOtherT}
-		end,
+
+        #gconf{state = {error, _Err, NodeGrps}} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+
+        #gconf{group_name = DefGroupName,
+               group_list = DefNodesT,
+               group_publish_type = PubTpGrp,
+               other_groups = DefOther} ->
+            DefNodes = lists:delete(node(), DefNodesT),
+            %% First inform global on all nodes not belonging to our own group
+            disconnect_nodes(nodes(connected) -- DefNodes),
+            %% Sync with the nodes in the own group
+            kill_global_group_check(),
+            Pid = spawn_link(?MODULE, sync_init, 
+                             [sync, DefGroupName, PubTpGrp, DefNodesT]),
+            register(global_group_check, Pid),
 	    {reply, ok, S#state{sync_state = synced, group_name = DefGroupName, 
-				no_contact = lists:sort(DefNodes), 
-				other_grps = DefOther, group_publish_type = PubTpGrp}}
+				no_contact = DefNodes, other_grps = DefOther,
+                                group_publish_type = PubTpGrp}}
     end;
 
 
@@ -347,7 +361,6 @@ handle_call({monitor_nodes, Flag}, {Pid, _}, StateIn) ->
     {Res, State} = monitor_nodes(Flag, Pid, StateIn),
     {reply, Res, State};
 
-
 %%%====================================================================================
 %%% own_nodes() -> [Node] 
 %%%
@@ -359,7 +372,6 @@ handle_call(own_nodes, _From, S) ->
 		    [node() | nodes()];
 		synced ->
 		    get_own_nodes()
-%		    S#state.nodes
 	    end,
     {reply, Nodes, S};
 
@@ -504,14 +516,21 @@ handle_call({whereis_name, {node, Node}, Name}, From, S) ->
 %%% be disconnected from those nodes not yet been upgraded.
 %%%====================================================================================
 handle_call({global_groups_changed, NewPara}, _From, S) ->
-    {NewGroupName, PubTpGrp, NewNodes, NewOther} = 
-	case catch config_scan(NewPara, publish_type) of
-	    {error, _Error2} ->
-		exit({error, {'invalid global_groups definition', NewPara}});
-	    {DefGroupName, PubType, DefNodes, DefOther} ->
-		update_publish_nodes(S#state.publish_type, {PubType, DefNodes}),
-		{DefGroupName, PubType, DefNodes, DefOther}
-	end,
+
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = NewNodes,
+           other_groups = NewOther,
+           state = GState} = new_group_conf(NewPara),
+
+    case GState of
+        no_conf ->
+            exit({error, 'no global_groups definiton'});
+        {error, _Err, NodeGrps} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+        _ ->
+            ok
+    end,
 
     %% #state.nodes is the common denominator of previous and new definition
     NN = NewNodes -- (NewNodes -- S#state.nodes),
@@ -546,25 +565,31 @@ handle_call({global_groups_changed, NewPara}, _From, S) ->
 %%%====================================================================================
 handle_call({global_groups_added, NewPara}, _From, S) ->
 %    io:format("### global_groups_changed, NewPara ~p ~n",[NewPara]),
-    {NewGroupName, PubTpGrp, NewNodes, NewOther} = 
-	case catch config_scan(NewPara, publish_type) of
-	    {error, _Error2} ->
-		exit({error, {'invalid global_groups definition', NewPara}});
-	    {DefGroupName, PubType, DefNodes, DefOther} ->
-		update_publish_nodes(S#state.publish_type, {PubType, DefNodes}),
-		{DefGroupName, PubType, DefNodes, DefOther}
-	end,
+
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = NewNodes,
+           other_groups = NewOther,
+           state = GState} = new_group_conf(NewPara),
+
+    case GState of
+        no_conf ->
+            exit({error, 'no global_groups definiton'});
+        {error, _Err, NodeGrps} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+        _ ->
+            ok
+    end,
 
     %% disconnect from those nodes which are not going to be in our global group
     force_nodedown(nodes(connected) -- NewNodes),
 
     %% Check which nodes are already updated
-    OwnNG = get_own_nodes(),
-    NGACArgs = case S#state.group_publish_type of
+    NGACArgs = case PubTpGrp of
 		   normal ->
-		       [node(), OwnNG];
+		       [node(), NewNodes];
 		   _ ->
-		       [node(), S#state.group_publish_type, OwnNG]
+		       [node(), PubTpGrp, NewNodes]
 	       end,
     {NN, NNC, NSE} = 
 	lists:foldl(fun(Node, {NN_acc, NNC_acc, NSE_acc}) -> 
@@ -589,10 +614,15 @@ handle_call({global_groups_added, NewPara}, _From, S) ->
 %%%====================================================================================
 handle_call({global_groups_removed, _NewPara}, _From, S) ->
 %    io:format("### global_groups_removed, NewPara ~p ~n",[_NewPara]),
-    update_publish_nodes(S#state.publish_type),
-    NewS = S#state{sync_state = no_conf, group_name = [], nodes = [], 
-		   sync_error = [], no_contact = [], 
-		   other_grps = []},
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = NewNodes,
+           other_groups = NewOther,
+           state = no_conf} = new_group_conf(undefined),
+
+    NewS = S#state{sync_state = no_conf, group_name = NewGroupName, nodes = NewNodes, 
+		   sync_error = [], no_contact = [],  other_grps = NewOther,
+                   group_publish_type = PubTpGrp},
     {reply, ok, NewS};
 
 
@@ -601,28 +631,23 @@ handle_call({global_groups_removed, _NewPara}, _From, S) ->
 %%% belong to the same global group.
 %%% It could happen that our node is not yet updated with the new node_group parameter
 %%%====================================================================================
-handle_call({ng_add_check, Node, PubType, OthersNG}, _From, S) ->
+handle_call({ng_add_check, Node, PubType, OthersNG}, _From,
+            #state{group_publish_type = OwnPubType} = S) ->
     %% Check which nodes are already updated
-    OwnNG = get_own_nodes(),
-    case S#state.group_publish_type =:= PubType of
-	true ->
-	    case OwnNG of
-		OthersNG ->
-		    NN = [Node | S#state.nodes],
-		    NSE = lists:delete(Node, S#state.sync_error),
-		    NNC = lists:delete(Node, S#state.no_contact),
-		    NewS = S#state{nodes = lists:sort(NN), 
-				   sync_error = NSE, 
-				   no_contact = NNC},
-		    {reply, agreed, NewS};
-		_ ->
-		    {reply, not_agreed, S}
-	    end;
-	_ ->
-	    {reply, not_agreed, S}
+    OwnNodes = get_own_nodes(),
+    case {PubType, OthersNG} of
+        {OwnPubType, OwnNodes} ->
+            NN = case lists:member(Node, S#state.nodes) of
+                     true -> S#state.nodes;
+                     false -> [Node | S#state.nodes]
+                 end,
+            NSE = lists:delete(Node, S#state.sync_error),
+            NNC = lists:delete(Node, S#state.no_contact),
+            NewS = S#state{nodes = NN, sync_error = NSE, no_contact = NNC},
+            {reply, agreed, NewS};
+        _ ->
+            {reply, not_agreed, S}
     end;
-
-
 
 %%%====================================================================================
 %%% Misceleaneous help function to read some variables
@@ -790,76 +815,99 @@ handle_cast({conf_check, Vsn, Node, From, sync, CCName, CCNodes}, S) ->
     handle_cast({conf_check, Vsn, Node, From, sync, CCName, normal, CCNodes}, S);
     
 handle_cast({conf_check, Vsn, Node, From, sync, CCName, PubType, CCNodes}, S) ->
-    CurNodes = S#state.nodes,
 %    io:format(">>>>> conf_check,sync  Node ~p~n",[Node]),
     %% Another node is syncing, 
     %% done for instance after upgrade of global_groups parameter
-    NS = 
-	case application:get_env(kernel, global_groups) of
-	    undefined ->
-		%% We didn't have any node_group definition
-		update_publish_nodes(S#state.publish_type),
-		disconnect_nodes([Node]),
-		{global_group_check, Node} ! {config_error, Vsn, From, node()},
-		S;
-	    {ok, []} ->
-		%% Our node_group definition was empty
-		update_publish_nodes(S#state.publish_type),
-		disconnect_nodes([Node]),
-		{global_group_check, Node} ! {config_error, Vsn, From, node()},
-		S;
-	    %%---------------------------------
-	    %% global_groups defined
-	    %%---------------------------------
-	    {ok, NodeGrps} ->
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			%% Our node_group definition was erroneous
-			disconnect_nodes([Node]),
-			{global_group_check, Node} ! {config_error, Vsn, From, node()},
-			S#state{nodes = lists:delete(Node, CurNodes)};
+    case lookup_group_conf() of
+        #gconf{state = no_conf} ->
+            %% We didn't have any node_group definition
+            disconnect_nodes([Node]),
+            {global_group_check, Node} ! {config_error, Vsn, From, node()},
+            {noreply, S};
 
-		    {CCName, PubType, CCNodes, _OtherDef} ->
-			%% OK, add the node to the #state.nodes if it isn't there
-			update_publish_nodes(S#state.publish_type, {PubType, CCNodes}),
-			global_name_server ! {nodeup, Node},
-			{global_group_check, Node} ! {config_ok, Vsn, From, node()},
-			case lists:member(Node, CurNodes) of
-			    false ->
-				NewNodes = lists:sort([Node | CurNodes]),
-				NSE = lists:delete(Node, S#state.sync_error),
-				NNC = lists:delete(Node, S#state.no_contact),
-				S#state{nodes = NewNodes, 
-				        sync_error = NSE,
-				        no_contact = NNC};
-			    true ->
-				S
-			end;
-		    _ ->
-			%% node_group definitions were not in agreement
-			disconnect_nodes([Node]),
-			{global_group_check, Node} ! {config_error, Vsn, From, node()},
-			NN = lists:delete(Node, S#state.nodes),
-			NSE = lists:delete(Node, S#state.sync_error),
-			NNC = lists:delete(Node, S#state.no_contact),
-			S#state{nodes = NN,
-				sync_error = NSE,
-				no_contact = NNC}
-		end
-	end,
-    {noreply, NS};
+        #gconf{state = {error, _Err, _NodeGrps}} ->
+            disconnect_nodes([Node]),
+            {global_group_check, Node} ! {config_error, Vsn, From, node()},
+            {noreply, S#state{nodes = lists:delete(Node, S#state.nodes)}};
+
+        #gconf{group_name = CCName,
+               group_list = CCNodes,
+               group_publish_type = PubType,
+               other_groups = _OtherGroups} ->
+            %% OK, add the node to the #state.nodes if it isn't there
+            global_name_server ! {nodeup, Node},
+            {global_group_check, Node} ! {config_ok, Vsn, From, node()},
+            case lists:member(Node, S#state.nodes) of
+                false ->
+                    NewNodes = lists:usort([Node | S#state.nodes]),
+                    NSE = lists:delete(Node, S#state.sync_error),
+                    NNC = lists:delete(Node, S#state.no_contact),
+                    {noreply, S#state{nodes = NewNodes, 
+                                      sync_error = NSE,
+                                      no_contact = NNC}};
+                true ->
+                    {noreply, S}
+            end;
+
+        #gconf{} ->
+            %% group definitions were not in agreement
+            disconnect_nodes([Node]),
+            {global_group_check, Node} ! {config_error, Vsn, From, node()},
+            NN = lists:delete(Node, S#state.nodes),
+            NSE = lists:delete(Node, S#state.sync_error),
+            NNC = lists:delete(Node, S#state.no_contact),
+            {noreply, S#state{nodes = NN,
+                              sync_error = NSE,
+                              no_contact = NNC}}
+    end;
 
 
 handle_cast(_Cast, S) ->
 %    io:format("***** handle_cast ~p~n",[_Cast]),
     {noreply, S}.
     
+%%%====================================================================================
+%%% Distribution on this node was started...
+%%%====================================================================================
+handle_info({nodeup, Node}, S0) when Node == node() ->
+    %% Check configuration since we now know how to interpret it
+    %% when we know our name...
+    S1 = case alive_state_change_group_conf() of
 
+             #gconf{state = no_conf,
+                    group_name = DefGroupName,
+                    group_list = DefNodes,
+                    group_publish_type = PubTpGrp,
+                    other_groups = DefOther} ->
+                 S0#state{node_name = node(),
+                          group_publish_type = PubTpGrp,
+                          sync_state = no_conf, group_name = DefGroupName,
+                          no_contact = DefNodes, other_grps = DefOther};
+
+             #gconf{state = {error, _Err, NodeGrps}} ->
+                 exit({error, {'invalid global_groups definition', NodeGrps}});
+
+             #gconf{group_name = DefGroupName,
+                    group_list = DefNodesT,
+                    group_publish_type = PubTpGrp,
+                    other_groups = DefOther} ->
+                 DefNodes = lists:delete(node(), DefNodesT),
+                 %% First disconnect any nodes not belonging to our own group
+                 disconnect_nodes(nodes() -- DefNodes),
+                 lists:foreach(fun(N) ->
+                                       erlang:monitor_node(N, true)
+                               end,
+                               DefNodes),
+                 S0#state{node_name = node(),
+                          group_publish_type = PubTpGrp,
+                          sync_state = synced, group_name = DefGroupName,
+                          no_contact = DefNodes, other_grps = DefOther}
+         end,
+    send_monitor(S1#state.monitor, {nodeup, Node}, S1#state.sync_state),
+    {noreply, S1};
 
 %%%====================================================================================
-%%% A node went down. If no global group configuration inform global;
-%%% if global group configuration inform global only if the node is one in
-%%% the own global group.
+%%% A new node connected...
 %%%====================================================================================
 handle_info({nodeup, Node}, S) when S#state.sync_state =:= no_conf ->
 %    io:format("~p>>>>> nodeup, Node ~p ~n",[node(), Node]),
@@ -899,7 +947,7 @@ handle_info({nodeup, Node}, S) ->
 				      sync_error = NSE}}
 	    end;
 	_ ->
-	    case {lists:member(Node, get_own_nodes()), 
+	    case {lists:member(Node, OwnNG), 
 		  lists:member(Node, S#state.sync_error)} of
 		{true, false} ->
 		    NSE2 = lists:sort([Node | S#state.sync_error]),
@@ -909,6 +957,23 @@ handle_info({nodeup, Node}, S) ->
 		    {noreply, S}
 	    end
     end;
+
+%%%====================================================================================
+%%% Distribution on this node was shut down...
+%%%====================================================================================
+handle_info({nodedown, Node}, #state{node_name = Node} = S) ->
+    %% Clear group configuration. We don't know how to interpret it
+    %% unless we know our own name...
+    #gconf{state = no_conf,
+           group_name = DefGroupName,
+           group_list = DefNodes,
+           group_publish_type = PubTpGrp,
+           other_groups = DefOther} = alive_state_change_group_conf(),
+    send_monitor(S#state.monitor, {nodedown, Node}, no_conf),
+    {noreply, S#state{node_name = node(),
+                      group_publish_type = PubTpGrp,
+                      sync_state = no_conf, group_name = DefGroupName,
+                      no_contact = DefNodes, other_grps = DefOther}};
 
 %%%====================================================================================
 %%% A node has crashed. 
@@ -991,16 +1056,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%====================================================================================
 
 config_scan(NodeGrps) ->
-    config_scan(NodeGrps, original).
-
-config_scan(NodeGrps, original) ->
-    case config_scan(NodeGrps, publish_type) of
-	{DefGroupName, _, DefNodes, DefOther} ->
-	    {DefGroupName, DefNodes, DefOther};
-	Error ->
-	    Error
-    end;
-config_scan(NodeGrps, publish_type) ->
     config_scan(node(), normal, NodeGrps, no_name, [], []).
 
 config_scan(_MyNode, PubType, [], Own_name, OwnNodes, OtherNodeGrps) ->
@@ -1027,7 +1082,114 @@ grp_tuple({Name, hidden, Nodes}) ->
 grp_tuple({Name, normal, Nodes}) ->
     {Name, normal, Nodes}.
 
-    
+%%%====================================================================================
+%%% Get/set configuration
+%%%====================================================================================
+
+%%
+%% Fetch and install group configuration...
+%%
+fetch_new_group_conf() ->
+    GGConf = case application:get_env(kernel, global_groups) of
+                 undefined -> undefined;
+                 {ok, V} -> V
+             end,
+    new_group_conf(GGConf).
+
+%%
+%% Install new group configuration...
+%%
+new_group_conf(KernParamValue) ->
+    IsAlive = erlang:is_alive(),
+    case persistent_term:get(?MODULE, #gconf{}) of
+        #gconf{parameter_value = KernParamValue,
+               is_alive = IsAlive} = GConf ->
+            GConf;
+        #gconf{own_publish_type = OldType} ->
+            OwnPublishType = if OldType == undefined -> publish_arg();
+                                true -> OldType
+                             end,
+            GConf = make_group_conf(IsAlive, KernParamValue, OwnPublishType),
+            persistent_term:put(?MODULE, GConf),
+            GConf
+    end.
+
+make_group_conf(IsAlive, KernParamValue, OwnPublishType)
+  when KernParamValue == undefined; KernParamValue == []; IsAlive == false ->
+    %% Empty group configuration if it is not defined, or if we are not
+    %% alive (if we are not alive we cannot interpret the configuration
+    %% since we don't know our own node name)...
+    #gconf{parameter_value = KernParamValue,
+           is_alive = IsAlive,
+           own_publish_type = OwnPublishType};
+make_group_conf(true, KernParamValue, OwnPublishType) ->
+    case catch config_scan(KernParamValue) of
+
+        {error, Error} ->
+            #gconf{parameter_value = KernParamValue,
+                   is_alive = true,
+                   own_publish_type = OwnPublishType,
+                   state = {error, Error, KernParamValue}};
+
+        {GName, PubTpGrp, OwnNodes, OtherGroups} ->
+            GMap = if OwnNodes == [] ->
+                           all;
+                      true ->
+                           maps:from_list(lists:map(fun (Node) ->
+                                                            {Node, ok}
+                                                    end, OwnNodes))
+                   end,
+            #gconf{parameter_value = KernParamValue,
+                   is_alive = true,
+                   own_publish_type = OwnPublishType,
+                   group_name = GName,
+                   group_publish_type = PubTpGrp,
+                   group_list = lists:sort(OwnNodes),
+                   group_map = GMap,
+                   other_groups = OtherGroups,
+                   state = conf}
+    end.
+
+%%
+%% Adjust group configuration according to alive state
+%%
+alive_state_change_group_conf() ->
+    case persistent_term:get(?MODULE, #gconf{}) of
+        #gconf{parameter_value = ParamValue} when ParamValue /= invalid ->
+            new_group_conf(ParamValue);
+        #gconf{} ->
+            fetch_new_group_conf()
+    end.
+
+%%
+%% Set publish type
+%% 
+
+-spec set_publish_type(default | publish_type()) -> ok.
+
+set_publish_type(default) ->
+    set_publish_type(publish_arg());
+set_publish_type(OwnPublishType) when OwnPublishType == normal;
+                                      OwnPublishType == hidden ->
+    case lookup_group_conf() of
+        #gconf{own_publish_type = OwnPublishType} ->
+            ok;
+        #gconf{} = GConf ->
+            persistent_term:put(?MODULE,
+                                GConf#gconf{own_publish_type = OwnPublishType})
+    end.
+
+%%
+%% Lookup current group configuration
+%%
+
+lookup_group_conf() ->
+    try
+        persistent_term:get(?MODULE)
+    catch
+        error:badarg -> fetch_new_group_conf()
+    end.
+
 %%%====================================================================================
 %%% The special process which checks that all nodes in the own global group
 %%% agrees on the configuration.
@@ -1288,29 +1450,18 @@ force_nodedown(DisconnectNodes) ->
 %%% Get the current global_groups definition
 %%%====================================================================================
 get_own_nodes_with_errors() ->
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    {ok, all};
-	{ok, []} ->
-	    {ok, all};
-	{ok, NodeGrps} ->
-	    case catch config_scan(NodeGrps, publish_type) of
-		{error, Error} ->
-		    {error, Error};
-		{_, _, NodesDef, _} ->
-		    {ok, lists:sort(NodesDef)}
-	    end
+    case lookup_group_conf() of
+        #gconf{state = {error, Error, _NodeGrps}} ->
+            {error, Error};
+        #gconf{group_list = []} ->
+            {ok, all};
+        #gconf{group_list = Nodes} ->
+            {ok, Nodes}
     end.
 
 get_own_nodes() ->
-    case get_own_nodes_with_errors() of
-	{ok, all} ->
-	    [];
-	{error, _} ->
-	    [];
-	{ok, Nodes} ->
-	    Nodes
-    end.
+    #gconf{group_list = Nodes} = lookup_group_conf(),
+    Nodes.
 
 %%%====================================================================================
 %%% -hidden command line argument
@@ -1325,51 +1476,56 @@ publish_arg() ->
 	    normal
     end.
 
+%%%====================================================================================
+%%% Is node member of group?
+%%%====================================================================================
 
-%%%====================================================================================
-%%% Own group publication type and nodes
-%%%====================================================================================
-own_group() ->
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    no_group;
-	{ok, []} ->
-	    no_group;
-	{ok, NodeGrps} ->
-	    case catch config_scan(NodeGrps, publish_type) of
-		{error, _} ->
-		    no_group;
-		{_, PubTpGrp, NodesDef, _} ->
-		    {PubTpGrp, NodesDef}
-	    end
+-spec member(Node::node()) -> boolean().
+
+member(Node) ->
+    case lookup_group_conf() of
+        #gconf{group_map = all} ->
+            true;
+        #gconf{group_map = #{Node := ok}} ->
+            true;
+        #gconf{} ->
+            false
     end.
 
+%%%====================================================================================
+%%% Publish on node?
+%%%====================================================================================
 
-%%%====================================================================================
-%%% Help function which computes publication list
-%%%====================================================================================
-publish_on_nodes(normal, no_group) ->
-    all;
-publish_on_nodes(hidden, no_group) ->
-    [];
-publish_on_nodes(normal, {normal, _}) ->
-    all;
-publish_on_nodes(hidden, {_, Nodes}) ->
-    Nodes;
-publish_on_nodes(_, {hidden, Nodes}) ->
-    Nodes.
+-spec publish(Node) -> boolean() when
+      Node :: node().
 
-%%%====================================================================================
-%%% Update net_kernels publication list
-%%%====================================================================================
-update_publish_nodes(PubArg) ->
-    update_publish_nodes(PubArg, no_group).
-update_publish_nodes(PubArg, MyGroup) ->
-    net_kernel:update_publish_nodes(publish_on_nodes(PubArg, MyGroup)).
+publish(Node) ->
+    case lookup_group_conf() of
+        #gconf{own_publish_type = normal, group_map = all} ->
+            true;
+        #gconf{own_publish_type = hidden, group_map = all} ->
+            false;
+        #gconf{own_publish_type = normal, group_publish_type = normal} ->
+            true;
+        #gconf{group_map = #{Node := ok}} ->
+            true;
+        #gconf{} ->
+            false
+    end.
 
 
 %%%====================================================================================
 %%% Fetch publication list
 %%%====================================================================================
+
 publish_on_nodes() ->
-    publish_on_nodes(publish_arg(), own_group()).
+    case lookup_group_conf() of
+        #gconf{own_publish_type = normal, group_list = []} ->
+            all;
+        #gconf{own_publish_type = hidden, group_list = []} ->
+            [];
+        #gconf{own_publish_type = normal, group_publish_type = normal} ->
+            all;
+        #gconf{group_list = Nodes} ->
+            Nodes
+    end.
