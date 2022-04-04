@@ -56,7 +56,13 @@
          killing_multi_acceptors/1,
          killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
-	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
+	 active_once_closed/1,
+         send_timeout_basic_wo_autoclose/1,
+         send_timeout_basic_w_autoclose/1,
+         send_timeout_check_length/1,
+         send_timeout_para_wo_autoclose/1,
+         send_timeout_para_w_autoclose/1,
+         send_timeout_active/1,
          send_timeout_resume/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
@@ -287,7 +293,11 @@ accept_cases() ->
 
 send_timeout_cases() ->
     [
-     send_timeout,
+     send_timeout_basic_wo_autoclose,
+     send_timeout_basic_w_autoclose,
+     send_timeout_check_length,
+     send_timeout_para_wo_autoclose,
+     send_timeout_para_w_autoclose,
      send_timeout_active,
      send_timeout_resume
     ].
@@ -5045,67 +5055,130 @@ anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down) ->
             anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down)
     end.
 
+%% %% Test the send_timeout socket option.
+%% send_timeout(Config) when is_list(Config) ->
+%%     Pre  = fun() ->
+%%                    Dir = filename:dirname(code:which(?MODULE)),
+%%                    ?P("create node"),
+%%                    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+%%                    RNode
+%%            end,
+%%     Case = fun(Node) -> do_send_timeout(Config, Node) end,
+%%     Post = fun(Node) ->
+%%                    ?P("stop node ~p", [Node]),
+%%                    ?STOP_NODE(Node)
+%%            end,
+%%     ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+%% do_send_timeout(Config, RNode) ->
+%%     ?P("begin"),
+%%     {TslTimeout, SndTimeout, BinData, SndBuf} =
+%% 	case ?IS_SOCKET_BACKEND(Config) of
+%% 	    true ->
+%% 		{100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
+%% 	    false ->
+%% 		{1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
+%% 	end,
+
+%%     %% Basic
+%%     ?P("basic check wo autoclose"),
+%%     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+%% 		       false, RNode),
+%%     ?P("basic check w autoclose"),
+%%     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+%% 		       true, RNode),
+
+%%     %% Check timeout length.
+%%     ?P("spawn sink process (check timeout length)"),
+%%     Self = self(),
+%%     {Pid, Mon} = spawn_monitor(
+%%                    fun() ->
+%%                            {A, _} = setup_timeout_sink(Config,
+%% 						       RNode, SndTimeout,
+%% 						       true, SndBuf),
+%%                            Send = fun() ->
+%%                                           Res = gen_tcp:send(A, BinData),
+%%                                           Self ! Res,
+%%                                           Res
+%%                                   end,
+%%                            {{error, timeout}, _} =
+%% 			       timeout_sink_loop(Send, TslTimeout)
+%%                    end),
+%%     Diff = get_max_diff(),
+%%     ?P("Max time for send: ~p", [Diff]),
+%%     true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
+
+%%     %% Wait for the process to die.
+%%     ?P("await (timeout checker) process death"),
+%%     receive {'DOWN', Mon, process, Pid, _} -> ok end,
+
+%%     %% Check that parallel writers do not hang forever
+%%     ?P("check parallel writers wo autoclose"),
+%%     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+%% 		      false, RNode),
+%%     ?P("check parallel writers w autoclose"),
+%%     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+%% 		      true, RNode),
+
+%%     ?P("done"),
+%%     ok.
+
+
+send_timeout_cfg(Config) ->
+    case ?IS_SOCKET_BACKEND(Config) of
+        true ->
+            {100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
+        false ->
+            {1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
+    end.    
+
 %% Test the send_timeout socket option.
-send_timeout(Config) when is_list(Config) ->
-    ?TC_TRY(send_timeout, fun() -> do_send_timeout(Config) end).
+send_timeout_basic_wo_autoclose(Config) when is_list(Config) ->
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) ->
+                   do_send_timeout_basic_wo_autoclose(Config, Node)
+           end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
 
-do_send_timeout(Config) ->
+do_send_timeout_basic_wo_autoclose(Config, RNode) ->
     ?P("begin"),
-    Dir = filename:dirname(code:which(?MODULE)),
-    ?P("create node"),
-    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
-
-    {TslTimeout, SndTimeout, BinData, SndBuf} = 
-	case ?IS_SOCKET_BACKEND(Config) of
-	    true ->
-		{100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
-	    false ->
-		{1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
-	end,
-
-    %% Basic
-    ?P("basic check wo autoclose"),
+    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		       false, RNode),
-    ?P("basic check w autoclose"),
+    ?P("done"),
+    ok.
+
+%% Test the send_timeout socket option.
+send_timeout_basic_w_autoclose(Config) when is_list(Config) ->
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) ->
+                   do_send_timeout_basic_w_autoclose(Config, Node)
+           end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_send_timeout_basic_w_autoclose(Config, RNode) ->
+    ?P("begin"),
+    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		       true, RNode),
-
-    %% Check timeout length.
-    ?P("spawn sink process (check timeout length)"),
-    Self = self(),
-    {Pid, Mon} = spawn_monitor(
-                   fun() ->
-                           {A, _} = setup_timeout_sink(Config,
-						       RNode, SndTimeout,
-						       true, SndBuf),
-                           Send = fun() ->
-                                          Res = gen_tcp:send(A, BinData),
-                                          Self ! Res,
-                                          Res
-                                  end,
-                           {{error, timeout}, _} =
-			       timeout_sink_loop(Send, TslTimeout)
-                   end),
-    Diff = get_max_diff(),
-    ?P("Max time for send: ~p", [Diff]),
-    true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
-
-    %% Wait for the process to die.
-    ?P("await (timeout checker) process death"),
-    receive {'DOWN', Mon, process, Pid, _} -> ok end,
-
-    %% Check that parallel writers do not hang forever
-    ?P("check parallel writers wo autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-		      false, RNode),
-    ?P("check parallel writers w autoclose"),
-    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-		      true, RNode),
-
-    ?P("stop node"),
-    ?STOP_NODE(RNode),
-
     ?P("done"),
     ok.
 
@@ -5135,6 +5208,107 @@ send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 	    ct:fail("Unexpected send success")
     end.
 
+
+%% Test the send_timeout socket option.
+send_timeout_check_length(Config) when is_list(Config) ->
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout_check_length(Config, Node) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_send_timeout_check_length(Config, RNode) ->
+    ?P("begin"),
+    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+
+    %% Check timeout length.
+    ?P("spawn sink process (check timeout length)"),
+    Self = self(),
+    {Pid, Mon} = spawn_monitor(
+                   fun() ->
+                           {A, _} = setup_timeout_sink(Config,
+						       RNode, SndTimeout,
+						       true, SndBuf),
+                           Send = fun() ->
+                                          Res = gen_tcp:send(A, BinData),
+                                          Self ! Res,
+                                          Res
+                                  end,
+                           {{error, timeout}, _} =
+			       timeout_sink_loop(Send, TslTimeout)
+                   end),
+    Diff = get_max_diff(),
+    ?P("Max time for send: ~p", [Diff]),
+    true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
+
+    %% Wait for the process to die.
+    ?P("await (timeout checker) process death"),
+    receive {'DOWN', Mon, process, Pid, _} -> ok end,
+
+    ?P("done"),
+    ok.
+
+%% Test the send_timeout socket option.
+send_timeout_para_wo_autoclose(Config) when is_list(Config) ->
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout_para_wo_autoclose(Config, Node) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_send_timeout_para_wo_autoclose(Config, RNode) ->
+    ?P("begin"),
+    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+
+    %% Check that parallel writers do not hang forever
+    ?P("check parallel writers wo autoclose"),
+    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		      false, RNode),
+
+    ?P("done"),
+    ok.
+
+%% Test the send_timeout socket option.
+send_timeout_para_w_autoclose(Config) when is_list(Config) ->
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout_para_w_autoclose(Config, Node) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_send_timeout_para_w_autoclose(Config, RNode) ->
+    ?P("begin"),
+    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+
+    %% Check that parallel writers do not hang forever
+    ?P("check parallel writers wo autoclose"),
+    send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
+		      true, RNode),
+
+    ?P("done"),
+    ok.
+
 send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
 		  AutoClose, RNode) ->
     ?P("[para] sink -> entry with"
@@ -5150,9 +5324,9 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
 			Send = fun() -> gen_tcp:send(A, BinData) end,
 			Self ! {self(), timeout_sink_loop(Send, TslTimeout)}
 		end,
-    ?P("[para] spawn process 1 with sender fun"),
+    ?P("[para] spawn sender process 1"),
     Snd1 = spawn_link(SenderFun),
-    ?P("[para] spawn process 2 with sender fun"),
+    ?P("[para] spawn sender process 2"),
     Snd2 = spawn_link(SenderFun),
 
     SockInfo    = fun() -> (catch inet:info(A)) end,
@@ -5289,12 +5463,34 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
     ?P("[para] cleanup - await sender terminations"),
     st_await_sender_termination(Snd1, Snd2),
     ?P("[para] cleanup - close socket"),
-    (catch gen_tcp:close(A)),
+    send_timeout_close(A),
     ?P("[para] cleanup - kill sink"),
     exit(Pid, kill),
     ?P("[para] done"),
     ok.
 
+%% Spawn a closer process, transfer "ownership" of the socket
+%% to it and then send it the socket (to close) at its leisure.
+send_timeout_close(Sock) ->
+    F = fun() ->
+                receive
+                    {close, S} ->
+                        (catch gen_tcp:close(S)),
+                        exit(normal)
+                end
+        end,
+    Pid = spawn_link(F),
+    case gen_tcp:controlling_process(Sock, Pid) of
+        ok ->
+            Pid ! {close, Sock},
+            ok;
+        {error, Reason} ->
+            ?P("failed transfering ownership to closer process: "
+               "~n   ~p", [Reason]),
+            exit(Pid, kill),
+            (catch gen_tcp:close(Sock))
+    end.
+    
 st_await_sender_termination(undefined, undefined) ->
     ok;
 st_await_sender_termination(Sender1, Sender2) ->
@@ -5659,42 +5855,43 @@ timeout_sink_loop(Action, To, N) ->
     end.
 
 
+%% =========================================================================
 
 send_timeout_resume(Config) when is_list(Config) ->
     ct:timetrap(?SECS(16)),
-    ?TC_TRY(
-       send_timeout_resume,
-       fun () -> do_send_timeout_resume(Config) end).
-
-do_send_timeout_resume(Config) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
-    try
-        do_send_timeout_resume(Config, RNode, 12)
-    after
-        ?STOP_NODE(RNode)
-    end.
+    Pre  = fun() ->
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   ?P("create node"),
+                   {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
+                   RNode
+           end,
+    Case = fun(Node) -> do_send_timeout_resume(Config, Node, 13) end,
+    Post = fun(Node) ->
+                   ?P("stop node ~p", [Node]),
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
 
 do_send_timeout_resume(Config, RNode, BlockPow) ->
     BlockSize = 1 bsl BlockPow,
-    1 = rand:uniform(1),
-    Seed = rand:export_seed(),
+    1         = rand:uniform(1),
+    Seed      = rand:export_seed(),
     ListenOpts =
         [inet,
          binary,
          {backlog, 2},
-         {active, false}],
+         {active,  false}],
     ConnectOpts =
         [inet,
          {send_timeout, 0},
-         {active, false},
+         {active,       false},
          binary],
     StreamOpts =
         [{high_watermark, BlockSize},
-         {low_watermark, BlockSize bsr 1},
-         {sndbuf, BlockSize},
-         {recbuf, BlockSize},
-         {buffer, BlockSize bsl 1}],
+         {low_watermark,  BlockSize bsr 1},
+         {sndbuf,         BlockSize},
+         {recbuf,         BlockSize},
+         {buffer,         BlockSize bsl 1}],
     Client = self(),
     Tag = make_ref(),
     {Server, Mref} =
@@ -5724,12 +5921,18 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
             {'DOWN', Mref, _, _, Error2} ->
                 ct:fail(Error2)
         end,
+        RetryTimeout = str_which_retry_timeout(),
+        ?P("send"),
         {N, Timeouts} =
-            do_send_timeout_resume_send(C, Server, Tag, 0, BlockSize),
+            do_send_timeout_resume_send(C, Server, Tag,
+                                        RetryTimeout, BlockSize),
+        ?P("await server reply (DOWN)"),
         receive
             {'DOWN', Mref, _, _, Result} ->
-                ?P("N = ~p, Timeouts = ~p, Result=~p~n",
-                   [N, Timeouts, Result]),
+                ?P("received DOWN message from server:"
+                   "~n   N:        ~p"
+                   "~n   Timeouts: ~p"
+                   "~n   Result:   ~p", [N, Timeouts, Result]),
                 case Result of
                     {Tag, ok, Count}
                       when Count =:= N * BlockSize,
@@ -5740,6 +5943,21 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                            %% so that did not work
                            1 < Timeouts ->
                         ok;
+                    {Tag, ok, Count} when Count =:= N * BlockSize ->
+                        ?P("Unexpected number of timeouts, ~w, when"
+                           "~n   Expected count: ~p"
+                           "~n   Got count:      ~p"
+                           "~n   ", [Timeouts, N*BlockSize, Count]),
+                        ct:fail(Result);
+                    {Tag, ok, Count} ->
+                        ?P("Unexpected counts: "
+                           "~n      Got:      ~p"
+                           "~n      Expected: ~p", [Count, N*BlockSize]),
+                        ct:fail(Result);
+                    {Tag, Res, _Count} ->
+                        ?P("Unexpected res: "
+                           "~n      Res: ~p", [Res]),
+                        ct:fail(Result);
                     _ ->
                         ct:fail(Result)
                 end
@@ -5752,36 +5970,92 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
 optnames(Opts) ->
     [Name || {Name, _} <- Opts].
 
+str_which_retry_timeout() ->
+    case os:type() of
+        {unix, darwin} ->
+            %% This is really sketchy, but it seems to "work"...
+            %% Don't know if its the processor (M1) or if its the
+            %% OS/darwin version (darwin 21.x).
+            %% But since we don't have any intel macs running 21...
+            case os:version() of
+                {Major, _, _} when (Major >= 20) ->
+                    25;
+                _ ->
+                    100
+            end;
+        {unix, freebsd} ->
+            %% Has seen this on FreeBSD 12.2 and later.
+            case os:version() of
+                {Major, _, _} when (Major >= 13) ->
+                    25;
+                {Major, Minor, _} when (Major =:= 12) andalso
+                                       (Minor >= 2) ->
+                    25;
+                _ ->
+                    100
+            end;
+        _ ->
+            100
+    end.
+    
 %% Fill buffers
-do_send_timeout_resume_send(S, Server, Tag, N, BlockSize) ->
+do_send_timeout_resume_send(S, Server, Tag, RetryTimeout, BlockSize) ->
+    ?P("try send-timeout-resume with"
+       "~n   RetryTimeout: ~w ms"
+       "~n   BlockSize:    ~w", [RetryTimeout, BlockSize]),
+    do_send_timeout_resume_send(S, Server, Tag, 0, RetryTimeout, BlockSize).
+
+do_send_timeout_resume_send(S, Server, Tag, N, RetryTimeout, BlockSize) ->
     Bin = random_data(BlockSize),
-    case send_timeout_repeat(S, Server, Tag, N, Bin, 0) of
+    case send_timeout_repeat(S, Server, Tag, N, Bin, RetryTimeout, 0) of
         0 ->
-            do_send_timeout_resume_send(S, Server, Tag, N + 1, BlockSize);
+            do_send_timeout_resume_send(S, Server, Tag,
+                                        N + 1, RetryTimeout, BlockSize);
         Timeouts ->
             ok = gen_tcp:close(S),
             {N + 1, Timeouts}
     end.
 
-send_timeout_repeat(S, Server, Tag, N, Bin, Timeouts) ->
+send_timeout_repeat(S, Server, Tag, N, Bin, RetryTimeout, Timeouts) ->
     case gen_tcp:send(S, Bin) of
         ok ->
+            ?P("send_timeout_repeat -> success => done when"
+               "~n      N:           ~p"
+               "~n      Timeouts:    ~p"
+               "~n      Socket Info: ~p", [N, Timeouts, (catch inet:info(S))]),
             Timeouts;
         {error, Reason} ->
             case Reason of
                 timeout ->
+                    ?P("send_timeout_repeat -> timeout:"
+                       "~n      S:           ~p"
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [S, N, Timeouts, (catch inet:info(S))]),
                     Server ! {Tag, rec},
-                    ?P("timeout ~p, ~p~n", [S, N]),
-                    receive after 100 -> ok end,
+                    receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
-                      S, Server, Tag, N, <<>>, Timeouts + 1);
+                      S, Server, Tag, N, <<>>, RetryTimeout, Timeouts + 1);
                 {timeout, RestData} ->
+                    ?P("send_timeout_repeat -> timeout with RestData: "
+                       "~n      S:           ~p"
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [S, N, Timeouts, (catch inet:info(S))]),
                     Server ! {Tag, rec},
-                    ?P("timeout, RestData ~p, ~p~n", [S, N]),
-                    receive after 100 -> ok end,
+                    receive after RetryTimeout -> ok end,
                     send_timeout_repeat(
-                      S, Server, Tag, N, RestData, Timeouts + 1);
+                      S, Server, Tag, N, RestData, RetryTimeout, Timeouts + 1);
                 _ ->
+                    ?P("send_timeout_repeat -> unexpected send failure: "
+                       "~n      Reason:      ~p"
+                       "~n   when"
+                       "~n      N:           ~p"
+                       "~n      Timeouts:    ~p"
+                       "~n      Socket Info: ~p",
+                       [Reason, N, Timeouts, (catch inet:info(S))]),
                     error({Reason, N, Timeouts})
             end
     end.
@@ -5804,22 +6078,23 @@ compare_data(<<Byte, Bin/binary>>, Count) ->
 send_timeout_resume_srv(Config, Seed, Client, Tag, ListenOpts, StreamOpts) ->
     rand:seed(Seed),
     {ok, L} = ?LISTEN(Config, 0, ListenOpts),
-    ?P("get listen StreamOpts -> ~p",
+    ?P("[server] get listen StreamOpts -> ~p",
        [inet:getopts(L, optnames(StreamOpts))]),
     {ok, P} = inet:port(L),
     Client ! {Tag, port, P},
     %%
     {ok, A} = gen_tcp:accept(L, 2000),
-    ?P("accept success ~p~n", [A]),
+    ?P("[server] accept success ~p", [A]),
     ok = inet:setopts(A, StreamOpts),
-    ?P("get accept StreamOpts -> ~p",
+    ?P("[server] get accept StreamOpts -> ~p",
        [inet:getopts(A, optnames(StreamOpts))]),
     Client ! {Tag, send},
     %%
     receive
         {Tag, rec} ->
-            receive after 1000 -> ok end,
-            ?P("receiving ~p~n", [A]),
+            ?P("[server] received recv command - now wait some time"),
+            receive after 5000 -> ok end,
+            ?P("[server] begin receiving (on ~p)", [A]),
             exit({Tag, ok, send_timeout_resume_srv(A, 0)})
     end.
 
