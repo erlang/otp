@@ -2461,9 +2461,9 @@ make_internal_hash(Eterm term, Uint32 salt)
    {log, Level, format, [args], #{ gl, pid, time, error_logger => #{tag, emulator => true} }}
 */
 static Eterm
-do_allocate_logger_message(Eterm gleader, ErtsMonotonicTime *ts, Eterm *pid,
-                           Eterm **hp, ErlOffHeap **ohp,
-			   ErlHeapFragment **bp, Uint sz)
+do_allocate_logger_message(ErtsHeapFactory *factory,
+                           Eterm gleader, ErtsMonotonicTime *ts,
+                           Eterm *pid, Uint sz)
 {
     Uint gl_sz;
     gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
@@ -2482,19 +2482,25 @@ do_allocate_logger_message(Eterm gleader, ErtsMonotonicTime *ts, Eterm *pid,
     *ts = ERTS_MONOTONIC_TO_USEC(erts_os_system_time());
     erts_bld_sint64(NULL, &sz, *ts);
 
-    *bp = new_message_buffer(sz);
-    *ohp = &(*bp)->off_heap;
-    *hp = (*bp)->mem;
-
-    return copy_struct(gleader,gl_sz,hp,*ohp);
+    erts_factory_heap_frag_init(factory, new_message_buffer(sz));
+    {
+        Eterm *hp = erts_produce_heap(factory, gl_sz, 0);
+        return copy_struct(gleader,gl_sz,&hp,factory->off_heap);
+    }
 }
 
-static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args,
-                                   ErtsMonotonicTime ts, Eterm pid,
-                                   Eterm *hp, ErlHeapFragment *bp)
+static void do_send_logger_message(ErtsHeapFactory *factory,
+                                   Eterm gl, Eterm tag, Eterm format, Eterm args,
+                                   ErtsMonotonicTime ts, Eterm pid)
 {
+    Eterm *hp;
     Eterm message, md, el_tag = tag;
-    Eterm time = erts_bld_sint64(&hp, NULL, ts);
+    Uint sz = 0;
+    Eterm time;
+
+    erts_bld_sint64(NULL, &sz, ts);
+    hp = erts_produce_heap(factory, sz, 0);
+    time = erts_bld_sint64(&hp, NULL, ts);
 
     /* This mapping is needed for the backwards compatible error_logger */
     switch (tag) {
@@ -2505,42 +2511,40 @@ static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args
         break;
     }
 
+    hp = erts_produce_heap(factory, MAP2_SZ, 0);
     md = MAP2(hp, am_emulator, am_true, ERTS_MAKE_AM("tag"), el_tag);
-    hp += MAP2_SZ;
 
     if (is_nil(gl) && is_non_value(pid)) {
         /* no gl and no pid, probably from a port */
+        hp = erts_produce_heap(factory, MAP2_SZ, 0);
         md = MAP2(hp,
                   am_error_logger, md,
                   am_time, time);
-        hp += MAP2_SZ;
         pid = NIL;
     } else if (is_nil(gl)) {
         /* no gl */
+        hp = erts_produce_heap(factory, MAP3_SZ, 0);
         md = MAP3(hp,
                   am_error_logger, md,
                   am_pid, pid,
                   am_time, time);
-        hp += MAP3_SZ;
     } else if (is_non_value(pid)) {
         /* no gl */
+        hp = erts_produce_heap(factory, MAP3_SZ, 0);
         md = MAP3(hp,
                   am_error_logger, md,
                   ERTS_MAKE_AM("gl"), gl,
                   am_time, time);
-        hp += MAP3_SZ;
         pid = NIL;
     } else {
-        md = MAP4(hp,
-                  am_error_logger, md,
-                  ERTS_MAKE_AM("gl"), gl,
-                  am_pid, pid,
-                  am_time, time);
-        hp += MAP4_SZ;
+        Eterm keys[] = { am_error_logger, ERTS_MAKE_AM("gl"), am_pid, am_time };
+        Eterm values[] = { md, gl, pid, time };
+        md = erts_map_from_ks_and_vs(factory, keys, values, 4);
     }
-
+    hp = erts_produce_heap(factory, 6, 0);
     message = TUPLE5(hp, am_log, tag, format, args, md);
-    erts_queue_error_logger_message(pid, message, bp);
+    erts_factory_close(factory);
+    erts_queue_error_logger_message(pid, message, factory->heap_frags);
 }
 
 static int do_send_to_logger(Eterm tag, Eterm gl, char *buf, size_t len)
@@ -2548,23 +2552,23 @@ static int do_send_to_logger(Eterm tag, Eterm gl, char *buf, size_t len)
     Uint sz;
     Eterm list, args, format, pid;
     ErtsMonotonicTime ts;
+    ErtsHeapFactory factory;
 
     Eterm *hp = NULL;
-    ErlOffHeap *ohp = NULL;
-    ErlHeapFragment *bp = NULL;
 
     sz = len * 2 /* message list */ + 2 /* cons surrounding message list */
 	+ 8 /* "~s~n" */;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
+    gl = do_allocate_logger_message(&factory, gl, &ts, &pid, sz);
 
+    hp = erts_produce_heap(&factory, sz, 0);
     list = buf_to_intlist(&hp, buf, len, NIL);
     args = CONS(hp,list,NIL);
     hp += 2;
     format = buf_to_intlist(&hp, "~s~n", 4, NIL);
 
-    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
+    do_send_logger_message(&factory, gl, tag, format, args, ts, pid);
     return 0;
 }
 
@@ -2577,8 +2581,7 @@ static int do_send_term_to_logger(Eterm tag, Eterm gl,
     ErtsMonotonicTime ts;
 
     Eterm *hp = NULL;
-    ErlOffHeap *ohp = NULL;
-    ErlHeapFragment *bp = NULL;
+    ErtsHeapFactory factory;
 
     ASSERT(len > 0);
 
@@ -2586,12 +2589,13 @@ static int do_send_term_to_logger(Eterm tag, Eterm gl,
     sz = len * 2 /* format */ + args_sz;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
+    gl = do_allocate_logger_message(&factory, gl, &ts, &pid, sz);
 
+    hp = erts_produce_heap(&factory, sz, 0);
     format = buf_to_intlist(&hp, buf, len, NIL);
-    args = copy_struct(args, args_sz, &hp, ohp);
+    args = copy_struct(args, args_sz, &hp, factory.off_heap);
 
-    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
+    do_send_logger_message(&factory, gl, tag, format, args, ts, pid);
     return 0;
 }
 
