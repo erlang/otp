@@ -6680,7 +6680,7 @@ loop_it_1(Oid, N) ->
     end.
 	    
 
-%% Req. As many mibs all possible
+%% Req. As many mibs as possible
 loop_mib_2_test() ->
     ?IPRINT("loop_mib_2_test -> entry"),
     N = loop_it_2([1,1], 0),
@@ -6769,18 +6769,22 @@ loop_it_2(Oid, N) ->
             SysEvs = snmp_test_global_sys_monitor:events(),
             if
                 (SysEvs =:= []) ->
-                    ?EPRINT("loop_it_2 -> error: "
-                            "~n      ~p", [Reason]),
+                    ?EPRINT("loop_it_2 -> error *without* system events: "
+                            "~n   Oid:    ~p"
+                            "~n   N:      ~p"
+                            "~n   Reason: ~p", [Oid, N,Reason]),
                     ?FAIL([{get_next_oid, Oid},
-                                 {counter,      N},
-                                 {reason,       Reason}]);
+                           {counter,      N},
+                           {reason,       Reason}]);
 
-                        true ->
+                true ->
                     ?WPRINT("loop_it_2 -> "
-                            "error when we got system events: "
+                            "error *with* system events: "
+                            "~n   Oid:        ~p"
+                            "~n   N:          ~p"
                             "~n   Reason:     ~p"
                             "~n   Sys Events: ~p"
-                            "~n", [Reason, SysEvs]),
+                            "~n", [Oid, N, Reason, SysEvs]),
                     ?SKIP([{reason, Reason}, {system_events, SysEvs}])
             end
     end.
