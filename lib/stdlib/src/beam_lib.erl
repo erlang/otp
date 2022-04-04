@@ -953,7 +953,7 @@ error(Reason) ->
 %% The following chunks must be kept when stripping a BEAM file.
 
 significant_chunks() ->
-    ["Line" | md5_chunks()].
+    ["Line", "Type", "Meta" | md5_chunks()].
 
 %% The following chunks are significant when calculating the MD5
 %% for a module. They are listed in the order that they should be MD5:ed.
