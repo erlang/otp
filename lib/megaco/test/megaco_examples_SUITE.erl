@@ -45,6 +45,8 @@
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 
+-define(TEST_VERBOSITY, debug).
+
 
 %%======================================================================
 %% Common Test interface functions
@@ -341,18 +343,32 @@ purge_example(Mods) ->
 simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
+    Pre  = fun() ->
+                   d("simple -> "
+                     "create (3) node name(s) (includes the own node)"),
+                   %% We actually need two *new* nodes,
+                   %% but the function includes the own node,
+                   %% so we need to ask for one more.
+                   [_Local, MGC, MG] = ?MK_NODES(3),
+                   Nodes = [MGC, MG],
 
-    d("simple -> create (3) node name(s) (includes the own node)"),
-    %% We actually need two (nodes), but the function includes the own node,
-    %% so we need to ask for one more.
-    [_Local, MGC, MG] = ?MK_NODES(3),
-    Nodes = [MGC, MG],
+                   d("simple -> start nodes: "
+                     "~n      ~p", [Nodes]),
+                   ok = ?START_NODES(Nodes, true),
+                   Nodes
+           end,
+    Case = fun(Nodes) ->
+                   do_simple(Config, Nodes)
+           end,
+    Post = fun(Nodes) ->
+                   d("simple -> stop nodes"
+                     "~n      ~p", [Nodes]),
+                   ?STOP_NODES(Nodes)
+           end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-    d("simple -> start nodes: "
-      "~n      ~p", [Nodes]),
-    ok = ?START_NODES(Nodes, true),
-    
+
+do_simple(_Config, [MGC, MG]) ->
     MGCId = "MGC",
     MGId  = "MG",
 
@@ -476,10 +492,6 @@ simple(Config) when is_list(Config) ->
 	    ok
     end,
 
-    d("simple -> stop nodes"
-      "~n      ~p", [Nodes]),
-    ?STOP_NODES(Nodes),
-
     d("simple -> done", []),
     ok.
 
@@ -599,32 +611,39 @@ users(Proxy) ->
 meas(suite) ->
     [];
 meas(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    MFactor = ?config(megaco_factor, Config),
-    {Time, Factor} =
-        if
-            (MFactor =:= 1) ->
-                {3, 100};
-            (MFactor =:= 2) ->
-                {4, 100};
-            (MFactor =:= 3) ->
-                {4, 200};
-            (MFactor =:= 4) ->
-                {5, 200};
-            (MFactor =:= 5) ->
-                {5, 400};
-            true ->
-                {6, 400}
-        end,
-    p("Run with: "
-      "~n      Timetrap: ~p mins"
-      "~n      Factor:   ~p", [Time, Factor]),
-    ct:timetrap(?MINS(Time)),
-    WorkerNode = ?config(worker_node, Config),
-    do_meas(?FUNCTION_NAME, WorkerNode, megaco_codec_meas, start, [Factor]).
+    Pre  = fun() ->
+                   MFactor = ?config(megaco_factor, Config),
+                   {Time, Factor} =
+                       if
+                           (MFactor =:= 1) ->
+                               {3,  100};
+                           (MFactor =:= 2) ->
+                               {4,  100};
+                           (MFactor =:= 3) ->
+                               {4,  200};
+                           (MFactor =:= 4) ->
+                               {5,  300};
+                           (MFactor =:= 5) ->
+                               {5,  400};
+                           (MFactor =:= 6) ->
+                               {6,  500};
+                           true ->
+                               {10, 600}
+                       end,
+                   p("Run with: "
+                     "~n      Timetrap: ~p mins"
+                     "~n      Factor:   ~p", [Time, Factor]),
+                   ct:timetrap(?MINS(Time)),
+                   WorkerNode = ?config(worker_node, Config),
+                   {Factor, WorkerNode}
+           end,
+    Case = fun({Factor, WorkerNode}) ->
+                   do_meas(WorkerNode, megaco_codec_meas, start, [Factor])
+           end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-do_meas(SName, Node, Mod, Func, Args) ->
-    put(sname, SName),
+do_meas(Node, Mod, Func, Args) ->
     F = fun() ->
                 exit( rpc:call(Node, Mod, Func, Args) )
         end,
@@ -648,9 +667,17 @@ do_meas(SName, Node, Mod, Func, Args) ->
         {'DOWN', MRef, process, Pid, Reason} ->
             p("worker process terminated: "
               "~n      ~p", [Reason]),
-            ok
+            ok;
+
+        {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCSTack}} ->
+            p("received timetrap timeout (~w ms) from ~p => "
+              "Kill executor process"
+              "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
+            exit(Pid, kill),
+            ?SKIP(R)
     end,
     ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -660,23 +687,30 @@ do_meas(SName, Node, Mod, Func, Args) ->
 mstone1(suite) ->
     [];
 mstone1(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    WorkerNode = ?config(worker_node, Config),
-    %% The point of this is
-    %% to make sure we utilize as much of the host as possible...
-    RunTime   = 1, % Minute
-    NumSched  = try erlang:system_info(schedulers_online) of N -> N
-                catch _:_:_ -> 1
-                end,
-    Factor    = 1 + (NumSched div 12),
-    Mod       = megaco_codec_mstone1,
-    Func      = start,
-    Args      = [RunTime, Factor],
-    p("Run with: "
-      "~n      Run Time: ~p min(s)"
-      "~n      Factor:   ~p", [RunTime, Factor]),
-    ct:timetrap(?MINS(RunTime + 1)),
-    do_meas(?FUNCTION_NAME, WorkerNode, Mod, Func, Args).
+    Pre  = fun() ->
+                   %% The point of this is to make sure we
+                   %% utilize as much of the host as possible...
+                   RunTime   = 1, % Minute
+                   NumSched  =
+                       try erlang:system_info(schedulers_online) of N -> N
+                       catch _:_:_ -> 1
+                       end,
+                   Factor    = 1 + (NumSched div 12),
+                   ct:timetrap(?MINS(RunTime + 1)),
+                   {RunTime, Factor, ?config(worker_node, Config)}
+           end,
+    Case = fun({RunTime, Factor, WorkerNode}) ->
+                   Mod  = megaco_codec_mstone1,
+                   Func = start,
+                   Args = [RunTime, Factor],
+                   p("Run with: "
+                     "~n      Run Time: ~p min(s)"
+                     "~n      Factor:   ~p", [RunTime, Factor]),
+                   do_meas(WorkerNode, Mod, Func, Args)
+           end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+                   
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -686,23 +720,29 @@ mstone1(Config) when is_list(Config) ->
 mstone2(suite) ->
     [];
 mstone2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    WorkerNode = ?config(worker_node, Config),
-    RunTime   = 1, % Minutes
-    NumSched  = try erlang:system_info(schedulers_online) of N -> N
-                catch _:_:_ -> 1
-                end,
-    Factor    = 1 + (NumSched div 12),
-    Mode      = standard,
-    Mod       = megaco_codec_mstone2,
-    Func      = start,
-    Args      = [Factor, RunTime, Mode],
-    p("Run with: "
-      "~n      Factor:   ~p"
-      "~n      Run Time: ~p min(s)"
-      "~n      Mode:     ~p", [Factor, RunTime, Mode]),
-    ct:timetrap(?MINS(RunTime + 1)),
-    do_meas(?FUNCTION_NAME, WorkerNode, Mod, Func, Args).
+    Pre  = fun() ->
+                   RunTime  = 1, % Minutes
+                   NumSched =
+                       try erlang:system_info(schedulers_online) of N -> N
+                       catch _:_:_ -> 1
+                       end,
+                   Factor   = 1 + (NumSched div 12),
+                   ct:timetrap(?MINS(RunTime + 1)),
+                   {Factor, RunTime, ?config(worker_node, Config)}
+           end,
+    Case = fun({Factor, RunTime, WorkerNode}) ->
+                   Mode = standard,
+                   Mod  = megaco_codec_mstone2,
+                   Func = start,
+                   Args = [Factor, RunTime, Mode],
+                   p("Run with: "
+                     "~n      Factor:   ~p"
+                     "~n      Run Time: ~p min(s)"
+                     "~n      Mode:     ~p", [Factor, RunTime, Mode]),
+                   do_meas(WorkerNode, Mod, Func, Args)
+           end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -729,6 +769,16 @@ start_unique_node(Pre, N) when is_integer(N) andalso (N > 0) ->
 unique_node_name(Pre) ->
     [_, Host] = string:tokens(atom_to_list(node()), [$@]),
     list_to_atom(?F("~s@~s", [?UNIQUE(Pre), Host])).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "EX-TESTER", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

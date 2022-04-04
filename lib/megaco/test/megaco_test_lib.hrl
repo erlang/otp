@@ -125,11 +125,19 @@
 
 -define(ANNOUNCE_SUITE_INIT(),
 	io:format(user, "~n*** ~s *** suite ~w init~n~n", [?FTS(), ?MODULE])).
+-define(ANNOUNCE_SUITE_END(),
+	io:format(user, "~n*** ~s *** suite ~w end~n~n", [?FTS(), ?MODULE])).
 -define(ANNOUNCE_GROUP_INIT(GR),
 	io:format(user, "~n*** ~s *** group ~w:~w init~n~n", 
 		  [?FTS(), ?MODULE, GR])).
+-define(ANNOUNCE_GROUP_END(GR),
+	io:format(user, "~n*** ~s *** group ~w:~w end~n~n", 
+		  [?FTS(), ?MODULE, GR])).
 -define(ANNOUNCE_CASE_INIT(C),
 	io:format(user, "~n*** ~s *** case ~w:~w init~n~n", 
+		  [?FTS(), ?MODULE, C])).
+-define(ANNOUNCE_CASE_END(C),
+	io:format(user, "~n*** ~s *** case ~w:~w end~n~n", 
 		  [?FTS(), ?MODULE, C])).
 
 -define(UNIQUE(__PreName__),
