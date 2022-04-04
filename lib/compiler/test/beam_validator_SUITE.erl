@@ -38,7 +38,7 @@
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
-         missing_return_type/1,will_bif_succeed/1,
+         missing_return_type/1,will_succeed/1,
          bs_saved_position_units/1,parent_container/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -72,7 +72,7 @@ groups() ->
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
-       missing_return_type,will_bif_succeed,
+       missing_return_type,will_succeed,
        bs_saved_position_units,parent_container]}].
 
 init_per_suite(Config) ->
@@ -928,22 +928,56 @@ night(Turned) ->
 
 participating(_, _, _, _) -> ok.
 
+will_succeed(_Config) ->
+    ok = will_succeed_1(body),
+
+    self() ! whatever,
+    error = will_succeed_2(),
+
+    self() ! whatever,
+    error = will_succeed_3(),
+
+    ok.
+
 %% map_get was known as returning 'none', but 'will_succeed' still returned
 %% 'maybe' causing validation to continue, eventually exploding when the 'none'
 %% value was used.
-will_bif_succeed(_Config) ->
-    ok = f1(body).
-
+%%
 %% +no_ssa_opt
-f1(body) when map_get(girl, #{friend => node()}); [], community ->
+will_succeed_1(body) when map_get(girl, #{friend => node()}); [], community ->
     case $q and $K of
         _V0 ->
             0.1825965401179273;
         0 ->
             state#{[] => 0.10577334580729858, $J => 0}
     end;
-f1(body) ->
+will_succeed_1(body) ->
     ok.
+
+%% The apply of 42:name/0 was known to fail, but 'will_succeed' still
+%% returned 'maybe', causing validation to continue and fail because
+%% of the jump to the try_case instruction.
+will_succeed_2() ->
+    try
+        receive
+            _ ->
+                42
+        end:name()
+    catch
+        _:_ ->
+            error
+    end.
+
+will_succeed_3() ->
+    try
+        receive
+            _ ->
+                42
+        end:name(a, b)
+    catch
+        _:_ ->
+            error
+    end.
 
 %% ERL-1426: When a value was extracted from a tuple, subsequent type tests did
 %% not update the type of said tuple.
