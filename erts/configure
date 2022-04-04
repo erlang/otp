@@ -15917,6 +15917,23 @@ fi
 
 
 
+ac_fn_c_check_member "$LINENO" "struct sockaddr_dl" "sdl_len" "ac_cv_member_struct_sockaddr_dl_sdl_len" "#ifdef __WIN32__
+	 #else
+	 #include <net/if_dl.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_sockaddr_dl_sdl_len" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SOCKADDR_DL_SDL_LEN 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_SDL_LEN /**/" >>confdefs.h
+
+fi
+
+
 #--------------------------------------------------------------------
 #	Check for the existence of the -lsocket and -lnsl libraries.
 #	The order here is important, so that they end up in the right
