@@ -78,7 +78,7 @@
 	 connecttime/0,
 	 i/0, i/1, verbose/1]).
 
--export([publish_on_node/1, update_publish_nodes/1]).
+-export([publish_on_node/1]).
 
 %% Internal exports for spawning processes.
 
@@ -107,8 +107,7 @@
 	  pend_owners = #{}, %% Map of potential owners
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
-	  verbose = 0,   %% level of verboseness
-	  publish_on_nodes = undefined
+	  verbose = 0   %% level of verboseness
 	 }).
 
 -record(listen, {
@@ -312,11 +311,9 @@ disconnect(Node) ->            request({disconnect, Node}).
 
 %% Should this node publish itself on Node?
 publish_on_node(Node) when is_atom(Node) ->
-    request({publish_on_node, Node}).
-
-%% Update publication list
-update_publish_nodes(Ns) ->
-    request({update_publish_nodes, Ns}).
+    global_group:publish(persistent_term:get({?MODULE, publish_type},
+                                             hidden),
+                         Node).
 
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
@@ -383,6 +380,8 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
     case init_node(Name, LongOrShortNames, CleanHalt) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
+            persistent_term:put({?MODULE, publish_type},
+                                publish_type()),
 	    Ticktime = to_integer(TickT),
 	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
 	    {ok, #state{name = Name,
@@ -399,6 +398,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 			verbose = 0
 		       }};
 	Error ->
+            _ = persistent_term:erase({?MODULE, publish_type}),
 	    {stop, Error}
     end.
 
@@ -596,25 +596,6 @@ handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
 
-handle_call({update_publish_nodes, Ns}, From, State) ->
-    async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
-
-handle_call({publish_on_node, Node}, From, State) ->
-    NewState = case State#state.publish_on_nodes of
-		   undefined ->
-		       State#state{publish_on_nodes =
-				   global_group:publish_on_nodes()};
-		   _ ->
-		       State
-	       end,
-    Publish = case NewState#state.publish_on_nodes of
-		  all ->
-		      true;
-		  Nodes ->
-		      lists:member(Node, Nodes)
-	      end,
-    async_reply({reply, Publish, NewState}, From);
-
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},
                 From);
@@ -713,10 +694,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------
 
 terminate(no_network, State) ->
+    _ = persistent_term:erase({?MODULE, publish_type}),
     lists:foreach(
       fun(Node) -> ?nodedown(Node, State)
       end, get_nodes_up_normal() ++ [node()]);
 terminate(_Reason, State) ->
+    _ = persistent_term:erase({?MODULE, publish_type}),
     lists:foreach(
       fun(#listen {listen = Listen,module = Mod}) ->
 	      Mod:close(Listen)
@@ -1602,6 +1585,19 @@ epmd_module() ->
 	    list_to_atom(Module);
 	_ ->
 	    erl_epmd
+    end.
+
+%%%
+%%% publish type
+%%%
+publish_type() ->
+    case init:get_argument(hidden) of
+	{ok,[[] | _]} ->
+	    hidden;
+	{ok,[["true" | _] | _]} ->
+	    hidden;
+	_ ->
+	    normal
     end.
 
 %%
