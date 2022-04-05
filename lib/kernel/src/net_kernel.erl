@@ -78,8 +78,6 @@
 	 connecttime/0,
 	 i/0, i/1, verbose/1]).
 
--export([publish_on_node/1, update_publish_nodes/1]).
-
 %% Internal exports for spawning processes.
 
 -export([do_spawn/3,
@@ -107,8 +105,7 @@
 	  pend_owners = #{}, %% Map of potential owners
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
-	  verbose = 0,   %% level of verboseness
-	  publish_on_nodes = undefined
+	  verbose = 0   %% level of verboseness
 	 }).
 
 -record(listen, {
@@ -309,14 +306,6 @@ passive_cnct(Node) ->
     end.
 
 disconnect(Node) ->            request({disconnect, Node}).
-
-%% Should this node publish itself on Node?
-publish_on_node(Node) when is_atom(Node) ->
-    request({publish_on_node, Node}).
-
-%% Update publication list
-update_publish_nodes(Ns) ->
-    request({update_publish_nodes, Ns}).
 
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
@@ -595,25 +584,6 @@ handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
 
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
-
-handle_call({update_publish_nodes, Ns}, From, State) ->
-    async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
-
-handle_call({publish_on_node, Node}, From, State) ->
-    NewState = case State#state.publish_on_nodes of
-		   undefined ->
-		       State#state{publish_on_nodes =
-				   global_group:publish_on_nodes()};
-		   _ ->
-		       State
-	       end,
-    Publish = case NewState#state.publish_on_nodes of
-		  all ->
-		      true;
-		  Nodes ->
-		      lists:member(Node, Nodes)
-	      end,
-    async_reply({reply, Publish, NewState}, From);
 
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},

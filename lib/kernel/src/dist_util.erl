@@ -130,7 +130,7 @@ adjust_flags(ThisFlags, OtherFlags) ->
 publish_flag(hidden, _) ->
     0;
 publish_flag(_, OtherNode) ->
-    case net_kernel:publish_on_node(OtherNode) of
+    case global_group:publish(OtherNode) of
 	true ->
 	    ?DFLAG_PUBLISHED;
 	_ ->

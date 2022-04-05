@@ -47,7 +47,6 @@
 -export([send_test/2]).
 -export([whereis_name_test/1]).
 -export([get_own_nodes/0, get_own_nodes_with_errors/0]).
--export([publish_on_nodes/0]).
 
 %% Application internal exports (probably more above...)
 
@@ -1511,21 +1510,4 @@ publish(Node) ->
             true;
         #gconf{} ->
             false
-    end.
-
-
-%%%====================================================================================
-%%% Fetch publication list
-%%%====================================================================================
-
-publish_on_nodes() ->
-    case lookup_group_conf() of
-        #gconf{own_publish_type = normal, group_list = []} ->
-            all;
-        #gconf{own_publish_type = hidden, group_list = []} ->
-            [];
-        #gconf{own_publish_type = normal, group_publish_type = normal} ->
-            all;
-        #gconf{group_list = Nodes} ->
-            Nodes
     end.
