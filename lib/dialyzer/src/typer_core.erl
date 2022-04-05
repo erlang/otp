@@ -34,9 +34,10 @@
 -define(SHOW, show).
 -define(SHOW_EXPORTED, show_exported).
 -define(ANNOTATE, annotate).
+-define(ANNOTATE_IN_PLACE, annotate_in_place).
 -define(ANNOTATE_INC_FILES, annotate_inc_files).
 
--type mode() :: ?SHOW | ?SHOW_EXPORTED | ?ANNOTATE | ?ANNOTATE_INC_FILES.
+-type mode() :: ?SHOW | ?SHOW_EXPORTED | ?ANNOTATE | ?ANNOTATE_IN_PLACE | ?ANNOTATE_INC_FILES.
 
 %%-----------------------------------------------------------------------
 
@@ -247,7 +248,7 @@ show_or_annotate(#analysis{mode = Mode, fms = Files} = Analysis) ->
   case Mode of
     ?SHOW -> show(Analysis);
     ?SHOW_EXPORTED -> show(Analysis);
-    ?ANNOTATE ->
+    Mode when Mode == ?ANNOTATE; Mode == ?ANNOTATE_IN_PLACE ->
       Fun = fun ({File, Module}) ->
                 Info = get_final_info(File, Module, Analysis),
                 write_typed_file(File, Info, Analysis)
@@ -454,7 +455,7 @@ get_functions(File, Analysis) ->
     ?SHOW_EXPORTED ->
       Ex_Funcs = map__lookup(File, Analysis#analysis.ex_func),
       remove_module_info(Ex_Funcs);
-    ?ANNOTATE ->
+    Mode when Mode == ?ANNOTATE; Mode == ?ANNOTATE_IN_PLACE ->
       Funcs = map__lookup(File, Analysis#analysis.func),
       remove_module_info(Funcs);
     ?ANNOTATE_INC_FILES ->
@@ -478,28 +479,33 @@ write_typed_file(File, Info, Analysis) ->
   Dir = filename:dirname(File),
   RootName = filename:basename(filename:rootname(File)),
   Ext = filename:extension(File),
-  TyperAnnDir = filename:join(Dir, ?TYPER_ANN_DIR),
-  TmpNewFilename = lists:concat([RootName, ".ann", Ext]),
-  NewFileName = filename:join(TyperAnnDir, TmpNewFilename),
-  case file:make_dir(TyperAnnDir) of
-    {error, Reason} ->
-      case Reason of
-        eexist -> %% TypEr dir exists; remove old typer files if they exist
-          delete_file(NewFileName, Analysis),
-          write_typed_file(File, Info, NewFileName, Analysis);
-        enospc ->
-          Msg = io_lib:format("Not enough space in ~tp", [Dir]),
-          fatal_error(Msg, Analysis);
-        eacces ->
-          Msg = io_lib:format("No write permission in ~tp", [Dir]),
-          fatal_error(Msg, Analysis);
-        _ ->
-          Msg = io_lib:format("Unhandled error ~ts when writing ~tp",
-                            [Reason, Dir]),
-          fatal_error(Msg, Analysis)
-        end;
-      ok -> %% Typer dir does NOT exist
-        write_typed_file(File, Info, NewFileName, Analysis)
+  case Analysis#analysis.mode of
+    ?ANNOTATE_IN_PLACE ->
+      write_typed_file(File, Info, File, Analysis);
+    _ ->
+        TyperAnnDir = filename:join(Dir, ?TYPER_ANN_DIR),
+        TmpNewFilename = lists:concat([RootName, ".ann", Ext]),
+        NewFileName = filename:join(TyperAnnDir, TmpNewFilename),
+        case file:make_dir(TyperAnnDir) of
+          {error, Reason} ->
+            case Reason of
+          eexist -> %% TypEr dir exists; remove old typer files if they exist
+            delete_file(NewFileName, Analysis),
+            write_typed_file(File, Info, NewFileName, Analysis);
+          enospc ->
+            Msg = io_lib:format("Not enough space in ~tp", [Dir]),
+            fatal_error(Msg, Analysis);
+          eacces ->
+            Msg = io_lib:format("No write permission in ~tp", [Dir]),
+            fatal_error(Msg, Analysis);
+          _ ->
+            Msg = io_lib:format("Unhandled error ~ts when writing ~tp",
+                              [Reason, Dir]),
+            fatal_error(Msg, Analysis)
+              end;
+            ok -> %% Typer dir does NOT exist
+              write_typed_file(File, Info, NewFileName, Analysis)
+        end
   end.
 
 -spec delete_file(file:filename_all(), analysis()) -> ok.
@@ -516,6 +522,12 @@ delete_file(File, Analysis) ->
 
 write_typed_file(File, Info, NewFileName, Analysis) ->
   {ok, Binary} = file:read_file(File),
+  case Analysis#analysis.mode of
+    ?ANNOTATE_IN_PLACE ->
+      delete_file(NewFileName, Analysis);
+    _ ->
+      ok
+  end,
   Chars = unicode:characters_to_list(Binary),
   write_typed_file(Chars, NewFileName, Info, 1, [], Analysis),
   msg(info, "             Saved as: ~tp", [NewFileName], Analysis).
@@ -548,9 +560,19 @@ write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc, Analysis) ->
       end
   end.
 
-raw_write(F, A, Info, File, Content, Analysis) ->
+raw_write(F, A, Info, File, Content, #analysis{mode = Mode} = Analysis) ->
   TypeInfo = get_type_string(F, A, Info, file, Analysis),
-  ContentList = lists:reverse(Content) ++ TypeInfo ++ "\n",
+  ContentList =
+    case {TypeInfo, Mode} of
+      %% TypeInfo will be an empty string for functions that already have specs.
+      %% In this case, when annotating directly on the files (with annotate_in_place),
+      %% we don't want to add a newline character on the spec line, as presumably it should
+      %% already have one.
+      {"", ?ANNOTATE_IN_PLACE} ->
+        lists:reverse(Content) ++ TypeInfo;
+      _ ->
+        lists:reverse(Content) ++ TypeInfo ++ "\n"
+    end,
   ContentBin = unicode:characters_to_binary(ContentList),
   file:write_file(File, ContentBin, [append]).
 
