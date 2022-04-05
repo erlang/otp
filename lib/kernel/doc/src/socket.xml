@@ -292,6 +292,10 @@
       <desc></desc>
     </datatype>
     <datatype>
+      <name name="sockaddr_dl"/>
+      <desc></desc>
+    </datatype>
+    <datatype>
       <name name="sockaddr_unspec"/>
       <desc></desc>
     </datatype>
