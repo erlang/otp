@@ -124,6 +124,7 @@
          aes_128_ctr/1,
          aes_128_ecb/1,
          aes_128_gcm/1,
+         aes_128_ofb/1,
          aes_192_cbc/1,
          aes_192_ccm/1,
          aes_192_cfb128/1,
@@ -131,6 +132,7 @@
          aes_192_ctr/1,
          aes_192_ecb/1,
          aes_192_gcm/1,
+         aes_192_ofb/1,
          aes_256_cbc/1,
          aes_256_ccm/1,
          aes_256_cfb128/1,
@@ -138,6 +140,7 @@
          aes_256_ctr/1,
          aes_256_ecb/1,
          aes_256_gcm/1,
+         aes_256_ofb/1,
          aes_cbc/1,
          aes_cbc128/1,
          aes_cbc256/1,
@@ -273,7 +276,10 @@ groups() ->
                      {group, aes_256_cfb128},
                      {group, aes_128_cfb8},
                      {group, aes_192_cfb8},
-                     {group, aes_256_cfb8}
+                     {group, aes_256_cfb8},
+                     {group, aes_128_ofb},
+                     {group, aes_192_ofb},
+                     {group, aes_256_ofb}
                     ]},
      {fips, [], [
                  {group, no_blake2b},
@@ -333,7 +339,10 @@ groups() ->
                  {group, aes_256_cfb128},
                  {group, aes_128_cfb8},
                  {group, aes_192_cfb8},
-                 {group, aes_256_cfb8}
+                 {group, aes_256_cfb8},
+                 {group, aes_128_ofb},
+                 {group, aes_192_ofb},
+                 {group, aes_256_ofb}
                 ]},
 
      {md4,                  [], [hash]},
@@ -449,7 +458,10 @@ groups() ->
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_gcm,  [], [aead_ng, aead_bad_tag]},
-     {aes_256_gcm,  [], [aead_ng, aead_bad_tag]}
+     {aes_256_gcm,  [], [aead_ng, aead_bad_tag]},
+     {aes_128_ofb,  [], [api_ng, api_ng_one_shot]},
+     {aes_192_ofb,  [], [api_ng, api_ng_one_shot]},
+     {aes_256_ofb,  [], [api_ng, api_ng_one_shot]}
     ].
 
 %%-------------------------------------------------------------------
@@ -2872,6 +2884,21 @@ aes_256_cbc(Config) ->
     read_rsp(Config, aes_256_cbc,
              ["CBCVarTxt256.rsp", "CBCVarKey256.rsp", "CBCGFSbox256.rsp", "CBCKeySbox256.rsp",
               "CBCMMT256.rsp"]).
+
+aes_128_ofb(Config) ->
+    read_rsp(Config, aes_128_ofb,
+             ["OFBVarTxt128.rsp", "OFBVarKey128.rsp", "OFBGFSbox128.rsp", "OFBKeySbox128.rsp",
+              "OFBMMT128.rsp"]).
+
+aes_192_ofb(Config) ->
+    read_rsp(Config, aes_192_ofb,
+             ["OFBVarTxt192.rsp", "OFBVarKey192.rsp", "OFBGFSbox192.rsp", "OFBKeySbox192.rsp",
+              "OFBMMT192.rsp"]).
+
+aes_256_ofb(Config) ->
+    read_rsp(Config, aes_256_ofb,
+             ["OFBVarTxt256.rsp", "OFBVarKey256.rsp", "OFBGFSbox256.rsp", "OFBKeySbox256.rsp",
+              "OFBMMT256.rsp"]).
 
 aes_ecb(Config) ->
     read_rsp(Config, aes_ecb,

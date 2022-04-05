@@ -75,6 +75,10 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_cbc"}, "aes-192-cbc", {&EVP_aes_192_cbc}, 24, 0, NOT_AEAD},
     {{"aes_256_cbc"}, "aes-256-cbc", {&EVP_aes_256_cbc}, 32, 0, NOT_AEAD},
 
+    {{"aes_128_ofb"}, "aes-128-ofb", {&EVP_aes_128_ofb}, 16, 0, NOT_AEAD},
+    {{"aes_192_ofb"}, "aes-192-ofb", {&EVP_aes_192_ofb}, 24, 0, NOT_AEAD},
+    {{"aes_256_ofb"}, "aes-256-ofb", {&EVP_aes_256_ofb}, 32, 0, NOT_AEAD},
+
     {{"aes_128_cfb8"}, "aes-128-cfb8", {&EVP_aes_128_cfb8}, 16, AES_CFBx, NOT_AEAD},
     {{"aes_192_cfb8"}, "aes-192-cfb8", {&EVP_aes_192_cfb8}, 24, AES_CFBx, NOT_AEAD},
     {{"aes_256_cfb8"}, "aes-256-cfb8", {&EVP_aes_256_cfb8}, 32, AES_CFBx, NOT_AEAD},
