@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, CompilerOpts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -199,10 +199,19 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
                       <<?BEAM_TYPES_VERSION:32, NumTypes:32>>,
                       TypeTab),
 
+    %% Create the meta chunk
+    Meta = proplists:get_value(<<"Meta">>, ExtraChunks0, empty),
+    MetaChunk = case Meta of
+                    empty -> [];
+                    Meta -> chunk(<<"Meta">>, Meta)
+                end,
+    %% Remove Meta chunk from ExtraChunks since it is essential
+    ExtraChunks = ExtraChunks0 -- [{<<"Meta">>, Meta}],
+
     %% Create the attributes and compile info chunks.
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
-		   ExpChunk,LambdaChunk,LiteralChunk],
+		   ExpChunk,LambdaChunk,LiteralChunk,MetaChunk],
     Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
     MD5 = module_md5(Essentials1),
     Essentials = finalize_fun_table(Essentials1, MD5),

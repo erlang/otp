@@ -869,6 +869,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('L', 'o', 'c', 'T'), /* 10 */
         MakeIffId('A', 't', 'o', 'm'), /* 11 */
         MakeIffId('T', 'y', 'p', 'e'), /* 12 */
+        MakeIffId('M', 'e', 't', 'a'), /* 13 */
     };
 
     static const int UTF8_ATOM_CHUNK = 0;
@@ -886,6 +887,7 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
 #endif
     static const int OBSOLETE_ATOM_CHUNK = 11;
     static const int TYPE_CHUNK = 12;
+    static const int META_CHUNK = 13;
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -1050,6 +1052,12 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
             MD5Update(&md5,
                       (byte*)chunks[LITERAL_CHUNK].data,
                       chunks[LITERAL_CHUNK].size);
+        }
+
+        if (chunks[META_CHUNK].size > 0) {
+            MD5Update(&md5,
+                      (byte*)chunks[META_CHUNK].data,
+                      chunks[META_CHUNK].size);
         }
 
         MD5Final(beam->checksum, &md5);
