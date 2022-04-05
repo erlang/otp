@@ -40,7 +40,7 @@ random_list(N,Acc) ->
     random_list(N-1,[random_byte() | Acc]).
 
 random_binary(N) ->
-    B = list_to_binary(random_list(N,[])),
+    B = rand:bytes(N),
     case {rand:uniform(2),size(B)} of
 	{2,M} when M > 1 ->
 	    S = M-1,

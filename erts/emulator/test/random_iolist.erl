@@ -44,8 +44,8 @@ random_list(N,Acc) ->
     random_list(N-1,[random_byte() | Acc]).
 
 random_binary(N) ->
-    B = list_to_binary(random_list(N,[])),
-    case {rand:uniform(2),size(B)} of
+    B = rand:bytes(N),
+    case {rand:uniform(2),byte_size(B)} of
 	{2,M} when M > 1 ->
 	    S = M-1,
 	    <<_:3,C:S/binary,_:5>> = B,
@@ -53,6 +53,7 @@ random_binary(N) ->
 	_ ->
 	    B
     end.
+
 random_list(N) ->
     random_list(N,[]).
 
