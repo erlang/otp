@@ -589,6 +589,22 @@ bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits) ->
     bytes_r(N, AlgHandler, Next, R, <<>>, GoodBytes, GoodBits, Shift).
 %%
 bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
+  when (GoodBytes bsl 2) < N0 ->
+    %% Loop unroll 4 iterations
+    %% - gives about 25% shorter time for large binaries
+    {V1, R1} = Next(R0),
+    {V2, R2} = Next(R1),
+    {V3, R3} = Next(R2),
+    {V4, R4} = Next(R3),
+    Bytes1 =
+        <<Bytes0/binary,
+          (V1 bsr Shift):GoodBits,
+          (V2 bsr Shift):GoodBits,
+          (V3 bsr Shift):GoodBits,
+          (V4 bsr Shift):GoodBits>>,
+    N1 = N0 - (GoodBytes bsl 2),
+    bytes_r(N1, AlgHandler, Next, R4, Bytes1, GoodBytes, GoodBits, Shift);
+bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
   when GoodBytes < N0 ->
     {V, R1} = Next(R0),
     Bytes1 = <<Bytes0/binary, (V bsr Shift):GoodBits>>,

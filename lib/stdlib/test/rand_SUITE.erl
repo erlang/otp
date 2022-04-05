@@ -1480,7 +1480,7 @@ do_measure(Iterations) ->
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
     ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
-    [TMarkBytes16,OverheadBytes16|_] =
+    [TMarkBytes1,OverheadBytes1|_] =
         measure_1(
           fun (Mod, _State) ->
                   Generator = fun Mod:bytes_s/2,
@@ -1503,7 +1503,34 @@ do_measure(Iterations) ->
                              lcg35_bytes(ByteSize, St0), ByteSize, Bin, St1)
                   end
           end, lcg35_bytes, Iterations,
-          TMarkBytes16, OverheadBytes16),
+          TMarkBytes1, OverheadBytes1),
+    %%
+    ByteSize2 = 1000, % At about 100 bytes crypto_bytes breaks even to exsss
+    ct:pal("~nRNG ~w bytes performance~n",[ByteSize2]),
+    [TMarkBytes2,OverheadBytes2|_] =
+        measure_1(
+          fun (Mod, _State) ->
+                  Generator = fun Mod:bytes_s/2,
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             Generator(ByteSize2, St0), ByteSize2, Bin, St1)
+                  end
+          end,
+          case crypto_support() of
+              ok ->
+                  Algs ++ [crypto_bytes, crypto_bytes_cached];
+              _ ->
+                  Algs
+          end, Iterations div 50),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             lcg35_bytes(ByteSize2, St0), ByteSize2, Bin, St1)
+                  end
+          end, lcg35_bytes, Iterations div 50,
+          TMarkBytes2, OverheadBytes2),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
     [TMarkUniformFloat,OverheadUniformFloat|_] =
