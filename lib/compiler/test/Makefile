@@ -9,6 +9,7 @@ MODULES= \
 	andor_SUITE \
 	apply_SUITE \
 	beam_block_SUITE \
+	beam_bounds_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
