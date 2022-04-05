@@ -549,12 +549,11 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
     <p>
       This section describes the distribution handshake protocol used between
       nodes to establishing a connection. The protocol was introduced in
-      Erlang/OTP R6 and has remained unchanged until OTP 23. The changes made in
-      OTP 23 were designed to be compatible with the older protocol
-      version. That is an old node can still connect toward a new node and vice
-      versa.
+      Erlang/OTP R6 and amended in OTP 23. From OTP 25 support for the older
+      protocol was dropped. Therefor an OTP 25 node can not connect to nodes
+      older than OTP 23. This documentation only decribes the new amended
+      protocol.
     </p>
-
     <section>
       <title>General</title>
       <p>The TCP/IP distribution uses a handshake that expects a
@@ -619,26 +618,9 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
         </item>
         <tag>2) <c>send_name</c>/<c>receive_name</c></tag>
         <item>
-          <p><c>A</c> sends an initial identification to <c>B</c>, which
-            receives the message. The message can have two different formats
-	    which looks as follows (the packet headers are removed):
+          <p><c>A</c> sends an initial identification to <c>B</c>. The message
+            looks as follows (the packet headers are removed):
 	  </p>
-	  <table align="left">
-            <row>
-              <cell align="center">1</cell>
-              <cell align="center">2</cell>
-              <cell align="center">4</cell>
-	      <cell align="center">Nlen</cell>
-            </row>
-            <row>
-              <cell align="center"><c>'n'</c></cell>
-              <cell align="center"><c>Version=5</c></cell>
-              <cell align="center"><c>Flags</c></cell>
-	      <cell align="center"><c>Name</c></cell>
-            </row>
-            <tcaption>Old send_name ('n') for protocol version 5</tcaption>
-	  </table>
-
 	  <table align="left">
             <row>
               <cell align="center">1</cell>
@@ -658,24 +640,9 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	  </table>
 
 	  <p>
-	    The old <c>send_name</c> format is sent from nodes only supporting version 5
-            or to nodes that might only support version 5. The <c>Version</c> is
-	    a 16-bit big endian integer and <em>must</em> always have the value 5, even
-	    if node <c>A</c> supports version 6. <c>Flags</c> are the
-	    <seeguide marker="#dflags">capability flags</seeguide>
-	    of node <c>A</c> in 32-bit big endian. The flag bit
-	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
-	    should be set if node <c>A</c> supports version 6.
-	    <c>Name</c> is the full node name of <c>A</c>, as a string of bytes
-	    (the packet length denotes how long it is).
-	  </p>
-	  <p>
-	    The new <c>send_name</c> is only sent from nodes supporting version 6 to
-	    nodes known to support version 6. <c>Flags</c> are the
+	    <c>Flags</c> are the
 	    <seeguide marker="#dflags">capability flags</seeguide> of node
-	    <c>A</c> in 64-bit big endian. The flag bit
-	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
-            must always be set. <c>Creation</c> is the node incarnation
+	    <c>A</c> in 64-bit big endian. <c>Creation</c> is the node incarnation
 	    identifier used by node <c>A</c> to create its pids, ports and
 	    references. <c>Name</c> is the full node name of <c>A</c>, as a
 	    string of bytes. <c>Nlen</c> is the byte length of the node name in
@@ -780,26 +747,8 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
             handshake continues with <c>B</c> sending <c>A</c> another message,
             the challenge. The challenge contains the same type of information
             as the "name" message initially sent from <c>A</c> to <c>B</c>, plus
-            a 32-bit challenge. The challenge message can have two different
-	    formats:
+            a 32-bit challenge:
 	  </p>
-	  <table align="left">
-            <row>
-              <cell align="center">1</cell>
-	      <cell align="center">2</cell>
-	      <cell align="center">4</cell>
-	      <cell align="center">4</cell>
-	      <cell align="center">Nlen</cell>
-            </row>
-            <row>
-              <cell align="center"><c>'n'</c></cell>
-	      <cell align="center"><c>Version=5</c></cell>
-	      <cell align="center"><c>Flags</c></cell>
-	      <cell align="center"><c>Challenge</c></cell>
-	      <cell align="center"><c>Name</c></cell>
-            </row>
-            <tcaption>The old challenge message format (version 5)</tcaption>
-	  </table>
 	  <table align="left">
             <row>
               <cell align="center">1</cell>
@@ -819,51 +768,11 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
             </row>
             <tcaption>The new challenge message format (version 6)</tcaption>
 	  </table>
-	  <p>
-	    The old challenge message is sent from old <c>B</c> nodes
-	    (supporting only version 5) or if node <c>A</c> had not capability flag
-	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
-	    set. The <c>Version</c> is a 16-bit big endian integer and
-	    <c>must</c> always have the value 5.
-	  </p>
-	  <p>
-	    The new challenge message is sent from new <c>B</c> nodes if node
-	    <c>A</c> had capability flag <seeguide marker="#DFLAG_HANDSHAKE_23">
-	    <c>DFLAG_HANDSHAKE_23</c></seeguide> set. Any extra data after the
-	    node <c>Name</c> must be accepted and ignored.
-	  </p>
           <p>
 	    <c>Challenge</c> is a 32-bit big-endian integer. The other fields
 	    are node <c>B</c>'s flags, creation and full node name, similar to
-	    the <c>send_name</c> message.
-	  </p>
-        </item>
-
-        <tag>4B) <c>send_complement</c>/<c>recv_complement</c></tag>
-        <item>
-          <p>
-	    The complement message, from <c>A</c> to <c>B</c>, is only sent if
-	    node <c>A</c> initially sent an old name message and received back a
-	    new challenge message from node <c>B</c>. It contains complementary
-	    information missing in the initial old name message from node <c>A</c>.
-	  </p>
-	  <table align="left">
-            <row>
-              <cell align="center">1</cell>
-	      <cell align="center">4</cell>
-	      <cell align="center">4</cell>
-            </row>
-            <row>
-              <cell align="center"><c>'c'</c></cell>
-	      <cell align="center"><c>FlagsHigh</c></cell>
-	      <cell align="center"><c>Creation</c></cell>
-            </row>
-            <tcaption>The complement message</tcaption>
-	  </table>
-	  <p>
-	    <c>FlagsHigh</c> are the high capability flags (bit 33-64) of node
-	    <c>A</c> as a 32-bit big endian integer. <c>Creation</c> is the
-	    incarnation identifier of node <c>A</c>.
+	    the <c>send_name</c> message. Any extra data after the node
+            <c>Name</c> must be accepted and ignored.
 	  </p>
         </item>
 
@@ -939,10 +848,6 @@ recv_status
                           (ChB)                      ChB = gen_challenge()
   &lt;---------------------------------------------- send_challenge
 recv_challenge
-
-(if old send_name and new recv_challenge
- send_complement - - - - - - - - - - - - - - - -&gt;
-                                                   recv_complement)
 
 ChA = gen_challenge(),
 OCA = out_cookie(B),
@@ -1064,8 +969,8 @@ DiB == gen_digest(ChA, ICA)?
         <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
         <item>
           <p>The node understands the map tag
-	  <seeguide marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seeguide>.</p>
-          <note><p>This flag will become mandatory in OTP 25.</p></note>
+	  <seeguide marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seeguide>. This flag is
+	  mandatory. If not present, the connection is refused.</p>
         </item>
         <tag><marker id="DFLAG_BIG_CREATION"/><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
         <item>
@@ -1105,7 +1010,8 @@ DiB == gen_digest(ChA, ICA)?
         <tag><marker id="DFLAG_HANDSHAKE_23"/><c>-define(DFLAG_HANDSHAKE_23, 16#1000000).</c></tag>
         <item>
           <p>The node supports the new connection setup handshake (version 6)
-	  introduced in OTP 23.</p>
+	  introduced in OTP 23. This flag is mandatory (from OTP 25). If not
+          present, the connection is refused.</p>
         </item>
         <tag><marker id="DFLAG_UNLINK_ID"/><c>-define(DFLAG_UNLINK_ID, 16#2000000).</c></tag>
         <item>

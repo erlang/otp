@@ -742,11 +742,10 @@ process_display(_Pid, _Type) ->
 process_flag(_Pid, _Flag, _Value) ->
     erlang:nif_error(undefined).
 
--spec create_dist_channel(Node, DistCtrlr, {Flags, Ver, Cr}) -> Result when
+-spec create_dist_channel(Node, DistCtrlr, {Flags, Cr}) -> Result when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
       Flags :: integer(),
-      Ver :: integer(),
       Cr :: pos_integer(),
       Result :: {'ok', erlang:dist_handle()}
               | {'message', reference()}

@@ -108,7 +108,8 @@ public class AbstractNode implements OtpTransportFactory {
         | dFlagNewFloats
         | dFlagMapTag
         | dFlagExportPtrTag
-        | dFlagBitBinaries;
+        | dFlagBitBinaries
+        | dFlagHandshake23;
 
     /* Mandatory flags for distribution. Keep them in sync with
        DFLAG_DIST_MANDATORY in erts/emulator/beam/dist.h. */
@@ -117,10 +118,9 @@ public class AbstractNode implements OtpTransportFactory {
     int ntype = NTYPE_R6;
     int proto = 0; // tcp/ip
     int distHigh = 6;
-    int distLow = 5; // Cannot talk to nodes before R6
+    int distLow = 6; // Cannot talk to nodes before OTP 23
     private int creation = 0x710000;
     long flags = mandatoryFlags
-        | dFlagHandshake23
         | dFlagUnlinkId
         | dFlagV4PidsRefs
         | dFlagMandatory25Digest;
