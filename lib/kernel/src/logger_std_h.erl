@@ -484,19 +484,28 @@ ensure_file(#{inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
             State#{last_check=>timestamp()};
         _ ->
             close_log_file(State),
-            case file:open(FileName,Modes) of
-                {ok,Fd} ->
-                    {ok,#file_info{inode=INode}} =
-                        file:read_file_info(FileName,[raw]),
-                    State#{fd=>Fd,inode=>INode,
-                           last_check=>timestamp(),
-                           synced=>true,sync_res=>ok};
-                Error ->
-                    exit({could_not_reopen_file,Error})
-            end
+            {ok, Fd} = ensure_open(FileName, Modes),
+            {ok,#file_info{inode=INode}} =
+                file:read_file_info(FileName,[raw]),
+            State#{fd=>Fd,inode=>INode,
+                   last_check=>timestamp(),
+                   synced=>true,sync_res=>ok}
     end;
 ensure_file(State) ->
     State.
+
+ensure_open(Filename, Modes) ->
+    case filelib:ensure_dir(Filename) of
+        ok ->
+            case file:open(Filename, Modes) of
+                {ok, Fd} ->
+                    {ok, Fd};
+                Error ->
+                    exit({could_not_reopen_file,Error})
+            end;
+        Error ->
+            exit({could_not_create_dir_for_file,Error})
+    end.
 
 write_to_dev(Bin,#{dev:=DevName}=State) ->
     io:put_chars(DevName, Bin),
@@ -574,21 +583,19 @@ rotate_file(#{file_name:=FileName,modes:=Modes,rotation:=Rotation}=State) ->
     State1 = sync_dev(State),
     _ = delayed_write_close(State),
     rotate_files(FileName,maps:get(count,Rotation),maps:get(compress,Rotation)),
-    case file:open(FileName,Modes) of
-        {ok,Fd} ->
-            {ok,#file_info{inode=INode}} = file:read_file_info(FileName,[raw]),
-            State1#{fd=>Fd,inode=>INode,rotation=>Rotation#{curr_size=>0}};
-        Error ->
-            exit({could_not_reopen_file,Error})
-    end.
+    {ok, Fd} = ensure_open(FileName,Modes),
+    {ok,#file_info{inode=INode}} = file:read_file_info(FileName,[raw]),
+    State1#{fd=>Fd,inode=>INode,rotation=>Rotation#{curr_size=>0}}.
 
 rotate_files(FileName,0,_Compress) ->
     _ = file:delete(FileName),
     ok;
 rotate_files(FileName,1,Compress) ->
     FileName0 = FileName++".0",
-    _ = file:rename(FileName,FileName0),
-    if Compress -> compress_file(FileName0);
+    Rename = file:rename(FileName,FileName0),
+    %% Rename may fail if file has been deleted. If it has, then
+    %% we do not need to compress it...
+    if Rename =:= ok, Compress -> compress_file(FileName0);
        true -> ok
     end,
     ok;
