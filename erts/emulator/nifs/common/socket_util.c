@@ -24,8 +24,10 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#    include "config.h"
 #endif
+
+#ifdef ESOCK_ENABLE
 
 #include <stdarg.h>
 #include <string.h>
@@ -2505,3 +2507,5 @@ BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term)
     else
         return FALSE;
 }
+
+#endif

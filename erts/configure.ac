@@ -1332,26 +1332,18 @@ dnl -------------
 
 AC_ARG_ENABLE(esock,
 AS_HELP_STRING([--enable-esock], [enable builtin experimental socket (as a nif) support (default)])
-AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]))
+AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]),
+  [ case "$enableval" in
+    no) enable_esock=no ;;
+    *)  enable_esock=yes ;;
+  esac
+],enable_esock=yes)
 
-dnl Default value
-USE_ESOCK=yes
-
-if test "x$enable_esock" = "xyes"; then
-    USE_ESOCK=yes
-else
-    if test "x$enable_esock" = "xno"; then
-        USE_ESOCK=no
-    fi
-fi
-
-AS_IF([test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"],
+AS_IF([test "x$enable_esock" = "xyes"],
       [
+        AC_DEFINE(ESOCK_ENABLE, [1], [Enable esock])
         AC_CHECK_FUNCS([localtime_r strftime getprotoent setprotoent endprotoent])
       ])
-
-AC_SUBST(USE_ESOCK)
-
 
 dnl *** ESOCK_USE_RCVSNDTIMEO ***
 

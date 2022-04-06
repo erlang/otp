@@ -83,6 +83,9 @@
 /* ESOCK counter size */
 #undef ESOCK_COUNTER_SIZE
 
+/* Enable esock */
+#undef ESOCK_ENABLE
+
 /* Interface hwaddr supported */
 #undef ESOCK_USE_HWADDR
 

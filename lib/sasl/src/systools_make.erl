@@ -45,12 +45,7 @@
 
 -compile({inline,[{badarg,2}]}).
 
--ifdef(USE_ESOCK).
 -define(ESOCK_MODS, [prim_net,prim_socket,socket_registry]).
--else.
--define(ESOCK_MODS, []).
--endif.
-
 
 %%-----------------------------------------------------------------
 %% Create a boot script from a release file.
