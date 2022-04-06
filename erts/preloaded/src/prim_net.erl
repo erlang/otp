@@ -91,15 +91,15 @@
 -type ifaddrs_flags() :: [ifaddrs_flag()].
 
 %% Note that not all of these fields are mandatory.
-%% Actually there are (error) cases when only the name will be included.
-%% And broadaddr and dstaddr are mutually exclusive!
+%% *Also*, broadaddr and dstaddr are mutually exclusive!
 
 -type ifaddrs() :: #{name      := string(),
                      flags     := ifaddrs_flags(),
-                     addr      := socket:sockaddr(),
-                     netmask   := socket:sockaddr(),
-                     broadaddr := socket:sockaddr(),
-                     dstaddr   := socket:sockaddr()}.
+                     addr      => socket:sockaddr(),
+                     netmask   => socket:sockaddr(),
+                     %% 'broadaddr' and 'dstaddr' are mutually exclusive
+                     broadaddr => socket:sockaddr(),
+                     dstaddr   => socket:sockaddr()}.
 
 -type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
@@ -142,7 +142,7 @@
                            out_discards         := non_neg_integer(),
                            out_errors           := non_neg_integer(),
                            out_qlen             := non_neg_integer(),
-                           description           := binary()}.
+                           description          := binary()}.
 
 -type ip_adapter_index_map() :: #{index := integer(),
                                   name  := string()}.
