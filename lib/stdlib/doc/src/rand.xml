@@ -59,6 +59,20 @@
     </p>
 
     <p>
+      At the end of this module documentation there are also some
+      <seeerl marker="#niche_algorithms">
+        niche algorithms
+      </seeerl>
+      to be used without this module's normal
+      <seeerl marker="#plug_in_api">
+        plug-in framework API
+      </seeerl>
+      that may be useful for special purposes like
+      short generation time when quality is not essential,
+      for seeding other generators, and such.
+    </p>
+
+    <p>
       <marker id="algorithms"/>
       The following algorithms are provided:
     </p>
@@ -407,6 +421,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
   <funcs>
     <fsdescription>
+      <marker id="plug_in_api"/>
       <title>Plug-in framework API</title>
     </fsdescription>
     <func>
@@ -793,6 +808,7 @@ end.</pre>
 
   <funcs>
     <fsdescription>
+      <marker id="niche_algorithms"/>
       <title>Niche algorithms API</title>
     </fsdescription>
     <func>
@@ -878,8 +894,8 @@ end.</pre>
       <fsummary>Return a new generator state / number.</fsummary>
       <desc>
         <p>
-          Returns a new generator state which is also
-          the generated number, <c><anno>X1</anno></c>,
+          Returns a generated Pseudo Random Number which is also
+          the new generated state, <c><anno>X1</anno></c>,
           according to a classical Multiplicative Congruential Generator
           (a.k.a Multiplicative Linear Congruential Generator,
           Lehmer random number generator,
@@ -929,8 +945,8 @@ end.</pre>
       <fsummary>Return a new generator state / number.</fsummary>
       <desc>
         <p>
-          Returns a new generator state which is also
-          the generated number, <c><anno>X1</anno></c>,
+          Returns a generated Pseudo Random Number which is also
+          the new generated state, <c><anno>X1</anno></c>,
           according to a classical Linear Congruential Generator,
           a power of 2 mixed congruential generator.
         </p>
