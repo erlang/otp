@@ -942,7 +942,8 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
         a.jne(resolve_beam_label(Fail));
     }
 
-    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)), imm(arity));
+    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity), sizeof(byte)),
+          imm(arity));
     a.jne(resolve_beam_label(Fail));
 }
 

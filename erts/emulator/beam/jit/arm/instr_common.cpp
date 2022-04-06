@@ -809,7 +809,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
 
-    a.ldur(TMP2, emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
+    a.ldurb(TMP2.w(), emit_boxed_val(boxed_ptr, offsetof(ErlFunThing, arity)));
     emit_branch_if_ne(TMP2, arity, resolve_beam_label(Fail, dispUnknown));
 }
 

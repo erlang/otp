@@ -4417,7 +4417,7 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     }
 
     arity = signed_val(BIF_ARG_3);
-    if (arity < 0) {
+    if (arity < 0 || arity > MAX_ARG) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
