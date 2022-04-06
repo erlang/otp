@@ -174,11 +174,7 @@ pack(fcgi,Bin) ->
     PaddSz = rand:uniform(16) - 1,
     Psz = byte_size(Bin),
     Reserv = rand:uniform(256) - 1,
-    Padd = case PaddSz of
-               0 -> <<>>;
-               _ -> list_to_binary([rand:uniform(256)-1
-                                    || _<- lists:seq(1,PaddSz)])
-           end,
+    Padd = rand:bytes(PaddSz),
     Res = <<Ver:8,Type:8,Id:16,Psz:16/big,PaddSz:8,Reserv:8,Bin/binary>>,
     {<<Res/binary,Padd/binary>>, Res};
 pack(tpkt,Bin) ->

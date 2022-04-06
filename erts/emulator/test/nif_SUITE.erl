@@ -3482,12 +3482,7 @@ random_sign() ->
     end.
 
 random_binary() ->
-    list_to_binary(random_bytes(rand:uniform(32) - 1)).
-
-random_bytes(0) ->
-    [];
-random_bytes(N) when N > 0 ->
-    [rand:uniform(256) - 1 | random_bytes(N - 1)].
+    rand:bytes(rand:uniform(32) - 1).
 
 random_pid() ->
     Processes = erlang:processes(),

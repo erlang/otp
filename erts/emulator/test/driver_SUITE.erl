@@ -2614,7 +2614,7 @@ make_refc_binaries(Term) ->
     transform_bins(F, Term).
 
 build_binary(Elements) ->
-    list_to_binary(build_list(Elements)).
+    rand:bytes(Elements).
 
 build_list(Elements) -> build_list(Elements, []).
 

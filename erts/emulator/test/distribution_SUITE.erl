@@ -2712,16 +2712,7 @@ mk_rand_bin_list(Bytes, Binaries) ->
 mk_rand_bin_list(_Bytes, 0, Acc) ->
     Acc;
 mk_rand_bin_list(Bytes, Binaries, Acc) ->
-    mk_rand_bin_list(Bytes, Binaries-1, [mk_rand_bin(Bytes) | Acc]).
-
-mk_rand_bin(Bytes) ->
-    mk_rand_bin(Bytes, []).
-
-mk_rand_bin(0, Data) ->
-    list_to_binary(Data);
-mk_rand_bin(N, Data) ->
-    mk_rand_bin(N-1, [rand:uniform(256) - 1 | Data]).
-
+    mk_rand_bin_list(Bytes, Binaries-1, [rand:bytes(Bytes) | Acc]).
 
 %% Try provoke DistEntry refc bugs (OTP-17513).
 dist_entry_refc_race(_Config) ->
