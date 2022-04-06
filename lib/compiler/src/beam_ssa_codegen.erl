@@ -1932,12 +1932,29 @@ translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks) ->
 translate_is([#b_set{op=phi}|Is], Tail) ->
     translate_is(Is, Tail);
 translate_is([#b_set{anno=Anno0,op=Op,dst=Dst,args=Args}=I|Is], Tail) ->
-    Anno = case beam_ssa:clobbers_xregs(I) of
-               true -> Anno0#{clobbers=>true};
-               false -> Anno0
+    Anno1 = case beam_ssa:clobbers_xregs(I) of
+                true -> Anno0#{clobbers=>true};
+                false -> Anno0
            end,
+    Anno = prune_arg_types(Anno1, Args),
     [#cg_set{anno=Anno,op=Op,dst=Dst,args=Args}|translate_is(Is, Tail)];
 translate_is([], Tail) -> Tail.
+
+prune_arg_types(#{arg_types := ArgTypes0}=Anno, Args) ->
+    ArgTypes = prune_arg_types_1(Args, 0, ArgTypes0),
+    if
+        ArgTypes =:= #{} ->
+            maps:remove(arg_types, Anno);
+        true ->
+            Anno#{arg_types := ArgTypes}
+    end;
+prune_arg_types(Anno, _Args) -> Anno.
+
+prune_arg_types_1([#b_var{}|As], N, ArgTypes) ->
+    prune_arg_types_1(As, N + 1, ArgTypes);
+prune_arg_types_1([_|As], N, ArgTypes) ->
+    prune_arg_types_1(As, N + 1, maps:remove(N, ArgTypes));
+prune_arg_types_1([], _N, ArgTypes) -> ArgTypes.
 
 translate_terminator(#b_ret{anno=Anno,arg=Arg}) ->
     Dealloc = case Anno of

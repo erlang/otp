@@ -613,7 +613,6 @@ multi_load(MGs, Conf, NumLoaders, NumReqs) ->
       "~n   Conf:       ~p"
       "~n   NumLoaders: ~p"
       "~n   NumReqs:    ~p", [MGs, Conf, NumLoaders, NumReqs]),
-
     Pids = multi_load_collector_start(MGs, Conf, NumLoaders, NumReqs, []),
     case timer:tc(?MODULE, do_multi_load, [Pids, NumLoaders, NumReqs]) of
 	{Time, {ok, OKs, []}} ->
@@ -652,8 +651,8 @@ get_env(Key, Env) ->
 
 multi_load_collector(Parent, Node, Mid, Conf, NumLoaders, NumReqs, Env) ->
     put(verbosity, get_env(verbosity, Env)),
-    put(tc, get_env(tc, Env)),
-    put(sname, get_env(sname, Env) ++ "-loader"),
+    put(tc,        get_env(tc, Env)),
+    put(sname,     get_env(sname, Env) ++ "-loader"),
     case ?MG_START(Node, Mid, text, tcp, Conf, ?MG_VERBOSITY) of
 	{ok, Pid} ->
 	    d("MG ~p user info: ~n~p", [Mid, ?MG_USER_INFO(Pid, all)]),

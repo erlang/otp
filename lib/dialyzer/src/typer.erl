@@ -34,6 +34,7 @@
 -define(SHOW, show).
 -define(SHOW_EXPORTED, show_exported).
 -define(ANNOTATE, annotate).
+-define(ANNOTATE_IN_PLACE, annotate_in_place).
 -define(ANNOTATE_INC_FILES, annotate_inc_files).
 
 %%-----------------------------------------------------------------------
@@ -81,6 +82,7 @@ cl(["--show_success_typings"|Opts]) -> {show_succ, Opts};
 cl(["--show-success-typings"|Opts]) -> {show_succ, Opts};
 cl(["--annotate"|Opts]) -> {{mode, ?ANNOTATE}, Opts};
 cl(["--annotate-inc-files"|Opts]) -> {{mode, ?ANNOTATE_INC_FILES}, Opts};
+cl(["--annotate-in-place"|Opts]) -> {{mode, ?ANNOTATE_IN_PLACE}, Opts};
 cl(["--no_spec"|Opts]) -> {no_spec, Opts};
 cl(["--plt",Plt|Opts]) -> {{plt, Plt}, Opts};
 cl(["-D"|_Opts]) -> fatal_error("no variable name specified after -D");
@@ -187,7 +189,7 @@ version_message() ->
 
 help_message() ->
   S = <<" Usage: typer [--help] [--version] [--plt PLT] [--edoc]
-              [--show | --show-exported | --annotate | --annotate-inc-files]
+              [--show | --show-exported | --annotate | --annotate-inc-files | --annotate-in-place]
               [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
               [-T application]* [-r] file*
 
@@ -205,7 +207,10 @@ help_message() ->
        the resulting files into a new typer_ann folder.
    --annotate-inc-files
        Same as --annotate but annotates all -include() files as well as
-       all .erl files (use this option with caution - has not been tested much)
+       all .erl files
+   --annotate-in-place
+       Annotate directly on the source code files, instead of dumping the
+       annotated files in a different directory
    --edoc
        Prints type information as Edoc @spec comments, not as type specs
    --plt PLT

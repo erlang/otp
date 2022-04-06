@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 12.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> <c>erlang:open_port({spawn, _},_)</c> has been fixed
+	    on Windows to handle whitespace characters in the path
+	    correctly. </p><p> This could, for example, cause
+	    execution of the resolver helper program
+	    <c>inet_gethost</c> to fail and instead possibly execute
+	    a different program. </p>
+          <p>
+	    Own Id: OTP-17978 Aux Id: OTP-17958 </p>
+        </item>
+        <item>
+          <p>
+	    Fix race condition when creating crash dump that could
+	    cause multiple threads to race when writing the initial
+	    information in a crash dump.</p>
+          <p>
+	    The race condition was introduced in erts-12.2
+	    (Erlang/OTP 24.2).</p>
+          <p>
+	    Own Id: OTP-17993 Aux Id: PR-5806 </p>
+        </item>
+        <item>
+          <p>
+	    Fix Erlang monotonic time on MacOS. Previously used OS
+	    monotonic time primitive on MacOS is buggy and will not
+	    be used anymore. It has been replaced with usage of
+	    another OS monotonic time primitive that does not appear
+	    to be buggy.</p>
+          <p>
+	    Own Id: OTP-17998 Aux Id: PR-5825, GH-5554 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1508,6 +1548,25 @@
 	    increments of 256kb to 16kb.</p>
           <p>
 	    Own Id: OTP-17368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 11.2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Erlang monotonic time on MacOS. Previously used OS
+	    monotonic time primitive on MacOS is buggy and will not
+	    be used anymore. It has been replaced with usage of
+	    another OS monotonic time primitive that does not appear
+	    to be buggy.</p>
+          <p>
+	    Own Id: OTP-17998 Aux Id: PR-5825, GH-5554 </p>
         </item>
       </list>
     </section>
@@ -3356,6 +3415,68 @@
 	    set before Erlang can be started.</p>
           <p>
 	    Own Id: OTP-16635 Aux Id: ERL-476 PR-2390 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.7.2.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> By default <c>global</c> does <i>not</i> take any
+	    actions to restore a fully connected network when
+	    connections are lost due to network issues. This is
+	    problematic for all applications expecting a fully
+	    connected network to be provided, such as for example
+	    <c>mnesia</c>, but also for <c>global</c> itself. A
+	    network of overlapping partitions might cause the
+	    internal state of <c>global</c> to become inconsistent.
+	    Such an inconsistency can remain even after such
+	    partitions have been brought together to form a fully
+	    connected network again. The effect on other applications
+	    that expects that a fully connected network is maintained
+	    may vary, but they might misbehave in very subtle hard to
+	    detect ways during such a partitioning. </p> <p> In order
+	    to prevent such issues, we have introduced a <i>prevent
+	    overlapping partitions</i> fix which can be enabled using
+	    the <c>prevent_overlapping_partitions</c>
+	    <c>kernel(6)</c> parameter. When this fix has been
+	    enabled, <c>global</c> will actively disconnect from
+	    nodes that reports that they have lost connections to
+	    other nodes. This will cause fully connected partitions
+	    to form instead of leaving the network in a state with
+	    overlapping partitions. Note that this fix <i>has</i> to
+	    be enabled on <i>all</i> nodes in the network in order to
+	    work properly. Since this quite substantially changes the
+	    behavior, this fix is currently disabled by default.
+	    Since you might get hard to detect issues without this
+	    fix you are, however, <i>strongly</i> advised to enable
+	    this fix in order to avoid issues such as the ones
+	    described above. As of OTP 25 this fix will become
+	    enabled by default. </p>
+          <p>
+	    Own Id: OTP-17843 Aux Id: ERIERL-732, PR-5611 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when tracing on running on a process that
+	    only handle system tasks or non-message signals (for
+	    example process_info requests).</p>
+          <p>
+	    Own Id: OTP-17904 Aux Id: ERIERL-757 </p>
+        </item>
+        <item>
+          <p>
+	    Fix Erlang monotonic time on MacOS. Previously used OS
+	    monotonic time primitive on MacOS is buggy and will not
+	    be used anymore. It has been replaced with usage of
+	    another OS monotonic time primitive that does not appear
+	    to be buggy.</p>
+          <p>
+	    Own Id: OTP-17998 Aux Id: PR-5825, GH-5554 </p>
         </item>
       </list>
     </section>

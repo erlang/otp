@@ -671,7 +671,7 @@ gen_gc(Fd, GBP) ->
                  "        false -> [CP0|T0]; % losing work done on T\n"
                  "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP,CP0])\n"
                  "    end;\n"
-                 "gc_extend([], _, CP) -> [CP];\n"
+                 "gc_extend([], T0, CP) -> [CP|T0];\n"
                  "gc_extend({error,R}, _, CP) -> [CP|R].\n\n"),
     io:put_chars(Fd,
                  "gc_extend2([CP|T], T0, Acc) ->\n"
@@ -679,8 +679,8 @@ gen_gc(Fd, GBP) ->
                  "        false -> [lists:reverse(Acc)|T0]; % losing work done on T\n"
                  "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP|Acc])\n"
                  "    end;\n"
-                 "gc_extend2([], _, Acc) ->\n"
-                 "    [lists:reverse(Acc)];\n"
+                 "gc_extend2([], T0, Acc) ->\n"
+                 "    [lists:reverse(Acc)|T0];\n"
                  "gc_extend2({error,R}, _, Acc) ->\n"
                  "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
@@ -705,10 +705,10 @@ gen_gc(Fd, GBP) ->
                  "                _ -> [lists:reverse(Acc)|T0]\n"
                  "            end\n"
                  "    end;\n"
-                 "gc_ext_pict([], _T0, Acc) ->\n"
+                 "gc_ext_pict([], T0, Acc) ->\n"
                  "    case Acc of\n"
-                 "        [A] -> [A];\n"
-                 "        _ -> [lists:reverse(Acc)]\n"
+                 "        [A] -> [A|T0];\n"
+                 "        _ -> [lists:reverse(Acc)|T0]\n"
                  "    end;\n"
                  "gc_ext_pict({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
@@ -722,10 +722,10 @@ gen_gc(Fd, GBP) ->
                  "                _ -> [lists:reverse(Acc)|T0]\n"
                  "            end\n"
                  "    end;\n"
-                 "gc_ext_pict_zwj([], _, Acc) ->\n"
+                 "gc_ext_pict_zwj([], T0, Acc) ->\n"
                  "    case Acc of\n"
-                 "        [A] -> [A];\n"
-                 "        _ -> [lists:reverse(Acc)]\n"
+                 "        [A] -> [A|T0];\n"
+                 "        _ -> [lists:reverse(Acc)|T0]\n"
                  "    end;\n"
                  "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),

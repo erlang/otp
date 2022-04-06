@@ -4741,7 +4741,6 @@ typedef struct {
     int de_locked;
     Uint64 dflags;
     Uint32 creation;
-    Uint version;
     Eterm setup_pid;
     Process *net_kernel;
 } ErtsSetupConnDistCtrl;
@@ -4760,7 +4759,6 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
 {
     BIF_RETTYPE ret;
     Uint64 flags;
-    Uint version;
     Uint32 creation;
     Eterm *hp, res_tag = THE_NON_VALUE, res = THE_NON_VALUE;
     DistEntry *dep = NULL;
@@ -4793,7 +4791,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
     if (!is_internal_port(BIF_ARG_2) && !is_internal_pid(BIF_ARG_2))
         goto badarg;
 
-    if (!is_tuple_arity(BIF_ARG_3, 3))
+    if (!is_tuple_arity(BIF_ARG_3, 2))
         goto badarg;
 
     tpl = tuple_val(BIF_ARG_3);
@@ -4802,16 +4800,8 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
     if (!term_to_Uint64(tpl[1], &flags))
         goto badarg;
 
-    /* Version... */
-    if (!is_small(tpl[2]))
-        goto badarg;
-    version = unsigned_val(tpl[2]);
-
-    if (version == 0)
-        goto badarg;
-
     /* Creation... */
-    if (!term_to_Uint32(tpl[3], &creation))
+    if (!term_to_Uint32(tpl[2], &creation))
         goto badarg;
 
     if (~flags & DFLAG_DIST_MANDATORY) {
@@ -4856,7 +4846,6 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
             scdc.de_locked = 1;
             scdc.dflags = flags;
             scdc.creation = creation;
-            scdc.version = version;
             scdc.setup_pid = BIF_P->common.id;
             scdc.net_kernel = net_kernel;
 
@@ -4886,7 +4875,6 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
             scdcp->de_locked = 0;
             scdcp->dflags = flags;
             scdcp->creation = creation;
-            scdcp->version = version;
             scdcp->setup_pid = BIF_P->common.id;
             scdcp->net_kernel = net_kernel;
 
@@ -6460,12 +6448,8 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 
         hsz += hp - &tmp_heap[0];
 
-        erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_NODES,
-                                                  nmdp[i].options,
-                                                  am_system,
-                                                  nmdp[i].pid,
-                                                  msg,
-                                                  hsz);
+        erts_proc_sig_send_monitor_nodes_msg(nmdp[i].options, nmdp[i].pid,
+                                             msg, hsz);
     }
 
     if (nmdp != &def_buf[0])

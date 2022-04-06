@@ -165,6 +165,10 @@ int beam_load_prepared_dtor(Binary* magic)
             erts_release_literal_area(hdr->literal_area);
             hdr->literal_area = NULL;
         }
+        if (hdr->are_nifs) {
+            erts_free(ERTS_ALC_T_PREPARED_CODE, hdr->are_nifs);
+            hdr->are_nifs = NULL;
+        }
 
         erts_free(ERTS_ALC_T_CODE, hdr);
         stp->code_hdr = NULL;

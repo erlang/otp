@@ -197,6 +197,7 @@ static ErlNifFunc nif_funcs[] =
     {"queue_cmd",12, wx_setup_cmd},
     {"queue_cmd",13, wx_setup_cmd},
     {"queue_cmd",14, wx_setup_cmd},
+    {"queue_cmd",15, wx_setup_cmd},
     {"init_opengl", 1, wx_init_opengl},
     {"make_env", 0, wxe_make_env},
     {"delete_env", 1, wxe_delete_env},

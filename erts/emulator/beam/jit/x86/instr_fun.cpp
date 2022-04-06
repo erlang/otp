@@ -347,7 +347,10 @@ x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
     if (skip_arity_test) {
         comment("skipped arity test since source always has right arity");
     } else {
-        a.cmp(emit_boxed_val(fun_thing, offsetof(ErlFunThing, arity)), ARG3);
+        a.cmp(emit_boxed_val(fun_thing,
+                             offsetof(ErlFunThing, arity),
+                             sizeof(byte)),
+              ARG3.r8());
     }
 
     a.mov(RET, emit_boxed_val(fun_thing, offsetof(ErlFunThing, entry)));

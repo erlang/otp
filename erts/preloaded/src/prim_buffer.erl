@@ -34,6 +34,9 @@
 
 -export([try_lock/1, unlock/1]).
 
+-nifs([new/0, size/1, peek_head/1, copying_read/2, write/2, skip/2,
+       find_byte_index/2, try_lock/1, unlock/1]).
+
 -type prim_buffer() :: term().
 
 %% Controls when to copy rather than extract sub-binaries from the buffer,

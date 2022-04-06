@@ -163,6 +163,10 @@ int beam_load_prepared_dtor(Binary *magic) {
             erts_release_literal_area(hdr->literal_area);
             hdr->literal_area = NULL;
         }
+        if (hdr->are_nifs) {
+            erts_free(ERTS_ALC_T_PREPARED_CODE, hdr->are_nifs);
+            hdr->are_nifs = NULL;
+        }
 
         erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
@@ -965,6 +969,7 @@ void beam_load_finalize_code(LoaderState *stp,
 
     /* Prevent literals and code from being freed. */
     (stp->load_hdr)->literal_area = NULL;
+    stp->load_hdr->are_nifs = NULL;
     stp->native_module_exec = NULL;
     stp->native_module_rw = NULL;
     stp->code_hdr = NULL;

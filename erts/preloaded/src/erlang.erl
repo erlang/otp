@@ -187,6 +187,9 @@
 -type iovec() :: [binary()].
 -export_type([iovec/0]).
 
+%% Type for the destination of sends.
+-export_type([send_destination/0]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
 %% (BIF's actually implemented in this module goes last in the file)
@@ -1917,8 +1920,8 @@ setnode(_P1, _P2) ->
 -spec erlang:setnode(Node, DistCtrlr, Opts) -> dist_handle() when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
-      Opts :: {integer(), integer(), pos_integer()}.
-setnode(Node, DistCtrlr, {_Flags, _Ver, _Creation} = Opts) ->
+      Opts :: {integer(), pos_integer()}.
+setnode(Node, DistCtrlr, {_Flags, _Creation} = Opts) ->
     case case erts_internal:create_dist_channel(Node, DistCtrlr, Opts) of
              {ok, DH} -> DH;
              {message, Ref} -> receive {Ref, Res} -> Res end;
@@ -2566,13 +2569,13 @@ process_info(_Pid,_ItemSpec) ->
     erlang:nif_error(undefined).
 
 -spec erlang:send(Dest, Msg) -> Msg when
-      Dest :: dst(),
+      Dest :: send_destination(),
       Msg :: term().
 send(_Dest,_Msg) ->
     erlang:nif_error(undefined).
 
 -spec erlang:send(Dest, Msg, Options) -> Res when
-      Dest :: dst(),
+      Dest :: send_destination(),
       Msg :: term(),
       Options :: [nosuspend | noconnect],
       Res :: ok | nosuspend | noconnect.
@@ -3483,14 +3486,14 @@ fun_info_1([K|Ks], Fun, A) ->
     end;
 fun_info_1([], _, A) -> A.
 
--type dst() :: pid()
-             | reference()
-             | port()
-             | (RegName :: atom())
-             | {RegName :: atom(), Node :: node()}.
+-type send_destination() :: pid()
+                          | reference()
+                          | port()
+                          | (RegName :: atom())
+                          | {RegName :: atom(), Node :: node()}.
 
 -spec erlang:send_nosuspend(Dest, Msg) -> boolean() when
-      Dest :: dst(),
+      Dest :: send_destination(),
       Msg :: term().
 send_nosuspend(Pid, Msg) ->
     try
@@ -3500,7 +3503,7 @@ send_nosuspend(Pid, Msg) ->
     end.
 
 -spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
-      Dest :: dst(),
+      Dest :: send_destination(),
       Msg :: term(),
       Options :: [noconnect].
 send_nosuspend(Pid, Msg, Opts) ->
@@ -4424,7 +4427,7 @@ gc_info(Ref, N, {OrigColls,OrigRecl}) ->
 'not'(_A) ->
     erlang:nif_error(undefined).
 
--spec erlang:'!'(dst(), term()) -> term().
+-spec erlang:'!'(send_destination(), term()) -> term().
 '!'(_Dst, _Msg) ->
     erlang:nif_error(undefined).
 

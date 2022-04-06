@@ -823,7 +823,7 @@ analyze_netbsd_memory(Extract) ->
 analyze_netbsd_item(Extract, Key, Process, Default) ->
     analyze_freebsd_item(Extract, Key, Process, Default).
 
-%% Model Identifier: Macmini7,1
+%%       Model Identifier: Macmini7,1
 %%       Processor Name: Intel Core i5
 %%       Processor Speed: 2,6 GHz
 %%       Number of Processors: 1
@@ -832,6 +832,23 @@ analyze_netbsd_item(Extract, Key, Process, Default) ->
 %%       L3 Cache: 3 MB
 %%       Hyper-Threading Technology: Enabled
 %%       Memory: 16 GB
+
+%% Hardware:
+%%
+%%   Hardware Overview:
+%%
+%%    Model Name: MacBook Pro
+%%    Model Identifier: MacBookPro18,1
+%%    Chip: Apple M1 Pro
+%%    Total Number of Cores: 10 (8 performance and 2 efficiency)
+%%    Memory: 32 GB
+%%    System Firmware Version: 7459.101.2
+%%    OS Loader Version: 7459.101.2
+%%    Serial Number (system): THF4W05C97
+%%    Hardware UUID: 7C9AB2E1-73B1-5AD6-9BC8-7229DE7A748C
+%%    Provisioning UDID: 00006000-000259042662801E
+%%    Activation Lock Status: Enabled
+
 
 analyze_and_print_darwin_host_info(Version) ->
     %% This stuff is for macOS.
@@ -846,7 +863,7 @@ analyze_and_print_darwin_host_info(Version) ->
                       "~n   Num Online Schedulers: ~s"
                       "~n", [Version, str_num_schedulers()]),
             {num_schedulers_to_factor(), []};
-        SwInfo when  is_list(SwInfo) ->
+        SwInfo when is_list(SwInfo) ->
             SystemVersion = analyze_darwin_sw_system_version(SwInfo),
             KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
             HwInfo        = analyze_darwin_hardware_info(),
@@ -857,22 +874,45 @@ analyze_and_print_darwin_host_info(Version) ->
             NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
             NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
             Memory        = analyze_darwin_hw_memory(HwInfo),
-            io:format("Darwin:"
-                      "~n   System Version:        ~s"
-                      "~n   Kernel Version:        ~s"
-                      "~n   Model:                 ~s (~s)"
-                      "~n   Processor:             ~s (~s, ~s, ~s)"
-                      "~n   Memory:                ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [SystemVersion, KernelVersion,
-                             ModelName, ModelId,
-                             ProcName, ProcSpeed, NumProc, NumCores, 
-                             Memory,
-                             str_num_schedulers()]),
-            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
+            CPUFactor     =
+                case ProcName of
+                    "-" ->
+                        %% Processor Name exist up until version
+                        %% darwin version 19 (on intel), but on
+                        %% darwin version 21 on M1 it has been
+                        %% replaced by 'chip'.
+                        Chip = analyze_darwin_hw_chip(HwInfo),
+                        io:format("Darwin:"
+                                  "~n   System Version:        ~s"
+                                  "~n   Kernel Version:        ~s"
+                                  "~n   Model:                 ~s [~s]"
+                                  "~n   Chip:                  ~s [~s]"
+                                  "~n   Memory:                ~s"
+                                  "~n   Num Online Schedulers: ~s"
+                                  "~n", [SystemVersion, KernelVersion,
+                                         ModelName, ModelId,
+                                         Chip, NumCores,
+                                         Memory,
+                                         str_num_schedulers()]),
+                        analyze_darwin_cpu_to_factor(Chip, NumCores);
+                    _ ->
+                        io:format("Darwin:"
+                                  "~n   System Version:        ~s"
+                                  "~n   Kernel Version:        ~s"
+                                  "~n   Model:                 ~s [~s]"
+                                  "~n   Processor:             ~s [~s, ~s, ~s]"
+                                  "~n   Memory:                ~s"
+                                  "~n   Num Online Schedulers: ~s"
+                                  "~n", [SystemVersion, KernelVersion,
+                                         ModelName, ModelId,
+                                         ProcName, ProcSpeed, NumProc, NumCores,
+                                         Memory,
+                                         str_num_schedulers()]),
+                        analyze_darwin_cpu_to_factor(ProcName,
                                                      ProcSpeed,
                                                      NumProc,
-                                                     NumCores),
+                                                     NumCores)
+                end,
             MemFactor = analyze_darwin_memory_to_factor(Memory),
             if (MemFactor =:= 1) ->
                     {CPUFactor, []};
@@ -898,6 +938,9 @@ analyze_darwin_hw_model_identifier(HwInfo) ->
 
 analyze_darwin_hw_processor_name(HwInfo) ->
     proplists:get_value("processor name", HwInfo, "-").
+
+analyze_darwin_hw_chip(HwInfo) ->
+    proplists:get_value("chip", HwInfo, "-").
 
 analyze_darwin_hw_processor_speed(HwInfo) ->
     proplists:get_value("processor speed", HwInfo, "-").
@@ -978,10 +1021,16 @@ analyze_darwin_memory_to_factor(Mem) ->
             20
     end.
 
-%% The speed is a string: "<speed> <unit>"
+%% This is for the M1 family of chips
+%% We don't actually know *how* fast it is, only that its fast.
 %% the speed may be a float, which we transforms into an integer of MHz.
-%% To calculate a factor based on processor speed, number of procs
-%% and number of cores is ... not an exact ... science ...
+%% To calculate a factor based on processor "class" and number of cores
+%% is ... not an exact ... science ...
+analyze_darwin_cpu_to_factor(_Chip, _NumCoresStr) ->
+    %% We know that pretty much every M processor is *fast*,
+    %% so there is no real need to "calculate" anything...
+    1.
+
 analyze_darwin_cpu_to_factor(_ProcName,
                              ProcSpeedStr, NumProcStr, NumCoresStr) ->
     Speed = 
@@ -1681,10 +1730,32 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
-                            tc_print("test case failed: try post"),
-                            (catch Post(State)),
-                            tc_end( f("failed(catched,~w,tc)", [C]) ),
-                            erlang:raise(C, E, S)
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            case kernel_test_global_sys_monitor:events() of
+                                [] ->
+                                    tc_print("test case failed: try post"),
+                                    (catch Post(State)),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print(
+                                      "System Events received during tc: "
+                                      "~n   ~p"
+                                      "~nwhen tc failed:"
+                                      "~n   C: ~p"
+                                      "~n   E: ~p"
+                                      "~n   S: ~p",
+                                      [SysEvs, C, E, S]),
+                                    (catch Post(State)),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP = {skip,
+                                            "TC failure with system events"},
+                                    SKIP
+                            end
                     end
             catch
                 C:{skip, _} = SKIP when (C =:= throw) orelse
@@ -1692,14 +1763,31 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    tc_print("tc-pre failed: auto-skip"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [C, E, S]),
-                    tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
-                    SKIP
+                    %% We always check the system events
+                    %% before we accept a failure
+                    case kernel_test_global_sys_monitor:events() of
+                        [] ->
+                            tc_print("tc-pre failed: auto-skip"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                            tc_print("System Events received: "
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)",
+                                      [C]) ),
+                            SKIP = {skip, "TC-Pre failure with system events"},
+                            SKIP
+                    end
             end;
         {skip, _} = SKIP ->
             tc_end("skipping(cond)"),

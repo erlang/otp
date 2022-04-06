@@ -102,6 +102,8 @@ integers(_Config) ->
 
     {'EXIT',{badarith,_}} = (catch do_integers_8()),
 
+    -693 = do_integers_9(id(7), id(1)),
+
     ok.
 
 do_integers_1(B0) ->
@@ -169,6 +171,9 @@ do_integers_7() ->
 
 do_integers_8() ->
     -1 band ((0 div 0) band 0).
+
+do_integers_9(X, Y) ->
+    X * (-100 bor (Y band 1)).
 
 numbers(_Config) ->
     Int = id(42),
@@ -263,13 +268,42 @@ coverage(Config) ->
 
     false = fun lot:life/147 == #{},
 
+    {'EXIT',{badarith,_}} = catch coverage_1(),
+
+    {'EXIT',{badarith,_}} = catch coverage_2(),
+
+    {'EXIT',{function_clause,_}} = catch coverage_3("a"),
+    {'EXIT',{function_clause,_}} = catch coverage_3("b"),
+
     ok.
+
+coverage_1() ->
+    try
+        []
+    catch
+        _:_ ->
+            42
+    end
+    *
+    [].
+
+coverage_2() ->
+    tl("abc") bsr [].
+
+%% Cover beam_ssa_type:infer_br_value(V, Bool, none).
+coverage_3("a" = V) when is_function(V, false) ->
+    0.
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
 
     ok = do_booleans_2(42, 41),
     error = do_booleans_2(42, 42),
+
+    ok = do_booleans_3(id([]), id(false)),
+    error = do_booleans_3(id([]), id(true)),
+    error = do_booleans_3(id([a]), id(false)),
+    error = do_booleans_3(id([a]), id(true)),
 
     AnyAtom = id(atom),
     true = is_atom(AnyAtom),
@@ -312,12 +346,34 @@ do_booleans_2(A, B) ->
 
 do_booleans_cmp(A, B) -> A > B.
 
+do_booleans_3(NewContent, IsAnchor) ->
+    if NewContent == [] andalso not IsAnchor ->
+            ok;
+       true ->
+            error
+    end.
+
+
 setelement(_Config) ->
     T0 = id({a,42}),
     {a,_} = T0,
     {b,_} = setelement(1, T0, b),
     {z,b} = do_setelement_1(<<(id(1)):32>>, {a,b}, z),
     {new,two} = do_setelement_2(<<(id(1)):1>>, {one,two}, new),
+    {x,b} = setelement(id(1), id({a,b}), x),
+
+    Index0 = case id(1) of
+                 0 -> 1;
+                 1 -> 2
+            end,
+    {a,x,c} = setelement(Index0, {a,b,c}, x),
+
+    Index1 = case id(1) of
+                 0 -> 4;
+                 1 -> 5
+             end,
+    {'EXIT',{badarg,_}} = catch setelement(Index1, {a,b,c}, y),
+
     ok.
 
 do_setelement_1(<<N:32>>, Tuple, NewValue) ->
@@ -566,16 +622,38 @@ do_test_size(Term) when is_binary(Term) ->
     size(Term).
 
 cover_lists_functions(Config) ->
+    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+
+    Config = lists:map(id(fun id/1), Config),
+
     case lists:suffix([no|Config], Config) of
         true ->
             ct:fail(should_be_false);
         false ->
             ok
     end,
-    Zipped = lists:zipwith(fun(A, B) -> {A,B} end,
+
+    Zipper = fun(A, B) -> {A,B} end,
+
+    [] = lists:zipwith(Zipper, [], []),
+
+    Zipped = lists:zipwith(Zipper,
                            lists:duplicate(length(Config), zip),
                            Config),
-    true = is_list(Zipped),
+    [{zip,_}|_] = Zipped,
+
+    DoubleZip = lists:zipwith(id(Zipper),
+                              lists:duplicate(length(Zipped), zip_zip),
+                              Zipped),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                            lists:duplicate(length(Zipped), zip_zip),
+                                            Zipped)),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {[_|_],[_|_]} = lists:unzip(Zipped),
+
     ok.
 
 list_append(_Config) ->
@@ -777,6 +855,10 @@ switch_fail_inference(_Config) ->
     ok = sfi(id([{twiddle,frobnitz}, eof])),
     {error, gaffel, gurka} = sfi(id([{twiddle, frobnitz}, {error, gurka}])),
     {error, gaffel, gurka} = sfi(id([{ok, frobnitz}, {error, gurka}])),
+
+    ok = sfi_5(id("GET")),
+    error = sfi_5(id("OTHER")),
+
     ok.
 
 sfi(Things) ->
@@ -814,6 +896,20 @@ sfi_4({ok, IgnoredLater}) ->
     {twiddle, IgnoredLater};
 sfi_4({error, Reason}) ->
     {error, {gaffel, Reason}}.
+
+sfi_5(Info) ->
+    ReturnValue = case Info of
+                      "GET" ->
+                          {304};
+                      _ ->
+                          {412}
+                  end,
+    sfi_send_return_value(ReturnValue).
+
+sfi_send_return_value({304}) ->
+    ok;
+sfi_send_return_value({412}) ->
+    error.
 
 id(I) ->
     I.

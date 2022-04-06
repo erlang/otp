@@ -433,7 +433,7 @@ elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"}`
 	    gdbcmd="--args $EMU_NAME $beam_args"
 	    ;;
 	x/*)
@@ -453,7 +453,7 @@ elif [ "x$GDB" = "xgdb" ]; then
 elif [ "x$GDB" = "xlldb" ]; then
     case "x$core" in
         x)
-            beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+            beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"}`
             lldbcmd="-- $beam_args"
             ;;
         *)
@@ -472,7 +472,7 @@ elif [ "x$GDB" = "xegdb" ]; then
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit ${1+"$@"} | tr '\n' ' '`
+	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"} | tr '\n' ' '`
 	    gdbcmd="(insert-string \"set args $beam_args\") \
                     (comint-send-input)"
 	    ;;

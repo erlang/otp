@@ -313,10 +313,10 @@ types(erlang, 'list_to_bitstring', [_]) ->
     sub_unsafe(#t_bitstring{}, [proper_list()]);
 
 %% Process operations
+types(erlang, alias, []) ->
+    sub_unsafe(reference, []);
 types(erlang, alias, [_]) ->
-    sub_unsafe(reference, [any]);
-types(erlang, alias, [_, _]) ->
-    sub_unsafe(reference, [any, proper_list()]);
+    sub_unsafe(reference, [proper_list()]);
 types(erlang, monitor, [_, _]) ->
     sub_unsafe(reference, [any, any]);
 types(erlang, monitor, [_, _, _]) ->
@@ -703,8 +703,6 @@ types(maps, get, [Key, Map, Default]) ->
                   ValueType -> beam_types:join(ValueType, Default)
               end,
     sub_unsafe(RetType, [any, #t_map{}, any]);
-types(maps, is_key, [_Key, _Map]=Args) ->
-    types(erlang, is_map_key, Args);
 types(maps, keys, [Map]) ->
     RetType = case Map of
                   #t_map{super_key=none} -> nil;
@@ -833,6 +831,8 @@ arith_type({bif,'band'}, ArgTypes) ->
     erlang_band_type(ArgTypes);
 arith_type({bif,'bor'}, Args) ->
     erlang_bor_type(Args);
+arith_type({bif,'bxor'}, Args) ->
+    erlang_bxor_type(Args);
 arith_type({bif,'bsr'}, [#t_integer{elements={Min0,Max0}},
                          #t_integer{elements={S1,S2}}])
   when 0 < S1 ->
@@ -872,68 +872,33 @@ mixed_arith_types([FirstType | _]=Args0) ->
 erlang_hd_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{type=Type} -> Type;
-        none -> none;
-        _ -> any
+        none -> none
     end.
 
 erlang_tl_type(Src) ->
     case beam_types:meet(Src, #t_cons{}) of
         #t_cons{terminator=Term}=Cons -> beam_types:join(Cons, Term);
-        none -> none;
-        _ -> any
+        none -> none
     end.
 
-erlang_band_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
-    erlang_band_type_1(RHS, Int);
-erlang_band_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
-    erlang_band_type_1(LHS, Int);
-erlang_band_type(_) ->
+erlang_band_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'band'(Range1, Range2)};
+erlang_band_type([#t_integer{elements=Range}, _RHS]) ->
+    #t_integer{elements=beam_bounds:'band'(Range, any)};
+erlang_band_type([_LHS, #t_integer{elements=Range}]) ->
+    #t_integer{elements=beam_bounds:'band'(any, Range)};
+erlang_band_type([_, _]) ->
     #t_integer{}.
 
-erlang_band_type_1(LHS, Int) ->
-    case LHS of
-        #t_integer{elements={Min0,Max0}} when Max0 - Min0 < 1 bsl 256 ->
-            {Intersection, Union} = range_masks(Min0, Max0),
-
-            Min = Intersection band Int,
-            Max = max(Min, min(Max0, Union band Int)),
-
-            #t_integer{elements={Min,Max}};
-        _ when Int > 0 ->
-            %% The range is either unknown or too wide, conservatively assume
-            %% that the new range is 0 .. Int. Note that since Int > 0, we
-            %% will never produce a singleton value. Producing a singleton value
-            %% is probably harmless, but will produce worse code when it
-            %% is not known that the operation will succeed.
-            beam_types:meet(LHS, #t_integer{elements={0,Int}});
-        _ ->
-            %% We can't infer boundaries when LHS is not an integer or
-            %% the range is unknown and the other operand is a
-            %% negative number, as the latter sign-extends to infinity
-            %% and we can't express an inverted range at the moment
-            %% (cf. X band -8; either less than -7 or greater than 7).
-            beam_types:meet(LHS, #t_integer{})
-    end.
-
-erlang_bor_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
-    erlang_bor_type_1(RHS, Int);
-erlang_bor_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
-    erlang_bor_type_1(LHS, Int);
-erlang_bor_type(_) ->
+erlang_bor_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'bor'(Range1, Range2)};
+erlang_bor_type([_, _]) ->
     #t_integer{}.
 
-erlang_bor_type_1(LHS, Int) ->
-    case LHS of
-        #t_integer{elements={Min0,Max0}} when Min0 >= 0, Max0 - Min0 < 1 bsl 256 ->
-            {_Intersection, Union} = range_masks(Min0, Max0),
-
-            Min = max(Min0, Int),
-            Max = Union bor Int,
-
-            #t_integer{elements={Min,Max}};
-        _ ->
-            beam_types:meet(LHS, #t_integer{})
-    end.
+erlang_bxor_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'bxor'(Range1, Range2)};
+erlang_bxor_type([_, _]) ->
+    #t_integer{}.
 
 erlang_div_type(ArgTypes) ->
     case ArgTypes of
@@ -1138,21 +1103,6 @@ discard_tuple_element_info(Min, Max, Es) ->
                   maps:remove(El, Acc);
              (_El, Acc) -> Acc
           end, Es, maps:keys(Es)).
-
-%% Returns two bitmasks describing all possible values between From and To.
-%%
-%% The first contains the bits that are common to all values, and the second
-%% contains the bits that are set by any value in the range.
-range_masks(From, To) when From =< To ->
-    range_masks_1(From, To, 0, -1, 0).
-
-range_masks_1(From, To, BitPos, Intersection, Union) when From < To ->
-    range_masks_1(From + (1 bsl BitPos), To, BitPos + 1,
-                  Intersection band From, Union bor From);
-range_masks_1(_From, To, _BitPos, Intersection0, Union0) ->
-    Intersection = To band Intersection0,
-    Union = To bor Union0,
-    {Intersection, Union}.
 
 proper_cons() ->
     #t_cons{terminator=nil}.

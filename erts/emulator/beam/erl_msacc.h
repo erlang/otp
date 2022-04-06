@@ -414,7 +414,11 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 
 #else
 
-void erts_msacc_set_bif_state(ErtsMsAcc *msacc, Eterm mod, void *addr);
+/* Enters BIF state, returning the given `bif` so we don't have to spill it in
+ * jitted code. */
+const void *erts_msacc_set_bif_state(ErtsMsAcc *msacc,
+                                     Eterm mod,
+                                     const void *bif);
 
 #define ERTS_MSACC_PUSH_STATE_X() ERTS_MSACC_PUSH_STATE()
 #define ERTS_MSACC_POP_STATE_X() ERTS_MSACC_POP_STATE()
@@ -431,9 +435,10 @@ void erts_msacc_set_bif_state(ErtsMsAcc *msacc, Eterm mod, void *addr);
 #define ERTS_MSACC_SET_STATE_CACHED_M_X(state) ERTS_MSACC_SET_STATE_CACHED_M(state)
 #define ERTS_MSACC_POP_STATE_M_X() ERTS_MSACC_POP_STATE_M()
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M_X(state) ERTS_MSACC_PUSH_AND_SET_STATE_M(state)
-#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)       \
-    if (ERTS_MSACC_IS_ENABLED_CACHED_X())               \
-        erts_msacc_set_bif_state(__erts_msacc_cache, Mod, Addr)
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)                       \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {                               \
+        (void)erts_msacc_set_bif_state(__erts_msacc_cache, Mod, Addr);    \
+    }
 
 #endif /* !ERTS_MSACC_EXTENDED_STATES */
 

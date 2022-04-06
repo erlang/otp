@@ -884,6 +884,8 @@ grab_bag(_Config) ->
 
     fact = grab_bag_17(),
 
+    {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
+
     ok.
 
 grab_bag_1() ->
@@ -1096,6 +1098,21 @@ grab_bag_17() ->
             []
     end.
 
+grab_bag_18() ->
+    try 0 of
+        _V0 ->
+            bnot false
+    after
+        try [] of
+            wrong ->
+                ok
+        catch
+            _:_ when false ->
+                error
+        end
+    end.
+
+
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
     {true,[[a,b,c]]} = redundant_br_1(id([[[a,b,c]]])),
@@ -1108,6 +1125,8 @@ redundant_br_1(Specs0) ->
             true -> {false,Specs0}
         end,
     id({Join,Specs}).
+
+-record(coverage, {name}).
 
 coverage(_Config) ->
 
@@ -1125,6 +1144,8 @@ coverage(_Config) ->
 
     error = coverage_2(),
     ok = coverage_3(),
+    #coverage{name=whatever} = coverage_4(),
+    {'EXIT',{{badrecord,ok},_}} = catch coverage_5(),
 
     ok.
 
@@ -1138,6 +1159,24 @@ coverage_3() ->
     %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2.
     get(),
     ok.
+
+coverage_4() ->
+    try
+        << <<42>> || false >>,
+        #coverage{}
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
+
+coverage_5() ->
+    try
+        << <<42>> || false >>,
+        ok
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
 
 %% The identity function.
 id(I) -> I.

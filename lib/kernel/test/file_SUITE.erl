@@ -1403,8 +1403,8 @@ file_info_basic_file(Config) when is_list(Config) ->
 
     %% Create a short file.
     Name = filename:join(RootDir,
-			 atom_to_list(?MODULE)
-			 ++"_basic_test.fil"),
+			 atom_to_list(?MODULE) ++ "_" ++
+                         atom_to_list(?FUNCTION_NAME) ++ ".fil"),
     {ok,Fd1} = ?FILE_MODULE:open(Name, write),
     io:put_chars(Fd1, "foo bar"),
     ok = ?FILE_MODULE:close(Fd1),
@@ -1509,8 +1509,8 @@ file_info_int(Config) ->
     io:format("RootDir = ~p", [RootDir]),
 
     Name = filename:join(RootDir,
-			 atom_to_list(?MODULE)
-			 ++"_file_info.fil"),
+			 atom_to_list(?MODULE) ++ "_" ++
+                         atom_to_list(?FUNCTION_NAME) ++ ".fil"),
     {ok,Fd1} = ?FILE_MODULE:open(Name,write),
     io:put_chars(Fd1,"foo"),
 
@@ -1588,8 +1588,8 @@ file_handle_info_basic_file(Config) when is_list(Config) ->
 
     %% Create a short file.
     Name = filename:join(RootDir,
-			 atom_to_list(?MODULE)
-			 ++"_basic_test.fil"),
+			 atom_to_list(?MODULE) ++ "_" ++
+			 atom_to_list(?FUNCTION_NAME) ++ ".fil"),
     {ok,Fd1} = ?FILE_MODULE:open(Name, write),
     io:put_chars(Fd1, "foo bar"),
     ok = ?FILE_MODULE:close(Fd1),
@@ -1684,8 +1684,8 @@ file_handle_info_int(Config) ->
     io:format("RootDir = ~p", [RootDir]),
 
     Name = filename:join(RootDir,
-			 atom_to_list(?MODULE)
-			 ++"_file_info.fil"),
+			 atom_to_list(?MODULE) ++ "_" ++
+			 atom_to_list(?FUNCTION_NAME) ++ ".fil"),
     {ok,Fd1} = ?FILE_MODULE:open(Name, write),
     io:put_chars(Fd1,"foo"),
     {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Fd1),

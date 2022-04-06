@@ -48,6 +48,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/compiler-$(VSN)
 MODULES =  \
 	beam_a \
 	beam_asm \
+	beam_bounds \
 	beam_block \
 	beam_call_types \
 	beam_clean \

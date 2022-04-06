@@ -22,123 +22,138 @@
     ]).
 
 -export([
-	%% literals
-	t_build_and_match_literals/1, t_build_and_match_literals_large/1,
-	t_update_literals/1, t_update_literals_large/1,
-        t_match_and_update_literals/1, t_match_and_update_literals_large/1,
-	t_update_map_expressions/1,
-	t_update_assoc/1, t_update_assoc_large/1,
-        t_update_exact/1, t_update_exact_large/1,
-	t_guard_bifs/1,
-        t_guard_sequence/1, t_guard_sequence_large/1,
-        t_guard_update/1, t_guard_update_large/1,
-	t_guard_receive/1, t_guard_receive_large/1,
-        t_guard_fun/1,
-	t_list_comprehension/1,
-	t_map_sort_literals/1,
-	t_map_size/1, t_map_get/1,
-	t_build_and_match_aliasing/1,
-	t_is_map/1,
+         %% literals
+         t_build_and_match_literals/1, t_build_and_match_literals_large/1,
+         t_update_literals/1, t_update_literals_large/1,
+         t_match_and_update_literals/1, t_match_and_update_literals_large/1,
+         t_update_map_expressions/1,
+         t_update_assoc/1, t_update_assoc_large/1,
+         t_update_exact/1, t_update_exact_large/1,
+         t_guard_bifs/1,
+         t_guard_sequence/1, t_guard_sequence_large/1,
+         t_guard_update/1, t_guard_update_large/1,
+         t_guard_receive/1, t_guard_receive_large/1,
+         t_guard_fun/1,
+         t_list_comprehension/1,
+         t_map_sort_literals/1,
+         t_map_size/1, t_map_get/1,
+         t_build_and_match_aliasing/1,
+         t_is_map/1,
 
-	%% variables
-	t_build_and_match_variables/1,
-	t_update_assoc_variables/1,t_update_exact_variables/1,
-	t_nested_pattern_expressions/1,
-	t_guard_update_variables/1,
-	t_guard_sequence_variables/1,
-	t_guard_sequence_mixed/1,
-	t_frequency_table/1,
+         %% variables
+         t_build_and_match_variables/1,
+         t_update_assoc_variables/1,t_update_exact_variables/1,
+         t_nested_pattern_expressions/1,
+         t_guard_update_variables/1,
+         t_guard_sequence_variables/1,
+         t_guard_sequence_mixed/1,
+         t_frequency_table/1,
 
-	%% warnings
-	t_warn_useless_build/1,
-	t_warn_pair_key_overloaded/1,
+         %% warnings
+         t_warn_useless_build/1,
+         t_warn_pair_key_overloaded/1,
 
-	%% not covered in 17.0-rc1
-	t_build_and_match_over_alloc/1,
-	t_build_and_match_empty_val/1,
-	t_build_and_match_val/1,
-	t_build_and_match_nil/1,
-	t_build_and_match_structure/1,
+         %% not covered in 17.0-rc1
+         t_build_and_match_over_alloc/1,
+         t_build_and_match_empty_val/1,
+         t_build_and_match_val/1,
+         t_build_and_match_nil/1,
+         t_build_and_match_structure/1,
 
-	%% errors in 17.0-rc1
-	t_update_values/1,
-        t_expand_map_update/1,
-        t_export/1,
+         %% errors in 17.0-rc1
+         t_update_values/1,
+         t_expand_map_update/1,
+         t_export/1,
 
-	%% errors in 18
-        t_register_corruption/1,
-	t_bad_update/1,
+         %% errors in 18
+         t_register_corruption/1,
+         t_bad_update/1,
 
-        %% new in OTP 21
-        t_reused_key_variable/1,
+         %% new in OTP 21
+         t_reused_key_variable/1,
 
-        %% new in OTP 22
-        t_mixed_clause/1,cover_beam_trim/1,
-        t_duplicate_keys/1,
+         %% new in OTP 22
+         t_mixed_clause/1,cover_beam_trim/1,
+         t_duplicate_keys/1,
 
-        %% new in OTP 23
-        t_key_expressions/1
-    ]).
+         %% new in OTP 23
+         t_key_expressions/1,
+
+         %% cover more code in beam_call_types
+         t_bif_map_find/1,
+         t_fold_3/1, t_from_keys/1, t_map_2/1, t_maps_take_2/1,
+         t_update_with_3/1, t_update_with_4/1,
+         t_with_2/1
+        ]).
+
+-define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+-define(badkey(K, F, Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
+-define(badarg(F, Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
 
 suite() -> [].
 
 all() ->
     [
-	%% literals
-	t_build_and_match_literals, t_build_and_match_literals_large,
-	t_update_literals, t_update_literals_large,
-        t_match_and_update_literals, t_match_and_update_literals_large,
-	t_update_map_expressions,
-	t_update_assoc, t_update_assoc_large,
-        t_update_exact, t_update_exact_large,
-	t_guard_bifs,
-        t_guard_sequence, t_guard_sequence_large,
-        t_guard_update, t_guard_update_large,
-	t_guard_receive, t_guard_receive_large,
-        t_guard_fun, t_list_comprehension,
-	t_map_sort_literals,
-	t_map_size, t_map_get,
-	t_build_and_match_aliasing,
-	t_is_map,
+     %% literals
+     t_build_and_match_literals, t_build_and_match_literals_large,
+     t_update_literals, t_update_literals_large,
+     t_match_and_update_literals, t_match_and_update_literals_large,
+     t_update_map_expressions,
+     t_update_assoc, t_update_assoc_large,
+     t_update_exact, t_update_exact_large,
+     t_guard_bifs,
+     t_guard_sequence, t_guard_sequence_large,
+     t_guard_update, t_guard_update_large,
+     t_guard_receive, t_guard_receive_large,
+     t_guard_fun, t_list_comprehension,
+     t_map_sort_literals,
+     t_map_size, t_map_get,
+     t_build_and_match_aliasing,
+     t_is_map,
 
-	%% variables
-	t_build_and_match_variables,
-	t_update_assoc_variables,t_update_exact_variables,
-	t_nested_pattern_expressions,
-	t_guard_update_variables,
-	t_guard_sequence_variables,
-	t_guard_sequence_mixed,
-	t_frequency_table,
+     %% variables
+     t_build_and_match_variables,
+     t_update_assoc_variables,t_update_exact_variables,
+     t_nested_pattern_expressions,
+     t_guard_update_variables,
+     t_guard_sequence_variables,
+     t_guard_sequence_mixed,
+     t_frequency_table,
 
-	%% warnings
-	t_warn_useless_build,
-	t_warn_pair_key_overloaded,
+     %% warnings
+     t_warn_useless_build,
+     t_warn_pair_key_overloaded,
 
-	%% not covered in 17.0-rc1
-	t_build_and_match_over_alloc,
-	t_build_and_match_empty_val,
-	t_build_and_match_val,
-	t_build_and_match_nil,
-	t_build_and_match_structure,
+     %% not covered in 17.0-rc1
+     t_build_and_match_over_alloc,
+     t_build_and_match_empty_val,
+     t_build_and_match_val,
+     t_build_and_match_nil,
+     t_build_and_match_structure,
 
-	%% errors in 17.0-rc1
-	t_update_values,
-        t_expand_map_update,
-        t_export,
+     %% errors in 17.0-rc1
+     t_update_values,
+     t_expand_map_update,
+     t_export,
 
-	%% errors in 18
-        t_register_corruption,
-        t_bad_update,
+     %% errors in 18
+     t_register_corruption,
+     t_bad_update,
 
-        %% new in OTP 21
-        t_reused_key_variable,
+     %% new in OTP 21
+     t_reused_key_variable,
 
-        %% new in OTP 22
-        t_mixed_clause,cover_beam_trim,
-        t_duplicate_keys,
+     %% new in OTP 22
+     t_mixed_clause,cover_beam_trim,
+     t_duplicate_keys,
 
-        %% new in OTP 23
-        t_key_expressions
+     %% new in OTP 23
+     t_key_expressions,
+
+     %% cover more code
+     t_bif_map_find,
+     t_fold_3, t_from_keys, t_map_2, t_maps_take_2,
+     t_update_with_3, t_update_with_4, t_with_2
     ].
 
 groups() -> [].
@@ -2350,6 +2365,140 @@ dup_keys_1(Map) ->
             O2
     end.
 
+t_fold_3(_Config) ->
+    Vs = lists:seq(1, 200),
+    M0 = maps:from_list([{{k,I},I} || I<-Vs]),
+    #{ {k,1} := 1, {k,200} := 200} = M0,
+    Tot0 = lists:sum(Vs),
+    Tot1 = maps:fold(fun({k,_},V,A) -> A + V end, 0, M0),
+    true = Tot0 =:= Tot1,
+    Tot2 = maps:fold(fun({k,_},V,A) -> A + V end, 0, maps:iterator(M0)),
+    true = Tot0 =:= Tot2,
+
+    %% error case
+    ?badmap(a, fold, [_,0,a]) = catch maps:fold(fun(_,_,_) -> ok end, 0, id(a)),
+    ?badarg(fold, [<<>>,0,#{}]) = catch maps:fold(id(<<>>),0,#{}),
+    ok.
+
+t_from_keys(_Config) ->
+    Map0 = maps:from_keys(["a", 2, {three}], value),
+    3 = map_size(Map0),
+    #{"a":=value,2:=value,{three}:=value} = Map0,
+
+    Map1 = maps:from_keys([1, 2, 2], {complex,value}),
+    2 = map_size(Map1),
+    #{1:={complex,value},2:={complex,value}} = Map1,
+
+    Map2 = maps:from_keys([], value),
+    0 = map_size(Map2),
+
+    ?badarg(from_keys, [[a|b],value]) = catch maps:from_keys([a|b], value),
+    ?badarg(from_keys, [not_list,value]) = catch maps:from_keys(not_list, value),
+    ok.
+
+t_map_2(_Config) ->
+    Vs = lists:seq(1,200),
+    M0 = maps:from_list([{{k,I},I}||I<-Vs]),
+    #{ {k,1} := 1, {k,200} := 200} = M0,
+    M1 = maps:map(fun({k,_},V) -> V + 42 end, M0),
+    #{ {k,1} := 43, {k,200} := 242} = M1,
+    M2 = maps:map(fun({k,_},V) -> V + 42 end, maps:iterator(M0)),
+    #{ {k,1} := 43, {k,200} := 242} = M2,
+
+    %% error case
+    ?badmap(a, map, [_,a]) = catch maps:map(fun(_,_) -> ok end, id(a)),
+    ?badarg(map, [<<>>,#{}]) = catch maps:map(id(<<>>), #{}),
+    ok.
+
+t_maps_take_2(_Config) ->
+    {yes,Map0} = maps:take(a, #{a => yes, b => no}),
+    true = Map0 =:= #{b => no},
+
+    error = maps:take(a, #{b => no}),
+
+    NotMap = not_map(b),
+    {'EXIT',{{badmap,b},_}} = catch maps:take(a, b),
+
+    ok.
+
+not_map(Term) -> Term.
+
+t_update_with_3(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
+
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1, Fun, Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2, Fun, Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3", Fun, Map),
+
+    %% error case
+    ?badmap(b, update_with, [[a,b],a,b]) = catch maps:update_with([a,b], id(a), b),
+    ?badarg(update_with, [[a,b],a,#{}]) = catch maps:update_with([a,b], id(a), #{}),
+    ?badkey([a,b], update_with, [[a,b],Fun,#{}]) = catch maps:update_with([a,b], Fun,#{}),
+    ok.
+
+t_update_with_4(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
+    Init = 3,
+
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1, Fun, Init, Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2, Fun, Init, Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3", Fun, Init, Map),
+
+    #{ key3 := Init } = maps:update_with(key3, Fun, Init, Map),
+
+    %% error case
+    ?badmap(b, update_with, [[a,b],a,b]) = catch maps:update_with([a,b],id(a), b),
+    ?badarg(update_with, [[a,b],a,#{}]) = catch maps:update_with([a,b], id(a), #{}),
+    ok.
+
+t_with_2(_Config) ->
+    Ki = [11,22,33,44,55,66,77,88,99],
+    M0 = maps:from_list([{{k,I},{v,I}} || I <- lists:seq(1, 100)]),
+    M1 = maps:from_list([{{k,I},{v,I}} || I <- Ki]),
+    M1 = maps:with([{k,I} || I <- Ki], M0),
+
+    %% error case
+    ?badmap(a, with, [[a,b],a]) = catch maps:with([a,b], id(a)),
+    ?badmap(a, with, [{a,b},a]) = catch maps:with({a,b}, id(a)),
+    ?badmap({0,<<>>,97}, with, [[],{0,<<>>,97}]) = catch maps:with([], {0,<<>>,97}),
+    ?badmap({0,<<>>,97}, with, [[false, -20, -8],{0,<<>>,97}]) = catch maps:with([false, -20, -8], {0, <<>>, 97}),
+    ?badarg(with, [a,#{}]) = catch maps:with(a,#{}),
+    ok.
+
+t_bif_map_find(Config) when is_list(Config) ->
+    {ok, 1}     = maps:find(a, #{ a=> 1}),
+    {ok, 2}     = maps:find(b, #{ a=> 1, b => 2}),
+    {ok, "int"} = maps:find(1, #{ 1   => "int"}),
+    {ok, "float"} = maps:find(1.0, #{ 1.0=> "float"}),
+
+    {ok, "hi"} = maps:find("hello", #{ a=>1, "hello" => "hi"}),
+    {ok, "tuple hi"} = maps:find({1,1.0}, #{ a=>a, {1,1.0} => "tuple hi"}),
+
+    M0 = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    {ok, "v4"} = maps:find(<<"k2">>, M0#{ <<"k2">> => "v4" }),
+
+
+    %% error case
+    error = maps:find(a, #{}),
+    error = maps:find(a, #{b=>1, c=>2}),
+    error = maps:find(1.0, #{ 1 => "int"}),
+    error = maps:find(1, #{ 1.0  => "float"}),
+    error = maps:find({1.0,1}, #{ a=>a, {1,1.0} => "tuple hi"}), % reverse types in tuple key
+
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{maps,find,_,_}|_]}} =
+			  catch maps:find(a, T)
+	      end),
+    ok.
+
 %% aux
 
 rand_terms(0) -> [];
@@ -2408,7 +2557,11 @@ rand_map() ->
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }
     end.
 
-
+do_badmap(Test) ->
+    Terms = [Test,fun erlang:abs/1,make_ref(),self(),0.0/id(-1),
+	     <<0:1024>>,<<1:1>>,<<>>,<<1,2,3>>,
+	     [],{a,b,c},[a,b],atom,10.0,42,(1 bsl 65) + 3],
+    [Test(T) || T <- Terms].
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

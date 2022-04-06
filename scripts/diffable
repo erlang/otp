@@ -7,7 +7,8 @@
 -define(LONG_COMPILE_THRESHOLD, 10000).
 
 main(Args0) ->
-    DefOpts = #{format=>asm,no_compile=>false,legacy=>false,copts=>[]},
+    DefOpts = #{erltop=>false,format=>asm,no_compile=>false,
+                legacy=>false,copts=>[]},
     {Args,Opts} = opts(Args0, DefOpts),
     case Args of
 	[OutDir] ->
@@ -28,6 +29,10 @@ usage() ->
          "                  --asm)\n"
          "  --co <option>   Add <option> to the list of options given to the\n"
          "                  compiler. See compile:file/2 for valid options.\n"
+         "  --erltop <path> By default diffable looks for the applications to\n"
+         "                  compile by looking up the source for the current\n"
+         "                  runtime. This option allows the user to compile\n"
+         "                  the source in a different source tree.\n"
          "\n"
          "DESCRIPTION\n"
          "\n"
@@ -85,6 +90,8 @@ opts(["--deterministic"|Args], #{copts:=Copts}=Opts) ->
     opts(Args, Opts#{copts:=Copts++[deterministic]});
 opts(["--co",Opt|Args], #{copts:=Copts}=Opts) ->
     opts(Args, Opts#{copts:=Copts++[list_to_atom(Opt)]});
+opts(["--erltop", Path|Args], Opts) ->
+    opts(Args, Opts#{erltop:=Path});
 opts(["--"++Opt|_], _Opts) ->
     io:format("Unknown option: --~ts\n\n", [Opt]),
     usage();
@@ -156,16 +163,16 @@ elixir_root() ->
 %%%
 
 get_specs(Apps, #{format:=dis,no_compile:=true}=Opts) ->
-    Files = get_elixir_beams() ++ get_beams(Apps),
+    Files = get_elixir_beams() ++ get_beams(Apps, Opts),
     {Files,Opts};
 get_specs(Apps, #{}=Opts) ->
-    Inc = make_includes(),
+    Inc = make_includes(Opts),
     CompilerOpts = [{d,epmd_dist_high,42},
                     {d,epmd_dist_low,37},
                     {d,'VSN',1},
                     {d,'COMPILER_VSN',1},
                     {d,erlang_daemon_port,1337}|Inc],
-    Files = get_src(Apps),
+    Files = get_src(Apps, Opts),
     Specs1 = add_opts(Files, CompilerOpts),
     Specs = [{Beam,elixir} || Beam <- get_elixir_beams()] ++ Specs1,
     {Specs,Opts}.
@@ -200,31 +207,50 @@ vsn_is_harmful(F) ->
             App =:= "ssl"
     end.
 
-get_src(["preloaded"|Apps]) ->
-    WC = filename:join(code:root_dir(), "erts/preloaded/src/*.erl"),
-    filelib:wildcard(WC) ++ get_src(Apps);
-get_src(["inets"|Apps]) ->
-    LibDir = code:lib_dir(inets),
+get_src([A="preloaded"|Apps], Opts) ->
+    WC = filename:join(get_lib_dir(A, Opts), "erts/preloaded/src/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps, Opts);
+get_src(["inets"|Apps], Opts) ->
+    LibDir = get_lib_dir(inets, Opts),
     WC = filename:join(LibDir, "src/*/*.erl"),
-    filelib:wildcard(WC) ++ get_src(Apps);
-get_src(["syntax_tools"|Apps]) ->
-    LibDir = code:lib_dir(syntax_tools),
+    filelib:wildcard(WC) ++ get_src(Apps, Opts);
+get_src(["syntax_tools"|Apps], Opts) ->
+    LibDir = get_lib_dir(syntax_tools, Opts),
     WC = filename:join(LibDir, "src/*.erl"),
     Files0 = filelib:wildcard(WC),
     Files = [F || F <- Files0,
                   filename:basename(F) =/= "merl_tests.erl"],
-    Files ++ get_src(Apps);
-get_src(["wx"|Apps]) ->
-    LibDir = code:lib_dir(wx),
+    Files ++ get_src(Apps, Opts);
+get_src(["wx"|Apps], Opts) ->
+    LibDir = get_lib_dir(wx, Opts),
     WC1 = filename:join(LibDir, "src/gen/*.erl"),
     WC2 = filename:join(LibDir, "src/*.erl"),
-    filelib:wildcard(WC1) ++ filelib:wildcard(WC2) ++ get_src(Apps);
-get_src([App|Apps]) ->
-    WC = filename:join(code:lib_dir(App), "src/*.erl"),
-    filelib:wildcard(WC) ++ get_src(Apps);
-get_src([]) -> [].
+    filelib:wildcard(WC1) ++ filelib:wildcard(WC2) ++ get_src(Apps, Opts);
+get_src([App|Apps], Opts) ->
+    WC = filename:join(get_lib_dir(App, Opts), "src/*.erl"),
+    filelib:wildcard(WC) ++ get_src(Apps, Opts);
+get_src([], _) -> [].
 
-make_includes() ->
+get_root_dir(#{ erltop := false }) ->
+    code:root_dir();
+get_root_dir(#{ erltop := Root }) ->
+    Root.
+
+get_lib_dir("preloaded", Opts) ->
+    get_root_dir(Opts);
+get_lib_dir(App, #{ erltop := false }) ->
+    code:lib_dir(App);
+get_lib_dir(App, #{ erltop := AltRoot }) ->
+    %% The assumption made here is that we intend to compare either
+    %% two installed runtimes or two source trees, that is, the
+    %% application directory names either both contain the same
+    %% version or have no version at all.
+    RuntimeRoot = code:root_dir(),
+    RuntimeLibDir = code:lib_dir(App),
+    AppWithVersion = lists:nthtail(length(RuntimeRoot) + 1, RuntimeLibDir),
+    AltRoot ++ AppWithVersion.
+
+make_includes(Opts) ->
     Is = [{common_test,"include"},
           {inets,"include"},
           {inets,"src/http_client"},
@@ -242,15 +268,15 @@ make_includes() ->
           {wx,"src"},
           {wx,"include"},
           {xmerl,"include"}],
-    [{i,filename:join(code:lib_dir(App), Path)} || {App,Path} <- Is].
+    [{i,filename:join(get_lib_dir(App, Opts), Path)} || {App,Path} <- Is].
 
-get_beams(["preloaded"|Apps]) ->
-    WC = filename:join(code:root_dir(), "erts/preloaded/ebin/*.beam"),
-    filelib:wildcard(WC) ++ get_beams(Apps);
-get_beams([App|Apps]) ->
-    WC = filename:join(code:lib_dir(App), "ebin/*.beam"),
-    filelib:wildcard(WC) ++ get_beams(Apps);
-get_beams([]) -> [].
+get_beams(["preloaded"|Apps], Opts) ->
+    WC = filename:join(get_root_dir(Opts), "erts/preloaded/ebin/*.beam"),
+    filelib:wildcard(WC) ++ get_beams(Apps, Opts);
+get_beams([App|Apps], Opts) ->
+    WC = filename:join(get_lib_dir(App, Opts), "ebin/*.beam"),
+    filelib:wildcard(WC) ++ get_beams(Apps, Opts);
+get_beams([], _) -> [].
 
 
 %%%

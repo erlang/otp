@@ -128,6 +128,17 @@ cover_safe_and_pure_bifs(Config) ->
 cover_trim(_Config) ->
     ok = cover_trim_1(<<"abc">>, id([42])),
     ok = cover_trim_1({a,b,c}, id([42])),
+
+    true = cover_trim_2("keep-alive", "1"),
+    false = cover_trim_2("keep-alive", "0"),
+    false = cover_trim_2("other", "1"),
+    false = cover_trim_2("other", "0"),
+
+    true = cover_trim_3("keep-alive", -1),
+    false = cover_trim_3("keep-alive", 100),
+    false = cover_trim_3("other", -10),
+    false = cover_trim_3("other", -100),
+
     ok.
 
 cover_trim_1(Something, V) ->
@@ -137,6 +148,25 @@ cover_trim_1(Something, V) ->
         hd(V) =:= 42 ->
             ok
     end.
+
+cover_trim_2(Header, NList)->
+    id(0),
+    case id(Header) of
+        "keep-alive" when hd(NList) >= $1 ->
+            true;
+        _Connect ->
+            false
+    end.
+
+cover_trim_3(Header, N)->
+    id(0),
+    case id(Header) of
+        "keep-alive" when abs(N) < 42 ->
+            true;
+        _Connect ->
+            false
+    end.
+
 
 id(I) ->
     I.

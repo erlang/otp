@@ -538,7 +538,9 @@ int efile_sync(efile_data_t *d, int data_only) {
     }
 #endif
 
-#if defined(__DARWIN__) && defined(F_FULLFSYNC)
+#if defined(__DARWIN__) && defined(F_BARRIERFSYNC)
+    if(fcntl(u->fd, F_BARRIERFSYNC) < 0) {
+#elif defined(__DARWIN__) && defined(F_FULLFSYNC)
     if(fcntl(u->fd, F_FULLFSYNC) < 0) {
 #else
     if(fsync(u->fd) < 0) {

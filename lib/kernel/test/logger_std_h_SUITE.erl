@@ -817,10 +817,10 @@ sync(Config) ->
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_h_common,handle_cast,repeated_filesync},
+    OneSync = {logger_h_common,handle_info,{timeout,repeated_filesync}},
     %% receive 1 repeated_filesync per sec
-    start_tracer([{{logger_h_common,handle_cast,2},
-                   [{[repeated_filesync,'_'],[],[]}]}],
+    start_tracer([{{logger_h_common,handle_info,2},
+                   [{[{timeout,'_',repeated_filesync},'_'],[],[]}]}],
                  [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     ok = logger:update_handler_config(?MODULE, config,
@@ -1379,6 +1379,10 @@ handler_requests_under_load(cleanup, _Config) ->
 recreate_deleted_log(Config) ->
     {Log,_HConfig,_StdHConfig} =
         start_handler(?MODULE, ?FUNCTION_NAME, Config),
+
+    %% Make sure that if we delete the directory it is created
+    [ok = file:del_dir_r(filename:dirname(Log)) || element(1,os:type()) =/= win32],
+
     logger:notice("first",?domain),
     logger_std_h:filesync(?MODULE),
     ok = file:rename(Log,Log++".old"),
@@ -1386,6 +1390,7 @@ recreate_deleted_log(Config) ->
     logger_std_h:filesync(?MODULE),
     {ok,<<"first\n">>} = file:read_file(Log++".old"),
     {ok,<<"second\n">>} = file:read_file(Log),
+
     ok.
 recreate_deleted_log(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -1499,6 +1504,48 @@ rotate_size_compressed(Config) ->
     {ok,#file_info{size=35}} = file:read_file_info(Log++".1.gz"),
     {error,enoent} = file:read_file_info(Log++".2"),
     {error,enoent} = file:read_file_info(Log++".2.gz"),
+
+    case os:type() of
+        {unix,_} ->
+            %% Test that logging does not break when directory is deleted at rotation
+            [logger:notice(Str,?domain) || _ <- lists:seq(1,50)],
+            logger_std_h:filesync(?MODULE),
+            {ok,#file_info{size=1000}} = file:read_file_info(Log),
+            ok = file:del_dir_r(filename:dirname(Log)),
+            {error,enoent} = file:read_file_info(Log),
+            logger:notice("bbbb",?domain),
+            logger:notice("bbbb",?domain),
+            logger_std_h:filesync(?MODULE),
+            {ok,#file_info{size=5}} = file:read_file_info(Log),
+            {error,enoent} = file:read_file_info(Log++".0"),
+            {ok,#file_info{size=25}} = file:read_file_info(Log++".0.gz"),
+            {error,enoent} = file:read_file_info(Log++".1"),
+            {error,enoent} = file:read_file_info(Log++".1.gz"),
+            {error,enoent} = file:read_file_info(Log++".2"),
+            {error,enoent} = file:read_file_info(Log++".2.gz"),
+
+            %% Test that logging without sync does not break
+            %% when directory is deleted at rotation
+            ok = logger:update_handler_config(?MODULE, #{config=>#{ file_check => 10000 } }),
+            [logger:notice(Str,?domain) || _ <- lists:seq(1,49)],
+            [logger:notice("bbbb",?domain) || _ <- lists:seq(1,3)],
+            logger_std_h:filesync(?MODULE),
+            {ok,#file_info{size=1000}} = file:read_file_info(Log),
+            ok = file:del_dir_r(filename:dirname(Log)),
+            {error,enoent} = file:read_file_info(Log),
+            logger:notice("bbbb",?domain),
+            logger:notice("bbbb",?domain),
+            logger_std_h:filesync(?MODULE),
+            {ok,#file_info{size=5}} = file:read_file_info(Log),
+            {error,enoent} = file:read_file_info(Log++".0"),
+            {error,enoent} = file:read_file_info(Log++".0.gz"),
+            {error,enoent} = file:read_file_info(Log++".1"),
+            {error,enoent} = file:read_file_info(Log++".1.gz"),
+            {error,enoent} = file:read_file_info(Log++".2"),
+            {error,enoent} = file:read_file_info(Log++".2.gz");
+        {win32,_} ->
+            ok
+    end,
 
     ok.
 rotate_size_compressed(cleanup,_Config) ->
@@ -1830,8 +1877,9 @@ start_handler(Name, FuncName, Config) ->
     {Log,HConfig,StdHConfig}.
 
 get_handler_log_name(FuncName, Config) ->
-    Dir = ?config(priv_dir,Config),
-    filename:join(Dir, lists:concat([FuncName,".log"])).
+    filename:join([?config(priv_dir,Config),
+                   FuncName,
+                   lists:concat([FuncName,".log"])]).
 
 filter_only_this_domain(Name) ->
     [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
@@ -2181,6 +2229,9 @@ tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[Data,_]}},
        {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
 tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
+    maybe_tracer_done(Pid,Expected,{Mod,Func});
+tracer({trace,_,call,{logger_h_common = Mod,handle_info = Func,[{timeout,_,Op},_S]}},
+       {Pid,[{Mod,Func,{timeout,Op}}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func});
 tracer({trace,_,call,Call}, {Pid,Expected}) ->
     ct:log("Tracer got unexpected: ~p~nExpected: ~p~n",[Call,Expected]),

@@ -25,6 +25,7 @@
 #include <map>
 #include <functional>
 #include <algorithm>
+#include <cmath>
 
 #ifndef ASMJIT_ASMJIT_H_INCLUDED
 #    include <asmjit/asmjit.hpp>
@@ -1300,8 +1301,8 @@ protected:
         } else {
             auto [min1, max1] = getIntRange(LHS);
             auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(abs(min1), abs(max1));
-            auto mag2 = std::max(abs(min2), abs(max2));
+            auto mag1 = std::max(std::abs(min1), std::abs(max1));
+            auto mag2 = std::max(std::abs(min2), std::abs(max2));
 
             /*
              * mag1 * mag2 <= MAX_SMALL
@@ -1309,6 +1310,26 @@ protected:
              */
             ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
             return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
+        }
+    }
+
+    bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
+        /*
+         * In the code compiled by scripts/diffable, there never
+         * seems to be any range information for the RHS. Therefore,
+         * don't bother unless RHS is an immediate small.
+         */
+        if (!(always_small(LHS) && RHS.isSmall())) {
+            return false;
+        } else {
+            auto [min1, max1] = getIntRange(LHS);
+            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+
+            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+                return false;
+            }
+
+            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
         }
     }
 

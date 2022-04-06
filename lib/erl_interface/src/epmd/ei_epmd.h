@@ -24,12 +24,11 @@
 #define INADDR_LOOPBACK ((u_long) 0x7F000001)
 #endif
 
-#define EI_DIST_5 5 /* OTP R4 - 22 */
 #define EI_DIST_6 6 /* OTP 23 and later */
 
 #ifndef EI_DIST_HIGH
 #define EI_DIST_HIGH EI_DIST_6
-#define EI_DIST_LOW  EI_DIST_5
+#define EI_DIST_LOW  EI_DIST_6
 #endif
 
 #ifndef EPMD_PORT

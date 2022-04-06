@@ -4006,6 +4006,8 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(confirm);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
     GLOBAL_ATOM_DECL(connect);                         \
+    GLOBAL_ATOM_DECL(connected);                       \
+    GLOBAL_ATOM_DECL(connecting);                      \
     GLOBAL_ATOM_DECL(context);                         \
     GLOBAL_ATOM_DECL(cork);                            \
     GLOBAL_ATOM_DECL(credentials);                     \
@@ -4278,8 +4280,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(closed);           \
     LOCAL_ATOM_DECL(closing);          \
     LOCAL_ATOM_DECL(code);             \
-    LOCAL_ATOM_DECL(connected);        \
-    LOCAL_ATOM_DECL(connecting);       \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
@@ -4870,7 +4870,7 @@ ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
       SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> connecting"
 		     "\r\n", descP->sock) );
       */
-      TARRAY_ADD(estate, atom_connecting);
+      TARRAY_ADD(estate, esock_atom_connecting);
     }
 
     if ((state & ESOCK_STATE_CONNECTED) != 0) {
@@ -4878,7 +4878,7 @@ ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
       SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> connected"
 		     "\r\n", descP->sock) );
       */
-      TARRAY_ADD(estate, atom_connected);
+      TARRAY_ADD(estate, esock_atom_connected);
     }
 
     if ((state & ESOCK_STATE_SELECTED) != 0) {
@@ -9077,7 +9077,7 @@ ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
     size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
     size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
     struct msghdr msgHdr;
-    struct iovec  iov[1];  // Shall we always use 1?
+    SysIOVec      iov[1];  // Shall we always use 1?
     ErlNifBinary  data[1]; // Shall we always use 1?
     ErlNifBinary  ctrl;
     ERL_NIF_TERM  readerCheck;

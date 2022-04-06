@@ -1455,7 +1455,7 @@ ensure_init_used_1([], _G, Acc) ->
 
 do_ensure_init_instr(#b_set{op=phi,args=Args},
                      _VarMap, InitMaps) ->
-    _ = [ensure_init_used(Var, map_get(From, InitMaps)) ||
+    _ = [ensure_init_used(Var, maps:get(From, InitMaps, #{})) ||
             {#b_var{}=Var,From} <- Args],
     ok;
 do_ensure_init_instr(#b_set{}=I, VarMap, _InitMaps) ->

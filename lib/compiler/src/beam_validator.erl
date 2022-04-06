@@ -1245,7 +1245,7 @@ validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
     verify_live(Live, Vst0),
     verify_call_args(Func, Live, Vst0),
 
-    case will_call_succeed(Func, Vst0) of
+    case will_call_succeed(Func, Live, Vst0) of
         yes when Deallocate =:= NumY ->
             %% The call cannot fail; we don't need to handle exceptions
             Vst = deallocate(Vst0),
@@ -1280,7 +1280,7 @@ validate_body_call(Func, Live,
                       create_term(RetType, call, [], {x,0}, SuccVst)
               end,
 
-    case will_call_succeed(Func, Vst) of
+    case will_call_succeed(Func, Live, Vst) of
         yes ->
             SuccFun(Vst);
         'maybe' ->
@@ -3148,20 +3148,29 @@ will_bif_succeed(Op, Ss, Vst) ->
             beam_call_types:will_succeed(erlang, Op, Args)
     end.
 
-will_call_succeed({extfunc,M,F,A}, Vst) ->
+will_call_succeed({extfunc,M,F,A}, _Live, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
-will_call_succeed(bs_init_writable, _Vst) ->
+will_call_succeed(bs_init_writable, _Live, _Vst) ->
     yes;
-will_call_succeed(raw_raise, _Vst) ->
+will_call_succeed(raw_raise, _Live, _Vst) ->
     no;
-will_call_succeed({f,Lbl}, #vst{ft=Ft}) ->
+will_call_succeed({f,Lbl}, _Live, #vst{ft=Ft}) ->
     case Ft of
         #{Lbl := #{always_fails := true}} ->
             no;
         #{} ->
             'maybe'
     end;
-will_call_succeed(_Call, _Vst) ->
+will_call_succeed(apply, Live, Vst) ->
+    Mod = get_term_type({x,Live-2}, Vst),
+    Name = get_term_type({x,Live-1}, Vst),
+    case {Mod,Name} of
+        {#t_atom{},#t_atom{}} ->
+            'maybe';
+        {_,_} ->
+            no
+    end;
+will_call_succeed(_Call, _Live, _Vst) ->
     'maybe'.
 
 get_call_args(Arity, Vst) ->

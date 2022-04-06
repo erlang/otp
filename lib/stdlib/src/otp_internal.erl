@@ -51,8 +51,6 @@ obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
-obsolete(filename, safe_relative_path, 1) ->
-    {deprecated, "use filelib:safe_relative_path/2 instead", "OTP 25"};
 obsolete(ftp, start_service, 1) ->
     {deprecated, "use ftp:open/2 instead", "OTP 26"};
 obsolete(ftp, stop_service, 1) ->
@@ -171,6 +169,8 @@ obsolete(erlang, get_stacktrace, 0) ->
     {removed, "use the new try/catch syntax for retrieving the stack backtrace"};
 obsolete(erlang, hash, 2) ->
     {removed, "use erlang:phash2/2 instead"};
+obsolete(filename, safe_relative_path, 1) ->
+    {removed, "use filelib:safe_relative_path/2 instead"};
 obsolete(http_uri, parse, 1) ->
     {removed, "use uri_string functions instead"};
 obsolete(http_uri, parse, 2) ->

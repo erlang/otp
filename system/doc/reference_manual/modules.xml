@@ -129,7 +129,7 @@ fact(0) ->           %  |
 	    <seeguide marker="code_loading#on_load">
             Running a Function When a Module is Loaded</seeguide>.</p>
         </item>
-        <tag><marker id="nifs_attribute"/><c>-nifs(Function).</c></tag>
+        <tag><marker id="nifs_attribute"/><c>-nifs(Functions).</c></tag>
         <item>
           <p>
             Specifies which of the functions, defined within the module, that

@@ -62,6 +62,18 @@
          enabled/3]).
 
 -export([user_trace_i4s4/9]). % Know what you're doing!
+
+-nifs([available/0, user_trace_s1/1, user_trace_i4s4/9, user_trace_n/10,
+
+       trace_procs/5, trace_ports/5, trace_running_procs/5,
+       trace_running_ports/5, trace_call/5, trace_send/5,
+       trace_receive/5, trace_garbage_collection/5, enabled_procs/3,
+       enabled_ports/3, enabled_running_procs/3, enabled_running_ports/3,
+       enabled_call/3, enabled_send/3, enabled_receive/3,
+       enabled_garbage_collection/3,
+
+       enabled/3, trace/5]).
+
 -compile(no_native).
 -on_load(on_load/0).
 

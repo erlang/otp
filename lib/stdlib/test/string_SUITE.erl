@@ -643,21 +643,33 @@ cd_gc(_) ->
     [] = string:next_codepoint(""),
     [] = string:next_codepoint(<<>>),
     [] = string:next_codepoint([<<>>]),
+    [$a|""] = string:next_codepoint("a"),
+    [$a|<<>>] = string:next_codepoint(<<"a">>),
+    [$a|[<<>>,$b]] = string:next_codepoint([<<"a">>,$b]),
     "abcd" = string:next_codepoint("abcd"),
-    [$e,778] = string:next_codepoint([$e,778]),
+    [$e|[778]] = string:next_codepoint([$e,778]),
     [$e|<<204,138>>] = string:next_codepoint(<<$e,778/utf8>>),
-    [778|_] = string:next_codepoint(tl(string:next_codepoint(<<$e,778/utf8>>))),
+    [778|<<>>] = string:next_codepoint(tl(string:next_codepoint(<<$e,778/utf8>>))),
     [0|<<128,1>>] = string:next_codepoint(<<0,128,1>>),
     {error,<<128,1>>} = string:next_codepoint(<<128,1>>),
+    [128021|<<>>] = string:next_codepoint(<<128021/utf8>>), %% Dog
+    [128021|<<8205/utf8>>] = string:next_codepoint(<<128021/utf8,8205/utf8>>), %% Dog + ZWJ
+    [128021|<<8205/utf8,129466/utf8>>] = string:next_codepoint(<<128021/utf8,8205/utf8,129466/utf8>>), %% Dog + ZWJ + Service vest == Service dog
 
     [] = string:next_grapheme(""),
     [] = string:next_grapheme(<<>>),
     [] = string:next_grapheme([<<>>]),
+    [$a|""] = string:next_grapheme("a"),
+    [$a|<<>>] = string:next_grapheme(<<"a">>),
+    [$a|[<<>>,$b]] = string:next_grapheme([<<"a">>,$b]),
     "abcd" = string:next_grapheme("abcd"),
-    [[$e,778]] = string:next_grapheme([$e,778]),
-    [[$e,778]] = string:next_grapheme(<<$e,778/utf8>>),
+    [[$e,778]|""] = string:next_grapheme([$e,778]),
+    [[$e,778]|<<>>] = string:next_grapheme(<<$e,778/utf8>>),
     [0|<<128,1>>] = string:next_grapheme(<<0,128,1>>),
     {error,<<128,1>>} = string:next_grapheme(<<128,1>>),
+    [128021|<<>>] = string:next_grapheme(<<128021/utf8>>), %% Dog
+    [[128021,8205]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8>>), %% Dog + ZWJ
+    [[128021,8205,129466]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8,129466/utf8>>), %% Dog + ZWJ + Service vest == Service dog
 
     ok.
 

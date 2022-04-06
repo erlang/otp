@@ -130,11 +130,13 @@ void erts_msacc_update_cache(ErtsMsAcc **cache) {
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
 
-void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn) {
+const void *erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache,
+                                     Eterm mod,
+                                     const void *bif) {
 
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	       \
-    if (fn == &BifFuncAddr) {                                             \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)                     \
+    if (bif == &BifFuncAddr) {                                                \
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATIC_STATE_COUNT + Num); \
     } else
 #include "erl_bif_list.h"
@@ -150,6 +152,8 @@ void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
     }
 #endif
+
+    return bif;
 }
 
 #endif

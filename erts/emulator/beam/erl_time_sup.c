@@ -2018,12 +2018,10 @@ send_time_offset_changed_notifications(void *new_offsetp)
 
 	for (mix = 0; mix < no_monitors; mix++) {
             *patch_refp = to_mon_info[mix].ref;
-            erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_TIME_OFFSET,
-                                                      *patch_refp,
-                                                      am_clock_service,
-                                                      to_mon_info[mix].pid,
-                                                      message_template,
-                                                      hsz);
+            erts_proc_sig_send_monitor_time_offset_msg(*patch_refp,
+                                                       to_mon_info[mix].pid,
+                                                       message_template,
+                                                       hsz);
         }
 
 	erts_free(ERTS_ALC_T_TMP, tmp);

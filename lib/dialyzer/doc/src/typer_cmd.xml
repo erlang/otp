@@ -52,7 +52,7 @@ typer --help</code>
 
     <code type="none">
 typer [--help] [--version] [--plt PLT] [--edoc]
-      [--show | --show-exported | --annotate | --annotate-inc-files]
+      [--show | --show-exported | --annotate | --annotate-inc-files | --annotate-in-place]
       [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
       [-T application]* file* [-r directory*]</code>
 
@@ -92,6 +92,13 @@ typer [--help] [--version] [--plt PLT] [--edoc]
         <p>Same as <c>--annotate</c> but annotates all
         <c>-include()</c> files as well as all .erl files. (Use this
         option with caution - it has not been tested much).</p>
+      </item>
+
+      <tag><c>--annotate-in-place</c></tag>
+      <item>
+        <p>Annotate directly on the source code files, instead of dumping the
+        annotated files in a different directory (use this option with
+        caution - has not been tested much)</p>
       </item>
 
       <tag><c>--edoc</c></tag>

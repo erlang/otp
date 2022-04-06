@@ -163,6 +163,13 @@ typedef int BOOLEAN_T;
 #define SOCKOPTLEN_T SOCKLEN_T
 #endif
 
+/*
+ * Seems to be missing.
+ */
+#ifndef __GNUC__
+typedef long ssize_t;
+#endif
+
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms (esock_atom_...)
@@ -211,6 +218,8 @@ typedef int BOOLEAN_T;
     GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
+    GLOBAL_ATOM_DEF(connected);                \
+    GLOBAL_ATOM_DEF(connecting);               \
     GLOBAL_ATOM_DEF(context);                  \
     GLOBAL_ATOM_DEF(cork);                     \
     GLOBAL_ATOM_DEF(credentials);              \

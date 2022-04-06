@@ -1080,6 +1080,8 @@ int main(int argc, char **argv)
     add_Eargs("--");
     add_Eargs("-root");
     add_Eargs(rootdir);
+    add_Eargs("-bindir");
+    add_Eargs(bindir);
     add_Eargs("-progname");
     add_Eargs(progname);
     add_Eargs("--");

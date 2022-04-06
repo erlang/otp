@@ -1452,7 +1452,7 @@ shrink_try([{TryLbl0, #b_blk{is=[#b_set{op=new_try_tag,dst=Dst}],
             {SuccLbl, #b_blk{is=SuccIs0,last=SuccLast}=SuccBlk0} | Bs],
            Count0, Acc0) ->
     %% Hoist leading known-safe instructions before `new_try_tag` instructions.
-    {HoistIs, SuccIs} = hoist_try_is(SuccIs0, SuccLast, []),
+    {HoistIs, SuccIs} = hoist_try_is(SuccIs0, SuccLast, Dst, []),
 
     HoistLbl = TryLbl0,
     TryLbl = Count0,
@@ -1476,22 +1476,23 @@ shrink_try([], Count, Acc) ->
 
 hoist_try_is([#b_set{dst=Dst},
               #b_set{op={succeeded,_},args=[Dst]}]=Is,
-             #b_br{}, HoistIs) ->
+             #b_br{}, _TryTag, HoistIs) ->
     {reverse(HoistIs), Is};
-hoist_try_is([#b_set{dst=Dst}]=Is, #b_br{bool=Dst}, HoistIs) ->
+hoist_try_is([#b_set{dst=Dst}]=Is, #b_br{bool=Dst}, _TryTag, HoistIs) ->
     {reverse(HoistIs), Is};
-hoist_try_is([#b_set{op=new_try_tag}]=Is, _Last, HoistIs) ->
-    {reverse(HoistIs), Is};
-hoist_try_is([#b_set{op=landingpad}]=Is, _Last, HoistIs) ->
-    {reverse(HoistIs), Is};
-hoist_try_is([#b_set{op=kill_try_tag}]=Is, _Last, HoistIs) ->
-    {reverse(HoistIs), Is};
-hoist_try_is([#b_set{}=I | Is], Last, HoistIs) ->
+hoist_try_is([#b_set{op=kill_try_tag,args=[TryTag]}=Kill | Rest],
+             Last, TryTag, HoistIs0) ->
+    %% We're killing the current try tag before we have a chance to throw an
+    %% exception. Hoist the rest of the block and keep this instruction in the
+    %% current block.
+    {HoistIs, Is} = hoist_try_is(Rest, Last, TryTag, []),
+    {reverse(HoistIs0, HoistIs), [Kill | Is]};
+hoist_try_is([#b_set{}=I | Is], Last, TryTag, HoistIs) ->
     %% Note that we hoist instructions regardless of whether they side-effect
     %% or not: as long as they don't throw an exception, we don't need to care
     %% about side-effects as long as their order is unchanged.
-    hoist_try_is(Is, Last, [I | HoistIs]);
-hoist_try_is([], _Last, HoistIs) ->
+    hoist_try_is(Is, Last, TryTag, [I | HoistIs]);
+hoist_try_is([], _Last, _TryTag, HoistIs) ->
     {reverse(HoistIs), []}.
 
 %% Moves trailing known-safe instructions past `kill_try_tag` instructions.
@@ -1891,7 +1892,8 @@ opt_create_bin_is([]) -> [].
 opt_create_bin_args([#b_literal{val=binary},#b_literal{val=[1|_]},
                      #b_literal{val=Bin0},#b_literal{val=all},
                      #b_literal{val=binary},#b_literal{val=[1|_]},
-                     #b_literal{val=Bin1},#b_literal{val=all}|Args0]) ->
+                     #b_literal{val=Bin1},#b_literal{val=all}|Args0])
+  when is_bitstring(Bin0), is_bitstring(Bin1) ->
     %% Coalesce two litary binary segments to one.
     Bin = <<Bin0/bitstring,Bin1/bitstring>>,
     Args = [#b_literal{val=binary},#b_literal{val=[1]},
