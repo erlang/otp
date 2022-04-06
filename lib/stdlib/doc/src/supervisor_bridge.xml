@@ -115,7 +115,7 @@
           <item>
             <p>If <c><anno>Module</anno>:init/1</c> fails or returns an error
               tuple or an incorrect value, this function returns
-              <c>{error,<anno>Error</anno>r}</c>, where
+              <c>{error,<anno>Error</anno>}</c>, where
               <c><anno>Error</anno></c> is a term with information about the
               error, and the supervisor bridge
               terminates with reason <c><anno>Error</anno></c>.</p>
