@@ -2018,7 +2018,7 @@ eval_tests(Config, Fun, Tests) ->
                 Return = Fun(Config, P, Opts),
                 %% The result should be the same when enabling maybe ... end
                 %% (making 'else' a keyword instead of an atom).
-                Return = Fun(Config, P, [{enable_feature,maybe_expr}|Opts]),
+                Return = Fun(Config, P, [{feature,maybe_expr,enable}|Opts]),
                 case message_compare(E, Return) of
                     true ->
                         case E of
@@ -2041,7 +2041,7 @@ check_test(Config, Test, Opts) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    case epp:parse_file(File, [PrivDir], Opts) of
+    case epp:parse_file(File, [{includes, PrivDir}| Opts]) of
 	{ok,Forms} ->
 	    Errors = [E || E={error,_} <- Forms],
 	    call_format_error([E || {error,E} <- Errors]),
@@ -2116,10 +2116,10 @@ run_test(Config, Test0, Opts0) ->
     Opts = [return, {i,PrivDir},{outdir,PrivDir}] ++ Opts0,
     {ok, epp_test, []} = compile:file(File, Opts),
     AbsFile = filename:rootname(File, ".erl"),
-    %% FIXME For now, use firbidden feature at rumtime
+    %% FIXME For now, use forbidden feature at rumtime
     erl_features:enable_feature(maybe_expr),
     {module, epp_test} = code:load_abs(AbsFile, epp_test),
-    %% FIXME For now, use firbidden feature at rumtime
+    %% FIXME For now, use forbidden feature at rumtime
     erl_features:disable_feature(maybe_expr),
     Reply = epp_test:t(),
     code:purge(epp_test),

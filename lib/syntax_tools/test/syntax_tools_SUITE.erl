@@ -412,7 +412,7 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
 test_epp_dodger([], _, _) -> ok;
 test_epp_dodger([Filename|Files],DataDir,PrivDir) ->
     io:format("Parsing ~p~n", [Filename]),
-    Options  = [{enable_feature, maybe_expr}],
+    Options  = [{feature, maybe_expr, enable}],
     InFile   = filename:join(DataDir, Filename),
     Parsers  = [{fun(File) -> epp_dodger:parse_file(File, Options) end,parse_file},
 		{fun(File) -> epp_dodger:quick_parse_file(File,
@@ -621,7 +621,7 @@ p_run_loop(Test, List, N, Refs0, Errors0) ->
     end.
 
 res_word_option() ->
-    Options = [{enable_feature, maybe_expr}],
+    Options = [{feature, maybe_expr, enable}],
     {ok, {_Ftrs, ResWordFun}} =
         erl_features:keyword_fun(Options, fun erl_scan:f_reserved_word/1),
     {reserved_word_fun, ResWordFun}.

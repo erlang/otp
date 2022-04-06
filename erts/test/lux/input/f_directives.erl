@@ -23,8 +23,8 @@
 %% This module uses both features ifn_expr and maybe_expr, so atoms
 %% belonging to these need t be quoted.
 
--feature(enable, ifn_expr).
--feature(enable, while_expr).
+-feature(ifn_expr, enable).
+-feature(while_expr, enable).
 
 -export([bar/0
 	]).

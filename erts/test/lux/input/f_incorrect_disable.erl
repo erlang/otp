@@ -22,7 +22,7 @@
 
 -module(f_incorrect_disable).
 
--feature(disable, unless).
+-feature(unless, disable).
 
 -export([do/1,
 	 no_ifn/0,
@@ -38,7 +38,7 @@
 no_ifn() ->
     [ifn, 'maybe', ?FOO].
 
--feature(disable, maybe_expr).
+-feature(maybe_expr, disable).
 
 -if(?FEATURE_ENABLED(maybe_expr)).
 -define(BAR, has_maybe).
@@ -49,7 +49,7 @@ no_ifn() ->
 no_ftrs() ->
     [ifn, maybe, then, ?BAR].
 
--feature(enable, ifn_expr).
+-feature(ifn_expr, enable).
 
 do(X) ->
     ifn X > 10 ->

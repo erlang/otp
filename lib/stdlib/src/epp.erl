@@ -1002,8 +1002,8 @@ scan_err_warn(Toks, {atom,_,Tag}=Token, From, St) ->
     wait_req_scan(St).
 
 %% scan a feature directive
-scan_feature([{'(', _Ap}, {atom, _Am, Ind},
-              {',', _}, {atom, _, Ftr}, {')', _}, {dot, _}],
+scan_feature([{'(', _Ap}, {atom, _Am, Ftr},
+              {',', _}, {atom, _, Ind}, {')', _}, {dot, _}],
              Feature, From, St)
   when St#epp.in_prefix,
        (Ind =:= enable

@@ -1,5 +1,5 @@
 -if(?enable_maybe > 0).
--feature(enable, while_expr).
+-feature(while_expr, enable).
 -record(conditional, {on=off, 'until'=none}).
 -else.
 -record(conditional, {on=on, until=until}).

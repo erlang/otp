@@ -40,17 +40,17 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, ifn}'"]
+    [invoke compile ignorant.erl "+'{feature, ifn, enable}'"]
     ?the feature 'ifn' does not exist
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, maybe}'"]
+    [invoke compile ignorant.erl "+'{feature, maybe, enable}'"]
     ?the feature 'maybe' does not exist
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, ifn}' +'{enable_feature, maybe}'"]
+    [invoke compile ignorant.erl "+'{feature, ifn, enable}' +'{feature, maybe, enable}'"]
     # FIXME these are in the wrong order
     ??the features 'maybe' and 'ifn' do not exist
     ?SH-PROMPT:
@@ -64,7 +64,7 @@
     ?the feature 'ifn' does not exist
     [invoke notok]
 
-    [invoke compile f_ifn.erl "'+{enable_feature, maybe}'"]
+    [invoke compile f_ifn.erl "'+{feature, maybe, enable}'"]
     ?the feature 'maybe' does not exist
     ?SH-PROMPT:
     [invoke notok]
@@ -74,7 +74,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile f_ifn.erl "'+{enable_feature, maybe}' '+{enable_feature, ifn}'"]
+    [invoke compile f_ifn.erl "'+{feature, maybe, enable}' '+{feature, ifn, enable}'"]
     # FIXME Fix order!
     ??the features 'ifn' and 'maybe' do not exist
     ?SH-PROMPT:
@@ -90,7 +90,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, maybe}'"]
+    [invoke compile f_maybe.erl "'+{feature, maybe, enable}'"]
     ?the feature 'maybe' does not exist
     [invoke notok]
 
@@ -98,7 +98,7 @@
     ?the feature 'maybe' does not exist
     [invoke notok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, ifn}'"]
+    [invoke compile f_maybe.erl "'+{feature, ifn, enable}'"]
     ?the feature 'ifn' does not exist
     ?SH-PROMPT:
     [invoke notok]
@@ -108,7 +108,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, maybe}' '+{enable_feature, ifn}'"]
+    [invoke compile f_maybe.erl "'+{feature, maybe, enable}' '+{feature, ifn, enable}'"]
     # FIXME fix order
     ??the features 'ifn' and 'maybe' do not exist
     ?SH-PROMPT:
@@ -149,17 +149,17 @@
     ???{ok,ignorant}
     ?$ERLPROMPT
 
-    [invoke erl-compile ignorant.erl [{enable_feature,ifn}]]
+    [invoke erl-compile ignorant.erl [{feature,ifn,enable}]]
     ?the feature 'ifn' does not exist
     ?error
     ?$ERLPROMPT
 
-    [invoke erl-compile ignorant.erl [{enable_feature,ifn},{enable_feature,while}]]
+    [invoke erl-compile ignorant.erl [{feature,ifn,enable},{feature,while,enable}]]
     ??the features 'ifn' and 'while' do not exist
     ?error
     ?$ERLPROMPT
 
-    [invoke erl-compile ignorant.erl [{enable_feature,unless},{enable_feature,ifn},{enable_feature,while}]]
+    [invoke erl-compile ignorant.erl [{feature,unless,enable},{feature,ifn,enable},{feature,while,enable}]]
     ??the features 'unless', 'ifn' and 'while' do not exist
     ?error
     ?$ERLPROMPT

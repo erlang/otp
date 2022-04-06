@@ -20,7 +20,7 @@
     [invoke ok]
 
     # Different error message when ifn is not in parser
-    [invoke compile feature_ignorant.erl "+'{enable_feature, ifn_expr}'"]
+    [invoke compile feature_ignorant.erl "+'{feature, ifn_expr, enable}'"]
     ?syntax error before:
     ?syntax error before: ifn
     ?SH-PROMPT:
@@ -33,7 +33,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile feature_ignorant.erl "+'{enable_feature, while_expr}'"]
+    [invoke compile feature_ignorant.erl "+'{feature, while_expr, enable}'"]
     ?syntax error before: while
     ?syntax error before: while
     ?syntax error before: until
@@ -48,7 +48,7 @@
     [invoke notok]
 
     # Different error message when ifn not in parser
-    [invoke compile feature_ignorant.erl "+'{enable_feature, ifn_expr}' +'{enable_feature, while_expr}'"]
+    [invoke compile feature_ignorant.erl "+'{feature, ifn_expr, enable}' +'{feature, while_expr, enable}'"]
     ?syntax error before:
     ?syntax error before: while
     ?syntax error before: until
@@ -69,7 +69,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_ifn.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_ifn.erl "'+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -77,7 +77,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_ifn.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile feature_ifn.erl "'+{feature, while_expr, enable}'"]
     [invoke syntax-error while]
     [invoke syntax-error until]
     ?SH-PROMPT:
@@ -89,7 +89,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile feature_ifn.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_ifn.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     [invoke syntax-error while]
     [invoke syntax-error until]
     ?SH-PROMPT:
@@ -105,18 +105,18 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_maybe.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile feature_maybe.erl "'+{feature, while_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
     # Different error message when ifn not in parser
-    [invoke compile feature_maybe.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe.erl "'+{feature, ifn_expr, enable}'"]
     [invoke syntax-error ifn]
     ?SH-PROMPT:
     [invoke notok]
 
     # Different error message when ifn not in parser
-    [invoke compile feature_maybe.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     [invoke syntax-error ifn]
     ?SH-PROMPT:
     [invoke notok]
@@ -125,15 +125,15 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_maybe_ifn.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile feature_maybe_ifn.erl "'+{feature, while_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_maybe_ifn.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe_ifn.erl "'+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile feature_maybe_ifn.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe_ifn.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -147,7 +147,7 @@
     ?$ERLPROMPT
 
     # Different error message when ifn not in parser
-    [invoke erl-compile feature_ignorant.erl [{enable_feature,ifn_expr}]]
+    [invoke erl-compile feature_ignorant.erl [{feature,ifn_expr,enable}]]
     ?syntax error before: ifn
     ?syntax error before: ifn
     ?error

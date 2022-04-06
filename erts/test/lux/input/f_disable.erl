@@ -20,8 +20,8 @@
 
 -module(f_disable).
 
--feature(disable, ifn_expr).
--feature(disable, while_expr).
+-feature(ifn_expr, disable).
+-feature(while_expr, disable).
 
 -export([no_ifn/0,
 	 no_ftrs/0]).
@@ -44,7 +44,7 @@ no_ifn() ->
 no_ftrs() ->
     [ifn, while, until, ?BAR].
 
-%% -compile({enable_feature, ifn_expr}).
+%% -compile({feature, ifn_expr, enable}).
 
 %% do(X) ->
 %%     ifn X > 10 ->

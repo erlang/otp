@@ -20,7 +20,7 @@
 
 -module(f_ifnot).
 
--feature(enable, ifnot_expr).
+-feature(ifnot_expr, enable).
 
 -export([f0/0,
 	 f1/0,

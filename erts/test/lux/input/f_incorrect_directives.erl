@@ -28,13 +28,13 @@
 	]).
 
 %% FIXME This is out of place, but not check in any test.
--feature(enable, ifn).
+-feature(ifn, enable).
 
 foo() ->
     %% Note: maybe_expr not active here
     ['ifn', maybe, then, 'if'].
 
--feature(enable, maybe).
+-feature(maybe, enable).
 
 bar() ->
     ['then', 'maybe'].

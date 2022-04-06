@@ -24,7 +24,7 @@
 %% Note: also require the feature to be set during runtime as long as
 %% the feature is experimental.  This is currently done in ../Makefile
 %% by overriding the test target.  Ugly and very non local.
--feature(enable, maybe_expr).
+-feature(maybe_expr, enable).
 
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
 -export([basic/1, nested/1]).
