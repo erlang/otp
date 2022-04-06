@@ -44,14 +44,19 @@
       <desc>
 	<p>This type defines all addresses (and flags) associated with
 	the interface. </p>
-	<p>Not all fields of this map has to be present.
-	The flags field can be used to test for some of the fields.
-	For example <c>broadaddr</c> will only be present if the
-	<c>broadcast</c> flag is present in flags. </p>
+	<note>
+	  <p>Not all fields of this map has to be present.
+	  The flags field can be used to test for some of the fields.
+	  For example <c>broadaddr</c> will only be present if the
+	  <c>broadcast</c> flag is present in flags. </p>
+	</note>
       </desc>
     </datatype>
     <datatype>
       <name name="ifaddrs_flag"/>
+    </datatype>
+    <datatype>
+      <name name="ifaddrs_flags"/>
     </datatype>
     <datatype>
       <name name="ifaddrs_filter"/>
