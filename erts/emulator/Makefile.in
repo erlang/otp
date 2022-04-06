@@ -1353,9 +1353,12 @@ ifeq ($(TARGET),win32)
 
 #DEP_CC=$(EMU_CC)
 DEP_CC=$(CC)
-DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
+DEP_CXX=$(CXX)
+DEP_INCLUDES=$(INCLUDES) -I../etc/win32 \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
+DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) 
+DEP_CXXFLAGS=-MM $(subst -O2,,$(CXXFLAGS)) $(DEP_INCLUDES) $(ASMJIT_FLAGS)
 
 # ifeq ($(USING_VC),yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
@@ -1395,36 +1398,57 @@ $(TARGET)/gen_git_version.mk:
 # rebuild.
 	$(V_at)if utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
 
+DEPEND_DEPS=jit src drv nif sys target zlib ryu
+
+$(TTF_DIR)/src.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
+		| $(SED_DEPEND) > $@
+$(TTF_DIR)/drv.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
+		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
+		| $(SED_DEPEND) >> $@
+$(TTF_DIR)/nif.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) \
+		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) \
+		| $(SED_DEPEND) >> $@
+$(TTF_DIR)/sys.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
+		| $(SED_DEPEND) > $@
+$(TTF_DIR)/target.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
+		| $(SED_DEPEND) > $@
+$(TTF_DIR)/zlib.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
+		| $(SED_DEPEND_ZLIB) > $@
+$(TTF_DIR)/ryu.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) \
+		| $(SED_DEPEND_ZLIB) > $@
+$(TTF_DIR)/jit.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+	$(gen_verbose)
+	@touch $@
+ifeq ($(JIT_ENABLED),yes)
+	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) \
+		| $(SED_DEPEND) > $@
+endif
+
 .PHONY: depend
 ifdef VOID_EMULATOR
 depend:
 	@echo $(VOID_EMULATOR)' - omitted target depend'
 else
 depend: $(TTF_DIR)/depend.mk
-$(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
-	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
-		| $(SED_DEPEND) > $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
-		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) \
-		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
-ifeq ($(JIT_ENABLED),yes)
-	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) \
-		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
-endif
+$(TTF_DIR)/depend.mk: $(foreach dep, $(DEPEND_DEPS), $(TTF_DIR)/$(dep).depend.mk)
+	-rm $@
+	for dep in $^; do cat $$dep >> $@; done
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 
