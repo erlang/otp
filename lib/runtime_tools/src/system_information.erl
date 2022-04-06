@@ -387,7 +387,6 @@ os_getenv_erts_specific() ->
     os_getenv_erts_specific([
 	    "BINDIR",
 	    "DIALYZER_EMULATOR",
-	    "CERL_DETACHED_PROG",
 	    "EMU",
 	    "ERL_CONSOLE_MODE",
 	    "ERL_CRASH_DUMP",
