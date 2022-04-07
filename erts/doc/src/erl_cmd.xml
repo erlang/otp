@@ -969,6 +969,18 @@ $ <input>erl \
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
         </p>
       </item>
+      <tag><marker id="+IOs"/><c>+IOs true|false</c></tag>
+      <item>
+        <p>Enable or disable scheduler thread poll optimization. Default is
+          <c>true</c>.
+        </p>
+        <p>If enabled, file descriptors that are frequently read may be moved to
+          a special pollset used by scheduler threads. The objective is to
+          reduce the number of system calls and thereby CPU load, but it can
+          in some cases increase scheduling latency for individual file
+          descriptor input events.
+        </p>
+      </item>
       <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
       <item>
         <p>Enables or disables support for the `perf` profiler when running

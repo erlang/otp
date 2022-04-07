@@ -93,7 +93,7 @@ typedef enum {
 #endif
     ERTS_EV_FLAG_WANT_ERROR    = 0x10,  /* ERL_NIF_SELECT_ERROR turned on */
 
-    /* Combinations */
+    /* Combinations, defined only to be displayed by debugger (gdb) */
     ERTS_EV_FLAG_USED_FALLBACK = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_FALLBACK,
     ERTS_EV_FLAG_USED_SCHEDULER = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_SCHEDULER,
     ERTS_EV_FLAG_USED_IN_SCHEDULER = ERTS_EV_FLAG_USED | ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER,
@@ -101,16 +101,25 @@ typedef enum {
     ERTS_EV_FLAG_UNUSED_IN_SCHEDULER = ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER
 } EventStateFlags;
 
-#define flag2str(flags)                                                 \
-    ((flags) == ERTS_EV_FLAG_CLEAR ? "CLEAR" :                          \
-     ((flags) == ERTS_EV_FLAG_USED ? "USED" :                           \
-      ((flags) == ERTS_EV_FLAG_FALLBACK ? "FLBK" :                      \
-       ((flags) == ERTS_EV_FLAG_USED_FALLBACK ? "USED|FLBK" :           \
-        ((flags) == ERTS_EV_FLAG_USED_SCHEDULER ? "USED|SCHD" :         \
-         ((flags) == ERTS_EV_FLAG_UNUSED_SCHEDULER ? "SCHD" :           \
-          ((flags) == ERTS_EV_FLAG_USED_IN_SCHEDULER ? "USED|IN_SCHD" : \
-           ((flags) == ERTS_EV_FLAG_UNUSED_IN_SCHEDULER ? "IN_SCHD" :   \
-            "ERROR"))))))))
+
+static const char* event_state_flag_to_str(EventStateFlags f)
+{
+    switch ((int)f) {
+    case ERTS_EV_FLAG_CLEAR: return "CLEAR";
+    case ERTS_EV_FLAG_USED: return "USED";
+    case ERTS_EV_FLAG_FALLBACK: return "FLBK";
+    case ERTS_EV_FLAG_FALLBACK | ERTS_EV_FLAG_USED: return "USED|FLBK";
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    case ERTS_EV_FLAG_SCHEDULER: return "SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_USED: return "USED|SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER: return "IN_SCHD";
+    case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER
+        | ERTS_EV_FLAG_USED: return "USED|IN_SCHD";
+#endif
+    default: return "ERROR";
+    }
+}
 
 /* How many events that can be handled at once by one erts_poll_wait call */
 #define ERTS_CHECK_IO_POLL_RES_LEN 512
@@ -137,7 +146,7 @@ static ErtsPollThread *psiv;
 static ErtsPollSet *flbk_pollset;
 #endif
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-static ErtsPollSet *sched_pollset;
+ErtsPollSet *sched_pollset;
 #endif
 
 typedef struct {
@@ -409,7 +418,7 @@ static ERTS_INLINE ErtsPollSet *
 get_scheduler_pollset(ErtsSysFdType fd)
 {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    return sched_pollset;
+    return sched_pollset ? sched_pollset : get_pollset(fd);
 #else
     return get_pollset(fd);
 #endif
@@ -497,7 +506,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
             ASSERT(!(state->active_events & ERTS_POLL_EV_IN));
             if (state->events & ERTS_POLL_EV_IN) {
                 active_events |= ERTS_POLL_EV_IN;
-                if (state->count > 10 && ERTS_POLL_USE_SCHEDULER_POLLING) {
+                if (state->count > 10 && erts_sched_poll_enabled()) {
                     if (!(state->flags & ERTS_EV_FLAG_SCHEDULER))
                         op = ERTS_POLL_OP_ADD;
                     state->flags |= ERTS_EV_FLAG_IN_SCHEDULER|ERTS_EV_FLAG_SCHEDULER;
@@ -505,7 +514,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
                     DEBUG_PRINT_FD("moving to scheduler ps", state);
                 } else
                     new_events = active_events;
-                if (!(state->flags & ERTS_EV_FLAG_FALLBACK) && ERTS_POLL_USE_SCHEDULER_POLLING)
+                if (!(state->flags & ERTS_EV_FLAG_FALLBACK) && erts_sched_poll_enabled())
                     state->count++;
             }
             break;
@@ -1791,7 +1800,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                select/deselect in rapid succession. */
             revents &= state->active_events | ERTS_POLL_EV_NVAL;
 
-            if (psi->ps != get_scheduler_pollset(fd) || !ERTS_POLL_USE_SCHEDULER_POLLING) {
+            if (psi->ps != get_scheduler_pollset(fd) || !erts_sched_poll_enabled()) {
                 ErtsPollEvents reactive_events;
                 state->active_events &= ~revents;
 
@@ -2109,7 +2118,7 @@ get_arg(char* rest, char** argv, int* ip)
 }
 
 static void
-parse_args(int *argc, char **argv, int concurrent_waiters)
+parse_args(int *argc, char **argv, int concurrent_waiters, int* use_sched_poll)
 {
     int i = 0, j;
     int no_pollsets = 0, no_poll_threads = 0,
@@ -2151,8 +2160,16 @@ parse_args(int *argc, char **argv, int concurrent_waiters)
                         erts_fprintf(stderr,"bad I/O pollset percentage number: %s\n", arg);
                         erts_usage();
                     }
-                } else {
-                    break;
+                } else if (sys_strcmp(argv[i]+2, "Os") == 0) {
+                    const char *arg = get_arg(argv[i]+4, argv, &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        *use_sched_poll = 1;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        *use_sched_poll = 0;
+                    } else  {
+                        erts_fprintf(stderr,"bad +IOs boolean argument: %s\n", arg);
+                        erts_usage();
+                    }
                 }
                 break;
             }
@@ -2220,6 +2237,8 @@ void
 erts_init_check_io(int *argc, char **argv)
 {
     int j, concurrent_waiters, no_poll_threads;
+    int use_sched_poll = ERTS_POLL_USE_SCHEDULER_POLLING;
+
     ERTS_CT_ASSERT((INT_MIN & (ERL_NIF_SELECT_STOP_CALLED |
                                ERL_NIF_SELECT_STOP_SCHEDULED |
                                ERL_NIF_SELECT_INVALID_EVENT |
@@ -2231,7 +2250,7 @@ erts_init_check_io(int *argc, char **argv)
     erts_poll_init_flbk(NULL);
 #endif
 
-    parse_args(argc, argv, concurrent_waiters);
+    parse_args(argc, argv, concurrent_waiters, &use_sched_poll);
 
     /* Create the actual pollsets */
     pollsetv = erts_alloc(ERTS_ALC_T_POLLSET,sizeof(ErtsPollSet *) * erts_no_pollsets);
@@ -2243,10 +2262,16 @@ erts_init_check_io(int *argc, char **argv)
 
     j = -1;
 
+    if (use_sched_poll) {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    sched_pollset = erts_poll_create_pollset(j--);
-    no_poll_threads++;
+        sched_pollset = erts_poll_create_pollset(j--);
+        ASSERT(erts_sched_poll_enabled());
+        no_poll_threads++;
+#else
+        erts_fprintf(stderr,"+IOs true: not supported by this emulator\n");
+        erts_usage();
 #endif
+    }
 
 #if ERTS_POLL_USE_FALLBACK
     flbk_pollset = erts_poll_create_pollset_flbk(j--);
@@ -2263,13 +2288,13 @@ erts_init_check_io(int *argc, char **argv)
     psiv++;
 #endif
 
-#if ERTS_POLL_USE_SCHEDULER_POLLING
-    psiv[0].pollres_len = ERTS_CHECK_IO_POLL_RES_LEN;
-    psiv[0].pollres = erts_alloc(ERTS_ALC_T_POLLSET,
-        sizeof(ErtsPollResFd) * ERTS_CHECK_IO_POLL_RES_LEN);
-    psiv[0].ps = get_scheduler_pollset(0);
-    psiv++;
-#endif
+    if (erts_sched_poll_enabled()) {
+        psiv[0].pollres_len = ERTS_CHECK_IO_POLL_RES_LEN;
+        psiv[0].pollres = erts_alloc(ERTS_ALC_T_POLLSET,
+                                     sizeof(ErtsPollResFd) * ERTS_CHECK_IO_POLL_RES_LEN);
+        psiv[0].ps = get_scheduler_pollset(0);
+        psiv++;
+    }
 
     for (j = 0; j < erts_no_poll_threads; j++) {
         psiv[j].pollres_len = ERTS_CHECK_IO_POLL_RES_LEN;
@@ -2327,12 +2352,12 @@ erts_check_io_size(void)
     erts_poll_info(get_fallback_pollset(), &pi);
     res += pi.memory_size;
 #endif
-
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    erts_poll_info(get_scheduler_pollset(0), &pi);
-    res += pi.memory_size;
+    if (erts_sched_poll_enabled()) {
+        erts_poll_info(sched_pollset, &pi);
+        res += pi.memory_size;
+    }
 #endif
-
     for (i = 0; i < erts_no_pollsets; i++) {
         erts_poll_info(pollsetv[i], &pi);
         res += pi.memory_size;
@@ -2361,9 +2386,9 @@ erts_check_io_info(void *proc)
     Uint sz, *szp, *hp, **hpp;
     ErtsPollInfo *piv;
     Sint i, j = 0, len;
-    int no_pollsets = erts_no_pollsets + ERTS_POLL_USE_FALLBACK + ERTS_POLL_USE_SCHEDULER_POLLING;
+    int no_pollsets = erts_no_pollsets + ERTS_POLL_USE_FALLBACK + erts_sched_poll_enabled();
     ERTS_CT_ASSERT(ERTS_POLL_USE_FALLBACK == 0 || ERTS_POLL_USE_FALLBACK == 1);
-    ERTS_CT_ASSERT(ERTS_POLL_USE_SCHEDULER_POLLING == 0 || ERTS_POLL_USE_SCHEDULER_POLLING == 1);
+    ERTS_ASSERT(erts_sched_poll_enabled() == 0 || erts_sched_poll_enabled() == 1);
 
     piv = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsPollInfo) * no_pollsets);
 
@@ -2373,14 +2398,14 @@ erts_check_io_info(void *proc)
     piv[0].active_fds = 0;
     piv++;
 #endif
-
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    erts_poll_info(get_scheduler_pollset(0), &piv[0]);
-    piv[0].poll_threads = 0;
-    piv[0].active_fds = 0;
-    piv++;
+    if (erts_sched_poll_enabled()) {
+        erts_poll_info(sched_pollset, &piv[0]);
+        piv[0].poll_threads = 0;
+        piv[0].active_fds = 0;
+        piv++;
+    }
 #endif
-
     for (j = 0; j < erts_no_pollsets; j++) {
         erts_poll_info(pollsetv[j], &piv[j]);
         piv[j].active_fds = 0;
@@ -2429,7 +2454,7 @@ erts_check_io_info(void *proc)
     sz = 0;
 
     piv -= ERTS_POLL_USE_FALLBACK;
-    piv -= ERTS_POLL_USE_SCHEDULER_POLLING;
+    piv -= erts_sched_poll_enabled();
 
  bld_it:
 
@@ -2534,7 +2559,11 @@ print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 static ERTS_INLINE void
 print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
-    erts_dsprintf(dsbufp, "%s", flag2str(f));
+    if (f & ERTS_EV_FLAG_WANT_ERROR) {
+        erts_dsprintf(dsbufp, "WANTERR|");
+        f &= ~ERTS_EV_FLAG_WANT_ERROR;
+    }
+    erts_dsprintf(dsbufp, "%s", event_state_flag_to_str(f));
 }
 
 #ifdef DEBUG_PRINT_MODE
@@ -2680,9 +2709,17 @@ static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
                     err = 1;
             }
             else {
-                ErtsPollEvents ev = cio_events;
-                if (ev != ep_events && ep_events != ERTS_POLL_EV_NONE)
-                    err = 1;
+                if (ep_events != ERTS_POLL_EV_NONE) {
+                    if (!ERTS_POLL_USE_KERNEL_POLL
+                        || (!(state->flags & (ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_FALLBACK))
+                            && ((cio_events ^ ep_events) & ep_events) != 0)) {
+                        err = 1;
+                    }
+                    /* else: Kernel poll with oneshot (used by poller threads)
+                     *       may cause a race where an event just triggered and
+                     *       thereby was cleared in the pollset (ep_events).
+                     */
+                }
                 erts_dsprintf(dsbufp, "cio_ev=");
                 print_events(dsbufp, cio_events);
                 erts_dsprintf(dsbufp, " ep_ev=");
@@ -2898,18 +2935,19 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
     }
 #endif
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    erts_dsprintf(dsbufp, "--- fds in scheduler pollset ----------------------------\n");
-    erts_poll_get_selected_events(get_scheduler_pollset(0), counters.epep,
-                                  drv_ev_state.max_fds);
-    for (fd = 0; fd < len; fd++) {
-        if (drv_ev_state.v[fd].flags & ERTS_EV_FLAG_SCHEDULER) {
-            if (drv_ev_state.v[fd].events && drv_ev_state.v[fd].events != ERTS_POLL_EV_NONE)
-                counters.epep[fd] &= ~ERTS_POLL_EV_OUT;
-            doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters, dsbufp);
+    if (erts_sched_poll_enabled()) {
+        erts_dsprintf(dsbufp, "--- fds in scheduler pollset ----------------------------\n");
+        erts_poll_get_selected_events(sched_pollset, counters.epep,
+                                      drv_ev_state.max_fds);
+        for (fd = 0; fd < len; fd++) {
+            if (drv_ev_state.v[fd].flags & ERTS_EV_FLAG_SCHEDULER) {
+                if (drv_ev_state.v[fd].events && drv_ev_state.v[fd].events != ERTS_POLL_EV_NONE)
+                    counters.epep[fd] &= ~ERTS_POLL_EV_OUT;
+                doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters, dsbufp);
+            }
         }
     }
 #endif
-
     erts_dsprintf(dsbufp, "--- fds in pollset --------------------------------------\n");
 
     for (i = 0; i < erts_no_pollsets; i++) {
@@ -2921,6 +2959,7 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
                 && get_pollset_id(fd) == i) {
                 if (counters.epep[fd] != ERTS_POLL_EV_NONE &&
                     drv_ev_state.v[fd].flags & ERTS_EV_FLAG_IN_SCHEDULER) {
+                    ERTS_ASSERT(erts_sched_poll_enabled());
                     /* We add the in flag if it is enabled in the scheduler pollset
                        and get_selected_events works on the platform */
                     counters.epep[fd] |= ERTS_POLL_EV_IN;
@@ -2929,6 +2968,7 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
             }
         }
     }
+
     for (fd = len ; fd < drv_ev_state.max_fds; fd++) {
         null_des.fd = fd;
         doit_erts_check_io_debug(&null_des, &counters, dsbufp);

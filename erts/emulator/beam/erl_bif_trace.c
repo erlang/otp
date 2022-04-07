@@ -1859,8 +1859,7 @@ new_seq_trace_token(Process* p, int ensure_new_heap)
         Uint mature_size = p->high_water - mature;
         Eterm* tpl = tuple_val(SEQ_TRACE_TOKEN(p));
         ASSERT(arityval(tpl[0]) == 5);
-        if (ErtsInArea(tpl, OLD_HEAP(p),
-                       (OLD_HEND(p) - OLD_HEAP(p))*sizeof(Eterm)) ||
+        if (ErtsInBetween(tpl, OLD_HEAP(p), OLD_HEND(p)) ||
             ErtsInArea(tpl, mature, mature_size*sizeof(Eterm))) {
             hp = HAlloc(p, 6);
             sys_memcpy(hp, tpl, 6*sizeof(Eterm));
