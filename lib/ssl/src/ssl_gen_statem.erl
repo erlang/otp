@@ -160,7 +160,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
            fileref_db_handle := FileRefHandle,
            session_cache := CacheHandle,
            crl_db_info := CRLDbHandle,
-           cert_key_pairs := CertKeyPairs,
+           cert_key_alts := CertKeyAlts,
            dh_params := DHParams}} =
 	ssl_config:init(Opts, Role),
     TimeStamp = erlang:monotonic_time(),
@@ -175,7 +175,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                                 session_cache = CacheHandle
                                },
                  handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams},
-                 connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
+                 connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                  ssl_options = Opts}.
 
 %%--------------------------------------------------------------------
@@ -1282,7 +1282,7 @@ handle_sni_hostname(Hostname,
                    fileref_db_handle := FileRefHandle,
                    session_cache := CacheHandle,
                    crl_db_info := CRLDbHandle,
-                   cert_key_pairs := CertKeyPairs,
+                   cert_key_alts := CertKeyAlts,
                    dh_params := DHParams}} =
                  ssl_config:init(NewOptions, Role),
              State0#state{
@@ -1293,7 +1293,7 @@ handle_sni_hostname(Hostname,
                               crl_db = CRLDbHandle,
                               session_cache = CacheHandle
                              },
-               connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
+               connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                ssl_options = NewOptions,
                handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
                                                    diffie_hellman_params = DHParams}

@@ -36,22 +36,26 @@
   <seemfa marker="ssl:ssl#versions/0"><c>ssl:versions/0</c></seemfa>
   .</p>
     
-  <p>To see all supported cipher suites, call
-  <seemfa marker="ssl:ssl#cipher_suites/2"><c>ssl:cipher_suites(all, 'tlsv1.3')</c> </seemfa>. 
-  The available cipher suites for a connection depend on the TLS version and pre TLS-1.3 also
-  on the certificate. To see the default cipher suite list change <c>all</c> to <c>default</c>. 
-  Note that TLS 1.3 and previous versions does not have any cipher suites in common,
-  for listing cipher suites for a specific version use
-  <seemfa marker="ssl:ssl#cipher_suites/2"><c>ssl:cipher_suites(exclusive, 'tlsv1.3')</c> </seemfa>. 
-  Specific cipher suites that you want your connection to use can also be 
-  specified. Default is to use the strongest available.</p>
+  <p>To see all supported cipher suites, call <seemfa
+  marker="ssl:ssl#cipher_suites/2"><c>ssl:cipher_suites(all,
+  'tlsv1.3')</c> </seemfa>.  The available cipher suites for a
+  connection depend on the TLS version and pre TLS-1.3 also on the
+  certificate. To see the default cipher suite list change <c>all</c>
+  to <c>default</c>.  Note that TLS 1.3 and previous versions does not
+  have any cipher suites in common, for listing cipher suites for a
+  specific version use <seemfa
+  marker="ssl:ssl#cipher_suites/2"><c>ssl:cipher_suites(exclusive,
+  'tlsv1.3')</c> </seemfa>.  Specific cipher suites that you want your
+  connection to use can also be specified. Default is to use the
+  strongest available.</p>
   
   <section>
     <title>Setting up Connections</title>
     
-    <p>This section shows a small example of how to set up client/server connections
-    using the Erlang shell. The returned value of the <c>sslsocket</c> is abbreviated
-    with <c>[...]</c> as it can be fairly large and is opaque.</p>
+    <p>This section shows a small example of how to set up
+    client/server connections using the Erlang shell. The returned
+    value of the <c>sslsocket</c> is abbreviated with <c>[...]</c> as
+    it can be fairly large and is opaque.</p>
     
     <section>
       <title>Minimal Example</title>
@@ -67,8 +71,19 @@ ok</code>
       
       <p><em>Step 2:</em> Create a TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
       <code type="erl">2 server> {ok, ListenSocket} =
-ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
+ssl:listen(9999, [{certfile, "cert.pem"},
+                  {keyfile, "key.pem"},
+                  {reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
+
+
+      <p><em>Step 2: From OTP-25 it is equivalent to</em> </p>
+      <code type="erl">2 server> {ok, ListenSocket} =
+ssl:listen(9999, [{certs_keys, [#{certfile => "cert.pem",
+                                  keyfile => "key.pem"}],
+                  {reuseaddr, true}]).
+{ok,{sslsocket, [...]}}</code>
+
       
       <p><em>Step 3:</em> Do a transport accept on the TLS listen socket:</p>
       <code type="erl">3 server> {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket).
@@ -134,9 +149,11 @@ ok</code>
       
       <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
       
-      <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c> before trying
-      to upgrade a connection to a TLS connection, otherwise
-      TLS handshake messages can be delivered to the wrong process:</p>
+      <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c>
+      before trying to upgrade a connection to a TLS connection,
+      otherwise TLS handshake messages can be delivered to the wrong
+      process:</p>
+
       <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
 ok</code>
       
@@ -145,9 +162,11 @@ ok</code>
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
-      <p><em>Step 7:</em> Upgrade to a TLS connection. The client and server
-      must agree upon the upgrade. The server must call
-      <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
+      <p><em>Step 7:</em> Upgrade to a TLS connection. The client and
+      server must agree upon the upgrade. The server must call
+      <c>ssl:handshake/2</c> before the client calls
+      <c>ssl:connect/3.</c></p>
+
       <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>
@@ -160,8 +179,9 @@ ok</code>
       <code type="erl">4 server> ssl:setopts(TLSSocket, [{active, true}]).
 ok</code>
       
-      <p><em>Step 10:</em> Flush the shell message queue to see that the message
-      was sent on the client side:</p>
+      <p><em>Step 10:</em> Flush the shell message queue to see that
+      the message was sent on the client side:</p>
+
       <code type="erl">5 server> flush().
 Shell got {ssl,{sslsocket,[...]},"foo"}
 ok</code>
@@ -173,6 +193,7 @@ ok</code>
 
     <p>Fetch default cipher suite list for a TLS/DTLS version. Change default
     to all to get all possible cipher suites.</p>
+
     <code type="erl">1>  Default = ssl:cipher_suites(default, 'tlsv1.2').
     [#{cipher => aes_256_gcm,key_exchange => ecdhe_ecdsa,
     mac => aead,prf => sha384}, ....]
@@ -183,7 +204,8 @@ ok</code>
     <code type="erl">2> NoRSA =
     ssl:filter_cipher_suites(Default,
                             [{key_exchange, fun(rsa) -> false;
-			                       (_) -> true end}]).
+			                        (_) -> true
+			                    end}]).
     [...]
     </code>
 
@@ -191,9 +213,11 @@ ok</code>
     <code type="erl"> 3> Suites =
     ssl:filter_cipher_suites(Default,
                             [{key_exchange, fun(ecdh_ecdsa) -> true;
-			                       (_) -> false end},
-                             {cipher, fun(aes_128_cbc) ->true;
-			                  (_) ->false end}]).
+			                        (_) -> false
+			                    end},
+                             {cipher, fun(aes_128_cbc) -> true;
+			                  (_) ->false
+			              end}]).
     [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
      mac => sha256,prf => sha256},
      #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
@@ -226,7 +250,8 @@ ok</code>
     </p>
     <code type="erl">2> {ok, EngineRef} =
 crypto:engine_load(&lt;&lt;"dynamic">>,
-                   [{&lt;&lt;"SO_PATH">>, "/tmp/user/engines/MyEngine"},&lt;&lt;"LOAD">>],[]).
+[{&lt;&lt;"SO_PATH">>, "/tmp/user/engines/MyEngine"},&lt;&lt;"LOAD">>],
+[]).
 {ok,#Ref&lt;0.2399045421.3028942852.173962>}
     </code>
     
@@ -251,24 +276,23 @@ ssl:connect("localhost", 9999,
 
   <section>
     <title>Session Reuse pre TLS 1.3</title>
-    <p>Clients can request to reuse a session established
-    by a previous full handshake between that client and server by
-    sending the id of the session in the initial handshake
-    message. The server may or may not agree to reuse it. If agreed
-    the server will send back the id and if not it will send a new
-    id. The ssl application has several options for handling session
-    reuse.</p>
+    <p>Clients can request to reuse a session established by a
+    previous full handshake between that client and server by sending
+    the id of the session in the initial handshake message. The server
+    may or may not agree to reuse it. If agreed the server will send
+    back the id and if not it will send a new id. The ssl application
+    has several options for handling session reuse.</p>
 
     <p>On the client side the ssl application will save session data
     to try to automate session reuse on behalf of the client processes
-    on the Erlang node. Note that only verified sessions will be
-    saved for security reasons, that is session resumption relies on
-    the certificate validation to have been run in the original
+    on the Erlang node. Note that only verified sessions will be saved
+    for security reasons, that is session resumption relies on the
+    certificate validation to have been run in the original
     handshake. To minimize memory consumption only unique sessions
     will be saved unless the special <c>save</c> value is specified
     for the following option <c> {reuse_sessions, boolean() |
-    save}</c> in which case a full handshake will be performed and that
-    specific session will have been saved before the handshake
+    save}</c> in which case a full handshake will be performed and
+    that specific session will have been saved before the handshake
     returns. The session id and even an opaque binary containing the
     session data can be retrieved using
     <c>ssl:connection_information/1</c> function. A saved session
@@ -320,7 +344,8 @@ ok
 <p>Step 2- Using <c>save</c> Option </p>
 
 <code type="erl">
-%% We want save this particular session for reuse although it has the same basis as C1
+%% We want save this particular session for
+%% reuse although it has the same basis as C1
 6&gt; {ok, C3} = ssl:connect("localhost", 9999, [{verify, verify_peer},
 					      {versions, ['tlsv1.2']},
 					      {cacertfile, "cacerts.pem"},
@@ -365,11 +390,12 @@ ok
 
 <code type="erl">
 %% Perform a full handshake and the session will not be saved for reuse
-12&gt; {ok, C9} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-				               {versions, ['tlsv1.2']},
-		                               {cacertfile, "cacerts.pem"},
-					       {reuse_sessions, false},
-					       {server_name_indication, disable}]).
+12&gt; {ok, C9} =
+ssl:connect("localhost", 9999, [{verify, verify_peer},
+				{versions, ['tlsv1.2']},
+		                {cacertfile, "cacerts.pem"},
+                                {reuse_sessions, false},
+	                        {server_name_indication, disable}]).
 {ok,{sslsocket,{gen_tcp,#Port&lt;0.14&gt;,tls_connection, ...}}
 
 %% Fetch session ID and data for C9 connection
@@ -451,7 +477,11 @@ ok
 
     <p>An example with automatic and manual session resumption:</p>
 
-    <p><em>Step 1 (server):</em> Start the server:</p>
+
+   <p><em>Step 1 (server):</em> Start the server: Note that from OTP-25 the
+   options certfile and keyfile can be replaced by
+   [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]}]</p>
+
     <code type="erl">
       {ok, _} = application:ensure_all_started(ssl).
       LOpts = [{certfile, "cert.pem"},
@@ -461,6 +491,27 @@ ok
       {ok, LSock} = ssl:listen(8001, LOpts).
       {ok, CSock} = ssl:transport_accept(LSock).
     </code>
+
+
+    <p><em>Step 1 (server):</em> with alternative certificates,
+    in this example the EDDSA certificate will be preferred if TLS-1.3
+    is negotiated and the RSA certificate will always be used for TLS-1.2
+    as it does not support the EDDSA algorithm: Added in OTP-25</p>
+
+    <code type="erl">
+      {ok, _} = application:ensure_all_started(ssl).
+      LOpts = [{certs_keys, [#{certfile => "eddsacert.pem",
+                               keyfile => "eddsakey.pem"},
+			     #{certfile => "rsacert.pem",
+                               keyfile => "rsakey.pem",
+			       password => "foobar"}
+			       ]}],
+               {versions, ['tlsv1.2','tlsv1.3']},
+               {session_tickets, stateless}].
+      {ok, LSock} = ssl:listen(8001, LOpts).
+      {ok, CSock} = ssl:transport_accept(LSock).
+    </code>
+
 
     <p><em>Step 2 (client):</em> Start the client and connect to server:</p>
     <code type="erl">
@@ -490,8 +541,9 @@ ok
       <![CDATA[<<<]]> Post-Handshake, NewSessionTicket ...
     </code>
 
-    <p>At this point the client has stored the received session tickets and ready to use them when
-    establishing new connections to the same server.</p>
+    <p>At this point the client has stored the received session
+    tickets and ready to use them when establishing new connections to
+    the same server.</p>
 
     <p><em>Step 4 (server):</em> Accept a new connection on the server:</p>
     <code type="erl">
@@ -530,7 +582,7 @@ ok
     <p><em>Step 8 (client):</em> Make a new connection to server:</p>
     <code type="erl">
       {ok, _} = application:ensure_all_started(ssl).
-      COpts2 = [{cacertfile, "cert.pem"},
+      COpts2 = [{cacertfile, "cacerts.pem"},
                 {versions, ['tlsv1.2','tlsv1.3']},
                 {log_level, debug},
                 {session_tickets, manual}].
@@ -542,8 +594,8 @@ ok
       ssl:handshake(CSock3).
     </code>
 
-    <p>After the handshake is performed, the user process receives messages with the tickets
-    sent by the server.</p>
+    <p>After the handshake is performed, the user process receivess
+    messages with the tickets sent by the server.</p>
 
     <p><em>Step 10 (client):</em> Receive a new session ticket:</p>
     <code type="erl">
@@ -641,7 +693,8 @@ ok
 
         %% Wait for session tickets
 	timer:sleep(500),
-	%% Close socket if server cannot handle multiple connections e.g. openssl s_server
+	%% Close socket if server cannot handle multiple
+        %% connections e.g. openssl s_server
 	ssl:close(Sock0),
 
         %% Second handshake 0-RTT

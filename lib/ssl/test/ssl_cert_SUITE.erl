@@ -1121,7 +1121,7 @@ unsupported_sign_algo_cert_client_auth(Config) ->
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
         _  ->
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security)
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, bad_certificate)
     end.
 
 %%--------------------------------------------------------------------

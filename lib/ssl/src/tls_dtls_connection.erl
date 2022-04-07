@@ -409,7 +409,7 @@ certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client,
                                         protocol_cb = Connection},
                session = Session0,
-               connection_env = #connection_env{cert_key_pairs = [#{certs := [[]]}]}} = State) ->
+               connection_env = #connection_env{cert_key_alts = [#{certs := [[]]}]}} = State) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail 
     %% or accept the connection by its own preference. No signature algorithms needed as there is
     %% no certificate to verify.
@@ -422,11 +422,12 @@ certify(internal, #certificate_request{} = CertRequest,
                                         cert_db = CertDbHandle,
                                         cert_db_ref = CertDbRef},
                connection_env = #connection_env{negotiated_version = Version,
-                                                cert_key_pairs = CertKeyPairs
+                                                cert_key_alts = CertKeyAlts
                                                },
                session = Session0,
                ssl_options = #{signature_algs := SupportedHashSigns}} = State) ->
     TLSVersion = ssl:tls_version(Version),
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, ssl:tls_version(Version)),
     Session = select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs,
                                           SupportedHashSigns, TLSVersion,
                                           CertDbHandle, CertDbRef),

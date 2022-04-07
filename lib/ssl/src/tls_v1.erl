@@ -869,24 +869,46 @@ signature_algs({3, 3}, HashSigns) ->
 default_signature_algs([{3, 4} = Version]) ->
     default_signature_schemes(Version) ++ legacy_signature_schemes(Version);
 default_signature_algs([{3, 4}, {3,3} | _]) ->
-    default_signature_schemes({3,4}) ++ default_signature_algs([{3,3}]);
+    default_signature_schemes({3,4}) ++ default_pre_1_3_signature_algs_only();
 default_signature_algs([{3, 3} = Version |_]) ->
-    Default = [%% SHA2
-	       {sha512, ecdsa},
-	       {sha512, rsa},
-	       {sha384, ecdsa},
-	       {sha384, rsa},
-	       {sha256, ecdsa},
-	       {sha256, rsa},
-	       {sha224, ecdsa},
-	       {sha224, rsa},
-	       %% SHA
-	       {sha, ecdsa},
-	       {sha, rsa},
-	       {sha, dsa}],
+    Default = [%% SHA2 ++ PSS
+               {sha512, ecdsa},
+               rsa_pss_pss_sha512,
+               rsa_pss_rsae_sha512,
+               {sha512, rsa},
+               {sha384, ecdsa},
+               rsa_pss_pss_sha384,
+               rsa_pss_rsae_sha384,
+               {sha384, rsa},
+               {sha256, ecdsa},
+               rsa_pss_pss_sha256,
+               rsa_pss_rsae_sha256,
+               {sha256, rsa},
+               {sha224, ecdsa},
+               {sha224, rsa},
+               %% SHA
+               {sha, ecdsa},
+               {sha, rsa},
+               {sha, dsa}],
     signature_algs(Version, Default);
 default_signature_algs(_) ->
     undefined.
+
+default_pre_1_3_signature_algs_only() ->
+    Default = [%% SHA2
+               {sha512, ecdsa},
+               {sha512, rsa},
+               {sha384, ecdsa},
+               {sha384, rsa},
+               {sha256, ecdsa},
+               {sha256, rsa},
+               {sha224, ecdsa},
+               {sha224, rsa},
+               %% SHA
+               {sha, ecdsa},
+               {sha, rsa},
+               {sha, dsa}],
+    signature_algs({3,3}, Default).
 
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
@@ -957,7 +979,8 @@ signature_schemes(_, _) ->
     [].
 
 default_signature_schemes(Version) ->
-    Default = [
+    Default = [eddsa_ed25519,
+               eddsa_ed448,
                ecdsa_secp521r1_sha512,
                ecdsa_secp384r1_sha384,
                ecdsa_secp256r1_sha256,
@@ -966,9 +989,7 @@ default_signature_schemes(Version) ->
                rsa_pss_pss_sha256,
                rsa_pss_rsae_sha512,
                rsa_pss_rsae_sha384,
-               rsa_pss_rsae_sha256,
-               eddsa_ed25519,
-               eddsa_ed448
+               rsa_pss_rsae_sha256
               ],
     signature_schemes(Version, Default).
 

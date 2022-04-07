@@ -971,6 +971,7 @@ decode_suites('2_bytes', Dec) ->
 decode_suites('3_bytes', Dec) ->
     from_3bytes(Dec).
 
+
 %%====================================================================
 %% Cipher suite handling
 %%====================================================================
@@ -1046,7 +1047,8 @@ cipher_suites(Suites, true) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyPairs) ->
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyAlts) ->
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
                                                              SslOpts, CertKeyPairs),
     case Resumed of
@@ -1095,9 +1097,23 @@ select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [C
         no_suite ->
             select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
         CipherSuite0 ->
-            CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
-            {Certs, Key, CurveAndSuite}
+            case is_acceptable_cert(Cert, HashSigns, ssl:tls_version(Version)) of
+                true ->
+                    CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+                    {Certs, Key, CurveAndSuite};
+                false ->
+                    select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version)
+            end
     end.
+
+is_acceptable_cert(Cert, HashSigns, {Major, Minor}) when Major == 3,
+                                                         Minor >= 3 ->
+    {SignAlgo0, Param, _, _, _} = get_cert_params(Cert),
+    SignAlgo = sign_algo(SignAlgo0, Param),
+    is_acceptable_hash_sign(SignAlgo, HashSigns);
+is_acceptable_cert(_,_,_) ->
+    %% Not negotiable pre TLS-1.2. So if cert is available for version it is acceptable
+    true.
 
 supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
     Curves = tls_v1:ecc_curves(Minor),

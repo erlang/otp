@@ -652,7 +652,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
 
         #state{connection_states = ConnectionStates0,
                session = Session0,
-               connection_env = #connection_env{cert_key_pairs = CertKeyPairs}} = State1 =
+               connection_env = #connection_env{cert_key_alts = CertKeyAlts}} = State1 =
             Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
@@ -667,6 +667,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
+        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, {3,4}),
         #session{own_certificates = [Cert|_]} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
                                               ClientSignAlgsCert, CertAuths, State0,
@@ -1431,7 +1432,8 @@ create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
 process_certificate_request(#certificate_request_1_3{
                                extensions = Extensions},
                             #state{ssl_options = #{signature_algs := ClientSignAlgs},
-                                   connection_env = #connection_env{cert_key_pairs = CertKeyPairs},
+                                   connection_env = #connection_env{cert_key_alts = CertKeyAlts,
+                                                                    negotiated_version = Version},
                                    static_env = #static_env{cert_db = CertDbHandle, cert_db_ref = CertDbRef},
                                    session = Session0} =
                                 State) ->
@@ -1441,6 +1443,7 @@ process_certificate_request(#certificate_request_1_3{
                            maps:get(signature_algs_cert, Extensions, undefined)),
     CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
 
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                           CertDbHandle, CertDbRef, CertAuths),
