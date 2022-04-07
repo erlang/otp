@@ -1,19 +1,19 @@
 -module(f_include_1).
 
--feature(enable, unless_expr).
+-feature(unless_expr, enable).
 
 -ifdef(end_prefix).
 -record(constant, {value = 42}).
 -endif.
 
 -ifdef(end_include).
--feature(enable, maybe_expr).
+-feature(maybe_expr, enable).
 -endif.
 
 -include("is_enabled.hrl").
 
 -ifdef(end_include).
--feature(enable, ifnot_expr).
+-feature(ifnot_expr, enable).
 -endif.
 
 %% At this point the prefix will definitely end, if it has not already

@@ -188,8 +188,8 @@ keywords(Ftr, Map) ->
 %%               | {'error', error()}.
 keyword_fun(Opts, KeywordFun) ->
     %% Get items enabling or disabling features, preserving order.
-    IsFtr = fun({enable_feature, _}) -> true;
-               ({disable_feature, _}) -> true;
+    IsFtr = fun({feature, _, enable}) -> true;
+               ({feature, _, disable}) -> true;
                (_) -> false
             end,
     FeatureOps = lists:filter(IsFtr, Opts),
@@ -310,8 +310,8 @@ init_features() ->
                               end,
                               init:get_arguments()),
 
-    Cnv = fun('enable-feature') -> enable_feature;
-             ('disable-feature') -> disable_feature
+    Cnv = fun('enable-feature') -> enable;
+             ('disable-feature') -> disable
           end,
 
     FeatureOps = lists:append(lists:map(fun({Tag, Strings}) ->
@@ -327,9 +327,9 @@ init_features() ->
                 try
                     Atom = list_to_atom(String),
                     case is_valid_feature(Atom) of
-                        true -> {true, {Cnv(Tag), Atom}};
+                        true -> {true, {feature, Atom, Cnv(Tag)}};
                         false when Atom == all ->
-                            {true, {Cnv(Tag), Atom}};
+                            {true, {feature, Atom, Cnv(Tag)}};
                         false -> false
                     end
                 catch
@@ -483,17 +483,17 @@ collect_features(FOps) ->
 
 collect_features([], Add, Del) ->
     {Add, Del};
-collect_features([{enable_feature, all}| FOps], Add, _Del) ->
+collect_features([{feature, all, enable}| FOps], Add, _Del) ->
     All = features(),
     Add1 = lists:foldl(fun add_ftr/2, Add, All),
     collect_features(FOps, Add1, []);
-collect_features([{enable_feature, Feature}| FOps], Add, Del) ->
+collect_features([{feature, Feature, enable}| FOps], Add, Del) ->
     collect_features(FOps, add_ftr(Feature, Add), Del -- [Feature]);
-collect_features([{disable_feature, all}| FOps], _Add, Del) ->
+collect_features([{feature, all, disable}| FOps], _Add, Del) ->
     %% Start over
     All = features(),
     collect_features(FOps, [], Del -- All);
-collect_features([{disable_feature, Feature}| FOps], Add, Del) ->
+collect_features([{feature, Feature, disable}| FOps], Add, Del) ->
     collect_features(FOps, Add -- [Feature],
                      add_ftr(Feature, Del)).
 

@@ -1,1 +1,1 @@
--feature(enable, maybe_expr).
+-feature(maybe_expr, enable).

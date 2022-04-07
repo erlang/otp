@@ -122,7 +122,7 @@
     ?$ERLPROMPT
 
     # Moved from feature_erlcold.lux as ifn is no longer present in parser
-    [invoke compile feature_ignorant.erl "+'{enable_feature, ifn_expr}'"]
+    [invoke compile feature_ignorant.erl "+'{feature, ifn_expr, enable}'"]
     ?syntax error before: ','
     ?syntax error before: ifn
     ?SH-PROMPT:
@@ -134,7 +134,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile feature_ignorant.erl "+'{enable_feature, ifn_expr}' +'{enable_feature, maybe_expr}'"]
+    [invoke compile feature_ignorant.erl "+'{feature, ifn_expr, enable}' +'{feature, maybe_expr, enable}'"]
     ?syntax error before: ','
     ?syntax error before: maybe
     ?syntax error before: else
@@ -150,23 +150,23 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile feature_maybe.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe.erl "'+{feature, ifn_expr, enable}'"]
     [invoke syntax-error ',']
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile feature_maybe.erl "'+{enable_feature, maybe_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile feature_maybe.erl "'+{feature, maybe_expr, enable}' '+{feature, ifn_expr, enable}'"]
     [invoke syntax-error ',']
     ?SH-PROMPT:
     [invoke notok]
 
-    # This file has instances of -compile({enable_feature, ..}) inside
+    # This file has instances of -compile({feature, .., enable}) inside
     [invoke compile feature_directive_maybe_ifn.erl "-enable-feature ifn_expr"]
     ?SH-PROMPT:
     [invoke ok]
 
 [shell erl]
-    [invoke erl-compile feature_ignorant.erl [{enable_feature,ifn_expr}]]
+    [invoke erl-compile feature_ignorant.erl [{feature,ifn_expr,enable}]]
     ?syntax error before: ','
     ?syntax error before: ifn
     ?error
@@ -178,7 +178,7 @@
     ?SH-PROMPT:
     !export ERLC_USE_SERVER=$erlcserver
     ?SH-PROMPT:
-    # This file has instances of -compile({enable_feature, ..}) inside
+    # This file has instances of -compile({feature, .., enable}) inside
     [invoke compile feature_directive_maybe_ifn.erl "-enable-feature ifn_expr"]
     ?SH-PROMPT:
     [invoke ok]

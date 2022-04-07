@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1450,7 +1450,7 @@ warnings(_Config) ->
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
-    Options = [{enable_feature,maybe_expr},binary,bin_opt_info,recv_opt_info,return],
+    Options = [{feature,maybe_expr,enable},binary,bin_opt_info,recv_opt_info,return],
     {ok,_,_,Ws} = compile:file(F, Options),
     do_warnings_1(Ws, F).
 

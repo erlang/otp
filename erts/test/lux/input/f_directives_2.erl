@@ -23,10 +23,10 @@
 %% This module uses the feature ifn_expr, so atoms belonging to that
 %% featurfe need to be quoted.
 
--feature(enable, while_expr).
--feature(enable, ifn_expr).
+-feature(while_expr, enable).
+-feature(ifn_expr, enable).
 %% Disable feature so atoms beonging to maybe_expr can be unquoted
--feature(disable, while_expr).
+-feature(while_expr, disable).
 
 -export([foo/0,
 	 bar/0,

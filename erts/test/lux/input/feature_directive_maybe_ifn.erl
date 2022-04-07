@@ -42,7 +42,7 @@ ifn_0() -> false.
 %% NOTE: We need to quote the feature name due to it being the same as
 %% the new reserved word and it might have been enabled earlier, i.e.,
 %% from the command line or in argumemts to compile:file/..
--compile({enable_feature, 'ifn_expr'}).
+-compile({feature, 'ifn_expr', enable}).
 
 %% use_ifn(X) ->
 %%     ifn X > 0 ->
@@ -67,7 +67,7 @@ maybe_0() ->
 maybe_0() -> false.
 -endif.
 
--compile({enable_feature, 'maybe_expr'}).
+-compile({feature, 'maybe_expr', enable}).
 
 -if(?FEATURE_ENABLED('maybe_expr')).
 maybe_1() ->

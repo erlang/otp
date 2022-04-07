@@ -179,12 +179,12 @@ parse_generic_option("enable-feature" ++ Str, T0,
     {FtrStr, T} = get_option("enable-feature", Str, T0),
     Feature = list_to_atom(FtrStr),
     compile1(T, Opts#options{
-                  specific = Spec ++ [{enable_feature, Feature}]});
+                  specific = Spec ++ [{feature, Feature, enable}]});
 parse_generic_option("disable-feature" ++ Str, T0,
                      #options{specific = Spec} = Opts) ->
     {FtrStr, T} = get_option("disable-feature", Str, T0),
     Feature = list_to_atom(FtrStr),
-    compile1(T, Opts#options{specific = Spec ++ [{disable_feature, Feature}]});
+    compile1(T, Opts#options{specific = Spec ++ [{feature, Feature, disable}]});
 parse_generic_option("describe-feature" ++ Str, T0,
                      #options{specific = Spec} = Opts) ->
     {FtrStr, T} = get_option("disable-feature", Str, T0),

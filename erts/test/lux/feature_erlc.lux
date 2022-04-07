@@ -40,20 +40,20 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, ifn_expr}'"]
+    [invoke compile ignorant.erl "+'{feature, ifn_expr, enable}'"]
     ?syntax error before:
     ?syntax error before: ifn
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, while_expr}'"]
+    [invoke compile ignorant.erl "+'{feature, while_expr, enable}'"]
     ?syntax error before: while
     ?syntax error before: while
     ?syntax error before: until
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile ignorant.erl "+'{enable_feature, ifn_expr}' +'{enable_feature, while_expr}'"]
+    [invoke compile ignorant.erl "+'{feature, ifn_expr, enable}' +'{feature, while_expr, enable}'"]
     ?syntax error before:
     ?syntax error before: while
     ?syntax error before: until
@@ -65,11 +65,11 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_ifn.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile f_ifn.erl "'+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_ifn.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile f_ifn.erl "'+{feature, while_expr, enable}'"]
     [invoke syntax-error while]
     [invoke syntax-error until]
     ?SH-PROMPT:
@@ -81,7 +81,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile f_ifn.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile f_ifn.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     [invoke syntax-error while]
     [invoke syntax-error until]
     ?SH-PROMPT:
@@ -97,7 +97,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile f_maybe.erl "'+{feature, while_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -105,7 +105,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile f_maybe.erl "'+{feature, ifn_expr, enable}'"]
     ?syntax error before:
     ?SH-PROMPT:
     [invoke notok]
@@ -115,7 +115,7 @@
     ?SH-PROMPT:
     [invoke notok]
 
-    [invoke compile f_maybe.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile f_maybe.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     ?syntax error before:
     ?SH-PROMPT:
     [invoke notok]
@@ -129,7 +129,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe_ifn.erl "'+{enable_feature, while_expr}'"]
+    [invoke compile f_maybe_ifn.erl "'+{feature, while_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -137,7 +137,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe_ifn.erl "'+{enable_feature, ifn_expr}'"]
+    [invoke compile f_maybe_ifn.erl "'+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -145,7 +145,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    [invoke compile f_maybe_ifn.erl "'+{enable_feature, while_expr}' '+{enable_feature, ifn_expr}'"]
+    [invoke compile f_maybe_ifn.erl "'+{feature, while_expr, enable}' '+{feature, ifn_expr, enable}'"]
     ?SH-PROMPT:
     [invoke ok]
 
@@ -158,7 +158,7 @@
     ?SH-PROMPT:
     [invoke ok]
 
-    # This file has instances of -compile({enable_feature, ..}) inside
+    # This file has instances of -compile({feature, .., enable}) inside
     [invoke compile f_directives.erl ""]
     ?SH-PROMPT:
     [invoke ok]
@@ -172,13 +172,13 @@
     ???{ok,ignorant}
     ?$ERLPROMPT
 
-    [invoke erl-compile ignorant.erl [{enable_feature,ifn_expr}]]
+    [invoke erl-compile ignorant.erl [{feature,ifn_expr,enable}]]
     ?syntax error before:
     ?syntax error before:
     ?error
     ?$ERLPROMPT
 
-    [invoke erl-compile ignorant.erl [{enable_feature,ifn_expr},{enable_feature,while_expr}]]
+    [invoke erl-compile ignorant.erl [{feature,ifn_expr,enable},{feature,while_expr,enable}]]
     ?syntax error before:
     ?syntax error before: while
     ?syntax error before: until
@@ -282,7 +282,7 @@
 
     [invoke start-erl ""]
 
-    [invoke erl-compile f_macros.erl [{enable_feature,ifn_expr}]]
+    [invoke erl-compile f_macros.erl [{feature,ifn_expr,enable}]]
     ???{ok,f_macros}
     ?$ERLPROMPT
 

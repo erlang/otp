@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1177,12 +1177,12 @@ eep49(Config) ->
                       Always
                   end.
            ">>,
-           [{enable_feature,maybe_expr}],
+           [{feature,maybe_expr,enable}],
            []},
           {disabled,
            <<"foo() -> maybe.                        %Atom maybe.
            ">>,
-           [{disable_feature,maybe_expr}],
+           [{feature,maybe_expr,disable}],
            []}
 	 ],
     run(Config, Ts),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -336,7 +336,8 @@ filter_options(Options) ->
                              {d, _Macro, _Value} -> true;
                              export_all -> true;
                              tuple_calls -> true;
-                             {enable_feature,_} -> true; %FIXME: To be removed.
+                             {feature,_,enable} -> true; %FIXME: To be removed.
+                             {feature,_,disable} -> true; %FIXME: To be removed.
                              _ -> false
                          end
                  end,

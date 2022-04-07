@@ -4727,7 +4727,7 @@ unused_type2(Config) when is_list(Config) ->
 
 %% Test maybe ... else ... end.
 eep49(Config) when is_list(Config) ->
-    EnableMaybe = {enable_feature,maybe_expr},
+    EnableMaybe = {feature,maybe_expr,enable},
     Ts = [{exp1,
            <<"t(X) ->
                   maybe
