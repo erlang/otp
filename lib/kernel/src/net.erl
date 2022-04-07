@@ -58,6 +58,7 @@
               name_info/0,
 
               ifaddrs_flag/0,
+              ifaddrs_flags/0,
 
               name_info_flags/0,
               name_info_flag/0,
@@ -77,19 +78,21 @@
 
 
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
-                        notrailers | running | noarp | promisc | master | slave |
+                        notrailers | running | noarp | promisc |
+                        master | slave |
                         multicast | portsel | automedia | dynamic.
+-type ifaddrs_flags() :: [ifaddrs_flag()].
 
 %% Note that not all of these fields are mandatory.
 %% Actually there are (error) cases when only the name will be included.
 %% And broadaddr and dstaddr are mutually exclusive!
 
 -type ifaddrs() :: #{name      := string(),
-                     flags     := [ifaddrs_flag()],
-                     addr      := socket:sockaddr(),
-                     netmask   := socket:sockaddr(),
-                     broadaddr := socket:sockaddr(),
-                     dstaddr   := socket:sockaddr()}.
+                     flags     := ifaddrs_flags(),
+                     addr      => socket:sockaddr(),
+                     netmask   => socket:sockaddr(),
+                     broadaddr => socket:sockaddr(),
+                     dstaddr   => socket:sockaddr()}.
 
 -type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
                               ifaddrs_filter_map() |
