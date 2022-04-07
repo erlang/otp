@@ -54,7 +54,22 @@
       non-overlapping sequences for parallel computations.
       The jump functions perform calculations
       equivalent to perform a large number of repeated calls
-      for calculating new states.
+      for calculating new states, but execute in a time
+      roughly equivalent to one regular iteration per generator bit.
+    </p>
+
+    <p>
+      At the end of this module documentation there are also some
+      <seeerl marker="#niche_algorithms">
+        niche algorithms
+      </seeerl>
+      to be used without this module's normal
+      <seeerl marker="#plug_in_api">
+        plug-in framework API
+      </seeerl>
+      that may be useful for special purposes like
+      short generation time when quality is not essential,
+      for seeding other generators, and such.
     </p>
 
     <p>
@@ -290,9 +305,10 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       If this is a problem; to generate a boolean with these algorithms
       use something like this:
     </p>
-    <pre>(rand:uniform(16) > 8)</pre>
+    <pre>(rand:uniform(256) > 128) % -> boolean()</pre>
+    <pre>((rand:uniform(256) - 1) bsr 7) % -> 0 | 1</pre>
     <p>
-      And for a general range, with <c>N = 1</c> for <c>exrop</c>,
+      For a general range, with <c>N = 1</c> for <c>exrop</c>,
       and <c>N = 3</c> for <c>exs1024s</c>:
     </p>
     <pre>(((rand:uniform(Range bsl N) - 1) bsr N) + 1)</pre>
@@ -380,13 +396,38 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <name name="dummy_state"/>
       <desc><p>Algorithm specific internal state</p></desc>
     </datatype>
+    <datatype>
+      <name name="splitmix64_state"/>
+      <desc><p>Algorithm specific state</p></desc>
+    </datatype>
+    <datatype>
+      <name name="uint58"/>
+      <desc><p>0 .. (2^58 - 1)</p></desc>
+    </datatype>
+    <datatype>
+      <name name="uint64"/>
+      <desc><p>0 .. (2^64 - 1)</p></desc>
+    </datatype>
+    <datatype>
+      <name name="mcg35_state"/>
+      <desc><p>1 .. ((2^35 - 31) - 1)</p></desc>
+    </datatype>
+    <datatype>
+      <name name="lcg35_state"/>
+      <desc><p>0 .. (2^35 - 1)</p></desc>
+    </datatype>
   </datatypes>
 
+
   <funcs>
+    <fsdescription>
+      <marker id="plug_in_api"/>
+      <title>Plug-in framework API</title>
+    </fsdescription>
     <func>
       <name name="bytes" arity="1" since="OTP 24.0"/>
       <fsummary>Return a random binary.</fsummary>
-      <desc><marker id="bytes-1"/>
+      <desc>
       <p>
         Returns, for a specified integer <c><anno>N</anno> >= 0</c>,
         a <c>binary()</c> with that number of random bytes.
@@ -400,7 +441,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <func>
       <name name="bytes_s" arity="2" since="OTP 24.0"/>
       <fsummary>Return a random binary.</fsummary>
-      <desc><marker id="bytes-1"/>
+      <desc>
       <p>
         Returns, for a specified integer <c><anno>N</anno> >= 0</c>
         and a state, a <c>binary()</c> with that number of random bytes,
@@ -415,7 +456,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <func>
       <name name="export_seed" arity="0" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
-      <desc><marker id="export_seed-0"/>
+      <desc>
         <p>Returns the random number state in an external format.
           To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
@@ -424,7 +465,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <func>
       <name name="export_seed_s" arity="1" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
-      <desc><marker id="export_seed_s-1"/>
+      <desc>
         <p>Returns the random number generator state in an external format.
           To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
@@ -434,7 +475,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <name name="jump" arity="0" since="OTP 20.0"/>
       <fsummary>Return the seed after performing jump calculation
           to the state in the process dictionary.</fsummary>
-      <desc><marker id="jump-0" />
+      <desc>
           <p>Returns the state
               after performing jump calculation
               to the state in the process dictionary.</p>
@@ -448,7 +489,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <func>
       <name name="jump" arity="1" since="OTP 20.0"/>
       <fsummary>Return the seed after performing jump calculation.</fsummary>
-      <desc><marker id="jump-1" />
+      <desc>
           <p>Returns the state after performing jump calculation
               to the given state. </p>
       <p>This function generates a <c>not_implemented</c> error exception
@@ -500,7 +541,6 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <name name="seed" arity="1" clause_i="2" since="OTP 24.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
-        <marker id="seed-1"/>
         <p>
 	  Seeds random number generation with the specifed algorithm and
           time-dependent data if <c><anno>AlgOrStateOrExpState</anno></c>
@@ -575,7 +615,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <func>
       <name name="uniform" arity="0" since="OTP 18.0"/>
       <fsummary>Return a random float.</fsummary>
-      <desc><marker id="uniform-0"/>
+      <desc>
         <p>
 	  Returns a random float uniformly distributed in the value
           range <c>0.0 =&lt; <anno>X</anno> &lt; 1.0</c> and
@@ -611,7 +651,7 @@ end.</pre>
     <func>
       <name name="uniform_real" arity="0" since="OTP 21.0"/>
       <fsummary>Return a random float.</fsummary>
-      <desc><marker id="uniform_real-0"/>
+      <desc>
         <p>
 	  Returns a random float
 	  uniformly distributed in the value range
@@ -647,7 +687,7 @@ end.</pre>
     <func>
       <name name="uniform" arity="1" since="OTP 18.0"/>
       <fsummary>Return a random integer.</fsummary>
-      <desc><marker id="uniform-1"/>
+      <desc>
         <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>,
           a random integer uniformly distributed in the value range
           <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and
@@ -761,6 +801,201 @@ end.</pre>
           and a state, a random integer uniformly distributed in the value
           range <c>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></c> and a
           new state.</p>
+      </desc>
+    </func>
+  </funcs>
+
+
+  <funcs>
+    <fsdescription>
+      <marker id="niche_algorithms"/>
+      <title>Niche algorithms API</title>
+    </fsdescription>
+    <func>
+      <name name="splitmix64_next" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a random integer and new state.</fsummary>
+      <desc>
+        <p>
+          Returns a random 64-bit integer <c><anno>X</anno></c>
+          and a new generator state <c><anno>NewAlgState</anno></c>,
+          according to the SplitMix64 algorithm.
+        </p>
+        <p>
+          This generator is used internally in the <c>rand</c>
+          module for seeding other generators since it is of a
+          quite different breed which reduces the probability for
+          creating an accidentally bad seed.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="exsp_next" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a random integer and new state.</fsummary>
+      <desc>
+        <p>
+          Returns a random 58-bit integer <c><anno>X</anno></c>
+          and a new generator state <c><anno>NewAlgState</anno></c>,
+          according to the Xorshift116+ algorithm.
+        </p>
+        <p>
+          This is an API function into the internal implementation of the
+          <seeerl marker="#algorithms"><c>exsp</c></seeerl>
+          algorithm that enables using it without the overhead
+          of the plug-in framework, which might be useful
+          for time critial applications.
+          On a typical 64 bit Erlang VM this approach executes
+          in just above 30% (1/3) of the time
+          for the default algorithm through
+          this module's normal plug-in framework.
+        </p>
+        <p>
+          To seed this generator use
+          <seemfa marker="#seed_s/1">
+            <c>{_, <anno>AlgState</anno>} = rand:seed_s(exsp)</c>
+          </seemfa>
+          or
+          <seemfa marker="#seed_s/1">
+            <c>{_, <anno>AlgState</anno>} = rand:seed_s(exsp, Seed)</c>
+          </seemfa>
+          with a specific <c>Seed</c>.
+        </p>
+        <note>
+          <p>
+            This function offers no help in generating a number
+            on a selected range, nor in generating a floating point number.
+            It is easy to accidentally mess up the fairly good
+            statistical properties of this generator when doing either.
+            Note also the caveat about weak low bits that
+            this generator suffers from.
+            The generator is exported in this form
+            primarily for performance.
+          </p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name name="exsp_jump" arity="1" since="OTP 25.0"/>
+      <fsummary>Return the new state as from 2^64 iterations.</fsummary>
+      <desc>
+        <p>
+          Returns a new generator state equivalent of the state
+          after iterating over
+          <seemfa marker="#exsp_next/1"><c>exsp_next/1</c></seemfa>
+          2^64 times.
+        </p>
+        <p>
+          See the description of jump functions
+          at the top of this module description.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="mcg35" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a new generator state / number.</fsummary>
+      <desc>
+        <p>
+          Returns a generated Pseudo Random Number which is also
+          the new generated state, <c><anno>X1</anno></c>,
+          according to a classical Multiplicative Congruential Generator
+          (a.k.a Multiplicative Linear Congruential Generator,
+          Lehmer random number generator,
+          Park-Miller random number generator).
+        </p>
+        <p>
+          This generator uses the modulus 2^35 - 31
+          and the multiplication constant 185852
+          from the paper "Tables of Linear Congruential Generators
+          of different sizes and good lattice structure" by
+          Pierre L'Ecuyer (1997) and they are selected
+          for performance to keep the computation under
+          the Erlang bignum limit.
+        </p>
+        <p>
+          The generator may be written as
+          <c><anno>X1</anno>&nbsp;=&nbsp;(185852*<anno>X0</anno>)&nbsp;rem&nbsp;((1&nbsp;bsl&nbsp;35)-31)</c>,
+          but the properties of the chosen constants has allowed
+          an optimization of the otherwise expensive <c>rem</c> operation.
+        </p>
+        <p>
+          On a typical 64 bit Erlang VM this generator executes
+          in just below 10% (1/10) of the time
+          for the default algorithm in this module.
+        </p>
+        <note>
+          <p>
+            This generator is only suitable for insensitive
+            special niche applications since it has
+            a short period (2^35 - 32),
+            few bits (under 35),
+            is not a power of 2 generator (range 1 .. (2^35 - 32)),
+            offers no help in generating numbers on a specified range,
+            and so on.
+          </p>
+          <p>
+            But for pseudo random load distribution
+            and such it might be useful, since it is very fast.
+            It normally beats even the known-to-be-fast trick
+            <c>erlang:phash2(erlang:unique_integer())</c>.
+          </p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name name="lcg35" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a new generator state / number.</fsummary>
+      <desc>
+        <p>
+          Returns a generated Pseudo Random Number which is also
+          the new generated state, <c><anno>X1</anno></c>,
+          according to a classical Linear Congruential Generator,
+          a power of 2 mixed congruential generator.
+        </p>
+        <p>
+          This generator uses the modulus 2^35
+          and the multiplication constant 15319397
+          from the paper "Tables of Linear Congruential Generators
+          of different sizes and good lattice structure" by
+          Pierre L'Ecuyer (1997) and they are selected
+          for performance to keep the computation under
+          the Erlang bignum limit.
+          The addition constant has been selected to
+          15366142135 (it has to be odd) which looks
+          more interesting than simply 1.
+        </p>
+        <p>
+          The generator may be written as
+          <c><anno>X1</anno>&nbsp;=&nbsp;((15319397*<anno>X0</anno>)&nbsp;+&nbsp;15366142135)&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;35)-1)</c>.
+        </p>
+        <p>
+          On a typical 64 bit Erlang VM this generator executes
+          in just below 7% (1/15) of the time
+          for the default algorithm in this module,
+          which is the fastest generator the author has seen.
+          It can hardly be beaten by even a BIF
+          implementation of any generator since the execution
+          time is close to the overhead of a BIF call.
+        </p>
+        <note>
+          <p>
+            This generator is only suitable for insensitive
+            special niche applications since it has
+            a short period (2^35), few bits (35),
+            offers no help in generating numbers on a specified range,
+            and has, among others, the known statistical artifact
+            that the lowest bit simply alternates,
+            the next to lowest has a period of 4,
+            and so on, so it is only the highest bits
+            that achieve any form of statistical quality.
+          </p>
+          <p>
+            But for pseudo random load distribution
+            and such it might be useful, since it is extremely fast.
+            The <seemfa marker="#mcg35/1"><c>mcg35/1</c></seemfa>
+            generator above has less statistical artifacts,
+            but instead it has other peculiarities since it is not
+            a power of 2 generator.
+          </p>
+        </note>
       </desc>
     </func>
   </funcs>

@@ -36,6 +36,9 @@
          normal/0, normal/2, normal_s/1, normal_s/3
 	]).
 
+%% Utilities
+-export([exsp_next/1, exsp_jump/1, splitmix64_next/1, mcg35/1, lcg35/1]).
+
 %% Test, dev and internal
 -export([exro928_jump_2pow512/1, exro928_jump_2pow20/1,
 	 exro928_seed/1, exro928_next/1, exro928_next_state/1,
@@ -44,7 +47,7 @@
 %% Debug
 -export([make_float/3, float2str/1, bc64/1]).
 
--compile({inline, [exs64_next/1, exsplus_next/1, exsss_next/1,
+-compile({inline, [exs64_next/1, exsp_next/1, exsss_next/1,
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
@@ -143,6 +146,8 @@
 -export_type(
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
     exs64_state/0, dummy_state/0]).
+-export_type(
+   [uint58/0, uint64/0, splitmix64_state/0, mcg35_state/0, lcg35_state/0]).
 
 %% =====================================================================
 %% Range macro and helper
@@ -584,6 +589,22 @@ bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits) ->
     bytes_r(N, AlgHandler, Next, R, <<>>, GoodBytes, GoodBits, Shift).
 %%
 bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
+  when (GoodBytes bsl 2) < N0 ->
+    %% Loop unroll 4 iterations
+    %% - gives about 25% shorter time for large binaries
+    {V1, R1} = Next(R0),
+    {V2, R2} = Next(R1),
+    {V3, R3} = Next(R2),
+    {V4, R4} = Next(R3),
+    Bytes1 =
+        <<Bytes0/binary,
+          (V1 bsr Shift):GoodBits,
+          (V2 bsr Shift):GoodBits,
+          (V3 bsr Shift):GoodBits,
+          (V4 bsr Shift):GoodBits>>,
+    N1 = N0 - (GoodBytes bsl 2),
+    bytes_r(N1, AlgHandler, Next, R4, Bytes1, GoodBytes, GoodBits, Shift);
+bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
   when GoodBytes < N0 ->
     {V, R1} = Next(R0),
     Bytes1 = <<Bytes0/binary, (V bsr Shift):GoodBits>>,
@@ -680,11 +701,11 @@ mk_alg(exs64) ->
     {#{type=>exs64, max=>?MASK(64), next=>fun exs64_next/1},
      fun exs64_seed/1};
 mk_alg(exsplus) ->
-    {#{type=>exsplus, max=>?MASK(58), next=>fun exsplus_next/1,
+    {#{type=>exsplus, max=>?MASK(58), next=>fun exsp_next/1,
        jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
 mk_alg(exsp) ->
-    {#{type=>exsp, bits=>58, weak_low_bits=>1, next=>fun exsplus_next/1,
+    {#{type=>exsp, bits=>58, weak_low_bits=>1, next=>fun exsp_next/1,
        uniform=>fun exsp_uniform/1, uniform_n=>fun exsp_uniform/2,
        jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
@@ -730,7 +751,7 @@ exs64_seed(L) when is_list(L) ->
     [R] = seed64_nz(1, L),
     R;
 exs64_seed(A) when is_integer(A) ->
-    [R] = seed64(1, ?MASK(64, A)),
+    [R] = seed64(1, A),
     R;
 %%
 %% Traditional integer triplet seed
@@ -794,15 +815,15 @@ exsplus_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exsplus_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Traditional integer triplet seed
 exsplus_seed({A1, A2, A3}) ->
-    {_, R1} = exsplus_next(
+    {_, R1} = exsp_next(
                 [?MASK(58, (A1 * 4294967197) + 1)|
                  ?MASK(58, (A2 * 4294967231) + 1)]),
-    {_, R2} = exsplus_next(
+    {_, R2} = exsp_next(
                 [?MASK(58, (A3 * 4294967279) + 1)|
                  tl(R1)]),
     R2.
@@ -813,21 +834,21 @@ exsss_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exsss_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Seed from traditional integer triple - mix into splitmix
 exsss_seed({A1, A2, A3}) ->
-    {_, X0} = seed58(?MASK(64, A1)),
-    {S0, X1} = seed58(?MASK(64, A2) bxor X0),
-    {S1, _} = seed58(?MASK(64, A3) bxor X1),
+    {_, X0} = seed58(A1),
+    {S0, X1} = seed58(A2 bxor X0),
+    {S1, _} = seed58(A3 bxor X1),
     [S0|S1].
 
 %% Advance Xorshift116 state one step
 -define(
    exs_next(S0, S1, S1_b),
    begin
-       S1_b = S1 bxor ?BSL(58, S1, 24),
+       S1_b = ?MASK(58, S1) bxor ?BSL(58, S1, 24),
        S1_b bxor S0 bxor (S1_b bsr 11) bxor (S0 bsr 41)
    end).
 
@@ -837,35 +858,39 @@ exsss_seed({A1, A2, A3}) ->
        %% The multiply by add shifted trick avoids creating bignums
        %% which improves performance significantly
        %%
-       V_a = ?MASK(58, S + ?BSL(58, S, 2)), % V_a = S * 5
-       V_b = ?ROTL(58, V_a, 7),
-       ?MASK(58, V_b + ?BSL(58, V_b, 3)) % V_b * 9
+       %% Scramble ** (all operations modulo word size)
+       %% ((S * 5) rotl 7) * 9
+       %%
+       V_a = S + ?BSL(58, S, 2),                             % * 5
+       V_b = ?BSL(58, V_a, 7) bor ?MASK(7, V_a bsr (58-7)),  % rotl 7
+       ?MASK(58, V_b + ?BSL(58, V_b, 3))                     % * 9
    end).
 
--dialyzer({no_improper_lists, exsplus_next/1}).
 
 %% Advance state and generate 58bit unsigned integer
--spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
-exsplus_next([S1|S0]) ->
+%%
+-dialyzer({no_improper_lists, exsp_next/1}).
+-spec exsp_next(AlgState :: exsplus_state()) ->
+                       {X :: uint58(), NewAlgState :: exsplus_state()}.
+exsp_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
-%%    %% Note: members s0 and s1 are swapped here
-%%    S11 = S1 bxor ?BSL(58, S1, 24),
-%%    S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
-%%    {?MASK(58, S0 + S12), [S0|S12]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    %% Scramble + (all operations modulo word size)
+    %% S0 + NewS1
+    {?MASK(58, S0_1 + NewS1), [S0_1|NewS1]}.
 
 -dialyzer({no_improper_lists, exsss_next/1}).
 
 -spec exsss_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsss_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?scramble_starstar(S0, V_0, V_1), [S0|NewS1]}.
-%%    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    {?scramble_starstar(S0_1, V_1, V_2), [S0_1|NewS1]}.
 
 exsp_uniform({AlgHandler, R0}) ->
-    {I, R1} = exsplus_next(R0),
+    {I, R1} = exsp_next(R0),
     %% Waste the lowest bit since it is of lower
     %% randomness quality than the others
     {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
@@ -875,7 +900,7 @@ exsss_uniform({AlgHandler, R0}) ->
     {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
 
 exsp_uniform(Range, {AlgHandler, R}) ->
-    {V, R1} = exsplus_next(R),
+    {V, R1} = exsp_next(R),
     MaxMinusRange = ?BIT(58) - Range,
     ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
@@ -885,7 +910,7 @@ exsss_uniform(Range, {AlgHandler, R}) ->
     ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
 
-%% This is the jump function for the exs* generators,
+%% This is the jump function for the exs... generators,
 %% i.e the Xorshift116 generators,  equivalent
 %% to 2^64 calls to next/1; it can be used to generate 2^52
 %% non-overlapping subsequences for parallel computations.
@@ -924,15 +949,21 @@ exsss_uniform(Range, {AlgHandler, R}) ->
 -spec exsplus_jump({alg_handler(), exsplus_state()}) ->
                           {alg_handler(), exsplus_state()}.
 exsplus_jump({AlgHandler, S}) ->
+    {AlgHandler, exsp_jump(S)}.
+
+-dialyzer({no_improper_lists, exsp_jump/1}).
+-spec exsp_jump(AlgState :: exsplus_state()) ->
+                       NewAlgState :: exsplus_state().
+exsp_jump(S) ->
     {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
     {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
-    {AlgHandler, AS2}.
+    AS2.
 
 -dialyzer({no_improper_lists, exsplus_jump/4}).
 exsplus_jump(S, AS, _, 0) ->
     {S, AS};
 exsplus_jump(S, [AS0|AS1], J, N) ->
-    {_, NS} = exsplus_next(S),
+    {_, NS} = exsp_next(S),
     case ?MASK(1, J) of
         1 ->
             [S0|S1] = S,
@@ -952,7 +983,7 @@ exsplus_jump(S, [AS0|AS1], J, N) ->
 exs1024_seed(L) when is_list(L) ->
     {seed64_nz(16, L), []};
 exs1024_seed(X) when is_integer(X) ->
-    {seed64(16, ?MASK(64, X)), []};
+    {seed64(16, X), []};
 %%
 %% Seed from traditional triple, remain backwards compatible
 exs1024_seed({A1, A2, A3}) ->
@@ -1141,13 +1172,13 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
 exro928_seed(L) when is_list(L) ->
     {seed58_nz(16, L), []};
 exro928_seed(X) when is_integer(X) ->
-    {seed58(16, ?MASK(64, X)), []};
+    {seed58(16, X), []};
 %%
 %% Seed from traditional integer triple - mix into splitmix
 exro928_seed({A1, A2, A3}) ->
-    {S0, X0} = seed58(?MASK(64, A1)),
-    {S1, X1} = seed58(?MASK(64, A2) bxor X0),
-    {S2, X2} = seed58(?MASK(64, A3) bxor X1),
+    {S0, X0} = seed58(A1),
+    {S1, X1} = seed58(A2 bxor X0),
+    {S2, X2} = seed58(A3 bxor X1),
     {[S0,S1,S2|seed58(13, X2)], []}.
 
 
@@ -1160,13 +1191,6 @@ exro928ss_next({[S15,S0|Ss], Rs}) ->
     %% const uint64_t result_starstar = rotl(s0 * S, R) * T;
     %%
     {?scramble_starstar(S0, V_0, V_1), SR};
-%%    %% The multiply by add shifted trick avoids creating bignums
-%%    %% which improves performance significantly
-%%    %%
-%%    V0 = ?MASK(58, S0 + ?BSL(58, S0, 2)), % V0 = S0 * 5
-%%    V1 = ?ROTL(58, V0, 7),
-%%    V = ?MASK(58, V1 + ?BSL(58, V1, 3)), % V = V1 * 9
-%%    {V, SR};
 exro928ss_next({[S15], Rs}) ->
     exro928ss_next({[S15|lists:reverse(Rs)], []}).
 
@@ -1191,8 +1215,9 @@ exro928_next_state(Ss, Rs, S15, S0) ->
     %% NewS15: s[q] = rotl(s0, A) ^ s15 ^ (s15 << B);
     %% NewS0: s[p] = rotl(s15, C);
     %%
-    Q = S15 bxor S0,
-    NewS15 = ?ROTL(58, S0, 44) bxor Q bxor ?BSL(58, Q, 9),
+    S0_1 = ?MASK(58, S0),
+    Q = ?MASK(58, S15) bxor S0_1,
+    NewS15 = ?ROTL(58, S0_1, 44) bxor Q bxor ?BSL(58, Q, 9),
     NewS0 = ?ROTL(58, Q, 45),
     {[NewS0|Ss], [NewS15|Rs]}.
 
@@ -1313,7 +1338,7 @@ exrop_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exrop_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Traditional integer triplet seed
@@ -1382,24 +1407,28 @@ exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
 %% =====================================================================
 %% dummy "PRNG": Benchmark dummy overhead reference
 %%
-%% As fast as possible - return a constant; to measure overhead.
+%% As fast as possible - return something daft and update state;
+%% to measure plug-in framework overhead.
 %%
 %% =====================================================================
 
--opaque dummy_state() :: 0..?MASK(58).
+-type dummy_state() :: uint58().
 
-dummy_uniform(_Range, State) -> {1, State}.
-dummy_next(R)                -> {?BIT(57), R}.
-dummy_uniform(State)         -> {0.5, State}.
+dummy_uniform(_Range, {AlgHandler,R}) ->
+    {1, {AlgHandler,(R bxor ?MASK(58))}}. % 1 is always in Range
+dummy_next(R) ->
+    {R, R bxor ?MASK(58)}.
+dummy_uniform({AlgHandler,R}) ->
+    {0.5, {AlgHandler,(R bxor ?MASK(58))}}. % Perfect mean value
 
-%% Serious looking seed, to avoid at least seed test failure
+%% Serious looking seed, to avoid rand_SUITE seed test failure
 %%
 dummy_seed(L) when is_list(L) ->
     case L of
         [X] when is_integer(X) ->
             ?MASK(58, X);
         [X|_] when is_integer(X) ->
-            erlang:error(too_many_seed_integer);
+            erlang:error(too_many_seed_integers);
         [_|_] ->
             erlang:error(non_integer_seed)
     end;
@@ -1411,6 +1440,94 @@ dummy_seed({A1, A2, A3}) ->
     {_, X2} = splitmix64_next(A2 bxor X1),
     {Z3, _} = splitmix64_next(A3 bxor X2),
     ?MASK(58, Z3).
+
+
+%% =====================================================================
+%% mcg35 PRNG: Multiplicative Linear Congruential Generator
+%%
+%% Parameters by Pierre L'Ecuyer from the paper:
+%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
+%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
+%%
+%% X1 = (A * X0) rem M
+%%
+%% A = 185852
+%% M = 2^B - D
+%%     B = 35, D = 31
+%%
+%% X cannot, and never will be 0.
+%% Take X1 as output value with range 1..(M-1).
+%%
+%% Use this generator for speed, not for quality.
+%% The calculation should avoid bignum operations,
+%% so A * X0 should not become a bignum.
+%% M and A has been selected accordingly.
+%% The period is M - 1 since 0 cannot occur.
+%%
+%% =====================================================================
+-define(MCG35_A, (185852)).
+-define(MCG35_B, (35)).
+-define(MCG35_D, (31)).
+-define(MCG35_M, (?BIT(?MCG35_B) - ?MCG35_D)).
+
+-type mcg35_state() :: 1..(?MCG35_M-1).
+
+-spec mcg35(X0 :: mcg35_state()) -> X1 :: mcg35_state().
+mcg35(X0) -> % when is_integer(X0), 1 =< X0, X0 < ?MCG35_M ->
+    %% The mask operation on the input tricks the JIT into
+    %% realizing that all following operations does not
+    %% need bignum handling.  The suggested guard test above
+    %% could have had the same effect but it did not, and, alas,
+    %% needs much more native code to execute than a 'band'.
+    X = ?MCG35_A * ?MASK(?MCG35_B, X0),
+    %% rem M = rem (2^B - D), optimization to avoid 'rem'
+    X1 = ?MASK(?MCG35_B, X) + ?MCG35_D*(X bsr ?MCG35_B),
+    if
+        X1 < ?MCG35_M -> X1;
+        true          -> X1 - ?MCG35_M
+    end.
+
+
+%% =====================================================================
+%% lcg35 PRNG: Multiplicative Linear Congruential Generator
+%%
+%% Parameters by Pierre L'Ecuyer from the paper:
+%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
+%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
+%%
+%% X1 = (A * X0 + C) rem M
+%%
+%% M = 2^35, A = 15319397, C = 1
+%%
+%% Choosing C = 15366142135, which is an odd value
+%% about 2^35 / sqrt(5) gives a perhaps nicer value in
+%% the sequence after 0 (-> C).
+%%
+%% Take X1 as output value with range 1..(M-1).
+%%
+%% Use this generator for speed, not for quality.
+%% The calculation should avoid bignum operations,
+%% so A * X0 + C should not become a bignum.
+%% M, A and C has been selected accordingly.
+%% The period is M.
+%%
+%% =====================================================================
+-define(LCG35_A, (15319397)).
+-define(LCG35_C, (15366142135)). % (1 bsl 35) / sqrt(5), odd
+-define(LCG35_B, 35). % Number of bits
+
+-type lcg35_state() :: 0..?MASK(?LCG35_B).
+
+-spec lcg35(X0 :: lcg35_state()) -> X1 :: lcg35_state().
+%%lcg35(X0) when is_integer(X0), 0 =< X0, X0 =< ?MASK(?LCG35_B) ->
+lcg35(X0) ->
+    %% The mask operation on the input tricks the JIT into
+    %% realizing that all following operations does not
+    %% need bignum handling.  The suggested guard test above
+    %% could have had the same effect but it did not, and, alas,
+    %% needs much more native code to execute than a 'band'.
+    ?MASK(?LCG35_B, ?LCG35_A * ?MASK(?LCG35_B, X0) + ?LCG35_C).
+
 
 %% =====================================================================
 %% Mask and fill state list, ensure not all zeros
@@ -1475,6 +1592,7 @@ seed64(X_0) ->
 	    ZX
     end.
 
+%% =====================================================================
 %% The SplitMix64 generator:
 %%
 %% uint64_t splitmix64_next() {
@@ -1484,6 +1602,11 @@ seed64(X_0) ->
 %% 	return z ^ (z >> 31);
 %% }
 %%
+
+-type splitmix64_state() :: uint64().
+
+-spec splitmix64_next(AlgState :: integer()) ->
+                             {X :: uint64(), NewAlgState :: splitmix64_state()}.
 splitmix64_next(X_0) ->
     X = ?MASK(64, X_0 + 16#9e3779b97f4a7c15),
     Z_0 = ?MASK(64, (X bxor (X bsr 30)) * 16#bf58476d1ce4e5b9),
