@@ -9729,7 +9729,6 @@
                 [{"BINDIR",
                   "/ldisk/daily_build/r16b02_opu_c_Muacul100.2013-07-10_20/otp/erts-5.10.3/bin"},
                  {"DIALYZER_EMULATOR",false},
-                 {"CERL_DETACHED_PROG",false},
                  {"EMU","beam"},
                  {"ERL_CONSOLE_MODE",false},
                  {"ERL_CRASH_DUMP",false},

@@ -456,21 +456,6 @@ int main(int argc, char **argv)
 	goto skip_arg_massage;
     }
     free_env_val(s);
-#else
-    int reset_cerl_detached = 0;
-
-    s = get_env("CERL_DETACHED_PROG");
-    if (s && strcmp(s, "") != 0) {
-	emu = s;
-	start_detached = 1;
-	reset_cerl_detached = 1;
-	ensure_EargsSz(argc + 1);
-	memcpy((void *) Eargsp, (void *) argv, argc * sizeof(char *));
-	Eargsp[argc] = emu;
-	Eargsp[argc] = NULL;
-	goto skip_arg_massage;
-    }
-    free_env_val(s);
 #endif
 
     initial_argv_massage(&argc, &argv); /* Merge with env; expand -args_file */
@@ -1142,14 +1127,10 @@ int main(int argc, char **argv)
 
 #else
 
- skip_arg_massage:
     if (start_detached) {
 	int status = fork();
 	if (status != 0)	/* Parent */
 	    return 0;
-
-	if (reset_cerl_detached)
-	    putenv("CERL_DETACHED_PROG=");
 
 	/* Detach from controlling terminal */
 #ifdef HAVE_SETSID
