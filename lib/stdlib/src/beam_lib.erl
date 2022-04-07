@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -953,13 +953,13 @@ error(Reason) ->
 %% The following chunks must be kept when stripping a BEAM file.
 
 significant_chunks() ->
-    ["Line", "Type", "Meta" | md5_chunks()].
+    ["Line", "Type" | md5_chunks()].
 
 %% The following chunks are significant when calculating the MD5
 %% for a module. They are listed in the order that they should be MD5:ed.
 
 md5_chunks() ->
-    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT"].
+    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "Meta"].
 
 %% The following chunks are mandatory in every Beam file.
 
