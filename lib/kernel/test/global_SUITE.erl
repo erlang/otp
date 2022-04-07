@@ -2073,10 +2073,11 @@ otp_6931(Config) when is_list(Config) ->
     {ok, CAf} = start_non_connecting_node(ca_false, Config),
     ok = rpc:call(CAf, error_logger, add_report_handler, [?MODULE, Me]),
     info = rpc:call(CAf, error_logger, warning_map, []),
-    {global_name_server,CAf} ! {nodeup, fake_node},
+    {global_name_server,CAf} ! {nodeup, fake_node, #{connection_id => 4711}},
     timer:sleep(100),
     stop_node(CAf),
-    receive {nodeup,fake_node} -> ct:fail({info_report, was, sent})
+    receive {nodeup,fake_node, _} ->
+            ct:fail({info_report, was, sent})
     after 1000 -> ok
     end,
     ok.
@@ -3204,8 +3205,8 @@ global_groups_change(Config) ->
     Config2 = filename:join(Dir, "sys2"),
     {ok, CpC} = start_node_boot(NcpC, Config2, dc),
 
-    sync_and_wait(CpA),
-    sync_and_wait(CpD),
+    gg_sync_and_wait(CpA, [CpB], [], []),
+    gg_sync_and_wait(CpD, [CpC, CpE], [], []),
 
     pong = rpc:call(CpA, net_adm, ping, [CpC]),
     pong = rpc:call(CpC, net_adm, ping, [CpB]),
@@ -3345,6 +3346,9 @@ global_groups_change(Config) ->
 	Info1ok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [Info1ok, Info1]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", Cp1}, {Info1, Info1ok}})
     end,
@@ -3353,6 +3357,9 @@ global_groups_change(Config) ->
 	Info2ok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [Info2ok, Info2]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", Cp2}, {Info2, Info2ok}})
     end,
@@ -3361,6 +3368,9 @@ global_groups_change(Config) ->
 	Info3ok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [Info3ok, Info3]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", Cp3}, {Info3, Info3ok}})
     end,
@@ -3369,6 +3379,9 @@ global_groups_change(Config) ->
 	InfoAok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [InfoAok, InfoA]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", CpA}, {InfoA, InfoAok}})
     end,
@@ -3377,6 +3390,9 @@ global_groups_change(Config) ->
 	InfoBok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [InfoBok, InfoB]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", CpB}, {InfoB, InfoBok}})
     end,
@@ -3386,6 +3402,9 @@ global_groups_change(Config) ->
 	InfoCok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [InfoCok, InfoC]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", CpC}, {InfoC, InfoCok}})
     end,
@@ -3394,6 +3413,9 @@ global_groups_change(Config) ->
 	InfoDok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [InfoDok, InfoD]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", CpD}, {InfoD, InfoDok}})
     end,
@@ -3402,6 +3424,9 @@ global_groups_change(Config) ->
 	InfoEok ->
 	    ok;
 	_ ->
+            ct:pal("Expected: ~p~n"
+                   "Got     : ~p~n",
+                   [InfoEok, InfoE]),
 	    ct:fail({{"could not change the global groups"
 		      " in node", CpE}, {InfoE, InfoEok}})
     end,
@@ -3419,27 +3444,30 @@ global_groups_change(Config) ->
     init_condition(Config),
     ok.
 
-sync_and_wait(Node) ->
-    Ref = make_ref(),
-    Self = self(),
-    spawn(Node, fun () ->
-			global_group:sync(),
-			case whereis(global_group_check) of
-			    P when is_pid(P) ->
-				Self ! {Ref, P};
-			    _ ->
-				Self ! {Ref, done}
-			end
-		end),
-    receive
-	{Ref, P} when is_pid(P) ->
-	    MonRef = erlang:monitor(process, P),
-	    receive
-		{'DOWN',MonRef,process,P,_} ->
-		    ok
-	    end;
-	{Ref, _} ->
-	    ok
+gg_sync_and_wait(Node, Synced, SyncError, NoContact) ->
+    ok = rpc:call(Node, global_group, sync, []),
+    gg_wait(Node, Synced, SyncError, NoContact).
+
+gg_wait(Node, Synced, SyncError, NoContact) ->
+    receive after 100 -> ok end,
+    try
+        GGInfo = rpc:call(Node, global_group, info, []),
+        ct:pal("GG info: ~p~n", [GGInfo]),
+        case proplists:lookup(synced_nodes, GGInfo) of
+            {synced_nodes, Synced} -> ok;
+            _ -> throw(wait)
+        end,
+        case proplists:lookup(sync_error, GGInfo) of
+            {sync_error, SyncError} -> ok;
+            _ -> throw(wait)
+        end,
+        case proplists:lookup(no_contact, GGInfo) of
+            {no_contact, NoContact} -> ok;
+            _ -> throw(wait)
+        end
+    catch
+        throw:wait ->
+            gg_wait(Node, Synced, SyncError, NoContact)
     end.
 
 %%% Copied from init_SUITE.erl.
@@ -4421,7 +4449,7 @@ trace_message(M) ->
 init(Tester) ->
     {ok, Tester}.
 
-handle_event({_, _GL, {_Pid,_String,[{nodeup,fake_node}=Msg]}}, Tester) ->
+handle_event({_, _GL, {_Pid,_String,[{nodeup,fake_node,_}=Msg]}}, Tester) ->
     Tester ! Msg,
     {ok, Tester};
 handle_event(_Event, State) ->

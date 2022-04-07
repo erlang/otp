@@ -143,7 +143,9 @@
                            %% protocol version as value
                            {pending, node()} => non_neg_integer(),
                            %% Node currently being removed
-                           {removing, node()} => yes
+                           {removing, node()} => yes,
+                           %% Connection id of connected nodes
+                           {connection_id, node()} => integer()
                           },
 		synced = []        :: [node()],
 		resolvers = [],
@@ -479,6 +481,40 @@ info() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+
+    %% Monitor all 'nodeup'/'nodedown' messages of visible nodes.
+    %% In case
+    %%
+    %% * no global group is configured, we use these as is. This
+    %%   way we know that 'nodeup' comes before any traffic from
+    %%   the node on the newly established connection and 'nodedown'
+    %%   comes after any traffic on this connection from the node.
+    %%
+    %% * global group is configured, we ignore 'nodeup' and instead
+    %%   rely on 'group_nodeup' messages passed by global_group and
+    %%   filter 'nodedown' based on if the node is part of our group
+    %%   or not. We need to be prepared for traffic from the node
+    %%   on the newly established connection arriving before the
+    %%   'group_nodeup'. 'nodedown' will however not arrive until
+    %%   all traffic from the node on this connection has arrived.
+    %%
+    %% In case a connection goes down and then up again, the
+    %% 'nodedown' for the old connection is nowadays guaranteed to
+    %% be delivered before the 'nodeup' for the new connection.
+    %%
+    %% By keeping track of connection_id for all connections we
+    %% can differentiate between different instances of connections
+    %% to the same node.
+    ok = net_kernel:monitor_nodes(true, #{connection_id => true}),
+
+    %% There are most likely no connected nodes at this stage,
+    %% but check to make sure...
+    Known = lists:foldl(fun ({N, #{connection_id := CId}}, Cs) ->
+                                Cs#{{connection_id, N} => CId}
+                        end,
+                        #{},
+                        nodes(visible, #{connection_id => true})),
+
     _ = ets:new(global_locks, [set, named_table, protected]),
     _ = ets:new(global_names, [set, named_table, protected,
                                {read_concurrency, true}]),
@@ -516,6 +552,7 @@ init([]) ->
                   false
           end,
     S = #state{the_locker = start_the_locker(DoTrace),
+               known = Known,
                trace = T0,
                the_registrar = start_the_registrar(),
                conf = #conf{connect_all = Ca,
@@ -960,77 +997,112 @@ handle_info({'EXIT', Pid, _Reason}, S) when is_pid(Pid) ->
     Syncers = lists:delete(Pid, S#state.syncers),
     {noreply, S#state{syncers = Syncers}};
 
-handle_info({nodedown, Node}, S) when Node =:= S#state.node_name ->
+handle_info({nodedown, Node, _Info}, S) when Node =:= S#state.node_name ->
     %% Somebody stopped the distribution dynamically - change
     %% references to old node name (Node) to new node name ('nonode@nohost')
     {noreply, change_our_node_name(node(), S)};
 
-handle_info({nodedown, Node}, S0) ->
-    ?trace({'####', nodedown, {node,Node}}),
-    S1 = trace_message(S0, {nodedown, Node}, []),
-    S = handle_nodedown(Node, S1, disconnected),
-    {noreply, S};
+handle_info({nodedown, Node, Info}, S0) ->
+    ?trace({'####', nodedown, {node,Node, Info}}),
+    S1 = trace_message(S0, {nodedown, Node, Info}, []),
+    NodeDownType = case global_group:participant(Node) of
+                       true -> disconnected;
+                       false -> ignore_node
+                   end,
+    S2 = handle_nodedown(Node, S1, NodeDownType),
+    Known = maps:remove({connection_id, Node}, S2#state.known),
+    {noreply, S2#state{known = Known}};
 
 handle_info({extra_nodedown, Node}, S0) ->
     ?trace({'####', extra_nodedown, {node,Node}}),
     S1 = trace_message(S0, {extra_nodedown, Node}, []),
-    S = handle_nodedown(Node, S1, disconnected),
+    NodeDownType = case global_group:participant(Node) of
+                       true -> disconnected;
+                       false -> ignore_node
+                   end,
+    %% Syncers wont notice this unless we send them
+    %% a nodedown...
+    lists:foreach(fun(Pid) -> Pid ! {nodedown, Node} end, S1#state.syncers),
+    S2 = handle_nodedown(Node, S1, NodeDownType),
+    Known = maps:remove({connection_id, Node}, S2#state.known),
+    {noreply, S2#state{known = Known}};
+
+handle_info({group_nodedown, Node, CId},
+            #state{known = Known,
+                   conf = #conf{connect_all = CA,
+                                prevent_over_part = POP}} = S0) ->
+    %% Node is either not part of our group or its global_group
+    %% configuration is not in sync with our configuration...
+    ?trace({'####', group_nodedown, {node,Node}}),
+    S1 = trace_message(S0, {group_nodedown, Node, CId}, []),
+    S = case maps:get({connection_id, Node}, Known, not_connected) of
+            CId ->
+                NodeDownType =
+                    case (CA andalso POP andalso global_group:member(Node)) of
+                        false ->
+                            %% Syncers wont notice this unless we send them
+                            %% a nodedown...
+                            lists:foreach(fun(Pid) -> Pid ! {nodedown, Node} end,
+                                          S1#state.syncers),
+                            ignore_node;
+                        true ->
+                            %% According to our group configuration, Node
+                            %% is part of our group. Disconnect from it
+                            %% and inform others about the connection loss
+                            %% in order to prevent overlapping partitions...
+                            net_kernel:async_disconnect(Node),
+                            error_logger:warning_msg(
+                              "'global' at node ~p disconnected global "
+                              "group member node ~p in order to prevent "
+                              "overlapping partitions", [node(), Node]),
+                            disconnected
+                    end,
+                handle_nodedown(Node, S1, NodeDownType);
+
+            _ ->
+                %% Corresponding connection no longer exist; ignore it...
+                S1
+        end,
     {noreply, S};
 
-handle_info({ignore_node, Node}, S0) ->
-    %% global_group wants us to ignore this node...
-    ?trace({'####', ignore_node, {node,Node}}),
-    S1 = trace_message(S0, {ignore_node, Node}, []),
-    S = handle_nodedown(Node, S1, ignore_node),
-    {noreply, S};
-
-handle_info({nodeup, Node}, S) when Node =:= node() ->
+handle_info({nodeup, Node, _Info}, S) when Node =:= node() ->
     ?trace({'####', local_nodeup, {node, Node}}),
     %% Somebody started the distribution dynamically - change
     %% references to old node name ('nonode@nohost') to Node.
     {noreply, change_our_node_name(Node, S)};
 
-handle_info({nodeup, _Node},
-            #state{conf = #conf{connect_all = false}} = S) ->
-    {noreply, S};
+handle_info({nodeup, Node, #{connection_id := CId}},
+            #state{known = Known,
+                   conf = #conf{connect_all = false}} = S) ->
+    {noreply, S#state{known = Known#{{connection_id, Node} => CId}}};
 
-handle_info({nodeup, Node}, S0) ->
-    IsKnown = maps:is_key(Node, S0#state.known) or
-              %% This one is only for double nodeups (shouldn't occur!)
-              lists:keymember(Node, 1, S0#state.resolvers),
-    ?trace({'####', nodeup, {node,Node}, {isknown,IsKnown}}),
-    S1 = trace_message(S0, {nodeup, Node}, []),
-    case IsKnown of
-	true ->
-	    {noreply, S1};
-	false ->
-	    resend_pre_connect(Node),
+handle_info({nodeup, Node, #{connection_id := CId}},
+            #state{known = Known} = S0) ->
+    ?trace({'####', nodeup, {node,Node}}),
+    S1 = S0#state{known = Known#{{connection_id, Node} => CId}},
+    S2 = trace_message(S1, {nodeup, Node}, []),
+    S3 = case global_group:group_configured() of
+             false ->
+                 handle_nodeup(Node, S2);
+             true ->
+                 %% We will later get a 'group_nodeup' message if
+                 %% the node is in our group, and has a group
+                 %% configuration that is in sync with our
+                 %% configuration...
+                 S2
+         end,
+    {noreply, S3};
 
-	    %% erlang:unique_integer([monotonic]) is used as a tag to
-	    %% separate different synch sessions
-	    %% from each others. Global could be confused at bursty nodeups
-	    %% because it couldn't separate the messages between the different
-	    %% synch sessions started by a nodeup.
-	    MyTag = erlang:unique_integer([monotonic]),
-	    put({sync_tag_my, Node}, MyTag),
-            ?trace({sending_nodeup_to_locker, {node,Node},{mytag,MyTag}}),
-	    S1#state.the_locker ! {nodeup, Node, MyTag},
-
-            %% In order to be compatible with unpatched R7 a locker
-            %% process was spawned. Vsn 5 is no longer compatible with
-            %% vsn 3 nodes, so the locker process is no longer needed.
-            %% The permanent locker takes its place.
-            NotAPid = no_longer_a_pid,
-            Locker = {locker, NotAPid, S1#state.known, S1#state.the_locker},
-	    InitC = {init_connect, {?vsn, MyTag}, node(), Locker},
-	    Rs = S1#state.resolvers,
-            ?trace({casting_init_connect, {node,Node},{initmessage,InitC},
-                    {resolvers,Rs}}),
-	    gen_server:cast({global_name_server, Node}, InitC),
-            Resolver = start_resolver(Node, MyTag),
-            S = trace_message(S1, {new_resolver, Node}, [MyTag, Resolver]),
-	    {noreply, S#state{resolvers = [{Node, MyTag, Resolver} | Rs]}}
-    end;
+handle_info({group_nodeup, Node, CId}, #state{known = Known} = S0) ->
+    %% This message may arrive after other traffic from Node
+    %% on the current connection...
+    ?trace({'####', group_nodeup, {node,Node,CId}}),
+    S1 = trace_message(S0, {group_nodeup, Node, CId}, []),
+    S2 = case maps:get({connection_id, Node}, Known, not_connected) of
+             CId -> handle_nodeup(Node, S1);
+             _ -> S1 %% Late group_nodeup; connection has gone down...
+         end,
+    {noreply, S2};
 
 handle_info({whereis, Name, From}, S) ->
     do_whereis(Name, From),
@@ -1085,7 +1157,7 @@ handle_info({lost_connection, NodeA, XCreationA, OpIdA, NodeB} = Msg,
                      true ->
                          case node_vsn(RmNode, S0) of
                              Vsn when Vsn < ?pop_vsn ->
-                                 erlang:disconnect_node(RmNode),
+                                 net_kernel:async_disconnect(RmNode),
                                  error_logger:warning_msg(
                                    "'global' at node ~p disconnected old "
                                    "node ~p in order to prevent overlapping "
@@ -1123,7 +1195,7 @@ handle_info({remove_connection, Node}, S0) ->
              false ->
                  S0;
              true ->
-                 erlang:disconnect_node(Node),
+                 net_kernel:async_disconnect(Node),
                  S1 = handle_nodedown(Node, S0, remove_connection),
                  error_logger:warning_msg(
                    "'global' at node ~p disconnected node ~p in order to "
@@ -2296,6 +2368,51 @@ pid_locks(Ref) ->
 ref_is_locking(Ref, PidRefs) ->
     lists:keyfind(Ref, 2, PidRefs) =/= false.
 
+handle_nodeup(Node, #state{the_locker = TheLocker,
+                           resolvers = Rs,
+                           known = Known} = S0) ->
+    case maps:is_key(Node, Known) orelse lists:keymember(Node, 1, Rs) of
+        true ->
+            %% Already known or in progress...
+            S0;
+
+        false ->
+            %% Make ourselves known to Node...
+
+            %%
+            %% In case a global group is configured, we might already
+            %% have received an init_connect message from Node (the
+            %% group_nodeup message may be delivered after early traffic
+            %% over the channel have been delivered). If we already have
+            %% gotten an init_connect, resend it to ourselves...
+            %%
+            resend_pre_connect(Node),
+
+            %% erlang:unique_integer([monotonic]) is used as a tag to
+            %% separate different synch sessions
+            %% from each others. Global could be confused at bursty nodeups
+            %% because it couldn't separate the messages between the different
+            %% synch sessions started by a nodeup.
+            MyTag = erlang:unique_integer([monotonic]),
+            put({sync_tag_my, Node}, MyTag),
+            ?trace({sending_nodeup_to_locker, {node,Node},{mytag,MyTag}}),
+            TheLocker ! {nodeup, Node, MyTag},
+
+            %% In order to be compatible with unpatched R7 a locker
+            %% process was spawned. Vsn 5 is no longer compatible with
+            %% vsn 3 nodes, so the locker process is no longer needed.
+            %% The permanent locker takes its place.
+            NotAPid = no_longer_a_pid,
+            Locker = {locker, NotAPid, Known, TheLocker},
+            InitC = {init_connect, {?vsn, MyTag}, node(), Locker},
+            ?trace({casting_init_connect, {node,Node},{initmessage,InitC},
+                    {resolvers,Rs}}),
+            gen_server:cast({global_name_server, Node}, InitC),
+            Resolver = start_resolver(Node, MyTag),
+            S1 = trace_message(S0, {new_resolver, Node}, [MyTag, Resolver]),
+            S1#state{resolvers = [{Node, MyTag, Resolver} | Rs]}
+    end.
+
 handle_nodedown(Node, #state{synced = Syncs,
                              known = Known0} = S, What) ->
     %% DOWN signals from monitors have removed locks and registered names.
@@ -2316,8 +2433,8 @@ handle_nodedown(Node, #state{synced = Syncs,
                              Known0
                      end
              end,
-    NewS#state{known = maps:remove(Node,
-                                   maps:remove({pending, Node}, Known1)),
+    Known2 = maps:remove({pending, Node}, Known1),
+    NewS#state{known = maps:remove(Node, Known2),
                synced = lists:delete(Node, Syncs)}.
 
 inform_connection_loss(Node,
@@ -2571,7 +2688,7 @@ check_sync_nodes() ->
 	{ok, NodesNG} ->
 	    %% global_groups parameter is defined, we are not allowed to sync
 	    %% with nodes not in our own global group.
-	    intersection(nodes(), NodesNG);
+	    intersection(NodesNG, nodes());
 	{error, _} = Error ->
 	    Error
     end.
@@ -2583,7 +2700,7 @@ check_sync_nodes(SyncNodes) ->
 	{ok, NodesNG} ->
 	    %% global_groups parameter is defined, we are not allowed to sync
 	    %% with nodes not in our own global group.
-	    OwnNodeGroup = intersection(nodes(), NodesNG),
+	    OwnNodeGroup = intersection(NodesNG, nodes()),
 	    IllegalSyncNodes = (SyncNodes -- [node() | OwnNodeGroup]),
 	    case IllegalSyncNodes of
 		[] -> SyncNodes;

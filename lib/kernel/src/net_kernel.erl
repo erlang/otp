@@ -70,7 +70,7 @@
 	 protocol_childspecs/0,
 	 epmd_module/0]).
 
--export([disconnect/1, passive_cnct/1]).
+-export([disconnect/1, async_disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
 -export([set_net_ticktime/1, set_net_ticktime/2, get_net_ticktime/0]).
 
@@ -306,6 +306,9 @@ passive_cnct(Node) ->
     end.
 
 disconnect(Node) ->            request({disconnect, Node}).
+
+async_disconnect(Node) ->
+    gen_server:cast(net_kernel, {disconnect, Node}).
 
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
@@ -667,6 +670,13 @@ handle_call(_Msg, _From, State) ->
 %% ------------------------------------------------------------
 %% handle_cast.
 %% ------------------------------------------------------------
+
+handle_cast({disconnect, Node}, State) when Node =:= node() ->
+    {noreply, State};
+handle_cast({disconnect, Node}, State) ->
+    verbose({disconnect, Node}, 1, State),
+    {_Reply, State1} = do_disconnect(Node, State),
+    {noreply, State1};
 
 handle_cast(_, State) ->
     {noreply,State}.
