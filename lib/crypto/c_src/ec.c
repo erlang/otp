@@ -204,7 +204,101 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     return 0;
 }
 
+int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    ERL_NIF_TERM ret = atom_undefined;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    int i = 0;
+    OSSL_PARAM params[15];
+    EVP_PKEY_CTX *pctx = NULL;
+    
+    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
+        (tpl_arity != 2) ||
+        !enif_is_tuple(env, tpl_terms[0]) ||
+        !enif_is_binary(env, tpl_terms[1]) )
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad public key format"));
+    
+    if (!get_ossl_octet_string_param_from_bin(env, "pub",  tpl_terms[1], &params[i++]))
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad public key"));
+
+    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL))
+        goto err;
+
+    params[i++] = OSSL_PARAM_construct_end();
+
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+
+    if (EVP_PKEY_fromdata_init(pctx) <= 0)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
+    
+    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+
+    if (!*pkey)
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get a public key"));
+
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    return 1;
+
+ err:
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    return 0;
+}
+
+
+int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    ERL_NIF_TERM ret = atom_undefined;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    int i = 0;
+    OSSL_PARAM params[15];
+    EVP_PKEY_CTX *pctx = NULL;
+
+    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
+        (tpl_arity != 2) ||
+        !enif_is_tuple(env, tpl_terms[0]) ||
+        !enif_is_binary(env, tpl_terms[1]) )
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key format"));
+    
+    if (!get_ossl_BN_param_from_bin(env, "priv",  tpl_terms[1], &params[i++]))
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
+
+    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL))
+        goto err;
+
+    params[i++] = OSSL_PARAM_construct_end();
+
+    if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+
+    if (EVP_PKEY_fromdata_init(pctx) <= 0)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
+    
+    if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+
+    if (!*pkey)
+        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
+    
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    return 1;
+
+ err:
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    return 0;
+}
+
 # endif /* HAS_3_0_API */
+
+
+
+
+/*----------------------------------------------------------------
+  Non 3.0-specific functions
+*/
 
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size);
 static ERL_NIF_TERM point2term(ErlNifEnv* env,
@@ -477,6 +571,8 @@ int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pp
     return 0;
 }
 
+# if ! defined(HAS_3_0_API)
+
 int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     const ERL_NIF_TERM *tpl_terms;
@@ -537,6 +633,7 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
+# endif /* !  HAS_3_0_API */
 
 int get_ec_key_sz(ErlNifEnv* env,
                   ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
