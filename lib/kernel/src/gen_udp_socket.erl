@@ -1850,6 +1850,9 @@ deliver_data(#{addr := #{family := Fam, addr := Addr, port := Port},
     Data  = deliver_data_mode(IOV, Mode),
     Ctrl2 = ctrl2ancdata(Ctrl),
     {Addr, Port, Ctrl2, Data};
+deliver_data({#{family := unspec, addr := Addr}, <<Data/binary>>}, Mode)
+  when is_binary(Addr) ->
+    {{unspec, Addr}, 0, undefined, deliver_data_mode(Data, Mode)};
 deliver_data({Unspec, <<Data/binary>>}, Mode) when is_binary(Unspec) ->
     {{unspec, Unspec}, 0, undefined, deliver_data_mode(Data, Mode)}.
 %% deliver_data(_Arg1, _Arg2) ->
