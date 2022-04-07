@@ -1702,13 +1702,24 @@ do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
                                   is_acceptable_hash_sign(Algos, SupportedHashSigns);
                          ({_, S} = Algos) when S == PublicKeyAlgo ->
                               is_acceptable_hash_sign(Algos, SupportedHashSigns);
+                         (rsa_pkcs1_sha512) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign({sha512, rsa}, SupportedHashSigns);
+                         (rsa_pkcs1_sha384) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign({sha384, rsa}, SupportedHashSigns);
+                         (rsa_pkcs1_sha256) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign({sha256, rsa}, SupportedHashSigns);
+                         (ecdsa_sha1) when PublicKeyAlgo == ecdsa ->
+                              is_acceptable_hash_sign({sha, ecdsa}, SupportedHashSigns);
+                         (rsa_pkcs1_sha1) when PublicKeyAlgo == rsa ->
+                              is_acceptable_hash_sign({sha, rsa}, SupportedHashSigns);
                          (_A)  ->
                               false
                       end, HashSigns) of
         [] ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
         [HashSign | _] ->
-            HashSign
+            %% Make sure name hash sign is on TLS-1.2 tuple format
+            hd(ssl_cipher:signature_schemes_1_2([HashSign]))
     end.
 
 

@@ -651,6 +651,12 @@ signature_schemes_1_2(SigAlgs) ->
                                 [{Hash, Sign} | Acc];
                             {Hash, Sign = rsa_pss_rsae,_} ->
                                 [{Hash, Sign} | Acc];
+                            {sha1, rsa_pkcs1,_} ->
+                                [{sha, rsa} | Acc];
+                            {Hash, rsa_pkcs1,_} ->
+                                [{Hash, rsa} | Acc];
+                            {sha1, Sign = ecdsa,_} ->
+                                [{sha, Sign} | Acc];
                             {_, _, _} ->
                                 Acc
                         end;
