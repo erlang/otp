@@ -577,7 +577,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
 
         a.ldur(TMP2, emit_boxed_val(ctx_reg.reg, position_offset));
         a.ldur(TMP3, emit_boxed_val(ctx_reg.reg, size_offset));
-        a.add(TMP4, TMP2, imm(size));
+        add(TMP4, TMP2, size);
         a.cmp(TMP4, TMP3);
         a.b_hi(resolve_beam_label(Fail, disp1MB));
 
@@ -604,7 +604,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
         auto ctx_reg = load_source(Ctx, TMP1);
 
         a.ldur(TMP2, emit_boxed_val(ctx_reg.reg, position_offset));
-        a.add(TMP2, TMP2, imm(size));
+        add(TMP2, TMP2, size);
         a.stur(TMP2, emit_boxed_val(ctx_reg.reg, position_offset));
     }
 }
