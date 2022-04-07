@@ -104,6 +104,8 @@
               sockaddr_in6/0,
               sockaddr_un/0,
               sockaddr_ll/0,
+              sockaddr_dl/0,
+              sockaddr_unspec/0,
               sockaddr_native/0,
 
               msg_flag/0,
@@ -345,6 +347,14 @@
           pkttype  := packet_type(),
           hatype   := hatype(),
           addr     := binary()}.
+-type sockaddr_dl() ::
+        #{family   := 'link',
+          index    := non_neg_integer(),
+          type     := non_neg_integer(),
+          nlen     := non_neg_integer(),
+          alen     := non_neg_integer(),
+          slen     := non_neg_integer(),
+          data     := binary()}.
 -type sockaddr_unspec() ::
         #{family := 'unspec', addr := binary()}.
 -type sockaddr_native() ::
@@ -354,6 +364,7 @@
         sockaddr_in6()     |
         sockaddr_un()      |
         sockaddr_ll()      |
+        sockaddr_dl()      |
         sockaddr_unspec()  |
         sockaddr_native().
 

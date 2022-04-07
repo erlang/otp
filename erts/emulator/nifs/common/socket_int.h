@@ -60,6 +60,10 @@
 #include <sys/un.h>
 #endif
 
+#ifdef HAVE_NET_IF_DL_H
+#include <net/if_dl.h>
+#endif
+
 #ifdef HAVE_NETPACKET_PACKET_H
 #include <netpacket/packet.h>
 #endif
@@ -129,6 +133,10 @@ typedef union {
     struct sockaddr_ll ll;
 #endif
 
+#if defined(AF_LINK)
+    struct sockaddr_dl dl;
+#endif
+
     /* Max size sockaddr on system */
     struct sockaddr_storage ss;
 
@@ -188,6 +196,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(addrform);                 \
     GLOBAL_ATOM_DEF(add_membership);           \
     GLOBAL_ATOM_DEF(add_source_membership);    \
+    GLOBAL_ATOM_DEF(alen);                     \
     GLOBAL_ATOM_DEF(allmulti);                 \
     GLOBAL_ATOM_DEF(any);                      \
     GLOBAL_ATOM_DEF(appletlk);                 \
@@ -278,6 +287,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ifindex);                  \
     GLOBAL_ATOM_DEF(igmp);                     \
     GLOBAL_ATOM_DEF(implink);                  \
+    GLOBAL_ATOM_DEF(index);                    \
     GLOBAL_ATOM_DEF(inet);                     \
     GLOBAL_ATOM_DEF(inet6);                    \
     GLOBAL_ATOM_DEF(infiniband);	       \
@@ -332,6 +342,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
     GLOBAL_ATOM_DEF(netrom);                   \
+    GLOBAL_ATOM_DEF(nlen);                     \
     GLOBAL_ATOM_DEF(noarp);                    \
     GLOBAL_ATOM_DEF(nodelay);                  \
     GLOBAL_ATOM_DEF(nodefrag);                 \
@@ -419,6 +430,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(set_peer_primary_addr);    \
     GLOBAL_ATOM_DEF(simplex);		       \
     GLOBAL_ATOM_DEF(slave);                    \
+    GLOBAL_ATOM_DEF(slen);                     \
     GLOBAL_ATOM_DEF(sndbuf);                   \
     GLOBAL_ATOM_DEF(sndbufforce);              \
     GLOBAL_ATOM_DEF(sndlowat);                 \

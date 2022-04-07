@@ -4189,11 +4189,7 @@ ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
     ERL_NIF_TERM esa;
 
     if (sa != NULL) {
-        
-        unsigned int sz = sizeof(ESockAddress);
-
-        esock_encode_sockaddr(env, (ESockAddress*) sa, sz, &esa);
-        
+        esock_encode_sockaddr(env, (ESockAddress*) sa, -1, &esa);
     } else {
         esa = esock_atom_undefined;
     }

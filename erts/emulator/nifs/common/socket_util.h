@@ -75,7 +75,7 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
 extern
 void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
-                           SOCKLEN_T     addrLen,
+                           int           addrLen,
                            ERL_NIF_TERM* eSockAddr);
 extern
 void esock_encode_hwsockaddr(ErlNifEnv*       env,

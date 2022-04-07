@@ -1476,6 +1476,15 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_index],
 	])
 
 
+AC_CHECK_MEMBERS([struct sockaddr_dl.sdl_len],
+        [AC_DEFINE(ESOCK_SDL_LEN, [], [Socket address dl length])],
+	[],
+	[#ifdef __WIN32__
+	 #else
+	 #include <net/if_dl.h>
+	 #endif
+	])
+
 dnl
 dnl This test kindly borrowed from Tcl
 dnl
