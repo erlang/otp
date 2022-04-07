@@ -244,14 +244,11 @@ init_per_group(t_local = _GroupName, Config) ->
             {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
-    try socket:info() of
-	_ ->
-            Config
-    catch
-        error : notsup ->
-            {skip, "esock not supported"};
-        error : undef ->
-            {skip, "esock not configured"}
+    case is_socket_supported() of
+        ok ->
+            Config;
+        {skip, _} = SKIP ->
+            SKIP
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -1316,34 +1313,36 @@ do_simple_sockaddr_send_recv(SockAddr, _) ->
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
     ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() -> has_socket_support() end,
+            fun() -> is_socket_supported() end,
             fun() -> do_s_accept_with_explicit_socket_backend() end).
 
 do_s_accept_with_explicit_socket_backend() ->
+    ?P("try create listen socket"),
     {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}]),
+    ?P("try get port number (via sockname)"),
     {ok, {_, Port}} = inet:sockname(S),
     ClientF = fun() ->
+                      ?P("[client] try connect (tp ~p)", [Port]),
 		      {ok, _} = gen_tcp:connect("localhost", Port, []),
-		      receive die -> exit(normal) after infinity -> ok end
+                      ?P("[client] connected - wait for termination command"),
+		      receive
+                          die ->
+                              ?P("[client] termination command received"),
+                              exit(normal)
+                      after infinity -> ok
+                      end
 	      end,
+    ?P("create client"),
     Client = spawn_link(ClientF),
+    ?P("try accept"),
     {ok, _} = gen_tcp:accept(S),
+    ?P("accepted - command client to terminate"),
     Client ! die,
+    ?P("done"),
     ok.
 
 
 %%% Utilities
-
-has_socket_support() ->
-    case os:type() of
-        {win32, _} ->
-            {skip, "Windows not supported"};
-        _ ->
-            case code:is_loaded(prim_socket) of
-                false -> {skip, "Compiled without socket support"};
-                _ -> ok
-            end
-    end.
 
 is_socket_supported() ->
     try socket:info() of
