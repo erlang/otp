@@ -246,14 +246,14 @@ types(erlang, 'xor', [_,_]) ->
     sub_unsafe(Bool, [Bool, Bool]);
 
 %% Relational operators.
-types(erlang, Op, [#t_integer{elements={A,B}},
-                   #t_integer{elements={C,D}}])
+types(erlang, Op, [#t_integer{elements=Range1},
+                   #t_integer{elements=Range2}])
   when Op =:= '<'; Op =:= '=<'; Op =:= '>='; Op =:= '>' ->
-    case {erlang:Op(B, C),erlang:Op(A, D)} of
-        {Bool,Bool} ->
-            sub_unsafe(#t_atom{elements=[Bool]}, [any, any]);
-        {_,_} ->
-            sub_unsafe(beam_types:make_boolean(), [any, any])
+    case beam_bounds:relop(Op, Range1, Range2) of
+        'maybe' ->
+            sub_unsafe(beam_types:make_boolean(), [any, any]);
+        Bool when is_boolean(Bool) ->
+            sub_unsafe(#t_atom{elements=[Bool]}, [any, any])
     end;
 
 %% Type tests.
@@ -321,15 +321,8 @@ types(erlang, 'bxor', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsl', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
-types(erlang, 'bsr', [_,_]=Types) ->
-    ArgTypes = [#t_integer{}, #t_integer{}],
-    case Types of
-        [#t_integer{elements={Min,Max}},#t_integer{elements={S,S}}] when S > 0 ->
-            T = #t_integer{elements={Min bsr S,Max bsr S}},
-            sub_unsafe(T, ArgTypes);
-        _ ->
-            sub_unsafe(#t_integer{}, ArgTypes)
-    end;
+types(erlang, 'bsr', [_,_]=Args) ->
+    sub_unsafe(erlang_bsr_type(Args), [#t_integer{}, #t_integer{}]);
 types(erlang, 'bnot', [_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}]);
 
@@ -884,19 +877,15 @@ types(_, _, Args) ->
       ArgTypes :: [normal_type()],
       RetType :: type().
 
-arith_type({bif,'+'}, [#t_integer{elements={Min1,Max1}},
-                       #t_integer{elements={Min2,Max2}}]) ->
-    check_range(#t_integer{elements={Min1+Min2,Max1+Max2}});
-arith_type({bif,'-'}, [#t_integer{elements={Min1,Max1}},
-                       #t_integer{elements={Min2,Max2}}]) ->
-    check_range(#t_integer{elements={Min1-Max2,Max1-Min2}});
-arith_type({bif,'*'}, [#t_integer{elements={Min1,Max1}},
-                       #t_integer{elements={Min2,Max2}}])
-  when (abs(Max1) + abs(Max2)) bsr 128 =:= 0 ->
-    All = [A * B || A <- [Min1,Max1], B <- [Min2,Max2]],
-    Min = lists:min(All),
-    Max = lists:max(All),
-    check_range(#t_integer{elements={Min,Max}});
+arith_type({bif,'+'}, [#t_integer{elements=Range1},
+                       #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'+'(Range1, Range2)};
+arith_type({bif,'-'}, [#t_integer{elements=Range1},
+                       #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'-'(Range1, Range2)};
+arith_type({bif,'*'}, [#t_integer{elements=Range1},
+                       #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'*'(Range1, Range2)};
 arith_type({bif,'div'}, ArgTypes) ->
     erlang_div_type(ArgTypes);
 arith_type({bif,'rem'}, ArgTypes) ->
@@ -907,22 +896,12 @@ arith_type({bif,'bor'}, Args) ->
     erlang_bor_type(Args);
 arith_type({bif,'bxor'}, Args) ->
     erlang_bxor_type(Args);
-arith_type({bif,'bsr'}, [#t_integer{elements={Min0,Max0}},
-                         #t_integer{elements={S1,S2}}])
-  when 0 < S1 ->
-    Min = min(Min0 bsr S1, Min0 bsr S2),
-    Max = max(Max0 bsr S1, Max0 bsr S2),
-    check_range(#t_integer{elements={Min,Max}});
-arith_type({bif,'bsl'}, [#t_integer{elements={Min0,Max0}},
-                         #t_integer{elements={S1,S2}}])
-  when 0 < S1, S2 < 128, abs(Max0) bsr 128 =:= 0 ->
-    Min = min(Min0 bsl S1, Min0 bsl S2),
-    Max = max(Max0 bsl S1, Max0 bsl S2),
-    check_range(#t_integer{elements={Min,Max}});
+arith_type({bif,'bsr'}, Args) ->
+    erlang_bsr_type(Args);
+arith_type({bif,'bsl'}, Args) ->
+    erlang_bsl_type(Args);
 arith_type(_Op, _Args) ->
     any.
-
-check_range(#t_integer{elements={Min,Max}}=T) when Min =< Max -> T.
 
 %%
 %% Function-specific helpers.
@@ -974,26 +953,32 @@ erlang_bxor_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
 erlang_bxor_type([_, _]) ->
     #t_integer{}.
 
+erlang_bsr_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'bsr'(Range1, Range2)};
+erlang_bsr_type([_, _]) ->
+    #t_integer{}.
+
+erlang_bsl_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
+    #t_integer{elements=beam_bounds:'bsl'(Range1, Range2)};
+erlang_bsl_type([_, _]) ->
+    #t_integer{}.
+
 erlang_div_type(ArgTypes) ->
     case ArgTypes of
-        [#t_integer{elements={Min,Max}},#t_integer{elements={D,D}}] when D > 0 ->
-            #t_integer{elements={Min div D,Max div D}};
+        [#t_integer{elements=Range1},#t_integer{elements=Range2}]->
+            #t_integer{elements=beam_bounds:'div'(Range1, Range2)};
         _ ->
             #t_integer{}
     end.
 
-erlang_rem_type([T1,T2]) ->
-    case T2 of
-        #t_integer{elements={D,D}} when D > 0 ->
-            Max = abs(D) - 1,
-            Min = case T1 of
-                      #t_integer{elements={N,_}} when N >= 0 -> 0;
-                      _ -> -Max
-                  end,
-            #t_integer{elements={Min,Max}};
-        _ ->
-            #t_integer{}
-    end.
+erlang_rem_type([LHS0, #t_integer{elements=Range2}]) ->
+    Range1 = case LHS0 of
+                 #t_integer{elements=R1} -> R1;
+                 _ -> any
+             end,
+    #t_integer{elements=beam_bounds:'rem'(Range1, Range2)};
+erlang_rem_type(_) ->
+    #t_integer{}.
 
 erlang_map_get_type(Key, Map) ->
     case Map of
