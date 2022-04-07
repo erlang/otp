@@ -707,11 +707,12 @@ protected:
             add(to, src, -val);
         } else if (val < (1 << 24)) {
             if (val & 0xFFF) {
-                a.sub(to, src, val & 0xFFF);
+                a.sub(to, src, imm(val & 0xFFF));
+                src = to;
             }
 
             if (val & 0xFFF000) {
-                a.sub(to, src, val & 0xFFF000);
+                a.sub(to, src, imm(val & 0xFFF000));
             }
         } else {
             mov_imm(SUPER_TMP, val);
@@ -724,11 +725,12 @@ protected:
             sub(to, src, -val);
         } else if (val < (1 << 24)) {
             if (val & 0xFFF) {
-                a.add(to, src, val & 0xFFF);
+                a.add(to, src, imm(val & 0xFFF));
+                src = to;
             }
 
             if (val & 0xFFF000) {
-                a.add(to, to, val & 0xFFF000);
+                a.add(to, src, imm(val & 0xFFF000));
             }
         } else {
             mov_imm(SUPER_TMP, val);
