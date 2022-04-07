@@ -1817,12 +1817,15 @@ upgrade_gg(Conf) ->
     %% reg proc on each of the nodes
     ok = rpc:call(Gg2, installer, reg_proc, [reg2]),
     ok = rpc:call(Gg6, installer, reg_proc, [reg6]),
-    are_names_reg_gg(Gg1, [reg1, reg2, reg4, reg5, reg6]),
 
     %% Check global group info
     Nodes3 = [Gg1,Gg2,Gg4,Gg5,Gg6],
     [check_gg_info(Node,Nodes3,[],Nodes3--[Node]) || Node <- Nodes3],
 
+    OkList = lists:map(fun (_) -> ok end, Nodes3),
+    {OkList,[]} = rpc:multicall(Nodes3, global, sync, []),
+
+    are_names_reg_gg(Gg1, [reg1, reg2, reg4, reg5, reg6]),
     ok.
 
 upgrade_gg(cleanup,Config) ->
@@ -2578,48 +2581,31 @@ check_gg_info(Node,OtherAlive,OtherDead,Synced) ->
 
 check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GGI = rpc:call(Node, global_group, info, []),
-    GI = rpc:call(Node, global, info,[]),
-    try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
-    catch _:E:Stacktrace when N==0 ->
+    try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI) 
+    catch _:E:Stacktrace ->
 	    ?t:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
-		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,Stacktrace},GGI,GI]),
-	    ?t:fail("check_gg_info failed");
-	  _:E:Stacktrace ->
-	    ?t:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
-		      "when GGI was: ~p~nand GI was: ~p~n",
-		      [Node,{E,Stacktrace},GGI,GI]),
-	    timer:sleep(1000),
-	    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
+		      "when GGI was: ~p~n",
+		      [Node,{E,Stacktrace},GGI]),
+            if N == 0 ->
+                    ?t:fail("check_gg_info failed");
+               true ->
+                    ok = rpc:call(Node, global_group, sync, []),
+                    timer:sleep(1000),
+                    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
+            end
     end.
 
-do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) ->
+do_check_gg_info(OtherAlive,OtherDead,Synced,GGI) ->
     {_,gg1} = lists:keyfind(own_group_name,1,GGI),
     {_,synced} = lists:keyfind(state,1,GGI),
     {_,AllNodes} = lists:keyfind(own_group_nodes,1,GGI),
     true = lists:sort(AllNodes) =:= lists:sort(OtherAlive++OtherDead),
     {_,[]} = lists:keyfind(sync_error,1,GGI),
     {_,[{gg2,[_,_]}]} = lists:keyfind(other_groups,1,GGI),
-
-    %% There is a known bug in global_group (OTP-9177) which causes
-    %% the following to fail every now and then:
-    %% {_,SyncedNodes} = lists:keyfind(synced_nodes,1,GGI),
-    %% true = lists:sort(SyncedNodes) =:= lists:sort(Synced),
-    %% {_,NoContact} = lists:keyfind(no_contact,1,GGI),
-    %% true = lists:sort(NoContact) =:= lists:sort(OtherDead),
-
-    %% Therefore we use global:info instead for this part
-    {state,_,_,SyncedNodes,_,_,_,_,_,_,_} = GI,
+    {_,SyncedNodes} = lists:keyfind(synced_nodes,1,GGI),
     true = lists:sort(SyncedNodes) =:= lists:sort(Synced),
-
-    %% .. and we only check that all OtherDead are listed as
-    %% no_contact (due to th bug there might be more nodes in this
-    %% list)
     {_,NoContact} = lists:keyfind(no_contact,1,GGI),
-    true =
-	lists:sort(OtherDead) =:=
-	lists:sort([NC || NC <- NoContact,lists:member(NC,OtherDead)]),
-
+    true = lists:sort(NoContact) =:= lists:sort(OtherDead),
     ok.
 
 %% Return the configuration (to be inserted in sys.config) for global group tests
