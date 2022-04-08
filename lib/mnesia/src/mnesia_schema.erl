@@ -2466,10 +2466,12 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 		_  ->
 		    ok
 	    end,
-	    %% Tables are created by mnesia_loader get_network code
-	    insert_cstruct(Tid, Cs, true),
+            mnesia_lib:verbose("~w:~w Adding table~n",[?MODULE,?LINE]),
+
 	    case mnesia_controller:get_network_copy(Tid, Tab, Cs) of
 		{loaded, ok} ->
+                    %% Tables are created by mnesia_loader get_network code
+                    insert_cstruct(Tid, Cs, true),
 		    {true, optional};
 		{not_loaded, ErrReason} ->
 		    Reason = {system_limit, Tab, {Node, ErrReason}},
