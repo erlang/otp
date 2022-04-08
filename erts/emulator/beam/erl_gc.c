@@ -416,6 +416,18 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 {
     int cost;
 
+#ifdef DEBUG
+    if (live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        ErlHeapFragment *it = p->mbuf;
+
+        /* `live_hf_end` MUST be part of the heap fragment list. */
+        while (it != live_hf_end) {
+            ASSERT(it);
+            it = it->next;
+        }
+    }
+#endif
+
     if (p->flags & F_HIBERNATE_SCHED) {
 	/*
 	 * We just hibernated. We do *not* want to mess
