@@ -150,6 +150,83 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
+      <name name="get_state" arity="0" since="OTP @OTP-17558@"/>
+      <fsummary>Get various distribution state.</fsummary>
+      <desc>
+        <p>Get the current state of the distribution for the local node.</p>
+        <p>Returns a map with (at least) the following key-value pairs:</p>
+        <taglist>
+          <tag><c>started => Started</c></tag>
+          <item>
+            <p>Valid values for <c>Started</c>:</p>
+            <taglist>
+              <tag><c>no</c></tag>
+              <item>
+                <p>The distribution is not started. In this state none of
+                the other keys below are present in the map.</p>
+              </item>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The distribution was started with command line arguments
+                <seecom marker="erts:erl#name"><c>-name</c></seecom> or
+                <seecom marker="erts:erl#sname"><c>-sname</c></seecom>.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started with
+                <seemfa marker="#start/1"><c>net_kernel:start/1</c></seemfa>
+                and can be stopped with
+                <seemfa marker="#start/1"><c>net_kernel:stop/0</c></seemfa>.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name => Name</c></tag>
+          <item>
+            <p>The name of the node. Same as returned by
+            <seemfa marker="erts:erlang#node/0"><c>erlang:node/0</c></seemfa>
+            except when <c>name_type</c> is <c>dynamic</c> in which case
+            <c>Name</c> may be <c>undefined</c> (instead of <c>nonode@nohost</c>).
+            </p>
+          </item>
+          <tag><c>name_type => NameType</c></tag>
+          <item>
+            <p>Valid values for <c>NameType</c>:</p>
+            <taglist>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The node has a static node name set by the node itself.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started in
+                <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+                dynamic node name</seeguide> mode, and will get its node name assigned
+                from the first node it connects to. If key <c>name</c> has value
+                <c>undefined</c> that has not happened yet.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name_domain => NameDomain</c></tag>
+          <item>
+            <p>Valid values for <c>NameDomain</c>:</p>
+            <taglist>
+              <tag><c>shortnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a short
+                host portion (not fully qualified).</p>
+              </item>
+              <tag><c>longnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a long
+                fully qualified host portion.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="monitor_nodes" arity="1" since=""/>
       <name name="monitor_nodes" arity="2" since=""/>
       <fsummary>Subscribe to node status change messages.</fsummary>
