@@ -1070,8 +1070,8 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
        performance. */
     ErlHeapFragment *bp = p->mbuf;
 
-    factory->off_heap_saved.first    = p->off_heap.first;
-    factory->off_heap_saved.overhead = p->off_heap.overhead;
+    factory->heap_frags_saved = bp;
+    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
 
     factory->mode     = FACTORY_HALLOC;
     factory->p        = p;
