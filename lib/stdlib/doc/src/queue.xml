@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,9 +48,13 @@
     <p>Some functions, where noted, fail with reason <c>empty</c>
       for an empty queue.</p>
 
-    <p>The data representing a queue as used by this module
-      is to be regarded as opaque by other modules. Any code
-      assuming knowledge of the format is running on thin ice.</p>
+    <p>The data representing a queue as used by this module is to be
+    regarded as opaque by other modules.  In abstract terms, the
+    representation is a composite type of existing Erlang terms. See
+    note on <seeguide
+    marker="system/reference_manual:data_types#no_user_types">data
+    types</seeguide>. Any code assuming knowledge of the format is
+    running on thin ice.</p>
 
     <p>All operations have an amortized O(1) running time, except
       <seemfa marker="#all/2"><c>all/2</c></seemfa>,
@@ -285,8 +289,13 @@
       <name name="is_queue" arity="1" since=""/>
       <fsummary>Test if a term is a queue.</fsummary>
       <desc>
-        <p>Tests if <c><anno>Term</anno></c> is a queue and returns <c>true</c>
-          if so, otherwise <c>false</c>.</p>
+        <p>Tests if <c><anno>Term</anno></c> is a queue and returns
+        <c>true</c> if so, otherwise <c>false</c>.  Note that the test
+        will return <c>true</c> for a term coinciding with the
+        representation of a queue, even when not constructed by thus
+        module.  See also note on <seeguide
+        marker="system/reference_manual:data_types#no_user_types">data
+        types</seeguide>.</p>
       </desc>
     </func>
 
