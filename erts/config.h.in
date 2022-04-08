@@ -86,6 +86,9 @@
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
+/* Enable esock */
+#undef ESOCK_ENABLE
+
 /* Interface hwaddr supported */
 #undef ESOCK_USE_HWADDR
 

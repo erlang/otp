@@ -724,14 +724,10 @@ endif
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
-ifeq ($(USE_ESOCK), yes)
 ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/socket_registry.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
-else
-ESOCK_PRELOAD_BEAM =
-endif
 
 PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
@@ -1062,10 +1058,6 @@ JIT_OBJS += $(ASMJIT_OBJS)
 EMU_OBJS = \
 	$(OBJDIR)/emu_load.o
 
-ifeq ($(USE_ESOCK), yes)
-
-# WE ARE USING ESOCK
-
 ESOCK_NIF_OBJS = \
 	$(OBJDIR)/prim_socket_nif.o \
 	$(OBJDIR)/prim_net_nif.o
@@ -1074,16 +1066,6 @@ ESOCK_RUN_OBJS = \
 	$(OBJDIR)/socket_dbg.o \
 	$(OBJDIR)/socket_tarray.o \
 	$(OBJDIR)/socket_util.o
-
-else
-
-# WE ARE *NOT* USING ESOCK
-
-ESOCK_NIF_OBJS =
-ESOCK_RUN_OBJS =
-
-endif
-
 
 RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o \

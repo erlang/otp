@@ -54,8 +54,6 @@ PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 
 USE_PGO = @USE_PGO@
 
-USE_ESOCK = @USE_ESOCK@
-
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
 # The list is not space separated since some return values
@@ -105,9 +103,6 @@ ifdef BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
   ERL_COMPILE_FLAGS += +debug_info
-endif
-ifeq ($(USE_ESOCK),yes)
-ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
 endif
 
 ERLC_WFLAGS = -W

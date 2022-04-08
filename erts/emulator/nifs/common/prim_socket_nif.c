@@ -38,10 +38,29 @@
 
 #define STATIC_ERLANG_NIF 1
 
-
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#    include "config.h"
 #endif
+
+#ifndef ESOCK_ENABLE
+#    include <erl_nif.h>
+
+static
+ErlNifFunc esock_funcs[] = {};
+
+static
+int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    (void)env;
+    (void)priv_data;
+    (void)load_info;
+
+    return 1;
+}
+
+ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
+
+#else
 
 /* If we HAVE_SCTP_H and Solaris, we need to define the following in
  * order to get SCTP working:
@@ -20371,3 +20390,5 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
  * unload:  NULL (not used)
  */
 ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)
+
+#endif

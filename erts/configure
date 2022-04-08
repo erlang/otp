@@ -672,7 +672,6 @@ HAVE_VALGRIND
 LIBSCTP
 SYSTEMD_DAEMON_LIBS
 SOCKET_LIBS
-USE_ESOCK
 Z_LIB
 TERMCAP_LIB
 THR_DEFS
@@ -15665,22 +15664,21 @@ fi
 # Check whether --enable-esock was given.
 if test ${enable_esock+y}
 then :
-  enableval=$enable_esock;
+  enableval=$enable_esock;  case "$enableval" in
+    no) enable_esock=no ;;
+    *)  enable_esock=yes ;;
+  esac
+
+else $as_nop
+  enable_esock=yes
 fi
 
 
-USE_ESOCK=yes
-
-if test "x$enable_esock" = "xyes"; then
-    USE_ESOCK=yes
-else
-    if test "x$enable_esock" = "xno"; then
-        USE_ESOCK=no
-    fi
-fi
-
-if test "x$USE_ESOCK" = "xyes" && test "x$USE_ESOCK" = "xyes"
+if test "x$enable_esock" = "xyes"
 then :
+
+
+printf "%s\n" "#define ESOCK_ENABLE 1" >>confdefs.h
 
         ac_fn_c_check_func "$LINENO" "localtime_r" "ac_cv_func_localtime_r"
 if test "x$ac_cv_func_localtime_r" = xyes
@@ -15715,9 +15713,6 @@ fi
 
 
 fi
-
-
-
 
 
 # Check whether --enable-esock_use_rcvsndtimeo was given.

@@ -24,9 +24,11 @@
  *
  */
 
-/* #ifdef HAVE_CONFIG_H */
-/* #include "config.h" */
-/* #endif */
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
+#ifdef ESOCK_ENABLE
 
 #include <stdio.h>
 
@@ -141,3 +143,5 @@ void esock_tarray_ensure_fits(SocketTArrayInt* taP, Uint32 needs)
     taP->array = (ERL_NIF_TERM*) mem;
   }
 }
+
+#endif

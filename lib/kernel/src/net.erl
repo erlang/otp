@@ -20,13 +20,6 @@
 
 -module(net).
 
-%% We should really ifdef this module depending on if we actually built
-%% the system with esock support (socket and prim_net), but our doc-building
-%% can't handle the "variables" we need (USE_ESOCK). So instead, we just
-%% leave everything hanging...
-%% If one of the "hanging" functions is called when esock has been disabled,
-%% the function will throw a 'notsup' error (erlang:error/1).
-
 %% Administrative and utility functions
 -export([
 	 info/0,
@@ -156,27 +149,12 @@ sleep(T) -> receive after T -> ok end.
 %% ===========================================================================
 
 -spec info() -> map().
-
--ifdef(USE_ESOCK).
 info() ->
     prim_net:info().
--else.
-info() ->
-    erlang:error(notsup).
--endif.
-
 
 -spec command(Cmd :: term()) -> term().
-
--ifdef(USE_ESOCK).
 command(Cmd) ->
     prim_net:command(Cmd).
--else.
-command(_Cmd) ->
-    erlang:error(notsup).
--endif.
-
-
 
 %% ===========================================================================
 %%
@@ -193,15 +171,8 @@ command(_Cmd) ->
 -spec gethostname() -> {ok, HostName} | {error, Reason} when
       HostName :: string(),
       Reason   :: term().
-
--ifdef(USE_ESOCK).
 gethostname() ->
     prim_net:gethostname().
--else.
-gethostname() ->
-    erlang:error(notsup).
--endif.
-
 
 %% ===========================================================================
 %%
@@ -213,9 +184,6 @@ gethostname() ->
       SockAddr :: socket:sockaddr(),
       Info     :: name_info(),
       Reason   :: term().
-
--dialyzer({no_return, getnameinfo/1}).
-
 getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
@@ -224,25 +192,10 @@ getnameinfo(SockAddr) ->
       Flags    :: name_info_flags() | undefined,
       Info     :: name_info(),
       Reason   :: term().
-
-
--ifdef(USE_ESOCK).
-
 getnameinfo(SockAddr, Flags)
   when is_map(SockAddr), is_list(Flags);
        is_map(SockAddr), Flags =:= undefined ->
     prim_net:getnameinfo(SockAddr, Flags).
-
--else.
-
--dialyzer({no_return, getnameinfo/2}).
-
-getnameinfo(SockAddr, Flags)
-  when is_map(SockAddr), is_list(Flags);
-       is_map(SockAddr), Flags =:= undefined ->
-    erlang:error(notsup).
--endif.
-
 
 %% ===========================================================================
 %%
@@ -254,12 +207,8 @@ getnameinfo(SockAddr, Flags)
       Host    :: string(),
       Info    :: [address_info()],
       Reason  :: term().
-
--dialyzer({no_return, getaddrinfo/1}).
-
 getaddrinfo(Host) when is_list(Host) ->
     getaddrinfo(Host, undefined).
-
 
 -spec getaddrinfo(Host, undefined) -> {ok, Info} | {error, Reason} when
       Host    :: string(),
@@ -274,23 +223,11 @@ getaddrinfo(Host) when is_list(Host) ->
       Service :: string(),
       Info    :: [address_info()],
       Reason  :: term().
-
--ifdef(USE_ESOCK).
 getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
     prim_net:getaddrinfo(Host, Service).
--else.
-getaddrinfo(Host, Service)
-  when (is_list(Host) orelse (Host =:= undefined)) andalso
-       (is_list(Service) orelse (Service =:= undefined)) andalso
-       (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
-    erlang:error(notsup).
--endif.
-
-
-
 
 %% ===========================================================================
 %%
@@ -300,15 +237,8 @@ getaddrinfo(Host, Service)
 -spec getifaddrs() -> {ok, IfAddrs} | {error, Reason} when
       IfAddrs :: [ifaddrs()],
       Reason  :: term().
-
--ifdef(USE_ESOCK).
 getifaddrs() ->
     getifaddrs(default).
--else.
-getifaddrs() ->
-    erlang:error(notsup).
--endif.
-
 
 -spec getifaddrs(Filter) -> {ok, IfAddrs} | {error, Reason} when
       Filter    :: ifaddrs_filter(),
@@ -318,8 +248,6 @@ getifaddrs() ->
       Namespace :: file:filename_all(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term().
-
--ifdef(USE_ESOCK).
 getifaddrs(Filter) when is_atom(Filter) orelse is_map(Filter) ->
     do_getifaddrs(getifaddrs_filter_map(Filter),
                   fun() -> prim_net:getifaddrs(#{}) end);
@@ -327,25 +255,12 @@ getifaddrs(Filter) when is_function(Filter, 1) ->
     do_getifaddrs(Filter, fun() -> prim_net:getifaddrs(#{}) end);
 getifaddrs(Namespace) when is_list(Namespace) ->
     getifaddrs(default, Namespace).
--else.
-getifaddrs(Filter) when is_atom(Filter) orelse
-                        is_map(Filter) orelse
-                        is_function(Filter) ->
-    erlang:error(notsup);
-getifaddrs(Namespace) when is_list(Namespace) ->
-    erlang:error(notsup).
--endif.
-
 
 -spec getifaddrs(Filter, Namespace) -> {ok, IfAddrs} | {error, Reason} when
       Filter    :: ifaddrs_filter(),
       Namespace :: file:filename_all(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term().
-
--dialyzer({no_return, getifaddrs/2}).
-
--ifdef(USE_ESOCK).
 getifaddrs(Filter, Namespace)
   when (is_atom(Filter) orelse is_map(Filter)) andalso is_list(Namespace) ->
     do_getifaddrs(getifaddrs_filter_map(Filter),
@@ -353,15 +268,7 @@ getifaddrs(Filter, Namespace)
 getifaddrs(Filter, Namespace)
   when is_function(Filter, 1) andalso is_list(Namespace) ->
     do_getifaddrs(Filter, fun() -> getifaddrs(Namespace) end).
--else.
-getifaddrs(_Filter, _Namespace) ->
-    erlang:error(notsup).
--endif.
 
-
--ifdef(USE_ESOCK).
-
--dialyzer({no_return, do_getifaddrs/2}).
 
 do_getifaddrs(Filter, GetIfAddrs) ->
     try GetIfAddrs() of
@@ -874,10 +781,7 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
     BA4 = 16#FF band (A4 bor (bnot M4)),
     #{family => inet,
       addr   => {BA1, BA2, BA3, BA4},
-      port   => 0}.
--endif.
-    
-
+      port   => 0}.    
 
 %% ===========================================================================
 %%
@@ -890,8 +794,6 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
       Name   :: network_interface_name(),
       Idx    :: network_interface_index(),
       Reason :: term().
-
--ifdef(USE_ESOCK).
 if_name2index(Name) when is_list(Name) ->
     try prim_net:if_name2index(Name) of
         Result ->
@@ -906,12 +808,6 @@ if_name2index(Name) when is_list(Name) ->
                     erlang:raise(C, E, S)
             end
     end.
--else.
-if_name2index(If) when is_list(If) ->
-    erlang:error(notsup).
--endif.
-
-
 
 %% ===========================================================================
 %%
@@ -924,8 +820,6 @@ if_name2index(If) when is_list(If) ->
       Idx    :: network_interface_index(),
       Name   :: network_interface_name(),
       Reason :: term().
-
--ifdef(USE_ESOCK).
 if_index2name(Idx) when is_integer(Idx) ->
     try prim_net:if_index2name(Idx) of
         Result ->
@@ -940,12 +834,6 @@ if_index2name(Idx) when is_integer(Idx) ->
                     erlang:raise(C, E, S)
             end
     end.
--else.
-if_index2name(Idx) when is_integer(Idx) ->
-    erlang:error(notsup).
--endif.
-
-
 
 %% ===========================================================================
 %%
@@ -958,8 +846,6 @@ if_index2name(Idx) when is_integer(Idx) ->
       Idx    :: network_interface_index(),
       If     :: network_interface_name(),
       Reason :: term().
-
--ifdef(USE_ESOCK).
 if_names() ->
     try prim_net:if_names() of
         Result ->
@@ -974,18 +860,12 @@ if_names() ->
                     erlang:raise(C, E, S)
             end
     end.
--else.
-if_names() ->
-    erlang:error(notsup).
--endif.
-
 
 %% ===========================================================================
 %%
 %% -- Windows specific functions:
 %%
 
--ifdef(USE_ESOCK).
 win_names() ->
     [{Idx, win_name(Idx)} || Idx <- win_indexes()].
 
@@ -1028,8 +908,6 @@ win_name2index(Name) ->
         false ->
             {error, enodev} % This is to be "compatible" with unix
     end.
--endif.
-
 
 %% ===========================================================================
 %%
