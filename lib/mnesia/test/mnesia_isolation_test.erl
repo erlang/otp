@@ -1118,16 +1118,22 @@ add_table_copy(Config) when is_list(Config) ->
                      end),
     receive {New,ok} -> ok end,
 
-    Add = fun Add() ->
+    Add = fun Add(N) ->
                   case mnesia:add_table_copy(Tab, Node2, disc_copies) of
                       {atomic, ok} -> ok;
-                      _R -> io:format(user, "aborted with reason ~p~n", [_R]),
-                            timer:sleep(10),
-                            Add()
+                      _R ->
+                          case N > 0 of
+                              true ->
+                                  timer:sleep(25),
+                                  Add(N-1);
+                              false ->
+                                  io:format(user, "aborted with reason ~p~n", [_R]),
+                                  fail
+                          end
                   end
           end,
-
-    ?match(ok, Add()),
+    
+    ?match(ok, Add(200)),
     ?match_receive({New,ok}),
 
     sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
