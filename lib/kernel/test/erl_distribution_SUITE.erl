@@ -1108,7 +1108,9 @@ monitor_nodes_misc(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     ok = net_kernel:monitor_nodes(true),
     ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
-    ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}, connection_id]),
+    ok = net_kernel:monitor_nodes(true, #{node_type => all, nodedown_reason => true}),
+    ok = net_kernel:monitor_nodes(true, #{node_type => all, nodedown_reason => true, connection_id => true}),
     Names = get_numbered_nodenames(3, node),
     [NN1, NN2, NN3] = Names,
 
@@ -1117,27 +1119,90 @@ monitor_nodes_misc(DCfg, _Config) ->
 
     receive {nodeup, N1} -> ok end,
 
-    receive {nodeup, N1, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N1, #{node_type := visible}} -> ok end,
+    receive {nodeup, N2, #{node_type := hidden}} -> ok end,
     receive {nodeup, N1, [{node_type, visible}]} -> ok end,
     receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
-    receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
+
+    NodesInfo = erlang:nodes(connected, #{connection_id => true}),
+
+    {N1, #{connection_id := N1CId}} = lists:keyfind(N1, 1, NodesInfo),
+    {N2, #{connection_id := N2CId}} = lists:keyfind(N2, 1, NodesInfo),
+
+    ct:pal("N1: ~p ~p~n", [N1, N1CId]),
+    ct:pal("N2: ~p ~p~n", [N2, N2CId]),
+
+    receive {nodeup, N1, #{node_type := visible, connection_id := N1CId}} -> ok end,
+    receive {nodeup, N2, #{node_type := hidden, connection_id := N2CId}} -> ok end,
+
+    N1UpInfoSorted = lists:sort([{node_type, visible},{connection_id, N1CId}]),
+    N2UpInfoSorted = lists:sort([{node_type, hidden},{connection_id, N2CId}]),
+
+    receive {nodeup, N1, UpN1Info} -> N1UpInfoSorted = lists:sort(UpN1Info) end,
+    receive {nodeup, N2, UpN2Info} -> N2UpInfoSorted = lists:sort(UpN2Info) end,
 
     stop_node(N1),
     stop_node(N2),
 
-    VisbleDownInfo = lists:sort([{node_type, visible},
-				 {nodedown_reason, connection_closed}]),
-    HiddenDownInfo = lists:sort([{node_type, hidden},
-				 {nodedown_reason, connection_closed}]),
-
     receive {nodedown, N1} -> ok end,
 
-    receive {nodedown, N1, Info1A} -> VisbleDownInfo = lists:sort(Info1A) end,
-    receive {nodedown, N1, Info1B} -> VisbleDownInfo = lists:sort(Info1B) end,
-    receive {nodedown, N2, Info2A} -> HiddenDownInfo = lists:sort(Info2A) end,
-    receive {nodedown, N2, Info2B} -> HiddenDownInfo = lists:sort(Info2B) end,
+    receive {nodedown, N1, #{node_type := visible,
+                             nodedown_reason := connection_closed}} -> ok end,
+    receive {nodedown, N1, #{node_type := visible,
+                             nodedown_reason := connection_closed,
+                             connection_id := N1CId}} -> ok end,
+    receive {nodedown, N2, #{node_type := hidden,
+                             nodedown_reason := connection_closed}} -> ok end,
+    receive {nodedown, N2, #{node_type := hidden,
+                             nodedown_reason := connection_closed,
+                             connection_id := N2CId}} -> ok end,
+
+    N1ADownInfoSorted = lists:sort([{node_type, visible},
+                                    {nodedown_reason, connection_closed}]),
+    N1BDownInfoSorted = lists:sort([{node_type, visible},
+                                    {nodedown_reason, connection_closed},
+                                    {connection_id, N1CId}]),
+    N2ADownInfoSorted = lists:sort([{node_type, hidden},
+                                    {nodedown_reason, connection_closed}]),
+    N2BDownInfoSorted = lists:sort([{node_type, hidden},
+                                    {nodedown_reason, connection_closed},
+                                    {connection_id, N2CId}]),
+
+    receive
+        {nodedown, N1, N1Info1} ->
+            case lists:sort(N1Info1) of
+                N1ADownInfoSorted ->
+                    receive
+                        {nodedown, N1, N1Info2} ->
+                            N1BDownInfoSorted = lists:sort(N1Info2)
+                    end;
+                N1BDownInfoSorted ->
+                    receive
+                        {nodedown, N1, N1Info2} ->
+                            N1ADownInfoSorted = lists:sort(N1Info2)
+                    end
+            end
+    end,
+    receive
+        {nodedown, N2, N2Info1} ->
+            case lists:sort(N2Info1) of
+                N2ADownInfoSorted ->
+                    receive
+                        {nodedown, N2, N2Info2} ->
+                            N2BDownInfoSorted = lists:sort(N2Info2)
+                    end;
+                N2BDownInfoSorted ->
+                    receive
+                        {nodedown, N2, N2Info2} ->
+                            N2ADownInfoSorted = lists:sort(N2Info2)
+                    end
+            end
+    end,
 
     ok = net_kernel:monitor_nodes(false, [{node_type, all}, nodedown_reason]),
+    ok = net_kernel:monitor_nodes(false, [nodedown_reason, {node_type, all}, connection_id]),
+    ok = net_kernel:monitor_nodes(false, #{node_type => all, nodedown_reason => true}),
+    ok = net_kernel:monitor_nodes(false, #{node_type => all, nodedown_reason => true, connection_id => true}),
 
     {ok, N3} = start_node(DCfg, NN3),
     receive {nodeup, N3} -> ok end,
@@ -1273,7 +1338,11 @@ monitor_nodes_errors(Config) when is_list(Config) ->
       [gurka]}} = net_kernel:monitor_nodes(true,
 					   [gurka]),
     {error,
-     {options_not_a_list,
+     {unknown_options,
+      #{gurka := true}}} = net_kernel:monitor_nodes(true,
+                                                    #{gurka => true}),
+    {error,
+     {invalid_options,
       gurka}} = net_kernel:monitor_nodes(true,
 					 gurka),
     {error,
@@ -1295,6 +1364,10 @@ monitor_nodes_errors(Config) when is_list(Config) ->
       {node_type,
        blaha}}}
 	= net_kernel:monitor_nodes(true, [{node_type, blaha}]),
+    {error,
+     {bad_option_value,
+      #{node_type := blaha}}}
+	= net_kernel:monitor_nodes(true, #{node_type => blaha}),
     MonNodeState = monitor_node_state(),
     ok.
 

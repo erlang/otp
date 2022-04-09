@@ -256,15 +256,41 @@ monitor_nodes(Flag) ->
 
 -spec monitor_nodes(Flag, Options) -> ok | Error when
       Flag :: boolean(),
-      Options :: [Option],
-      Option :: {node_type, NodeType}
-              | nodedown_reason,
+      Options :: OptionsList | OptionsMap,
+      OptionsList :: [ListOption],
+      ListOption :: connection_id
+                  | {node_type, NodeType}
+                  | nodedown_reason,
+      OptionsMap :: #{connection_id => boolean(),
+                      node_type => NodeType,
+                      nodedown_reason => boolean()},
       NodeType :: visible | hidden | all,
       Error :: error | {error, term()}.
 monitor_nodes(Flag, Opts) ->
-    case catch process_flag({monitor_nodes, Opts}, Flag) of
-	N when is_integer(N) -> ok;
-	_ -> mk_monitor_nodes_error(Flag, Opts)
+    try
+        MapOpts = if is_map(Opts) ->
+                          error = maps:find(list, Opts),
+                          Opts;
+                     is_list(Opts) ->
+                          lists:foldl(fun (nodedown_reason, Acc) ->
+                                              Acc#{nodedown_reason => true};
+                                          (connection_id, Acc) ->
+                                              Acc#{connection_id => true};
+                                          ({node_type, Val}, Acc) ->
+                                              case maps:find(node_type, Acc) of
+                                                  error -> ok;
+                                                  {ok, Val} -> ok
+                                              end,
+                                              Acc#{node_type => Val}
+                                      end,
+                                      #{list => true},
+                                      Opts)
+                  end,
+        true = is_integer(process_flag({monitor_nodes, MapOpts}, Flag)),
+        ok
+    catch
+        _:_ ->
+            mk_monitor_nodes_error(Flag, Opts)
     end.
 
 %% ...
@@ -1194,8 +1220,45 @@ check_options(Opts) when is_list(Opts) ->
 	_ ->
 	    {error, {unknown_options, RestOpts2}}
     end;
+check_options(Opts) when is_map(Opts) ->
+    BadMap0 = case maps:find(connection_id, Opts) of
+                  error ->
+                      Opts;
+                  {ok, CIdBool} when is_boolean(CIdBool) ->
+                      maps:remove(connection_id, Opts);
+                   {ok, BadCIdVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{connection_id => BadCIdVal}}})
+              end,
+    BadMap1 = case maps:find(nodedown_reason, BadMap0) of
+                  error ->
+                      BadMap0;
+                  {ok, NRBool} when is_boolean(NRBool) ->
+                      maps:remove(nodedown_reason, BadMap0);
+                  {ok, BadNRVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{nodedown_reason => BadNRVal}}})
+              end,
+    BadMap2 = case maps:find(node_type, BadMap1) of
+                  error ->
+                      BadMap1;
+                  {ok, NTVal} when NTVal == visible; NTVal == hidden; NTVal == all ->
+                      maps:remove(node_type, BadMap1);
+                  {ok, BadNTVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{node_type => BadNTVal}}})
+              end,
+    if map_size(BadMap2) == 0 ->
+	    {error, internal_error};
+       true ->
+            throw({error, {unknown_options, BadMap2}})
+    end;
 check_options(Opts) ->
-    {error, {options_not_a_list, Opts}}.
+    {error, {invalid_options, Opts}}.
+    
 
 mk_monitor_nodes_error(Flag, _Opts) when Flag =/= true, Flag =/= false ->
     error;
