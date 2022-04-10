@@ -224,6 +224,17 @@ void WxeApp::MacReopenApp() {
   wxString empty;
   send_msg("reopen_app", &empty);
 }
+
+bool WxeApp::OSXIsGUIApplication() {
+  char val_buf[128];
+  size_t val_len = 127;
+  int res = enif_getenv("WX_MACOS_NON_GUI_APP", val_buf, &val_len);
+  if (res == 0) {
+    return FALSE;
+  } else {
+    return TRUE;
+  }
+}
 #endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {

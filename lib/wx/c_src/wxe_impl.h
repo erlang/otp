@@ -64,6 +64,7 @@ public:
   virtual void MacOpenURL(const wxString &url);
   virtual void MacNewFile();
   virtual void MacReopenApp();
+  virtual bool OSXIsGUIApplication();
 #endif
 
   void init_consts(wxeMetaCommand& event);
