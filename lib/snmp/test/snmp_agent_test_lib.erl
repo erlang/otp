@@ -299,6 +299,8 @@ init_case(Config) when is_list(Config) ->
     put(masterip,    tuple_to_list(MasterIP)),
     put(sip,         tuple_to_list(SIP)),
     put(ipfamily,    IpFamily),
+
+    put(receive_response_timeout, receive_response_timeout(Config)),
     
     MibDir = ?config(mib_dir, Config),
     put(mib_dir, MibDir),
@@ -318,6 +320,20 @@ init_case(Config) when is_list(Config) ->
 
     {SaNode, MgrNode, MibDir}.
 
+
+receive_response_timeout(Config) ->
+    case lists:keysearch(snmp_factor, 1, Config) of
+        {value, {snmp_factor, F}} when (F < 4) ->
+            ?SECS(5);
+        {value, {snmp_factor, F}} when (F < 6) ->
+            ?SECS(10);
+        {value, {snmp_factor, F}} when (F < 8) ->
+            ?SECS(15);
+        {value, {snmp_factor, _}} ->
+            ?SECS(20);
+        _ ->
+            ?SECS(10)
+    end.
 
 %%%--------------------------------------------------
 %%% Used to test the standard mib with our

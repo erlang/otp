@@ -147,7 +147,7 @@ receive_response() ->
     receive_response(get_timeout()).
 
 receive_response(Timeout) ->
-    d("await response within ~w ms",[Timeout]),
+    d("await response within ~w ms", [Timeout]),
     receive
 	{snmp_pdu, PDU} when is_record(PDU, pdu) ->
 	    d("[await response] received PDU: "
@@ -158,7 +158,8 @@ receive_response(Timeout) ->
                     "~n      ~p", [Reason]),
             ERROR
     after Timeout ->
-	    ?EPRINT("[await response] unexpected timeout"),
+	    ?EPRINT("[await response] unexpected timeout: "
+                    "~n      ~p", [process_info(self(), messages)]),
 	    {error, timeout}
     end.
 
