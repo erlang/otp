@@ -32,6 +32,43 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reading port socket options on macOS and Windows "skips"
+	    invalid options.</p>
+          <p>
+	    Own Id: OTP-18012 Aux Id: #5798 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>dbg:stop/0</c> now behaves like
+	    <c>dbg:stop_clear/0</c>, clearing all global trace
+	    patterns for all functions.</p>
+          <p>
+	    Own Id: OTP-17909 Aux Id: ERIERL-760 </p>
+        </item>
+        <item>
+	    <p><c>erts_alloc_config</c> has been scheduled for
+	    removal in OTP 26. It has not produced good
+	    configurations for a very long time, and unfortunately it
+	    cannot be fixed in a backwards compatible manner.</p>
+          <p>
+	    Own Id: OTP-17939</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

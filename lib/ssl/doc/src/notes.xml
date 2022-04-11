@@ -27,6 +27,59 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Now also accepts the signature_algs_cert option in
+	    TLS-1.2 configuration.</p>
+          <p>
+	    Own Id: OTP-18014</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    With this change, it is possible to provide several
+	    certificates. Most appropriate will be selected based on
+	    extensions.</p>
+          <p>
+	    Own Id: OTP-15993 Aux Id: GH-4143 </p>
+        </item>
+        <item>
+          <p>
+	    Add options for users to be able to set spawn_opts for
+	    TLS processes (sender and receiver) this may be useful
+	    for tuning trade-offs between CPU and Memory usage.</p>
+          <p>
+	    Own Id: OTP-17855 Aux Id: PR-5328 </p>
+        </item>
+        <item>
+          <p>
+	    Allow key file passwords to be input as a single binary,
+	    that is we change the datatype to be the more for the
+	    purpose logical data type iodata() instead of string().</p>
+          <p>
+	    Own Id: OTP-17890</p>
+        </item>
+        <item>
+          <p>
+	    Logging enhancement, add location information to the
+	    warning log message.</p>
+          <p>
+	    Own Id: OTP-18000 Aux Id: PR-5790 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

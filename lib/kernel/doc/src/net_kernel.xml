@@ -150,7 +150,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="get_state" arity="0" since="OTP @OTP-17558@"/>
+      <name name="get_state" arity="0" since="OTP 25.0"/>
       <fsummary>Get various distribution state.</fsummary>
       <desc>
         <p>Get the current state of the distribution for the local node.</p>

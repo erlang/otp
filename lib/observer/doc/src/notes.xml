@@ -32,6 +32,48 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed default handling of Mac specific menus.</p>
+          <p>
+	    Own Id: OTP-17996 Aux Id: PR-5795 </p>
+        </item>
+        <item>
+          <p>
+	    Reading port socket options on macOS and Windows "skips"
+	    invalid options.</p>
+          <p>
+	    Own Id: OTP-18012 Aux Id: #5798 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The configuration files <seecom
+	    marker="erts:erl"><c>.erlang</c></seecom>, <seeguide
+	    marker="system/reference_manual:distributed"><c>.erlang.cookie</c></seeguide>
+	    and <seeerl
+	    marker="stdlib:beam_lib#.erlang.crypt"><c>.erlang.crypt</c></seeerl>
+	    can now be located in the XDG Config Home directory.</p>
+          <p>
+	    See the documentation for each file and
+	    <c>filename:basedir/2</c> for more details.</p>
+          <p>
+	    Own Id: OTP-17554 Aux Id: GH-5016 PR-5408 OTP-17821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

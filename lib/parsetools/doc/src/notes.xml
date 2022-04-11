@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>In the generated code, <c>yecc</c> will now quote all
+	    atoms coming from terminals in the grammar, in order to
+	    avoid conflicts with future reserved words.</p>
+          <p>
+	    Own Id: OTP-17755</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
