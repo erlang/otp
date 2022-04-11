@@ -50,7 +50,7 @@
          display_system_info/1, display_system_info/2, display_system_info/3,
 
          executor/1, executor/2,
-         try_tc/6,
+         try_tc/6, try_tc/7,
 
          prepare_test_case/5,
 
@@ -2166,104 +2166,141 @@ executor(Fun, Timeout)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-try_tc(TCName, Name, Verbosity, Pre, Case, Post)
-  when is_function(Pre, 0)  andalso 
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    Cond = fun() -> ok end,
+    try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post)
+  when is_function(Cond, 0)  andalso 
+       is_function(Pre,  0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
     tc_begin(TCName, Name, Verbosity),
-    try Pre() of
-        State ->
-            tc_print("pre done: try test case"),
-            try
-                begin
-                    Res = Case(State),
-                    sleep(seconds(1)),
-                    tc_print("test case done: try post"),
-                    _ = executor(fun() ->
-                                         put(verbosity, Verbosity),
-                                         put(sname,     Name),
-                                         put(tc,        TCName),
-                                         Post(State)
-                                 end),
-                    tc_end("ok"),
-                    Res
-                end
+    try Cond() of
+        ok ->
+            tc_print("starting: try pre"),
+            try Pre() of
+                State ->
+                    tc_print("pre done: try test case"),
+                    try
+                        begin
+                            Res = Case(State),
+                            sleep(seconds(1)),
+                            tc_print("test case done: try post"),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end("ok"),
+                            Res
+                        end
+                    catch
+                        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                                  (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            p("try_tc -> test case failed: try post"),
+                            _ = executor(fun() -> Post(State) end),
+                            case megaco_test_global_sys_monitor:events() of
+                                [] ->
+                                    tc_print("test case failed: try post"),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print("System Events "
+                                             "received during tc: "
+                                             "~n   ~p"
+                                             "~nwhen tc failed:"
+                                             "~n   C: ~p"
+                                             "~n   E: ~p"
+                                             "~n   S: ~p",
+                                             [SysEvs, C, E, S]),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP =
+                                        {skip, "TC failure with system events"},
+                                    SKIP
+                            end
+                    end
             catch
                 C:{skip, _} = SKIP:_ when (C =:= throw) orelse
                                           (C =:= exit) ->
-                    tc_print("test case (~w) skip: try post", [C]),
-                    _ = executor(fun() ->
-                                         put(verbosity, Verbosity),
-                                         put(sname,     Name),
-                                         put(tc,        TCName),
-                                         Post(State)
-                                 end),
-                    tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% We always check the system events
-                    %% before we accept a failure.
-                    %% We do *not* run the Post here because it might
-                    %% generate sys events itself...
-                    p("try_tc -> test case failed: try post"),
-                    _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
-                            tc_print("test case failed: try post"),
-                            _ = executor(fun() ->
-                                                 put(verbosity, Verbosity),
-                                                 put(sname,     Name),
-                                                 put(tc,        TCName),
-                                                 Post(State)
-                                         end),
-                            tc_end( f("failed(caught,~w,tc)", [C]) ),
-                            erlang:raise(C, E, S);
-                        SysEvs ->
-                            tc_print("System Events received during tc: "
-                                     "~n   ~p"
-                                     "~nwhen tc failed:"
+                            tc_print("tc-pre failed: auto-skip"
                                      "~n   C: ~p"
                                      "~n   E: ~p"
                                      "~n   S: ~p",
-                                     [SysEvs, C, E, S]),
-                            _ = executor(fun() ->
-                                                 put(verbosity, Verbosity),
-                                                 put(sname,     Name),
-                                                 put(tc,        TCName),
-                                                 Post(State)
-                                         end),
-                            tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                            tc_print("System Events received: "
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)",
                                       [C]) ),
-                            SKIP = {skip, "TC failure with system events"},
+                            SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
-                     end
-            end
+                    end
+            end;
+        {skip, _} = SKIP ->
+            tc_end("skipping(cond)"),
+            SKIP;
+        {error, Reason} ->
+            tc_end("failed(cond)"),
+            exit({tc_cond_failed, Reason})
     catch
-        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
-                                  (C =:= exit) ->
-            tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
+            %% We always check the system events before we accept a failure
             case megaco_test_global_sys_monitor:events() of
                 [] ->
-                    tc_print("tc-pre failed: auto-skip"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [C, E, S]),
-                    tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, f("TC-Pre failure (~w)", [C])},
-                    SKIP;
+                    tc_end( f("failed(caught,~w,cond)", [C]) ),
+                    erlang:raise(C, E, S);
                 SysEvs ->
                     tc_print("System Events received: "
-                             "~n   ~p"
-                             "~nwhen tc-pre failed:"
-                             "~n   C: ~p"
-                             "~n   E: ~p"
-                             "~n   S: ~p",
-                             [SysEvs, C, E, S], "", ""),
-                    tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
-                    SKIP = {skip, "TC-Pre failure with system events"},
+                             "~n   ~p", [SysEvs], "", ""),
+                    tc_end( f("skipping(catched-sysevs,~w,cond)", [C]) ),
+                    SKIP = {skip, "TC cond failure with system events"},
                     SKIP
             end
     end.
