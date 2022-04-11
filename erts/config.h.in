@@ -83,11 +83,11 @@
 /* ESOCK counter size */
 #undef ESOCK_COUNTER_SIZE
 
-/* Socket address dl length */
-#undef ESOCK_SDL_LEN
-
 /* Enable esock */
 #undef ESOCK_ENABLE
+
+/* Socket address dl length */
+#undef ESOCK_SDL_LEN
 
 /* Interface hwaddr supported */
 #undef ESOCK_USE_HWADDR
