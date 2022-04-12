@@ -73,12 +73,11 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    InetPort = inets_test_lib:inet_port(node()),
 	    ct:pal("Node: ~p  Port ~p~n", [Node, InetPort]),
       	    Wrapper = filename:join(DataDir, "setuid_socket_wrap"),
-	    Cmd = Wrapper ++  
-		" -s -httpd_80,0:" ++ integer_to_list(InetPort) 
-		++ " -p " ++ os:find_executable("erl") ++
-		" -- " ++ NodeArg, 
-	    ct:pal("cmd: ~p~n", [Cmd]),
-	    case open_port({spawn, Cmd}, [stderr_to_stdout]) of 
+            Args = ["-s","-httpd_80,0:" ++ integer_to_list(InetPort),
+                    "-p",os:find_executable("erl"),"--" | NodeArg],
+	    ct:pal("cmd: ~p ~p~n", [Wrapper, Args]),
+	    case open_port({spawn_executable, Wrapper},
+                           [stderr_to_stdout,{args,Args}]) of
 	    	Port when is_port(Port) ->
 		    wait_node_up(Node, 10),
 		    ct:pal("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
@@ -97,19 +96,18 @@ start_httpd_fd(Config) when is_list(Config) ->
 setup_node_info(nonode@nohost) ->
     {skip, needs_distributed_node};
 setup_node_info(Node) ->
-    Static = "-detached -noinput",
     Name = "inets_fd_test",
     NameSw = case net_kernel:longnames() of
-		 false -> "-sname ";
-		 _ -> "-name "
-		     end,
-    StrNode = 
-	Static ++ " "
-	++ NameSw ++ " " ++ Name ++ " "
-	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()),
-	    [_, Location] = string:tokens(atom_to_list(Node), "$@"),
-    TestNode =  Name ++ "@" ++ Location, 
-    {list_to_atom(TestNode), StrNode}.
+		 false -> "-sname";
+		 _ -> "-name"
+             end,
+    NodeArgs = ["-detached","-noinput",
+                NameSw, Name, "-setcookie", atom_to_list(erlang:get_cookie())],
+
+    [_, Location] = string:tokens(atom_to_list(Node), "$@"),
+    TestNode =  Name ++ "@" ++ Location,
+
+    {list_to_atom(TestNode), NodeArgs}.
 
 wait_node_up(Node, 0) ->
     ct:fail({failed_to_start_node, Node});
