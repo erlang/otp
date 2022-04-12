@@ -278,19 +278,30 @@ sent_timer_late_reply(suite) ->
 sent_timer_late_reply(doc) ->
     "...";
 sent_timer_late_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_timer_late_reply),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_timer_late_reply(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_timer_late_reply(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -342,11 +353,7 @@ sent_timer_late_reply(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
 
 
@@ -357,19 +364,30 @@ sent_timer_exceeded(suite) ->
 sent_timer_exceeded(doc) ->
     "...";
 sent_timer_exceeded(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_timer_exceeded),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_timer_exceeded(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_timer_exceeded(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -419,11 +437,7 @@ sent_timer_exceeded(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
 
 
@@ -434,19 +448,30 @@ sent_timer_exceeded_long(suite) ->
 sent_timer_exceeded_long(doc) ->
     "...";
 sent_timer_exceeded_long(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_timer_exceeded_long),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_timer_exceeded_long(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_timer_exceeded_long(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -494,11 +519,7 @@ sent_timer_exceeded_long(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
 
 
@@ -1951,19 +1972,30 @@ otp_5619(suite) ->
 otp_5619(doc) ->
     "...";
 otp_5619(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_5619),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_otp_5619(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_otp_5619(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     MgcMid = {deviceName, "ctrl"}, 
@@ -2027,11 +2059,7 @@ otp_5619(Config) when is_list(Config) ->
     i("[MGC] stop~n"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
 
 
@@ -2169,6 +2197,7 @@ init_request_timer(O) ->
 
 -endif.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 encode_msg(M, Mod, Conf) ->
@@ -2186,12 +2215,6 @@ decode_msg(M, Mod, Conf) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%% tim() ->
-%%     {A,B,C} = erlang:now(),
-%%     A*1000000000+B*1000+(C div 1000).
-
 
 make_node_name(Name) ->
     case string:tokens(atom_to_list(node()), [$@]) of
@@ -2214,6 +2237,15 @@ await_completion(Ids) ->
 	    ?ERROR({failed, Reply})
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Cond, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Cond, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Cond, Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
