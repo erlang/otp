@@ -445,7 +445,7 @@ D = [0-9]
       <tag><c>\s</c></tag>
       <item><p>Space.</p></item>
       <tag><c>\d</c></tag>
-      <item><p>Delete.</p></item>
+      <item><p>Digit.</p></item>
       <tag><c>\ddd</c></tag>
       <item><p>The octal value <c>ddd</c>.</p></item>
       <tag><c>\xhh</c></tag>
