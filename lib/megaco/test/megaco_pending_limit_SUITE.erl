@@ -46,31 +46,6 @@
 	
 	]).
 
--ifdef(megaco_hipe_special).
--export([
-	 %% Case: recv_limit_exceeded1
-	 rle1_mgc_verify_service_change_req_msg/2,
-	 rle1_mgc_verify_notify_req_msg/1, 
-	 rle1_mg_verify_handle_connect/1,
-	 rle1_mg_verify_service_change_rep/1,
-	 rle1_mg_verify_trans_rep/1,
-
-	 %% Case: otp_4956
-	 otp_4956_mgc_verify_handle_connect/1,
-	 otp_4956_mgc_verify_service_change_req/2,
-	 otp_4956_mgc_verify_notify_req1/1,
-	 otp_4956_mgc_verify_notify_req2/1,
-	 otp_4956_mgc_verify_handle_trans_req_abort/1,
-	 otp_4956_mgc_verify_handle_disconnect/1,
-	 otp_4956_mg_verify_service_change_rep_msg/1, 
-	 otp_4956_mg_verify_pending_msg/1,
-	 otp_4956_mg_verify_pending_limit_msg/1,
-
-	 %% Utility
-	 encode_msg/3,
-	 decode_msg/3
-	]).
--endif.
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
@@ -824,19 +799,30 @@ recv_limit_exceeded1(suite) ->
 recv_limit_exceeded1(doc) ->
     "Received pending limit exceeded (exactly)";
 recv_limit_exceeded1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rle1),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_recv_limit_exceeded1(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_recv_limit_exceeded1(#{nodes := [MgcNode, MgNode]}) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -875,27 +861,13 @@ recv_limit_exceeded1(Config) when is_list(Config) ->
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
 
 
 %%
 %% MGC generator stuff
 %% 
--ifdef(megaco_hipe_special).
--define(rle1_mgc_decode_msg_fun(Mod, Conf),
-	{?MODULE, decode_msg, [Mod, Conf]}).
--define(rle1_mgc_encode_msg_fun(Mod, Conf),
-	{?MODULE, encode_msg, [Mod, Conf]}).
--define(rle1_mgc_verify_service_change_req_msg_fun(Mid),
-	{?MODULE, rle1_mgc_verify_service_change_req_msg, [Mid]}).
--define(rle1_mgc_verify_notify_req_msg_fun(),
-	{?MODULE, rle1_mgc_verify_notify_req_msg, []}).
--else.
 -define(rle1_mgc_decode_msg_fun(Mod, Conf),
 	rle1_mgc_decode_msg_fun(Mod, Conf)).
 -define(rle1_mgc_encode_msg_fun(Mod, Conf),
@@ -904,7 +876,6 @@ recv_limit_exceeded1(Config) when is_list(Config) ->
 	rle1_mgc_verify_service_change_req_msg_fun(Mid)).
 -define(rle1_mgc_verify_notify_req_msg_fun(),
 	rle1_mgc_verify_notify_req_msg_fun()).
--endif.
 
 rle1_mgc_event_sequence(text, tcp) ->
     Mid = {deviceName,"ctrl"},
@@ -949,17 +920,15 @@ rle1_mgc_event_sequence2(Mid, EM, EC) ->
 	 ],
     EvSeq.
 
--ifndef(megaco_hipe_special).
 rle1_mgc_encode_msg_fun(Mod, Conf) ->
     fun(M) ->
             encode_msg(M, Mod, Conf)
     end.
 
 rle1_mgc_decode_msg_fun(Mod, Conf) ->
-    fun(M) ->
+   fun(M) ->
             decode_msg(M, Mod, Conf)
     end.
--endif.
 
 rle1_mgc_service_change_reply_msg(Mid, TransId, Cid) ->
     SCRP  = #'ServiceChangeResParm'{serviceChangeMgcId = Mid},
@@ -990,12 +959,10 @@ rle1_mgc_pending_msg(Mid, TransId) ->
                       messageBody = Body},
     #'MegacoMessage'{mess = Mess}.
 
--ifndef(megaco_hipe_special).
 rle1_mgc_verify_service_change_req_msg_fun(Mid) ->
     fun(M) ->
 	    rle1_mgc_verify_service_change_req_msg(M, Mid)
     end.
--endif.
 
 rle1_mgc_verify_service_change_req_msg(#'MegacoMessage'{mess = Mess} = M,
 				       _Mid1) ->
@@ -1025,12 +992,10 @@ rle1_mgc_verify_service_change_req_msg(#'MegacoMessage'{mess = Mess} = M,
 rle1_mgc_verify_service_change_req_msg(M, _Mid) ->
     {error, {invalid_message, M}}.
 
--ifndef(megaco_hipe_special).
 rle1_mgc_verify_notify_req_msg_fun() ->
     fun(M) ->
 	    rle1_mgc_verify_notify_req_msg(M)
     end.
--endif.
 
 rle1_mgc_verify_notify_req_msg(#'MegacoMessage'{mess = Mess} = M) ->
     io:format("rle1_mgc_verify_notify_req_msg -> entry with"
@@ -1061,21 +1026,12 @@ rle1_mgc_verify_notify_req_msg(M) ->
 %%
 %% MG generator stuff
 %% 
--ifdef(megaco_hipe_special).
--define(rle1_mg_verify_handle_connect_fun(),
-	{?MODULE, rle1_mg_verify_handle_connect, []}).
--define(rle1_mg_verify_service_change_rep_fun(),
-	{?MODULE, rle1_mg_verify_service_change_rep, []}).
--define(rle1_mg_verify_trans_rep_fun(),
-	{?MODULE, rle1_mg_verify_trans_rep, []}).
--else.
 -define(rle1_mg_verify_handle_connect_fun(),
 	fun rle1_mg_verify_handle_connect/1).
 -define(rle1_mg_verify_service_change_rep_fun(),
 	fun rle1_mg_verify_service_change_rep/1).
 -define(rle1_mg_verify_trans_rep_fun(),
 	fun rle1_mg_verify_trans_rep/1).
--endif.
 
 rle1_mg_event_sequence(text, tcp) ->
     Mid = {deviceName,"mg"},
@@ -1291,20 +1247,6 @@ otp_4956(Config) when is_list(Config) ->
 %%
 %% MGC generator stuff
 %% 
--ifdef(megaco_hipe_special).
--define(otp_4956_mgc_verify_handle_connect_fun(), 
-        {?MODULE, otp_4956_mgc_verify_handle_connect, []}).
--define(otp_4956_mgc_verify_service_change_req_fun(Mid),
-        {?MODULE, otp_4956_mgc_verify_service_change_req, [Mid]}).
--define(otp_4956_mgc_verify_notify_req1_fun(),
-        {?MODULE, otp_4956_mgc_verify_notify_req1, []}).
--define(otp_4956_mgc_verify_notify_req2_fun(),
-        {?MODULE, otp_4956_mgc_verify_notify_req2, []}).
--define(otp_4956_mgc_verify_handle_trans_req_abort_fun(),
-        {?MODULE, otp_4956_mgc_verify_handle_trans_req_abort, []}).
--define(otp_4956_mgc_verify_handle_disconnect_fun(),
-        {?MODULE, otp_4956_mgc_verify_handle_disconnect, []}).
--else.
 -define(otp_4956_mgc_verify_handle_connect_fun(), 
         otp_4956_mgc_verify_handle_connect_fun()).
 -define(otp_4956_mgc_verify_service_change_req_fun(Mid),
@@ -1317,7 +1259,6 @@ otp_4956(Config) when is_list(Config) ->
 	otp_4956_mgc_verify_handle_trans_req_abort_fun()).
 -define(otp_4956_mgc_verify_handle_disconnect_fun(),
 	fun otp_4956_mgc_verify_handle_disconnect/1).
--endif.
 
 otp_4956_mgc_event_sequence(text, tcp) ->
     Mid = {deviceName,"ctrl"},
@@ -1362,24 +1303,20 @@ otp_4956_mgc_event_sequence(text, tcp) ->
     EvSeq.
 
 
--ifndef(megaco_hipe_special).
 otp_4956_mgc_verify_handle_connect_fun() ->
     fun(M) ->
 	    otp_4956_mgc_verify_handle_connect(M)
     end.
--endif.
 
 otp_4956_mgc_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
     {ok, CH, ok};
 otp_4956_mgc_verify_handle_connect(Else) ->
     {error, Else, ok}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mgc_verify_service_change_req_fun(Mid) ->
     fun(Req) ->
 	    otp_4956_mgc_verify_service_change_req(Req, Mid)
     end.
--endif.
 
 otp_4956_mgc_verify_service_change_req(
   {handle_trans_request, _, ?VERSION, [AR]}, Mid) ->
@@ -1441,12 +1378,10 @@ otp_4956_mgc_verify_service_change_req(Else, _Mid) ->
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mgc_verify_notify_req1_fun() ->
     fun(Req) ->
 	    otp_4956_mgc_verify_notify_req1(Req)
     end.
--endif.
 
 otp_4956_mgc_verify_notify_req1({handle_trans_request, _, ?VERSION, [AR]}) ->
     io:format("otp_4956_mgc_verify_notify_req1 -> entry with"
@@ -1477,12 +1412,10 @@ otp_4956_mgc_verify_notify_req1(Else) ->
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mgc_verify_notify_req2_fun() ->
     fun(Ev) ->
 	    otp_4956_mgc_verify_notify_req2(Ev)
     end.
--endif.
 
 otp_4956_mgc_verify_notify_req2({handle_trans_request, _, ?VERSION, [AR]}) ->
     case AR of
@@ -1507,12 +1440,10 @@ otp_4956_mgc_verify_notify_req2(Else) ->
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mgc_verify_handle_trans_req_abort_fun() ->
     fun(Req) -> 
 	    otp_4956_mgc_verify_handle_trans_req_abort(Req)
     end.
--endif.
 
 otp_4956_mgc_verify_handle_trans_req_abort({handle_trans_request_abort, 
 					    CH, ?VERSION, 2, Pid}) -> 
@@ -1581,18 +1512,6 @@ otp_4956_mgc_notify_reply_ar(Cid, TermId) ->
 %%
 %% MG generator stuff
 %% 
--ifdef(megaco_hipe_special).
--define(otp_4956_mg_decode_msg_fun(Mod, Conf),
-	{?MODULE, decode_msg, [Mod, Conf]}).
--define(otp_4956_mg_encode_msg_fun(Mod, Conf),
-	{?MODULE, encode_msg, [Mod, Conf]}).
--define(otp_4956_mg_verify_service_change_rep_msg_fun(),
-	{?MODULE, otp_4956_mg_verify_service_change_rep_msg, []}).
--define(otp_4956_mg_verify_pending_msg_fun(),
-	{?MODULE, otp_4956_mg_verify_pending_msg, []}).
--define(otp_4956_mg_verify_pending_limit_msg_fun(),
-	{?MODULE, otp_4956_mg_verify_pending_limit_msg, []}).
--else.
 -define(otp_4956_mg_decode_msg_fun(Mod, Conf),
 	otp_4956_mg_decode_msg_fun(Mod, Conf)).
 -define(otp_4956_mg_encode_msg_fun(Mod, Conf),
@@ -1603,7 +1522,6 @@ otp_4956_mgc_notify_reply_ar(Cid, TermId) ->
 	otp_4956_mg_verify_pending_msg_fun()).
 -define(otp_4956_mg_verify_pending_limit_msg_fun(),
 	otp_4956_mg_verify_pending_limit_msg_fun()).
--endif.
 
 otp_4956_mg_event_sequence(text, tcp) ->
     DecodeFun = ?otp_4956_mg_decode_msg_fun(megaco_pretty_text_encoder, []),
@@ -1649,7 +1567,6 @@ otp_4956_mg_event_sequence(text, tcp) ->
 	    ],
     EvSeq.
 
--ifndef(megaco_hipe_special).
 otp_4956_mg_encode_msg_fun(Mod, Conf) ->
     fun(M) -> 
             encode_msg(M, Mod, Conf)
@@ -1659,14 +1576,11 @@ otp_4956_mg_decode_msg_fun(Mod, Conf) ->
     fun(M) -> 
             decode_msg(M, Mod, Conf)
     end.
--endif.
 
--ifndef(megaco_hipe_special).
 otp_4956_mg_verify_service_change_rep_msg_fun() ->
     fun(M) ->
 	    otp_4956_mg_verify_service_change_rep_msg(M)
     end.
--endif.
 
 otp_4956_mg_verify_service_change_rep_msg(
   #'MegacoMessage'{mess = Mess} = M) -> 
@@ -1694,12 +1608,10 @@ otp_4956_mg_verify_service_change_rep_msg(
 otp_4956_mg_verify_service_change_rep_msg(M) ->
     {error, {invalid_message, M}}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mg_verify_pending_msg_fun() ->
     fun(M) ->
 	    otp_4956_mg_verify_pending_msg(M)
     end.
--endif.
 
 otp_4956_mg_verify_pending_msg(#'MegacoMessage'{mess = Mess} = M) -> 
     io:format("otp_4956_mg_verify_pending_msg -> entry with"
@@ -1717,12 +1629,10 @@ otp_4956_mg_verify_pending_msg(M) ->
 	      "~n", [M]),
     {error, {invalid_message, M}}.
 
--ifndef(megaco_hipe_special).
 otp_4956_mg_verify_pending_limit_msg_fun() ->
     fun(M) ->
 	    otp_4956_mg_verify_pending_limit_msg(M)
     end.
--endif.
 
 otp_4956_mg_verify_pending_limit_msg(#'MegacoMessage'{mess = Mess} = M) -> 
     io:format("otp_4956_mg_verify_pending_limit_msg -> entry with"
