@@ -529,25 +529,35 @@ do_sent_timer_exceeded_long(#{nodes := [MgcNode, MgNode]}) ->
 %% This test case can only be run with the stack compiled with
 %% the MEGACO_TEST_CODE flag. Therefor there is no point in 
 %% including this test case in the usual test suite
--ifdef(MEGACO_TEST_CODE).
 sent_resend_late_reply(suite) ->
     [];
 sent_resend_late_reply(doc) ->
     "...";
 sent_resend_late_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_resend_late_reply),
-    i("starting"),
+    Cond = fun megaco_test_code/0,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_resend_late_reply(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_resend_late_reply(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -615,43 +625,41 @@ sent_resend_late_reply(Config) when is_list(Config) ->
     i("done", []),
     ok.
 
--else.
-
-sent_resend_late_reply(suite) ->
-    [];
-sent_resend_late_reply(doc) ->
-    "...";
-sent_resend_late_reply(Config) when is_list(Config) ->
-    ?SKIP("included only if compiled with USE_MEGACO_TEST_CODE=true").
-
--endif.
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This test case can only be run with the stack compiled with
 %% the MEGACO_TEST_CODE flag. Therefor there is no point in 
 %% including this test case in the usual test suite
--ifdef(MEGACO_TEST_CODE).
 sent_resend_exceeded(suite) ->
     [];
 sent_resend_exceeded(doc) ->
     "...";
 sent_resend_exceeded(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_resend_exceeded),
-    i("starting"),
+    Cond = fun megaco_test_code/0,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_resend_exceeded(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_resend_exceeded(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -707,24 +715,8 @@ sent_resend_exceeded(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
-
-
--else.
-
-sent_resend_exceeded(suite) ->
-    [];
-sent_resend_exceeded(doc) ->
-    "...";
-sent_resend_exceeded(Config) when is_list(Config) ->
-    ?SKIP("included only if compiled with USE_MEGACO_TEST_CODE=true").
-
--endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -732,25 +724,35 @@ sent_resend_exceeded(Config) when is_list(Config) ->
 %% This test case can only be run with the stack compiled with
 %% the MEGACO_TEST_CODE flag. Therefor there is no point in 
 %% including this test case in the usual test suite
--ifdef(MEGACO_TEST_CODE).
 sent_resend_exceeded_long(suite) ->
     [];
 sent_resend_exceeded_long(doc) ->
     "...";
 sent_resend_exceeded_long(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        sent_resend_exceeded_long),
-    i("starting"),
+    Cond = fun megaco_test_code/0,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5619_mgc),
+                   MgNode  = make_node_name(pl_5619_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_sent_resend_exceeded_long(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_sent_resend_exceeded_long(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -807,24 +809,8 @@ sent_resend_exceeded_long(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
-
-    i("done", []),
+    i("done"),
     ok.
-
-
--else.
-
-sent_resend_exceeded_long(suite) ->
-    [];
-sent_resend_exceeded_long(doc) ->
-    "...";
-sent_resend_exceeded_long(Config) when is_list(Config) ->
-    ?SKIP("included only if compiled with USE_MEGACO_TEST_CODE=true").
-
--endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2188,14 +2174,11 @@ cre_megacoMessage(Mess) ->
 %% having received the first pending (which
 %% indicates that the other side _IS_ 
 %% working on the request).
--ifdef(MEGACO_TEST_CODE).
 
 init_request_timer({short, Ref}) ->
     {long, Ref};  
 init_request_timer(O) ->
     O.
-
--endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2251,6 +2234,17 @@ try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sleep(X) -> receive after X -> ok end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-ifdef(MEGACO_TEST_CODE).
+megaco_test_code() ->
+    ok.
+-else.
+megaco_test_code() ->
+    exit({skip, "Included only if compiled with USE_MEGACO_TEST_CODE=true"}).
+-endif.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
