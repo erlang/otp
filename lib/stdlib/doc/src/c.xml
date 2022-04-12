@@ -198,6 +198,35 @@
     </func>
 
     <func>
+      <name name="hcb" arity="1" since="OTP 23.0"/>
+      <fsummary>Module help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="2" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for all <c>Module:Callback</c>s (regardless of arity).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hcb" arity="3" since="OTP 23.0"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hcb_return"/>
+      <desc>
+        <p>Print the callback documentation for <c>Module:Callback/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="ht" arity="1" since="OTP 23.0"/>
       <fsummary>Type help information</fsummary>
       <type name="h_return"/>

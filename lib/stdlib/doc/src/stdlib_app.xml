@@ -43,26 +43,26 @@
       <seefile marker="kernel:app"><c>app(4)</c></seefile> module in Kernel.</p>
 
     <taglist>
-      <tag><c>shell_esc = icl | abort</c></tag>
+      <tag><marker id="shell_esc"/><c>shell_esc = icl | abort</c></tag>
       <item>
         <p>Can be used to change the behavior of the Erlang shell when
           <em>^G</em> is pressed.</p>
       </item>
-      <tag><c>restricted_shell = module()</c></tag>
+      <tag><marker id="restricted_shell"/><c>restricted_shell = module()</c></tag>
       <item>
         <p>Can be used to run the Erlang shell in restricted mode.</p>
       </item>
-      <tag><c>shell_catch_exception = boolean()</c></tag>
+      <tag><marker id="shell_catch_exception"/><c>shell_catch_exception = boolean()</c></tag>
       <item>
         <p>Can be used to set the exception handling of the evaluator process of
           Erlang shell.</p>
       </item>
-      <tag><c>shell_history_length = integer() >= 0</c></tag>
+      <tag><marker id="shell_history_length"/><c>shell_history_length = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many commands are saved by the Erlang
           shell.</p>
       </item>
-      <tag><c>shell_prompt_func = {Mod, Func} | default</c></tag>
+      <tag><marker id="shell_prompt_func"/><c>shell_prompt_func = {Mod, Func} | default</c></tag>
       <item>
         <p>where</p>
         <list type="bulleted">
@@ -71,12 +71,12 @@
         </list>
         <p>Can be used to set a customized Erlang shell prompt function.</p>
       </item>
-      <tag><c>shell_saved_results = integer() >= 0</c></tag>
+      <tag><marker id="shell_saved_results"/><c>shell_saved_results = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many results are saved by the Erlang
           shell.</p>
       </item>
-      <tag><c>shell_strings = boolean()</c></tag>
+      <tag><marker id="shell_strings"/><c>shell_strings = boolean()</c></tag>
       <item>
         <p>Can be used to determine how the Erlang shell outputs lists of
           integers.</p>

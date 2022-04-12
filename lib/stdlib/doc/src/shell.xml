@@ -39,16 +39,26 @@
 
     <p>The shell is a user interface program
       for entering expression sequences. The expressions are
-      evaluated and a value is returned.
-      A history mechanism saves previous commands and their
+      evaluated and a value is returned. The shell provides an Emacs like set of
+      shortcuts for editing the text of the current line. See <seeguide marker="erts:tty">
+      tty - A Command-Line Interface</seeguide> in the ERTS User's Guide
+      for a list of all available shortcuts.</p>
+
+    <p>A history mechanism saves previous commands and their
       values, which can then be incorporated in later commands.
       How many commands and results to save can be determined by the user,
       either interactively, by calling
       <seemfa marker="#history/1"><c>history/1</c></seemfa> and
       <seemfa marker="#results/1"><c>results/1</c></seemfa>,
       or by setting the application configuration
-      parameters <c>shell_history_length</c> and
-      <c>shell_saved_results</c> for the STDLIB application.</p>
+      parameters <seeapp marker="STDLIB_app#shell_history_length">
+      <c>shell_history_length</c></seeapp> and
+      <seeapp marker="STDLIB_app#shell_saved_results"><c>shell_saved_results</c></seeapp>
+      for the STDLIB application. The shell history can be saved to disk by
+      setting the application configuration parameter
+      <seeapp marker="kernel:kernel_app#shell_history"><c>shell_history</c></seeapp>
+      for the Kernel application.
+    </p>
 
     <p>The shell uses a helper process for evaluating commands
       to protect the history mechanism from exceptions. By
@@ -167,6 +177,21 @@
       <tag><c>help()</c></tag>
       <item>
         <p>Evaluates <c>shell_default:help()</c>.</p>
+      </item>
+      <tag><c>h(Module, Function)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Function</c> in the shell
+          if available.</p>
+      </item>
+      <tag><c>ht(Module, Type)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Type</c> in the shell
+          if available.</p>
+      </item>
+      <tag><c>hcb(Module, Callback)</c></tag>
+      <item>
+        <p>Print the documentation for <c>Module:Callback</c> in the shell
+          if available.</p>
       </item>
       <tag><c>c(Mod)</c></tag>
       <item>
