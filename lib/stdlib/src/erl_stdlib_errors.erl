@@ -399,6 +399,12 @@ format_unicode_error(characters_to_nfkd_list, [_]) ->
 
 unicode_char_data(Chars) ->
     try unicode:characters_to_binary(Chars) of
+        {error,_,_} ->
+            bad_char_data;
+
+        {incomplete,_,_} ->
+            bad_char_data;
+
         _ ->
             []
     catch

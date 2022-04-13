@@ -3004,6 +3004,11 @@ error_info(Config) ->
                         Dev
                 end,
 
+    UnicodeDev = fun() ->
+                        {ok, Dev} = file:open(TmpFile, [read, write, {encoding, unicode}]),
+                        Dev
+                end,
+
     DeadDev = spawn(fun() -> ok end),
 
     UserDev = fun() -> whereis(user) end,
@@ -3025,6 +3030,8 @@ error_info(Config) ->
          {put_chars,["test"], [{gl,FullDev()},{general,"no space left on device"}]},
          {put_chars,[Latin1Dev(),"Спутник-1"], [{1,"transcode"}]},
          {put_chars,[a], [{1,"not valid character data"}]},
+         {put_chars,[UnicodeDev(), <<222>>], [{1,"transcode"}]},
+         {put_chars,[<<1:1>>], [{1,"not valid character data"}]},
          {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
          {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
          {put_chars,[self(),"test"],[{1,"the device is not allowed to be the current process"}]},
