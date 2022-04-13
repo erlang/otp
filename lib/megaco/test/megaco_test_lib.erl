@@ -1145,7 +1145,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                             (NCPU >= 2) ->
                                 5;
                             true ->
-                                10
+                                12
                         end;
                     (CPUSpeed >= 1000) ->
                         if
@@ -1158,7 +1158,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                             (NCPU >= 2) ->
                                 6;
                             true ->
-                                10
+                                14
                         end;
                     true ->
                         if
@@ -1191,6 +1191,7 @@ analyze_and_print_openbsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             {10, []}
     end.
 
@@ -2561,6 +2562,16 @@ stop_node(Node) ->
             end
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+timetrap_scale_factor() ->
+    case (catch test_server:timetrap_scale_factor()) of
+	{'EXIT', _} ->
+	    1;
+	N ->
+	    N
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
