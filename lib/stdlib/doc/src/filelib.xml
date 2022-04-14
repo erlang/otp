@@ -183,7 +183,7 @@
       <name name="wildcard" arity="1" since=""/>
       <fsummary>Match filenames using Unix-style wildcards.</fsummary>
       <desc>
-        <p>Returns a list of all files that match Unix-style wildcard string
+        <p>Returns a sorted list of all files that match Unix-style wildcard string
           <c><anno>Wildcard</anno></c>.</p>
         <p>The wildcard string looks like an ordinary filename, except
           that the following "wildcard characters" are interpreted in a special
