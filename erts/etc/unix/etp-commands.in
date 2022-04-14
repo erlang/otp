@@ -2091,8 +2091,11 @@ end
 define etp-proc-flags-int
 # Args: int
 #
-  if ($arg0 & ~((1 << 24)-1))
-    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 24)-1))
+  if ($arg0 & ~((1 << 25)-1))
+    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 25)-1))
+  end
+  if ($arg0 & (1 << 24))
+    printf "fragmented-send "
   end
   if ($arg0 & (1 << 23))
     printf "trap-exit "
