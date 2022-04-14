@@ -567,9 +567,6 @@ CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
 
 AC_COMPILE_IFELSE(
  [AC_LANG_PROGRAM([[
-  #ifdef WIN32
-  # include <windows.h>
-  #endif
   #include "wx/wx.h"
   ]], [[
   #if wxMAJOR_VERSION > 2 && (wxMINOR_VERSION == 0 || WXWIN_COMPATIBILITY_3_0 == 1)
@@ -595,9 +592,6 @@ CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
 
 AC_COMPILE_IFELSE(
  [AC_LANG_PROGRAM([[
-  #ifdef WIN32
-  # include <windows.h>
-  #endif
   #include "wx/wx.h"
   ]], [[
   #if wxUSE_GLCANVAS
@@ -663,22 +657,9 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 AC_MSG_RESULT($TESS_CB_TIGER_STYLE)
 AC_SUBST(TESS_CB_TIGER_STYLE)
 
-dnl 
-dnl Check that we wx have stc (wxStyledTextControl) headers 
-dnl 
-
-AC_CHECK_HEADERS([wx/stc/stc.h],
-        [],
-    	[WX_MSG_ERROR([Can not find wx/stc/stc.h $CXXFLAGS])      
-     	],
-	[#ifdef WIN32
-	 # include <windows.h>
-         #endif
-         #include "wx/wx.h"])
-
-dnl 
+dnl
 dnl Check that we can link all the libraries
-dnl 
+dnl
 
 AC_MSG_CHECKING(if we can link wxwidgets programs)
 saved_LIBS=$LIBS
