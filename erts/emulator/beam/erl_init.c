@@ -53,6 +53,7 @@
 #include "erl_proc_sig_queue.h"
 #include "beam_load.h"
 #include "erl_global_literals.h"
+#include "ethread.h"
 
 #include "jit/beam_asm.h"
 
@@ -922,6 +923,12 @@ early_init(int *argc, char **argv) /*
 	erts_async_max_threads = ERTS_DEFAULT_NO_ASYNC_THREADS;
     if (erts_async_max_threads > ERTS_MAX_NO_OF_ASYNC_THREADS)
 	erts_async_max_threads = ERTS_MAX_NO_OF_ASYNC_THREADS;
+
+    envbufsz = sizeof(envbuf);
+
+    /* set the process name if provided via env var */
+    if (erts_sys_explicit_host_getenv("ESCRIPT_NAME", envbuf, &envbufsz) == 1)
+	ethr_setname(envbuf);
 
     if (argc && argv) {
 	int i = 1;
