@@ -1399,16 +1399,13 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         a.b_ne(generic);
 
         a.cmp(ARG1, ARG2);
-        a.b_lt(next);
-        a.b(resolve_beam_label(Fail, disp128MB));
+        a.b(next);
 
         a.bind(generic);
-        {
-            fragment_call(ga->get_arith_compare_shared());
-            a.b_ge(resolve_beam_label(Fail, disp1MB));
-        }
+        fragment_call(ga->get_arith_compare_shared());
 
         a.bind(next);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
     }
 }
 
@@ -1460,16 +1457,13 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         a.b_ne(generic);
 
         a.cmp(ARG1, ARG2);
-        a.b_ge(next);
-        a.b(resolve_beam_label(Fail, disp128MB));
+        a.b(next);
 
         a.bind(generic);
-        {
-            fragment_call(ga->get_arith_compare_shared());
-            a.b_lt(resolve_beam_label(Fail, disp1MB));
-        }
+        fragment_call(ga->get_arith_compare_shared());
 
         a.bind(next);
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
     }
 }
 
