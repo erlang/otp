@@ -76,7 +76,7 @@
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
          select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
-         take/2,
+         take/2, take_first/1, take_last/1,
          update_counter/3, update_counter/4, update_element/3,
          whereis/1]).
 
@@ -466,6 +466,20 @@ slot(_, _) ->
       Object :: tuple().
 
 take(_, _) ->
+    erlang:nif_error(undef).
+
+-spec take_first(Table) -> [Object] when
+    Table :: table(),
+    Object :: tuple().
+
+take_first(_) ->
+    erlang:nif_error(undef).
+
+-spec take_last(Table) -> [Object] when
+    Table :: table(),
+    Object :: tuple().
+
+take_last(_) ->
     erlang:nif_error(undef).
 
 -spec update_counter(Table, Key, UpdateOp) -> Result when
