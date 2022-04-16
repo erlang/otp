@@ -2111,8 +2111,8 @@ true</pre>
               by either <em>comparing equal</em> the key of an object in an
               <c>ordered_set</c> table, or <em>matching</em> in other types of
               tables (for details on the difference, see
-              <seemfa marker="#first/1"><c>first/1</c></seemfa> and
-              <seemfa marker="#take/2"><c>take/2</c></seemfa>).</p>
+              <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and
+              <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
       </desc>
     </func>
     <func>
@@ -2126,8 +2126,8 @@ true</pre>
               by either <em>comparing equal</em> the key of an object in an
               <c>ordered_set</c> table, or <em>matching</em> in other types of
               tables (for details on the difference, see
-              <seemfa marker="#last/1"><c>last/1</c></seemfa> and
-              <seemfa marker="#take/2"><c>take/2</c></seemfa>).</p>
+              <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and
+              <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
       </desc>
     </func>
     <func>

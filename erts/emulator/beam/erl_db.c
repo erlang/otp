@@ -1203,10 +1203,12 @@ BIF_RETTYPE ets_take_first_1(BIF_ALIST_1)
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_take_first_1);
 
     cret = tb->common.meth->db_first(BIF_P, tb, &first);
+
     if (cret != DB_ERROR_NONE) {
         db_unlock(tb, LCK_WRITE_REC);
         BIF_ERROR(BIF_P, BADARG);
     }
+
     cret = tb->common.meth->db_take(BIF_P, tb, first, &ret);
 
     db_unlock(tb, LCK_WRITE_REC);
@@ -1227,10 +1229,12 @@ BIF_RETTYPE ets_take_last_1(BIF_ALIST_1)
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_take_last_1);
 
     cret = tb->common.meth->db_last(BIF_P, tb, &last);
+
     if (cret != DB_ERROR_NONE) {
         db_unlock(tb, LCK_WRITE_REC);
         BIF_ERROR(BIF_P, BADARG);
     }
+
     cret = tb->common.meth->db_take(BIF_P, tb, last, &ret);
 
     db_unlock(tb, LCK_WRITE_REC);

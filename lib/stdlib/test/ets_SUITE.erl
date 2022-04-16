@@ -7561,6 +7561,7 @@ take_first(Config) when is_list(Config) ->
     [] = ets:take_first(T1),
     ets:insert(T1, {foo,bar}),
     [{foo,bar}] = ets:take_first(T1),
+    [] = ets:take_first(T1),
     [] = ets:tab2list(T1),
     %% Non-immediate key.
     ets:insert(T1, {{'not',<<"immediate">>},ok}),
@@ -7602,6 +7603,7 @@ take_last(Config) when is_list(Config) ->
     [] = ets:take_last(T1),
     ets:insert(T1, {foo,bar}),
     [{foo,bar}] = ets:take_last(T1),
+    [] = ets:take_last(T1),
     [] = ets:tab2list(T1),
     %% Non-immediate key.
     ets:insert(T1, {{'not',<<"immediate">>},ok}),
