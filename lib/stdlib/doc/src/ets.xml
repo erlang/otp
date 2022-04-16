@@ -2101,6 +2101,36 @@ true</pre>
       </desc>
     </func>
     <func>
+      <name name="take_first" arity="1" since="OTP 25.0"/>
+      <fsummary>Return and remove all objects with the first key from an
+          ETS table.</fsummary>
+      <desc>
+          <p>Returns and removes a list of all objects with the first key
+              in table <c><anno>Table</anno></c>.</p>
+          <p>Function ets:first is used to obtain the first key, that is used to identify the object
+              by either <em>comparing equal</em> the key of an object in an
+              <c>ordered_set</c> table, or <em>matching</em> in other types of
+              tables (for details on the difference, see
+              <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and
+              <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
+      </desc>
+    </func>
+    <func>
+      <name name="take_last" arity="1" since="OTP 25.0"/>
+      <fsummary>Return and remove all objects with the last key from an
+          ETS table.</fsummary>
+      <desc>
+          <p>Returns and removes a list of all objects with the last key
+              in table <c><anno>Table</anno></c>.</p>
+          <p>Function ets:last is used to obtain the last key, that is used to identify the object
+              by either <em>comparing equal</em> the key of an object in an
+              <c>ordered_set</c> table, or <em>matching</em> in other types of
+              tables (for details on the difference, see
+              <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and
+              <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
+      </desc>
+    </func>
+    <func>
       <name name="test_ms" arity="2" since=""/>
       <fsummary>Test a match specification for use in <c>select/2</c>.
       </fsummary>

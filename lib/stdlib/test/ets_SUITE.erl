@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,6 +99,8 @@
 -export([ets_all/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
+-export([take_first/1]).
+-export([take_last/1]).
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
 -export([error_info/1]).
@@ -171,6 +173,8 @@ all() ->
      ets_all,
      massive_ets_all,
      take,
+     take_first,
+     take_last,
      whereis_table,
      delete_unfix_race,
      test_throughput_benchmark,
@@ -7551,6 +7555,90 @@ take(Config) when is_list(Config) ->
     ets:delete(T3),
     ok.
 
+take_first(Config) when is_list(Config) ->
+    %% Simple test for set tables.
+    T1 = ets_new(a, [set]),
+    [] = ets:take_first(T1),
+    ets:insert(T1, {foo,bar}),
+    [{foo,bar}] = ets:take_first(T1),
+    [] = ets:take_first(T1),
+    [] = ets:tab2list(T1),
+    %% Non-immediate key.
+    ets:insert(T1, {{'not',<<"immediate">>},ok}),
+    [{{'not',<<"immediate">>},ok}] = ets:take_first(T1),
+    [] = ets:tab2list(T1),
+    %% Same with ordered tables.
+    repeat_for_all_ord_set_table_types(
+        fun(Opts) ->
+            T2 = ets_new(b, Opts),
+            [] = ets:take_first(T2),
+            ets:insert(T2, {foo,bar}),
+            [{foo,bar}] = ets:take_first(T2),
+            [] = ets:tab2list(T2),
+            ets:insert(T2, {{'not',<<"immediate">>},ok}),
+            [{{'not',<<"immediate">>},ok}] = ets:take_first(T2),
+            [] = ets:take_first(T2),
+            %% more keys
+            ets:insert(T2, [{1.0,float}, {2,integer}]),
+            [{1.0,float}] = ets:take_first(T2),
+            [{2,integer}] = ets:take_first(T2),
+            [] = ets:tab2list(T2),
+            ets:delete(T2)
+        end),
+    %% Same with bag.
+    T3 = ets_new(c, [bag]),
+    ets:insert(T3, [{1,1},{1,2},{3,3}]),
+    R = lists:sort(ets:lookup(T3, ets:first(T3))),
+    R = lists:sort(ets:take_first(T3)),
+    R2 = lists:sort(ets:lookup(T3, ets:first(T3))),
+    R2 = lists:sort(ets:take_first(T3)),
+    [] = ets:tab2list(T3),
+    ets:delete(T1),
+    ets:delete(T3),
+    ok.
+
+take_last(Config) when is_list(Config) ->
+    %% Simple test for set tables.
+    T1 = ets_new(a, [set]),
+    [] = ets:take_last(T1),
+    ets:insert(T1, {foo,bar}),
+    [{foo,bar}] = ets:take_last(T1),
+    [] = ets:take_last(T1),
+    [] = ets:tab2list(T1),
+    %% Non-immediate key.
+    ets:insert(T1, {{'not',<<"immediate">>},ok}),
+    [{{'not',<<"immediate">>},ok}] = ets:take_last(T1),
+    [] = ets:tab2list(T1),
+    %% Same with ordered tables.
+    repeat_for_all_ord_set_table_types(
+        fun(Opts) ->
+            T2 = ets_new(b, Opts),
+            [] = ets:take_last(T2),
+            ets:insert(T2, {foo,bar}),
+            [{foo,bar}] = ets:take_last(T2),
+            [] = ets:tab2list(T2),
+            ets:insert(T2, {{'not',<<"immediate">>},ok}),
+            [{{'not',<<"immediate">>},ok}] = ets:take_last(T2),
+            [] = ets:take_last(T2),
+            %% more keys
+            ets:insert(T2, [{1.0,float}, {2,integer}]),
+            [{2,integer}] = ets:take_last(T2),
+            [{1.0,float}] = ets:take_last(T2),
+            [] = ets:tab2list(T2),
+            ets:delete(T2)
+        end),
+    %% Same with bag.
+    T3 = ets_new(c, [bag]),
+    ets:insert(T3, [{1,1},{1,2},{3,3}]),
+    R = lists:sort(ets:lookup(T3, ets:last(T3))),
+    R = lists:sort(ets:take_last(T3)),
+    R2 = lists:sort(ets:lookup(T3, ets:last(T3))),
+    R2 = lists:sort(ets:take_last(T3)),
+    [] = ets:tab2list(T3),
+    ets:delete(T1),
+    ets:delete(T3),
+    ok.
+
 whereis_table(Config) when is_list(Config) ->
     %% Do we return 'undefined' when the named table doesn't exist?
     undefined = ets:whereis(whereis_test),
@@ -8949,6 +9037,8 @@ error_info(_Config) ->
          {table, 2},                            %Not BIF.
 
          {take, ['$Tab', no_key], [no_fail]},
+         {take_first, ['$Tab']},
+         {take_last, ['$Tab']},
 
          {test_ms, 2},                          %Not BIF.
          {to_dets, 2},                          %Not BIF.
