@@ -1615,18 +1615,19 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 
     /* Both arguments are smalls. */
     a.cmp(ARG1, ARG2);
-    a.short_().jl(next);
-    a.jmp(resolve_beam_label(Fail));
+    if (!both_small) {
+        a.short_().jmp(next);
+    }
 
     a.bind(generic);
     {
         if (!both_small) {
             safe_fragment_call(ga->get_arith_compare_shared());
-            a.jge(resolve_beam_label(Fail));
         }
     }
 
     a.bind(next);
+    a.jge(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
@@ -1669,18 +1670,19 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
     /* Both arguments are smalls. */
     a.cmp(ARG1, ARG2);
-    a.short_().jge(next);
-    a.jmp(resolve_beam_label(Fail));
+    if (!both_small) {
+        a.short_().jmp(next);
+    }
 
     a.bind(generic);
     {
         if (!both_small) {
             safe_fragment_call(ga->get_arith_compare_shared());
-            a.jl(resolve_beam_label(Fail));
         }
     }
 
     a.bind(next);
+    a.jl(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_bif_is_eq_ne_exact(const ArgSource &LHS,
