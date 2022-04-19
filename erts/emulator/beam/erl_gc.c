@@ -418,18 +418,35 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 {
     int cost;
 
-    if ((p->flags & F_HIBERNATE_SCHED) ||
+    if (!p->mbuf) {
+        /* Must have GC:d in BIF call... invalidate live_hf_end */
+        live_hf_end = ERTS_INVALID_HFRAG_PTR;
+    }
+
+    if ((p->flags & (F_HIBERNATE_SCHED | F_DISABLE_GC)) ||
         (p->sig_qs.flags & FS_HIPE_RECV_LOCKED)) {
-	/*
-	 * We just hibernated. We do *not* want to mess
-	 * up the hibernation by an ordinary GC...
+
+        if ((p->flags & F_DISABLE_GC)
+            && p->live_hf_end == ERTS_INVALID_HFRAG_PTR
+            && is_non_value(result)
+            && p->freason == TRAP) {
+            /* This is first trap with disabled GC. Save live_hf_end marker. */
+            p->live_hf_end = live_hf_end;
+        }
+        /*else:
+         * a subsequent trap with disabled GC
+         *
+         * OR
+         *
+         * We just hibernated. We do *not* want to mess
+         * up the hibernation by an ordinary GC...
          *
          * OR
          *
          * We left a receive in HiPE with message
          * queue lock locked, and we do not want to
          * do a GC with message queue locked...
-	 */
+         */
 	return result;
     }
 
@@ -439,11 +456,6 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     }
     
-    if (!p->mbuf) {
-	/* Must have GC:d in BIF call... invalidate live_hf_end */
-	live_hf_end = ERTS_INVALID_HFRAG_PTR;
-    }
-
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
 #ifdef HIPE
@@ -500,16 +512,6 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     int reds_left;
 
     ERTS_HOLE_CHECK(p);
-
-    if ((p->flags & F_DISABLE_GC)
-	&& p->live_hf_end == ERTS_INVALID_HFRAG_PTR) {
-	/*
-	 * A BIF yielded with disabled GC. Remember
-	 * heap fragments created by the BIF until we
-	 * do next GC.
-	 */
-	p->live_hf_end = live_hf_end;
-    }
 
     if (need == 0) {
         if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
