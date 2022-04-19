@@ -6161,9 +6161,6 @@ fi
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-		#ifdef WIN32
-		# include <windows.h>
-		#endif
                 #include "wx/wx.h"
 		#include "wx/stc/stc.h"
 
