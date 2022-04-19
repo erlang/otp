@@ -109,7 +109,7 @@
     <p><c>headers() = [header()]</c></p>
     <p><c>header() = {field(), value()}</c></p>
     <p><c>field() = [byte()]</c></p>
-    <p><c>value() = binary() | iolist()</c></p>
+    <p><c>value() = iolist()</c></p>
     <taglist>
       <tag><c>body()</c></tag>
       <item><p>= <c>http_string() | binary()</c></p>
