@@ -889,7 +889,7 @@
   ['$_']}]
     ]]></code>
 
-    <p>Function <seemfa marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seemfa>
+    <p>Function <seemfa marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2</c></seemfa>
       can be useful for testing complicated ETS matches.</p>
   </section>
 </chapter>
