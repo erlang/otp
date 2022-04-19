@@ -1624,13 +1624,7 @@ void erts_factory_undo(ErtsHeapFactory* factory)
 	    /* Fix last heap frag */
             if (factory->heap_frags_saved) {
                 ASSERT(factory->heap_frags_saved == factory->p->mbuf);
-                if (factory->hp_start != factory->heap_frags_saved->mem)
-                    factory->heap_frags_saved->used_size = factory->heap_frags_saved_used;
-		else {
-                    factory->p->mbuf = factory->p->mbuf->next;
-                    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG, factory->heap_frags_saved,
-                                   ERTS_HEAP_FRAG_SIZE(factory->heap_frags_saved->alloc_size));
-                }
+                factory->heap_frags_saved->used_size = factory->heap_frags_saved_used;
             }
             if (factory->message) {
                 ASSERT(factory->message->data.attached != ERTS_MSG_COMBINED_HFRAG);
