@@ -30,7 +30,9 @@
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
          killed_while_trapping_put/1,
-         killed_while_trapping_erase/1,whole_message/1]).
+         killed_while_trapping_erase/1,
+         whole_message/1,
+         get_put_colliding_bucket/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -45,7 +47,8 @@ all() ->
      get_all_race,
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart, put_erase_trapping, killed_while_trapping_put,
-     killed_while_trapping_erase,whole_message].
+     killed_while_trapping_erase,whole_message,
+     get_put_colliding_bucket].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -863,3 +866,37 @@ gar_setter(Key) ->
     persistent_term:erase(Key),
     persistent_term:put(Key, {complex, term}),
     gar_setter(Key).
+
+%% GH-5908: `persistent_term:get/1,2` could race with `persistent_term:put/2`
+%% and return an unexpected value if `get/1,2` happened to _abort_ its lookup
+%% in the same bucket that `put/2` was writing to.
+get_put_colliding_bucket(_Config) ->
+    [[Key, CollidesWith | _] | _] = colliding_keys(),
+    false = persistent_term:erase(Key),
+
+    {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              Schedulers = erlang:system_info(schedulers),
+                              [spawn_link(fun() -> gpcb_reader(Key) end)
+                               || _ <- lists:seq(1, Schedulers - 1)],
+                              gpcb_updater(CollidesWith)
+                      end),
+
+    %% The race usually gets detected within a second or two, so we'll consider
+    %% the test passed if we can't reproduce it in 10 seconds.
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ct:fail(Reason)
+    after 10000 ->
+            exit(Pid, kill),
+            ok
+    end.
+
+gpcb_reader(Key) ->
+    expected = persistent_term:get(Key, expected),
+    gpcb_reader(Key).
+
+gpcb_updater(CollidesWith) ->
+    persistent_term:erase(CollidesWith),
+    persistent_term:put(CollidesWith, unexpected),
+    gpcb_updater(CollidesWith).
