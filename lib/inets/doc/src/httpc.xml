@@ -590,8 +590,10 @@
 	If option <c>verify</c> is used, function <c>store_cookies/2</c>
 	has to be called for the cookies to be saved. 
 	Default is <c>disabled</c>.</d>
-	<v>IpFamily = inet | inet6 | local</v>
-	<d>Default is <c>inet</c>.</d>
+	<v>IpFamily = inet | inet6 | local | inet6fb4</v>
+	<d>Default is <c>inet</c>. With <c>inet6fb4</c> option, IPv6
+        will be preferred but if connection fails, an IPv4 fallback connection
+        attempt will be made.</d>
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
 	which one to use. 
@@ -610,7 +612,7 @@
 	<em>without</em> verification.</d>
 	<v>VerboseMode = false | verbose | debug | trace</v>
 	<d>Default is <c>false</c>.
-	This option is used to switch on (or off) 
+        This option is used to switch on (or off)
 	different levels of Erlang trace on the client. 
 	It is a debug feature.</d>
 	<v>Profile = profile() | pid()</v>
