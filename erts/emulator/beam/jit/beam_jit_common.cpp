@@ -517,7 +517,7 @@ Eterm beam_jit_call_bif(Process *c_p,
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
-    if (ERTS_IS_GC_DESIRED(c_p)) {
+    if (ERTS_IS_GC_AFTER_BIF_DESIRED(c_p)) {
         result = erts_gc_after_bif_call_lhf(c_p,
                                             live_hf_end,
                                             result,
@@ -573,7 +573,7 @@ Eterm beam_jit_call_nif(Process *c_p,
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     ERTS_HOLE_CHECK(c_p);
 
-    if (ERTS_IS_GC_DESIRED(c_p)) {
+    if (ERTS_IS_GC_AFTER_BIF_DESIRED(c_p)) {
         nif_bif_result = erts_gc_after_bif_call_lhf(c_p,
                                                     live_hf_end,
                                                     nif_bif_result,
@@ -1116,7 +1116,7 @@ Sint beam_jit_remove_message(Process *c_p,
     erts_save_message_in_proc(c_p, msgp);
     c_p->flags &= ~F_DELAY_GC;
 
-    if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
+    if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E, 0)) {
         /*
          * We want to GC soon but we leave a few
          * reductions giving the message some time

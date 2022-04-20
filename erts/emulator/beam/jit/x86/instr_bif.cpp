@@ -489,7 +489,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         {
             /* Test whether GC is forced. */
             a.test(x86::dword_ptr(c_p, offsetof(Process, flags)),
-                   imm(F_FORCE_GC));
+                   imm(F_FORCE_GC | F_DISABLE_GC));
             a.jne(gc_after_bif_call);
 
             /* Test if binary heap size should trigger GC. */

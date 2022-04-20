@@ -456,7 +456,9 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         {
             /* Test whether GC is forced. */
             a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
-            a.tbnz(TMP1, Support::ctz(F_FORCE_GC), gc_after_bif_call);
+            a.tbnz(TMP1,
+                   Support::ctz(F_FORCE_GC | F_DISABLE_GC),
+                   gc_after_bif_call);
 
             /* Test whether binary heap size should trigger GC. */
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, bin_vheap_sz)));
