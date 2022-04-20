@@ -1209,6 +1209,11 @@ BIF_RETTYPE ets_take_first_1(BIF_ALIST_1)
         BIF_ERROR(BIF_P, BADARG);
     }
 
+    if (first == am_EOT) {
+        db_unlock(tb, LCK_WRITE_REC);
+        BIF_RET(NIL);
+    }
+
     cret = tb->common.meth->db_take(BIF_P, tb, first, &ret);
 
     db_unlock(tb, LCK_WRITE_REC);
@@ -1233,6 +1238,11 @@ BIF_RETTYPE ets_take_last_1(BIF_ALIST_1)
     if (cret != DB_ERROR_NONE) {
         db_unlock(tb, LCK_WRITE_REC);
         BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (last == am_EOT) {
+        db_unlock(tb, LCK_WRITE_REC);
+        BIF_RET(NIL);
     }
 
     cret = tb->common.meth->db_take(BIF_P, tb, last, &ret);
