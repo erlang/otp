@@ -121,7 +121,7 @@
       application. For more information about configuration parameters,
     see file <seefile marker="app"><c>app(4)</c></seefile>.</p>
     <taglist>
-      <tag><c>distributed = [Distrib]</c></tag>
+      <tag><marker id="distributed"/><c>distributed = [Distrib]</c></tag>
       <item>
         <p>Specifies which applications that are distributed and on which
           nodes they are allowed to execute. In this parameter:</p>
@@ -158,7 +158,7 @@
         distribution connections. Using this option implies that the node
         also is <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom>.</p>
       </item>
-      <tag><c>permissions = [Perm]</c></tag>
+      <tag><marker id="permissions"/><c>permissions = [Perm]</c></tag>
       <item>
         <p>Specifies the default permission for applications when they
           are started. In this parameter:</p>
@@ -261,7 +261,7 @@
         <p>Specifies default options for <c>connect</c> sockets,
           see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </item>
-      <tag><c>inet_default_listen_options = [{Opt, Val}]</c></tag>
+      <tag><marker id="inet_default_listen_options"/><c>inet_default_listen_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>listen</c> (and
           <c>accept</c>) sockets, see <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
@@ -290,20 +290,20 @@
 	  other distributed Erlang nodes.
 	  See <seemfa marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seemfa>.</p>
       </item>
-      <tag><c>inet_parse_error_log = silent</c></tag>
+      <tag><marker id="inet_parse_error_log"/><c>inet_parse_error_log = silent</c></tag>
       <item>
         <p>If set, no log events are issued when erroneous lines are
           found and skipped in the various Inet configuration
           files.</p>
       </item>
-      <tag><c>inetrc = Filename</c></tag>
+      <tag><marker id="inetrc"/><c>inetrc = Filename</c></tag>
       <item>
         <p>The name (string) of an Inet user configuration file. For details,
 	see section
 	<seeguide marker="erts:inet_cfg"><c>Inet Configuration</c></seeguide>
 	in the ERTS User's Guide.</p>
       </item>
-      <tag><c>net_setuptime = SetupTime</c></tag>
+      <tag><marker id="net_setuptime"/><c>net_setuptime = SetupTime</c></tag>
       <item>
         <marker id="net_setuptime"></marker>
         <p><c>SetupTime</c> must be a positive integer or floating point
@@ -422,7 +422,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
             more important information about this.
         </p>
       </item>
-      <tag><c>shutdown_timeout = integer() | infinity</c></tag>
+      <tag><marker id="shutdown_timeout"/><c>shutdown_timeout = integer() | infinity</c></tag>
       <item>
         <p>Specifies the time <c>application_controller</c> waits
           for an application to terminate during node shutdown. If the
@@ -431,7 +431,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           application. If this parameter is undefined, it defaults
           to <c>infinity</c>.</p>
       </item>
-      <tag><c>sync_nodes_mandatory = [NodeName]</c></tag>
+      <tag><marker id="sync_nodes_mandatory"/><c>sync_nodes_mandatory = [NodeName]</c></tag>
       <item>
         <p>Specifies which other nodes that <em>must</em> be alive
           for this node to start properly. If some node in the list
@@ -439,7 +439,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           start either. If this parameter is undefined, it defaults to
           <c>[]</c>.</p>
       </item>
-      <tag><c>sync_nodes_optional = [NodeName]</c></tag>
+      <tag><marker id="sync_nodes_optional"/><c>sync_nodes_optional = [NodeName]</c></tag>
       <item>
         <p>Specifies which other nodes that <em>can</em> be alive
           for this node to start properly. If some node in this list
@@ -447,7 +447,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           anyway. If this parameter is undefined, it defaults to
           the empty list.</p>
       </item>
-      <tag><c>sync_nodes_timeout = integer() | infinity</c></tag>
+      <tag><marker id="sync_nodes_timeout"/><c>sync_nodes_timeout = integer() | infinity</c></tag>
       <item>
         <p>Specifies the time (in milliseconds) that this node
           waits for the mandatory and optional nodes to start. If
@@ -455,7 +455,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           performed. This option ensures that <c>global</c> is
           synchronized.</p>
       </item>
-      <tag><c>start_distribution = true | false</c></tag>
+      <tag><marker id="start_distribution"/><c>start_distribution = true | false</c></tag>
       <item>
         <p>Starts all distribution services, such as <c>rpc</c>,
           <c>global</c>, and <c>net_kernel</c> if the parameter is
@@ -463,7 +463,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           for systems who want to disable all distribution functionality.</p>
         <p>Defaults to <c>true</c>.</p>
       </item>
-      <tag><c>start_dist_ac = true | false</c></tag>
+      <tag><marker id="start_dist_ac"/><c>start_dist_ac = true | false</c></tag>
       <item>
         <p>Starts the <c>dist_ac</c> server if the parameter is
           <c>true</c>. This parameter is to be set to <c>true</c> for
@@ -472,7 +472,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           undefined, the server is started if parameter
           <c>distributed</c> is set.</p>
       </item>
-      <tag><c>start_boot_server = true | false</c></tag>
+      <tag><marker id="start_boot_server"/><c>start_boot_server = true | false</c></tag>
       <item>
         <p>Starts the <c>boot_server</c> if the parameter is <c>true</c>
           (see <seeerl marker="erl_boot_server"><c>erl_boot_server(3)</c></seeerl>).
@@ -480,7 +480,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>boot_server_slaves = [SlaveIP]</c></tag>
+      <tag><marker id="boot_server_slaves"/><c>boot_server_slaves = [SlaveIP]</c></tag>
       <item>
         <p>If configuration parameter <c>start_boot_server</c> is
           <c>true</c>, this parameter can be used to initialize
@@ -492,7 +492,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
 	<p><c>'150.236.16.70', "150,236,16,70", {150,236,16,70}</c>.</p>
         <p>Defaults to <c>[]</c>.</p>
       </item>
-      <tag><c>start_disk_log = true | false</c></tag>
+      <tag><marker id="start_disk_log"/><c>start_disk_log = true | false</c></tag>
       <item>
         <p>Starts the <c>disk_log_server</c> if the parameter is
           <c>true</c> (see <seeerl marker="disk_log"><c>disk_log(3)</c></seeerl>).
@@ -500,7 +500,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>start_pg = true | false</c></tag>
+      <tag><marker id="start_pg"/><c>start_pg = true | false</c></tag>
       <item>
         <marker id="start_pg"></marker>
         <p>Starts the default <c>pg</c> scope server (see
@@ -509,7 +509,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           <c>true</c> in an embedded system that uses this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>start_timer = true | false</c></tag>
+      <tag><marker id="start_timer"/><c>start_timer = true | false</c></tag>
       <item>
         <p>Starts the <c>timer_server</c> if the parameter is
           <c>true</c> (see <seeerl marker="stdlib:timer"><c>timer(3)</c></seeerl>).
@@ -517,7 +517,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
-      <tag><c>shell_history = enabled | disabled | module()</c></tag>
+      <tag><marker id="shell_history"/><c>shell_history = enabled | disabled | module()</c></tag>
       <item>
         <p>Specifies whether shell history should be logged to disk
            between usages of <c>erl</c> (<c>enabled</c>), not logged
@@ -528,25 +528,25 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
            called every time new line is entered in the shell. By default
            logging is disabled.</p>
       </item>
-      <tag><c>shell_history_drop = [string()]</c></tag>
+      <tag><marker id="shell_history_drop"/><c>shell_history_drop = [string()]</c></tag>
       <item>
         <p>Specific log lines that should not be persisted. For
            example <c>["q().", "init:stop()."]</c> will allow to
            ignore commands that shut the node down. Defaults to
            <c>[]</c>.</p>
       </item>
-      <tag><c>shell_history_file_bytes = integer()</c></tag>
+      <tag><marker id="shell_history_file_bytes"/><c>shell_history_file_bytes = integer()</c></tag>
       <item>
         <p>How many bytes the shell should remember. By default, the
            value is set to 512kb, and the minimal value is 50kb.</p>
       </item>
-      <tag><c>shell_history_path = string()</c></tag>
+      <tag><marker id="shell_history_path"/><c>shell_history_path = string()</c></tag>
       <item>
         <p>Specifies where the shell history files will be stored.
            defaults to the user's cache directory as returned by
            <c>filename:basedir(user_cache, "erlang-history")</c>.</p>
       </item>
-      <tag><c>shutdown_func = {Mod, Func}</c></tag>
+      <tag><marker id="shutdown_func"/><c>shutdown_func = {Mod, Func}</c></tag>
       <item>
         <p>Where:</p>
         <list type="bulleted">
@@ -560,7 +560,7 @@ MaxT = NetTickTime + NetTickTime / NetTickIntensity</code>
           return as soon as possible for <c>application_controller</c>
           to terminate properly.</p>
       </item>
-      <tag><c>source_search_rules = [DirRule] | [SuffixRule] </c></tag>
+      <tag><marker id="source_search_rules"/><c>source_search_rules = [DirRule] | [SuffixRule] </c></tag>
       <item>
 	<marker id="source_search_rules"></marker>
         <p>Where:</p>
