@@ -181,6 +181,11 @@ succeeds_if_smallish(LHS, RHS) ->
 -define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
 
 %%
+%% The document maximum size of a tuple.
+%%
+-define(MAX_TUPLE_SIZE, (1 bsl 24) - 1).
+
+%%
 %% Returns the inferred return and argument types for known functions, and
 %% whether it's safe to subtract argument types on failure.
 %%
@@ -207,7 +212,7 @@ types(erlang, 'tuple_size', [Src]) ->
               #t_tuple{size=Sz} -> Sz;
               _ -> 0
           end,
-    Max = (1 bsl 24) - 1,                       %Documented max size of a tuple.
+    Max = ?MAX_TUPLE_SIZE,
     sub_safe(#t_integer{elements={Min,Max}}, [#t_tuple{}]);
 types(erlang, 'bit_size', [_]) ->
     sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bitstring{}]);
@@ -385,7 +390,10 @@ types(erlang, element, [PosType, TupleType]) ->
                       any
               end,
 
-    sub_unsafe(RetType, [#t_integer{}, #t_tuple{size=Index}]);
+    ArgTypes = [#t_integer{elements={1,?MAX_TUPLE_SIZE}},
+                #t_tuple{size=Index}],
+
+    sub_unsafe(RetType, ArgTypes);
 types(erlang, setelement, [PosType, TupleType, ArgType]) ->
     RetType = case {PosType,TupleType} of
                   {#t_integer{elements={Index,Index}},
