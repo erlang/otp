@@ -3004,6 +3004,196 @@ document etp-ports
 %---------------------------------------------------------------------------
 end
 
+define etp-dist-entry
+  set $ede_de = $arg0
+  printf "  Name: "
+  etp $ede_de->sysname
+  printf "  State: "
+  if $ede_de->state == 0
+    printf "IDLE\n"
+  end
+  if $ede_de->state == 1
+    printf "PENDING\n"
+  end
+  if $ede_de->state == 2
+    printf "CONNECTED\n"
+  end
+  if $ede_de->state == 4
+    printf "EXITING\n"
+  end
+  printf "  Creation: %ld\n", $ede_de->creation
+  printf "  Queue Flags: "
+  if $ede_de->qflgs.counter & (1 << 0)
+    printf "BUSY "
+  end
+  if $ede_de->qflgs.counter & (1 << 1)
+    printf "EXIT "
+  end
+  if $ede_de->qflgs.counter & (1 << 2)
+    printf "REQ_INFO "
+  end
+  if $ede_de->qflgs.counter & (1 << 3)
+    printf "PORT_CTRL "
+  end
+  if $ede_de->qflgs.counter & (1 << 4)
+    printf "PROC_CTRL "
+  end
+  printf "\n  Queue Size: %ld\n", $ede_de->qsize.counter
+  printf "  Suspended: "
+  set $ede_suspended_first = $ede_de->suspended
+  if $ede_suspended_first != 0
+    etp-1 $ede_suspended_first->u.pid
+    printf " "
+    set $ede_suspended = $ede_suspended_first->next
+    while $ede_suspended != $ede_suspended_first
+      etp-1 $ede_suspended->u.pid
+      printf " "
+      set $ede_suspended = $ede_suspended->next
+    end
+  end
+  printf "\n  Flags: "
+  if $ede_de->dflags & ((Uint64)0x01)
+    printf "PUBLISHED "
+  end
+  if $ede_de->dflags & ((Uint64)0x02)
+    printf "ATOM_CACHE "
+  end
+  if $ede_de->dflags & ((Uint64)0x04)
+    printf "EXTENDED_REFERENCES "
+  end
+  if $ede_de->dflags & ((Uint64)0x08)
+    printf "DIST_MONITOR "
+  end
+  if $ede_de->dflags & ((Uint64)0x10)
+    printf "FUN_TAGS "
+  end
+  if $ede_de->dflags & ((Uint64)0x20)
+    printf "DIST_MONITOR_NAME "
+  end
+  if $ede_de->dflags & ((Uint64)0x40)
+    printf "HIDDEN_ATOM_CACHE "
+  end
+  if $ede_de->dflags & ((Uint64)0x80)
+    printf "NEW_FUN_TAGS "
+  end
+  if $ede_de->dflags & ((Uint64)0x100)
+    printf "EXTENDED_PIDS_PORTS "
+  end
+  if $ede_de->dflags & ((Uint64)0x200)
+    printf "EXPORT_PTR_TAG "
+  end
+  if $ede_de->dflags & ((Uint64)0x400)
+    printf "BIT_BINARIES "
+  end
+  if $ede_de->dflags & ((Uint64)0x800)
+    printf "NEW_FLOATS "
+  end
+  if $ede_de->dflags & ((Uint64)0x1000)
+    printf "UNICODE_IO "
+  end
+  if $ede_de->dflags & ((Uint64)0x2000)
+    printf "DIST_HDR_ATOM_CACHE "
+  end
+  if $ede_de->dflags & ((Uint64)0x4000)
+    printf "SMALL_ATOM_TAGS "
+  end
+  if $ede_de->dflags & ((Uint64)0x8000)
+    printf "ETS_COMPRESSED "
+  end
+  if $ede_de->dflags & ((Uint64)0x10000)
+    printf "UTF8_ATOMS "
+  end
+  if $ede_de->dflags & ((Uint64)0x20000)
+    printf "MAP_TAG "
+  end
+  if $ede_de->dflags & ((Uint64)0x40000)
+    printf "BIG_CREATION "
+  end
+  if $ede_de->dflags & ((Uint64)0x80000)
+    printf "SEND_SENDER "
+  end
+  if $ede_de->dflags & ((Uint64)0x100000)
+    printf "BIG_SEQTRACE_LABELS "
+  end
+  if $ede_de->dflags & ((Uint64)0x200000)
+    printf "PENDING_CONNECT "
+  end
+  if $ede_de->dflags & ((Uint64)0x400000)
+    printf "EXIT_PAYLOAD "
+  end
+  if $ede_de->dflags & ((Uint64)0x800000)
+    printf "FRAGMENTS "
+  end
+  if $ede_de->dflags & ((Uint64)0x1000000)
+    printf "HANDSHAKE_23 "
+  end
+  if $ede_de->dflags & ((Uint64)0x2000000)
+    printf "UNLINK_ID "
+  end
+  if $ede_de->dflags & ((Uint64)0x4000000)
+    printf "MANDATORY_25_DIGEST "
+  end
+  if $ede_de->dflags & ((Uint64)0xf8000000)
+    printf "RESERVED "
+  end
+  if $ede_de->dflags & (((Uint64)0x1) << 32)
+    printf "SPAWN "
+  end
+  if $ede_de->dflags & (((Uint64)0x2) << 32)
+    printf "NAME_ME "
+  end
+  if $ede_de->dflags & (((Uint64)0x4) << 32)
+    printf "V4_NC "
+  end
+  if $ede_de->dflags & (((Uint64)0x8) << 32)
+    printf "ALIAS "
+  end
+  printf "\n  Pointer: (DistEntry*)%p\n", $ede_de
+end
+
+document etp-dist-entry
+%---------------------------------------------------------------------------
+% etp-dist-entry DistEntry*
+% 
+% Print information about the DistEntry*
+%---------------------------------------------------------------------------
+end
+
+define etp-dist
+  set $de = erts_visible_dist_entries
+  while $de != 0
+    printf "--- visible\n"
+    etp-dist-entry $de
+    set $de = $de->next
+  end
+  set $de = erts_hidden_dist_entries
+  while $de != 0
+    printf "--- hidden\n"
+    etp-dist-entry $de
+    set $de = $de->next
+  end
+  set $de = erts_pending_dist_entries
+  while $de != 0
+    printf "--- pending\n"
+    etp-dist-entry $de
+    set $de = $de->next
+  end
+  set $de = erts_not_connected_dist_entries
+  while $de != 0
+    printf "--- not connected\n"
+    etp-dist-entry $de
+    set $de = $de->next
+  end
+end
+
+document etp-dist
+%---------------------------------------------------------------------------
+% etp-dist
+% 
+% Print information about all current dist entries
+%---------------------------------------------------------------------------
+end
+
 define etp-rq-flags-int
 # Args: int
 #
