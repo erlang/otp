@@ -24,6 +24,13 @@
 #include "common.h"
 
 #if defined(HAVE_EC)
+
+# if defined(HAS_3_0_API)
+int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
+                         OSSL_PARAM params[], int *i,
+                         size_t *order_size);
+# endif /* HAS_3_0_API */
+
 int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey);
 int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey);
 

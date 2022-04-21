@@ -22,6 +22,190 @@
 #include "bn.h"
 
 #ifdef HAVE_EC
+
+# if defined(HAS_3_0_API)
+
+int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
+                         OSSL_PARAM params[], int *i,
+                         size_t *order_size)
+{
+    const ERL_NIF_TERM* curve;
+    int c_arity = -1;
+    const ERL_NIF_TERM *prime;
+    int p_arity = -1;
+    const ERL_NIF_TERM *field;
+    int f_arity = -1;
+    BIGNUM *p = NULL;
+
+    /* Here are two random curve definition examples, one prime_field and
+       one characteristic_two_field. Both are from the crypto/src/crypto_ec_curves.erl.
+
+        curve(secp192r1) ->
+           {
+            {prime_field, <<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF:192>>}, %% Prime
+            {<<16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFC:192>>,               %% A
+             <<16#64210519E59C80E70FA7E9AB72243049FEB8DEECC146B9B1:192>>,               %% B
+             <<16#3045AE6FC8422F64ED579528D38120EAE12196D5:160>>},                      %% Seed
+             <<16#04:8,
+               16#188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012:192,                 %% X(p0)
+               16#07192B95FFC8DA78631011ED6B24CDD573F977A11E794811:192>>,               %% Y(p0)
+             <<16#FFFFFFFFFFFFFFFFFFFFFFFF99DEF836146BC9B1B4D22831:192>>,               %% Order
+             <<16#01:8>>                                                                %% CoFactor
+           };
+
+        curve(c2pnb176v1) ->
+           {
+            {characteristic_two_field, 176, {ppbasis,1,2,43}},
+            {<<16#E4E6DB2995065C407D9D39B8D0967B96704BA8E9C90B:176>>,                   %% A
+             <<16#5DDA470ABE6414DE8EC133AE28E9BBD7FCEC0AE0FFF2:176>>,                   %% B
+             none},                                                                     %% Seed
+             <<16#04:8,
+               16#8D16C2866798B600F9F08BB4A8E860F3298CE04A5798:176,                     %% X(p0)
+               16#6FA4539C2DADDDD6BAB5167D61B436E1D92BB16A562C:176>>,                   %% Y(p0)
+             <<16#010092537397ECA4F6145799D62B0A19CE06FE26AD:168>>,                     %% Order
+             <<16#FF6E:16>>                                                             %% CoFactor
+           };
+    */
+
+    /* {Field, Prime, Point, Order, CoFactor} = CurveDef */
+    if (!enif_get_tuple(env, def, &c_arity, &curve) ||
+        c_arity != 5)
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad curve def. Expect 5-tuple."));
+
+    if (!get_ossl_octet_string_param_from_bin(env, "generator", curve[2], &params[(*i)++]))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Generator (Point)"));
+
+    if (!get_ossl_BN_param_from_bin_sz(env, "order", curve[3], &params[(*i)++], order_size))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad order"));
+
+    if (curve[4] == atom_none)
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Cofactor must be != none"));
+                
+    if (!get_ossl_BN_param_from_bin(env, "cofactor", curve[4], &params[(*i)++]))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad cofactor"));
+
+    /* {A, B, Seed} = Prime = curve[1] */
+    if (!enif_get_tuple(env, curve[1], &p_arity, &prime))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Prime"));
+
+    if (!get_ossl_BN_param_from_bin(env, "a", prime[0], &params[(*i)++]))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad a"));
+
+    if (!get_ossl_BN_param_from_bin(env, "b", prime[1], &params[(*i)++]))
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad b"));
+
+    if (enif_is_binary(env, prime[2]))
+        if (!get_ossl_octet_string_param_from_bin(env, "seed", prime[2], &params[(*i)++]))
+            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad seed"));
+
+    /* Field = curve[0] */
+    if (!enif_get_tuple(env, curve[0], &f_arity, &field)) {
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad Field"));
+    }
+    else if (f_arity == 2 && field[0] == atom_prime_field) {
+        /* {prime_field, Prime} */
+        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type",  "prime-field", 0);
+                
+        if (!get_ossl_BN_param_from_bin(env, "p", field[1], &params[(*i)++]))
+            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad p (Prime)"));
+    }
+
+    else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
+        /* {characteristic_two_field, M, Basis} */
+#  if defined(OPENSSL_NO_EC2M)
+        assign_goto(*ret, err, EXCP_NOTSUP_N(env, 1, "Unsupported field-type (characteristic_two_field)"));
+#  else
+        int b_arity = -1;
+        const ERL_NIF_TERM* basis;
+        long field_bits;
+
+        params[(*i)++] = OSSL_PARAM_construct_utf8_string("field-type",  "characteristic-two-field", 0);
+
+        if ((p = BN_new()) == NULL)
+            assign_goto(*ret, err, EXCP_ERROR(env, "Creating bignum failed"));
+
+        if (!enif_get_long(env, field[1], &field_bits) ||
+            (field_bits > OPENSSL_ECC_MAX_FIELD_BITS || field_bits > INT_MAX)
+            )
+            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-bits (M)"));
+                    
+        if (enif_get_tuple(env, field[2], &b_arity, &basis)) {
+            if (b_arity == 2) {
+                unsigned int k1;
+
+                if (basis[0] != atom_tpbasis)
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
+                if (!enif_get_uint(env, basis[1], &k1))
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "uint expected (k1)"));
+
+                /* {tpbasis, k} = Basis */
+                if (field_bits <= k1 || k1 == 0 || k1 > INT_MAX)
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits or k1)"));
+
+                /* create the polynomial */
+                if (!BN_set_bit(p, (int)field_bits) ||
+                    !BN_set_bit(p, (int)k1) ||
+                    !BN_set_bit(p, 0))
+                    assign_goto(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
+
+            } else if (b_arity == 4) {
+                /* {ppbasis, k1, k2, k3} = Basis */
+                unsigned int k1, k2, k3;
+
+                if (basis[0] != atom_ppbasis)
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad atom"));
+
+                if (!enif_get_uint(env, basis[1], &k1) ||
+                    !enif_get_uint(env, basis[2], &k2) ||
+                    !enif_get_uint(env, basis[3], &k3))
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Expecting uint (k1,k2,k3)"));
+
+                if (field_bits <= k3 || k3 <= k2 || k2 <= k1 || k1 == 0 ||
+                    k3 > INT_MAX || k2 > INT_MAX || k1 > INT_MAX)
+                    assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "bad values (field_bits, k1, k2 or k3)"));
+
+                /* create the polynomial */
+                if (!BN_set_bit(p, (int)field_bits) ||
+                    !BN_set_bit(p, (int)k1) ||
+                    !BN_set_bit(p, (int)k2) ||
+                    !BN_set_bit(p, (int)k3) ||
+                    !BN_set_bit(p, 0) )
+                    assign_goto(*ret, err, EXCP_ERROR(env, "Polynom bit setting failed"));
+
+            } else
+                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad tuple"));
+
+        } else if (field[2] == atom_onbasis) {
+            /* onbasis = Basis */
+            /* no parameters */
+            assign_goto(*ret, err, EXCP_NOTSUP_N(env, 1, "'onbasis' not supported"));
+        } else
+            assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad last field"));
+
+        {
+            ErlNifBinary tmp;
+                        
+            if (!enif_inspect_binary(env, bin_from_bn(env,p), &tmp) || // Allocate buf
+                BN_bn2nativepad(p, tmp.data, tmp.size) < 0) {// Fill with BN in right endianity
+                assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "BN padding failed"));
+            }
+            params[(*i)++] = OSSL_PARAM_construct_BN("p", tmp.data, tmp.size);
+        }
+#  endif
+    }
+    else
+        assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad field-type")); 
+
+    if (p) BN_free(p);
+    return 1;
+    
+ err:
+    if (p) BN_free(p);
+    return 0;
+}
+
+# endif /* HAS_3_0_API */
+
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size);
 static ERL_NIF_TERM point2term(ErlNifEnv* env,
 			       const EC_GROUP *group,
