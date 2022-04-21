@@ -538,7 +538,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         </p>
         <note>
           <p>
-            If the caller uses (<c>try</c>...)<c>catch</c>
+            Before OTP 24, if the caller uses (<c>try</c>...)<c>catch</c>
             to avoid process exit,
             and the server happens to just be late with the reply,
             it may arrive to the process message queue any time later.
@@ -549,13 +549,17 @@ gen_server:abcast     -----> Module:handle_cast/2
             so they do not clog the process message queue
             or gets mistaken for other messages.
           </p>
+          <p>
+            Starting with OTP 24, <c>gen_server:call</c> uses process aliases,
+            so late replies will not be received.
+          </p>
         </note>
         <p>
           The return value <c><anno>Reply</anno></c>
           is passed from the return value of <c>Module:handle_call/3</c>.
         </p>
         <p>
-          This call may exit the callling process
+          This call may exit the calling process
           with an exit term on the form
           <c>{Reason,&nbsp;Location}</c> where
           <c>Location&nbsp;=&nbsp;{gen_server,call,ArgList}</c>
