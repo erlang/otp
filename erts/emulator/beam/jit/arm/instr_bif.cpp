@@ -455,13 +455,13 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
         /* ERTS_IS_GC_DESIRED_INTERNAL */
         {
             a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
-            a.and_(TMP1, TMP1, imm(F_FORCE_GC | F_DISABLE_GC));
+            a.tst(TMP1, imm(F_FORCE_GC | F_DISABLE_GC));
 
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, bin_vheap_sz)));
             a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, off_heap.overhead)));
 
-            /* If neither F_FORCE_GC nor F_DISABLE_GC were set, test whether
-             * whether binary heap size should trigger GC.
+            /* If neither F_FORCE_GC nor F_DISABLE_GC were set,
+             * test whether binary heap size should trigger GC.
              *
              * Otherwise, set the flags as if `off_heap.overhead > bin_vheap_sz`
              * to force a GC. */
