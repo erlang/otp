@@ -64,6 +64,10 @@
 
 -define(MGC_START(Pid, Mid, ET, Conf, Verb), 
 	megaco_test_mgc:start(Pid, Mid, ET, Conf, Verb)).
+-define(MGC_START(Pid, ET, Conf), 
+        ?MGC_START(Pid, {deviceName, "ctrl"}, ET, Conf, ?MGC_VERBOSITY)).
+-define(MGC_START(Pid, ET),
+        ?MGC_START(Pid, ET, [])).
 -define(MGC_STOP(Pid), megaco_test_mgc:stop(Pid)).
 -define(MGC_GET_STATS(Pid, No), megaco_test_mgc:get_stats(Pid, No)).
 -define(MGC_RESET_STATS(Pid),   megaco_test_mgc:reset_stats(Pid)).
@@ -85,6 +89,10 @@
 
 -define(MG_START(Pid, Mid, Enc, Transp, Conf, Verb), 
 	megaco_test_mg:start(Pid, Mid, Enc, Transp, Conf, Verb)).
+-define(MG_START(Pid, Enc, Transp, Conf), 
+	?MG_START(Pid, {deviceName, "mg"}, Enc, Transp, Conf, ?MG_VERBOSITY)).
+-define(MG_START(Pid, Enc, Transp), 
+	?MG_START(Pid, Enc, Transp, [])).
 -define(MG_STOP(Pid), megaco_test_mg:stop(Pid)).
 -define(MG_GET_STATS(Pid, No), megaco_test_mg:get_stats(Pid, No)).
 -define(MG_RESET_STATS(Pid), megaco_test_mg:reset_stats(Pid)).
@@ -281,13 +289,11 @@ do_sent_timer_late_reply(#{nodes := [MgcNode, MgNode]}) ->
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     MgcConf = [{megaco_trace, false}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, MgcConf, ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET, MgcConf),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConf = [{megaco_trace, io}],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConf, ?MG_VERBOSITY),
+    MgConf   = [{megaco_trace, io}],
+    {ok, Mg} = ?MG_START(MgNode, text, tcp, MgConf),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -366,13 +372,10 @@ do_sent_timer_exceeded(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
-    i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    i("[MG] start"),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -450,13 +453,10 @@ do_sent_timer_exceeded_long(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -536,13 +536,10 @@ do_sent_resend_late_reply(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -638,13 +635,10 @@ do_sent_resend_exceeded(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -731,13 +725,10 @@ do_sent_resend_exceeded_long(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -1717,13 +1708,10 @@ otp_5310(Config) when is_list(Config) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
 
@@ -1894,14 +1882,11 @@ otp_5619(Config) when is_list(Config) ->
 do_otp_5619(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
-    MgcMid = {deviceName, "ctrl"}, 
     ET = [{text, tcp}, {text, udp}, {binary, tcp}, {binary, udp}],
-    {ok, Mgc} = ?MGC_START(MgcNode, MgcMid, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, ET),
 
     i("[MG] start"),    
-    MgMid = {deviceName, "mg"},
-    MgConfig = [],
-    {ok, Mg} = ?MG_START(MgNode, MgMid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    {ok, Mg} = ?MG_START(MgNode, text, tcp),
 
     d("MG user info: ~p", [?MG_USER_INFO(Mg, all)]),
     d("MG conn info: ~p", [?MG_CONN_INFO(Mg, all)]),
