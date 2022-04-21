@@ -207,7 +207,7 @@ protected:
     /* Constants for "alternate flag state" operands, which are distinct from
      * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
     enum NZCV : int {
-        kNF = 16,
+        kNF = 8,
         kSigned = kNF,
 
         kZF = 4,
