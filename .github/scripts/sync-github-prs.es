@@ -32,7 +32,13 @@ main([Repo, Target, PRNo]) ->
 
 handle_prs(Repo, Target, AllPRs) ->
 
-    [handle_pr(Repo, Target, PR) || PR <- AllPRs],
+    %% We fetch all runs for the main.yaml repo. This takes a while,
+    %% but for some reason when we try to filter results using either
+    %%   -f event=pull_request or -f branch=Ref github decides to not
+    %% return all the runs.... So we do it the slow way...
+    AllRuns = ghapi(["gh api --paginate -X GET /repos/"++Repo++"/actions/workflows/main.yaml/runs"]),
+
+    [handle_pr(Repo, Target, PR, AllRuns) || PR <- AllPRs],
 
     %% Remove all links and files > 50MB
     cmd(["find ",Target," -type l -exec rm -f {} \\;"]),
@@ -46,11 +52,11 @@ handle_prs(Repo, Target, AllPRs) ->
 %% See https://github.community/t/retrieve-workflow-id-for-a-given-pr/199745/4
 %%   for a discussion about this.
 %%
-handle_pr(Repo, Target,
+handle_pr(_Repo, Target,
           #{ <<"number">> := Number,
-             <<"head">> := #{ <<"ref">> := Ref, <<"sha">> := Sha } }) ->
+             <<"head">> := #{ <<"ref">> := _Ref, <<"sha">> := Sha } },
+          Runs) ->
     PRDir = filename:join(Target,integer_to_list(Number)),
-    Runs = ghapi(["gh api --paginate -X GET /repos/"++Repo++"/actions/runs -f event=pull_request -f 'branch=",Ref,"'"]),
     case lists:search(
            fun(#{ <<"head_sha">> := HeadSha, <<"status">> := Status }) ->
                    string:equal(HeadSha, Sha) andalso string:equal(Status, <<"completed">>)
@@ -104,8 +110,29 @@ handle_pr(Repo, Target,
     end.
 
 ghapi(CMD) ->
-    Data = cmd(CMD),
-    try jsx:decode(Data,[{return_maps, true}])
+    decode(cmd(CMD)).
+
+decode(Data) ->
+    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
+        {with_tail, Json, <<>>} ->
+            Json;
+        {with_tail, Json, Tail} ->
+            [Key] = maps:keys(maps:remove(<<"total_count">>, Json)),
+            #{ Key => lists:flatmap(
+                        fun(J) -> maps:get(Key, J) end,
+                        [Json | decodeTail(Tail)])
+                       }
+    catch E:R:ST ->
+            io:format("Failed to decode: ~ts",[Data]),
+            erlang:raise(E,R,ST)
+    end.
+
+decodeTail(Data) ->
+    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
+        {with_tail, Json, <<>>} ->
+            [Json];
+        {with_tail, Json, Tail} ->
+            [Json | decodeTail(Tail)]
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)
