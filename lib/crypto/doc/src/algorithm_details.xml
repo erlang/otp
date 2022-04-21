@@ -111,6 +111,9 @@
 	<row><cell><c>aes_128_ctr</c></cell>   <cell>16</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
 	<row><cell><c>aes_192_ctr</c></cell>   <cell>24</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
 	<row><cell><c>aes_256_ctr</c></cell>   <cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_128_ofb</c></cell>   <cell>16</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_192_ofb</c></cell>   <cell>24</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
+	<row><cell><c>aes_256_ofb</c></cell>   <cell>32</cell>      <cell>16</cell>      <cell>&nbsp;1</cell> <cell></cell></row>
 	<row><cell><c>blowfish_cbc</c></cell>  <cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;8</cell> <cell></cell></row>
 	<row><cell><c>blowfish_cfb64</c></cell><cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>
 	<row><cell><c>blowfish_ofb64</c></cell><cell>16</cell>      <cell>&nbsp;8</cell> <cell>&nbsp;1</cell> <cell></cell></row>

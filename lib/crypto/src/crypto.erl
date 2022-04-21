@@ -367,6 +367,10 @@
                    | aes_256_cbc
                    | aes_cbc
 
+                   | aes_128_ofb
+                   | aes_192_ofb
+                   | aes_256_ofb
+
                    | aes_128_cfb128
                    | aes_192_cfb128
                    | aes_256_cfb128
