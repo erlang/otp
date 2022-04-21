@@ -1945,6 +1945,9 @@ get_socket_opts(Connection, Transport, Socket, [header | Tags], SockOpts, Acc) -
 get_socket_opts(Connection, Transport, Socket, [active | Tags], SockOpts, Acc) ->
     get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
 		    [{active, SockOpts#socket_options.active} | Acc]);
+get_socket_opts(Connection, Transport, Socket, [packet_size | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
+		    [{packet_size, SockOpts#socket_options.packet_size} | Acc]);
 get_socket_opts(Connection, Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
     case Connection:getopts(Transport, Socket, [Tag]) of
         {ok, [Opt]} ->
@@ -2034,8 +2037,14 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts]
     end;
 set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
+set_socket_opts(ConnectionCb, Transport,Socket, [{packet_size, Size}| Opts], SockOpts, Other) when is_integer(Size) -> 
+      set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+                      SockOpts#socket_options{packet_size = Size}, Other);
+set_socket_opts(_,_, _, [{packet_size, _} = Opt| _], SockOpts, _) ->
+    {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) ->
     set_socket_opts(ConnectionCb, Transport, Socket, Opts, SockOpts, [Opt | Other]).
+
 ssl_options_list(SslOptions) ->
     L = maps:to_list(SslOptions),
     ssl_options_list(L, []).

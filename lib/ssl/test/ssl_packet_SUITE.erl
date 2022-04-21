@@ -60,6 +60,8 @@
          packet_wait_passive/1,
          packet_size_passive/0,
          packet_size_passive/1,
+         packet_size_passive_setgetopts/0,
+         packet_size_passive_setgetopts/1,
          header_decode_one_byte_passive/0,
          header_decode_one_byte_passive/1,
          header_decode_two_bytes_passive/0,
@@ -124,6 +126,8 @@
          packet_wait_active/1,
          packet_size_active/0,
          packet_size_active/1,
+         packet_size_active_setoptsgetopts/0,
+         packet_size_active_setoptsgetopts/1,
          packet_switch/0,
          packet_switch/1,
          header_decode_one_byte_active/0,
@@ -176,13 +180,16 @@
 -export([send_raw/3,
          passive_raw/3,
          passive_recv_packet/3,
+         passive_recv_packet_size/3,
          send/3,
          send_incomplete/3,
+         send_incomplete_after_client/3,
          active_once_raw/4,
          active_once_packet/3,
          active_raw/3,
          active_once_raw/3,
          active_packet/3,
+         active_packet_size/3,
          assert_packet_opt/2,
          server_packet_decode/2,
          client_packet_decode/2,
@@ -282,6 +289,7 @@ socket_passive_packet_tests() ->
      packet_4_passive_some_big,
      packet_wait_passive,
      packet_size_passive,
+     packet_size_passive_setgetopts,
      %% inet header option should be deprecated!
      header_decode_one_byte_passive,
      header_decode_two_bytes_passive,
@@ -328,6 +336,7 @@ socket_active_packet_tests() ->
      packet_4_active_some_big,
      packet_wait_active,
      packet_size_active,
+     packet_size_active_setoptsgetopts,
      packet_switch,
      %% inet header option should be deprecated!
      header_decode_one_byte_active,
@@ -836,6 +845,44 @@ packet_size_active(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+packet_size_active_setoptsgetopts() ->
+    [{doc, "Test using packet_size with setopts and getopts. Note that we need to synchronization",
+      " with server as we want to test what happens to data sent after options changed at client side."
+      " just changing this kind of option without some kind of synchronization in active mode does not make sense." }].
+
+packet_size_active_setoptsgetopts(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = list_to_binary(lists:duplicate(100, "1234567890")),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+                                        %% Send data after client changed packet opts.
+					{mfa, {?MODULE, send_incomplete_after_client ,[Data, 1]}},
+					{options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, active_packet_size,
+					       [Data, 30]}},
+					{options, [{active, true},
+                                                   {packet, 4} |
+						   ClientOpts]}]),
+    receive
+	{Client, {ssl_error, _, {invalid_packet, _}}} ->
+            ok;
+	Unexpected ->
+	    ct:fail({unexpected, Unexpected})
+    end,
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 
 packet_size_passive() ->
@@ -849,15 +896,15 @@ packet_size_passive(Config) when is_list(Config) ->
 
     Data = list_to_binary(lists:duplicate(100, "1234567890")),
 
-    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
-					{from, self()}, 
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
 					{mfa, {?MODULE, send_incomplete ,[Data, 1]}},
 					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
-					{from, self()}, 
-					{mfa, {?MODULE, passive_recv_packet, 
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
 					       [Data, 1]}},
 					{options, [{active, false},
 						   {packet, 4}, {packet_size, 30} |
@@ -872,6 +919,40 @@ packet_size_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+
+%%--------------------------------------------------------------------
+packet_size_passive_setgetopts() ->
+    [{doc, "Test using packet_size with setopts and getopts"}].
+
+packet_size_passive_setgetopts(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = list_to_binary(lists:duplicate(100, "1234567890")),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, send_incomplete ,[Data, 1]}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, passive_recv_packet_size,
+					       [Data, 30]}},
+					{options, [{active, false},
+						   {packet, 4} |
+						   ClientOpts]}]),
+    receive
+	{Client, {error, {invalid_packet, _}}} ->
+            ok;
+	Unexpected ->
+	    ct:fail({unexpected, Unexpected})
+    end,
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 packet_switch() ->
@@ -2210,6 +2291,11 @@ passive_raw(Socket, Data, N) ->
     {ok, Data} = ssl:recv(Socket, Length),
     passive_raw(Socket, Data, N-1).
 
+passive_recv_packet_size(Socket, Data, Size) ->
+    ok = ssl:setopts(Socket, [{packet_size, Size}]),
+    {ok, [{packet_size, Size}]} = ssl:getopts(Socket, [packet_size]),
+    passive_recv_packet(Socket, Data, 1).
+
 passive_recv_packet(Socket, _, 0) ->
     case ssl:recv(Socket, 0) of
 	{ok, []} ->
@@ -2248,6 +2334,10 @@ send_incomplete(Socket, Data, N, Prev) ->
     <<Part1:42/binary, Rest/binary>> = Data,
     ssl:send(Socket, [Prev, ?uint32(Length), Part1]),
     send_incomplete(Socket, Data, N-1, Rest).
+
+send_incomplete_after_client(Socket, Data, N) ->
+    _ = ssl:recv(Socket, 0),
+    send_incomplete(Socket, Data, N).
 
 active_once_raw(Socket, Data, N) ->
     active_once_raw(Socket, Data, N, []).
@@ -2308,6 +2398,13 @@ active_packet(Socket, Data, N) ->
 	Other ->
 	    Other
     end.
+
+active_packet_size(Socket, Data, Size) ->
+    ok = ssl:setopts(Socket, [{packet_size, Size}]),
+    {ok, [{packet_size, Size}]} = ssl:getopts(Socket, [packet_size]),
+    ssl:send(Socket, "start"),
+    active_packet(Socket, Data, 1).
+
 
 assert_packet_opt(Socket, Type) ->
     {ok, [{packet, Type}]} = ssl:getopts(Socket, [packet]).
