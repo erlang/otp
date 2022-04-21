@@ -325,7 +325,7 @@ parse_file(Ifile, Options) ->
 	{ok,Epp,Extra} ->
 	    Forms = parse_file(Epp),
             Epp ! {get_features, self()},
-            Ftrs = receive X -> X end,
+            Ftrs = receive {features, X} -> X end,
 	    close(Epp),
 	    {ok, Forms, [{features, Ftrs} | Extra]};
 	{error,E} ->
@@ -725,7 +725,7 @@ wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
         {get_features, From} ->
-            From ! St#epp.features,
+            From ! {features, St#epp.features},
             wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
