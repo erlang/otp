@@ -85,7 +85,6 @@
 %%%====================================================================================
 
 -record(state, {sync_state = no_conf        :: sync_state(),
-		connect_all                 :: boolean(),
 		group_name = []             :: group_name() | [],
 		nodes = #{}                 :: #{node() => node_state()},
 		other_grps = [], 

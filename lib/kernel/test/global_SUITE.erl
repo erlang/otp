@@ -30,7 +30,7 @@
 	 ring/1, simple_ring/1, line/1, simple_line/1,
 	 global_lost_nodes/1, otp_1849/1,
 	 otp_3162/1, otp_5640/1, otp_5737/1,
-         otp_6931/1, 
+         connect_all_false/1, 
          simple_disconnect/1, 
          simple_resolve/1, simple_resolve2/1, simple_resolve3/1,
          leftover_name/1, re_register_name/1, name_exit/1, external_nodes/1,
@@ -77,7 +77,7 @@ all() ->
 	     advanced_partition, basic_name_partition,
 	     stress_partition, simple_ring, simple_line, ring, line,
 	     global_lost_nodes, otp_1849, otp_3162, otp_5640,
-	     otp_5737, otp_6931, simple_disconnect, simple_resolve,
+	     otp_5737, connect_all_false, simple_disconnect, simple_resolve,
 	     simple_resolve2, simple_resolve3, leftover_name,
 	     re_register_name, name_exit, external_nodes, many_nodes,
 	     sync_0, global_groups_change, register_1, both_known_1,
@@ -2067,10 +2067,18 @@ otp_5737(Config) when is_list(Config) ->
     init_condition(Config),
     ok.
 
-%% OTP-6931. Ignore nodeup when connect_all=false.
-otp_6931(Config) when is_list(Config) ->
+connect_all_false(Config) when is_list(Config) ->
+    %% OTP-6931. Ignore nodeup when connect_all=false.
+    connect_all_false_test("-connect_all false", Config),
+    %% OTP-17934: multipl -connect_all false and kernel parameter connect_all
+    connect_all_false_test("-connect_all false -connect_all false", Config),
+    connect_all_false_test("-kernel connect_all false", Config),
+    ok.
+
+connect_all_false_test(CAArg, Config) ->
     Me = self(),
     {ok, CAf} = start_non_connecting_node(ca_false, Config),
+    {ok, false} = rpc:call(CAf, application, get_env, [kernel, connect_all]),
     ok = rpc:call(CAf, error_logger, add_report_handler, [?MODULE, Me]),
     info = rpc:call(CAf, error_logger, warning_map, []),
     {global_name_server,CAf} ! {nodeup, fake_node, #{connection_id => 4711}},
