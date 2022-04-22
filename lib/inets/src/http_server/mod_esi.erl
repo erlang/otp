@@ -222,8 +222,15 @@ erl(#mod{method = "POST", entity_body = Body} = ModData, ESIBody, Modules) ->
 
 generate_webpage(ModData, ESIBody, [all], Module, FunctionName,
 		 Input, ScriptElements) ->
-    generate_webpage(ModData, ESIBody, [Module], Module,
-		     FunctionName, Input, ScriptElements);
+    try
+        ModuleAtom = list_to_existing_atom(Module),
+        generate_webpage(ModData, ESIBody, [ModuleAtom], Module,
+                         FunctionName, Input, ScriptElements)
+    catch
+        _:_ ->
+            {proceed, [{status, {404, ModData#mod.request_uri, "Not found"}}
+                      | ModData#mod.data]}
+    end;
 generate_webpage(ModData, ESIBody, Modules, Module, Function,
 		 Input, ScriptElements) when is_atom(Module), is_atom(Function) ->
     case lists:member(Module, Modules) of
