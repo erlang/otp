@@ -26,11 +26,79 @@
 %%
 %%
 -module(beam_bounds).
--export(['band'/2,'bor'/2,'bxor'/2]).
+-export(['+'/2, '-'/2, '*'/2, 'div'/2, 'rem'/2,
+         'band'/2, 'bor'/2, 'bxor'/2, 'bsr'/2, 'bsl'/2,
+         relop/3]).
 
 -type range() :: {integer(), integer()} | 'any'.
+-type range_result() :: range() | 'any'.
+-type relop() :: '<' | '=<' | '>' | '>='.
+-type bool_result() :: 'true' | 'false' | 'maybe'.
 
--spec 'band'(range(), range()) -> range().
+-spec '+'(range(), range()) -> range_result().
+
+'+'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
+                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
+    verify_range({A+C,B+D});
+'+'(_, _) ->
+    any.
+
+-spec '-'(range(), range()) -> range_result().
+
+'-'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
+                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
+    verify_range({A-D,B-C});
+'-'(_, _) ->
+    any.
+
+-spec '*'(range(), range()) -> range_result().
+
+'*'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
+                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
+    All = [X * Y || X <- [A,B], Y <- [C,D]],
+    Min = lists:min(All),
+    Max = lists:max(All),
+    verify_range({Min,Max});
+'*'(_, _) ->
+    any.
+
+-spec 'div'(range(), range()) -> range_result().
+
+'div'({A,B}, {C,D}) ->
+    Denominators = [min(C, D),max(C, D)|
+                    %% Handle zero crossing for the denominator.
+                    if
+                        C < 0, 0 < D -> [-1, 1];
+                        C =:= 0 -> [1];
+                        D =:= 0 -> [-1];
+                        true -> []
+                    end],
+    All = [X div Y || X <- [A,B],
+                      Y <- Denominators,
+                      Y =/= 0],
+    Min = lists:min(All),
+    Max = lists:max(All),
+    verify_range({Min,Max});
+'div'(_, _) ->
+    any.
+
+-spec 'rem'(range(), range()) -> range_result().
+
+'rem'({A,_}, {C,D}) when C > 0 ->
+    Max = D - 1,
+    Min = if
+              A >= 0 -> 0;
+              true -> -Max
+          end,
+    verify_range({Min,Max});
+'rem'(_, {C,D}) when C =/= 0; D =/= 0 ->
+    Max = max(abs(C), abs(D)) - 1,
+    Min = -Max,
+    verify_range({Min,Max});
+'rem'(_, _) ->
+    any.
+
+-spec 'band'(range(), range()) -> range_result().
 
 'band'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
     Min = min_band(A, B, C, D),
@@ -43,7 +111,7 @@
 'band'(_, _) ->
     any.
 
--spec 'bor'(range(), range()) -> range().
+-spec 'bor'(range(), range()) -> range_result().
 
 'bor'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
     Min = min_bor(A, B, C, D),
@@ -52,13 +120,47 @@
 'bor'(_, _) ->
     any.
 
--spec 'bxor'(range(), range()) -> range().
+-spec 'bxor'(range(), range()) -> range_result().
 
 'bxor'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
     Max = max_bxor(A, B, C, D),
     {0,Max};
 'bxor'(_, _) ->
     any.
+
+-spec 'bsr'(range(), range()) -> range_result().
+
+'bsr'({A,B}, {C,D}) when C >= 0 ->
+    Min = min(A bsr C, A bsr D),
+    Max = max(B bsr C, B bsr D),
+    {Min,Max};
+'bsr'(_, _) ->
+    any.
+
+-spec 'bsl'(range(), range()) -> range_result().
+
+'bsl'({A,B}, {C,D}) when abs(B) bsr 128 =:= 0, C >= 0, D < 128 ->
+    Min = min(A bsl C, A bsl D),
+    Max = max(B bsl C, B bsl D),
+    {Min,Max};
+'bsl'(_, _) ->
+    any.
+
+-spec relop(relop(), range(), range()) -> bool_result().
+
+relop(Op, {A,B}, {C,D}) ->
+    case {erlang:Op(B, C),erlang:Op(A, D)} of
+        {Bool,Bool} -> Bool;
+        {_,_} -> 'maybe'
+    end;
+relop(_, _, _) ->
+    'maybe'.
+
+%%%
+%%% Internal functions.
+%%%
+
+verify_range({Min,Max}=T) when Min =< Max -> T.
 
 min_band(A, B, C, D) ->
     M = 1 bsl (upper_bit(A bor C) + 1),

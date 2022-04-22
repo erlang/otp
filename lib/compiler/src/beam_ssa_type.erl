@@ -32,7 +32,7 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [any/2,duplicate/2,foldl/3,member/2,
+-import(lists, [duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
@@ -1092,18 +1092,6 @@ simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
         _ ->
             I
     end;
-simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
-  when is_integer(Arity), Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
-    case normalized_type(Fun, Ts) of
-        #t_fun{arity=any} ->
-            I;
-        #t_fun{arity=Arity} ->
-            #b_literal{val=true};
-        any ->
-            I;
-        _ ->
-            #b_literal{val=false}
-    end;
 simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts) ->
     case normalized_type(Map, Ts) of
         #t_map{} ->
@@ -1615,7 +1603,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
         true ->
             case make_literal_list(Args) of
                 none ->
-                    eval_type_test_bif(I, Bif, concrete_types(Args, Ts));
+                    eval_bif_1(I, Bif, concrete_types(Args, Ts));
                 LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
@@ -1626,53 +1614,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
             end
     end.
 
-eval_type_test_bif(I, is_atom, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_atom{});
-eval_type_test_bif(I, is_binary, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_bs_matchable{tail_unit=8});
-eval_type_test_bif(I, is_bitstring, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_bs_matchable{});
-eval_type_test_bif(I, is_boolean, [Type]) ->
-    case beam_types:is_boolean_type(Type) of
-        true ->
-            #b_literal{val=true};
-        false ->
-            case beam_types:meet(Type, #t_atom{}) of
-                #t_atom{elements=[_|_]=Es} ->
-                    case any(fun is_boolean/1, Es) of
-                        true -> I;
-                        false -> #b_literal{val=false}
-                    end;
-                #t_atom{} ->
-                    I;
-                none ->
-                    #b_literal{val=false}
-            end
-    end;
-eval_type_test_bif(I, is_float, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_float{});
-eval_type_test_bif(I, is_function, [Type, #t_integer{elements={Arity,Arity}}])
-  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
-    eval_type_test_bif_1(I, Type, #t_fun{arity=Arity});
-eval_type_test_bif(I, is_function, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_fun{});
-eval_type_test_bif(I, is_integer, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_integer{});
-eval_type_test_bif(I, is_list, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_list{});
-eval_type_test_bif(I, is_map, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_map{});
-eval_type_test_bif(I, is_number, [Type]) ->
-    eval_type_test_bif_1(I, Type, number);
-eval_type_test_bif(I, is_pid, [Type]) ->
-    eval_type_test_bif_1(I, Type, pid);
-eval_type_test_bif(I, is_port, [Type]) ->
-    eval_type_test_bif_1(I, Type, port);
-eval_type_test_bif(I, is_reference, [Type]) ->
-    eval_type_test_bif_1(I, Type, reference);
-eval_type_test_bif(I, is_tuple, [Type]) ->
-    eval_type_test_bif_1(I, Type, #t_tuple{});
-eval_type_test_bif(I, Op, Types) ->
+eval_bif_1(I, Op, Types) ->
     case Types of
         [#t_integer{},#t_integer{elements={0,0}}] when Op =:= 'bor'; Op =:= 'bxor' ->
             #b_set{args=[Result,_]} = I,
@@ -1695,34 +1637,8 @@ eval_type_test_bif(I, Op, Types) ->
                 false ->
                     I
             end;
-        [#t_integer{elements={LMin,LMax}},#t_integer{elements={RMin,RMax}}] ->
-            case is_inequality_op(Op) of
-                true ->
-                    case {erlang:Op(LMin, RMin),erlang:Op(LMax, RMin),
-                          erlang:Op(LMin, RMax),erlang:Op(LMax, RMax)} of
-                        {Bool,Bool,Bool,Bool} ->
-                            #b_literal{val=Bool};
-                        _ ->
-                            I
-                    end;
-                false ->
-                    I
-            end;
         _ ->
             I
-    end.
-
-is_inequality_op('<') -> true;
-is_inequality_op('=<') -> true;
-is_inequality_op('>') -> true;
-is_inequality_op('>=') -> true;
-is_inequality_op(_) -> false.
-
-eval_type_test_bif_1(I, ArgType, Required) ->
-    case beam_types:meet(ArgType, Required) of
-        ArgType -> #b_literal{val=true};
-        none -> #b_literal{val=false};
-        _ -> I
     end.
 
 simplify_args(Args, Ts, Sub) ->
