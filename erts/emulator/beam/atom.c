@@ -347,7 +347,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 Eterm
 erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 {
-    int aix = erts_atom_put_index(name, len, enc, trunc);
+    Sint aix = erts_atom_put_index(name, len, enc, trunc);
     if (aix >= 0)
 	return make_atom(aix);
     else
