@@ -41,47 +41,53 @@
   'tlsv1.3')</c> </seemfa>.  The available cipher suites for a
   connection depend on the TLS version and pre TLS-1.3 also on the
   certificate. To see the default cipher suite list change <c>all</c>
-  to <c>default</c>.  Note that TLS 1.3 and previous versions does not
+  to <c>default</c>.  Note that TLS 1.3 and previous versions do not
   have any cipher suites in common, for listing cipher suites for a
   specific version use <seemfa
   marker="ssl:ssl#cipher_suites/2"><c>ssl:cipher_suites(exclusive,
   'tlsv1.3')</c> </seemfa>.  Specific cipher suites that you want your
   connection to use can also be specified. Default is to use the
   strongest available.</p>
-  
+
+
+  <p>The following sections shows small examples of how to set up
+  client/server connections using the Erlang shell. The returned
+  value of the <c>sslsocket</c> is abbreviated with <c>[...]</c> as
+  it can be fairly large and is opaque to the user except for the
+  purpose of pattern matching.</p>
+
+
+  <note><p>Note that client certificate verification is optional for the server and needs additional conguration
+  on both sides to work. The Certificate and keys, in the examples, are provided using the <seetype marker="ssl:ssl#certs_keys">certs_keys</seetype> option
+  introduced in OTP-25.
+  </p>
+  </note>
+
   <section>
-    <title>Setting up Connections</title>
-    
-    <p>This section shows a small example of how to set up
-    client/server connections using the Erlang shell. The returned
-    value of the <c>sslsocket</c> is abbreviated with <c>[...]</c> as
-    it can be fairly large and is opaque.</p>
-    
-    <section>
-      <title>Minimal Example</title>
-      
-      <note><p> The minimal setup is not the most secure setup of TLS/DTLS.</p>    
-      </note>
+    <title>Basic Client</title>
+    <code type="erl"> 1 > ssl:start(), ssl:connect("google.com", 443, [{verify, verify_peer},
+    {cacerts, public_key:cacerts_get()}]).
+   {ok,{sslsocket, [...]}}</code>
+  </section>
 
-      <p>To set up client/server connections:</p>
+  <section>
+    <title>Basic Connection</title>
 
-      <p><em>Step 1:</em> Start the server side:</p>
-      <code type="erl">1 server> ssl:start().
+    <p><em>Step 1:</em> Start the server side:</p>
+    <code type="erl">1 server> ssl:start().
 ok</code>
-      
-      <p><em>Step 2:</em> Create a TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
-      <code type="erl">2 server> {ok, ListenSocket} =
-ssl:listen(9999, [{certfile, "cert.pem"},
-                  {keyfile, "key.pem"},
-                  {reuseaddr, true}]).
-{ok,{sslsocket, [...]}}</code>
 
-
-      <p><em>Step 2: From OTP-25 it is equivalent to</em> </p>
+     <p><em>Step 2:</em> with alternative certificates,
+    in this example the EDDSA certificate will be preferred if TLS-1.3
+    is negotiated and the RSA certificate will always be used for TLS-1.2
+    as it does not support the EDDSA algorithm: </p>
       <code type="erl">2 server> {ok, ListenSocket} =
-ssl:listen(9999, [{certs_keys, [#{certfile => "cert.pem",
-                                  keyfile => "key.pem"}],
-                  {reuseaddr, true}]).
+ssl:listen(9999, [{certs_keys, [#{certfile => "eddsacert.pem",
+                                  keyfile => "eddsakey.pem"},
+			        #{certfile => "rsacert.pem",
+                                  keyfile => "rsakey.pem",
+			          password => "foobar"}
+			       ]},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
 
       
@@ -98,8 +104,10 @@ connection</p>
       <p><em>Step 4:</em> Start the client side: </p>
       <code type="erl">1 client> ssl:start().
 ok</code>
-      <p> To run DTLS add the option {protocol, dtls} to third argument.</p>
-      <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,  [], infinity).
+      <p> Be sure to configure trusted certificates to use for server certificate verification.</p>
+      <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,
+      [{verify, verify_peer},
+      {cacertfile, "cacerts.pem"}, {active, once}], infinity).
 {ok,{sslsocket, [...]}}</code>
       
       <p><em>Step 5:</em> Do the TLS handshake:</p>
@@ -115,78 +123,83 @@ to avoid DoS attacks. In the example the timeout defaults to infinty.</p>
 ok</code>
       
       <p><em>Step 7:</em> Flush the shell message queue to see that the message
-      was sent on the server side:</p>
+      sent on the server side is recived by the client side:</p>
       <code type="erl">3 client> flush().
 Shell got {ssl,{sslsocket,[...]},"foo"}
 ok</code>
-    </section>
-    
-    <section>
-      <title>Upgrade Example - TLS only </title>
-      
-      <note><p>To upgrade a TCP/IP connection to a TLS connection, the
-      client and server must agree to do so. The agreement
-      can be accomplished by using a protocol, for example, the one used by HTTP
-      specified in RFC 2817.</p></note>
+  </section>
 
-      <p>To upgrade to a TLS connection:</p>
-      
-      <p><em>Step 1:</em> Start the server side:</p>
-      <code type="erl">1 server> ssl:start().
-ok</code>
-      
-      <p><em>Step 2:</em> Create a normal TCP listen socket:</p>
-      <code type="erl">2 server> {ok, ListenSocket} = gen_tcp:listen(9999, [{reuseaddr, true}]).
-{ok, #Port&lt;0.475&gt;}</code>
-      
-      <p><em>Step 3:</em> Accept client connection:</p>
-      <code type="erl">3 server> {ok, Socket} = gen_tcp:accept(ListenSocket).
-{ok, #Port&lt;0.476&gt;}</code>
-      
-      <p><em>Step 4:</em> Start the client side:</p>
-      <code type="erl">1 client> ssl:start().
-ok</code>
-      
-      <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
-      
-      <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c>
-      before trying to upgrade a connection to a TLS connection,
-      otherwise TLS handshake messages can be delivered to the wrong
-      process:</p>
 
-      <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
-ok</code>
+  <section>
+  <title>Upgrade Example - TLS only</title>
+
+  <p>Upgrading a a TCP/IP connection to a TLS connections is mostly
+  used when there is a desire have unencrypted communication first and
+  then later secure the communication channel by using TLS. Note that
+  the client and server need to agree to do the upgrade in the
+  protocol doing the communication. This is concept is often
+  referenced as <c>STARTLS</c> and used in many protocols such as
+  <c>SMTP</c>, <c>FTPS</c> and <c>HTTPS</c> via a proxy.
+  </p>
+
+  <warning><p>Maximum security recommendations are however moving away from such solutions.</p></warning>
       
-      <p><em>Step 6:</em> Do the TLS handshake:</p>
-      <code type="erl">5 server> {ok, TLSSocket} = ssl:handshake(Socket, [{cacertfile, "cacerts.pem"},
-{certfile, "cert.pem"}, {keyfile, "key.pem"}]).
+  <p>To upgrade to a TLS connection:</p>
+
+  <p><em>Step 1:</em> Start the server side:</p>
+  <code type="erl">1 server> ssl:start().
+  ok</code>
+
+  <p><em>Step 2:</em> Create a normal TCP listen socket and ensure
+  <c>active</c> is set to <c>false</c> and not set to any active mode
+  otherwise TLS handshake messages can be delivered to the
+  wrong process.
+  </p>
+  <code type="erl">2 server> {ok, ListenSocket} = gen_tcp:listen(9999, [{reuseaddr, true},
+  {active, false}]).
+  {ok, #Port&lt;0.475&gt;}</code>
+
+  <p><em>Step 3:</em> Accept client connection:</p>
+  <code type="erl">3 server> {ok, Socket} = gen_tcp:accept(ListenSocket).
+  {ok, #Port&lt;0.476&gt;}</code>
+
+  <p><em>Step 4:</em> Start the client side:</p>
+  <code type="erl">1 client> ssl:start().
+  ok</code>
+
+  <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
+
+  <p><em>Step 5:</em> Do the TLS handshake:</p>
+  <code type="erl">4 server> {ok, TLSSocket} = ssl:handshake(Socket, [{verify, verify_peer},
+  {fail_if_no_peer_cert, true},
+  {cacertfile, "cacerts.pem"},
+  {certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]}]).
+  {ok,{sslsocket,[...]}}</code>
+      
+  <p><em>Step 6:</em> Upgrade to a TLS connection. The client and
+  server must agree upon the upgrade. The server must be prepared to be a TLS server before the client
+  can do a successful connect.</p>
+
+  <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{verify, verify_peer},
+  {cacertfile, "cacerts.pem"},
+  {certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]}], infinity).
 {ok,{sslsocket,[...]}}</code>
-      
-      <p><em>Step 7:</em> Upgrade to a TLS connection. The client and
-      server must agree upon the upgrade. The server must call
-      <c>ssl:handshake/2</c> before the client calls
-      <c>ssl:connect/3.</c></p>
 
-      <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
-{certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
-{ok,{sslsocket,[...]}}</code>
-      
-      <p><em>Step 8:</em> Send a message over TLS:</p>
+      <p><em>Step 7:</em> Send a message over TLS:</p>
       <code type="erl">4 client> ssl:send(TLSSocket, "foo").
-ok</code>
+      ok</code>
       
-      <p><em>Step 9:</em> Set <c>active true</c> on the TLS socket:</p>
-      <code type="erl">4 server> ssl:setopts(TLSSocket, [{active, true}]).
-ok</code>
+      <p><em>Step 8:</em> Set <c>active once</c> on the TLS socket:</p>
+      <code type="erl">5 server> ssl:setopts(TLSSocket, [{active, once}]).
+      ok</code>
       
-      <p><em>Step 10:</em> Flush the shell message queue to see that
-      the message was sent on the client side:</p>
+      <p><em>Step 9:</em> Flush the shell message queue to see that
+      the message sent on the client side is recived by the server side:</p>
 
       <code type="erl">5 server> flush().
-Shell got {ssl,{sslsocket,[...]},"foo"}
-ok</code>
-    </section>
-  </section>
+      Shell got {ssl,{sslsocket,[...]},"foo"}
+      ok</code>
+</section>
 
   <section>
     <title>Customizing cipher suites</title>
@@ -265,17 +278,17 @@ crypto:engine_load(&lt;&lt;"dynamic">>,
     <code type="erl">4> {ok, SSLSocket} =
 ssl:connect("localhost", 9999,
             [{cacertfile, "cacerts.pem"},
-             {certfile, "cert.pem"},
-             {key, PrivKey}], infinity).
+	    {certs_keys, [#{certfile => "cert.pem", key => PrivKey}]}
+	    ], infinity).
     </code>
 
     <p>See also <seeguide marker="crypto:engine_load#engine_load"> crypto documentation</seeguide> </p>
     
   </section>
 
-
   <section>
     <title>Session Reuse pre TLS 1.3</title>
+
     <p>Clients can request to reuse a session established by a
     previous full handshake between that client and server by sending
     the id of the session in the initial handshake message. The server
@@ -477,41 +490,15 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
     <p>An example with automatic and manual session resumption:</p>
 
-
-   <p><em>Step 1 (server):</em> Start the server: Note that from OTP-25 the
-   options certfile and keyfile can be replaced by
-   [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]}]</p>
-
     <code type="erl">
       {ok, _} = application:ensure_all_started(ssl).
-      LOpts = [{certfile, "cert.pem"},
-               {keyfile, "key.pem"},
+      LOpts = [{certs_keys, [#{certfile => "cert.pem",
+                               keyfile => "key.pem"}]},
                {versions, ['tlsv1.2','tlsv1.3']},
                {session_tickets, stateless}].
       {ok, LSock} = ssl:listen(8001, LOpts).
       {ok, CSock} = ssl:transport_accept(LSock).
     </code>
-
-
-    <p><em>Step 1 (server):</em> with alternative certificates,
-    in this example the EDDSA certificate will be preferred if TLS-1.3
-    is negotiated and the RSA certificate will always be used for TLS-1.2
-    as it does not support the EDDSA algorithm: Added in OTP-25</p>
-
-    <code type="erl">
-      {ok, _} = application:ensure_all_started(ssl).
-      LOpts = [{certs_keys, [#{certfile => "eddsacert.pem",
-                               keyfile => "eddsakey.pem"},
-			     #{certfile => "rsacert.pem",
-                               keyfile => "rsakey.pem",
-			       password => "foobar"}
-			       ]}],
-               {versions, ['tlsv1.2','tlsv1.3']},
-               {session_tickets, stateless}].
-      {ok, LSock} = ssl:listen(8001, LOpts).
-      {ok, CSock} = ssl:transport_accept(LSock).
-    </code>
-
 
     <p><em>Step 2 (client):</em> Start the client and connect to server:</p>
     <code type="erl">
@@ -623,7 +610,8 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
     <code type="erl">
       ssl:handshake(CSock3).
     </code>
-  </section>
+</section>
+
 
   <section>
     <title>Early Data in TLS 1.3</title>
@@ -656,14 +644,13 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
         application:load(ssl),
         {ok, _} = application:ensure_all_started(ssl),
         Port = 11029,
-        LOpts = [{certfile, ?SERVER_CERT},
-             {keyfile, ?SERVER_KEY},
-             {reuseaddr, true},
-             {versions, ['tlsv1.2','tlsv1.3']},
-             {session_tickets, stateless},
-             {early_data, enabled},
-             {keep_secrets, true} %% Enable NSS key log (debug option)
-            ],
+        LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
+        {reuseaddr, true},
+        {versions, ['tlsv1.2','tlsv1.3']},
+        {session_tickets, stateless},
+        {early_data, enabled},
+        {keep_secrets, true} %% Enable NSS key log (debug option)
+        ],
         {ok, LSock} = ssl:listen(Port, LOpts),
         %% Accept first connection
         {ok, CSock0} = ssl:transport_accept(LSock),
@@ -686,7 +673,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 	{ok, _} = application:ensure_all_started(ssl),
 	Port = 11029,
 	Data = &lt;&lt;"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n"&gt;&gt;,
-	COpts0 = [{cacertfile, ?CA_CERT},
+	COpts0 = [{cacertfile, "cacerts.pem"},
 	          {versions, ['tlsv1.2', 'tlsv1.3']},
 	          {session_tickets, auto}],
         {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
@@ -698,7 +685,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 	ssl:close(Sock0),
 
         %% Second handshake 0-RTT
-	COpts1 = [{cacertfile, ?CA_CERT},
+	COpts1 = [{cacertfile,  "cacerts.pem"},
 	          {versions, ['tlsv1.2', 'tlsv1.3']},
 		  {session_tickets, auto},
 		  {early_data, Data}],
@@ -713,7 +700,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 	{ok, _} = application:ensure_all_started(ssl),
 	Port = 11029,
 	Data = &lt;&lt;"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n"&gt;&gt;,
-	COpts0 = [{cacertfile, ?CA_CERT},
+	COpts0 = [{cacertfile, "cacerts.pem"},
 	          {versions, ['tlsv1.2', 'tlsv1.3']},
 	          {session_tickets, manual}],
         {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
@@ -730,7 +717,7 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
        ssl:close(Sock0),
 
        %% Second handshake 0-RTT
-       COpts1 = [{cacertfile, ?CA_CERT},
+       COpts1 = [{cacertfile, "cacerts.pem"},
                  {versions, ['tlsv1.2', 'tlsv1.3']},
 		 {session_tickets, manual},
 		 {use_ticket, [Ticket]},
@@ -798,4 +785,14 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
     </list>
 
   </section>
+
+  <section>
+    <title>Using DTLS</title>
+
+ <p> Using DTLS has basically the same API as TLS. You need to add the option {protocol, dtls} to the connect and listen functions. For example</p>
+
+ <code type="erl"> client> {ok, Socket} = ssl:connect("localhost", 9999, [{protocol, dtls},
+{verify, verify_peer},{cacertfile, "cacerts.pem"}], infinity).
+{ok,{sslsocket, [...]}}</code> 
+ </section>
  </chapter>
