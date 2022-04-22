@@ -12,7 +12,7 @@ case "$1" in
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
-        BASE="ubuntu"
+        BASE="ubuntu:20.04"
         BASE_TYPE=ubuntu-base
         ;;
 esac
