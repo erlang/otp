@@ -771,8 +771,14 @@ run_tick_change_test(DCfg, B, C, PrevTT, TT) ->
 hidden_node(Config) when is_list(Config) ->
     run_dist_configs(fun hidden_node/2, Config).
 
-hidden_node(DCfg, _Config) ->
-    HArgs = "-hidden",
+hidden_node(DCfg, Config) ->
+    hidden_node(DCfg, "-hidden", Config),
+    hidden_node(DCfg, "-hidden -hidden", Config),
+    hidden_node(DCfg, "-hidden true -hidden true", Config),
+    ok.
+
+hidden_node(DCfg, HArgs, _Config) ->
+    ct:pal("--- Hidden argument(s): ~s~n", [HArgs]),
     {ok, V} = start_node(DCfg, visible_node),
     VMN = start_monitor_nodes_proc(V),
     {ok, H} = start_node(DCfg, hidden_node, HArgs),

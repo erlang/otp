@@ -546,23 +546,35 @@ init([]) ->
                  no_trace
          end,
 
-    Ca = case init:get_argument(connect_all) of
-             {ok, [["false"]]} ->
-                 false;
-             _ ->
-                 true
+    Ca = case application:get_env(kernel, connect_all) of
+             {ok, CaBool} when is_boolean(CaBool) ->
+                 CaBool;
+             {ok, CaInvalid} ->
+                 error({invalid_parameter_value, connect_all, CaInvalid});
+             undefined ->
+                 CaBool = case init:get_argument(connect_all) of
+                              {ok, [["false" | _] | _]} ->
+                                  false;
+                              _ ->
+                                  true
+                          end,
+                 ok = application:set_env(kernel, connect_all, CaBool,
+                                          [{timeout, infinity}]),
+                 CaBool
          end,
+
     POP = case application:get_env(kernel,
                                    prevent_overlapping_partitions) of
-              {ok, Bool} when Bool == true; Bool == false ->
-                  Bool;
-              {ok, Invalid} ->
+              {ok, PopBool} when is_boolean(PopBool) ->
+                  PopBool;
+              {ok, PopInvalid} ->
                   error({invalid_parameter_value,
                          prevent_overlapping_partitions,
-                         Invalid});
+                         PopInvalid});
               undefined ->
                   false
           end,
+
     S = #state{the_locker = start_the_locker(DoTrace),
                known = Known,
                trace = T0,

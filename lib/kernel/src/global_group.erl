@@ -87,7 +87,6 @@
 %%%====================================================================================
 
 -record(state, {sync_state = no_conf        :: sync_state(),
-		connect_all                 :: boolean(),
 		group_name = []             :: group_name() | [],
 		nodes = #{}                 :: #{node() => node_state()},
 		other_grps = [], 
@@ -1626,9 +1625,9 @@ get_own_nodes(#gconf{group_list = Nodes}) ->
 %%%====================================================================================
 publish_arg() ->
     case init:get_argument(hidden) of
-	{ok,[[]]} ->
+	{ok,[[] | _]} ->
 	    hidden;
-	{ok,[["true"]]} ->
+	{ok,[["true" | _] | _]} ->
 	    hidden;
 	_ ->
 	    normal
