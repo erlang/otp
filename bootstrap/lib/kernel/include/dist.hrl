@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,11 +75,9 @@
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...
 
+-define(ERL_DIST_VER_6, 6).  % OTP-23 at least
 
--define(ERL_DIST_VER_5, 5).  % OTP-22 or (much) older
--define(ERL_DIST_VER_6, 6).  % OTP-23 (or maybe newer?)
-
--define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_5).
+-define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_6).
 -define(ERL_DIST_VER_HIGH, ?ERL_DIST_VER_6).
 
 %%%
