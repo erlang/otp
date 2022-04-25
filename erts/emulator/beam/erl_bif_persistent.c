@@ -136,7 +136,7 @@ typedef struct {
     HashTable* old_table;
     HashTable* new_table;
     Uint entry_index;
-    Eterm old_term;
+    Eterm old_bucket;
     HashTable* tmp_table;
     int must_shrink;
     ErtsPersistentTermCpyTableCtx cpy_ctx;
@@ -147,7 +147,7 @@ typedef struct {
  */
 
 static HashTable* create_initial_table(void);
-static Uint lookup(HashTable* hash_table, Eterm key);
+static Uint lookup(HashTable* hash_table, Eterm key, Eterm *bucket);
 static int is_erasable(HashTable* hash_table, Uint idx);
 static HashTable* copy_table(ErtsPersistentTermCpyTableCtx* ctx);
 static int try_seize_update_permission(Process* c_p);
@@ -307,6 +307,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     static const Uint ITERATIONS_PER_RED = 32;
     ErtsPersistentTermPut2Context* ctx;
     Eterm state_mref = THE_NON_VALUE;
+    Eterm old_bucket;
     long iterations_until_trap;
     long max_iterations;
 #define PUT_TRAP_CODE                                                   \
@@ -359,14 +360,14 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     ctx->key = BIF_ARG_1;
     ctx->term = BIF_ARG_2;
 
-    ctx->entry_index = lookup(ctx->hash_table, ctx->key);
+    ctx->entry_index = lookup(ctx->hash_table, ctx->key, &old_bucket);
 
     ctx->heap[0] = make_arityval(2);
     ctx->heap[1] = ctx->key;
     ctx->heap[2] = ctx->term;
     ctx->tuple = make_tuple(ctx->heap);
 
-    if (is_nil(get_bucket(ctx->hash_table, ctx->entry_index))) {
+    if (is_nil(old_bucket)) {
         if (MUST_GROW(ctx->hash_table)) {
             Uint new_size = ctx->hash_table->allocated * 2;
             TRAPPING_COPY_TABLE_PUT(ctx->hash_table,
@@ -374,15 +375,17 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
                                     new_size,
                                     ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
                                     PUT2_TRAP_LOCATION_NEW_KEY);
-            ctx->entry_index = lookup(ctx->hash_table, ctx->key);
+            ctx->entry_index = lookup(ctx->hash_table,
+                                      ctx->key,
+                                      &old_bucket);
         }
         ctx->hash_table->num_entries++;
     } else {
-        Eterm tuple = get_bucket(ctx->hash_table, ctx->entry_index);
         Eterm old_term;
 
-        ASSERT(is_tuple_arity(tuple, 2));
-        old_term = boxed_val(tuple)[2];
+        ASSERT(is_tuple_arity(old_bucket, 2));
+        old_term = boxed_val(old_bucket)[2];
+
         if (EQ(ctx->term, old_term)) {
             /* Same value. No need to update anything. */
             release_update_permission(0);
@@ -475,15 +478,15 @@ BIF_RETTYPE persistent_term_get_1(BIF_ALIST_1)
 {
     Eterm key = BIF_ARG_1;
     HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
-    Uint entry_index;
-    Eterm term;
+    Eterm bucket;
 
-    entry_index = lookup(hash_table, key);
-    term = get_bucket(hash_table, entry_index);
-    if (is_boxed(term)) {
-        ASSERT(is_tuple_arity(term, 2));
-        BIF_RET(tuple_val(term)[2]);
+    (void)lookup(hash_table, key, &bucket);
+
+    if (is_boxed(bucket)) {
+        ASSERT(is_tuple_arity(bucket, 2));
+        BIF_RET(tuple_val(bucket)[2]);
     }
+
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -492,15 +495,15 @@ BIF_RETTYPE persistent_term_get_2(BIF_ALIST_2)
     Eterm key = BIF_ARG_1;
     Eterm result = BIF_ARG_2;
     HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
-    Uint entry_index;
-    Eterm term;
+    Eterm bucket;
 
-    entry_index = lookup(hash_table, key);
-    term = get_bucket(hash_table, entry_index);
-    if (is_boxed(term)) {
-        ASSERT(is_tuple_arity(term, 2));
-        result = tuple_val(term)[2];
+    (void)lookup(hash_table, key, &bucket);
+
+    if (is_boxed(bucket)) {
+        ASSERT(is_tuple_arity(bucket, 2));
+        result = tuple_val(bucket)[2];
     }
+
     BIF_RET(result);
 }
 
@@ -578,9 +581,9 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
 
     ctx->key = BIF_ARG_1;
     ctx->old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
-    ctx->entry_index = lookup(ctx->old_table, ctx->key);
-    ctx->old_term = get_bucket(ctx->old_table, ctx->entry_index);
-    if (is_boxed(ctx->old_term)) {
+    ctx->entry_index = lookup(ctx->old_table, ctx->key, &ctx->old_bucket);
+
+    if (is_boxed(ctx->old_bucket)) {
         ctx->must_shrink = MUST_SHRINK(ctx->old_table);
         if (!ctx->must_shrink && is_erasable(ctx->old_table, ctx->entry_index)) {
             /*
@@ -607,7 +610,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
              * temporary table copy of the same size as the old one.
              */
 
-            ASSERT(is_tuple_arity(ctx->old_term, 2));
+            ASSERT(is_tuple_arity(ctx->old_bucket, 2));
             TRAPPING_COPY_TABLE_ERASE(ctx->tmp_table,
                                       ctx->old_table,
                                       ctx->old_table->allocated,
@@ -650,7 +653,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
      * Key is not present. Nothing to do.
      */
 
-    ASSERT(is_nil(ctx->old_term));
+    ASSERT(is_nil(ctx->old_bucket));
     release_update_permission(0);
     BIF_RET(am_false);
 }
@@ -723,10 +726,10 @@ erts_init_persistent_dumping(void)
     erts_persistent_areas = (ErtsLiteralArea **) hash_table->term;
     area_p = erts_persistent_areas;
     for (i = 0; i < hash_table->allocated; i++) {
-        Eterm term = get_bucket(hash_table, i);
+        Eterm bucket = get_bucket(hash_table, i);
 
-        if (is_boxed(term)) {
-            *area_p++ = term_to_area(term);
+        if (is_boxed(bucket)) {
+            *area_p++ = term_to_area(bucket);
         }
     }
     erts_num_persistent_areas = area_p - erts_persistent_areas;
@@ -812,15 +815,15 @@ do_get_all(Process* c_p, TrapData* trap_data, Eterm res)
     i = 0;
     heap_size = (2 + 3) * remaining;
     while (remaining != 0) {
-        Eterm term;
+        Eterm bucket;
         ASSERT(idx < hash_table->allocated);
-        term = get_bucket(hash_table, idx);
-        if (is_tuple(term)) {
+        bucket = get_bucket(hash_table, idx);
+        if (is_tuple(bucket)) {
             Uint key_size;
             Eterm* tup_val;
 
-            ASSERT(is_tuple_arity(term, 2));
-            tup_val = tuple_val(term);
+            ASSERT(is_tuple_arity(bucket, 2));
+            tup_val = tuple_val(bucket);
             key_size = size_object(tup_val[1]);
             copy_data[i].key_size = key_size;
             copy_data[i].tuple_ptr = tup_val;
@@ -897,13 +900,17 @@ do_info(Process* c_p, TrapData* trap_data)
     remaining = trap_data->remaining < max_iter ? trap_data->remaining : max_iter;
     trap_data->remaining -= remaining;
     while (remaining != 0) {
-        if (is_boxed(get_bucket(hash_table, idx))) {
-            ErtsLiteralArea* area;
-            area = term_to_area(get_bucket(hash_table, idx));
+        Eterm bucket = get_bucket(hash_table, idx);
+
+        if (is_boxed(bucket)) {
+            ErtsLiteralArea* area = term_to_area(bucket);
+
             trap_data->memory += sizeof(ErtsLiteralArea) +
                 sizeof(Eterm) * (area->end - area->start - 1);
+
             remaining--;
         }
+
         idx++;
     }
     trap_data->idx = idx;
@@ -953,7 +960,7 @@ cleanup_trap_data(Binary *bp)
 }
 
 static Uint
-lookup(HashTable* hash_table, Eterm key)
+lookup(HashTable* hash_table, Eterm key, Eterm *bucket)
 {
     Uint mask = hash_table->mask;
     Uint32 idx = make_internal_hash(key, 0);
@@ -961,11 +968,15 @@ lookup(HashTable* hash_table, Eterm key)
 
     while (1) {
         term = get_bucket(hash_table, idx & mask);
-        if (is_nil(term) || EQ(key, (tuple_val(term))[1]))
-            break;
+
+        if (is_nil(term) || EQ(key, (tuple_val(term))[1])) {
+            *bucket = term;
+
+            return idx & mask;
+        }
+
         idx++;
     }
-    return idx & mask;
 }
 
 static int
@@ -1048,12 +1059,19 @@ copy_table(ErtsPersistentTermCpyTableCtx* ctx)
              i < MIN(ctx->iterations_done + ctx->max_iterations,
                      old_size);
              i++) {
-            Eterm term = get_bucket(ctx->old_table, i);
-            if (is_tuple(term)) {
-                Eterm key = tuple_val(term)[1];
-                Uint entry_index = lookup(ctx->new_table, key);
-                ASSERT(is_nil(get_bucket(ctx->new_table, entry_index)));
-                set_bucket(ctx->new_table, entry_index, term);
+            Eterm old_bucket = get_bucket(ctx->old_table, i);
+
+            if (is_tuple(old_bucket)) {
+                Eterm key, assert_empty_bucket;
+                Uint entry_index;
+
+                key = tuple_val(old_bucket)[1];
+                entry_index = lookup(ctx->new_table, key, &assert_empty_bucket);
+
+                ASSERT(is_nil(assert_empty_bucket));
+                (void)assert_empty_bucket;
+
+                set_bucket(ctx->new_table, entry_index, old_bucket);
             }
         }
         ctx->total_iterations_done += (i - ctx->iterations_done);
@@ -1118,7 +1136,7 @@ table_updater(void* data)
     old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
     new_table = (HashTable *) data;
     if (new_table == old_table) {
-        Eterm old_term = get_bucket(old_table, fast_update_index);
+        Eterm old_bucket = get_bucket(old_table, fast_update_index);
         ASSERT(is_value(fast_update_term));
         ASSERT(fast_update_index < old_table->allocated);
         set_bucket(old_table, fast_update_index, fast_update_term);
@@ -1126,11 +1144,11 @@ table_updater(void* data)
         fast_update_term = THE_NON_VALUE;
 #endif
 
-        if (is_not_nil(old_term))  {
+        if (is_not_nil(old_bucket))  {
             OldLiteral *olp = alloc_old_literal();
-            ASSERT(is_tuple_arity(old_term,2));
-            olp->term = old_term;
-            olp->area = term_to_area(old_term);
+            ASSERT(is_tuple_arity(old_bucket,2));
+            olp->term = old_bucket;
+            olp->area = term_to_area(old_bucket);
             olp->delete_op.type = DELETE_OP_TUPLE;
             olp->delete_op.is_scheduled = 1;
             append_to_delete_queue(&olp->delete_op);
@@ -1411,9 +1429,9 @@ static void debug_table_foreach_off_heap(HashTable *tbl,
     int i;
     
     for (i = 0; i < tbl->allocated; i++) {
-        Eterm term = get_bucket(tbl, i);
-        if (is_tuple_arity(term, 2)) {
-            debug_area_off_heap(term_to_area(term), func, arg);
+        Eterm bucket = get_bucket(tbl, i);
+        if (is_tuple_arity(bucket, 2)) {
+            debug_area_off_heap(term_to_area(bucket), func, arg);
         }
     }
 }

@@ -34,7 +34,8 @@
          error_info/1,
 	 whole_message/1,
          shared_magic_ref/1,
-	 non_message_signal/1]).
+	 non_message_signal/1,
+         get_put_colliding_bucket/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -57,7 +58,8 @@ all() ->
      error_info,
      whole_message,
      shared_magic_ref,
-     non_message_signal].
+     non_message_signal,
+     get_put_colliding_bucket].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1133,3 +1135,37 @@ recv_msg(Msg, N) ->
 
 tok_loop() ->
     tok_loop().
+
+%% GH-5908: `persistent_term:get/1,2` could race with `persistent_term:put/2`
+%% and return an unexpected value if `get/1,2` happened to _abort_ its lookup
+%% in the same bucket that `put/2` was writing to.
+get_put_colliding_bucket(_Config) ->
+    [[Key, CollidesWith | _] | _] = colliding_keys(),
+    false = persistent_term:erase(Key),
+
+    {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              Schedulers = erlang:system_info(schedulers),
+                              [spawn_link(fun() -> gpcb_reader(Key) end)
+                               || _ <- lists:seq(1, Schedulers - 1)],
+                              gpcb_updater(CollidesWith)
+                      end),
+
+    %% The race usually gets detected within a second or two, so we'll consider
+    %% the test passed if we can't reproduce it in 10 seconds.
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ct:fail(Reason)
+    after 10000 ->
+            exit(Pid, kill),
+            ok
+    end.
+
+gpcb_reader(Key) ->
+    expected = persistent_term:get(Key, expected),
+    gpcb_reader(Key).
+
+gpcb_updater(CollidesWith) ->
+    persistent_term:erase(CollidesWith),
+    persistent_term:put(CollidesWith, unexpected),
+    gpcb_updater(CollidesWith).
