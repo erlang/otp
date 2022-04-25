@@ -445,6 +445,10 @@ put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
 	{error,_,_} ->
 	    {stop,no_translation,
 	     {error,{no_translation, InEncoding, OutEncoding}},
+	     NewState};
+	{incomplete,_,_} ->
+	    {stop,no_translation,
+	     {error,{no_translation, InEncoding, OutEncoding}},
 	     NewState}
     end.
 
