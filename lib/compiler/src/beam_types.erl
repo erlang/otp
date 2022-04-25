@@ -23,7 +23,7 @@
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1]).
+-import(lists, [foldl/3, reverse/1, usort/1]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
@@ -837,7 +837,7 @@ glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
     end.
 
 glb_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
+    Keys = usort(maps:keys(Es1) ++ maps:keys(Es2)),
     glb_elements_1(Keys, Es1, Es2, #{}).
 
 glb_elements_1([Key | Keys], Es1, Es2, Acc) ->

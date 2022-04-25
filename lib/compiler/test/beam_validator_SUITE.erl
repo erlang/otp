@@ -39,7 +39,8 @@
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_succeed/1,
-         bs_saved_position_units/1,parent_container/1]).
+         bs_saved_position_units/1,parent_container/1,
+         container_performance/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -73,7 +74,8 @@ groups() ->
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
-       bs_saved_position_units,parent_container]}].
+       bs_saved_position_units,parent_container,
+       container_performance]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -996,6 +998,42 @@ pc_1(#pc{a=A}=R) ->
 
 pc_2(_R) ->
     ok.
+
+%% GH-5915: The following function took an incredibly long time to validate.
+container_performance(Config) ->
+    case Config of
+        ({b,_}) -> {k1};
+        ({a,{b,_}}) -> {k2};
+        ({a,{a,{b,_}}}) -> {k3};
+        ({a,{a,{a,{b,_}}}}) -> {k4};
+        ({a,{a,{a,{a,{b,_}}}}}) -> {k5};
+        ({a,{a,{a,{a,{a,{b,_}}}}}}) -> {k6};
+        ({a,{a,{a,{a,{a,{a,{b,_}}}}}}}) -> {k7};
+        ({a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}) -> {k8};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}) -> {k9};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}) -> {k10};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}) -> {k11};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}) -> {k12};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}) -> {k13};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}) -> {k14};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}) -> {k15};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}) -> {k16};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}) -> {k17};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}) -> {k18};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}) -> {k19};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}) -> {k20};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}) -> {k21};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}) -> {k22};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}) -> {k23};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}) -> {k24};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k25};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k26};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k27};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k28};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{b,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k29};
+        ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k30};
+        _ -> ok
+    end.
 
 id(I) ->
     I.
