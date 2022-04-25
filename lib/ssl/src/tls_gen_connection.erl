@@ -752,13 +752,13 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
                  connection_states = ConnectionStates}}.
 
 
-%% Pre TLS-1.3, on the client side, the connection state variable negotiated_version will initialy be
-%% the requested version. On the server side the the variable is intially undefined.
+%% Pre TLS-1.3, on the client side, the connection state variable `negotiated_version` will initially be
+%% the requested version. On the server side the same variable is initially undefined.
 %% When the client can support TLS-1.3 and one or more prior versions and we are waiting
 %% for the server hello (with or without a RetryRequest, that is in state hello or in state wait_sh),
-%% the "initial requested version" keeped in the connection state variable negotiated_version
+%% the "initial requested version" kept in the connection state variable negotiated_version
 %% (before the versions is actually negotiated) will always be the value of TLS-1.2 (which is a legacy
-%% filed in TLS-1.3 client hello and versions are negotiated with an hello extension), but when
+%% field in TLS-1.3 client hello). The versions are instead negotiated with an hello extension. When
 %% decoding the server_hello messages we want to go through TLS-1.3 decode functions to be able
 %% to handle TLS-1.3 extensions if TLS-1.3 will be the negotiated version.
 effective_version({3,3} , #{versions := [{3,4} = Version |_]}, client, StateName) when StateName == hello;
