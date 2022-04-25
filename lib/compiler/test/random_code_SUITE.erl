@@ -20,20 +20,18 @@
 
 -module(random_code_SUITE).
 
--export([all/0, suite/0, groups/0,
+-export([all/0, suite/0,
          init_per_suite/1, end_per_suite/1]).
 
 -export([compile/1]).
+
+-define(NUMTESTS, 1000).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [{group,property_tests}].
-
-groups() ->
-    [{property_tests,[parallel],
-      [compile]}].
+    [compile].
 
 init_per_suite(Config0) ->
     case ct_property_test:init_per_suite(Config0) of
@@ -52,6 +50,18 @@ init_per_suite(Config0) ->
 end_per_suite(Config) ->
     Config.
 
-compile(Config) ->
-    true = ct_property_test:quickcheck(compile_prop:compile(), Config),
+compile(_Config) ->
+    NumTests = case os:getenv("ERL_RANDOM_CODE_NUMTESTS") of
+                   false ->
+                       ?NUMTESTS;
+                   NumTests0 ->
+                       list_to_integer(NumTests0)
+               end,
+
+    %% Conservatively assume that we can run 10 tests each second.
+    TimeTrap = {seconds,60_000 + (NumTests+99) div 100},
+    ct:timetrap(TimeTrap),
+    io:format("~p tests\n", [NumTests]),
+    true = proper:quickcheck(compile_prop:compile(),
+                             [quiet,{numtests,NumTests}]),
     ok.
