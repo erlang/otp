@@ -39,7 +39,9 @@
 
       <p>The unit of measurement is memory words. There exists both a
       32-bit and a 64-bit implementation. A word is therefore 4 bytes or
-      8 bytes, respectively.</p>
+      8 bytes, respectively. The value for a running system can be
+      determined by calling <seeerl marker="erts:erlang#system_info_wordsize">
+      <c>erlang:system_info(wordsize)</c></seeerl>.</p>
     <table>
       <row>
         <cell><em>Data Type</em></cell>
