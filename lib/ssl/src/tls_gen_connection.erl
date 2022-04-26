@@ -399,7 +399,7 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
     try
 	%% Calculate the effective version that should be used when decoding an incoming handshake
 	%% message.
-	EffectiveVersion = effective_version(Version, Options, Role),
+	EffectiveVersion = effective_version(Version, Options, Role, StateName),
 	{Packets, Buf} = tls_handshake:get_tls_handshake(EffectiveVersion,Data,Buf0, Options),
 	State =
 	    State0#state{protocol_buffers =
@@ -752,19 +752,24 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
      State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
                  connection_states = ConnectionStates}}.
 
-%% Special version handling for TLS 1.3 clients:
-%% In the shared state 'init' negotiated_version is set to requested version and
-%% that is expected by the legacy part of the state machine. However, in order to
-%% be able to process new TLS 1.3 extensions, the effective version shall be set
-%% {3,4}.
-%% When highest supported version is {3,4} the negotiated version is set to {3,3}.
-effective_version({3,3} , #{versions := [Version|_]}, client) when Version >= {3,4} ->
+
+%% Pre TLS-1.3, on the client side, the connection state variable `negotiated_version` will initially be
+%% the requested version. On the server side the same variable is initially undefined.
+%% When the client can support TLS-1.3 and one or more prior versions and we are waiting
+%% for the server hello (with or without a RetryRequest, that is in state hello or in state wait_sh),
+%% the "initial requested version" kept in the connection state variable `negotiated_version`
+%% (before the versions is actually negotiated) will always be the value of TLS-1.2 (which is a legacy
+%% field in TLS-1.3 client hello). The versions are instead negotiated with an hello extension. When
+%% decoding the server_hello messages we want to go through TLS-1.3 decode functions to be able
+%% to handle TLS-1.3 extensions if TLS-1.3 will be the negotiated version.
+effective_version({3,3} , #{versions := [{3,4} = Version |_]}, client, StateName) when StateName == hello;
+                                                                                       StateName == wait_sh ->
     Version;
-%% Use highest supported version during startup (TLS server, all versions).
-effective_version(undefined, #{versions := [Version|_]}, _) ->
+%% When the `negotiated_version` variable is not yet set use the highest supported version.
+effective_version(undefined, #{versions := [Version|_]}, _, _) ->
     Version;
-%% Use negotiated version in all other cases.
-effective_version(Version, _, _) ->
+%% In all other cases use the version saved in the connection state variable `negotiated_version`
+effective_version(Version, _, _, _) ->
     Version.
 
 assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>, 
