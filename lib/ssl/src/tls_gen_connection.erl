@@ -764,7 +764,7 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
 effective_version({3,3} , #{versions := [{3,4} = Version |_]}, client, StateName) when StateName == hello;
                                                                                        StateName == wait_sh ->
     Version;
-%% When the negotiated_version variable is not yet set use the highest supported version.
+%% When the `negotiated_version` variable is not yet set use the highest supported version.
 effective_version(undefined, #{versions := [Version|_]}, _, _) ->
     Version;
 %% In all other cases use version saved in the connection state variable negotiated_version
