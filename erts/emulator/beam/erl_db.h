@@ -173,12 +173,15 @@ do {                                                                    \
 
 ERTS_GLB_INLINE void *erts_db_alloc(ErtsAlcType_t type,
 				    DbTable *tab,
-				    Uint size);
+				    Uint size) ERTS_ATTR_MALLOC_US(3);
 ERTS_GLB_INLINE void *erts_db_alloc_fnf(ErtsAlcType_t type,
 					DbTable *tab,
-					Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_nt(ErtsAlcType_t type, Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size);
+					Uint size) ERTS_ATTR_MALLOC_US(3);
+ERTS_GLB_INLINE void*
+erts_db_alloc_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
+
+ERTS_GLB_INLINE void*
+erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

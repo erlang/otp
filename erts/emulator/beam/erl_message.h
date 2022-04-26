@@ -514,9 +514,8 @@ Eterm erts_change_message_queue_management(Process *c_p, Eterm new_state);
 
 void erts_cleanup_messages(ErtsMessage *mp);
 
-void *erts_alloc_message_ref(void);
 void erts_free_message_ref(void *);
-
+void *erts_alloc_message_ref(void) ERTS_ATTR_MALLOC_D(erts_free_message_ref,1);
 
 ErtsMessage *erts_try_alloc_message_on_heap(Process *pp,
 					    erts_aint32_t *psp,
