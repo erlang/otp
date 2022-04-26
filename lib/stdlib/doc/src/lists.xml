@@ -1137,7 +1137,7 @@ splitwith(Pred, List) ->
         each element is kept.</p>
         <p><em>Examples:</em></p>
         <pre>
-> <input>lists:uniq(fun([3,3,1,2,1,2,3]).</input>
+> <input>lists:uniq([3,3,1,2,1,2,3]).</input>
 [3,1,2]
 > <input>lists:uniq([a, a, 1, b, 2, a, 3]).</input>
 [a, 1, b, 2, 3]</pre>
