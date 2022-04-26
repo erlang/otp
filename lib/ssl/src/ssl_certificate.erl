@@ -766,13 +766,6 @@ cert_subjects([Cert | Rest], Acc) ->
 cert_subjects(OTPCerts) ->
     cert_subjects(OTPCerts, []).
 
-decode_cert_auths(<<>>, Acc) ->
-    Acc;
-decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
-     NormAut = public_key:pkix_normalize_name(Auth),
-    decode_cert_auths(Rest, [NormAut | Acc]).
-
-cert_auth_member(ChainSubjects, EncCertAuths) ->
-    CertAuths = decode_cert_auths(EncCertAuths, []),
+cert_auth_member(ChainSubjects, CertAuths) ->
     CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),
     not sets:is_empty(CommonAuthorities).
