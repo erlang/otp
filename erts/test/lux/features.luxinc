@@ -68,11 +68,17 @@
 [endmacro]
 
 # Nifty way to compare that two lists have the same members
-# One drawback is that it os not easy to debug, i.e., see the actual
+# One drawback is that it is not easy to debug, i.e., see the actual
 # members.
 [macro same-members l1 l2]
-    !maps:from_keys($l1,foo) == maps:from_keys($l2,foo).
+    !{L1, L2} = {$l1, $l2}.
+    ?$ERLPROMPT
+    !maps:from_keys(L1,foo) == maps:from_keys(L2,foo).
     ?true
+    ?$ERLPROMPT
+    !f(L1).
+    ?$ERLPROMPT
+    !f(L2).
     ?$ERLPROMPT
 [endmacro]
 

@@ -196,7 +196,7 @@
     ??{error,not_allowed}
     ?$ERLPROMPT
 
-    !Fs = erl_features:features_used(f_maybe_ifn).
+    !Fs = erl_features:used(f_maybe_ifn).
     [invoke same-members Fs "[cond_expr,maps,while_expr,ifn_expr]"]
     !f(Fs).
     ?$ERLPROMPT
@@ -249,7 +249,7 @@
     ?$ERLPROMPT
 
     # Check which features were used during compilation
-    !Fs = erl_features:features_used(f_macros).
+    !Fs = erl_features:used(f_macros).
     ?$ERLPROMPT
     [invoke same-members Fs "[maps,cond_expr,ifn_expr]"]
     !f(Fs).
@@ -405,7 +405,7 @@
     [invoke ok]
 
 [shell erl]
-    !Fs = erl_features:features_used(foo).
+    !Fs = erl_features:used(foo).
     ?$ERLPROMPT
     [invoke same-members Fs "[unless_expr,ifn_expr,while_expr,cond_expr,maps,ifnot_expr]"]
     !f(Fs).
@@ -419,13 +419,31 @@
     [invoke ok]
 
 [shell erl]
-    !Fs = erl_features:features_used(foo).
+    !Fs = erl_features:used(foo).
     ?$ERLPROMPT
     !maps:from_keys([ifn_expr,while_expr,cond_expr,maps,ifnot_expr], foo) == maps:from_keys(Fs, foo).
     ?true
     ?$ERLPROMPT
     !f(Fs).
     ?$ERLPROMPT
+
+[shell cmds]
+    !erlc -list-features
+    ?cond_expr
+    ?ifn_expr
+    ?ifnot_expr
+    ?maps
+    ?unless_expr
+    ?while_expr
+    ?SH-PROMPT:
+
+    !erlc -describe-feature maps
+    ?Add new data type for maps
+    ?SH-PROMPT:
+
+    !erlc -describe-feature loop_macro
+    ?Unknown feature: loop_macro
+    [invoke notok]
 
 [cleanup]
     [invoke no-dump]

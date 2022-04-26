@@ -11,7 +11,7 @@
     !erl
     ?$ERLPROMPT
 
-    [invoke same-members "erl_features:enabled_features()" "[cond_expr,maps]"]
+    [invoke same-members "erl_features:enabled()" "[cond_expr,maps]"]
 
     !erl_features:keywords().
     ??[]
@@ -33,14 +33,14 @@
 
     [invoke same-members "erl_features:enable_feature(while_expr)" "[cond_expr,maps,ifn_expr,while_expr]"]
 
-    [invoke same-members "erl_features:enabled_features()" "[cond_expr,maps,ifn_expr,while_expr]"]
+    [invoke same-members "erl_features:enabled()" "[cond_expr,maps,ifn_expr,while_expr]"]
 
     !erl_features:keywords().
     ??['while','until','ifn']
 
     [invoke same-members "erl_features:disable_feature(ifn_expr)" "[cond_expr,maps,while_expr]"]
 
-    [invoke same-members "erl_features:enabled_features()" "[cond_expr,maps,while_expr]"]
+    [invoke same-members "erl_features:enabled()" "[cond_expr,maps,while_expr]"]
 
     !erl_features:keywords().
     ??['while','until']
@@ -68,21 +68,21 @@
     # If there is no Meta chunk, we should just get [] as answer,
     # not a failure.  We use a file compiled with an older release to be
     # sure no meta chunk is present
-    !erl_features:features_used(older).
+    !erl_features:used(older).
     ???[]
     ?$ERLPROMPT
 
-    !erl_features:features_used("older.beam").
+    !erl_features:used("older.beam").
     ???[]
     ?$ERLPROMPT
 
 
     # Test getting used features for unknown modules and files
-    !erl_features:features_used(no_module).
+    !erl_features:used(no_module).
     ??not_found
     ?$ERLPROMPT
 
-    !erl_features:features_used("none.beam").
+    !erl_features:used("none.beam").
     ??not_found
     ?$ERLPROMPT
 

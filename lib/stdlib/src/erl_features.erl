@@ -19,15 +19,11 @@
 %%
 -module(erl_features).
 
-%% FIXME divide the exported functions in public and internal for the
-%% sake of documentation.
--export([features/0,
-         feature_info/1,
-         collect_features/1,
+-export([all/0,
+         info/1,
          short/1,
          long/1,
-         enabled_features/0,
-         is_valid_feature/1,
+         enabled/0,
          load_allowed/1,
          keywords/0,
          keywords/1,
@@ -35,10 +31,9 @@
          keyword_fun/4,
          enable_feature/1,
          disable_feature/1,
+         used/1,
          format_error/1,
          format_error/2]).
-
--export([features_used/1]).
 
 -type type() :: 'extension' | 'backwards_incompatible_change'.
 -type status() :: 'experimental'
@@ -46,10 +41,11 @@
                   | 'permanent'
                   | 'rejected'.
 -type release() :: non_neg_integer().
+-type feature() :: atom().
 -type error() :: {?MODULE, {'invalid_features', [atom()]}}.
 
 -define(VALID_FEATURE(Feature),
-        (case is_valid_feature(Feature) of
+        (case is_valid(Feature) of
              false ->
                  error(invalid_feature, [Feature],
                        [{error_info,
@@ -70,31 +66,32 @@ feature_specs() ->
             keywords => ['maybe', 'else'],
             type => extension}}.
 
-%% Currently known features
--spec features() -> [atom()].
-features() ->
+%% Return all currently known features.
+-spec all() -> [feature()].
+all() ->
     Map = case persistent_term:get({?MODULE, feature_specs}, none) of
               none -> init_specs();
               M -> M
           end,
     maps:keys(Map).
 
-is_valid_feature(Ftr) ->
-    lists:member(Ftr, features()).
+is_valid(Ftr) ->
+    lists:member(Ftr, all()).
 
--spec short(atom()) -> iolist().
+-spec short(feature()) -> iolist() | no_return().
 short(Feature) ->
     #{short := Short,
-      status := Status} = Info = feature_info(Feature),
+      status := Status} = Info = info(Feature),
     #{Status := Release} = Info,
     io_lib:format("~-40s ~-12s (~p)", [Short, Status, Release]).
 
+-spec long(feature()) -> iolist() | no_return().
 long(Feature) ->
     #{short := Short,
       description := Description,
       status := Status,
       keywords := Keywords,
-      type := Type} = Info = feature_info(Feature),
+      type := Type} = Info = info(Feature),
     StatusFmt = "  ~-10s ~-12s (~p)\n",
     History = [io_lib:format(StatusFmt, [T, S, R])
                || {T, S, R} <- history(Status, Info)],
@@ -148,7 +145,7 @@ adjust(Col, [{W, L}| WLs], Ws) ->
     end.
 
 
--spec feature_info(atom()) -> FeatureInfoMap | no_return()
+-spec info(feature()) -> FeatureInfoMap | no_return()
               when
       Description :: string(),
       FeatureInfoMap ::
@@ -162,19 +159,18 @@ adjust(Col, [{W, L}| WLs], Ws) ->
           permanent => release(),
           rejected => release()
          }.
-feature_info(Feature) ->
+info(Feature) ->
     ?VALID_FEATURE(Feature),
 
     Map = persistent_term:get({?MODULE, feature_specs}),
     maps:get(Feature, Map).
 
-%% New keywords for a feature.  The current set is just for
-%% tests and development.
--spec keywords(atom()) -> [atom()].
+%% New keywords introduced by a feature.
+-spec keywords(feature()) -> [atom()] | no_return().
 keywords(Ftr) ->
     ?VALID_FEATURE(Ftr),
 
-    #{keywords := Keywords} = feature_info(Ftr),
+    #{keywords := Keywords} = info(Ftr),
     Keywords.
 
 %% Internal - Ftr is valid
@@ -183,9 +179,9 @@ keywords(Ftr, Map) ->
 
 %% Utilities
 %% Returns list of enabled features and a new keywords function
-%% -spec keyword_fun_add_feature(atom(), fun((atom()) -> boolean())) ->
-%%           {'ok', fun((atom()) -> boolean())}
-%%               | {'error', error()}.
+-spec keyword_fun([term()], fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
 keyword_fun(Opts, KeywordFun) ->
     %% Get items enabling or disabling features, preserving order.
     IsFtr = fun({feature, _, enable}) -> true;
@@ -197,9 +193,9 @@ keyword_fun(Opts, KeywordFun) ->
     %% FIXME check that all features are known at this stage so we
     %% don't miss out on reporting any unknown features.
 
-    case keyword_fun_add_features(AddFeatures, KeywordFun) of
+    case add_features_fun(AddFeatures, KeywordFun) of
         {ok, Fun} ->
-            case keyword_fun_remove_features(DelFeatures, Fun) of
+            case remove_features_fun(DelFeatures, Fun) of
                 {ok, FunX} ->
                     {ok, {AddFeatures -- DelFeatures, FunX}};
                 {error, _} = Error ->
@@ -211,36 +207,33 @@ keyword_fun(Opts, KeywordFun) ->
             Error
     end.
 
-%% -spec keyword_fun_add_feature(atom(), fun((atom()) -> boolean())) ->
-%%           {'ok', fun((atom()) -> boolean())}
-%%               | {'error', error()}.
+-spec keyword_fun('enable' | 'disable', feature(), [feature()],
+                  fun((atom()) -> boolean())) ->
+          {'ok', {[feature()], fun((atom()) -> boolean())}}
+              | {'error', error()}.
 keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
-    case is_valid_feature(Feature) of
+    case is_valid(Feature) of
         true ->
             case Ind of
                 enable ->
-                    {ok,
-                     add_feature(Feature, KeywordFun),
-                     [Feature | Ftrs]};
+                    {ok, {[Feature | Ftrs],
+                          add_feature_fun(Feature, KeywordFun)}};
                 disable ->
-                    {ok,
-                     remove_feature(Feature, KeywordFun),
-                     Ftrs -- [Feature]}
+                    {ok, {Ftrs -- [Feature],
+                          remove_feature_fun(Feature, KeywordFun)}}
             end;
         false ->
             {error, {?MODULE, {invalid_features, [Feature]}}}
     end.
 
-%% FIXME Rename this to reflect that it returns a function!
-add_feature(Feature, F) ->
+add_feature_fun(Feature, F) ->
     Words = keywords(Feature),
     fun(Word) ->
             lists:member(Word, Words)
                 orelse F(Word)
     end.
 
-%% FIXME Rename this to reflect that it returns a function!
-remove_feature(Feature, F) ->
+remove_feature_fun(Feature, F) ->
     Words = keywords(Feature),
     fun(Word) ->
             case lists:member(Word, Words) of
@@ -249,37 +242,46 @@ remove_feature(Feature, F) ->
             end
     end.
 
--spec keyword_fun_add_features([atom()], fun((atom()) -> boolean())) ->
+-spec add_features_fun([feature()], fun((atom()) -> boolean())) ->
           {'ok', fun((atom()) -> boolean())}
               | {'error', error()}.
-keyword_fun_add_features(Features, F) ->
-    case lists:all(fun is_valid_feature/1, Features) of
+add_features_fun(Features, F) ->
+    case lists:all(fun is_valid/1, Features) of
         true ->
-            {ok, lists:foldl(fun add_feature/2, F, Features)};
+            {ok, lists:foldl(fun add_feature_fun/2, F, Features)};
         false ->
-            IsInvalid = fun(Ftr) -> not is_valid_feature(Ftr) end,
+            IsInvalid = fun(Ftr) -> not is_valid(Ftr) end,
             Invalid = lists:filter(IsInvalid, Features),
             {error, {?MODULE, {invalid_features, Invalid}}}
     end.
 
--spec keyword_fun_remove_features([atom()], fun((atom()) -> boolean())) ->
+-spec remove_features_fun([feature()], fun((atom()) -> boolean())) ->
           {'ok', fun((atom()) -> boolean())}
               | {'error', error()}.
-keyword_fun_remove_features(Features, F) ->
-    case lists:all(fun is_valid_feature/1, Features) of
+remove_features_fun(Features, F) ->
+    case lists:all(fun is_valid/1, Features) of
         true ->
-            {ok, lists:foldl(fun remove_feature/2, F, Features)};
+            {ok, lists:foldl(fun remove_feature_fun/2, F, Features)};
         false ->
-            IsInvalid = fun(Ftr) -> not is_valid_feature(Ftr) end,
+            IsInvalid = fun(Ftr) -> not is_valid(Ftr) end,
             Invalid = lists:filter(IsInvalid, Features),
             {error, {?MODULE, {invalid_features, Invalid}}}
     end.
 
+-spec format_error(Reason, StackTrace) -> ErrorDescription
+              when Reason :: term(),
+                   StackTrace :: erlang:stacktrace(),
+                   ArgumentPosition :: pos_integer(),
+                   ErrorDescription :: #{ArgumentPosition => unicode:chardata(),
+                                         general => unicode:chardata(),
+                                         reason => unicode:chardata()}.
 format_error(Reason, [{_M, _F, _Args, Info}| _St]) ->
     ErrorInfo = proplists:get_value(error_info, Info, #{}),
     ErrorMap = maps:get(cause, ErrorInfo),
     ErrorMap#{reason => io_lib:format("~p: ~p", [?MODULE, Reason])}.
 
+-spec format_error(Reason) -> iolist()
+              when Reason :: term().
 format_error({invalid_features, Features}) ->
     Fmt = fun F([Ftr]) -> io_lib:fwrite("'~p'", [Ftr]);
               F([Ftr1, Ftr2]) ->
@@ -326,7 +328,7 @@ init_features() ->
     F = fun({Tag, String}) ->
                 try
                     Atom = list_to_atom(String),
-                    case is_valid_feature(Atom) of
+                    case is_valid(Atom) of
                         true -> {true, {feature, Atom, Cnv(Tag)}};
                         false when Atom == all ->
                             {true, {feature, Atom, Cnv(Tag)}};
@@ -377,7 +379,7 @@ ensure_init() ->
 enable_feature(Feature) ->
     ?VALID_FEATURE(Feature),
 
-    Features = enabled_features(),
+    Features = enabled(),
     case lists:member(Feature, Features) of
         true ->
             %% already there, maybe raise an error
@@ -394,7 +396,7 @@ enable_feature(Feature) ->
 disable_feature(Feature) ->
     ?VALID_FEATURE(Feature),
 
-    Features = enabled_features(),
+    Features = enabled(),
     case lists:member(Feature, Features) of
         true ->
             NewFeatures = Features -- [Feature],
@@ -408,13 +410,17 @@ disable_feature(Feature) ->
             Features
     end.
 
-enabled_features() ->
+%% Return list of currently enabled features
+-spec enabled() -> [feature()].
+enabled() ->
     ensure_init(),
     persistent_term:get({?MODULE, enabled_features}).
 
 enabled_features(Ftrs) ->
     persistent_term:put({?MODULE, enabled_features}, Ftrs).
 
+%% Return list of keywords activated by enabled features
+-spec keywords() -> [atom()].
 keywords() ->
     ensure_init(),
     persistent_term:get({?MODULE, keywords}).
@@ -434,7 +440,7 @@ load_allowed(Binary) ->
                 undefined ->
                     true;
                 Used ->
-                    Enabled = enabled_features(),
+                    Enabled = enabled(),
                     lists:all(fun(UFtr) ->
                                       lists:member(UFtr, Enabled)
                               end,
@@ -444,14 +450,15 @@ load_allowed(Binary) ->
 
 
 %% Return features used by module or beam file
-features_used(Module) when is_atom(Module) ->
+-spec used(module() | file:filename()) -> [feature()].
+used(Module) when is_atom(Module) ->
     case code:get_object_code(Module) of
         error ->
             not_found;
         {_Mod, Bin, _Fname} ->
             features_in(Bin)
     end;
-features_used(FName) when is_list(FName) ->
+used(FName) when is_list(FName) ->
     features_in(FName).
 
 features_in(NameOrBin) ->
@@ -465,33 +472,33 @@ features_in(NameOrBin) ->
             not_found
     end.
 
-approved_features() ->
-    [Ftr || Ftr <- features(),
-            maps:get(status, feature_info(Ftr)) == approved].
+approved() ->
+    [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) == approved].
 
-permanent_features() ->
-    [Ftr || Ftr <- features(),
-            maps:get(status, feature_info(Ftr)) == permanent].
+permanent() ->
+    [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) == permanent].
 
 %% Interpret feature ops (enable or disable) to build the full set of
 %% features.  The meta feature 'all' is expanded to all known
 %% features.
 collect_features(FOps) ->
     %% Features enabled by default
-    Enabled = approved_features() ++ permanent_features(),
+    Enabled = approved() ++ permanent(),
     collect_features(FOps, Enabled, []).
 
 collect_features([], Add, Del) ->
     {Add, Del};
 collect_features([{feature, all, enable}| FOps], Add, _Del) ->
-    All = features(),
+    All = all(),
     Add1 = lists:foldl(fun add_ftr/2, Add, All),
     collect_features(FOps, Add1, []);
 collect_features([{feature, Feature, enable}| FOps], Add, Del) ->
     collect_features(FOps, add_ftr(Feature, Add), Del -- [Feature]);
 collect_features([{feature, all, disable}| FOps], _Add, Del) ->
     %% Start over
-    All = features(),
+    All = all(),
     collect_features(FOps, [], Del -- All);
 collect_features([{feature, Feature, disable}| FOps], Add, Del) ->
     collect_features(FOps, Add -- [Feature],
@@ -532,7 +539,7 @@ test_features() ->
             keywords => ['ifnot'],
             type => extension},
       unless_expr =>
-          #{short => "`unless <cond> -> <bodby> end",
+          #{short => "`unless <cond> -> <body> end",
             description =>
                 "Introduction of new expression `unless <cond> -> <body> end."
             " Truly experimental.",
@@ -542,9 +549,8 @@ test_features() ->
             type => extension},
       maps =>
           #{short => "Add maps as new data type",
-            description => "Add new low data type maps with syntactic "
-            "support in Erlang as well native support in the beam. "
-            "Insert, lookup and delete are asymptotically constant.",
+            description => "Add new data type for maps with syntactic "
+            "support in Erlang as well native support in the beam.",
             status => permanent,
             experimental => 17,
             approved => 18,
