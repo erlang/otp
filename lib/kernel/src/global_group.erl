@@ -91,7 +91,7 @@
 		monitor = [],
 		group_publish_type = normal :: publish_type(),
                 connections                 :: #{node() => non_neg_integer()},
-                rpc_requests                :: #{reference() => term()},
+                erpc_requests               :: erpc:request_id_collection(),
                 config_check                :: 'undefined'
                                              | {reference(),
                                                 #{node() => reference()}}}).
@@ -278,12 +278,13 @@ init([]) ->
                         end,
                         #{},
                         nodes(visible, #{connection_id => true})),
-    S = initial_group_setup(fetch_new_group_conf(true, node()), Conns, #{}),
+    S = initial_group_setup(fetch_new_group_conf(true, node()), Conns,
+                            erpc:reqids_new()),
     {ok, S}.
 
 initial_group_setup(#gconf{state = no_conf}, Conns, Reqs) ->
     #state{connections = Conns,
-           rpc_requests = Reqs};
+           erpc_requests = Reqs};
 initial_group_setup(#gconf{state = {error, _Err, NodeGrps}},
                     _Conns, _Reqs) ->
     exit({error, {'invalid global_groups definition', NodeGrps}});
@@ -302,7 +303,7 @@ initial_group_setup(#gconf{node_name = NodeName,
     disconnect_nodes(DisconnectNodes, Conns),
     
     %% Schedule group consistency check for all nodes. The response
-    %% is later handled in handle_rpc_response(). 
+    %% is later handled in handle_erpc_response(). 
     NewReqs = schedule_conf_changed_checks(DefNodes, Reqs, Conns),
 
     %% Set connected nodes in sync_error state since, we
@@ -319,7 +320,7 @@ initial_group_setup(#gconf{node_name = NodeName,
     #state{group_publish_type = PubTpGrp,
            sync_state = synced, group_name = DefGroupName,
            nodes = Nodes, other_grps = DefOther,
-           connections = Conns, rpc_requests = NewReqs}.
+           connections = Conns, erpc_requests = NewReqs}.
 
 %%%====================================================================================
 %%% sync() -> ok 
@@ -560,7 +561,7 @@ handle_call({whereis_name, {node, Node}, Name}, From, S) ->
 %%% be disconnected from those nodes not yet been upgraded.
 %%%====================================================================================
 handle_call({global_groups_changed, NewPara}, _From,
-            #state{rpc_requests = Reqs,
+            #state{erpc_requests = Reqs,
                    nodes = OldNodes,
                    connections = Conns} = S) ->
 
@@ -597,14 +598,14 @@ handle_call({global_groups_changed, NewPara}, _From,
                            end, #{}, NewNodesList),
 
     %% Schedule group consistency check due to config change. The response is
-    %% later handled in handle_rpc_response()...
+    %% later handled in handle_erpc_response()...
     NewReqs = schedule_conf_changed_checks(NewNodesList, Reqs, Conns),
 
     NewS = S#state{group_name = NewGroupName,
 		   nodes = NewNodes,
 		   other_grps = NewOther,
 		   group_publish_type = PubTpGrp,
-                   rpc_requests = NewReqs,
+                   erpc_requests = NewReqs,
                    config_check = undefined},
     {reply, ok, NewS};
 
@@ -615,7 +616,7 @@ handle_call({global_groups_changed, NewPara}, _From,
 %%%====================================================================================
 handle_call({global_groups_added, NewPara}, _From,
             #state{connections = Conns,
-                   rpc_requests = Reqs} = S) ->
+                   erpc_requests = Reqs} = S) ->
 %    io:format("### global_groups_changed, NewPara ~p ~n",[NewPara]),
 
     #gconf{group_name = NewGroupName,
@@ -641,15 +642,15 @@ handle_call({global_groups_added, NewPara}, _From,
 
     %% Schedule ng_add_check on all nodes in our configuration and build up
     %% the nodes map. The responses to the ng_add_check are later handled in
-    %% handle_rpc_response(). 
+    %% handle_erpc_response(). 
     {NewReqs, NewNodes}
         = lists:foldl(
             fun (N, {Racc, Nacc}) ->
                     CId = maps:get(N, Conns, not_connected),
-                    NRacc = rpc_send_request(N, ?MODULE, ng_add_check,
-                                             NGACArgs,
-                                             {ng_add_check, N, CId},
-                                             Racc),
+                    NRacc = erpc:send_request(N, ?MODULE, ng_add_check,
+                                              NGACArgs,
+                                              {ng_add_check, N, CId},
+                                              Racc),
                     What = if CId == not_connected -> no_contact;
                               true -> sync_error
                            end,
@@ -658,7 +659,7 @@ handle_call({global_groups_added, NewPara}, _From,
             {Reqs, #{}}, lists:delete(node(), NewNodesList)),
 
     NewS = S#state{sync_state = synced, group_name = NewGroupName,
-                   nodes = NewNodes, rpc_requests = NewReqs,
+                   nodes = NewNodes, erpc_requests = NewReqs,
                    other_grps = NewOther, group_publish_type = PubTpGrp,
                    config_check = undefined},
     {reply, ok, NewS};
@@ -906,26 +907,26 @@ handle_cast(_Cast, S) ->
 %    io:format("***** handle_cast ~p~n",[_Cast]),
     {noreply, S}.
 
-handle_info(Msg, #state{rpc_requests = Requests} = S) ->
-    try rpc_check_response(Msg, Requests) of
+handle_info(Msg, #state{erpc_requests = Requests} = S) ->
+    try erpc:check_response(Msg, Requests, true) of
         NoMatch when NoMatch == no_request; NoMatch == no_response ->
             continue_handle_info(Msg, S);
-        {Result, Label, NewRequests} ->
+        {{response, Result}, Label, NewRequests} ->
             {noreply,
-             handle_rpc_response(ok, Result, Label,
-                                 S#state{rpc_requests = NewRequests})}
+             handle_erpc_response(ok, Result, Label,
+                                  S#state{erpc_requests = NewRequests})}
     catch
         Class:{Reason, Label, NewRequests} ->
             {noreply,
-             handle_rpc_response(Class, Reason, Label,
-                                 S#state{rpc_requests = NewRequests})}
+             handle_erpc_response(Class, Reason, Label,
+                                  S#state{erpc_requests = NewRequests})}
     end.
 
 %%%====================================================================================
 %%% Distribution on this node was started...
 %%%====================================================================================
 continue_handle_info({nodeup, Node, #{connection_id := undefined}},
-                     #state{connections = Conns, rpc_requests = Reqs}) ->
+                     #state{connections = Conns, erpc_requests = Reqs}) ->
     %% Check configuration since we now know how to interpret it
     %% w<hen we know our name...
     S = initial_group_setup(alive_state_change_group_conf(Node), Conns, Reqs),
@@ -942,7 +943,7 @@ continue_handle_info({nodeup, Node, #{connection_id := CId}},
     send_monitor(S#state.monitor, {nodeup, Node}, S#state.sync_state),
     {noreply, S#state{connections = Conns#{Node => CId}}};
 continue_handle_info({nodeup, Node, #{connection_id := CId}},
-                     #state{rpc_requests = Reqs, connections = Conns} = S) ->
+                     #state{erpc_requests = Reqs, connections = Conns} = S) ->
 %    io:format("~p>>>>> nodeup, Node ~p ~n",[node(), Node]),
 
     NewConns = Conns#{Node => CId},
@@ -956,15 +957,15 @@ continue_handle_info({nodeup, Node, #{connection_id := CId}},
             %% Node is part of our group configuration. Check that it has the
             %% same view of the configuration as us...
 
-            NewReqs = rpc_send_request(Node, global_group, get_own_nodes, [],
-                                       {nodeup_conf_check, Node, CId}, Reqs),
+            NewReqs = erpc:send_request(Node, global_group, get_own_nodes, [],
+                                        {nodeup_conf_check, Node, CId}, Reqs),
 
-            %% The response is later handled in handle_rpc_response()...
+            %% The response is later handled in handle_erpc_response()...
 
             %% Set the node in 'sync_error' state. It will later be changed
             %% to 'sync' if it passes the 'nodeup_conf_check' test...
             {noreply, node_state(sync_error, Node,
-                                 S#state{rpc_requests = NewReqs,
+                                 S#state{erpc_requests = NewReqs,
                                          connections = NewConns})}
     end;
 
@@ -1123,23 +1124,23 @@ log_sync_error(Node) ->
 
 %%%====================================================================================
 %%% Schedule group consistency check due to config change. The response is
-%%% later handled in handle_rpc_response()...
+%%% later handled in handle_erpc_response()...
 %%%====================================================================================
 
 schedule_conf_changed_checks(Nodes, Requests, Connections) ->
     lists:foldl(fun (Node, RequestsAcc) ->
                         CId = maps:get(Node, Connections, not_connected),
-                        rpc_send_request(Node, global_group, get_own_nodes, [],
-                                         {conf_changed_check, Node, CId},
-                                         RequestsAcc)
+                        erpc:send_request(Node, global_group, get_own_nodes, [],
+                                          {conf_changed_check, Node, CId},
+                                          RequestsAcc)
                 end, Requests, Nodes).
 
 %%%====================================================================================
-%%% We got a response to an asynchronous rpc request
+%%% We got a response to an asynchronous erpc request
 %%%====================================================================================
 
-handle_rpc_response(ok, Nodes, {nodeup_conf_check, Node, ReqCId},
-                    #state{connections = Conns} = S) when is_list(Nodes) ->
+handle_erpc_response(ok, Nodes, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) when is_list(Nodes) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1160,8 +1161,8 @@ handle_rpc_response(ok, Nodes, {nodeup_conf_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(error, nodedown, {nodeup_conf_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(error, nodedown, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1171,8 +1172,8 @@ handle_rpc_response(error, nodedown, {nodeup_conf_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(_, _, {nodeup_conf_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(_, _, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1183,8 +1184,8 @@ handle_rpc_response(_, _, {nodeup_conf_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(ok, Nodes, {conf_changed_check, Node, ReqCId},
-                    #state{connections = Conns} = S) when is_list(Nodes) ->
+handle_erpc_response(ok, Nodes, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) when is_list(Nodes) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1203,8 +1204,8 @@ handle_rpc_response(ok, Nodes, {conf_changed_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(error, nodedown, {conf_changed_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(error, nodedown, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1214,8 +1215,8 @@ handle_rpc_response(error, nodedown, {conf_changed_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(_, _, {conf_changed_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(_, _, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1226,8 +1227,8 @@ handle_rpc_response(_, _, {conf_changed_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(ok, agreed, {ng_add_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(ok, agreed, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1237,8 +1238,8 @@ handle_rpc_response(ok, agreed, {ng_add_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(error, nodedown, {ng_add_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(error, nodedown, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1248,8 +1249,8 @@ handle_rpc_response(error, nodedown, {ng_add_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_rpc_response(_, _, {ng_add_check, Node, ReqCId},
-                    #state{connections = Conns} = S) ->
+handle_erpc_response(_, _, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
                                        andalso is_integer(CId)) ->
@@ -1682,38 +1683,3 @@ publish(OwnPublishType, Node) when (OwnPublishType == normal
         #gconf{} ->
             false
     end.
-
-%%%====================================================================================
-%%% Async rpc request/resonse
-%%%====================================================================================
-
-%% These have a similar API as erpc:send_request/6 and erpc:check_response/3
-%% introduced in OTP 25 and can easily be replaced by the erpc primitives in
-%% OTP 25.
-
-rpc_send_request(Node, M, F, A, Label, Requests) ->
-    {_P, Mon} = spawn_monitor(fun () ->
-                                      Result = rpc:call(Node, M, F, A),
-                                      exit({rpc_call_result__, Result})
-                              end),
-    Requests#{Mon => Label}.
-
-rpc_check_response(_Msg, RequestsMap) when map_size(RequestsMap) == 0 ->
-    no_request;
-rpc_check_response({'DOWN', Mon, process, _Pid, Reason}, RequestsMap) ->
-    case maps:is_key(Mon, RequestsMap) of
-        false ->
-            no_response;
-        true ->
-            {Label, NewRequestsMap} = maps:take(Mon, RequestsMap),
-            case Reason of
-                {rpc_call_result__, {badrpc, BadRpcReason}} ->
-                    error({BadRpcReason, Label, NewRequestsMap});
-                {rpc_call_result__, Res} ->
-                    {Res, Label, NewRequestsMap};
-                Error ->
-                    error({Error, Label, NewRequestsMap})
-            end
-    end;
-rpc_check_response(_Msg, _RequestMap) ->
-    no_response.
