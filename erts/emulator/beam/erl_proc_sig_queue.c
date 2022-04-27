@@ -4064,6 +4064,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_DIST_PROC:
         case ERTS_MON_TYPE_NODE:
+        case ERTS_MON_TYPE_SUSPEND:
             size = erts_monitor_size((ErtsMonitor *) sig);
             break;
         default:
