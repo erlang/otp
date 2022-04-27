@@ -62,6 +62,8 @@
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
+-define(MIN_DH_KEY_SIZE, 400).
+
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
 
@@ -2164,10 +2166,10 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
 
-generate_key(ecdh = Algorithm, Args) ->
-    crypto:generate_key(Algorithm, Args);
-generate_key(Algorithm, Args) ->
-    {Public,Private} = crypto:generate_key(Algorithm, Args),
+generate_key(ecdh, Args) ->
+    crypto:generate_key(ecdh, Args);
+generate_key(dh, [P,G,Sz2]) ->
+    {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
 
