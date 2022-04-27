@@ -36,24 +36,60 @@
 
 -import(lists, [duplicate/2,foldl/3]).
 
--define(REPETITIONS, 1000).
-
 compile() ->
-    numtests(?REPETITIONS, compile_1()).
-
-compile_1() ->
     Opts = [{resize,true}],
     ?FORALL(Abstr, proper_erlang_abstract_code:module(Opts),
-            ?WHENFAIL(
-               begin
-                   io:format("~ts\n", [[erl_pp:form(F) || F <- Abstr]]),
-                   compile(Abstr, [binary,report_errors])
-               end,
-               case compile(Abstr, [binary]) of
-                   {error, _Es, _Ws} -> false;
-                   _ -> true
-               end)).
+            compile(Abstr)).
 
-compile(Abstr, Opts) ->
-    compile:noenv_forms(Abstr, Opts).
+compile(Forms) ->
+    compile(Forms, compiler_variants()).
+
+compile(Forms, [Opts|OptsL]) ->
+    case spawn_compile(Forms, [return, binary | Opts]) of
+        {ok,_Mod,Bin,_EsWs} when is_binary(Bin) ->
+            %% Uncomment the following lines to print
+            %% the generated source code.
+            %% io:format("<S>\n~ts\n</S>\n",
+            %%           [[erl_pp:form(F) || F <- Forms]]),
+
+            %% Uncomment the following line to print the
+            %% generated abstract code.
+            %% io:format("<abstr>\n~p\n</abstr>\n", [Forms]),
+            compile(Forms, OptsL);
+        Err ->
+            io:format("compile: ~p\n", [Err]),
+            io:format("with options ~p\n", [Opts]),
+            io:format("<S>\n~ts\n</S>\n",
+                      [[erl_pp:form(F) || F <- Forms]]),
+            false
+    end;
+compile(_Forms, []) ->
+    true.
+
+spawn_compile(Forms, Options) ->
+    {Pid,Ref} = spawn_monitor(fun() ->
+                                      exit(compile:noenv_forms(Forms, Options))
+                              end),
+    receive
+        {'DOWN',Ref,process,Pid,Ret} ->
+            Ret
+    after 600_000 ->
+            timeout
+    end.
+
+compiler_variants() ->
+    [
+     [ssalint,clint0,clint],
+     [r22,ssalint],
+     [no_type_opt,ssalint],
+     [no_module_opt,ssalint],
+     [no_copt,ssalint,clint0],
+     [no_copt,no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,
+      no_ssa_opt,no_recv_opt,no_postopt,ssalint,clint0],
+     [no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,no_ssa_opt,
+      no_recv_opt,ssalint,clint0,clint],
+     [no_copt,no_bool_opt,no_share_opt,no_bsm_opt,no_fun_opt,
+      no_ssa_opt,no_recv_opt,ssalint,clint0]
+    ].
+
 -endif.
