@@ -116,3 +116,7 @@ void stop_native_gui(ErlNifEnv *);
 /* wxe_ps_init */
 void * wxe_ps_init();
 void * wxe_ps_init2();
+
+#ifdef  _MACOSX
+int is_packaged_app();
+#endif

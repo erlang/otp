@@ -224,6 +224,16 @@ void WxeApp::MacReopenApp() {
   wxString empty;
   send_msg("reopen_app", &empty);
 }
+
+bool WxeApp::OSXIsGUIApplication() {
+  // wx manually activates the application if it's not in the bundle [1]. In particular, it calls
+  // `[NSApp setActivationPolicy: NSApplicationActivationPolicyRegular]` which prevents the app
+  // from running in the background and we cannot control it with `LSUIElement` [2]. Their check
+  // if it's a bundle always returns false for wxErlang. Thus we use our own way of detecting it.
+  // [1] https://github.com/wxWidgets/wxWidgets/blob/v3.1.5/src/osx/cocoa/utils.mm#L76:L93
+  // [2] https://developer.apple.com/documentation/bundleresources/information_property_list/lsuielement
+  return !is_packaged_app();
+}
 #endif
 
 void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
