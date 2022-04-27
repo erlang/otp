@@ -454,19 +454,28 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 
         /* ERTS_IS_GC_DESIRED_INTERNAL */
         {
-            /* Test whether GC is forced. */
             a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
-            a.tbnz(TMP1, Support::ctz(F_FORCE_GC), gc_after_bif_call);
+            a.tst(TMP1, imm(F_FORCE_GC | F_DISABLE_GC));
 
-            /* Test whether binary heap size should trigger GC. */
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, bin_vheap_sz)));
             a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, off_heap.overhead)));
-            a.cmp(TMP2, TMP1);
 
-            /* Test if heap fragment size is larger than remaining heap size. */
+            /* If neither F_FORCE_GC nor F_DISABLE_GC were set,
+             * test whether binary heap size should trigger GC.
+             *
+             * Otherwise, set the flags as if `off_heap.overhead > bin_vheap_sz`
+             * to force a GC. */
+            a.ccmp(TMP2, TMP1, imm(NZCV::kCF), imm(arm::CondCode::kEQ));
+
             a.sub(TMP1, E, HTOP);
             a.asr(TMP1, TMP1, imm(3));
             a.ldr(TMP2, arm::Mem(c_p, offsetof(Process, mbuf_sz)));
+
+            /* If our binary heap size was small enough not to need a GC, check
+             * whether the heap fragment size is larger than the remaining heap
+             * size.
+             *
+             * Otherwise, set the flags as if it is to force a GC. */
             a.ccmp(TMP1, TMP2, imm(NZCV::kVF), imm(arm::CondCode::kLS));
             a.b_lt(gc_after_bif_call);
         }
