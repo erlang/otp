@@ -149,7 +149,7 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
                 true = ssh_transport:valid_key_sha_alg(private, PrivKey, KeyAlg),
-                Key = ssh_transport:extract_public_key(PrivKey),
+                Key = ssh_file:extract_public_key(PrivKey),
                 ssh_message:ssh2_pubkey_encode(Key)
             of
                 PubKeyBlob -> {ok, {PrivKey, PubKeyBlob}}
