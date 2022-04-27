@@ -6139,6 +6139,11 @@ receive_replies(ReqId, N, Acc) ->
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
         </p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
+        </p>
         <taglist>
           <tag><c>size</c></tag>
           <item>
@@ -9208,6 +9213,11 @@ ok
           <seeerl marker="#process_flag_max_heap_size">
           <c>process_flag/2</c></seeerl>.</p>
         <p>Returns the old value of the flag.</p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
+        </p>
       </desc>
     </func>
 
