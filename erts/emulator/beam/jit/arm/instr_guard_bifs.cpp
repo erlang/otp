@@ -480,8 +480,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
             auto [min, max] = getIntRange(Pos);
             bool is_bounded = min <= max;
             bool can_fail = !is_bounded || min < 1 || size < max;
-            auto pos = load_source(Pos, ARG3);
-            auto tuple = load_source(Tuple, ARG4);
+            auto [pos, tuple] = load_sources(Pos, ARG3, Tuple, ARG4);
             auto dst = init_destination(Dst, ARG1);
 
             if (always_small(Pos)) {
