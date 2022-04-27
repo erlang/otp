@@ -79,14 +79,37 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="option"/>
+      <name name="setoption"/>
+      <desc>
+        <p>One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl> used to set an option.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="getoption"/>
+      <desc>
+        <p>One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl> or name used to get an option.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="optionval"/>
       <desc>
         <p>One of the
           <seeerl marker="#options">SCTP Socket Options</seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="option_name"/>
+      <name name="elementary_option"/>
+    </datatype>
+    <datatype>
+      <name name="elementary_option_name"/>
+    </datatype>
+    <datatype>
+      <name name="record_option"/>
+    </datatype>
+    <datatype>
+      <name name="ro_option"/>
     </datatype>
     <datatype>
       <name>sctp_socket()</name>
@@ -479,7 +502,7 @@ connect(Socket, Ip, Port>,
 	    ancillary data
 	  </seetype>
 	  from the socket
-	  <seetype marker="#option">options</seetype>
+	  <seeerl marker="#options">options</seeerl>
 	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
 	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  or
