@@ -277,7 +277,7 @@ remove_message() {
     erts_save_message_in_proc(c_p, msgp);
     c_p->flags &= ~F_DELAY_GC;
 
-    if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
+    if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E, 0)) {
         /*
          * We want to GC soon but we leave a few
          * reductions giving the message some time

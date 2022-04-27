@@ -478,7 +478,7 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
                   RET);
             a.mov(RETd, x86::dword_ptr(c_p, offsetof(Process, flags)));
             a.seta(x86::cl); /* Clobber ARG1 on windows and ARG4 on Linux */
-            a.and_(RETd, imm(F_FORCE_GC));
+            a.and_(RETd, imm(F_FORCE_GC | F_DISABLE_GC));
             a.or_(x86::cl, RETb);
             a.jne(gc_after_bif_call);
 
