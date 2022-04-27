@@ -28,7 +28,7 @@
 %% derived  - Include only those modules that others are dependent on
 -type mod_cond()         :: all | app | ebin | derived | none.
 -type incl_cond()        :: include | exclude | derived.
--type debug_info()       :: keep | strip.
+-type debug_info()       :: keep | strip | [beam_lib:chunkid()].
 -type app_file()         :: keep | strip | all.
 -type re_regexp()        :: string(). % re:regexp()
 -type regexps()          :: [re_regexp()] |
