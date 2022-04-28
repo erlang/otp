@@ -1327,9 +1327,25 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
 	0 -> ok;
 	_ -> emit(["-include(\"",Mod,".hrl\").",nl])
     end,
+    Deterministic = proplists:get_bool(deterministic, Options),
+    Options1 =
+        case Deterministic of
+            true ->
+                % compile:keep_compile_option will filter some of these
+                % out of generated .beam files, but this will keep
+                % them out of the generated .erl files
+                lists:filter(
+                    fun({cwd, _}) -> false;
+                       ({outdir, _}) -> false;
+                       ({i, _}) -> false;
+                       (_) -> true end,
+                    Options);
+            false ->
+                Options
+         end,
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
-	  "            {options,",io_lib:format("~p",[Options]),"}]).",nl,nl]),
+	  "            {options,",io_lib:format("~p",[Options1]),"}]).",nl,nl]),
     JerDefines = case Gen of
                      #gen{erule=jer} ->
                          true;
