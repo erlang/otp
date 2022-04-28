@@ -193,7 +193,7 @@
     # As we have not enabled any features, this load should not be
     # allowed (if we have inserted the features used in the meta chunk).
     !l(f_directives).
-    ??{error,not_allowed}
+    ??{error,{features_not_allowed,[while_expr,ifn_expr]}}
     ?$ERLPROMPT
 
     !Fs = erl_features:used(f_maybe_ifn).
@@ -205,7 +205,7 @@
     !{Mod,Bin,FName}=code:get_object_code(f_maybe_ifn).
     ?$ERLPROMPT
     !code:load_binary(Mod,FName,Bin).
-    ??{error,not_allowed}
+    ??{error,{features_not_allowed,[while_expr,ifn_expr]}}
     ?$ERLPROMPT
 
 [shell cmds]
@@ -245,7 +245,7 @@
 
 [shell erl]
     !l(f_macros).
-    ??{error,not_allowed}
+    ??{error,{features_not_allowed,[ifn_expr]}}
     ?$ERLPROMPT
 
     # Check which features were used during compilation
@@ -284,7 +284,7 @@
     # This should not be allowed as we have not enabled the feature in the
     # runtime
     !l(f_macros).
-    ??{error,not_allowed}
+    ??{error,{features_not_allowed,[ifn_expr]}}
     ?$ERLPROMPT
 
     [invoke quit-erl]

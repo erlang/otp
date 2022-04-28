@@ -390,26 +390,31 @@ keywords() ->
 set_keywords(Words) ->
     persistent_term:put({?MODULE, keywords}, Words).
 
-
--spec load_allowed(binary()) -> boolean().
+%% Check that any features used in the module are enabled in the
+%% runtime system.  If not, return
+%%  {not_allowed, <list of not enabled features>}.
+-spec load_allowed(binary()) -> ok | {not_allowed, [feature()]}.
 load_allowed(Binary) ->
     case erts_internal:beamfile_chunk(Binary, "Meta") of
         undefined ->
-            true;
+            ok;
         Meta ->
             MetaData = erlang:binary_to_term(Meta),
             case proplists:get_value(enabled_features, MetaData) of
                 undefined ->
-                    true;
+                    ok;
                 Used ->
                     Enabled = enabled(),
-                    lists:all(fun(UFtr) ->
-                                      lists:member(UFtr, Enabled)
-                              end,
-                              Used)
+                    case lists:filter(fun(UFtr) ->
+                                              not lists:member(UFtr, Enabled)
+                                      end,
+                                      Used) of
+                        [] -> ok;
+                        NotEnabled ->
+                            {not_allowed, NotEnabled}
+                    end
             end
     end.
-
 
 %% Return features used by module or beam file
 -spec used(module() | file:filename()) -> [feature()].
