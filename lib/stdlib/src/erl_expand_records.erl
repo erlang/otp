@@ -310,9 +310,28 @@ expr({record_index,Anno,Name,F}, St) ->
     expr(I, St);
 expr({record,Anno0,Name,Is}, St) ->
     Anno = mark_record(Anno0, St),
-    expr({tuple,Anno,[{atom,Anno0,Name} |
-                      record_inits(record_fields(Name, Anno0, St), Is)]},
-         St);
+    case record_inits(record_fields(Name, Anno0, St), Is) of
+        {Inits,none} ->
+            %% There is no wildcard init or it was used at
+            %% least once.
+            expr({tuple,Anno,[{atom,Anno0,Name}|Inits]}, St);
+        {Inits,WcInits} ->
+            %% There is a wildcard init that was never used
+            %% because all fields had their own explicit inits.
+            %% Be sure to use the wildcard init in case it
+            %% binds any variables. Example:
+            %%
+            %%  -record(r, {a}).
+            %%  foo() ->
+            %%      R = #r{a = [], _ = V = 42},
+            %%      {R,V}.
+            %%
+            EmptyAnno = no_compiler_warning(erl_anno:new(0)),
+            Block = {block,EmptyAnno,
+                     [WcInits,
+                      {tuple,Anno,[{atom,Anno0,Name}|Inits]}]},
+            expr(Block, St)
+    end;
 expr({record_field,_A,R,Name,F}, St) ->
     Anno = erl_parse:first_anno(R),
     get_record_field(Anno, R, F, Name, St);
@@ -664,20 +683,37 @@ pattern_fields(Fs, Ms) ->
 		end
 	end, Fs).
 
-%% record_inits([RecDefField], [Init]) -> [InitExpr].
+%% record_inits([RecDefField], [Init]) -> {[InitExpr],WildcardInit}.
 %%  Build a list of initialisation expressions for the record tuple
 %%  elements. This expansion must be passed through expr
 %%  again. N.B. We are scanning the record definition field list!
 
 record_inits(Fs, Is) ->
     WildcardInit = record_wildcard_init(Is),
-    map(fun ({record_field,_,{atom,_,F},D}) ->
-                case find_field(F, Is) of
-                    {ok,Init} -> Init;
-                    error when WildcardInit =:= none -> D;
-                    error -> WildcardInit
-                end
-	end, Fs).
+    record_inits_1(Fs, Is, WildcardInit, false, []).
+
+record_inits_1([{record_field,_,{atom,_,F},Def}|Fs],
+               Is, WcInit, WcUsed, Acc) ->
+    case find_field(F, Is) of
+        {ok,Init} ->
+            record_inits_1(Fs, Is, WcInit, WcUsed, [Init|Acc]);
+        error when WcInit =:= none ->
+            record_inits_1(Fs, Is, WcInit, WcUsed, [Def|Acc]);
+        error ->
+            record_inits_1(Fs, Is, WcInit, true, [WcInit|Acc])
+    end;
+record_inits_1([], _Is, WcInit0, WcUsed, Acc) ->
+    WcInit = case {WcUsed,is_in_guard()} of
+                 {false,false} ->
+                     %% This code is in a body and the wildcard init
+                     %% expression (if any) was never used.
+                     WcInit0;
+                 {_,_} ->
+                     %% The wildcard init was either used at least
+                     %% once or this code is in a guard.
+                     none
+             end,
+    {reverse(Acc),WcInit}.
 
 record_wildcard_init([{record_field,_,{var,_,'_'},D} | _]) -> D;
 record_wildcard_init([_ | Is]) -> record_wildcard_init(Is);
