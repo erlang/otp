@@ -428,7 +428,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Arity :: arity(),
       Anno :: erl_anno:anno(),
       Signature :: [binary()],
-      Metadata :: #{}.
+      Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
     {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
     FnFunctions =
