@@ -82,32 +82,36 @@ uniq() ->
 
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
-    {options,Opts} = lists:keyfind(options, 1, Comp),
-    lists:filter(fun
-                     (debug_info) -> true;
-                     (dialyzer) -> true;
-                     ({feature,_,enable}) -> true;
-                     ({feature,_,disable}) -> true;
-                     (inline) -> true;
-                     (no_bs_create_bin) -> true;
-                     (no_bsm_opt) -> true;
-                     (no_copt) -> true;
-                     (no_fun_opt) -> true;
-                     (no_init_yregs) -> true;
-                     (no_make_fun3) -> true;
-                     (no_module_opt) -> true;
-                     (no_postopt) -> true;
-                     (no_recv_opt) -> true;
-                     (no_share_opt) -> true;
-                     (no_shared_fun_wrappers) -> true;
-                     (no_ssa_opt_float) -> true;
-                     (no_ssa_opt_ranges) -> true;
-                     (no_ssa_opt) -> true;
-                     (no_stack_trimming) -> true;
-                     (no_swap) -> true;
-                     (no_type_opt) -> true;
-                     (_) -> false
-                end, Opts).
+    case lists:keyfind(options, 1, Comp) of
+        {options,Opts} ->
+            lists:filter(fun
+                            (debug_info) -> true;
+                            (dialyzer) -> true;
+                            (deterministic) -> true;
+                            ({enable_feature,_}) -> true;
+                            (inline) -> true;
+                            (no_bs_create_bin) -> true;
+                            (no_bsm_opt) -> true;
+                            (no_copt) -> true;
+                            (no_fun_opt) -> true;
+                            (no_init_yregs) -> true;
+                            (no_make_fun3) -> true;
+                            (no_module_opt) -> true;
+                            (no_postopt) -> true;
+                            (no_recv_opt) -> true;
+                            (no_share_opt) -> true;
+                            (no_shared_fun_wrappers) -> true;
+                            (no_ssa_opt_float) -> true;
+                            (no_ssa_opt_ranges) -> true;
+                            (no_ssa_opt) -> true;
+                            (no_stack_trimming) -> true;
+                            (no_swap) -> true;
+                            (no_type_opt) -> true;
+                            (_) -> false
+                         end, Opts);
+          %% `options` may not be set at all if +deterministic is enabled
+          false -> []
+    end.
 
 %% Some test suites gets cloned (e.g. to "record_SUITE" to
 %% "record_no_opt_SUITE"), but the data directory is not cloned.
