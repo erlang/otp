@@ -57,6 +57,7 @@ MODULES= \
 	proplists_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
+	queue_property_test_SUITE \
 	rand_SUITE \
 	random_SUITE \
 	re_SUITE \
