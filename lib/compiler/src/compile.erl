@@ -1020,6 +1020,7 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
             R = epp:parse_file(File,
                                [{includes,[".",Dir|inc_paths(Opts)]},
                                 {source_name, SourceName},
+                                {deterministic, member(deterministic, Opts)},
                                 {macros,pre_defs(Opts)},
                                 {default_encoding,DefEncoding},
                                 {location,StartLocation},
