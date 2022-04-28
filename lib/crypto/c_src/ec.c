@@ -22,7 +22,6 @@
 #include "bn.h"
 
 #ifdef HAVE_EC
-
 # if defined(HAS_3_0_API)
 
 int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
@@ -205,7 +204,7 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
 }
 
 int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
-{
+{ /* key :: {CurveDef::{_,_,_,_,_}, PubKey::binary()} */
     ERL_NIF_TERM ret = atom_undefined;
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
@@ -248,40 +247,41 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 }
 
 
-int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+int get_ec_private_key_2(ErlNifEnv* env,
+                         ERL_NIF_TERM curve, ERL_NIF_TERM key,
+                         EVP_PKEY **pkey,
+                         ERL_NIF_TERM *ret,
+                         size_t *order_size);
+
+int get_ec_private_key_2(ErlNifEnv* env,
+                         ERL_NIF_TERM curve, ERL_NIF_TERM key,
+                         EVP_PKEY **pkey,
+                         ERL_NIF_TERM *ret,
+                         size_t *order_size)
 {
-    ERL_NIF_TERM ret = atom_undefined;
-    const ERL_NIF_TERM *tpl_terms;
-    int tpl_arity;
     int i = 0;
     OSSL_PARAM params[15];
     EVP_PKEY_CTX *pctx = NULL;
 
-    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
-        (tpl_arity != 2) ||
-        !enif_is_tuple(env, tpl_terms[0]) ||
-        !enif_is_binary(env, tpl_terms[1]) )
-        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key format"));
-    
-    if (!get_ossl_BN_param_from_bin(env, "priv",  tpl_terms[1], &params[i++]))
-        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
+    if (!get_ossl_BN_param_from_bin(env, "priv",  key, &params[i++]))
+        assign_goto(*ret, err, EXCP_BADARG_N(env, 0, "Bad private key"));
 
-    if (!get_curve_definition(env, &ret, tpl_terms[0], params, &i, NULL))
+    if (!get_curve_definition(env, ret, curve, params, &i, order_size))
         goto err;
 
     params[i++] = OSSL_PARAM_construct_end();
 
     if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
+        assign_goto(*ret, err, EXCP_ERROR(env, "Can't make EVP_PKEY_CTX"));
 
     if (EVP_PKEY_fromdata_init(pctx) <= 0)
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't init fromdata"));
+        assign_goto(*ret, err, EXCP_ERROR(env, "Can't init fromdata"));
     
     if (EVP_PKEY_fromdata(pctx, pkey, EVP_PKEY_KEYPAIR, params) <= 0)
-        assign_goto(ret, err, EXCP_ERROR(env, "Can't do fromdata"));
+        assign_goto(*ret, err, EXCP_ERROR(env, "Can't do fromdata"));
 
     if (!*pkey)
-        assign_goto(ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get a private key"));
     
     if (pctx) EVP_PKEY_CTX_free(pctx);
     return 1;
@@ -291,6 +291,170 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
+
+int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{  /* key ::  {CurveDef::{_,_,_,_,_}, PrivKey::binary()}  */
+    ERL_NIF_TERM ret = atom_undefined;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+
+    if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms) ||
+        (tpl_arity != 2) ||
+        !enif_is_tuple(env, tpl_terms[0]) ||
+        !enif_is_binary(env, tpl_terms[1]) )
+        assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Bad private key format"));
+    
+    if (!get_ec_private_key_2(env, tpl_terms[0], tpl_terms[1], pkey, &ret, NULL))
+        goto err;
+
+    return 1;
+
+ err:
+    return 0;
+}
+
+int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY **peer_pkey, ErlNifBinary *pubkey_bin, ERL_NIF_TERM *ret);
+
+ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ /* (Curve, PrivKey|undefined)  */
+    ERL_NIF_TERM ret = atom_undefined;
+    int i = 0;
+    OSSL_PARAM params[15];
+    EVP_PKEY_CTX *pctx = NULL;
+    EVP_PKEY *pkey = NULL, *peer_pkey = NULL;
+    size_t sz, order_size;
+    BIGNUM *priv_bn = NULL;
+    ErlNifBinary pubkey_bin;
+    
+    if (argv[1] != atom_undefined)
+        {
+            if (!get_ec_private_key_2(env, argv[0], argv[1], &peer_pkey, &ret, &order_size))
+                goto err;
+            
+            /* Get the two keys, pub as binary and priv as BN.
+               Since the private key is explicitly given, it must be calculated.
+               I haven't found any way to do that with the pure 3.0 interface yet.
+            */
+            if (!mk_pub_key_binary(env, &peer_pkey, &pubkey_bin, &ret))
+                goto err;
+
+            if (!EVP_PKEY_get_bn_param(peer_pkey, "priv", &priv_bn))
+                assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
+        }
+    else
+        {
+            /* PrivKey (that is, argv[1]) == atom_undefined */
+            if (!get_curve_definition(env, &ret, argv[0], params, &i, &order_size))
+                // INSERT "ret" parameter in get_curve_definition !!
+                assign_goto(ret, err, EXCP_BADARG_N(env, 0, "Couldn't get Curve definition"));
+    
+            params[i++] = OSSL_PARAM_construct_end();
+
+            /* Neither the private nor the public key is known, so we generate the pair: */
+            if (!(pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_new_from_name"));
+
+            if (EVP_PKEY_keygen_init(pctx) <= 0)
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_keygen_init"));
+
+            if (!EVP_PKEY_CTX_set_params(pctx, params))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_CTX_set_params"));
+        
+            if (!EVP_PKEY_generate(pctx, &pkey))
+                assign_goto(ret, err, EXCP_ERROR(env, "Couldn't generate EC key"));
+    
+            /* Get the two keys, pub as binary and priv as BN */
+            if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key", NULL, 0, &sz))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't get pub octet string size"));
+
+            if (!enif_alloc_binary(sz, &pubkey_bin))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate pub octet string"));
+
+            if (!EVP_PKEY_get_octet_string_param(pkey, "encoded-pub-key",
+                                                 pubkey_bin.data,
+                                                 sz,
+                                                 &pubkey_bin.size))
+                assign_goto(ret, err, EXCP_ERROR(env, "Can't get pub octet string"));
+
+            if (!EVP_PKEY_get_bn_param(pkey, "priv", &priv_bn))
+                assign_goto(ret, err, EXCP_BADARG_N(env, 1, "Couldn't get priv key bytes"));
+        }
+
+    ret = enif_make_tuple2(env,
+                           enif_make_binary(env, &pubkey_bin),
+                           bn2term(env, order_size, priv_bn));
+ err:
+    if (pkey) EVP_PKEY_free(pkey);
+    if (peer_pkey) EVP_PKEY_free(peer_pkey);
+    if (pctx) EVP_PKEY_CTX_free(pctx);
+    if (priv_bn) BN_free(priv_bn);
+
+    return ret;
+}
+
+int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY **peer_pkey, ErlNifBinary *pubkey_bin, ERL_NIF_TERM *ret)
+{
+    EC_KEY *ec_key = NULL;
+    EC_POINT *public_key = NULL;
+    EC_GROUP *group = NULL;
+    BIGNUM *priv_bn = NULL;
+    
+    *ret = atom_undefined;
+
+    /* Use the deprecated interface to get the curve and
+       private key in pre 3.0 form: */
+    if ((ec_key = EVP_PKEY_get1_EC_KEY(*peer_pkey)) == NULL)
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC key"));
+
+    if ((group = EC_GROUP_dup(EC_KEY_get0_group(ec_key))) == NULL)
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC_GROUP"));
+
+    if ((public_key = EC_POINT_new(group)) == NULL)
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't create POINT"));
+
+    if (!EC_POINT_copy(public_key, EC_GROUP_get0_generator(group)))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't copy POINT"));
+
+    /* Make the corresponding public key */
+    if (!EVP_PKEY_get_bn_param(*peer_pkey, "priv", &priv_bn))
+        assign_goto(*ret, err, EXCP_BADARG_N(env, 1, "Couldn't get peer priv key bytes"));
+
+    if (BN_is_zero(priv_bn))
+        assign_goto(*ret, err, EXCP_BADARG_N(env, 1, "peer priv key must not be 0"));
+
+    if (!EC_POINT_mul(group, public_key, priv_bn, NULL, NULL, NULL))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't multiply POINT"));
+
+    if (!EC_KEY_set_public_key(ec_key, public_key))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't set EC_KEY"));
+
+    if (!EVP_PKEY_assign_EC_KEY(*peer_pkey, ec_key))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't assign EC_KEY to PKEY"));
+            
+    /* And now get the binary representation (by some reason we can't read it from
+       peer_pubkey in the calling function with 3.0-functions.)
+    */
+    {
+        point_conversion_form_t form = EC_KEY_get_conv_form(ec_key);
+        size_t dlen = EC_POINT_point2oct(group, public_key, form, NULL, 0, NULL);
+
+        if (!enif_alloc_binary(dlen, pubkey_bin) ||
+            !EC_POINT_point2oct(group, public_key, form, pubkey_bin->data, pubkey_bin->size, NULL)
+            )
+            assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get public key"));
+    }
+
+ err:
+    if (public_key) EC_POINT_free(public_key);
+    if (group) EC_GROUP_free(group);
+    if (priv_bn) BN_free(priv_bn);
+
+    if (*ret == atom_undefined)
+        return 1;
+    else
+        return 0;
+}
+    
 # endif /* HAS_3_0_API */
 
 
@@ -300,20 +464,7 @@ int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
   Non 3.0-specific functions
 */
 
-static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size);
-static ERL_NIF_TERM point2term(ErlNifEnv* env,
-			       const EC_GROUP *group,
-			       const EC_POINT *point,
-			       point_conversion_form_t form);
-
-ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
-{
-    ERL_NIF_TERM reason;
-    if (enif_has_pending_exception(env, &reason))
-	return reason; /* dummy return value ignored */
-    else
-	return enif_make_badarg(env);
-}
+# if ! defined(HAS_3_0_API)
 
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size)
 {
@@ -509,6 +660,33 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg, size_t *size)
     return key;
 }
 
+int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pptr)
+{
+    ErlNifBinary bin;
+    EC_POINT *point = NULL;
+
+    if (!enif_inspect_binary(env, term, &bin))
+        goto err;
+
+    if ((point = EC_POINT_new(group)) == NULL)
+        goto err;
+
+    /* set the point conversion form */
+    EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
+
+    /* extract the ec point */
+    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL))
+        goto err;
+
+    *pptr = point;
+    return 1;
+
+ err:
+    if (point)
+        EC_POINT_free(point);
+    return 0;
+}
+
 static ERL_NIF_TERM point2term(ErlNifEnv* env,
 			       const EC_GROUP *group,
 			       const EC_POINT *point,
@@ -543,35 +721,6 @@ static ERL_NIF_TERM point2term(ErlNifEnv* env,
  done:
     return ret;
 }
-
-int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pptr)
-{
-    ErlNifBinary bin;
-    EC_POINT *point = NULL;
-
-    if (!enif_inspect_binary(env, term, &bin))
-        goto err;
-
-    if ((point = EC_POINT_new(group)) == NULL)
-        goto err;
-
-    /* set the point conversion form */
-    EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
-
-    /* extract the ec point */
-    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL))
-        goto err;
-
-    *pptr = point;
-    return 1;
-
- err:
-    if (point)
-        EC_POINT_free(point);
-    return 0;
-}
-
-# if ! defined(HAS_3_0_API)
 
 int get_ec_private_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
@@ -633,7 +782,6 @@ int get_ec_public_key(ErlNifEnv* env, ERL_NIF_TERM key, EVP_PKEY **pkey)
     return 0;
 }
 
-# endif /* !  HAS_3_0_API */
 
 int get_ec_key_sz(ErlNifEnv* env,
                   ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
@@ -707,7 +855,6 @@ int get_ec_key_sz(ErlNifEnv* env,
     return 1;
 }
 
-
 ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 { /* (Curve, PrivKey)  */
     EC_KEY *key = NULL;
@@ -747,6 +894,9 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         EC_KEY_free(key);
     return ret;
 }
+
+# endif /* ! HAS_3_0_API */
+
 #endif /* HAVE_EC */
 
 
