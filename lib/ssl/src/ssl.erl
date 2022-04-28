@@ -860,7 +860,7 @@ send(#sslsocket{pid = {dtls,_}}, _) ->
     {error,enotconn};  %% Emulate connection behaviour
 send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
     Transport = element(1, Info),
-    Transport:send(ListenSocket, Data). %% {error,enotconn}
+    tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
 %%
@@ -888,7 +888,7 @@ recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
 recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};
 recv(#sslsocket{pid = {Listen,
-		       #config{transport_info = Info}}},_,_) when is_port(Listen)->
+		       #config{transport_info = Info}}},_,_) ->
     Transport = element(1, Info),
     Transport:recv(Listen, 0). %% {error,enotconn}
 
@@ -908,11 +908,9 @@ controlling_process(#sslsocket{pid = {dtls, _}},
     ok; %% Meaningless but let it be allowed to conform with TLS 
 controlling_process(#sslsocket{pid = {Listen,
 				      #config{transport_info = {Transport,_,_,_,_}}}},
-		    NewOwner) when is_port(Listen),
-				   is_pid(NewOwner) ->
-     %% Meaningless but let it be allowed to conform with normal sockets  
+		    NewOwner) when is_pid(NewOwner) ->
+    %% Meaningless but let it be allowed to conform with normal sockets
     Transport:controlling_process(Listen, NewOwner).
-
 
 %%--------------------------------------------------------------------
 -spec connection_information(SslSocket) -> {ok, Result} | {error, reason()} when
@@ -928,11 +926,8 @@ connection_information(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
 	Error ->
             Error
     end;
-connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> 
-    {error, enotconn};
-connection_information(#sslsocket{pid = {dtls,_}}) ->
-    {error,enotconn}. 
-
+connection_information(#sslsocket{pid = {_Listen, #config{}}}) ->
+    {error, enotconn}.
 %%--------------------------------------------------------------------
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -986,7 +981,7 @@ peercert(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     end;
 peercert(#sslsocket{pid = {dtls, _}}) ->
     {error, enotconn};
-peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
+peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -1258,12 +1253,14 @@ getstat(Socket) ->
 %%
 %% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
-getstat(#sslsocket{pid = {dtls, #config{transport_info = {Transport, _, _, _, _},
+getstat(#sslsocket{pid = {dtls, #config{transport_info = Info,
                                         dtls_handler = {Listener, _}}}},
         Options) when is_list(Options) ->
+    Transport = element(1, Info),
     dtls_socket:getstat(Transport, Listener, Options);
-getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _, _}}}},
-        Options) when is_port(Listen), is_list(Options) ->
+getstat(#sslsocket{pid = {Listen,  #config{transport_info = Info}}},
+        Options) when is_list(Options) ->
+    Transport = element(1, Info),
     tls_socket:getstat(Transport, Listen, Options);
 getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}},
         Options) when is_pid(Pid), is_list(Options) ->
@@ -1279,12 +1276,11 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}},
-	 How) when is_port(Listen) ->
-    Transport = element(1, Info),
-    Transport:shutdown(Listen, How);
-shutdown(#sslsocket{pid = {dtls,_}},_) ->
+shutdown(#sslsocket{pid = {dtls, #config{}}},_) ->
     {error, enotconn};
+shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}}, How) ->
+    Transport = element(1, Info),
+    Transport:shutdown(Listen, How);    
 shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
     ssl_gen_statem:shutdown(Pid, How).
 
@@ -1297,10 +1293,11 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport,_,_,_,_}}}}) when is_port(Listen) ->
-    tls_socket:sockname(Transport, Listen);
 sockname(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
     dtls_packet_demux:sockname(Pid);
+sockname(#sslsocket{pid = {Listen,  #config{transport_info = Info}}}) ->
+    Transport = element(1, Info),
+    tls_socket:sockname(Transport, Listen);
 sockname(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_}}) when is_pid(Pid) ->
     dtls_socket:sockname(Transport, Socket);
 sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(Pid) ->
@@ -1359,9 +1356,8 @@ renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
     tls_dtls_connection:renegotiation(Pid);
 renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
-renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
+renegotiate(#sslsocket{pid = {_Listen, #config{}}}) ->
     {error, enotconn}.
-
 
 %%---------------------------------------------------------------
 -spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
@@ -1398,9 +1394,7 @@ update_keys(_, Type) ->
 prf(#sslsocket{pid = [Pid|_]},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
     tls_dtls_connection:prf(Pid, Secret, Label, Seed, WantedLength);
-prf(#sslsocket{pid = {dtls,_}}, _,_,_,_) ->
-    {error, enotconn};
-prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
+prf(#sslsocket{pid = {_Listen, #config{}}}, _,_,_,_) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------

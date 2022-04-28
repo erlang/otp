@@ -1125,18 +1125,16 @@ tls_password_correct(Config) when is_list(Config) ->
                 {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
                 Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                                     {from, self()},
-                                                    {mfa, {?MODULE, tls_shutdown_result, [server]}},
-                                                    {options, [{exit_on_close, false},
-                                                               {active, false} | ServerOpts]}]),
+                                                    {mfa, {ssl_test_lib, send_recv_result, []}},
+                                                    {options, [{active, false} | ServerOpts]}]),
                 Port = ssl_test_lib:inet_port(Server),
                 Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                                     {host, Hostname},
                                                     {from, self()},
                                                     {mfa,
-                                                     {?MODULE, tls_shutdown_result, [client]}},
+                                                     {ssl_test_lib, send_recv_result, []}},
                                                     {options,
-                                                     [{exit_on_close, false},
-                                                      {verify, verify_none},
+                                                     [{verify, verify_none},
                                                       {active, false},
                                                       {password, P} | ProtectedClientOpts]}]),
                 ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -1257,13 +1255,13 @@ tls_downgrade_result(Socket, Pid) ->
     end.
 
 tls_shutdown_result(Socket, server) ->
-    ssl:send(Socket, "Hej"),
+    ok = ssl:send(Socket, "Hej"),
     ok = ssl:shutdown(Socket, write),
     {ok, "Hej hopp"} = ssl:recv(Socket, 8),
     ok;
 
 tls_shutdown_result(Socket, client) ->
-    ssl:send(Socket, "Hej hopp"),
+    ok = ssl:send(Socket, "Hej hopp"),
     ok = ssl:shutdown(Socket, write),
     {ok, "Hej"} = ssl:recv(Socket, 3),
     ok.
