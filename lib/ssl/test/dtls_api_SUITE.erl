@@ -373,7 +373,7 @@ client_restarts(Config) ->
         fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
                 ct:log("~p Client Socket: ~p ~n", [self(), Socket]),
                 {ok, {{Address,CPort},UDPSocket}=IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
-                true = is_port(UDPSocket),
+
                 ct:log("Info: ~p~n", [inet:info(UDPSocket)]),
 
                 {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
