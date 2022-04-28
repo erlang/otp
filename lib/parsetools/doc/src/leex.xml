@@ -110,6 +110,11 @@
             <item>
               <p>Causes warnings to be treated as errors.</p>
             </item>
+            <tag><c>{deterministic, boolean()}</c></tag>
+            <item>
+              <p>Causes generated -file() attributes to only include
+                the basename of the file path.</p>
+            </item>
           </taglist>
         <p>Any of the Boolean options can be set to <c>true</c> by 
           stating the name of the option. For example, <c>verbose</c>

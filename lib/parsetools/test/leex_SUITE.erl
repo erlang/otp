@@ -22,6 +22,7 @@
 %-define(debug, true).
 
 -include_lib("stdlib/include/erl_compile.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -ifdef(debug).
@@ -39,7 +40,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([
-	 file/1, compile/1, syntax/1,
+	 file/1, compile/1, syntax/1, deterministic/1,
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
 	 line_wrap/1,
@@ -64,7 +65,7 @@ all() ->
     [{group, checks}, {group, examples}, {group, tickets}, {group, bugs}].
 
 groups() -> 
-    [{checks, [], [file, compile, syntax]},
+    [{checks, [], [file, compile, syntax, deterministic]},
      {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
      {tickets, [], [otp_10302, otp_11286, otp_13916, otp_14285, otp_17023,
                     compiler_warnings]},
@@ -368,6 +369,40 @@ syntax(Config) when is_list(Config) ->
         leex:file(Filename, Ret),
     ok.
 
+deterministic(doc) ->
+    "Check leex respects the +deterministic flag.";
+deterministic(suite) -> [];
+deterministic(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.xrl"),
+    Scannerfile = filename:join(Dir, "file.erl"),
+    Mini = <<"Definitions.\n"
+             "D  = [0-9]\n"
+             "Rules.\n"
+             "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+             "Erlang code.\n">>,
+    ok = file:write_file(Filename, Mini),
+
+    %% Generated leex scanners include the leexinc.hrl header file by default,
+    %% so we'll get a -file attribute corresponding to that include. In
+    %% deterministic mode, that include should only use the basename,
+    %% "leexinc.hrl", but otherwise, it should contain the full path.
+
+    AbsolutePathSuffix = "/lib/parsetools/include/leexinc.hrl",
+
+    ok = leex:compile(Filename, Scannerfile, #options{specific=[deterministic]}),
+    {ok, FormsDet} = epp:parse_file(Scannerfile,[]),
+    ?assertMatch(false, search_for_file_attr(AbsolutePathSuffix, FormsDet)),
+    ?assertMatch({value, _}, search_for_file_attr("leexinc.hrl", FormsDet)),
+    file:delete(Scannerfile),
+
+    ok = leex:compile(Filename, Scannerfile, #options{}),
+    {ok, Forms} = epp:parse_file(Scannerfile,[]),
+    ?assertMatch({value, _}, search_for_file_attr(AbsolutePathSuffix, Forms)),
+    file:delete(Scannerfile),
+
+    file:delete(Filename),
+    ok.
 
 pt(doc) ->
     "Pushing back characters.";
@@ -1272,3 +1307,13 @@ extract(File, {error, Es, Ws}) ->
     {errors, extract(File, Es), extract(File, Ws)};    
 extract(File, Ts) ->
     lists:append([T || {F, T} <- Ts,  F =:= File]).
+
+search_for_file_attr(PartialFilePath, Forms) ->
+    lists:search(fun
+                   ({attribute, _, file, {FileAttr, _}}) ->
+                      case string:find(FileAttr, PartialFilePath) of
+                        nomatch -> false;
+                        _ -> true
+                      end;
+                   (_) -> false end,
+                 Forms).
