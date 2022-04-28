@@ -946,12 +946,14 @@ deterministic(Config) when is_list(Config) ->
     %% only use the basename, "yeccpre.hrl", but otherwise, it should
     %% contain the full path.
 
-    AbsolutePathSuffix = "/lib/parsetools/include/yeccpre.hrl",
+    %% Matches when OTP is not installed (e.g. /lib/parsetools/include/yeccpre.hrl)
+    %% and when it is (e.g. /lib/parsetools-2.3.2/include/yeccpre.hrl)
+    AbsolutePathSuffix = "/lib/parsetools.*/include/yeccpre\.hrl",
 
     ok = yecc:compile(Filename, Parserfile, #options{specific=[deterministic]}),
     {ok, FormsDet} = epp:parse_file(Parserfile,[]),
     ?assertMatch(false, search_for_file_attr(AbsolutePathSuffix, FormsDet)),
-    ?assertMatch({value, _}, search_for_file_attr("yeccpre.hrl", FormsDet)),
+    ?assertMatch({value, _}, search_for_file_attr("yeccpre\.hrl", FormsDet)),
     file:delete(Parserfile),
 
     ok = yecc:compile(Filename, Parserfile, #options{}),
@@ -2321,10 +2323,10 @@ process_list() ->
 safe_second_element({_,Info}) -> Info;
 safe_second_element(Other) -> Other.
 
-search_for_file_attr(PartialFilePath, Forms) ->
+search_for_file_attr(PartialFilePathRegex, Forms) ->
     lists:search(fun
                    ({attribute, _, file, {FileAttr, _}}) ->
-                      case string:find(FileAttr, PartialFilePath) of
+                      case re:run(FileAttr, PartialFilePathRegex) of
                         nomatch -> false;
                         _ -> true
                       end;

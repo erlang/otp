@@ -55,6 +55,7 @@ RELSYSDIR = $(RELEASE_PATH)/public_key_test
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += $(INCLUDES)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 

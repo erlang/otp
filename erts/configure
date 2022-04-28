@@ -650,6 +650,7 @@ ac_func_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 DEBUG_CFLAGS
+ERL_DETERMINISTIC
 CFLAGS32
 CC32
 JAVAC
@@ -868,6 +869,7 @@ enable_prefer_elapsed_monotonic_time_during_suspend
 enable_gettimeofday_as_os_system_time
 with_javac
 enable_sanitizers
+enable_deterministic_build
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1610,6 +1612,9 @@ Optional Features:
                           Force usage of gettimeofday() for OS system time
   --enable-sanitizers[=comma-separated list of sanitizers]
                           Default=address,undefined
+  --enable-deterministic-build
+                          enable build determinism, stripping absolute paths
+                          from build output
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -25433,6 +25438,20 @@ CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 
 fi
+
+
+
+# Check whether --enable-deterministic-build was given.
+if test ${enable_deterministic_build+y}
+then :
+  enableval=$enable_deterministic_build;  case "$enableval" in
+    no)  ERL_DETERMINISTIC=no ;;
+    *) ERL_DETERMINISTIC=yes ;;
+  esac
+else $as_nop
+  ERL_DETERMINISTIC=no
+fi
+
 
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking CFLAGS for -O switch" >&5

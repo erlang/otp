@@ -388,12 +388,14 @@ deterministic(Config) when is_list(Config) ->
     %% deterministic mode, that include should only use the basename,
     %% "leexinc.hrl", but otherwise, it should contain the full path.
 
-    AbsolutePathSuffix = "/lib/parsetools/include/leexinc.hrl",
+    %% Matches when OTP is not installed (e.g. /lib/parsetools/include/leexinc.hrl)
+    %% and when it is (e.g. /lib/parsetools-2.3.2/include/leexinc.hrl)
+    AbsolutePathSuffix = ".*/lib/parsetools.*/include/leexinc\.hrl",
 
     ok = leex:compile(Filename, Scannerfile, #options{specific=[deterministic]}),
     {ok, FormsDet} = epp:parse_file(Scannerfile,[]),
     ?assertMatch(false, search_for_file_attr(AbsolutePathSuffix, FormsDet)),
-    ?assertMatch({value, _}, search_for_file_attr("leexinc.hrl", FormsDet)),
+    ?assertMatch({value, _}, search_for_file_attr("leexinc\.hrl", FormsDet)),
     file:delete(Scannerfile),
 
     ok = leex:compile(Filename, Scannerfile, #options{}),
@@ -1308,10 +1310,10 @@ extract(File, {error, Es, Ws}) ->
 extract(File, Ts) ->
     lists:append([T || {F, T} <- Ts,  F =:= File]).
 
-search_for_file_attr(PartialFilePath, Forms) ->
+search_for_file_attr(PartialFilePathRegex, Forms) ->
     lists:search(fun
                    ({attribute, _, file, {FileAttr, _}}) ->
-                      case string:find(FileAttr, PartialFilePath) of
+                      case re:run(FileAttr, PartialFilePathRegex) of
                         nomatch -> false;
                         _ -> true
                       end;

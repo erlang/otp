@@ -90,6 +90,8 @@ ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
 # We have a behaviour in the test catalog (megaco_test_generator)
 ERL_COMPILE_FLAGS += -pa ../../megaco/test
 
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
+
 ERL_PATH = -pa ../../megaco/examples/simple \
            -pa ../../megaco/ebin \
            -pa ../../et/ebin

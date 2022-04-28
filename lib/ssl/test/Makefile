@@ -143,6 +143,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssl_test
 # running the target "targets".
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += $(INCLUDES)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets

@@ -1331,9 +1331,9 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
     Options1 =
         case Deterministic of
             true ->
-                % compile:keep_compile_option will filter some of these
-                % out of generated .beam files, but this will keep
-                % them out of the generated .erl files
+                %% compile:keep_compile_option will filter some of these
+                %% out of generated .beam files, but this will keep
+                %% them out of the generated .erl files
                 lists:filter(
                     fun({cwd, _}) -> false;
                        ({outdir, _}) -> false;

@@ -42,6 +42,12 @@ ifeq ($(WARN_UNUSED_WARS), true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+ERL_COMPILE_FLAGS += +deterministic
+YRL_FLAGS += +deterministic
+XRL_FLAGS += +deterministic
+endif
+
 MEGACO_APP_VSN_COMPILE_FLAGS = \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,$(APP_VSN)}'
