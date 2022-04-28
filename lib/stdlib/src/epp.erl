@@ -77,7 +77,8 @@
               erl_scan_opts = [] :: [_],
               features = [] :: [atom()],
               else_reserved = false :: boolean(),
-              fname = [] :: function_name_type()
+              fname = [] :: function_name_type(),
+              deterministic = false :: boolean()
 	     }).
 
 %% open(Options)
@@ -119,6 +120,7 @@ open(Name, Path, Pdm) ->
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
 		  {'source_name', SourceName :: file:name()} |
+		  {'deterministic', Enabled :: boolean()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  {'location',StartLocation :: erl_anno:location()} |
@@ -623,17 +625,19 @@ init_server(Pid, FileName, Options, St0) ->
             %% the default location is 1 for backwards compatibility, not {1,1}
             AtLocation = proplists:get_value(location, Options, 1),
 
+            Deterministic = proplists:get_value(deterministic, Options, false),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
                          erl_scan_opts =
                              [{reserved_word_fun, ResWordFun}],
                          features = Features,
-                         else_reserved = ResWordFun('else')},
+                         else_reserved = ResWordFun('else'),
+                         deterministic = Deterministic},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
-			     AtLocation, code),
+			     AtLocation, code, Deterministic),
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
@@ -781,14 +785,15 @@ enter_file(NewName, Inc, From, St) ->
 
 enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Anno = erl_anno:new(AtLocation),
-    enter_file_reply(From, Pname, Anno, AtLocation, code),
+    enter_file_reply(From, Pname, Anno, AtLocation, code, St0#epp.deterministic),
     #epp{macs = Ms0,
          default_encoding = DefEncoding,
          in_prefix = InPrefix,
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
-         features = Ftrs} = St0,
-    Ms = Ms0#{'FILE':={none,[{string,Anno,Pname}]}},
+         features = Ftrs,
+         deterministic = Deterministic} = St0,
+    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St0,Pname)}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
     %% relative to its current location (this is also how C does it); note
@@ -803,16 +808,17 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          features = Ftrs,
          erl_scan_opts = ScanOpts,
          else_reserved = ElseReserved,
-         default_encoding=DefEncoding}.
+         default_encoding=DefEncoding,
+         deterministic=Deterministic}.
 
-enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
+enter_file_reply(From, Name, LocationAnno, AtLocation, Where, Deterministic) ->
     Anno0 = erl_anno:new(AtLocation),
     Anno = case Where of
                code -> Anno0;
                generated -> erl_anno:set_generated(true, Anno0)
            end,
     Rep = {ok, [{'-',Anno},{atom,Anno,file},{'(',Anno},
-		{string,Anno,Name},{',',Anno},
+		{string,Anno,source_name(Deterministic,Name)},{',',Anno},
 		{integer,Anno,get_line(LocationAnno)},{')',LocationAnno},
                 {dot,Anno}]},
     epp_reply(From, Rep).
@@ -848,13 +854,13 @@ leave_file(From, St) ->
                     Ftrs = St#epp.features,
                     ElseReserved = St#epp.else_reserved,
                     ScanOpts = St#epp.erl_scan_opts,
-		    Ms = Ms0#{'FILE':={none,[{string,Anno,OldName2}]}},
+		    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St,OldName2)}]}},
                     NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses,
                                        in_prefix = InPrefix,
                                        features = Ftrs,
                                        else_reserved = ElseReserved,
                                        erl_scan_opts = ScanOpts},
-		    enter_file_reply(From, OldName, Anno, CurrLoc, code),
+		    enter_file_reply(From, OldName, Anno, CurrLoc, code, St#epp.deterministic),
                     case OldName2 =:= OldName of
                         true ->
                             ok;
@@ -862,7 +868,7 @@ leave_file(From, St) ->
                             NFrom = wait_request(NextSt),
                             OldAnno = erl_anno:new(OldLoc),
                             enter_file_reply(NFrom, OldName2, OldAnno,
-                                             CurrLoc, generated)
+                                             CurrLoc, generated, St#epp.deterministic)
                         end,
                     wait_req_scan(NextSt);
 		[] ->
@@ -1450,9 +1456,9 @@ scan_file(Tokens0, Tf, From, St) ->
 scan_file1([{'(',_Alp},{string,_As,Name},{',',_Ac},{integer,_Ai,Ln},{')',_Arp},
             {dot,_Ad}], Tf, From, St) ->
     Anno = erl_anno:new(Ln),
-    enter_file_reply(From, Name, Anno, loc(Tf), generated),
+    enter_file_reply(From, Name, Anno, loc(Tf), generated, St#epp.deterministic),
     Ms0 = St#epp.macs,
-    Ms = Ms0#{'FILE':={none,[{string,line1(),Name}]}},
+    Ms = Ms0#{'FILE':={none,[{string,line1(),source_name(St,Name)}]}},
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
     Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
@@ -2071,3 +2077,12 @@ interpret_file_attr([Form0 | Forms], Delta, Fs) ->
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].
+
+-spec source_name(#epp{} | boolean(), file:filename_all()) -> file:filename_all().
+source_name(Deterministic, Name) when is_boolean(Deterministic) ->
+    case Deterministic of
+        true -> filename:basename(Name);
+        false -> Name
+    end;
+source_name(St, Name) ->
+    source_name(St#epp.deterministic, Name).

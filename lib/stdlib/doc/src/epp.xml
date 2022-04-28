@@ -131,6 +131,10 @@
           attributes inserted during preprocessing, you can do with
           <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
           default to the name of the opened file.</p>
+        <p>Setting <c>{deterministic, <anno>Enabled</anno>}</c> will
+          additionally reduce the file name of the implicit -file()
+          attributes inserted during preprocessing to only the basename
+          of the path.</p>
         <p>If <c>extra</c> is specified in
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
