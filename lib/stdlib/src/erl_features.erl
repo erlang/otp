@@ -29,8 +29,6 @@
          keywords/1,
          keyword_fun/2,
          keyword_fun/4,
-         enable_feature/1,
-         disable_feature/1,
          used/1,
          format_error/1,
          format_error/2]).
@@ -372,42 +370,6 @@ ensure_init() ->
         true -> ok;
         false ->
             init_features()
-    end.
-
-%% FIXME - remove this.  It should not be available at runtime.  This
-%% is all done by the init code.
-enable_feature(Feature) ->
-    ?VALID_FEATURE(Feature),
-
-    Features = enabled(),
-    case lists:member(Feature, Features) of
-        true ->
-            %% already there, maybe raise an error
-            Features;
-        false ->
-            NewFeatures = [Feature| Features],
-            enabled_features(NewFeatures),
-            Keywords = keywords(),
-            New = keywords(Feature),
-            set_keywords(New ++ Keywords),
-            NewFeatures
-    end.
-
-disable_feature(Feature) ->
-    ?VALID_FEATURE(Feature),
-
-    Features = enabled(),
-    case lists:member(Feature, Features) of
-        true ->
-            NewFeatures = Features -- [Feature],
-            enabled_features(NewFeatures),
-            Keywords = keywords(),
-            Rem = keywords(Feature),
-            set_keywords(Keywords -- Rem),
-            NewFeatures;
-        false ->
-            %% Not there, possibly raise an error
-            Features
     end.
 
 %% Return list of currently enabled features

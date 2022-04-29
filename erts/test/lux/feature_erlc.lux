@@ -255,13 +255,8 @@
     !f(Fs).
     ?$ERLPROMPT
 
-    # Somewhat questionable if we really should allow this in runtime
-    # FIXME WE should *not* allow this at runtime.
-    !Fs = erl_features:enable_feature(ifn_expr).
-    ?$ERLPROMPT
-    [invoke same-members Fs "[cond_expr,maps,ifn_expr]"]
-    !f(Fs).
-    ?$ERLPROMPT
+    [invoke quit-erl]
+    [invoke start-erl "-enable-feature ifn_expr"]
 
     !l(f_macros).
     ?{module,f_macros}
@@ -286,7 +281,7 @@
     ???{ok,f_macros}
     ?$ERLPROMPT
 
-    # This should be allowed as we have not enabled the feature in the
+    # This should not be allowed as we have not enabled the feature in the
     # runtime
     !l(f_macros).
     ??{error,not_allowed}
@@ -309,19 +304,8 @@
     [invoke ok]
 
 [shell erl]
-    # FIXME This should not be allowed at runtime..
-    !Fs = erl_features:enable_feature(ifn_expr).
-    ?$ERLPROMPT
-    [invoke same-members Fs "[cond_expr,maps,ifn_expr]"]
-    !f(Fs).
-    ?$ERLPROMPT
-
-    # FIXME This should not be allowed at runtime..
-    !Fs = erl_features:enable_feature(while_expr).
-    ?$ERLPROMPT
-    [invoke same-members Fs "[cond_expr,maps,ifn_expr,while_expr]"]
-    !f(Fs).
-    ?$ERLPROMPT
+    [invoke quit-erl]
+    [invoke start-erl "-enable-feature while_expr -enable-feature ifn_expr"]
 
     !l(f_macros).
     ?{module,f_macros}

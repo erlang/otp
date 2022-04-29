@@ -8,8 +8,7 @@
     !export OTP_TEST_FEATURES=true
     ?SH-PROMPT:
     -undefined function
-    !erl
-    ?$ERLPROMPT
+    [invoke start-erl ""]
 
     [invoke same-members "erl_features:enabled()" "[cond_expr,maps]"]
 
@@ -17,44 +16,28 @@
     ??[]
     ?$ERLPROMPT
 
-    [invoke same-members "erl_features:enable_feature(while_expr)" "[cond_expr,maps,while_expr]"]
+    [invoke quit-erl]
+    [invoke start-erl "-enable-feature while_expr"]
 
     !erl_features:keywords().
     ??['while','until']
     ?$ERLPROMPT
 
-    [invoke same-members "erl_features:disable_feature(while_expr)" "[cond_expr,maps]"]
-
-    !erl_features:keywords().
-    ??[]
-    ?$ERLPROMPT
-
-    [invoke same-members "erl_features:enable_feature(ifn_expr)" "[cond_expr,maps,ifn_expr]"]
-
-    [invoke same-members "erl_features:enable_feature(while_expr)" "[cond_expr,maps,ifn_expr,while_expr]"]
+    [invoke quit-erl]
+    [invoke start-erl "-enable-feature ifn_expr -enable-feature while_expr"]
 
     [invoke same-members "erl_features:enabled()" "[cond_expr,maps,ifn_expr,while_expr]"]
 
     !erl_features:keywords().
     ??['while','until','ifn']
 
-    [invoke same-members "erl_features:disable_feature(ifn_expr)" "[cond_expr,maps,while_expr]"]
+    [invoke quit-erl]
+    [invoke start-erl "-enable-feature while_expr"]
 
     [invoke same-members "erl_features:enabled()" "[cond_expr,maps,while_expr]"]
 
     !erl_features:keywords().
     ??['while','until']
-    ?$ERLPROMPT
-
-    [invoke same-members "erl_features:disable_feature(while_expr)" "[cond_expr,maps]"]
-
-    !erl_features:keywords().
-    ??[]
-    ?$ERLPROMPT
-
-    !erl_features:enable_feature(misfeature).
-    ??invalid_feature
-    ??argument 1: unknown feature
     ?$ERLPROMPT
 
 [shell erl]

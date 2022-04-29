@@ -8,22 +8,13 @@
     !export OTP_TEST_FEATURES=true
     ?SH-PROMPT:
     -undefined function
-    !erl -pa $outdir
-    ?$ERLPROMPT
+    [invoke start-erl "-enable-feature while_expr -enable-feature ifn_expr"]
 
     # Output should should know about the new reserved words during runtime
-
-    [invoke same-members "erl_features:enable_feature(while_expr)" "[cond_expr,maps,while_expr]"]
-
-    [invoke same-members "erl_features:enable_feature(ifn_expr)" "[cond_expr,maps,while_expr,ifn_expr]"]
 
     # !feature_directive_maybe_ifn:foo().
     !['ifn','while','until','if'].
     ??['ifn','while','until','if']
-    ?$ERLPROMPT
-
-    !erl_features:enable_feature(ifn_expr).
-    ?[ifn_expr,maybe_expr]
     ?$ERLPROMPT
 
 [cleanup]

@@ -2116,14 +2116,25 @@ run_test(Config, Test0, Opts0) ->
     Opts = [return, {i,PrivDir},{outdir,PrivDir}] ++ Opts0,
     {ok, epp_test, []} = compile:file(File, Opts),
     AbsFile = filename:rootname(File, ".erl"),
-    %% FIXME For now, use forbidden feature at rumtime
-    erl_features:enable_feature(maybe_expr),
-    {module, epp_test} = code:load_abs(AbsFile, epp_test),
-    %% FIXME For now, use forbidden feature at rumtime
-    erl_features:disable_feature(maybe_expr),
-    Reply = epp_test:t(),
-    code:purge(epp_test),
-    Reply.
+
+    case lists:member({feature, maybe_expr, enable}, Opts0) of
+        false ->
+            %% Run in node
+            {module, epp_test} = code:load_abs(AbsFile, epp_test),
+            Reply = epp_test:t(),
+            code:purge(epp_test),
+            Reply;
+        true ->
+            %% Run in peer with maybe_expr enabled
+            {ok, Peer, Node} =
+                ?CT_PEER(#{args => ["-enable-feature","maybe_expr"],
+                           connection => 0}),
+            {module, epp_test} =
+                rpc:call(Node, code, load_abs, [AbsFile, epp_test]),
+            Reply = rpc:call(Node, epp_test, t, []),
+            peer:stop(Peer),
+            Reply
+    end.
 
 fail() ->
     ct:fail(failed).
