@@ -38,6 +38,7 @@ with.
     5. [Static analysis](#static-analysis)
 5. [Running test cases](#running-test-cases)
 6. [Writing and building documentation](#writing-and-building-documentation)
+    1. [Validating documentation](#validating-documentation)
 7. [Github Actions](#github-actions)
     1. [Debugging github actions failures](#debugging-github-actions-failures)
 8. [Using Docker](#using-docker)
@@ -387,7 +388,8 @@ make format-check
 ```
 
 This will check that the documentation is correct and that there are no
-dialyzer errors.
+dialyzer errors. See also [Validating documentation](#validating-documentation)
+for more details.
 
 ## Running test cases
 
@@ -428,6 +430,57 @@ cd lib/stdlib/doc/src && make local_docs DOC_TARGETS=html
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
+
+### Validating documentation
+
+In order to make sure that the documentation is correct you need to also
+validate it. Just building the documentation does not mean that it is
+correct. There are two steps that you need to do in order to validate
+the docs.
+
+First run the `xmllint`. This makes sure that the xml follows the
+[Erlang/OTP dtd](https://www.erlang.org/doc/apps/erl_docgen/overview.html)
+and does some extra checks to make sure all links are correct.
+
+You run the xmllint like this:
+
+```bash
+make xmllint                    # Run it at the top level
+cd lib/stdlib && make xmllint   # Run it for only a single application
+```
+
+When the xml has been verified you also need to make sure that there
+are no broken links in the documentation. This is done by running
+[`otp_html_check`](https://github.com/erlang/otp/blob/master/scripts/otp_html_check).
+
+You run `otp_html_check` like this:
+
+```bash
+make release_docs DOC_TARGETS="html pdf"  # First we need to release the pdf+html docs
+$ERL_TOP/scripts/otp_html_check $(pwd)/release/$($ERL_TOP/erts/autoconf/config.guess) doc/index.html
+```
+
+The output of `otp_html_check` will print a list of broken links and anchors, for example:
+
+```text
+**** Files not used (that I can see)
+....
+
+**** Broken links
+
+Broken Link: /lib/kernel-8.3.1/doc/html/inet.html -> "/lib/kernel-8.3.1/doc/html/files.html"
+
+**** References to missing anchors
+
+Missing Anchor: "/lib/kernel-8.3.1/doc/html/files.html#native_name_encoding-0" from /lib/kernel-8.3.1/doc/html/inet.html
+Missing Anchor: "/lib/kernel-8.3.1/doc/html/inet.html#type-ip_addres" from /lib/kernel-8.3.1/doc/html/inet.html
+```
+
+The `Files not used` section is mostly used to debug the documentation build
+process, so it can be ignored most of the time. The other to sections should
+however be empty for the documentation to be correct.
+
+All this validation is also done by [Github Actions](#github-actions).
 
 ## Github Actions
 
