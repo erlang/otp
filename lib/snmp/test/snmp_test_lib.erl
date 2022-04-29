@@ -1447,39 +1447,71 @@ analyze_and_print_openbsd_host_info(Version) ->
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
-                    (CPUSpeed =:= -1) ->
-                        1;
+                    (CPUSpeed >= 3000) ->
+                        if
+                            (NCPU >= 8) ->
+                                1;
+                            (NCPU >= 6) ->
+                                2;
+                            (NCPU >= 4) ->
+                                3;
+                            (NCPU >= 2) ->
+                                4;
+                            true ->
+                                10
+                        end;
                     (CPUSpeed >= 2000) ->
                         if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
+                            (NCPU >= 8) ->
                                 2;
+                            (NCPU >= 6) ->
+                                3;
+                            (NCPU >= 4) ->
+                                4;
+                            (NCPU >= 2) ->
+                                5;
                             true ->
-                                3
+                                12
+                        end;
+                    (CPUSpeed >= 1000) ->
+                        if
+                            (NCPU >= 8) ->
+                                3;
+                            (NCPU >= 6) ->
+                                4;
+                            (NCPU >= 4) ->
+                                5;
+                            (NCPU >= 2) ->
+                                6;
+                            true ->
+                                14
                         end;
                     true ->
                         if
+                            (NCPU >= 8) ->
+                                4;
+                            (NCPU >= 6) ->
+                                6;
                             (NCPU >= 4) ->
-                                2;
+                                8;
                             (NCPU >= 2) ->
-                                3;
+                                10;
                             true ->
-                                4
+                                20
                         end
                 end,
             MemAddFactor =
                 if
-                    (Memory =:= -1) ->
+                    (Memory >= 16777216) ->
                         0;
                     (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
                         1;
+                    (Memory >= 4194304) ->
+                        3;
                     (Memory >= 2097152) ->
-                        2;
+                        5;
                     true ->
-                        3
+                        10
                 end,
             {CPUFactor + MemAddFactor, []}
         end
