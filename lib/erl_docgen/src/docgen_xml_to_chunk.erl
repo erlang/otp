@@ -712,15 +712,22 @@ to_chunk(Dom, Source, Module, AST) ->
                                       list_to_integer(Arity)
                               end,
                   TypeArgs = lists:join(",",[lists:concat(["Arg",I]) || I <- lists:seq(1,TypeArity)]),
-                  PlaceholderSig = io_lib:format("-type ~p(~s) :: term().",[TypeName,TypeArgs]),
-                  TypeSignature = proplists:get_value(
-                                    signature,Attr,[iolist_to_binary(PlaceholderSig)]),
-                  MetaSig =
-                      case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
+                  {TypeSignature, MetaSig} =
+                      case proplists:get_value(signature,Attr) of
                           undefined ->
-                              #{};
-                          Sig ->
-                              #{ signature => [Sig] }
+                              PlaceholderSig =
+                                  iolist_to_binary(
+                                    io_lib:format("-type ~p(~s) :: term().",
+                                                  [TypeName,TypeArgs])),
+                              {[PlaceholderSig],
+                               case maps:get({TypeName, TypeArity}, TypeMap, undefined) of
+                                   undefined ->
+                                       #{};
+                                   Sig ->
+                                       #{ signature => [Sig] }
+                               end};
+                          Signature ->
+                              {Signature, #{}}
                       end,
 
                   MetaDepr
