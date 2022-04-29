@@ -201,8 +201,9 @@ protected:
      * A boxed value is most likely to cause noticeable trouble. */
     static const Uint64 bad_boxed_ptr = 0xcafebad0000002UL;
 
-    /* Number of highest element displacement for stp/ldp. */
-    static const int MAX_LDP_STP_DISPLACEMENT = 0x3F;
+    /* Number of highest element displacement for L/SDP and L/STR. */
+    static const size_t MAX_LDP_STP_DISPLACEMENT = 0x3F;
+    static const size_t MAX_LDR_STR_DISPLACEMENT = 0xFFF;
 
     /* Constants for "alternate flag state" operands, which are distinct from
      * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
@@ -1626,12 +1627,12 @@ protected:
     }
 
     void safe_ldr(arm::Gp gp, arm::Mem mem) {
-        int64_t offset = mem.offset();
+        size_t offset = std::abs(mem.offset());
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (offset < sizeof(Eterm) * 4096) {
+        if (offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
         } else {
             mov_imm(SUPER_TMP, offset);
@@ -1651,7 +1652,7 @@ protected:
     }
 
     void safe_ldp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
-        int64_t offset = mem.offset();
+        size_t offset = std::abs(mem.offset());
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
         ASSERT(gp1 != gp2);
