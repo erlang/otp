@@ -50,7 +50,7 @@
 -export([start1/0]).
 
 %% Internal exports
--export([do_measure_codec/8, do_measure_codec_loop/7]).
+-export([do_measure_codec/7, do_measure_codec_loop/7]).
 -export([flex_scanner_handler/1]).
 
 
@@ -416,20 +416,21 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
        is_atom(Func) andalso
        is_list(Conf) andalso
        is_integer(MCount) andalso (MCount > 0) ->
-    Self = self(),
-    Pid  = spawn_link(?MODULE, do_measure_codec, 
-                      [Factor, Self, Codec, Func, Conf, Version, Bin, MCount]),
+    {Pid, MRef} =
+        spawn_monitor(?MODULE, do_measure_codec, 
+                      [Factor, Codec, Func, Conf, Version, Bin, MCount]),
     receive
-	{measure_result, Pid, Func, Res} ->
+        {'DOWN', MRef, process, Pid, {measure_result, Res}} ->
 	    {ok, Res};
-	{error, Pid, Error} ->
+	{'DOWN', MRef, process, Pid, {error, Error}} ->
 	    {error, Error};
-	Else ->
+	{'DOWN', MRef, process, Pid, Else} ->
 	    {error, {unexpected_result, Else}}
     after ?MEASURE_TIMEOUT ->
 	    Info = 
 		case (catch process_info(Pid)) of
 		    I when is_list(I) ->
+                        erlang:demonitor(MRef),
 			exit(Pid, kill),
 			I;
 		    _ ->
@@ -439,23 +440,17 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
     end.
 
 
-do_measure_codec(Factor, Parent, Codec, Func, Conf, Version, Bin, MCount) ->
+do_measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
     {ok, Count} = measure_warmup(Codec, Func, Conf, Version, Bin, MCount),
     Count2      = Count div Factor,
-    %% io:format("do_measure_codec(~w, ~w) -> warmed up:"
-    %%           "~n      MCount: ~w"
-    %%           "~n      Count:  ~w"
-    %%           "~n      Count2: ~w", [Codec, Func, MCount, Count, Count2]),
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
 		   [Codec, Func, Conf, Version, Bin, Count2, dummy]),
     case Res of
 	{Time, {ok, M}} ->
-	    %% io:format("~w ", [Time]),
-	    Parent ! {measure_result, self(), Func, {M, Count2, Time}};
+	    exit({measure_result, {M, Count2, Time}});
 	{_Time, Error} ->
-	    Parent ! {error, self(), Error}
-    end,
-    unlink(Parent). % Make sure Parent don't get our exit signal
+            exit({error, Error})
+    end.
 
 
 %% This function does more or less what the real measure function
@@ -467,11 +462,17 @@ measure_warmup(Codec, Func, Conf, Version, M, MCount) ->
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
 		   [Codec, Func, Conf, Version, M, MCount, dummy]),
     case Res of
-	{Time, {ok, _}} when is_integer(Time) ->
+	{Time, {ok, _}} when is_integer(Time) andalso (Time > 0) ->
 	    %% OK so far, now calculate the count:
-	    Count = round(?MEASURE_COUNT_TIME/(Time/MCount)),
-	    %% io:format("~w ", [Count]),
-	    {ok, Count};
+            %% For some reason we get a 'badarith' on some platforms
+            %% here. Since this is just the warmup we can try-catch.
+            try round(?MEASURE_COUNT_TIME/(Time/MCount)) of
+                Count ->
+                    {ok, Count}
+            catch
+                _:_:_ ->
+                    {error, {failed_calculated_count, Time, MCount}}
+            end;
 	{Time, Error} ->
 	    {error, {warmup_failed, Time, Error}}
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,9 +143,6 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
-%% init_per_testcase(multi_user_extreme_load = Case, Config) ->
-%%     C = lists:keydelete(tc_timeout, 1, Config),
-%%     do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
 init_per_testcase(Case, Config) ->
     do_init_per_testcase(Case, Config).
 
@@ -183,6 +180,12 @@ simple_init(suite) ->
 simple_init(doc) ->
     [];
 simple_init(Config) when is_list(Config) ->
+    Pre  = fun() -> #{} end,
+    Case = fun(_) -> do_simple_init() end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+
+do_simple_init() ->
     put(verbosity, ?TEST_VERBOSITY),
     put(tc,        si),
     put(sname,     "TEST"),
@@ -297,6 +300,12 @@ simple_usage(suite) ->
 simple_usage(doc) ->
     [];
 simple_usage(Config) when is_list(Config) ->
+    Pre  = fun() -> #{} end,
+    Case = fun(_) -> do_simple_usage() end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+
+do_simple_usage() ->
     put(verbosity, ?TEST_VERBOSITY),
     put(tc,        su),
     put(sname,     "TEST"),
@@ -389,23 +398,34 @@ integer_timer_start_and_expire(suite) ->
 integer_timer_start_and_expire(doc) ->
     [];
 integer_timer_start_and_expire(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        itsae),
-    put(sname,     "TEST"),
-    i("starting"),
+    Cond = fun() ->
+                   Key = megaco_factor,
+                   case lists:keysearch(Key, 1, Config) of
+                       {value, {Key, F}} when (F > 5) ->
+                           {skip, ?F("Megaco Factor (~w) > 5", [F])};
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(_) -> do_integer_timer_start_and_expire() end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
+do_integer_timer_start_and_expire() ->
     Timeout = 5000,
+    i("start timer"),
     Ref = tmr_start(Timeout),
+    i("await timer expire"),
     receive
-	{timeout, Timeout} ->
-	    ok
+        {timeout, Timeout} ->
+            i("received expected timer expire message"),
+            ok
     after Timeout + 500 ->
-	    tmr_stop(Ref),
-	    no_timeout()
-    end,
-
-    i("done", []),
-    ok.
+            i("timeout-message timeout"),
+            tmr_stop(Ref),
+            no_timeout()
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -415,9 +435,21 @@ integer_timer_start_and_stop(suite) ->
 integer_timer_start_and_stop(doc) ->
     [];
 integer_timer_start_and_stop(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        itsas),
-    put(sname,     "TEST"),
+    Cond = fun() ->
+                   Key = megaco_factor,
+                   case lists:keysearch(Key, 1, Config) of
+                       {value, {Key, F}} when (F > 5) ->
+                           {skip, ?F("Megaco Factor (~w) > 5", [F])};
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() -> #{} end,
+    Case = fun(_) -> do_integer_timer_start_and_stop() end,
+    Post = fun(_) -> ok end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_integer_timer_start_and_stop() ->
     i("starting"),
 
     Timeout = 5000,
@@ -471,6 +503,16 @@ timeout(Pid, Timeout, Tc) ->
 	  "~n   Pid:     ~p"
 	  "~n   Timeout: ~p", [Pid, Timeout]),
     Pid ! {timeout, Timeout}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(Name, Pre, Case, Post) ->
+    Cond = fun() -> ok end,
+    try_tc(Name, Cond, Pre, Case, Post).
+
+try_tc(Name, Cond, Pre, Case, Post) ->
+    ?TRY_TC(Name, "TEST", ?TEST_VERBOSITY, Cond, Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
