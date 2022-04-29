@@ -380,6 +380,8 @@ linux_cpuinfo_cpu() ->
     case linux_cpuinfo_lookup("cpu") of
         [Model] ->
             Model;
+        ["POWER9" ++ _ = CPU|_] ->
+            CPU;
         _ ->
             "-"
     end.
@@ -394,6 +396,8 @@ linux_cpuinfo_motherboard() ->
 
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
+	[] ->
+	    "-";
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -463,6 +467,14 @@ linux_cpuinfo_processor() ->
             "-"
     end.
 
+linux_cpuinfo_machine() ->
+    case linux_cpuinfo_lookup("machine") of
+        [M] ->
+            M;
+        _ ->
+            "-"
+    end.
+
 linux_which_cpuinfo(montavista) ->
     CPU =
         case linux_cpuinfo_cpu() of
@@ -528,20 +540,33 @@ linux_which_cpuinfo(Other) when (Other =:= fedora) orelse
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
-                %% ARM (at least some distros...)
-                case linux_cpuinfo_processor() of
-                    "-" ->
-			case linux_cpuinfo_model() of
+		%% This is for POWER9
+		case linux_cpuinfo_cpu() of
+		    "POWER9" ++ _ = PowerCPU ->
+			Machine =
+			    case linux_cpuinfo_machine() of
+				"-" ->
+				    "";
+				M ->
+				    " (" ++ M ++ ")"
+			    end,
+			PowerCPU ++ Machine;
+		    _X ->
+			%% ARM (at least some distros...)
+			case linux_cpuinfo_processor() of
 			    "-" ->
-				%% Ok, we give up
-				throw(noinfo);
-			    Model ->
-				Model
-			end;
-                    Proc ->
-                        Proc
-                end;
-            ModelName ->
+				case linux_cpuinfo_model() of
+				    "-" ->
+					%% Ok, we give up
+					throw(noinfo);
+				    Model ->
+					Model
+				end;
+			    Proc ->
+				Proc
+			end
+		end;
+	    ModelName ->
                 ModelName
         end,
     case linux_cpuinfo_bogomips() of
