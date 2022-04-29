@@ -1627,12 +1627,12 @@ protected:
     }
 
     void safe_ldr(arm::Gp gp, arm::Mem mem) {
-        size_t offset = std::abs(mem.offset());
+        auto offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
         } else {
             mov_imm(SUPER_TMP, offset);
@@ -1652,12 +1652,12 @@ protected:
     }
 
     void safe_ldp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
-        size_t offset = std::abs(mem.offset());
+        auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
         ASSERT(gp1 != gp2);
 
-        if (offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.ldp(gp1, gp2, mem);
         } else {
             safe_ldr(gp1, mem);
