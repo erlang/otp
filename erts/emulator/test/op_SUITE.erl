@@ -24,18 +24,18 @@
 
 -export([all/0, suite/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
-         complex_relop/1,unsafe_fusing/1]).
+         complex_relop/1,unsafe_fusing/1,
+         range_tests/1]).
 
--export([]).
 -import(lists, [foldl/3,flatmap/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 5}}].
 
-all() -> 
+all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
-     complex_relop, unsafe_fusing].
+     complex_relop, unsafe_fusing, range_tests].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -334,18 +334,25 @@ run_test_module(Cases, GuardsOk) ->
     Module = erl_parse:new_anno(Module0),
     lists:foreach(fun(F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Module),
 
-    %% Compile, load, and run the generated module.
+    %% Compile, load, and run the generated module. Test both with and
+    %% without compiler optimizations to ensure that we test both the
+    %% implementation of the BIFs and the BEAM instructions.
+    do_run_test_module(Module, []),
+    do_run_test_module(Module, [no_copt,no_ssa_opt,no_postopt]).
 
-    {ok,Mod,Code1} = compile:forms(Module, [time]),
-    code:delete(Mod),
-    code:purge(Mod),
+do_run_test_module(Module, Opts) ->
+    {ok,Mod,Code1} = compile:forms(Module, [time|Opts]),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+
     {module,Mod} = code:load_binary(Mod, Mod, Code1),
+
     run_function(Mod, guard_tests),
     run_function(Mod, body_tests),
     run_function(Mod, bif_tests),
 
     true = code:delete(Mod),
-    code:purge(Mod),
+    _ = code:purge(Mod),
 
     ok.
 
@@ -449,6 +456,236 @@ usec_to_seconds(Usec) when is_integer(Usec) ->
     %%         {x,0}}.
     Sec = Usec div 1000000,
     Sec rem 1000000.
+
+range_tests(_Config) ->
+    %% Define the limits for smalls on a 64-bit system.
+    {MinSmall, MaxSmall} = {-1 bsl 59, (1 bsl 59) - 1},
+    case erlang:system_info(wordsize) of
+        8 ->
+            %% Assertions.
+            2 = erts_debug:flat_size(MinSmall-1),
+            0 = erts_debug:flat_size(MinSmall),
+            0 = erts_debug:flat_size(MaxSmall),
+            2 = erts_debug:flat_size(MaxSmall+1);
+        4 ->
+            ok
+    end,
+
+    lesser = range(-1 bsl 64),
+    lesser = range(MinSmall),
+    lesser = range(0),
+    lesser = range(-1),
+    lesser = range(0.9999),
+
+    inside = range_any(1),
+    inside = range_any(2),
+    inside = range_any(2.5),
+    inside = range_any(math:pi()),
+    inside = range_any(5),
+    inside = range_any(9),
+    inside = range_any(10),
+
+    greater = range(10.0001),
+    greater = range(11),
+    greater = range(MaxSmall),
+    greater = range(1 bsl 64),
+    greater = range(atom),
+    greater = range(self()),
+    greater = range(make_ref()),
+    greater = range({a,b}),
+    greater = range([a,b]),
+    greater = range([]),
+    greater = range(<<1,2,3>>),
+    greater = range(fun() -> ok end),
+    greater = range(fun ?MODULE:range_tests/1),
+
+    lesser = range(-1 bsl 64),
+    lesser = range(float(-1 bsl 64)),
+    lesser = range_big(MinSmall - 2),
+    lesser = range_barely_small(MinSmall - 1),
+
+    inside = range_barely_small(MinSmall),
+    inside = range_barely_small(-1 bsl 58),
+    inside = range_barely_small(0),
+    inside = range_barely_small(17.75),
+    inside = range_barely_small(1 bsl 58),
+    inside = range_barely_small(MaxSmall),
+
+    greater = range_barely_small(MaxSmall + 1),
+    greater = range_big(MaxSmall + 2),
+    greater = range_big(1 bsl 64),
+    greater = range_big(float(1 bsl 64)),
+
+    lesser = range(-1 bsl 64),
+    lesser = range(float(-1 bsl 64)),
+    lesser = range_big(MinSmall - 2),
+
+    inside = range_big(MinSmall),
+    inside = range_big(-1 bsl 58),
+    inside = range_big(0),
+    inside = range_barely_small(17.75),
+    inside = range_big(1 bsl 58),
+    inside = range_big(MaxSmall),
+
+    greater = range_big(MaxSmall + 2),
+    greater = range_big(1 bsl 64),
+    greater = range_big(float(1 bsl 64)),
+
+    ok.
+
+range(X) ->
+    Res = range_any(X),
+    if
+        is_integer(X) ->
+            Res = range_any(float(X)),
+            Res = range_number(X),
+            Res = range_number(float(X)),
+            Res = range_int(X),
+            if
+                X =:= X band 16#ffff ->
+                    Res = range_small_int(X);
+                true ->
+                    Res
+            end;
+        is_number(X) ->
+            Res = range_number(X);
+        true ->
+            Res = range_big(X),
+            Res = range_barely_small(X)
+    end.
+
+range_any(X0) ->
+    X = id(X0),
+    case range_any_1(X) of
+        inside ->
+            inside = range_any_2(X);
+        Other ->
+            outside = range_any_2(X),
+            Other
+    end.
+
+%% The guard tests have different failure labels.
+range_any_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_any_1(X) when X < 1 ->
+    lesser;
+range_any_1(X) when X > 10 ->
+    greater.
+
+%% The guard tests have the same failure label.
+range_any_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_any_2(_) ->
+    outside.
+
+range_number(X) when is_number(X) ->
+    case range_number_1(X) of
+        inside ->
+            inside = range_number_2(X);
+        Other ->
+            outside = range_number_2(X),
+            Other
+    end.
+
+range_number_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_number_1(X) when X < 1 ->
+    lesser;
+range_number_1(X) when X > 10 ->
+    greater.
+
+range_number_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_number_2(_) ->
+    outside.
+
+range_int(X) when is_integer(X) ->
+    case range_int_1(X) of
+        inside ->
+            inside = range_int_2(X);
+        Other ->
+            outside = range_int_2(X),
+            Other
+    end.
+
+range_int_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_int_1(X) when X < 1 ->
+    lesser;
+range_int_1(X) when X > 10 ->
+    greater.
+
+range_int_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_int_2(_) ->
+    outside.
+
+range_small_int(X) when is_integer(X) ->
+    case range_small_int_1(X) of
+        inside ->
+            inside = range_small_int_2(X);
+        Other ->
+            outside = range_small_int_2(X),
+            Other
+    end.
+
+range_small_int_1(X) when 1 =< X, X =< 10 ->
+    inside;
+range_small_int_1(X) when X < 1 ->
+    lesser;
+range_small_int_1(X) when X > 10 ->
+    greater.
+
+range_small_int_2(X) when 1 =< X, X =< 10 ->
+    inside;
+range_small_int_2(_) ->
+    outside.
+
+range_barely_small(X) ->
+    case range_barely_small_1(X) of
+        inside ->
+            inside = range_barely_small_2(X);
+        Other ->
+            outside = range_barely_small_2(X),
+            Other
+    end.
+
+range_barely_small_1(X) when -1 bsl 59 =< X, X =< (1 bsl 59) - 1 ->
+    inside;
+range_barely_small_1(X) when X < -1 bsl 59 ->
+    lesser;
+range_barely_small_1(X) when X > (1 bsl 59) - 1 ->
+    greater.
+
+range_barely_small_2(X) when -1 bsl 59 =< X, X =< (1 bsl 59) - 1 ->
+    inside;
+range_barely_small_2(_) ->
+    outside.
+
+range_big(X) ->
+    case range_big_1(X) of
+        inside ->
+            inside = range_big_2(X);
+        Other ->
+            outside = range_big_2(X),
+            Other
+    end.
+
+range_big_1(X) when (-1 bsl 59) - 1 =< X, X =< 1 bsl 59 ->
+    inside;
+range_big_1(X) when X < (-1 bsl 59) - 1 ->
+    lesser;
+range_big_1(X) when X > 1 bsl 59 ->
+    greater.
+
+range_big_2(X) when (-1 bsl 59) - 1 =< X, X =< 1 bsl 59 ->
+    inside;
+range_big_2(_) ->
+    outside.
+
+%%%
+%%% Utilities.
+%%%
 
 unvalue(V) ->
     Abstr = erl_parse:abstract(V),

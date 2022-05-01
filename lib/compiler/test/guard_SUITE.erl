@@ -1435,16 +1435,24 @@ rel_op_combinations(Config) when is_list(Config) ->
 	lists:seq(16#06F0, 16#06F9),
     Digits = gb_sets:from_list(Digits0),
     rel_op_combinations_1(16#0700, Digits),
+    false = is_digit(-1 bsl 59),
+    false = is_digit(-1 bsl 64),
+    false = is_digit((1 bsl 59) - 1),
+    false = is_digit(1 bsl 64),
 
     BrokenRange0 = lists:seq(3, 5) ++
 	lists:seq(10, 12) ++ lists:seq(14, 20),
     BrokenRange = gb_sets:from_list(BrokenRange0),
     rel_op_combinations_2(30, BrokenRange),
+    false = broken_range(-1 bsl 64),
+    false = broken_range(1 bsl 64),
 
     Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
 	[{I,5*I} || I <- lists:seq(51, 80)],
     Red = gb_trees:from_orddict(Red0),
     rel_op_combinations_3(100, Red),
+    2 * (-1 bsl 64) = redundant(-1 bsl 64),
+    none = redundant(1 bsl 64),
 
     rel_op_combinations_4(),
 
@@ -1454,6 +1462,10 @@ rel_op_combinations_1(0, _) ->
     ok;
 rel_op_combinations_1(N, Digits) ->
     Bool = gb_sets:is_member(N, Digits),
+    Bool = is_digit(N),
+    rel_op_combinations_1(N-1, Digits).
+
+is_digit(N) ->
     Bool = is_digit_1(N),
     Bool = is_digit_2(N),
     Bool = is_digit_3(N),
@@ -1464,8 +1476,7 @@ rel_op_combinations_1(N, Digits) ->
     Bool = is_digit_8(N),
     Bool = is_digit_9(42, N),
     Bool = is_digit_10(N, 0),
-    Bool = is_digit_11(N, 0),
-    rel_op_combinations_1(N-1, Digits).
+    Bool = is_digit_11(N, 0).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
 is_digit_1(X) when 16#0030 =< X, X =< 16#0039 -> true;
@@ -1530,6 +1541,10 @@ rel_op_combinations_2(0, _) ->
     ok;
 rel_op_combinations_2(N, Range) ->
     Bool = gb_sets:is_member(N, Range),
+    Bool = broken_range(N),
+    rel_op_combinations_2(N-1, Range).
+
+broken_range(N) ->
     Bool = broken_range_1(N),
     Bool = broken_range_2(N),
     Bool = broken_range_3(N),
@@ -1542,8 +1557,7 @@ rel_op_combinations_2(N, Range) ->
     Bool = broken_range_10(N),
     Bool = broken_range_11(N),
     Bool = broken_range_12(N),
-    Bool = broken_range_13(N),
-    rel_op_combinations_2(N-1, Range).
+    Bool = broken_range_13(N).
 
 broken_range_1(X) when X >= 10, X =< 20, X =/= 13 -> true;
 broken_range_1(X) when X >= 3, X =< 5 -> true;
@@ -1615,6 +1629,10 @@ rel_op_combinations_3(N, Red) ->
 	      none -> none;
 	      {value,V} -> V
 	  end,
+    Val = redundant(N),
+    rel_op_combinations_3(N-1, Red).
+
+redundant(N) ->
     Val = redundant_1(N),
     Val = redundant_2(N),
     Val = redundant_3(N),
@@ -1626,8 +1644,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
-    Val = redundant_12(N),
-    rel_op_combinations_3(N-1, Red).
+    Val = redundant_12(N).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
 redundant_1(X) when X < 51 -> 2*X;
