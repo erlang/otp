@@ -3396,6 +3396,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 		    erts_mtx_unlock(&dep->qlock);
 
 		    plp = erts_proclist_create(ctx->c_p);
+
 		    erts_suspend(ctx->c_p, ERTS_PROC_LOCK_MAIN, NULL);
 		    suspended = 1;
 		    erts_mtx_lock(&dep->qlock);
@@ -3466,12 +3467,15 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 		}
                 /* More fragments left to be sent, yield and re-schedule */
                 if (ctx->fragments) {
+                    ctx->c_p->flags |= F_FRAGMENTED_SEND;
                     retval = ERTS_DSIG_SEND_CONTINUE;
                     if (!resume && erts_system_monitor_flags.busy_dist_port)
                         monitor_generic(ctx->c_p, am_busy_dist_port, cid);
                     goto done;
                 }
 	    }
+
+            if (ctx->c_p) ctx->c_p->flags &= ~F_FRAGMENTED_SEND;
 	    ctx->obuf = NULL;
 
 	    if (suspended) {
@@ -3855,9 +3859,8 @@ erts_dist_command(Port *prt, int initial_reds)
 	obufsize = 0;
 	if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 	    && de_busy && qsize < erts_dist_buf_busy_limit) {
-	    ErtsProcList *suspendees;
 	    int resumed;
-	    suspendees = get_suspended_on_de(dep, ERTS_DE_QFLG_BUSY);
+	    ErtsProcList *suspendees = get_suspended_on_de(dep, ERTS_DE_QFLG_BUSY);
 	    erts_mtx_unlock(&dep->qlock);
 
 	    resumed = erts_resume_processes(suspendees);

@@ -5469,9 +5469,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                             ErtsMonitorSuspend *msp;
                             erts_aint_t mstate;
                             msp = (ErtsMonitorSuspend *) erts_monitor_to_data(tmon);
-                            mstate = erts_atomic_read_acqb(&msp->state);
-                            if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)
+                            mstate = erts_atomic_read_band_acqb(
+                                &msp->state, ~ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+                            if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE) {
                                 erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
+                            }
                             break;
                         }
                         default:
@@ -6307,6 +6309,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_DIST_PROC:
         case ERTS_MON_TYPE_NODE:
+        case ERTS_MON_TYPE_SUSPEND:
             size = erts_monitor_size((ErtsMonitor *) sig);
             break;
         default:

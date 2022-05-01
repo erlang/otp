@@ -57,7 +57,7 @@ document etp-help
 %   etp-msgq, etpf-msgq,
 %   etp-stacktrace, etp-stacktrace-emu, etp-stacktrace-jit,
 %   etp-stackdump, etp-stackdump-emu, etpf-stackdump, etp-dictdump
-%   etp-process-info, etp-process-memory-info
+%   etp-process-info, etp-process-info-x, etp-process-memory-info
 %   etp-port-info, etp-port-state, etp-port-sched-flags
 %   etp-heapdump, etp-offheapdump, etpf-offheapdump,
 %   etp-search-heaps, etp-search-alloc,
@@ -67,8 +67,8 @@ document etp-help
 %   etp-overlapped-heaps, etp-chart, etp-chart-start, etp-chart-end
 %
 % System inspection
-%   etp-system-info, etp-schedulers, etp-processes, etp-ports, etp-lc-dump,
-%   etp-migration-info, etp-processes-memory,
+%   etp-system-info, etp-schedulers, etp-processes, etp-processes-x, etp-ports,
+%   etp-lc-dump, etp-migration-info, etp-processes-memory,
 %   etp-compile-info, etp-config-h-info
 %
 % Platform specific (when gdb fails you)
@@ -2228,6 +2228,193 @@ define etp-pid2proc
    printf "(Process*)%p\n", $proc
 end
 
+define etp-mon-lnk-flags-int
+  printf "    Flags: "
+  if ($arg0) & (1 << 0)
+    printf "TARGET "
+  else
+    printf "ORIGIN "
+  end
+  if ($arg0) & (1 << 1)
+    printf "IN_TABLE "
+  end
+  if ($arg0) & (1 << 2)
+    printf "IN_SUB_TABLE "
+  end
+  if ($arg0) & (1 << 3)
+    printf "NAME "
+  end
+  if ($arg0) & (1 << 4)
+    printf "EXTENDED "
+  end
+  if ($arg0) & (1 << 5)
+    printf "SPAWN_PENDING "
+  end
+  if ($arg0) & (1 << 6)
+    printf "SPAWN_MONITOR "
+  end
+  if ($arg0) & (1 << 7)
+    printf "SPAWN_LINK "
+  end
+  if ($arg0) & (1 << 8)
+    printf "SPAWN_ABANDON "
+  end
+  if ($arg0) & (1 << 9)
+    printf "SPAWN_NO_SMSG "
+  end
+  if ($arg0) & (1 << 10)
+    printf "SPAWN_NO_EMSG "
+  end
+  if ($arg0) & (1 << 11)
+    printf "ALIAS_BIT1 "
+  end
+  if ($arg0) & (1 << 12)
+    printf "ALIAS_BIT2 "
+  end
+  if ($arg0) & (1 << 13)
+    printf "TAG "
+  end
+  if ($arg0) & (1 << 15)
+    printf "DBG_VISITED "
+  end
+  printf "\n"
+end
+
+define etp-monitor-info-int
+  set $etp_mon = (ErtsMonitor *)($arg0)
+  set $etp_mdp = ((ErtsMonitorData *)(((char*)$etp_mon) - (((ErtsMonLnkNode*)$etp_mon)->offset)))
+  printf "  --- Monitor\n"
+  printf "    Type: "
+  if $etp_mon->type == 0
+    printf "Proc"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 1
+    printf "Port"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 2
+    printf "Time_offset"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 3
+    printf "Dist_proc"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 4
+    printf "Resource"
+    printf "\n    Other: "
+    if $etp_mon_origin
+      etp-1 $etp_mon->other.item
+    else
+      printf "(void*)%p", $etp_mon->other.item
+    end
+  end
+  if $etp_mon->type == 5
+    printf "Node"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 6
+    printf "Nodes"
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 7
+    printf "Suspend\n"
+    printf "    State: "
+    printf "%d", ((ErtsMonitorSuspend*)$etp_mdp)->state.counter & ~0x8000000000000000
+    if ((ErtsMonitorSuspend*)$etp_mdp)->state.counter & 0x8000000000000000
+      printf " ACTIVE"
+    else
+      printf " NOT ACTIVE"
+    end
+    printf "\n    Other: "
+    etp-1 $etp_mon->other.item
+  end
+  if $etp_mon->type == 8
+    printf "Alias"
+  end
+  printf "\n"
+  etp-mon-lnk-flags-int $etp_mon->flags
+  printf "    Pointer: (ErtsMonitorData*)%p\n", $etp_mdp
+end
+
+define etp-links-info
+  if ($arg0) != 0
+    etp-links-info ($arg0)->node.tree.left
+    printf "  --- Link\n"
+    printf "    Type: "
+    if ($arg0)->type == (8 + 1)
+      printf "Proc"
+      printf "\n    Other: "
+      etp-1 ($arg0)->other.item
+    end
+    if ($arg0)->type == (8 + 2)
+      printf "Port"
+      printf "\n    Other: "
+      etp-1 ($arg0)->other.item
+    end
+    if ($arg0)->type == (8 + 3)
+      printf "Dist Proc"
+      printf "\n    Other: "
+      etp-1 ($arg0)->other.item
+    end
+    printf "\n"
+    etp-mon-lnk-flags-int ($arg0)->flags
+    printf "    Pointer: (ErtsLink*)%p\n", ($arg0)
+    etp-links-info ($arg0)->node.tree.right
+  end
+end
+
+define etp-monitor-info
+  if ($arg0) != 0
+    etp-monitor-info ($arg0)->node.tree.left
+    etp-monitor-info-int $arg0
+    etp-monitor-info ($arg0)->node.tree.right
+  end
+end
+
+define etp-links
+  set $etp_proc = (Process *)($arg0)
+  if $etp_proc->state.counter & 0x400
+    ## Proc is free, monitors may be in trap state
+    if $etp_proc->i == beam_continue_exit && ($etp_proc)->u.terminate != 0
+      set $trap_state = ((struct continue_exit_state*)($etp_proc)->u.terminate)
+      set $lt_monitor = $trap_state->lt_monitors
+      set $monitor = $trap_state.monitors
+      set $links = $trap_state.links
+    else
+      ## The monitors are in the trap state on the stack
+      set $lt_monitor = 0
+      set $monitor = 0
+      set $link = 0
+    end
+  else
+    set $monitor = ($etp_proc)->common.u.alive.monitors
+    set $lt_monitor = ($etp_proc)->common.u.alive.lt_monitors
+    set $link = ($etp_proc)->common.u.alive.links
+  end
+
+  etp-links-info $link
+  etp-monitor-info $monitor
+
+  if $lt_monitor != 0
+    set $orig_lt_monitor = $lt_monitor
+    etp-monitor-info-int $lt_monitor
+    set $lt_monitor = $lt_monitor->node.list.next
+    while $lt_monitor != $orig_lt_monitor
+      etp-monitor-info-int $lt_monitor
+      set $lt_monitor = $lt_monitor->node.list.next
+    end
+  end
+
+end
+
 define etp-proc-state-int
 # Args: int
 #
@@ -2380,8 +2567,14 @@ end
 define etp-proc-flags-int
 # Args: int
 #
-  if ($arg0 & ~((1 << 24)-1))
-    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 24)-1))
+  if ($arg0 & ~((1 << 25)-1))
+    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 25)-1))
+  end
+  if ($arg0 & (1 << 24))
+    printf "DEBUG-forced-trap "
+  end
+  if ($arg0 & (1 << 23))
+    printf "fragmented-send "
   end
   if ($arg0 & (1 << 22))
     printf "trap-exit "
@@ -2536,6 +2729,7 @@ define etp-process-info-int
   end
   if ($arg1)
     etp-sigqs $etp_proc
+    etp-links $etp_proc
   end
 end
 
@@ -2543,15 +2737,23 @@ define etp-process-info
   etp-process-info-int ($arg0) 0
 end
 
-define etp-process-info-x
-  etp-process-info-int ($arg0) !0
-end
-
 document etp-process-info
 %---------------------------------------------------------------------------
 % etp-process-info Process*
 % 
 % Print info about process
+%---------------------------------------------------------------------------
+end
+
+define etp-process-info-x
+  etp-process-info-int ($arg0) !0
+end
+
+document etp-process-info-x
+%---------------------------------------------------------------------------
+% etp-process-info-x Process*
+% 
+% Print extended info about process
 %---------------------------------------------------------------------------
 end
 
@@ -2650,15 +2852,23 @@ define etp-processes
   etp-processes-int 0
 end
 
-define etp-processes-x
-  etp-processes-int !0
-end
-
 document etp-processes
 %---------------------------------------------------------------------------
 % etp-processes
 %
 % Print misc info about all processes
+%---------------------------------------------------------------------------
+end
+
+define etp-processes-x
+  etp-processes-int !0
+end
+
+document etp-processes-x
+%---------------------------------------------------------------------------
+% etp-processes-x
+%
+% Print extended misc info about all processes
 %---------------------------------------------------------------------------
 end
 
