@@ -240,10 +240,11 @@ crl_verify_valid(Config) when is_list(Config) ->
 		  end,			  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
-    
-    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts).
+    {ok, CrlFiles} = insert_crls_into_cache(PrivDir),
+
+    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts),
+
+    ok = delete_crls_from_cache(CrlFiles).
 
 crl_verify_revoked() ->
     [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
@@ -256,8 +257,7 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+    {ok, CrlFiles} = insert_crls_into_cache(PrivDir),
     
     ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
@@ -273,7 +273,10 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 		  end,	
     
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                     certificate_revoked).
+                     certificate_revoked),
+
+    ok = delete_crls_from_cache(CrlFiles).
+
 crl_verify_valid_derCAs() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_valid_derCAs(Config) when is_list(Config) ->
@@ -300,10 +303,11 @@ crl_verify_valid_derCAs(Config) when is_list(Config) ->
 		  end,
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+    {ok, CrlFiles} = insert_crls_into_cache(PrivDir),
 
-    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts).
+    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts),
+
+    ok = delete_crls_from_cache(CrlFiles).
 
 crl_verify_revoked_derCAs() ->
     [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
@@ -319,8 +323,7 @@ crl_verify_revoked_derCAs(Config)  when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
-    ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+    {ok, CrlFiles} = insert_crls_into_cache(PrivDir),
 
     ClientOpts =  case proplists:get_value(idp_crl, Config) of
 		      true ->
@@ -336,7 +339,9 @@ crl_verify_revoked_derCAs(Config)  when is_list(Config) ->
 		  end,
 
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                     certificate_revoked).
+                     certificate_revoked),
+
+    ok = delete_crls_from_cache(CrlFiles).
 
 crl_verify_no_crl() ->
     [{doc,"Verify a simple CRL chain when the CRL is missing"}].
@@ -630,3 +635,14 @@ der_cas(CAcertsFile) ->
     {ok, Pem} = file:read_file(CAcertsFile),
     Decoded = public_key:pem_decode(Pem),
     [DER || {_, DER, _} <- Decoded].
+
+insert_crls_into_cache(PrivDir) ->
+    ErlangCAFile = {file, filename:join([PrivDir, "erlangCA", "crl.pem"])},
+    OtpCAFile = {file, filename:join([PrivDir, "otpCA", "crl.pem"])},
+    ssl_crl_cache:insert(ErlangCAFile),
+    ssl_crl_cache:insert(OtpCAFile),
+    {ok, {ErlangCAFile,OtpCAFile}}.
+
+delete_crls_from_cache({ErlangCAFile, OtpCAFile}) ->
+    ok = ssl_crl_cache:delete(ErlangCAFile),
+    ok = ssl_crl_cache:delete(OtpCAFile).
