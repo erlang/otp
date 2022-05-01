@@ -25,7 +25,7 @@
 -export([all/0, suite/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
-         range_tests/1]).
+         range_tests/1, combined_relops/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -35,7 +35,8 @@ suite() ->
 
 all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
-     complex_relop, unsafe_fusing, range_tests].
+     complex_relop, unsafe_fusing, range_tests,
+     combined_relops].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -523,13 +524,46 @@ range_tests(_Config) ->
     inside = range_big(MinSmall),
     inside = range_big(-1 bsl 58),
     inside = range_big(0),
-    inside = range_barely_small(17.75),
+    inside = range_big(17.75),
     inside = range_big(1 bsl 58),
     inside = range_big(MaxSmall),
 
     greater = range_big(MaxSmall + 2),
     greater = range_big(1 bsl 64),
     greater = range_big(float(1 bsl 64)),
+
+    inside = int_range_1(id(-100_000)),
+    inside = int_range_1(id(-10)),
+    inside = int_range_1(id(100)),
+    inside = int_range_1(id(100_000)),
+
+    outside = int_range_1(id(atom)),
+    outside = int_range_1(id(-1 bsl 60)),
+    outside = int_range_1(id(-100_001)),
+    outside = int_range_1(id(100_001)),
+    outside = int_range_1(id(1 bsl 60)),
+
+    inside = int_range_2(id(1)),
+    inside = int_range_2(id(42)),
+    inside = int_range_2(id(16#f000_0000)),
+
+    outside = int_range_2(id([a,list])),
+    outside = int_range_2(id(0)),
+    outside = int_range_1(id(-1 bsl 60)),
+    outside = int_range_1(id(1 bsl 60)),
+
+    inside = int_range_3(id(1 bsl 28)),
+    inside = int_range_3(id((1 bsl 28) + 1)),
+    inside = int_range_3(id((1 bsl 33) + 555)),
+    inside = int_range_3(id((1 bsl 58) - 1)),
+    inside = int_range_3(id(1 bsl 58)),
+
+    outside = int_range_3(id({a,tuple})),
+    outside = int_range_3(id(-1 bsl 60)),
+    outside = int_range_3(id(-1000)),
+    outside = int_range_3(id(100)),
+    outside = int_range_3(id((1 bsl 58) + 1)),
+    outside = int_range_3(id(1 bsl 60)),
 
     ok.
 
@@ -682,6 +716,83 @@ range_big_2(X) when (-1 bsl 59) - 1 =< X, X =< 1 bsl 59 ->
     inside;
 range_big_2(_) ->
     outside.
+
+int_range_1(X) when is_integer(X), -100_000 =< X, X =< 100_000 ->
+    inside;
+int_range_1(_) ->
+    outside.
+
+int_range_2(X) when is_integer(X), 1 =< X, X =< 16#f000_0000 ->
+    inside;
+int_range_2(_) ->
+    outside.
+
+int_range_3(X) when is_integer(X), 1 bsl 28 =< X, X =< 1 bsl 58 ->
+    inside;
+int_range_3(_) ->
+    outside.
+
+combined_relops(_Config) ->
+    other = test_tok_char(-1 bsl 64),
+    other = test_tok_char($A - 1),
+
+    var = test_tok_char($A),
+    var = test_tok_char($B),
+    var = test_tok_char($P),
+    var = test_tok_char($Y),
+    var = test_tok_char($Z),
+
+    other = test_tok_char($Z + 1),
+
+    var = tok_char($_),
+    other = tok_char(float($_)),
+
+    other = test_tok_char(1 bsl 64),
+
+    other = test_tok_char(atom),
+    other = test_tok_char(self()),
+
+    ok.
+
+test_tok_char(C) ->
+    Result = tok_char(C),
+    if
+        is_integer(C) ->
+            Result = tok_char(float(C)),
+            Result = tok_char_int(C),
+            if
+                C band 16#FFFF =:= C ->
+                    Result = tok_char_int_range(C);
+                true ->
+                    Result
+            end;
+        true ->
+            Result
+    end.
+
+%% is_ge + is_lt
+tok_char(C) when $A =< C, C =< $Z ->
+    var;
+tok_char($_) ->
+    var;
+tok_char(_) ->
+    other.
+
+%% is_ge + is_ge
+tok_char_int(C) when $A =< C, C =< $Z ->
+    var;
+tok_char_int($_) ->
+    var;
+tok_char_int(_) ->
+    other.
+
+%% is_ge + is_ge
+tok_char_int_range(C) when $A =< C, C =< $Z ->
+    var;
+tok_char_int_range($_) ->
+    var;
+tok_char_int_range(_) ->
+    other.
 
 %%%
 %%% Utilities.

@@ -1467,6 +1467,335 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     }
 }
 
+/*
+ * ARG1 = Src
+ * ARG2 = Min
+ * ARG3 = Max
+ *
+ * Result is returned in the flags.
+ */
+void BeamGlobalAssembler::emit_is_in_range_shared() {
+    Label immediate = a.newLabel(), generic_compare = a.newLabel(),
+          float_done = a.newLabel(), done = a.newLabel();
+
+    /* Is the source a float? */
+    emit_is_boxed(immediate, ARG1);
+
+    arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+    a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+
+    mov_imm(TMP3, HEADER_FLONUM);
+    a.cmp(TMP2, TMP3);
+    a.b_ne(generic_compare);
+
+    a.ldur(a64::d0, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    a.asr(TMP1, ARG2, imm(_TAG_IMMED1_SIZE));
+    a.scvtf(a64::d1, TMP1);
+
+    a.fcmpe(a64::d0, a64::d1);
+    a.b_mi(float_done);
+
+    a.asr(TMP1, ARG3, imm(_TAG_IMMED1_SIZE));
+    a.scvtf(a64::d1, TMP1);
+    a.fcmpe(a64::d0, a64::d1);
+    a.b_gt(float_done);
+    a.tst(ZERO, ZERO);
+
+    a.bind(float_done);
+    a.ret(a64::x30);
+
+    a.bind(immediate);
+    {
+        /*
+         * Src is an immediate (such as ATOM) but not SMALL.
+         * That means that Src must be greater than the upper
+         * limit.
+         */
+        mov_imm(TMP1, 1);
+        a.cmp(TMP1, imm(0));
+        a.ret(a64::x30);
+    }
+
+    a.bind(generic_compare);
+    {
+        emit_enter_runtime_frame();
+        emit_enter_runtime();
+
+        a.stp(ARG1, ARG3, TMP_MEM1q);
+
+        comment("erts_cmp_compound(X, Y, 0, 0);");
+        mov_imm(ARG3, 0);
+        mov_imm(ARG4, 0);
+        runtime_call<4>(erts_cmp_compound);
+        a.tst(ARG1, ARG1);
+        a.b_mi(done);
+
+        a.ldp(ARG1, ARG2, TMP_MEM1q);
+
+        comment("erts_cmp_compound(X, Y, 0, 0);");
+        mov_imm(ARG3, 0);
+        mov_imm(ARG4, 0);
+        runtime_call<4>(erts_cmp_compound);
+        a.tst(ARG1, ARG1);
+
+        a.bind(done);
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+
+        a.ret(a64::x30);
+    }
+}
+
+/*
+ * 1121 occurrences in OTP at the time of writing.
+ */
+void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
+                                           ArgLabel const &Large,
+                                           ArgRegister const &Src,
+                                           ArgConstant const &Min,
+                                           ArgConstant const &Max) {
+    Label next = a.newLabel(), generic = a.newLabel();
+    bool need_generic = true;
+    auto src = load_source(Src, ARG1);
+
+    if (always_small(Src)) {
+        need_generic = false;
+        comment("skipped test for small operand since it always small");
+    } else if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        /* The only possible kind of immediate is a small and all
+         * other values are boxed, so we can test for smalls by
+         * testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
+        if (Small == Large &&
+            always_one_of(Src, BEAM_TYPE_MASK_BOXED - BEAM_TYPE_FLOAT)) {
+            /* Src is never a float and the failure labels are
+             * equal. Therefore, since a bignum will never be within
+             * the range, we can fail immediately if Src is not a
+             * small. */
+            need_generic = false;
+            a.tbz(src.reg, imm(0), resolve_beam_label(Small, disp32K));
+        } else {
+            /* Src can be a float or the failures labels are distinct.
+             * We need to call the generic routine if Src is not a small. */
+            a.tbz(src.reg, imm(0), generic);
+        }
+    } else if (Small == Large) {
+        /* We can save one instruction if we incorporate the test for
+         * small into the range check. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        comment("simplified small & range tests since failure labels are "
+                "equal");
+        sub(TMP1, src.reg, Min.as<ArgImmed>().get());
+
+        /* Since we have subtracted the (tagged) lower bound, the
+         * tag bits of the difference is 0 if and only if Src is
+         * a small. Testing for a tag of 0 can be done in two
+         * instructions. */
+        a.tst(TMP1, imm(_TAG_IMMED1_MASK));
+        a.b_ne(generic);
+
+        /* Now do the range check. */
+        cmp(TMP1, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+        a.b_hi(resolve_beam_label(Small, disp1MB));
+
+        /* Bypass the test code. */
+        goto test_done;
+    } else {
+        /* We have no applicable type information and the failure
+         * labels are distinct. Emit the standard test for small
+         * and call the generic routine if Src is not a small. */
+        a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    /* We have now established that the operand is small. */
+    if (Small == Large) {
+        comment("simplified range test since failure labels are equal");
+        sub(TMP1, src.reg, Min.as<ArgImmed>().get());
+        cmp(TMP1, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+        a.b_hi(resolve_beam_label(Small, disp1MB));
+    } else {
+        cmp(src.reg, Min.as<ArgImmed>().get());
+        a.b_lt(resolve_beam_label(Small, disp1MB));
+        cmp(src.reg, Max.as<ArgImmed>().get());
+        a.b_gt(resolve_beam_label(Large, disp1MB));
+    }
+
+test_done:
+    if (need_generic) {
+        a.b(next);
+    }
+
+    a.bind(generic);
+    if (!need_generic) {
+        comment("skipped generic comparison because it is not needed");
+    } else {
+        mov_var(ARG1, src);
+        mov_arg(ARG2, Min);
+        mov_arg(ARG3, Max);
+        fragment_call(ga->get_is_in_range_shared());
+        if (Small == Large) {
+            a.b_ne(resolve_beam_label(Small, disp1MB));
+        } else {
+            a.b_lt(resolve_beam_label(Small, disp1MB));
+            a.b_gt(resolve_beam_label(Large, disp1MB));
+        }
+    }
+
+    a.bind(next);
+}
+
+/*
+ * ARG1 = Src
+ * ARG2 = A
+ * ARG3 = B
+ *
+ * Result is returned in the flags.
+ */
+void BeamGlobalAssembler::emit_is_ge_lt_shared() {
+    Label done = a.newLabel();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime();
+
+    a.stp(ARG1, ARG3, TMP_MEM1q);
+
+    comment("erts_cmp_compound(Src, A, 0, 0);");
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+    a.tst(ARG1, ARG1);
+    a.b_mi(done);
+
+    comment("erts_cmp_compound(B, Src, 0, 0);");
+    a.ldp(ARG2, ARG1, TMP_MEM1q);
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
+    a.cmp(ARG1, imm(0));
+
+    /* Make sure that ARG1 is -1, 0, or 1. */
+    a.cset(ARG1, imm(arm::CondCode::kNE));
+    a.csinv(ARG1, ARG1, ZERO, imm(arm::CondCode::kGE));
+
+    /* Prepare return value and flags. */
+    a.adds(ARG1, ARG1, imm(1));
+
+    /* We now have:
+     *   ARG1 == 0 if B < SRC
+     *   ARG1 > 0 if B => SRC
+     * and flags set accordingly. */
+
+    a.bind(done);
+    emit_leave_runtime();
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
+}
+
+/*
+ * The instruction sequence:
+ *
+ *   is_ge Fail1 Src A
+ *   is_lt Fail1 B Src
+ *
+ * is common (1841 occurrences in OTP at the time of writing).
+ *
+ * is_ge + is_lt is 18 instructions, while is_ge_lt is
+ * 14 instructions.
+ */
+void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
+                                        ArgLabel const &Fail2,
+                                        ArgRegister const &Src,
+                                        ArgConstant const &A,
+                                        ArgConstant const &B) {
+    Label generic = a.newLabel(), next = a.newLabel();
+    auto src = load_source(Src, ARG1);
+
+    mov_arg(ARG2, A);
+    mov_arg(ARG3, B);
+
+    a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(generic);
+
+    a.cmp(src.reg, ARG2);
+    a.b_lt(resolve_beam_label(Fail1, disp1MB));
+    a.cmp(ARG3, src.reg);
+    a.b_ge(resolve_beam_label(Fail2, disp1MB));
+    a.b(next);
+
+    a.bind(generic);
+    mov_var(ARG1, src);
+    fragment_call(ga->get_is_ge_lt_shared());
+    a.b_lt(resolve_beam_label(Fail1, disp1MB));
+    a.b_gt(resolve_beam_label(Fail2, disp1MB));
+
+    a.bind(next);
+}
+
+/*
+ * 60 occurrences in OTP at the time of writing. Seems to be common in
+ * Elixir code.
+ *
+ * Currently not very frequent in OTP but very nice reduction in code
+ * size when it happens. We expect this combination of instructions
+ * to become more common in the future.
+ */
+void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
+                                               ArgRegister const &Src,
+                                               ArgConstant const &Min,
+                                               ArgConstant const &Max) {
+    auto src = load_source(Src, ARG1);
+
+    sub(TMP1, src.reg, Min.as<ArgImmed>().get());
+
+    /* Since we have subtracted the (tagged) lower bound, the
+     * tag bits of the difference is 0 if and only if Src is
+     * a small. */
+    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+    a.tst(TMP1, imm(_TAG_IMMED1_MASK));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
+    cmp(TMP1, Max.as<ArgImmed>().get() - Min.as<ArgImmed>().get());
+    a.b_hi(resolve_beam_label(Fail, disp1MB));
+}
+
+/*
+ * 428 occurrencs in OTP at the time of writing.
+ */
+void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
+                                         ArgRegister const &Src,
+                                         ArgConstant const &Min) {
+    auto src = load_source(Src, ARG1);
+    Label small = a.newLabel(), next = a.newLabel();
+
+    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+        comment("simplified small test since all other types are boxed");
+        emit_is_boxed(small, Src, src.reg);
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(small);
+
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
+    }
+
+    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+    a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
+    a.b(next);
+
+    a.bind(small);
+    cmp(src.reg, Min.as<ArgImmed>().get());
+    a.b_lt(resolve_beam_label(Fail, disp1MB));
+
+    a.bind(next);
+}
+
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
     mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
     emit_error(BADMATCH);
