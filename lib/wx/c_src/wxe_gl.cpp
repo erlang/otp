@@ -22,8 +22,6 @@
 #include <string.h>
 #ifndef _WIN32
 #include <dlfcn.h>
-#else
-#include <windows.h>
 #endif
 #include "wxe_impl.h"
 #include "wxe_return.h"
