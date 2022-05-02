@@ -33,13 +33,13 @@ static constexpr bool isInt13(T value) {
     return Support::isUInt12(U(value)) || Support::isUInt12(-S(value));
 }
 
-/* The `cmp`/`cmn` instructions for AArch only accept 12-bit unsigned immediate
+/* The `cmp`/`cmn` instructions in AArch64 only accept 12-bit unsigned immediate
  * values (`cmn` negating said immediate, giving us an effective range of 13
  * bit signed). That means that to compare most atoms, the atom number to be
  * compared must be loaded into a temporary register.
  *
- * We can use the immediate form of cmp for more values if we untag both
- * the source value and the values to be compared.
+ * We can use the immediate form of `cmp`/`cmn` for more values if we untag
+ * both the source value and the values to be compared.
  *
  * This function finds the `base` and `shift` that result in the most number
  * of elements fitting in a 13-bit immediate. */

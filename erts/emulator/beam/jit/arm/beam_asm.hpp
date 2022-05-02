@@ -1592,16 +1592,15 @@ protected:
 
             if (Support::isUInt12(val)) {
                 a.cmp(gp, imm(val));
+                return;
             } else if (Support::isUInt12(-val)) {
                 a.cmn(gp, imm(-val));
-            } else {
-                mov_arg(SUPER_TMP, arg);
-                a.cmp(gp, SUPER_TMP);
+                return;
             }
-        } else {
-            mov_arg(SUPER_TMP, arg);
-            a.cmp(gp, SUPER_TMP);
         }
+
+        mov_arg(SUPER_TMP, arg);
+        a.cmp(gp, SUPER_TMP);
     }
 
     void safe_stp(arm::Gp gp1,
@@ -1614,15 +1613,21 @@ protected:
     }
 
     void safe_stp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
-        int64_t offset = mem.offset();
+        auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
 
-        if (offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.stp(gp1, gp2, mem);
-        } else {
+        } else if (std::abs(offset) <
+                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            /* Note that we used `<` instead of `<=`, as we're loading two
+             * elements rather than one. */
             a.str(gp1, mem);
             a.str(gp2, mem.cloneAdjusted(sizeof(Eterm)));
+        } else {
+            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            a.stp(gp1, gp2, arm::Mem(SUPER_TMP));
         }
     }
 
@@ -1635,8 +1640,7 @@ protected:
         if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
         } else {
-            mov_imm(SUPER_TMP, offset);
-            a.add(SUPER_TMP, arm::GpX(mem.baseId()), SUPER_TMP);
+            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
         }
     }
@@ -1659,9 +1663,15 @@ protected:
 
         if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.ldp(gp1, gp2, mem);
+        } else if (std::abs(offset) <
+                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            /* Note that we used `<` instead of `<=`, as we're loading two
+             * elements rather than one. */
+            a.ldr(gp1, mem);
+            a.ldr(gp2, mem.cloneAdjusted(sizeof(Eterm)));
         } else {
-            safe_ldr(gp1, mem);
-            safe_ldr(gp2, mem.cloneAdjusted(sizeof(Eterm)));
+            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            a.ldp(gp1, gp2, arm::Mem(SUPER_TMP));
         }
     }
 };
