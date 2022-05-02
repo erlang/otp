@@ -108,7 +108,7 @@ connect(Address, Port, Opts, Timeout) ->
 %% Helpers -------
 
 connect_lookup(Address, Port, Opts, Timer) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
     Domain = domain(Mod),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
@@ -250,7 +250,7 @@ default_active_true(Opts) ->
 %% -------------------------------------------------------------------------
 
 listen(Port, Opts) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
     case Mod:getserv(Port) of
@@ -529,14 +529,14 @@ cancel_monitor(MRef) ->
 %% -------------------------------------------------------------------------
 
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {setopts, normalize_setopts(Opts)}).
+    call(Server, {setopts, internalize_setopts(Opts)}).
 
 
 
 %% -------------------------------------------------------------------------
 
 getopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
-    call(Server, {getopts, normalize_getopts(Opts)}).
+    call(Server, {getopts, internalize_getopts(Opts)}).
 
 
 %% -------------------------------------------------------------------------
@@ -635,7 +635,7 @@ unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
     {error, enotsup}.
 
 fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
-    Opts_1 = normalize_setopts(Opts),
+    Opts_1 = internalize_setopts(Opts),
     {Mod, Opts_2} = inet:tcp_module(Opts_1),
     Domain = domain(Mod),
     {StartOpts, Opts_3} = split_start_opts(Opts_2),
@@ -798,7 +798,7 @@ sockaddrs([IP | IPs], TP, Domain) ->
 %% Reject all other terms by exit(badarg).
 %%
 
-normalize_setopts(Opts) ->
+internalize_setopts(Opts) ->
     [case Opt of
          binary                     -> {mode, binary};
          list                       -> {mode, list};
@@ -811,14 +811,21 @@ normalize_setopts(Opts) ->
             exit(badarg)
      end || Opt <- Opts].
 
-normalize_getopts(Opts) ->
+internalize_getopts(Opts) ->
     [case Opt of
-         Tag when is_atom(Tag)    -> Opt;
-         {raw, _}                 -> Opt;
-         {raw, Level, Key, Value} -> {raw, {Level, Key, Value}};
-         _                        -> exit(badarg)
+         Tag when is_atom(Tag)        -> Opt;
+         {raw, _}                     -> Opt;
+         {raw, Level, Key, ValueSpec} -> {raw, {Level, Key, ValueSpec}};
+         _                            -> exit(badarg)
      end || Opt <- Opts].
 
+externalize_getopts(Opts) ->
+    [case Opt of
+         {raw, {Level, Key, Value}} -> {raw, Level, Key, Value};
+         {Tag, _} when is_atom(Tag) -> Opt;
+         _                          -> exit(badarg)
+     end || Opt <- Opts].
+ 
 %%
 %% -------
 %% Split options into server start options and other options.
@@ -914,7 +921,12 @@ socket_setopt_value(_Opt, Value) -> Value.
 socket_getopt(Socket, raw, Val) ->
     case Val of
         {Level, Key, ValueSpec} ->
-            socket:getopt_native(Socket, {Level,Key}, ValueSpec);
+            case socket:getopt_native(Socket, {Level,Key}, ValueSpec) of
+                {ok, Value} ->
+                    {ok, {Level, Key, Value}};
+                {error, _} = ERROR ->
+                    ERROR
+            end;
         _ ->
             {error, einval}
     end;
@@ -1417,7 +1429,12 @@ handle_event({call, From}, close, State, {P, D} = P_D) ->
 %% Call: getopts/1
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
     %% ?DBG({call, getopts, Opts, State, D}),
-    Result = state_getopts(P, D, State, Opts),
+    Result = case state_getopts(P, D, State, Opts) of
+                 {ok, OptVals} ->
+                     {ok, externalize_getopts(OptVals)};
+                 {error, _} = ERROR ->
+                     ERROR
+             end,
     %% ?DBG({call, getopts_result, Result}),
     {keep_state_and_data,
      [{reply, From, Result}]};
@@ -2618,7 +2635,7 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                     %% ?DBG({'socket getopt', Tag}),
                     case
                         socket_getopt(
-                          Socket, maps:get(Tag, SocketOpts), Val)
+                          Socket, maps:get(Key, SocketOpts), Val)
                     of
                         {ok, Value} ->
                             %% ?DBG({'socket getopt', ok, Value}),
