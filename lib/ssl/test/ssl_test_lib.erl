@@ -1327,7 +1327,10 @@ format_certs(Cert) when is_binary(Cert) ->
     lists:flatten(format_cert(Cert)).
 
 format_cert(BinCert) when is_binary(BinCert) ->
-    OtpCert = #'OTPCertificate'{tbsCertificate = Cert} = public_key:pkix_decode_cert(BinCert, otp),
+    format_cert(public_key:pkix_decode_cert(BinCert, otp));
+format_cert(#cert{otp=Otp}) ->
+    format_cert(Otp);
+format_cert(#'OTPCertificate'{tbsCertificate = Cert} = OtpCert) ->
     #'OTPTBSCertificate'{subject = Subject, serialNumber = Nr, issuer = Issuer} = Cert,
     case public_key:pkix_is_self_signed(OtpCert) of
         true ->

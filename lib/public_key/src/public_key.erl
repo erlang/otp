@@ -63,7 +63,11 @@
          pkix_test_root_cert/2,
          pkix_ocsp_validate/5,
          ocsp_responder_id/1,
-         ocsp_extensions/1
+         ocsp_extensions/1,
+         cacerts_get/0,
+         cacerts_load/0,
+         cacerts_load/1,
+         cacerts_clear/0
 	]).
 
 %%----------------
@@ -1397,6 +1401,39 @@ ocsp_extensions(Nonce) ->
 %%--------------------------------------------------------------------
 ocsp_responder_id(Cert) ->
     pubkey_ocsp:get_ocsp_responder_id(Cert).
+
+%%--------------------------------------------------------------------
+-spec cacerts_get() -> [combined_cert()].
+%%
+%% Description: Get loaded cacerts, if none are loaded it will try to
+%%              load OS provided cacerts
+%%--------------------------------------------------------------------
+cacerts_get() ->
+    pubkey_os_cacerts:get().
+
+%%--------------------------------------------------------------------
+-spec cacerts_load() -> ok | {error, Reason::term()}.
+%%
+%% Description: (Re)Load OS provided cacerts
+%%--------------------------------------------------------------------
+cacerts_load() ->
+    pubkey_os_cacerts:load().
+
+%%--------------------------------------------------------------------
+-spec cacerts_load(File::file:filename_all()) -> ok | {error, Reason::term()}.
+%%
+%% Description: (Re)Load cacerts from a file
+%%--------------------------------------------------------------------
+cacerts_load(File) ->
+    pubkey_os_cacerts:load([File]).
+
+%%--------------------------------------------------------------------
+-spec cacerts_clear() -> boolean().
+%%
+%% Description: Clears loaded cacerts, returns true if any was loaded.
+%%--------------------------------------------------------------------
+cacerts_clear() ->
+    pubkey_os_cacerts:clear().
 
 %%--------------------------------------------------------------------
 %%% Internal functions

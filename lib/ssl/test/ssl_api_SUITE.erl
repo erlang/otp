@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 %% Common test
 -export([all/0,
@@ -1871,7 +1872,36 @@ der_input(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     %% Using only DER input should not increase file indexed DB 
-    Size = ets:info(CADb, size).
+    Size = ets:info(CADb, size),
+
+    ServerOpts1 = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+                   {dh, DHParams},
+                   {cert, ServerCert}, {key, ServerKey},
+                   {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
+                               || Der <- ServerCaCerts]}],
+    ClientOpts1 = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+                   {dh, DHParams},
+                   {cert, ClientCert}, {key, ClientKey},
+                   {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
+                               || Der <- ClientCaCerts]}],
+    Server1 = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result, []}},
+                                         {options, [{active, false} | ServerOpts1]}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port1},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, send_recv_result, []}},
+                                         {options, [{active, false} | ClientOpts1]}]),
+
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1),
+    %% Using only DER input should not increase file indexed DB 
+    Size = ets:info(CADb, size),
+
+    ok.
 
 %%--------------------------------------------------------------------
 invalid_certfile() ->

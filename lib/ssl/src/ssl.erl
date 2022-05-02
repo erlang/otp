@@ -430,7 +430,7 @@
 -type client_reuse_session()     :: session_id() | {session_id(), SessionData::binary()}.
 -type client_reuse_sessions()    :: boolean() | save.
 -type certificate_authorities()  :: boolean().
--type client_cacerts()           :: [public_key:der_encoded()].
+-type client_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type client_cafile()            :: file:filename().
 -type app_level_protocol()       :: binary().
 -type client_alpn()              :: [app_level_protocol()].
@@ -473,7 +473,7 @@
                                 {cookie, cookie()} |
                                 {early_data, server_early_data()}.
 
--type server_cacerts()           :: [public_key:der_encoded()].
+-type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type server_cafile()            :: file:filename().
 -type server_alpn()              :: [app_level_protocol()].
 -type server_next_protocol()     :: [app_level_protocol()].
