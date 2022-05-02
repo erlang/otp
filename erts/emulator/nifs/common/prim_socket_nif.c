@@ -9198,7 +9198,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ESockDescriptor* descP;
-    ERL_NIF_TERM res;
+    ERL_NIF_TERM     res;
 
     ESOCK_ASSERT( argc == 1 );
 
@@ -9212,8 +9212,16 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     MLOCK(descP->writeMtx);
 
     SSDBG( descP,
-           ("SOCKET", "nif_close(%T), {%d,0x%X}\r\n",
-            argv[0], descP->sock, descP->readState) );
+           ("SOCKET", "nif_close(%T) ->"
+            "\r\n      Socket:      %d"
+            "\r\n      Read State:  0x%X"
+            "\r\n      Write State: 0x%X"
+            "\r\n      Caller:      %T"
+            "\r\n",
+            argv[0],
+            descP->sock,
+            descP->readState, descP->writeState,
+            esock_self(env)) );
 
     res = esock_close(env, descP);
 

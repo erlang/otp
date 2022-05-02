@@ -434,25 +434,45 @@ do_recv_delim(Config) ->
 %%% gen_tcp:shutdown/2
 
 t_shutdown_write(Config) when is_list(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-                                   ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
+    ?P("create connect socket (C)"),
+    {ok, C} = gen_tcp:connect(localhost, Port,
+                              ?INET_BACKEND_OPTS(Config) ++
+                                  [{active, false}]),
+    ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
+    ?P("send message A -> C"),
+    ok = gen_tcp:send(A, "Hej Client"),
+    ?P("socket A shutdown(write)"),
     ok = gen_tcp:shutdown(A, write),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("socket C recv - expect message"),
+    {ok, "Hej Client"} = gen_tcp:recv(C, 0),
+    ?P("socket C recv - expect closed"),
+    {error, closed} = gen_tcp:recv(C, 0),
+    ?P("done"),
     ok.
 
 t_shutdown_both(Config) when is_list(Config) ->
+    ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config)),
     {ok, Port} = inet:port(L),
-    {ok, Client} = gen_tcp:connect(localhost, Port,
-                                   ?INET_BACKEND_OPTS(Config) ++
-                                       [{active, false}]),
+    ?P("create connect socket (C)"),
+    {ok, C} = gen_tcp:connect(localhost, Port,
+                              ?INET_BACKEND_OPTS(Config) ++
+                                  [{active, false}]),
+    ?P("create accept socket (A)"),
     {ok, A} = gen_tcp:accept(L),
+    ?P("send message A -> C"),
+    ok = gen_tcp:send(A, "Hej Client"),
+    ?P("socket A shutdown(read_write)"),
     ok = gen_tcp:shutdown(A, read_write),
-    {error, closed} = gen_tcp:recv(Client, 0),
+    ?P("socket C recv - expect message"),
+    {ok, "Hej Client"} = gen_tcp:recv(C, 0),
+    ?P("socket C recv - expect closed"),
+    {error, closed} = gen_tcp:recv(C, 0),
+    ?P("done"),
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
