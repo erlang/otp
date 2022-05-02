@@ -21,9 +21,10 @@
 -module(message_queue_data_SUITE).
 
 -export([all/0, suite/0]).
--export([basic/1, process_info_messages/1, total_heap_size/1]).
+-export([basic/1, process_info_messages/1, total_heap_size/1,
+         change_to_off_heap_gc/1]).
 
--export([basic_test/1]).
+-export([basic_test/1, id/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -32,7 +33,8 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [basic, process_info_messages, total_heap_size].
+    [basic, process_info_messages, total_heap_size,
+     change_to_off_heap_gc].
 
 %%
 %%
@@ -186,11 +188,40 @@ total_heap_size(_Config) ->
     ct:log("OffSize = ~p, OffSizeAfter = ~p",[OffSize, OffSizeAfter]),
     true = OffSize == OffSizeAfter.
 
+%% Test that setting message queue to off_heap works if a GC is triggered
+%% as the message queue if moved off heap. See GH-5933 for more details.
+%% This testcase will most likely only fail in debug build.
+change_to_off_heap_gc(_Config) ->
+    Msg = {ok, lists:duplicate(20,20)},
+
+    %% We test that this process can receive a message and when it is still
+    %% in its external message queue we change the message queue data to
+    %% off_heap and then GC.
+    {Pid, Ref} = spawn_monitor(
+            fun() ->
+                    spinner(1, 10000),
+                    process_flag(message_queue_data, off_heap),
+                    garbage_collect(),
+                    receive {ok, _M} -> ok end
+            end),
+    Pid ! Msg,
+    receive
+        {'DOWN',Ref,_,_,_} ->
+            ok
+    end.
+
 %%
 %%
 %% helpers
 %%
 %%
+
+%% This spinner needs to make sure that it does not allocate any memory
+%% as a GC in here will break the test
+spinner(_N, 0) -> ok;
+spinner(N, M) -> spinner(?MODULE:id(N) div 1, M - 1).
+
+id(N) -> N.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
