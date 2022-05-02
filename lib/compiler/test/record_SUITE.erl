@@ -28,7 +28,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1]).
+	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1,
+         wildcard_init/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,7 +49,7 @@ groups() ->
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
        missing_test_heap,nested_access,coverage,grab_bag,
-       slow_compilation]}].
+       slow_compilation,wildcard_init]}].
 
 
 init_per_suite(Config) ->
@@ -745,6 +746,21 @@ slow_compilation(Config) when is_list(Config) ->
      {f56,R#slow_r.f56},{f57,R#slow_r.f57},{f58,R#slow_r.f58},
      {f59,R#slow_r.f59}].
 
+wildcard_init(_Config) ->
+    {42,#foo{a=1,b=2,c=3,d=4}} = wc_init_1(),
+    error = wc_init_2(),
+    ok.
+
+wc_init_1() ->
+    R = #foo{a=1,b=2,c=3,d=4,_=V=42},
+    {V,R}.
+
+wc_init_2() when #foo{a=1,b=2,c=3,d=4,_=42} -> ok;
+wc_init_2() -> error.
+
+
 first_arg(First, _) -> First.
+
+
 
 id(I) -> I.
