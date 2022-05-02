@@ -371,15 +371,6 @@ sub expand_link {
 #
 ###########################################################################
 
-if (keys %missing) {
-    print "\n\n\n**** Broken links\n\n";
-    foreach (sort keys %missing) {
-	my ($page,$link) = split($;);
-	print qq(Broken Link: $page -> "$link"\n);
-    }
-}
-
-
 # Entries in %pages that has the value 0 is not visited
 if (keys %pages) {
     print "\n\n\n**** Files not used (that I can see)\n\n";
@@ -396,6 +387,13 @@ if (keys %pages) {
     }
 }
 
+if (keys %missing) {
+    print "\n\n\n**** Broken links\n\n";
+    foreach (sort keys %missing) {
+	my ($page,$link) = split($;);
+	print qq(Broken Link: $page -> "$link"\n);
+    }
+}
 
 # Remove all references that has a matching NAME=....
 map {delete $anchor_refs{$_}} keys %anchor_defs;
