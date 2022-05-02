@@ -1718,9 +1718,19 @@ handle_event(Type, Content, State, P_D) ->
 %% Event handler helpers
 
 
-%% We only accept/perform shutdown when socket is 'connected'.
+%% We only accept/perform shutdown when socket is 'connected'
+%% We only accept/perform shutdown when socket is 'connected'
+%% (or closed_read | closed_write).
 %% This is done to be "compatible" with the inet-driver!
 
+handle_shutdown(#params{socket = Socket},
+                closed_write = _State,
+                read = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
+handle_shutdown(#params{socket = Socket},
+                closed_read = _State,
+                write = How) ->
+    handle_shutdown2(Socket, closed_read_write, How);
 handle_shutdown(#params{socket = Socket},
                 connected = _State,
                 write = How) ->
