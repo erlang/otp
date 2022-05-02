@@ -109,6 +109,7 @@
           %%  terminates with underlying reason
           exec => exec(),                     %% path to executable, or SSH/Docker support
           connection => connection(),         %% alternative connection specification
+          detach => boolean(),                %% if we should detach from peer
           args => [string()],                 %% additional command line parameters to append
           env => [{string(), string()}],      %% additional environment variables
           wait_boot => wait_boot(),           %% default is synchronous start with 15 sec timeout
@@ -247,6 +248,8 @@ send(Dest, To, Message) ->
                      connection :: undefined | port() | gen_tcp:socket(),
                      %% listening socket, while waiting for network alternative connection
                      listen_socket :: undefined | gen_tcp:socket(),
+                     %% if not detached, this port is the standard_io port
+                     port :: undefined | port(),
                      %% accumulator for RPC over standard_io
                      stdio = <<>> :: binary(),
                      %% peer state
@@ -268,18 +271,22 @@ init([Notify, Options]) ->
     process_flag(trap_exit, true), %% need this to ensure terminate/2 is called
 
     {ListenSocket, Listen} = maybe_listen(Options),
-    {Exec, Args} = command_line(Listen, Options),
+
+    UseStdIo = maps:find(connection, Options) =:= {ok, standard_io},
+    Detach = maps:get(detach, Options, true),
+    {Exec, Args} = command_line(Detach, Listen, Options),
 
     Env = maps:get(env, Options, []),
 
+    BaseOptions = [{args, Args}, {env, Env}, hide, binary],
+
     %% close port if running detached
     Conn =
-        case maps:find(connection, Options)  of
-            {ok, standard_io} ->
-                %% Cannot detach a peer that uses stdio. Request exit_status.
-                open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary, exit_status]);
-            _ ->
-                Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary]),
+        if not Detach; UseStdIo ->
+                open_port({spawn_executable, Exec}, BaseOptions ++
+                              [exit_status] ++ [stderr_to_stdout || not UseStdIo]);
+           true ->
+                Port = open_port({spawn_executable, Exec}, BaseOptions),
                 %% peer can close the port before we get here which will cause
                 %%  port_close to throw. Catch this and ignore.
                 catch erlang:port_close(Port),
@@ -299,10 +306,14 @@ init([Notify, Options]) ->
 
     %% accept TCP connection if requested
     if ListenSocket =:= undefined ->
-            {ok, State#peer_state{connection = Conn}};
+            if Detach ->
+                    {ok, State#peer_state{connection = Conn}};
+               true ->
+                    {ok, State#peer_state{port = Conn}}
+               end;
        true ->
             _ = prim_inet:async_accept(ListenSocket, ?ACCEPT_TIMEOUT),
-            {ok, State#peer_state{listen_socket = ListenSocket}}
+            {ok, State#peer_state{port = Conn, listen_socket = ListenSocket}}
     end.
 
 %% not connected: no alternative connection available
@@ -362,10 +373,16 @@ handle_info({tcp, Socket, SocketData},  #peer_state{connection = Socket} = State
     {noreply, handle_alternative_data(tcp, binary_to_term(SocketData), State)};
 
 %% standard_io
-handle_info({Port, {data, PortData}}, #peer_state{connection = Port, stdio = PrevBin} = State) ->
+handle_info({Port, {data, PortData}},
+            #peer_state{connection = Port, stdio = PrevBin,
+                        options = #{ connection := standard_io }} = State) ->
     {Str, NewBin} = decode_port_data(PortData, <<>>, PrevBin),
     Str =/= <<>> andalso io:put_chars(Str),
     {noreply, handle_port_binary(NewBin, State)};
+
+handle_info({Port, {data, PortData}}, #peer_state{port = Port} = State) ->
+    PortData =/= <<>> andalso io:put_chars(PortData),
+    {noreply, State};
 
 %% booting: accepted TCP connection from the peer, but it is not yet
 %%  complete handshake
@@ -381,7 +398,7 @@ handle_info({inet_async, LSock, _Ref, {error, Reason}},
     %% failed to accept a TCP connection
     catch gen_tcp:close(LSock),
     %% stop unconditionally, it is essentially a part of gen_server:init callback
-    {stop, {inet_async, Reason}, State#peer_state{connection = undefined, listen_socket = undefined}};
+    {stop, {inet_async, Reason}, State#peer_state{listen_socket = undefined}};
 
 %% booting: peer notifies via Erlang distribution
 handle_info({started, Node}, State)->
@@ -402,6 +419,15 @@ handle_info({'EXIT', Port, Reason}, #peer_state{connection = Port} = State) ->
     catch erlang:port_close(Port),
     maybe_stop(Reason, State);
 
+%% attached port exited, what should we do here?
+handle_info({Port, {exit_status, _Status}}, #peer_state{port = Port} = State) ->
+    %% What should we do here?
+    {noreply, State};
+
+%% attached port terminated, what should we do here?
+handle_info({'EXIT', Port, _Reason}, #peer_state{port = Port} = State) ->
+    {noreply, State#peer_state{port = undefined}};
+
 handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
     %% TCP connection closed, no i/o port - assume node is stopped
     catch gen_tcp:close(Sock),
@@ -411,20 +437,21 @@ handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
 %% cleanup/termination
 
 -spec terminate(Reason :: term(), state()) -> ok.
-terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node}) ->
+terminate(_Reason, #peer_state{port = Port, connection = Connection,
+                               options = Options, node = Node}) ->
     case {maps:get(shutdown, Options, {halt, ?DEFAULT_HALT_DISCONNECT_TIMEOUT}),
           maps:find(connection, Options)} of
         {close, {ok, standard_io}} ->
-            Port /= undefined andalso (catch erlang:port_close(Port));
+            Connection /= undefined andalso (catch erlang:port_close(Connection));
         {close, {ok, _TCP}} ->
-            Port /= undefined andalso (catch gen_tcp:close(Port));
+            Connection /= undefined andalso (catch gen_tcp:close(Connection));
         {close, error} ->
             _ = erlang:disconnect_node(Node);
         {{halt, Timeout}, {ok, standard_io}} ->
-            Port /= undefined andalso (catch erlang:port_close(Port)),
+            Connection /= undefined andalso (catch erlang:port_close(Connection)),
             wait_disconnected(Node, {timeout, Timeout});
         {{halt, Timeout}, {ok, _TCP}} ->
-            Port /= undefined andalso (catch gen_tcp:close(Port)),
+            Connection /= undefined andalso (catch gen_tcp:close(Connection)),
             wait_disconnected(Node, {timeout, Timeout});
         {{halt, Timeout}, error} ->
             try
@@ -438,18 +465,22 @@ terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node
             Timeout = shutdown(dist, undefined, Node, Shutdown),
             wait_disconnected(Node, {timeout, Timeout});
         {Shutdown, {ok, standard_io}} ->
-            Timeout = shutdown(port, Port, Node, Shutdown),
+            Timeout = shutdown(port, Connection, Node, Shutdown),
             Deadline = deadline(Timeout),
-            receive {'EXIT', Port, _Reason2} -> ok after Timeout -> ok end,
-            catch erlang:port_close(Port),
+            receive {'EXIT', Connection, _Reason2} -> ok after Timeout -> ok end,
+            catch erlang:port_close(Connection),
             wait_disconnected(Node, Deadline);
         {Shutdown, {ok, _TCP}} ->
-            Timeout = shutdown(tcp, Port, Node, Shutdown),
+            erlang:display(_TCP),
+            Timeout = shutdown(tcp, Connection, Node, Shutdown),
             Deadline = deadline(Timeout),
-            receive {tcp_closed, Port} -> ok after Timeout -> ok end,
-            catch catch gen_tcp:close(Port),
+            receive {tcp_closed, Connection} -> ok after Timeout -> ok end,
+            catch catch gen_tcp:close(Connection),
             wait_disconnected(Node, Deadline)
     end,
+
+    %% Wait for attached port to close
+    [receive {'EXIT', Port, _} -> ok after 100 -> ok end || is_port(Port)],
     ok.
 
 %%--------------------------------------------------------------------
@@ -519,8 +550,24 @@ verify_args(Options) ->
     [error({invalid_arg, Arg}) || Arg <- Args, not io_lib:char_list(Arg)],
     %% alternative connection must be requested for non-distributed node,
     %%  or a distributed node when origin is not alive
-    is_map_key(connection, Options) orelse
-                                      (is_map_key(name, Options) andalso erlang:is_alive()) orelse error(not_alive),
+    is_map_key(connection, Options)
+        orelse (is_map_key(name, Options) andalso erlang:is_alive())
+        orelse error(not_alive),
+
+    case maps:find(connection, Options) of
+        {ok, standard_io} -> ok;
+        {ok, Port} when Port >= 0, Port =< 65535 -> ok;
+        {ok, {Ip, Port} = Val} when Port >= 0, Port =< 65535 ->
+            case inet:is_ip_address(Ip) of
+                true -> ok;
+                false -> error({connection, Val})
+            end;
+        error ->
+            ok;
+        {ok, Val} ->
+            error({connection, Val})
+    end,
+
     %% exec must be a string, or a tuple of string(), [string()]
     case maps:find(exec, Options) of
         {ok, {Exec, Strs}} ->
@@ -560,8 +607,16 @@ verify_args(Options) ->
             ok;
         {ok, Err2} ->
             error({shutdown, Err2})
+    end,
+    IsStdIoConn = maps:find(connection, Options) =:= {ok, standard_io},
+    case maps:find(detach, Options) of
+        {ok, Value} when not is_boolean(Value) ->
+            error({detach, Value});
+        {ok, _} when IsStdIoConn ->
+            error({detach, invalid_connection_type});
+        _ ->
+            ok
     end.
-            
 
 make_notify_ref(infinity) ->
     {self(), make_ref()};
@@ -772,22 +827,30 @@ name_arg(Name, error, {ok, true}) ->
 name_arg(Name, error, {ok, false}) ->
     ["-sname", Name].
 
-command_line(Listen, Options) ->
+command_line(Detach, Listen, Options) ->
     %% Node name/sname
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
+    DetachOption = case Detach of
+                       true ->
+                           ["-detach"];
+                       false ->
+                           []
+                   end,
     %% start command
     StartCmd =
         case Listen of
             undefined when map_get(connection, Options) =:= standard_io ->
-                ["-user", atom_to_list(?MODULE)];
+                DetachOption ++ ["-user", atom_to_list(?MODULE)];
             undefined ->
                 Self = base64:encode_to_string(term_to_binary(self())),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", Self];
+                DetachOption ++ ["-noinput", "-user", atom_to_list(?MODULE),
+                                 "-origin", Self];
             {Ips, Port} ->
                 IpStr = lists:concat(lists:join(",", [inet:ntoa(Ip) || Ip <- Ips])),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
+                DetachOption ++ ["-noinput", "-user", atom_to_list(?MODULE),
+                                 "-origin", IpStr, integer_to_list(Port)]
         end,
     %% build command line
     {Exec, PreArgs} = exec(Options),

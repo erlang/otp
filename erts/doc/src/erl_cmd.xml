@@ -294,7 +294,7 @@ $ <input>erl \
           <c><![CDATA[-setcookie]]></c>. Use <c><![CDATA[-setcookie]]></c>
           instead.</p>
       </item>
-      <tag><c><![CDATA[-detached]]></c></tag>
+      <tag><marker id="detach"/><c><![CDATA[-detached]]></c></tag>
       <item>
         <p>Starts the Erlang runtime system detached from the system
           console. Useful for running daemons and backgrounds processes. Implies

@@ -300,6 +300,15 @@
             <p>Alternative connection specification. See the
               <seetype marker="#connection"><c>connection</c> datatype</seetype>.</p>
           </item>
+          <tag><c>detach</c></tag>
+          <item>
+              <p>If peer should <seecmd marker="erts:erl#detach"><c>detach</c></seecmd>
+                from the peer node. The default is <c>true</c>.
+                If set to <c>false</c>, all standard output and standard error
+                printouts will be sent to the group leader of the starting process.
+                This option cannot be set to <c>false</c> when the connection type
+                is <c>standard_io</c>.</p>
+            </item>
           <tag><c>args</c></tag>
           <item>
             <p>Extra command line arguments to append to the "erl" command. Arguments are

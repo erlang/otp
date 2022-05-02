@@ -30,6 +30,7 @@
     peer_states/0, peer_states/1,
     cast/0, cast/1,
     detached/0, detached/1,
+    attached/0, attached/1,
     dyn_peer/0, dyn_peer/1,
     stop_peer/0, stop_peer/1,
     shutdown_halt/0, shutdown_halt/1,
@@ -60,9 +61,9 @@ alternative() ->
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
+            dist_up_down, dist_localhost, attached] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect]}, %% Cannot be run in parallel in dist group
-        {tcp, [parallel], alternative()},
+        {tcp, [parallel], [attached | alternative()]},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
         {remote, [parallel], [ssh]}
@@ -110,6 +111,9 @@ errors(Config) when is_list(Config) ->
     ?assertException(error, {exec, atom}, peer:start(#{exec => atom, name => name})),
     ?assertException(error, {exec, atom}, peer:start(#{exec => {atom, []}, name => name})),
     ?assertException(error, {exec, atom}, peer:start(#{exec => {"erl", [atom]}, name => name})),
+    ?assertException(error, {detach, atom}, peer:start(#{detach => atom, connection => standard_io})),
+    ?assertException(error, {detach, invalid_connection_type}, peer:start(#{detach => true, connection => standard_io})),
+    ?assertException(error, {detach, invalid_connection_type}, peer:start(#{detach => false, connection => standard_io})),
     ?assertException(error, not_alive, peer:start(#{})). %% peer node won't start - it's not alive
 
 dist() ->
@@ -316,6 +320,32 @@ detached(Config) when is_list(Config) ->
     Texts = ct:capture_get(),
     %% just stop
     ?assertEqual(["one.", "two."], Texts).
+
+attached() ->
+    [{doc, "Tests attached node that erlang:display and stderr work"}].
+
+attached(Config) ->
+    Conn = proplists:get_value(connection, Config),
+    ConnMap = if Conn =:= undefined -> #{};
+                 true -> #{ connection => Conn }
+             end,
+    {ok, Peer, Node} = peer:start_link(
+                         ConnMap#{name => peer:random_name(?FUNCTION_NAME),
+                                  detach => false }),
+    ct:capture_start(),
+    if Conn =:= undefined ->
+            erpc:call(Node, erlang, display, [one]),
+            erpc:call(Node, io, format, [standard_error,"two~n",[]]),
+            erpc:call(Node, io, format, ["three"]);
+       Conn =:= 0 ->
+            peer:call(Peer, erlang, display, [one]),
+            peer:call(Peer, io, format, [standard_error,"two~n",[]]),
+            peer:call(Peer, io, format, ["three"])
+    end,
+    ok = peer:stop(Peer),
+    ct:capture_stop(),
+    Texts = string:lexemes(ct:capture_get(), [$\n,"\r\n"]),
+    ?assertEqual(["one", "two", "three"], Texts).
 
 dyn_peer() ->
     [{doc, "Origin is not distributed, and peer becomes distributed dynamically"}].
