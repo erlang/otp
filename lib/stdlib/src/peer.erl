@@ -832,6 +832,8 @@ command_line(Detach, Listen, Options) ->
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
+    %% boot timeout
+    WaitBoot = maps:get(wait_boot, Options, ?WAIT_BOOT_TIMEOUT),
     DetachOption = case Detach of
                        true ->
                            ["-detach"];
@@ -844,7 +846,7 @@ command_line(Detach, Listen, Options) ->
             undefined when map_get(connection, Options) =:= standard_io ->
                 DetachOption ++ ["-user", atom_to_list(?MODULE)];
             undefined ->
-                Self = base64:encode_to_string(term_to_binary(self())),
+                Self = base64:encode_to_string(term_to_binary({self(), WaitBoot})),
                 DetachOption ++ ["-noinput", "-user", atom_to_list(?MODULE),
                                  "-origin", Self];
             {Ips, Port} ->
@@ -955,10 +957,10 @@ start() ->
             spawn(fun () -> tcp_init(Ips, Port) end);
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
-            OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
+            {OriginProcess, Timeout} = binary_to_term(base64:decode(Base64EncProc)),
             %% setup 'user' process, I/O redirection: ask controlling process
             %%  who is the group leader.
-            GroupLeader = gen_server:call(OriginProcess, group_leader),
+            GroupLeader = gen_server:call(OriginProcess, group_leader, Timeout),
             RelayPid = spawn(fun () -> relay(GroupLeader) end),
             register(user, RelayPid),
             spawn(
