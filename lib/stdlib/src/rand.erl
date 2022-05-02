@@ -38,8 +38,6 @@
 
 %% Utilities
 -export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
-         mcg35/1, mcg35_seed/0, mcg35_seed/1,
-         lcg35/1, lcg35_seed/0, lcg35_seed/1,
          mwc59/1, mwc59_value/1, mwc59_full_value/1, mwc59_float/1,
          mwc59_seed/0, mwc59_seed/1]).
 
@@ -151,7 +149,7 @@
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
     exs64_state/0, mwc59_state/0, dummy_state/0]).
 -export_type(
-   [uint58/0, uint64/0, splitmix64_state/0, mcg35_state/0, lcg35_state/0]).
+   [uint58/0, uint64/0, splitmix64_state/0]).
 
 %% =====================================================================
 %% Range macro and helper
@@ -1449,108 +1447,6 @@ dummy_seed({A1, A2, A3}) ->
     {Z3, _} = splitmix64_next(A3 bxor X2),
     ?MASK(58, Z3).
 
-
-%% =====================================================================
-%% mcg35 PRNG: Multiplicative Linear Congruential Generator
-%%
-%% Parameters by Pierre L'Ecuyer from the paper:
-%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
-%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
-%%
-%% X1 = (A * X0) rem M
-%%
-%% A = 185852
-%% M = 2^B - D
-%%     B = 35, D = 31
-%%
-%% X cannot, and never will be 0.
-%% Take X1 as output value with range 1..(M-1).
-%%
-%% Use this generator for speed, not for quality.
-%% The calculation should avoid bignum operations,
-%% so A * X0 should not become a bignum.
-%% M and A has been selected accordingly.
-%% The period is M - 1 since 0 cannot occur.
-%%
-%% =====================================================================
--define(MCG35_A, (185852)).
--define(MCG35_B, (35)).
--define(MCG35_D, (31)).
--define(MCG35_M, (?BIT(?MCG35_B) - ?MCG35_D)).
-
--type mcg35_state() :: 1..(?MCG35_M-1).
-
--spec mcg35(X0 :: mcg35_state()) -> X1 :: mcg35_state().
-mcg35(X0) -> % when is_integer(X0), 1 =< X0, X0 < ?MCG35_M ->
-    %% The mask operation on the input tricks the JIT into
-    %% realizing that all following operations does not
-    %% need bignum handling.  The suggested guard test above
-    %% could have had the same effect but it did not, and, alas,
-    %% needs much more native code to execute than a 'band'.
-    X = ?MCG35_A * ?MASK(?MCG35_B, X0),
-    %% rem M = rem (2^B - D), optimization to avoid 'rem'
-    X1 = ?MASK(?MCG35_B, X) + ?MCG35_D*(X bsr ?MCG35_B),
-    if
-        X1 < ?MCG35_M -> X1;
-        true          -> X1 - ?MCG35_M
-    end.
-
--spec mcg35_seed() -> X :: mcg35_state().
-mcg35_seed() ->
-    {A1, A2, A3} = default_seed(),
-    mcg35_seed(seed64_int([A1, A2, A3])).
-
--spec mcg35_seed(S :: integer()) -> X :: mcg35_state().
-mcg35_seed(S) when is_integer(S) ->
-    mod(?MCG35_M - 1, S) + 1.
-
-%% =====================================================================
-%% lcg35 PRNG: Multiplicative Linear Congruential Generator
-%%
-%% Parameters by Pierre L'Ecuyer from the paper:
-%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
-%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
-%%
-%% X1 = (A * X0 + C) rem M
-%%
-%% M = 2^35, A = 15319397, C = 1
-%%
-%% Choosing C = 15366142135, which is an odd value
-%% about 2^35 / sqrt(5) gives a perhaps nicer value in
-%% the sequence after 0 (-> C).
-%%
-%% Take X1 as output value with range 1..(M-1).
-%%
-%% Use this generator for speed, not for quality.
-%% The calculation should avoid bignum operations,
-%% so A * X0 + C should not become a bignum.
-%% M, A and C has been selected accordingly.
-%% The period is M.
-%%
-%% =====================================================================
--define(LCG35_A, (15319397)).
--define(LCG35_C, (15366142135)). % (1 bsl 35) / sqrt(5), odd
--define(LCG35_B, 35). % Number of bits
-
--type lcg35_state() :: 0..?MASK(?LCG35_B).
-
--spec lcg35(X0 :: lcg35_state()) -> X1 :: lcg35_state().
-lcg35(X0) -> % when is_integer(X0), 0 =< X0, X0 =< ?MASK(?LCG35_B) ->
-    %% The mask operation on the input tricks the JIT into
-    %% realizing that all following operations does not
-    %% need bignum handling.  The suggested guard test above
-    %% could have had the same effect but it did not, and, alas,
-    %% needs much more native code to execute than a 'band'.
-    ?MASK(?LCG35_B, ?LCG35_A * ?MASK(?LCG35_B, X0) + ?LCG35_C).
-
--spec lcg35_seed() -> X :: lcg35_state().
-lcg35_seed() ->
-    {A1, A2, A3} = default_seed(),
-    lcg35_seed(seed64_int([A1, A2, A3])).
-
--spec lcg35_seed(S :: integer()) -> X :: lcg35_state().
-lcg35_seed(S) when is_integer(S) ->
-    ?MASK(?LCG35_B, S).
 
 %% =====================================================================
 %% mcg58 PRNG: Multiply With Carry generator
