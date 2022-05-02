@@ -1487,6 +1487,7 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_MINOR_GC     (1 << 21) /* Dirty minor GC scheduled */
 #define F_HIBERNATED         (1 << 22) /* Hibernated */
 #define F_TRAP_EXIT          (1 << 23) /* Trapping exit */
+#define F_FRAGMENTED_SEND    (1 << 24) /* Process is doing a distributed fragmented send */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
