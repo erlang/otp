@@ -4,15 +4,15 @@ set -x
 
 case "$1" in
     *i386-debian-base)
-        BASE="i386/debian"
+        BASE="i386/debian:bullseye"
         BASE_TYPE=debian-base
         ;;
     *debian-base)
-        BASE="debian"
+        BASE="debian:bullseye"
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
-        BASE="ubuntu"
+        BASE="ubuntu:20.04"
         BASE_TYPE=ubuntu-base
         ;;
 esac

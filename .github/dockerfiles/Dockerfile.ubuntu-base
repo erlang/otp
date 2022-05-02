@@ -1,7 +1,8 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-FROM ubuntu
+ARG BASE=ubuntu:20.04
+FROM $BASE
 
 ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssh-dev unixodbc-dev libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libsctp-dev lksctp-tools"
 
