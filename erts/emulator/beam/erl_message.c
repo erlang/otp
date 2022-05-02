@@ -1187,6 +1187,10 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
        heap as that completely destroys the DEBUG emulators
        performance. */
     ErlHeapFragment *bp = p->mbuf;
+
+    factory->heap_frags_saved = bp;
+    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
+
     factory->mode     = FACTORY_HALLOC;
     factory->p        = p;
     factory->hp_start = HEAP_TOP(p);
@@ -1197,8 +1201,6 @@ void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
     factory->message  = NULL;
     factory->off_heap_saved.first    = p->off_heap.first;
     factory->off_heap_saved.overhead = p->off_heap.overhead;
-    factory->heap_frags_saved = bp;
-    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
     factory->heap_frags = NULL; /* not used */
     factory->alloc_type = 0; /* not used */
 
@@ -1210,6 +1212,13 @@ void erts_factory_proc_prealloc_init(ErtsHeapFactory* factory,
 				     Sint size)
 {
     ErlHeapFragment *bp = p->mbuf;
+
+    /* `bp->used_size` must be set _BEFORE_ we call `HAlloc`, as that will
+     * update the used size and prevent us from undoing the changes later
+     * on. */
+    factory->heap_frags_saved = bp;
+    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
+
     factory->mode     = FACTORY_HALLOC;
     factory->p        = p;
     factory->original_htop = HEAP_TOP(p);
@@ -1224,8 +1233,6 @@ void erts_factory_proc_prealloc_init(ErtsHeapFactory* factory,
     factory->message  = NULL;
     factory->off_heap_saved.first    = p->off_heap.first;
     factory->off_heap_saved.overhead = p->off_heap.overhead;
-    factory->heap_frags_saved = bp;
-    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
     factory->heap_frags = NULL; /* not used */
     factory->alloc_type = 0; /* not used */
 }
@@ -1629,13 +1636,7 @@ void erts_factory_undo(ErtsHeapFactory* factory)
 	    /* Fix last heap frag */
             if (factory->heap_frags_saved) {
                 ASSERT(factory->heap_frags_saved == factory->p->mbuf);
-                if (factory->hp_start != factory->heap_frags_saved->mem)
-                    factory->heap_frags_saved->used_size = factory->heap_frags_saved_used;
-		else {
-                    factory->p->mbuf = factory->p->mbuf->next;
-                    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG, factory->heap_frags_saved,
-                                   ERTS_HEAP_FRAG_SIZE(factory->heap_frags_saved->alloc_size));
-                }
+                factory->heap_frags_saved->used_size = factory->heap_frags_saved_used;
             }
             if (factory->message) {
                 ASSERT(factory->message->data.attached != ERTS_MSG_COMBINED_HFRAG);
