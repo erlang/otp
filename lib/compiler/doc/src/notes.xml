@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.6.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, the compiler would mistakenly
+	    assume that a call to <c>setelement/3</c> would always
+	    fail and remove all code following the call.</p>
+          <p>
+	    Own Id: OTP-18082</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.6.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
