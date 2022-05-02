@@ -2107,7 +2107,8 @@ alcu_size(ErtsAlcType_t alloc_no, ErtsAlcUFixInfo_t *fi, int fisz)
                     erts_alcu_foreign_size(allctr, alloc_no, &size);
                 }
 
-                ASSERT(((SWord)size.blocks) >= 0);
+                /* Sanity check of block size on 64-bit */
+                ASSERT(sizeof(UWord) == 4 || ((SWord)size.blocks) >= 0);
 
                 res += size.blocks;
             }

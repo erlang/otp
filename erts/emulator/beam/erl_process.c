@@ -13726,6 +13726,7 @@ enum continue_exit_phase {
     ERTS_CONTINUE_EXIT_MONITORS,
     ERTS_CONTINUE_EXIT_LT_MONITORS,
     ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG,
+    ERTS_CONTINUE_EXIT_DIST_SEND,
     ERTS_CONTINUE_EXIT_DIST_LINKS,
     ERTS_CONTINUE_EXIT_DIST_MONITORS,
     ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS,
@@ -13743,6 +13744,10 @@ struct continue_exit_state {
     void *yield_state;
     Uint32 block_rla_ref;
 };
+
+#ifdef DEBUG
+extern Export dsend_continue_trap_export;
+#endif
 
 void
 erts_continue_exit_process(Process *p)
@@ -13983,6 +13988,20 @@ restart:
         trap_state->pectxt.dist_state = NIL;
         trap_state->pectxt.yield = 0;
 
+        p->rcount = 0;
+
+        if (p->flags & F_FRAGMENTED_SEND) {
+            /* The process was re-scheduled while doing a fragmented
+               distributed send (possibly because it was suspended).
+               We need to finish doing that send as otherwise incomplete
+               fragmented messages will be sent to other nodes potentially
+               causing memory leaks.
+            */
+            ASSERT(p->current == &dsend_continue_trap_export.info.mfa);
+            /* arg_reg[0] is the argument used in dsend_continue_trap_export */
+            trap_state->pectxt.dist_state = p->arg_reg[0];
+        }
+
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
 
         erts_proc_sig_queue_flush_and_deinstall_buffers(p);
@@ -14045,11 +14064,12 @@ restart:
 
         reds -= r;
 
-        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_LINKS;
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_SEND;
     }
-    case ERTS_CONTINUE_EXIT_DIST_LINKS: {
+    case ERTS_CONTINUE_EXIT_DIST_SEND: {
 
-        continue_dist_send:
+    continue_dist_send:
+        ASSERT(p->rcount == 0);
         if (is_not_nil(trap_state->pectxt.dist_state)) {
             Binary* bin = erts_magic_ref2bin(trap_state->pectxt.dist_state);
             ErtsDSigSendContext* ctx = (ErtsDSigSendContext*) ERTS_MAGIC_BIN_DATA(bin);
@@ -14082,6 +14102,13 @@ restart:
             goto restart;
         }
 
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_LINKS;
+    }
+    case ERTS_CONTINUE_EXIT_DIST_LINKS: {
+
+        if (is_not_nil(trap_state->pectxt.dist_state))
+            goto continue_dist_send;
+
         reds = erts_link_tree_foreach_delete_yielding(
             &trap_state->pectxt.dist_links,
             erts_proc_exit_handle_dist_link,
@@ -14090,6 +14117,7 @@ restart:
             reds);
         if (reds <= 0 || trap_state->pectxt.yield)
             goto yield;
+
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_MONITORS;
     }
     case ERTS_CONTINUE_EXIT_DIST_MONITORS: {

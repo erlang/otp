@@ -1564,7 +1564,8 @@ extern int erts_system_profile_ts_type;
 #define F_DIRTY_MINOR_GC     (1 << 20) /* Dirty minor GC scheduled */
 #define F_HIBERNATED         (1 << 21) /* Hibernated */
 #define F_TRAP_EXIT          (1 << 22) /* Trapping exit */
-#define F_DBG_FORCED_TRAP    (1 << 23) /* DEBUG: Last BIF call was a forced trap */
+#define F_FRAGMENTED_SEND    (1 << 23) /* Process is doing a distributed fragmented send */
+#define F_DBG_FORCED_TRAP    (1 << 24) /* DEBUG: Last BIF call was a forced trap */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
