@@ -441,7 +441,7 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	return result;
     }
 
-    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+    if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
         erts_proc_sig_fetch(p);
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
@@ -882,7 +882,7 @@ int
 erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fcalls)
 {
     int reds, reds_left;
-    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+    if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
         erts_proc_sig_fetch(p);
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
@@ -899,7 +899,7 @@ void
 erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
     int reds;
-    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+    if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
         erts_proc_sig_fetch(p);
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
@@ -1119,7 +1119,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
     p->flags |= F_NEED_FULLSWEEP;
 
-    if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+    if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
         erts_proc_sig_fetch(p);
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
@@ -2656,7 +2656,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	 */
 
 #ifdef DEBUG
-        if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
+        if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
             erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
             /*
              * Verify that we do not have any messages in the outer
