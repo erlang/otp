@@ -68,14 +68,14 @@ log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
                 %% Log directly from client just to get it out
                 case maps:get(internal_log_event, M, false) of
                     false ->
-                        do_log(
+                        do_log(simple,
                           #{level=>error,
                             msg=>{report,{error,simple_handler_process_dead}},
                             meta=>#{time=>logger:timestamp()}});
                     true ->
                         ok
                 end,
-                do_log(Log);
+                do_log(simple,Log);
             _ ->
                 ?MODULE ! {log,Log}
         end,
@@ -90,9 +90,9 @@ log(_,_) ->
 init(Starter) ->
     register(?MODULE,self()),
     Starter ! {self(),started},
-    loop(#{buffer_size=>10,dropped=>0,buffer=>[]}).
+    loop(rich, #{buffer_size=>10,dropped=>0,buffer=>[]}).
 
-loop(Buffer) ->
+loop(Mode, Buffer) ->
     receive
         stop ->
             %% We replay the logger messages if there is
@@ -109,11 +109,11 @@ loop(Buffer) ->
             unlink(whereis(logger)),
             ok;
         {log,#{msg:=_,meta:=#{time:=_}}=Log} ->
-            do_log(Log),
-            loop(update_buffer(Buffer,Log));
+            NewMode = do_log(Mode, Log),
+            loop(NewMode, update_buffer(Buffer,Log));
         _ ->
             %% Unexpected message - flush it!
-            loop(Buffer)
+            loop(Mode, Buffer)
     end.
 
 update_buffer(#{buffer_size:=0,dropped:=D}=Buffer,_Log) ->
@@ -139,16 +139,42 @@ drop_msg(N) ->
 %%%-----------------------------------------------------------------
 %%% Internal
 
-do_log(Log) ->
-    try
-        Str = logger_formatter:format(Log,
-                 #{ legacy_header => true, single_line => false
-                   ,depth => unlimited, time_offset => ""
-                 }),
-        erlang:display_string(stdout, lists:flatten(unicode:characters_to_list(Str)))
-    catch _E:_R:_ST ->
-        % erlang:display({_E,_R,_ST}),
-        display_log(Log)
+%% If the init process is busy (for instance doing a shutdown)
+%% we can get blocked while trying to load code. So we spawn a process
+%% for each log message that can potentially block. If the logging cannot
+%% be done within 300ms, we instead log the raw log message to stdout
+%% and switch mode to always log using the raw format.
+do_log(simple, Log) ->
+    display_log(Log), simple;
+do_log(rich = Mode, Log) ->
+
+    {Pid, Ref} =
+        spawn_monitor(
+          fun() ->
+                  Str = logger_formatter:format(
+                          Log,
+                          #{ legacy_header => true, single_line => false,
+                             depth => unlimited, time_offset => ""
+                           }),
+                  erlang:display_string(stdout, lists:flatten(unicode:characters_to_list(Str)))
+          end),
+    receive
+        {'DOWN', Ref, _, _, normal} ->
+            Mode;
+        {'DOWN', Ref, _, _, _Else} ->
+            display_log(Log),
+            Mode
+    after 300 ->
+            %% init:terminate/3 sleeps for 500 ms before exiting,
+            %% so we wait for 300 ms for the log to happen
+            exit(Pid, kill),
+            receive
+                {'DOWN', Ref, _, _, normal} ->
+                    Mode;
+                {'DOWN', Ref, _, _, _Else} ->
+                    display_log(Log),
+                    simple
+            end
     end.
 
 display_log(#{msg:={report,Report},
@@ -164,7 +190,8 @@ display_date(Timestamp) when is_integer(Timestamp) ->
     Sec = Timestamp div 1000000,
     {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime_to_localtime(
                             erlang:posixtime_to_universaltime(Sec)),
-    erlang:display_string(stdout,
+    erlang:display_string(
+      stdout,
       integer_to_list(Y) ++ "-" ++
 	  pad(Mo,2) ++ "-" ++
 	  pad(D,2)  ++ " " ++
