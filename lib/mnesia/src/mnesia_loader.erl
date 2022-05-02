@@ -24,7 +24,7 @@
 -module(mnesia_loader).
 
 %% Mnesia internal stuff
--export([disc_load_table/2,
+-export([disc_load_table/3,
 	 net_load_table/4,
 	 send_table/4]).
 
@@ -44,8 +44,8 @@ val(Var) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load a table from local disc
 
-disc_load_table(Tab, Reason) ->
-    Storage =  val({Tab, storage_type}),
+disc_load_table(Tab, Reason, Cs) ->
+    Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     Type = val({Tab, setorbag}),
     dbg_out("Getting table ~tp (~p) from disc: ~tp~n",
 	    [Tab, Storage, Reason]),
@@ -222,7 +222,7 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		ok ->
 		    set({Tab, load_node}, Node),
 		    set({Tab, load_reason}, Reason),
-		    mnesia_controller:i_have_tab(Tab),
+		    mnesia_controller:i_have_tab(Tab, Cs),
 		    dbg_out("Table ~tp copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
@@ -383,9 +383,11 @@ do_init_table(Tab,Storage,Cs,SenderPid,
 		Reason ->
 		    Msg = "[d]ets:init table failed",
 		    verbose("~ts: ~tp: ~tp~n", [Msg, Tab, Reason]),
+                    SenderPid ! {copier_done, node()},
 		    down(Tab, Storage)
 	    end;
 	Error ->
+            SenderPid ! {copier_done, node()},
 	    Error
     end.
 
