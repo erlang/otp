@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.17.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The type specifications for
+	    <c>shell_docs:get_doc/3</c>,
+	    <c>shell_docs:get_callback_doc/3</c>, and
+	    <c>shell_docs:get_type_doc/3</c> incorrectly stated that
+	    the returned <c>Metadata</c> was an empty map.</p>
+          <p>
+	    Own Id: OTP-18081</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.17.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

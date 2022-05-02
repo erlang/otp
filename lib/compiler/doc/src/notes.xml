@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a performance bug in the validator that made
+	    certain files take a very long time to compile.</p>
+          <p>
+	    Own Id: OTP-18066 Aux Id: GH-5915 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler would mistakenly
+	    assume that a call to <c>setelement/3</c> would always
+	    fail and remove all code following the call.</p>
+          <p>
+	    Own Id: OTP-18082</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,34 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix build failure with wxWidgets-3.1.6.</p>
+          <p>
+	    Own Id: OTP-18064 Aux Id: GH-5893 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enable the possibility to build wx on windows with
+	    wxWidgets-3.1.6.</p>
+          <p>
+	    Own Id: OTP-18061 Aux Id: GH-5883 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
