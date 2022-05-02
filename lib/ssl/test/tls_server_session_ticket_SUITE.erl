@@ -71,15 +71,18 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config)  ->
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active, false}]),
     {ok, Pid} = tls_server_session_ticket:start_link(
-                  ?config(server_session_tickets, Config), ?LIFETIME,
-                  ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
+                  ListenSocket, ?config(server_session_tickets, Config),
+                  ?LIFETIME, ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
                   ?config(anti_replay, Config)),
-    [{server_pid, Pid} | Config].
+    [{server_pid, Pid}, {listen_socket, ListenSocket} | Config].
 
 end_per_testcase(_TestCase, Config) ->
     Pid = ?config(server_pid, Config),
     exit(Pid, normal),
+    ListenSocket = ?config(listen_socket, Config),
+    ok = gen_tcp:close(ListenSocket),
     Config.
 
 %%--------------------------------------------------------------------
