@@ -150,38 +150,128 @@ analyze_and_print_host_info() ->
     end.
 
 linux_which_distro(Version) ->
+    try do_linux_which_distro(Version)
+    catch
+        throw:{distro, Distro} ->
+            Distro
+    end.
+
+do_linux_which_distro(Version) ->
+    %% Many (linux) distro's use the /etc/issue file, so try that first.
+    %% Then we just keep going until we are "done".
+    DistroStr = do_linux_which_distro_issue(Version),
+    %% Still not sure; try fedora
+    _ = do_linux_which_distro_fedora(Version),
+    %% Still not sure; try suse
+    _ = do_linux_which_distro_suse(Version),
+    %% And the fallback
+    io:format("Linux: ~s"
+              "~n   ~s"
+              "~n",
+              [Version, DistroStr]),
+    other.
+
+do_linux_which_distro_issue(Version) ->
     case file:read_file_info("/etc/issue") of
         {ok, _} ->
             case [string:trim(S) ||
                      S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr|_] ->
+                [DistroStr | _] ->
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, wind_river});
+                        "MontaVista" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, montavista});
+                        "Yellow Dog" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, yellow_dog});
+                        "Ubuntu" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, ubuntu});
+                        "Linux Mint" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, linux_mint});
+                        _ ->
+                            DistroStr
+                    end;
+                X ->
+                    X
+            end;
+        _ ->
+            "Unknown"
+    end.
+                            
+do_linux_which_distro_fedora(Version) ->
+    %% Check if fedora
+    case file:read_file_info("/etc/fedora-release") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+                                        [$\n])] of
+                [DistroStr | _] ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, DistroStr]);
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, "Fedora"])
+            end,
+            throw({distro, fedora});
+        _ ->
+            ignore
+    end.
+
+do_linux_which_distro_suse(Version) ->
+    %% Check if its a SuSE
+    case file:read_file_info("/etc/SuSE-release") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
+                                        [$\n])] of
+                ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
                     io:format("Linux: ~s"
                               "~n   ~s"
                               "~n",
                               [Version, DistroStr]),
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            wind_river;
-                        "MontaVista" ++ _ ->
-                            montavista;
-                        "Yellow Dog" ++ _ ->
-                            yellow_dog;
-                        _ ->
-                            other
-                    end;
-                X ->
+                    throw({distro, sles});
+                [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~p"
+                              "~n   ~s"
                               "~n",
-                              [Version, X]),
-                    other
+                              [Version, DistroStr]),
+                    throw({distro, suse});
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, "SuSE"]),
+                    throw({distro, suse})
             end;
         _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version]),
-            other
+            ignore
     end.
-    
+
+
 analyze_and_print_linux_host_info(Version) ->
     Distro =
         case file:read_file_info("/etc/issue") of
@@ -201,31 +291,45 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 if
-                    (BogoMIPS > 20000) ->
+                    (BogoMIPS > 50000) ->
                         1;
-                    (BogoMIPS > 10000) ->
+                    (BogoMIPS > 30000) ->
                         2;
-                    (BogoMIPS > 5000) ->
+                    (BogoMIPS > 10000) ->
                         3;
-                    (BogoMIPS > 2000) ->
+                    (BogoMIPS > 5000) ->
                         5;
-                    (BogoMIPS > 1000) ->
+                    (BogoMIPS > 3000) ->
                         8;
                     true ->
                         10
+                end;
+            {ok, "POWER9" ++ _ = CPU} ->
+                %% For some reason this host is really slow
+                %% Consider the CPU, it really should not be...
+                %% But, to not fail a bunch of test cases, we add 5
+                case linux_cpuinfo_clock() of
+                    Clock when is_integer(Clock) andalso (Clock > 0) ->
+                        io:format("CPU: "
+                                  "~n   Model:                 ~s"
+                                  "~n   CPU Speed:             ~w"
+                                  "~n   Num Online Schedulers: ~s"
+                                  "~n", [CPU, Clock, str_num_schedulers()]),
+                        if
+                            (Clock > 2000) ->
+                                5 + num_schedulers_to_factor();
+                            true ->
+                                10 + num_schedulers_to_factor()
+                        end;
+                    _ ->
+                        num_schedulers_to_factor()
                 end;
             {ok, CPU} ->
                 io:format("CPU: "
                           "~n   Model:                 ~s"
                           "~n   Num Online Schedulers: ~s"
                           "~n", [CPU, str_num_schedulers()]),
-                NumChed = erlang:system_info(schedulers),
-                if
-                    (NumChed > 2) ->
-                        2;
-                    true ->
-                        5
-                end;
+                num_schedulers_to_factor();
             _ ->
                 5
         end,
@@ -240,6 +344,35 @@ analyze_and_print_linux_host_info(Version) ->
             {Factor, []}
     end.
 
+linux_cpuinfo_clock() ->
+    %% This is written as: "3783.000000MHz"
+    %% So, check unit MHz (handle nothing else).
+    %% Also, check for both float and integer
+    %% Also,  the freq is per core, and can vary...
+    case linux_cpuinfo_lookup("clock") of
+        [C|_] when is_list(C) ->
+            case lists:reverse(string:to_lower(C)) of
+                "zhm" ++ CRev ->
+                    try trunc(list_to_float(lists:reverse(CRev))) of
+                        I ->
+                            I
+                    catch
+                        _:_:_ ->
+                            try list_to_integer(lists:reverse(CRev)) of
+                                I ->
+                                    I
+                            catch
+                                _:_:_ ->
+                                    0
+                            end
+                    end;
+                _ ->
+                    0
+            end;
+        _ ->
+            0
+    end.
+
 linux_cpuinfo_lookup(Key) when is_list(Key) ->
     linux_info_lookup(Key, "/proc/cpuinfo").
 
@@ -247,6 +380,8 @@ linux_cpuinfo_cpu() ->
     case linux_cpuinfo_lookup("cpu") of
         [Model] ->
             Model;
+        ["POWER9" ++ _ = CPU|_] ->
+            CPU;
         _ ->
             "-"
     end.
@@ -261,6 +396,8 @@ linux_cpuinfo_motherboard() ->
 
 linux_cpuinfo_bogomips() ->
     case linux_cpuinfo_lookup("bogomips") of
+	[] ->
+	    "-";
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -330,6 +467,14 @@ linux_cpuinfo_processor() ->
             "-"
     end.
 
+linux_cpuinfo_machine() ->
+    case linux_cpuinfo_lookup("machine") of
+        [M] ->
+            M;
+        _ ->
+            "-"
+    end.
+
 linux_which_cpuinfo(montavista) ->
     CPU =
         case linux_cpuinfo_cpu() of
@@ -386,24 +531,42 @@ linux_which_cpuinfo(wind_river) ->
     end;
 
 %% Check for x86 (Intel or AMD)
-linux_which_cpuinfo(other) ->
+linux_which_cpuinfo(Other) when (Other =:= fedora) orelse
+                                (Other =:= ubuntu) orelse
+                                (Other =:= linux_mint) orelse
+                                (Other =:= sles) orelse
+                                (Other =:= suse) orelse
+                                (Other =:= other) ->
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
-                %% ARM (at least some distros...)
-                case linux_cpuinfo_processor() of
-                    "-" ->
-			case linux_cpuinfo_model() of
+		%% This is for POWER9
+		case linux_cpuinfo_cpu() of
+		    "POWER9" ++ _ = PowerCPU ->
+			Machine =
+			    case linux_cpuinfo_machine() of
+				"-" ->
+				    "";
+				M ->
+				    " (" ++ M ++ ")"
+			    end,
+			PowerCPU ++ Machine;
+		    _X ->
+			%% ARM (at least some distros...)
+			case linux_cpuinfo_processor() of
 			    "-" ->
-				%% Ok, we give up
-				throw(noinfo);
-			    Model ->
-				Model
-			end;
-                    Proc ->
-                        Proc
-                end;
-            ModelName ->
+				case linux_cpuinfo_model() of
+				    "-" ->
+					%% Ok, we give up
+					throw(noinfo);
+				    Model ->
+					Model
+				end;
+			    Proc ->
+				Proc
+			end
+		end;
+	    ModelName ->
                 ModelName
         end,
     case linux_cpuinfo_bogomips() of
@@ -508,43 +671,75 @@ analyze_and_print_openbsd_host_info(Version) ->
                       "~nMemory:"
                       "~n   ~w KB"
                       "~n", [CPU, CPUSpeed, NCPU, Memory]),
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
-                    (CPUSpeed =:= -1) ->
-                        1;
+                    (CPUSpeed >= 3000) ->
+                        if
+                            (NCPU >= 8) ->
+                                1;
+                            (NCPU >= 6) ->
+                                2;
+                            (NCPU >= 4) ->
+                                3;
+                            (NCPU >= 2) ->
+                                4;
+                            true ->
+                                10
+                        end;
                     (CPUSpeed >= 2000) ->
                         if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
+                            (NCPU >= 8) ->
                                 2;
+                            (NCPU >= 6) ->
+                                3;
+                            (NCPU >= 4) ->
+                                4;
+                            (NCPU >= 2) ->
+                                5;
                             true ->
-                                3
+                                12
+                        end;
+                    (CPUSpeed >= 1000) ->
+                        if
+                            (NCPU >= 8) ->
+                                3;
+                            (NCPU >= 6) ->
+                                4;
+                            (NCPU >= 4) ->
+                                5;
+                            (NCPU >= 2) ->
+                                6;
+                            true ->
+                                14
                         end;
                     true ->
                         if
+                            (NCPU >= 8) ->
+                                4;
+                            (NCPU >= 6) ->
+                                6;
                             (NCPU >= 4) ->
-                                2;
+                                8;
                             (NCPU >= 2) ->
-                                3;
+                                10;
                             true ->
-                                4
+                                20
                         end
                 end,
             MemAddFactor =
                 if
-                    (Memory =:= -1) ->
+                    (Memory >= 16777216) ->
                         0;
                     (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
                         1;
+                    (Memory >= 4194304) ->
+                        3;
                     (Memory >= 2097152) ->
-                        2;
+                        5;
                     true ->
-                        3
+                        10
                 end,
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             {CPUFactor + MemAddFactor, []}
         end
     catch
@@ -640,15 +835,7 @@ analyze_and_print_freebsd_host_info(Version) ->
                       "~n   Num Online Schedulers: ~s"
                       "~n", [str_num_schedulers()]),
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            Factor = case erlang:system_info(schedulers) of
-                         1 ->
-                             10;
-                         2 ->
-                             5;
-                         _ ->
-                             2
-                     end,
-            {Factor, []}
+            {num_schedulers_to_factor(), []}
     end.
 
 
