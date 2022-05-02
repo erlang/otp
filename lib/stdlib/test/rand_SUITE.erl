@@ -214,13 +214,13 @@ mwc59_api(Config) when is_list(Config) ->
     mwc59_api(1, 1000000).
 
 mwc59_api(CX0, 0) ->
-    CX = 187860517065527182,
+    CX = 298134347579367847,
     {CX, CX} = {CX0, CX},
     V0 = rand:mwc59_value(CX0),
-    V = 230807595801982862,
+    V = 44296811804442023,
     {V, V} = {V0, V},
     W0 = rand:mwc59_full_value(CX0),
-    W = 202476383090409870,
+    W = 43477957222139559,
     {W, W} = {W0, W},
     F0 = rand:mwc59_float(CX0),
     F = (W band ((1 bsl 53) - 1)) * (1 / (1 bsl 53)),
@@ -1165,7 +1165,7 @@ do_measure(Iterations) ->
                             end
                   end
           end,
-          {exsp,next}, Iterations,
+          {exsp,mod}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(

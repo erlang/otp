@@ -1511,7 +1511,7 @@ dummy_seed({A1, A2, A3}) ->
 
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
 mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
-    CX = ?MASK(58, CX0),
+    CX = ?MASK(59, CX0),
     C = CX bsr ?MWC59_B,
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
