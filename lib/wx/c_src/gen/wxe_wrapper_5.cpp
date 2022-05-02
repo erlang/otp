@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2162,7 +2162,7 @@ void wxMenuItem_GetBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   wxMenuItem *This;
   This = (wxMenuItem *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
-  const wxBitmap * Result = &This->GetBitmap();
+  wxBitmap * Result = new wxBitmap(This->GetBitmap()); app->newPtr((void *) Result,3, memenv);;
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxBitmap"));
 
