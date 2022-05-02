@@ -245,6 +245,7 @@ void run(EpmdVars *g)
   char socknamebuf[INET_ADDRSTRLEN];
 #endif
   int num_sockets = 0;
+  int nonfatal_sockets = 0;
   int i;
   int opt;
   unsigned short sport = g->port;
@@ -301,6 +302,14 @@ void run(EpmdVars *g)
       SET_ADDR6(iserv_addr[num_sockets],in6addr_loopback,sport);
       num_sockets++;
 #endif
+
+      /* IPv4 and/or IPv6 loopback may not be present, for example if
+       * the protocol stack is explicitly disabled in the kernel.  If
+       * any sockets to this point fail, log the error but do not exit
+       * with failure.  If any socket after this (explicitly
+       * configured via addresses) fails, then consider the error
+       * fatal. */
+      nonfatal_sockets = num_sockets;
 
 	  if ((tmp = strdup(g->addresses)) == NULL)
 	{
@@ -417,7 +426,6 @@ void run(EpmdVars *g)
 	          epmd_cleanup_exit(g,1);
 	  }
 	}
-      g->listenfd[bound++] = listensock[i];
 
 #if HAVE_DECL_IPV6_V6ONLY
       opt = 1;
@@ -475,7 +483,14 @@ void run(EpmdVars *g)
               dbg_perror(g,"failed to bind on ipaddr %s",
                          epmd_ntop(&iserv_addr[i],
                                    socknamebuf, sizeof(socknamebuf)));
-              epmd_cleanup_exit(g,1);
+              if (i >= nonfatal_sockets)
+                  epmd_cleanup_exit(g,1);
+              else
+              {
+                  close(listensock[i]);
+                  continue;
+              }
+
 	    }
 	}
 
@@ -485,6 +500,7 @@ void run(EpmdVars *g)
                                socknamebuf, sizeof(socknamebuf)));
           epmd_cleanup_exit(g,1);
       }
+      g->listenfd[bound++] = listensock[i];
       select_fd_set(g, listensock[i]);
     }
   if (bound == 0) {
