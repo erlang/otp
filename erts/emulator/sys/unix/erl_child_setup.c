@@ -257,7 +257,6 @@ start_new_child(int pipes[])
         res = read(pipes[0], &proto, sizeof(proto));
         if (res > 0) {
             ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
-            ASSERT(res == sizeof(proto));
         }
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
