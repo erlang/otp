@@ -346,6 +346,16 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 
 #else /* non windows or included from emulator itself */
 
+/* Redundant declaration of deallocator functions as they are referred to by
+ * __attribute__(malloc) of allocator functions and we cannot change
+ * the declaration order in erl_nif_api_funcs.h due to Windows. */
+extern void enif_free(void* ptr);
+extern void enif_mutex_destroy(ErlNifMutex *mtx);
+extern void enif_cond_destroy(ErlNifCond *cnd);
+extern void enif_rwlock_destroy(ErlNifRWLock *rwlck);
+extern void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
+extern void enif_ioq_destroy(ErlNifIOQueue *q);
+
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
 #  include "erl_nif_api_funcs.h"
 #  undef ERL_NIF_API_FUNC_DECL

@@ -514,30 +514,8 @@ Eterm erts_change_message_queue_management(Process *c_p, Eterm new_state);
 
 void erts_cleanup_messages(ErtsMessage *mp);
 
-void *erts_alloc_message_ref(void);
 void erts_free_message_ref(void *);
-
-#define ERTS_SMALL_FIX_MSG_SZ 10
-#define ERTS_MEDIUM_FIX_MSG_SZ 20
-#define ERTS_LARGE_FIX_MSG_SZ 30
-
-void *erts_alloc_small_message(void);
-void erts_free_small_message(void *mp);
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_SMALL_FIX_MSG_SZ-1];
-} ErtsSmallFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_MEDIUM_FIX_MSG_SZ-1];
-} ErtsMediumFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_LARGE_FIX_MSG_SZ-1];
-} ErtsLargeFixSzMessage;
+void *erts_alloc_message_ref(void) ERTS_ATTR_MALLOC_D(erts_free_message_ref,1);
 
 ErtsMessage *erts_try_alloc_message_on_heap(Process *pp,
 					    erts_aint32_t *psp,

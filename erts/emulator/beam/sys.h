@@ -1373,4 +1373,60 @@ erts_raw_env_next_char(byte *p, int encoding)
 #define ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER  0x04c76a00U
 #define ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER 0x050a7800U
 
+#define ERTS_ATTR_WUR
+#define ERTS_ATTR_ALLOC_SIZE(SZPOS)
+#define ERTS_ATTR_MALLOC_U
+#define ERTS_ATTR_MALLOC_US(SZPOS)
+#define ERTS_ATTR_MALLOC_UD(DTOR, PTRPOS)
+#define ERTS_ATTR_MALLOC_USD(SZPOS, DTOR, PTRPOS)
+#define ERTS_ATTR_MALLOC_D(DTOR, PTRPOS)
+
+/* ERTS_ATTR_MALLOC_xxx:
+ * U: Returns pointer to Undefined data. ((malloc))
+ * S: Has Size argument with nr of bytes of returned data. ((alloc_size(SZPOS)))
+ * D: Has 1-to-1 Deallocator function with ptr argument. ((malloc(DTOR,PTRPOS)))
+ *    (D does not work on INLINE functions)
+ */
+
+#ifdef __has_attribute
+#  if __has_attribute(warn_unused_result)
+#    undef  ERTS_ATTR_WUR
+#    define ERTS_ATTR_WUR __attribute__((warn_unused_result))
+#  endif
+#  if __has_attribute(alloc_size)
+#    undef  ERTS_ATTR_ALLOC_SIZE
+#    define ERTS_ATTR_ALLOC_SIZE(SZPOS) __attribute__((alloc_size(SZPOS)))
+#  endif
+#  if __has_attribute(malloc)
+#    undef  ERTS_ATTR_MALLOC_U
+#    define ERTS_ATTR_MALLOC_U __attribute__((malloc)) ERTS_ATTR_WUR
+
+#    undef  ERTS_ATTR_MALLOC_US
+#    define ERTS_ATTR_MALLOC_US(SZPOS)                                 \
+         __attribute__((malloc))                                       \
+         ERTS_ATTR_ALLOC_SIZE(SZPOS)                                   \
+         ERTS_ATTR_WUR
+
+#    undef  ERTS_ATTR_MALLOC_D
+#    if defined(__GNUC__) && __GNUC__ >= 11
+#      define ERTS_ATTR_MALLOC_D(DTOR, PTRPOS)                         \
+         __attribute__((malloc(DTOR,PTRPOS)))                          \
+         ERTS_ATTR_WUR
+#    else
+#      define ERTS_ATTR_MALLOC_D(DTOR, PTRPOS)                         \
+         ERTS_ATTR_WUR
+#    endif
+
+#    undef  ERTS_ATTR_MALLOC_UD
+#    define ERTS_ATTR_MALLOC_UD(DTOR, PTRPOS)                          \
+       ERTS_ATTR_MALLOC_U                                              \
+       ERTS_ATTR_MALLOC_D(DTOR, PTRPOS)
+
+#    undef  ERTS_ATTR_MALLOC_USD
+#    define ERTS_ATTR_MALLOC_USD(SZPOS, DTOR, PTRPOS)                  \
+       ERTS_ATTR_MALLOC_US(SZPOS)                                      \
+       ERTS_ATTR_MALLOC_D(DTOR, PTRPOS)
+#  endif
 #endif
+
+#endif /* __SYS_H__ */
