@@ -27,6 +27,38 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Client certification could fail if TLS-1.3 enabled client
+	    negotiated TLS-1.2 connection with the server, this is
+	    due to the wrong version being used when decoding the
+	    certificate request message from the server.</p>
+          <p>
+	    Own Id: OTP-18028 Aux Id: GH-5835 </p>
+        </item>
+        <item>
+          <p>
+	    socket option packet_size was not handled in ssl:setops/2
+	    and ssl:getotps/2</p>
+          <p>
+	    Own Id: OTP-18062 Aux Id: GH-5898 </p>
+        </item>
+        <item>
+          <p>
+	    Remove legacy code to fix interoperability with new
+	    socket inet_backend.</p>
+          <p>
+	    Own Id: OTP-18071 Aux Id: GH-5930 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

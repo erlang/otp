@@ -39,7 +39,24 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.20.3</title>
+  <section><title>Mnesia 4.20.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed <c>mnesia:add_table_copy/3</c> so that calling it
+	    when mnesia started on another node does not fail or
+	    cause hanging nodes.</p>
+          <p>
+	    Own Id: OTP-18056</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.20.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>
