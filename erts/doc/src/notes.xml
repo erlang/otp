@@ -1623,6 +1623,67 @@
 
 </section>
 
+<section><title>Erts 11.2.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Let EPMD tolerate failure when binding to IPv4/IPv6
+	    loopback intefaces in addition to user-supplied addresses
+	    via <c>ERL_EPMD_ADDRESS</c> or the <c>-address</c>
+	    option. This can happen, for example, if the host system
+	    has ipv6 disabled via the disable_ipv6 sysctl.</p>
+          <p>
+	    Own Id: OTP-17970 Aux Id: PR-5762 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug in <c>binary_to_term/1</c>,
+	    <c>enif_make_map_from_arrays</c>,
+	    <c>erl_drv_send_term</c>, and Erlang distribution that
+	    could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-18027</p>
+        </item>
+        <item>
+	    <p>Fixed a rare race in <c>persistent_term:get/1,2</c>
+	    that could cause it to return the value of another
+	    key.</p>
+          <p>
+	    Own Id: OTP-18065 Aux Id: GH-5908 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the process message queue was left in an
+	    inconsistent state when changing from on_heap to off_heap
+	    message queue data causing the GC to segfault.</p>
+          <p>
+	    Own Id: OTP-18075 Aux Id: PR-5927 </p>
+        </item>
+        <item>
+          <p>
+	    Fix functions that convert universal to localtime (such
+	    as erlang:localtime/0 and
+	    erlang:universaltime_to_localtime/1) to fetch the correct
+	    localtime if it is changed after the start of the VM.</p>
+          <p>
+	    Own Id: OTP-18076 Aux Id: ERIERL-802 PR-5905 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when a process doing a distributed
+	    fragmented send is sent an exit signal. Before this fix
+	    the receiving node would be left with an incomplete
+	    message that would remain until the nodes were
+	    disconnected. The bug has existed since Erlang/OTP 21.</p>
+          <p>
+	    Own Id: OTP-18077 Aux Id: GH-5876 PR-5892 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
