@@ -145,7 +145,7 @@ do_log(Log) ->
                  #{ legacy_header => true, single_line => false
                    ,depth => unlimited, time_offset => ""
                  }),
-        erlang:display_string(lists:flatten(unicode:characters_to_list(Str)))
+        erlang:display_string(stdout, lists:flatten(unicode:characters_to_list(Str)))
     catch _E:_R:_ST ->
         % erlang:display({_E,_R,_ST}),
         display_log(Log)
@@ -164,7 +164,7 @@ display_date(Timestamp) when is_integer(Timestamp) ->
     Sec = Timestamp div 1000000,
     {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime_to_localtime(
                             erlang:posixtime_to_universaltime(Sec)),
-    erlang:display_string(
+    erlang:display_string(stdout,
       integer_to_list(Y) ++ "-" ++
 	  pad(Mo,2) ++ "-" ++
 	  pad(D,2)  ++ " " ++
@@ -182,7 +182,8 @@ pad(Str,Size) ->
 
 display({string,Chardata}) ->
     try unicode:characters_to_list(Chardata) of
-        String -> erlang:display_string(String), erlang:display_string("\n")
+        String -> erlang:display_string(stdout, String),
+                  erlang:display_string(stdout, "\n")
     catch _:_ -> erlang:display(Chardata)
     end;
 display({report,Report}) when is_map(Report) ->
@@ -190,9 +191,9 @@ display({report,Report}) when is_map(Report) ->
 display({report,Report}) ->
     display_report(Report);
 display({F, A}) when is_list(F), is_list(A) ->
-    erlang:display_string(F ++ "\n"),
+    erlang:display_string(stdout, F ++ "\n"),
     [begin
-	 erlang:display_string("\t"),
+	 erlang:display_string(stdout, "\t"),
 	 erlang:display(Arg)
      end || Arg <- A],
     ok.
@@ -203,7 +204,7 @@ display_report(Atom, A) when is_atom(Atom) ->
     AtomString = atom_to_list(Atom),
     AtomLength = length(AtomString),
     Padding = lists:duplicate(ColumnWidth - AtomLength, $\s),
-    erlang:display_string(AtomString ++ Padding),
+    erlang:display_string(stdout, AtomString ++ Padding),
     display_report(A);
 display_report(F, A) ->
     erlang:display({F, A}).
@@ -216,13 +217,12 @@ display_report([A, []]) ->
 display_report(A = [_|_]) ->
     case lists:all(fun({Key,_Value}) -> is_atom(Key); (_) -> false end, A) of
 	true ->
-	    erlang:display_string("\n"),
+	    erlang:display_string(stdout, "\n"),
 	    lists:foreach(
 	      fun({Key, Value}) ->
 		      erlang:display_string(
-			"    " ++
-			    atom_to_list(Key) ++
-			    ": "),
+                        stdout,
+                        "    " ++ atom_to_list(Key) ++ ": "),
 		      erlang:display(Value)
 	      end, A);
 	false ->

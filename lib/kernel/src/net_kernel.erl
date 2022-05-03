@@ -2125,7 +2125,7 @@ register_error(false, Proto, Reason) ->
     proto_error(false, Proto, lists:flatten(S));
 register_error(true, Proto, Reason) ->
     S = "Protocol '" ++ Proto ++ "': register/listen error: ",
-    erlang:display_string(S),
+    erlang:display_string(stdout, S),
     erlang:display(Reason).
 
 proto_error(CleanHalt, Proto, String) ->

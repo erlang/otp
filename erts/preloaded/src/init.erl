@@ -558,7 +558,7 @@ do_handle_msg(Msg,State) ->
                         true -> logger:info("init got unexpected: ~p", [X],
                                             #{ error_logger=>#{tag=>info_msg}});
                         false ->
-                            erlang:display_string("init got unexpected: "),
+                            erlang:display_string(stdout, "init got unexpected: "),
                             erlang:display(X)
                     end
             end
