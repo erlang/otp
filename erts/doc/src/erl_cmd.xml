@@ -300,6 +300,18 @@ $ <input>erl \
           console. Useful for running daemons and backgrounds processes. Implies
           <c><![CDATA[-noinput]]></c>.</p>
       </item>
+      <tag>
+        <marker id="disable-feature"></marker>
+        <c><![CDATA[-disable-feature feature]]></c>
+      </tag>
+      <item>
+        <p>Disables the
+	<seeguide
+            marker="system/reference_manual:features#features">feature</seeguide> <c><![CDATA[feature]]></c>
+        in the runtime system.  The special feature <c>all</c> can be
+        used to disable all non permanent features.
+      </p>
+      </item>
       <tag><c><![CDATA[-emu_args]]></c></tag>
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
@@ -328,6 +340,18 @@ $ <input>erl \
           (The emulator of this type must already be built.
           Use the <c>configure</c> option <c>--enable-lock-counter</c> to
           build the lock-counter emulator.)</p>
+      </item>
+      <tag>
+        <marker id="enable-feature"></marker>
+        <c><![CDATA[-enable-feature feature]]></c>
+      </tag>
+      <item>
+        <p>Enables the
+	<seeguide
+            marker="system/reference_manual:features#features">feature</seeguide> <c><![CDATA[feature]]></c>
+        in the runtime system.  The special feature <c>all</c> can be
+        used to enable all features.
+      </p>
       </item>
       <tag><c><![CDATA[-env Variable Value]]></c></tag>
       <item>

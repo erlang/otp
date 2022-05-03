@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2021</year>
+      <year>2003</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -397,9 +397,13 @@ is_valid_signal(Signal) ->
   <section>
     <marker id="maybe"></marker>
     <title>Maybe</title>
-    <note><p><c>maybe</c> is an experimental new feature introduced in
-    OTP 25. By default, it is disabled. To enable <c>maybe</c>, use
-    compiler option <c>{enable_feature,maybe_expr}</c>.</p></note>
+    <note><p><c>maybe</c> is an experimental new <seeguide
+    marker="system/reference_manual:features#features">feature</seeguide>
+    introduced in OTP 25. By default, it is disabled. To enable
+    <c>maybe</c>, use compiler option
+    <c>{feature,maybe_expr,enable}</c>.  The feature must also be
+    enabled in the runtime using the <c>-enable-feature</c> option to
+    <c>erl</c>.</p></note>
 
     <code type="erl"><![CDATA[
 maybe

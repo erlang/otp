@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,6 +48,7 @@
   <xi:include href="erl_error.xml"/>
   <xi:include href="erl_eval.xml"/>
   <xi:include href="erl_expand_records.xml"/>
+  <xi:include href="erl_features.xml"/>
   <xi:include href="erl_id_trans.xml"/>
   <xi:include href="erl_internal.xml"/>
   <xi:include href="erl_lint.xml"/>

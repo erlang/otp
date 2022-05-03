@@ -3823,6 +3823,11 @@ is_process_alive(P2Pid),
           previous current code for <c><anno>Module</anno></c> will remain
           until the <c>on_load</c> call has finished.
           </item>
+          <tag>not_allowed</tag>
+          <item>The code in <c><anno>Binary</anno></c> has been
+          compiled with features that are currently not enabled in the
+          runtime system.
+          </item>
         </taglist>
         <warning>
           <p>This BIF is intended for the code server (see
