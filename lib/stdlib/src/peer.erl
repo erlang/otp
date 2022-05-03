@@ -302,9 +302,12 @@ init([Notify, Options]) ->
         case maps:find(connection, Options)  of
             {ok, standard_io} ->
                 %% Cannot detach a peer that uses stdio. Request exit_status.
-                open_port({spawn_executable, Exec}, [{args, FinalArgs}, {env, Env}, hide, binary, exit_status]);
+                open_port({spawn_executable, Exec},
+                          [{args, FinalArgs}, {env, Env}, hide,
+                           binary, exit_status, stderr_to_stdout]);
             _ ->
-                Port = open_port({spawn_executable, Exec}, [{args, FinalArgs}, {env, Env}, hide, binary]),
+                Port = open_port({spawn_executable, Exec},
+                                 [{args, FinalArgs}, {env, Env}, hide, binary]),
                 %% peer can close the port before we get here which will cause
                 %%  port_close to throw. Catch this and ignore.
                 catch erlang:port_close(Port),
