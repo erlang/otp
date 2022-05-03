@@ -40,6 +40,8 @@
          expired_ticket_test/1,
          invalid_ticket_test/0,
          invalid_ticket_test/1,
+         certificate_encoding_test/0,
+         certificate_encoding_test/1,
          main_test/0,
          main_test/1,
          misc_test/0,
@@ -63,7 +65,7 @@ all() ->
 
 groups() ->
     [{stateful, [], [main_test, expired_ticket_test, invalid_ticket_test]},
-     {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test]},
+     {stateless, [], [expired_ticket_test, invalid_ticket_test, certificate_encoding_test, main_test]},
      {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test]}
     ].
 
@@ -116,22 +118,38 @@ main_test() ->
 main_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
     % Fill in GB tree store for stateful setup
-    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     % Reach ticket store size limit - force GB tree pruning
     SessionTicket = #new_session_ticket{} =
-        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     TicketRecvTime = erlang:system_time(millisecond),
     %% Sleep more than the ticket lifetime (which is in seconds) in
     %% milliseconds, to confirm that the client reported age (which is in
     %% milliseconds) is compared correctly with the lifetime
     ct:sleep(5 * ?LIFETIME),
     {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
-    AcceptResponse = {ok, {0, ?PSK}},
+    AcceptResponse = {ok, {0, ?PSK, undefined}},
     AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     % check replay attempt result
     ExpReplyResult = get_replay_expected_result(Config, AcceptResponse),
     ExpReplyResult = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    true = is_process_alive(Pid).
+    
+certificate_encoding_test() ->
+    [{doc, "Verify certifcate encoding in ticket"}].
+    
+certificate_encoding_test(Config) when is_list(Config) ->
+    Pid = ?config(server_pid, Config),
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
+    Certificate = crypto:strong_rand_bytes(100),
+    SessionTicket = #new_session_ticket{} =
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, Certificate),
+    TicketRecvTime = erlang:system_time(millisecond),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
+    AcceptResponse = {ok, {0, ?PSK, Certificate}},
+    AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     true = is_process_alive(Pid).
 
@@ -140,7 +158,7 @@ invalid_ticket_test() ->
 invalid_ticket_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
     #new_session_ticket{ticket=Ticket} =
-        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     Ids = [#psk_identity{identity = <<"wrongidentity">>,
                          obfuscated_ticket_age = 0},
            #psk_identity{identity = Ticket,
@@ -162,7 +180,7 @@ expired_ticket_test() ->
     [{doc, "Expired ticket scenario"}].
 expired_ticket_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
-    SessionTicket = tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+    SessionTicket = tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET, undefined),
     TicketRecvTime = erlang:system_time(millisecond),
     ct:sleep({seconds, 2 * ?LIFETIME}),
     {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
