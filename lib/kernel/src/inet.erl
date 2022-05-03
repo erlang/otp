@@ -946,7 +946,8 @@ stats() ->
 %% Available options for tcp:connect
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
-    [tos, tclass, priority, reuseaddr, keepalive, linger, nodelay,
+    [debug,
+     tos, tclass, priority, reuseaddr, keepalive, linger, nodelay,
      sndbuf, recbuf,
      recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
@@ -1035,7 +1036,9 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %% Available options for tcp:listen
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
-    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [debug,
+     tos, tclass,
+     priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      recvtos, recvtclass, ttl, recvttl,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
@@ -1143,6 +1146,7 @@ gen_tcp_module(Opts, socket) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
     [
+     debug,
      tos, tclass,
      priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
      recvtos, recvtclass, ttl, recvttl, deliver, ipv6_v6only,
@@ -1242,6 +1246,7 @@ gen_udp_module(Opts, socket) ->
 %  (*) passing of open FDs ("fdopen") is not supported.
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
+    debug,
     mode, active, buffer, tos, tclass, ttl,
     priority, dontroute, reuseaddr, linger,
     recvtos, recvtclass, recvttl,
