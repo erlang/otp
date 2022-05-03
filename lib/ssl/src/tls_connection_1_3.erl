@@ -560,7 +560,7 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     tls_client_ticket_store:store_ticket(NewSessionTicket, {Cipher, HKDF}, SNI, PSK).
 
 send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
-    Timestamp = erlang:system_time(seconds),
+    Timestamp = erlang:system_time(millisecond),
     TicketData = #{cipher_suite => CipherSuite,
                    sni => SNI,
                    psk => PSK,
