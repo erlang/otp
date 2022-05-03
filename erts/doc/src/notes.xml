@@ -3551,6 +3551,42 @@
 
 </section>
 
+<section><title>Erts 10.7.2.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where the process message queue was left in an
+	    inconsistent state when changing from on_heap to off_heap
+	    message queue data causing the GC to segfault.</p>
+          <p>
+	    Own Id: OTP-18075 Aux Id: PR-5927 </p>
+        </item>
+        <item>
+          <p>
+	    Fix functions that convert universal to localtime (such
+	    as erlang:localtime/0 and
+	    erlang:universaltime_to_localtime/1) to fetch the correct
+	    localtime if it is changed after the start of the VM.</p>
+          <p>
+	    Own Id: OTP-18076 Aux Id: ERIERL-802 PR-5905 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak when a process doing a distributed
+	    fragmented send is sent an exit signal. Before this fix
+	    the receiving node would be left with an incomplete
+	    message that would remain until the nodes were
+	    disconnected. The bug has existed since Erlang/OTP 21.</p>
+          <p>
+	    Own Id: OTP-18077 Aux Id: GH-5876 PR-5892 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
