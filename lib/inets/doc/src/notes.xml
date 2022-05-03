@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.5.2</title>
+  <section><title>Inets 7.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of erl_script_script option in httpd when
+	    atom 'all' is used as AllowedModule.</p>
+          <p>
+	    Own Id: OTP-18069 Aux Id: ERIERL-805 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

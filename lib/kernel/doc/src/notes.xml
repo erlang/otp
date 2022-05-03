@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inet:getopts/2 for the 'raw' option for a socket created
+	    with inet-backend 'socket' failed.</p>
+          <p>
+	    Own Id: OTP-18078 Aux Id: GH-5930 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected the behaviour of the shutdown function when
+	    using with the inet_backend = socket. It was not
+	    sufficiently compatible with the "old" gen_tcp.</p>
+          <p>
+	    Own Id: OTP-18080 Aux Id: GH-5930 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
