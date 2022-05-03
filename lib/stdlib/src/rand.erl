@@ -1476,9 +1476,9 @@ dummy_seed({A1, A2, A3}) ->
 %% and a double Xorshift to get all bits good enough.
 %%
 %% The chosen parameters are:
-%% A = 16#7f17555
+%% A = 16#7fa6502
 %% B = 32
-%% Single Xorshift: 10
+%% Single Xorshift: 16
 %% Double Xorshift: 8, 16
 %%
 %% These parameters gives the MWC "digit" size 32 bits
@@ -1493,17 +1493,14 @@ dummy_seed({A1, A2, A3}) ->
 %%% -define(MWC_A, (6)).
 %%% -define(MWC_B, (3)).
 
-%%% -define(MWC59_A, (16#20075dc0)).
-%%% -define(MWC59_A, (16#1ffb0729)).
+%%% -define(MWC59_A, (16#20075dc0)). % 16#1ffb0729
 %%% -define(MWC59_B, (29)).
 
-%%% -define(MWC59_A, (16#7fa6502)).
--define(MWC59_A, (16#7f17555)).
-%%% -define(MWC59_A, (16#3f35301)).
+-define(MWC59_A, (16#7fa6502)). % 16#7f17555 16#3f35301
 -define(MWC59_B, (32)).
 -define(MWC59_P, ((?MWC59_A bsl ?MWC59_B) - 1)).
 
--define(MWC59_XS, 10).
+-define(MWC59_XS, 16).
 -define(MWC59_XS1, 8).
 -define(MWC59_XS2, 16).
 

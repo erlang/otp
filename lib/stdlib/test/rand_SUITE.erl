@@ -214,20 +214,20 @@ mwc59_api(Config) when is_list(Config) ->
     mwc59_api(1, 1000000).
 
 mwc59_api(CX0, 0) ->
-    CX = 298134347579367847,
+    CX = 216355295181821136,
     {CX, CX} = {CX0, CX},
     V0 = rand:mwc59_value(CX0),
-    V = 44296811804442023,
+    V = 215617979550160080,
     {V, V} = {V0, V},
     W0 = rand:mwc59_full_value(CX0),
-    W = 43477957222139559,
+    W = 70209996550472912,
     {W, W} = {W0, W},
     F0 = rand:mwc59_float(CX0),
     F = (W band ((1 bsl 53) - 1)) * (1 / (1 bsl 53)),
     {F, F} = {F0, F},
     ok;
 mwc59_api(CX, N)
-  when is_integer(CX), 1 =< CX, CX < (16#7f17555 bsl 32) - 1 ->
+  when is_integer(CX), 1 =< CX, CX < (16#7fa6502 bsl 32) - 1 ->
     V = rand:mwc59_value(CX),
     W = rand:mwc59_full_value(CX),
     F = rand:mwc59_float(CX),
@@ -1354,7 +1354,7 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = (16#7f17555 bsl 32) - 1,
+                  Range = (16#7fa6502 bsl 32) - 1,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
                           V = St1,
@@ -1455,7 +1455,7 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = (16#7f17555 bsl 32) - 1,
+                  Range = (16#7fa6502 bsl 32) - 1,
                   fun (St0) ->
                           case
                               put(mwc59_procdict,

@@ -898,7 +898,7 @@ end.</pre>
         </p>
         <p>
           This generator uses the multiplier 2^32 and the modulus
-          16#7f17555&nbsp;*&nbsp;2^32&nbsp;-&nbsp;1,
+          16#7fa6502&nbsp;*&nbsp;2^32&nbsp;-&nbsp;1,
           which have been selected,
           in collaboration with Sebastiano Vigna,
           to avoid bignum operations
@@ -906,7 +906,7 @@ end.</pre>
           It can be written as:<br/>
           <c>C&nbsp;=&nbsp;<anno>CX0</anno>&nbsp;bsr&nbsp;32</c><br/>
           <c>X&nbsp;=&nbsp;<anno>CX0</anno>&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;32)-1))</c><br/>
-          <c><anno>CX1</anno>&nbsp;=&nbsp;16#7f17555&nbsp;*&nbsp;X&nbsp;+&nbsp;C</c>
+          <c><anno>CX1</anno>&nbsp;=&nbsp;16#7fa6502&nbsp;*&nbsp;X&nbsp;+&nbsp;C</c>
         </p>
         <p>
           The quality of the generated bits is best in the low end;
@@ -946,7 +946,7 @@ end.</pre>
             than the default generator, which in itself
             is a quality concern, although when used with the
             value scramblers it passes strict PRNG tests
-            (TestU01 BigCrush and PractRand 2 TB).
+            (most of TestU01 BigCrush and PractRand 2 TB).
             The generator is significantly faster than
             <seemfa marker="#exsp_next/1"><c>exsp_next/1</c></seemfa>
             but with a bit lower quality.
