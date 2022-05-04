@@ -227,13 +227,9 @@ void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
     mov_imm(ARG4, exp);
     safe_fragment_call(ga->get_raise_exception());
 
-    /*
-     * It is important that error address is not equal to a line
-     * instruction that may follow this BEAM instruction. To avoid
-     * that, BeamModuleAssembler::emit() will emit a nop instruction
-     * if necessary.
-     */
-    last_error_offset = getOffset() & -8;
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,
@@ -293,7 +289,7 @@ void BeamGlobalAssembler::emit_raise_exception() {
      * we were called with `safe_fragment_call`. This is safe because we will
      * never actually return to the return address. */
     a.pop(ARG2);
-    a.and_(ARG2, imm(-8));
+    a.and_(ARG2, imm(~_CPMASK));
 
 #ifdef NATIVE_ERLANG_STACK
     a.push(ARG2);

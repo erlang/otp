@@ -253,18 +253,6 @@ bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
         break;
     }
 
-    if (getOffset() == last_error_offset) {
-        /*
-         * The previous PC where an exception may occur is equal to the
-         * current offset, which is also the offset of the next
-         * instruction. If the next instruction happens to be a
-         * line instruction, the location for the exception will
-         * be that line instruction, which is probably wrong.
-         * To avoid that, bump the instruction offset.
-         */
-        a.nop();
-    }
-
 #ifdef BEAMASM_DUMP_SIZES
     {
         std::lock_guard<std::mutex> lock(size_lock);
@@ -358,12 +346,21 @@ void BeamModuleAssembler::emit_int_code_end() {
     emit_nyi("int_code_end");
 }
 
-void BeamModuleAssembler::emit_line(const ArgWord &) {
-    /*
-     * There is no need to align the line instruction. In the loaded
-     * code, the type of the pointer will be void* and that pointer
-     * will only be used in comparisons.
-     */
+void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
+    /* There is no need to align the line instruction. In the loaded code, the
+     * type of the pointer will be void* and that pointer will only be used in
+     * comparisons.
+     *
+     * We only need to do something when there's a possibility of raising an
+     * exception at the very end of the preceding instruction (and thus
+     * pointing at the start of this one). If we were to do nothing, the error
+     * would erroneously refer to this instead of the preceding line.
+     *
+     * Since line addresses are taken _after_ line instructions we can avoid
+     * this by adding a nop when we detect this condition. */
+    if (a.offset() == last_error_offset) {
+        a.nop();
+    }
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {

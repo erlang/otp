@@ -1593,6 +1593,17 @@ line_numbers(Config) when is_list(Config) ->
              [{?MODULE,bad_record,1,[{file,"bad_records.erl"},{line,4}]}|_]}} =
         catch bad_record([1,2,3]),
 
+    %% GH-5960: When an instruction raised an exception at the very end of the
+    %% instruction (e.g. badmatch), and was directly followed by a line
+    %% instruction, the exception was raised for the wrong line.
+    ok = ambiguous_line(0),
+    {'EXIT',{{badmatch,_},
+        [{?MODULE,ambiguous_line,1,[{file,"ambiguous_line.erl"},
+                                    {line,3}]}|_]}} = catch ambiguous_line(1),
+    {'EXIT',{{badmatch,_},
+        [{?MODULE,ambiguous_line,1,[{file,"ambiguous_line.erl"},
+                                    {line,4}]}|_]}} = catch ambiguous_line(2),
+
     ok.
 
 id(I) -> I.
@@ -1725,3 +1736,9 @@ crash_huge_line(_) ->                           %Line 100000002
 -record(foobar, {a,b,c,d}).                     %Line 2.
 bad_record(R) ->                                %Line 3.
     R#foobar.a.                                 %Line 4.
+
+-file("ambiguous_line.erl", 1).
+ambiguous_line(A) ->                            %Line 2.
+    true = A =/= 1,                             %Line 3.
+    true = A =/= 2,                             %Line 4.
+    ok.
