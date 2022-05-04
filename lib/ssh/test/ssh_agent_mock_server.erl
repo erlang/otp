@@ -149,7 +149,7 @@ check_mktemp(Config) ->
     end.
 
 extract_pubkey(PrivKey) ->
-    PubKey = ssh_transport:extract_public_key(PrivKey),
+    PubKey = ssh_file:extract_public_key(PrivKey),
     ssh_message:ssh2_pubkey_encode(PubKey).
 
 sig_format('ssh-rsa') -> <<"ssh-rsa">>;

@@ -399,6 +399,15 @@ key :: % encoded key from eg ssh_host_*.pub
       </desc>
     </func>
 
+
+    <func>
+      <name since="OTP 25.0" name="extract_public_key" arity="1"/>
+      <fsummary></fsummary>
+      <desc>
+	<p>Fetches the public key from a private key.</p>
+      </desc>
+    </func>
+
   </funcs>
 
 </erlref>
