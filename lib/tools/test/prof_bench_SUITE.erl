@@ -32,7 +32,7 @@
 
 
 suite() ->
-    [{timetrap,{minutes,15}}].
+    [{timetrap,{minutes,30}}].
 
 all() ->
     [overhead].
