@@ -113,8 +113,8 @@ borderline_test(Size, TempDir, IsUstar) ->
     Name = filename:join(TempDir, Prefix++SizeList),
 
     %% Create a file and archive it.
-    X0 = erlang:monotonic_time(),
-    ok = file:write_file(Name, random_byte_list(X0, Size)),
+    RandomBytes = rand:bytes(Size),
+    ok = file:write_file(Name, RandomBytes),
     ok = erl_tar:create(Archive, [Name]),
     ok = file:delete(Name),
 
@@ -125,7 +125,7 @@ borderline_test(Size, TempDir, IsUstar) ->
 
     %% Verify contents of extracted file.
     {ok, Bin} = file:read_file(Name),
-    true = match_byte_list(X0, binary_to_list(Bin)),
+    RandomBytes = Bin,
 
     %% Verify that Unix tar can read it.
     case IsUstar of
@@ -198,34 +198,6 @@ make_cmd(Cmd) ->
 	{win32, _} -> lists:concat(["cmd /c",  Cmd]);
 	{unix, _}  -> lists:concat(["sh -c '",  Cmd,  "'"])
     end.
-
-%% Verifies a random byte list.
-
-match_byte_list(X0, [Byte|Rest]) ->
-    X = next_random(X0),
-    case (X bsr 26) band 16#ff of
-	Byte -> match_byte_list(X, Rest);
-	_ -> false
-    end;
-match_byte_list(_, []) ->
-    true.
-
-%% Generates a random byte list.
-
-random_byte_list(X0, Count) ->
-    random_byte_list(X0, Count, []).
-
-random_byte_list(X0, Count, Result) when Count > 0->
-    X = next_random(X0),
-    random_byte_list(X, Count-1, [(X bsr 26) band 16#ff|Result]);
-random_byte_list(_X, 0, Result) ->
-    lists:reverse(Result).
-
-%% This RNG is from line 21 on page 102 in Knuth: The Art of Computer Programming,
-%% Volume II, Seminumerical Algorithms.
-
-next_random(X) ->
-    (X*17059465+1) band 16#fffffffff.
 
 %% Test the 'atomic' operations: create/extract/table, on compressed
 %% and uncompressed archives.
