@@ -186,14 +186,14 @@
 
 [shell erl]
     # Verify that only ifn_expr is used
-    !Fs = erl_features:features_used(f_directives_2).
+    !Fs = erl_features:used(f_directives_2).
     ?$ERLPROMPT
     [invoke same-members Fs "[ifn_expr,cond_expr,maps]"]
     !f(Fs).
     ?$ERLPROMPT
 
     # Verify that only ifn_expr is used
-    !Fs = erl_features:features_used(f_directives_3).
+    !Fs = erl_features:used(f_directives_3).
     ?$ERLPROMPT
     [invoke same-members Fs "[ifn_expr,cond_expr,maps]"]
     !f(Fs).

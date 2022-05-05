@@ -4174,7 +4174,7 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
 keyword_warning(Anno, Atom, St) ->
     case is_warn_enabled(keyword_warning, St) of
         true ->
-            Ftrs = erl_features:features(),
+            Ftrs = erl_features:all(),
             Reserved =
                 fun(Ftr) ->
                         lists:member(Atom, erl_features:keywords(Ftr))

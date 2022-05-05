@@ -329,13 +329,20 @@ show_info(#options{specific = Spec}) ->
 
     case G([list_features, describe_feature]) of
         {list_features, true} ->
-            Features = erl_features:features(),
+            Features = erl_features:all(),
             Msg = ["Available features:\n",
                    [io_lib:format(" ~-13s ~s\n", [Ftr, erl_features:short(Ftr)])
                     || Ftr <- Features]],
             {ok, Msg};
         {describe_feature, Ftr} ->
-            {ok, erl_features:long(Ftr)};
+            Description =
+                try
+                    erl_features:long(Ftr)
+                catch
+                    error:invalid_feature ->
+                        io_lib:format("Unknown feature: ~p\n", [Ftr])
+                end,
+            {ok, Description};
         _ ->
             false
     end.

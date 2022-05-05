@@ -325,7 +325,7 @@ parse_file(Ifile, Options) ->
 	{ok,Epp,Extra} ->
 	    Forms = parse_file(Epp),
             Epp ! {get_features, self()},
-            Ftrs = receive X -> X end,
+            Ftrs = receive {features, X} -> X end,
 	    close(Epp),
 	    {ok, Forms, [{features, Ftrs} | Extra]};
 	{error,E} ->
@@ -647,7 +647,7 @@ predef_macros(File, EnabledFeatures) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
-    AvailableFeatures = erl_features:features(),
+    AvailableFeatures = erl_features:all(),
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -725,7 +725,7 @@ wait_request(St) ->
     receive
 	{epp_request,From,scan_erl_form} -> From;
         {get_features, From} ->
-            From ! St#epp.features,
+            From ! {features, St#epp.features},
             wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
@@ -1038,10 +1038,9 @@ update_features(St0, Ind, Ftr, Loc) ->
     case erl_features:keyword_fun(Ind, Ftr, Ftrs0, KeywordFun) of
         {error, Reason} ->
             {error, {Reason, Loc}};
-        {ok, ResWordFun1, Ftrs1} ->
+        {ok, {Ftrs1, ResWordFun1}} ->
             Macs0 = St0#epp.macs,
             Macs1 = Macs0#{'FEATURE_ENABLED' => [ftr_macro(Ftrs1)]},
-            %% ?liof("ok!\n", []),
             %% FIXME WE need to keep any other scan_opts
             %% present.  Right now, there are no other, but
             %% that might change.
