@@ -638,8 +638,10 @@ do_t_fdconnect(Config) ->
     FD = gen_tcp_api_SUITE:getsockfd(),
     ?P("try connect (to port ~w) using file descriptor ~w", [LPort, FD]),
     COpts = ?INET_BACKEND_OPTS(Config) ++ [{fd, FD}, {active, false}],
-    Client = try gen_tcp:connect(localhost, LPort, COpts) of
+    %% The debug is just to "see" that it (debug) "works"...
+    Client = try gen_tcp:connect(localhost, LPort, COpts ++ [{debug, true}]) of
                  {ok, CSock} ->
+                     ok = inet:setopts(CSock, [{debug, false}]),
                      CSock;
                  {error, eaddrnotavail = CReason} ->
                      gen_tcp:close(L),
@@ -890,6 +892,7 @@ do_local_fdopen(Config) ->
     ?P("listen socket created: ~p"
        "~n   => try connect ~p", [L, ConnectOpts]),
     C0 = ok(gen_tcp:connect(SAddr, 0, ConnectOpts)),
+    ok = inet:setopts(C0, [{debug, true}]),
     ?P("connected: ~p"
        "~n   => get fd", [C0]),
     Fd = if
