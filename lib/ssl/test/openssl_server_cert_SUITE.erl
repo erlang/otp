@@ -47,10 +47,10 @@
          client_auth_empty_cert_rejected/1,
          client_auth_partial_chain/0,
          client_auth_partial_chain/1,
-         client_auth_allow_partial_chain/0,
-         client_auth_allow_partial_chain/1,
-         client_auth_do_not_allow_partial_chain/0,
-         client_auth_do_not_allow_partial_chain/1,
+         client_auth_use_partial_chain/0,
+         client_auth_use_partial_chain/1,
+         client_auth_do_not_use_partial_chain/0,
+         client_auth_do_not_use_partial_chain/1,
          client_auth_partial_chain_fun_fail/0,
          client_auth_partial_chain_fun_fail/1,
          missing_root_cert_no_auth/0,
@@ -394,15 +394,15 @@ client_auth_partial_chain(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_partial_chain(Config).
 
 %%--------------------------------------------------------------------
-client_auth_allow_partial_chain() ->
-    ssl_cert_tests:client_auth_allow_partial_chain().
-client_auth_allow_partial_chain(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_allow_partial_chain(Config).
+client_auth_use_partial_chain() ->
+    ssl_cert_tests:client_auth_use_partial_chain().
+client_auth_use_partial_chain(Config) when is_list(Config) ->
+    ssl_cert_tests:client_auth_use_partial_chain(Config).
 %%--------------------------------------------------------------------
-client_auth_do_not_allow_partial_chain() ->
-   ssl_cert_tests:client_auth_do_not_allow_partial_chain().
-client_auth_do_not_allow_partial_chain(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_do_not_allow_partial_chain(Config).
+client_auth_do_not_use_partial_chain() ->
+   ssl_cert_tests:client_auth_do_not_use_partial_chain().
+client_auth_do_not_use_partial_chain(Config) when is_list(Config) ->
+    ssl_cert_tests:client_auth_do_not_use_partial_chain(Config).
 
 %%--------------------------------------------------------------------
 client_auth_partial_chain_fun_fail() ->

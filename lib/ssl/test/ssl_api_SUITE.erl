@@ -53,6 +53,8 @@
          peercert_with_client_cert/1,
          select_best_cert/0,
          select_best_cert/1,
+         select_sha1_cert/0,
+         select_sha1_cert/1,
          connection_information/0,
          connection_information/1,
          secret_connection_info/0,
@@ -274,6 +276,7 @@ gen_api_tests() ->
      peercert,
      peercert_with_client_cert,
      select_best_cert,
+     select_sha1_cert,
      connection_information,
      secret_connection_info,
      keylog_connection_info,
@@ -548,6 +551,23 @@ select_best_cert(Config) when is_list(Config) ->
                             Conf)
       end, Conf).
 
+
+
+%%--------------------------------------------------------------------
+select_sha1_cert() ->
+    [{doc,"Use cert signed with rsa and sha1"}].
+
+select_sha1_cert(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    TestConf = public_key:pkix_test_data(#{server_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                             intermediates => [[{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                             peer =>  [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                                            },
+                                           client_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                                             intermediates => [[{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                             peer => [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+    test_sha1_cert_conf(Version, TestConf, Config).
+    
 %%--------------------------------------------------------------------
 connection_information() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
@@ -3337,20 +3357,20 @@ test_config('dtlsv1.2', Config) ->
     [{#{server_config => [{certs_keys, [#{certfile => SRSAPSSRSAECert, keyfile => SRSAPSSRSAEKey},
                                         #{certfile => SRSAPSSCert, keyfile => SRSAPSSKey}]},
                           {verify, verify_peer},
-                          {cacertfile, CRSAPSSCACerts}],
+                          {cacertfile, SRSAPSSCACerts}],
         client_config => [{certs_keys, [#{certfile => CRSAPSSRSAECert, keyfile => CRSAPSSRSAEKey},
                                         #{certfile => CRSAPSSCert, keyfile => CRSAPSSKey}]},
                           {verify, verify_peer},
-                          {cacertfile, SRSAPSSCACerts}]
+                          {cacertfile, CRSAPSSCACerts}]
        },
       {client_peer, pem_to_der_cert(SRSAPSSCert)}, {server_peer, pem_to_der_cert(CRSAPSSCert)}},
      {#{server_config => [{certs_keys, [#{certfile => SRSAPSSRSAECert, keyfile => SRSAPSSRSAEKey},
                                         #{certfile => SRSAPSSCert, keyfile => SRSAPSSKey}]},
                           {verify, verify_peer},
-                          {cacertfile, CRSAPSSRSAECACerts}],
+                          {cacertfile, SRSAPSSRSAECACerts}],
         client_config => [{certs_keys, [#{certfile => CRSAPSSRSAECert, keyfile => CRSAPSSRSAEKey}]},
                           {verify, verify_peer}, {signature_algs, [rsa_pss_rsae_sha256]},
-                          {cacertfile, SRSAPSSRSAECACerts}]
+                          {cacertfile, CRSAPSSRSAECACerts}]
        },
       {client_peer, pem_to_der_cert(SRSAPSSRSAECert)}, {server_peer, pem_to_der_cert(CRSAPSSRSAECert)}}
     ];
@@ -3372,11 +3392,11 @@ test_config(_, Config) ->
     [{#{server_config => [{certs_keys, [#{certfile => SRSA2Cert, keyfile => SRSA2Key},
                                         #{certfile => SRSA1Cert, keyfile => SRSA1Key}]},
                           {verify, verify_peer},
-                          {cacertfile, CRSA2CACerts}],
+                          {cacertfile, SRSA2CACerts}],
         client_config => [{certs_keys, [#{certfile => CRSA2Cert, keyfile  => CRSA2Key},
                                         #{certfile => CRSA1Cert, keyfile => CRSA1Key}]},
                           {verify, verify_peer},
-                          {cacertfile, SRSA2CACerts}]
+                          {cacertfile, CRSA2CACerts}]
        }, {client_peer,  pem_to_der_cert(SRSA2Cert)}, {server_peer, pem_to_der_cert(CRSA2Cert)}}].
 
 check_peercert(Socket, Cert) ->
@@ -3421,3 +3441,43 @@ get_single_options(CertOptName, KeyOptName, CaOptName, Opts) ->
 pem_to_der_cert(Pem) ->
     [{'Certificate', Der, _}] = ssl_test_lib:pem_to_der(Pem),
     Der.
+
+test_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
+    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config),
+    SigAlgs = [%% ECDSA
+               ecdsa_secp521r1_sha512,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp256r1_sha256,
+               %% RSASSA-PSS
+               rsa_pss_pss_sha512,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha256,
+               rsa_pss_rsae_sha512,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha256,
+               %% EDDSA
+               eddsa_ed25519,
+               eddsa_ed448
+              ],
+    ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
+                             [{signature_algs,  SigAlgs ++ [rsa_pkcs1_sha1]} | ServerOpts], Config, handshake_failure);
+
+test_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
+    SigAlgs =  [%% SHA2
+                {sha512, ecdsa},
+                {sha512, rsa},
+                {sha384, ecdsa},
+                {sha384, rsa},
+                {sha256, ecdsa},
+                {sha256, rsa},
+                {sha224, ecdsa},
+                {sha224, rsa},
+                %% SHA
+                {sha, ecdsa},
+                {sha, rsa},
+                {sha, dsa}],
+    ssl_test_lib:basic_test( [{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
+                             [{signature_algs,  SigAlgs} | ServerOpts], Config);
+
+test_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config) ->
+    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config).
