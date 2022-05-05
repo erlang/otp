@@ -699,18 +699,18 @@ maybe_shorten_path(Path, PartialChainHandler, Default) ->
     DerCerts = [Der || #cert{der=Der} <- Path],
     try PartialChainHandler(DerCerts) of
         {trusted_ca, Root} ->
-            new_trusteded_path(Root, Path, Default);
+            new_trusted_path(Root, Path, Default);
         unknown_ca ->
             Default
     catch _:_ ->
             Default
     end.
 
-new_trusteded_path(DerCert, [#cert{der=DerCert}=Cert | Chain], _) ->
-    {Cert, Chain};
-new_trusteded_path(DerCert, [_ | Rest], Default) ->
-    new_trusteded_path(DerCert, Rest, Default);
-new_trusteded_path(_, [], Default) ->
+new_trusted_path(DerCert, [#cert{der=DerCert}=Cert | Path], _) ->
+    {Cert, Path};
+new_trusted_path(DerCert, [_ | Rest], Default) ->
+    new_trusted_path(DerCert, Rest, Default);
+new_trusted_path(_, [], Default) ->
     %% User did not pick a cert present 
     %% in the cert chain so ignore
     Default.

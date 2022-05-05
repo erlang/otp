@@ -2315,14 +2315,14 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 
 %% DSA keys are not supported by TLS 1.3
-select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs, _Curve) ->
+select_sign_algo(dsa, _RSAKeySize, _CertSignAlg, _OwnSignAlgs, _Curve) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, _RSAKeySize, [], _, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 select_sign_algo(_, _RSAKeySize, undefined, _OwnSignAlgs, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
-select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve) ->
-    {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
+select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve) ->
+    {_, S, _} = ssl_cipher:scheme_to_components(CertSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
     %%
@@ -2336,36 +2336,36 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignA
           orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
          )
         andalso
-        lists:member(PeerSignAlg, OwnSignAlgs) of
+        lists:member(CertSignAlg, OwnSignAlgs) of
         true ->
             validate_key_compatibility(PublicKeyAlgo, RSAKeySize,
-                                       [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve);
+                                       [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve);
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end.
 
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve)
   when PublicKeyAlgo =:= rsa orelse
        PublicKeyAlgo =:= rsa_pss_pss ->
-    {Hash, Sign, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(CertSignAlg),
     case (Sign =:= rsa_pss_rsae orelse Sign =:= rsa_pss_pss) andalso
         is_rsa_key_compatible(RSAKeySize, Hash) of
         true ->
-            {ok, PeerSignAlg};
+            {ok, CertSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end;
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve)
   when PublicKeyAlgo =:= ecdsa ->
-    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(CertSignAlg),
     case Sign =:= ecdsa andalso Curve =:= PeerCurve of
         true ->
-            {ok, PeerSignAlg};
+            {ok, CertSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end;
-validate_key_compatibility(_, _, [PeerSignAlg|_], _, _) ->
-    {ok, PeerSignAlg}.
+validate_key_compatibility(_, _, [CertSignAlg|_], _, _) ->
+    {ok, CertSignAlg}.
 
 is_rsa_key_compatible(KeySize, Hash) ->
     HashSize = ssl_cipher:hash_size(Hash),
