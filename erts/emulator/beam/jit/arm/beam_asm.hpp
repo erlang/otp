@@ -1212,7 +1212,8 @@ protected:
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               arm::Gp term);
+                               const ArgSource &Preserve,
+                               arm::Gp preserve_reg);
 
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);

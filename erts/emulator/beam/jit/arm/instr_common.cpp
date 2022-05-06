@@ -75,7 +75,8 @@ void BeamModuleAssembler::emit_error(int reason) {
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
-                                                arm::Gp term) {
+                                                const ArgSource &Preserve,
+                                                arm::Gp preserve_reg) {
     const int32_t bytes_needed = (Need.get() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
 
@@ -84,12 +85,22 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
     a.b_ls(after_gc_check);
 
     ASSERT(Live.get() < ERTS_X_REGS_ALLOCATED);
-    mov_arg(ArgVal(ArgVal::XReg, Live.get()), term);
 
-    mov_imm(ARG4, Live.get() + 1);
-    fragment_call(ga->get_garbage_collect());
+    /* We don't need to stash the preserved term if it's currently live, making
+     * the code slightly shorter. */
+    if (!(Preserve.isXRegister() &&
+          Preserve.as<ArgXRegister>().get() >= Live.get())) {
+        mov_imm(ARG4, Live.get());
+        fragment_call(ga->get_garbage_collect());
+        mov_arg(preserve_reg, Preserve);
+    } else {
+        mov_arg(ArgXRegister(Live.get()), preserve_reg);
 
-    mov_arg(term, ArgVal(ArgVal::XReg, Live.get()));
+        mov_imm(ARG4, Live.get() + 1);
+        fragment_call(ga->get_garbage_collect());
+
+        mov_arg(preserve_reg, ArgXRegister(Live.get()));
+    }
 
     a.bind(after_gc_check);
 }

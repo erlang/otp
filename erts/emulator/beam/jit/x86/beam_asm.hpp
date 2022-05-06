@@ -1202,7 +1202,8 @@ protected:
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               x86::Gp term);
+                               const ArgSource &Preserve,
+                               x86::Gp preserve_reg);
 
     x86::Mem emit_variable_apply(bool includeI);
     x86::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
