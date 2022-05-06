@@ -924,19 +924,19 @@ end.</pre>
         </p>
         <p>
           On a typical 64 bit Erlang VM this generator executes
-          in below 6% (1/15) of the time
+          in below 8% (1/13) of the time
           for the default algorithm in this module.
           Adding the
           <seemfa marker="#mwc59_value/1"><c>mwc59_value</c></seemfa>
-          scrambler the total time becomes 10% (1/10),
+          scrambler the total time becomes 16% (1/6),
           and with
           <seemfa marker="#mwc59_full_value/1">
             <c>mwc59_full_value</c>
           </seemfa>
-          it becomes 12% (1/8) of the time for the default algorithm.
+          it becomes 20% (1/5) of the time for the default algorithm.
           With
           <seemfa marker="#mwc59_float/1"><c>mwc59_float</c></seemfa>
-          the total time is 40% of the time for the default
+          the total time is 60% of the time for the default
           algorithm generating a <c>float()</c>.
         </p>
         <note>
