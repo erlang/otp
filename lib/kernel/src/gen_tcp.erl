@@ -38,6 +38,7 @@
 -type option() ::
         {active,          true | false | once | -32768..32767} |
         {buffer,          non_neg_integer()} |
+        {debug,           boolean()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
         {dontroute,       boolean()} |
@@ -78,6 +79,7 @@
 -type option_name() ::
         active |
         buffer |
+        debug |
         delay_send |
         deliver |
         dontroute |

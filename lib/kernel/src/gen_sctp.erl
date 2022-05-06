@@ -41,6 +41,7 @@
 -type option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
+        {debug, boolean()} |
         {dontroute, boolean()} |
         {high_msgq_watermark, pos_integer()} |
         {linger, {boolean(), non_neg_integer()}} |
@@ -77,6 +78,7 @@
 -type option_name() ::
         active |
         buffer |
+        debug |
         dontroute |
         high_msgq_watermark |
         linger |
