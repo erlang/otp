@@ -60,7 +60,8 @@ BeamAssembler::BeamAssembler() : code() {
 #ifdef DEBUG
     a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
 #endif
-    a.addEncodingOptions(EncodingOptions::kOptimizeForSize);
+    a.addEncodingOptions(EncodingOptions::kOptimizeForSize |
+                         EncodingOptions::kOptimizedAlign);
     code.setErrorHandler(this);
 }
 
