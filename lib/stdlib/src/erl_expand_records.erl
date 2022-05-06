@@ -692,24 +692,20 @@ record_wildcard_init([]) -> none.
 record_update(R, Name, Fs, Us0, St0) ->
     Anno = element(2, R),
     {Pre,Us,St1} = record_exprs(Us0, St0),
-    Nf = length(Fs),                            %# of record fields
-    Nu = length(Us),                            %# of update fields
-    Nc = Nf - Nu,                               %# of copy fields
 
     %% We need a new variable for the record expression
     %% to guarantee that it is only evaluated once.
     {Var,St2} = new_var(Anno, St1),
 
+    %% Honor the `strict_record_updates` option needed by `dialyzer`, otherwise
+    %% expand everything to chains of `setelement/3` as that's far more
+    %% efficient in the JIT.
     StrictUpdates = strict_record_updates(St2#exprec.compile),
-
-    %% Try to be intelligent about which method of updating record to use.
     {Update,St} =
         if
-            Nu =:= 0 -> 
-                record_match(Var, Name, Anno, Fs, Us, St2);
-            Nu =< Nc, not StrictUpdates ->      %Few fields updated
+            not StrictUpdates, Us =/= [] ->
                 {record_setel(Var, Name, Fs, Us), St2};
-            true ->                             %The wide area inbetween
+            true ->
                 record_match(Var, Name, Anno, Fs, Us, St2)
         end,
     {{block,Anno,Pre ++ [{match,Anno,Var,R},Update]},St}.

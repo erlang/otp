@@ -640,6 +640,157 @@ void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
     mov_arg(Dst, arm::Mem(c_p, offsetof(Process, common.id)));
 }
 
+void BeamModuleAssembler::emit_copy_words_increment(arm::Gp from,
+                                                    arm::Gp to,
+                                                    size_t count) {
+    check_pending_stubs();
+
+    /* Copy the words inline if we can, otherwise use a loop with the largest
+     * vector size we're capable of. */
+    if (count <= 16) {
+        while (count >= 4) {
+            a.ldp(a64::q30, a64::q31, arm::Mem(from).post(sizeof(UWord[4])));
+            a.stp(a64::q30, a64::q31, arm::Mem(to).post(sizeof(UWord[4])));
+            count -= 4;
+        }
+    } else {
+        Label copy_next = a.newLabel();
+
+        ASSERT(Support::isUInt16(count / 4));
+        mov_imm(SUPER_TMP, count / 4);
+        a.bind(copy_next);
+        {
+            a.ldp(a64::q30, a64::q31, arm::Mem(from).post(sizeof(UWord[4])));
+            a.stp(a64::q30, a64::q31, arm::Mem(to).post(sizeof(UWord[4])));
+            a.subs(SUPER_TMP, SUPER_TMP, imm(1));
+            a.b_ne(copy_next);
+        }
+
+        count = count % 4;
+    }
+
+    if (count >= 2) {
+        a.ldr(a64::q30, arm::Mem(from).post(sizeof(UWord[2])));
+        a.str(a64::q30, arm::Mem(to).post(sizeof(UWord[2])));
+        count -= 2;
+    }
+
+    if (count == 1) {
+        a.ldr(SUPER_TMP, arm::Mem(from).post(sizeof(UWord)));
+        a.str(SUPER_TMP, arm::Mem(to).post(sizeof(UWord)));
+        count -= 1;
+    }
+
+    ASSERT(count == 0);
+    (void)count;
+}
+
+void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
+                                             const ArgWord &TupleSize,
+                                             const ArgSource &Src,
+                                             const ArgRegister &Dst,
+                                             const ArgWord &UpdateCount,
+                                             const Span<ArgVal> &updates) {
+    const size_t size_on_heap = TupleSize.get() + 1;
+    Label next = a.newLabel();
+
+    ASSERT(UpdateCount.get() == updates.size());
+    ASSERT((UpdateCount.get() % 2) == 0);
+
+    ASSERT(size_on_heap > 2);
+
+    auto destination = init_destination(Dst, ARG1);
+    auto src = load_source(Src, ARG2);
+
+    arm::Gp untagged_src = ARG3;
+    emit_untag_ptr(untagged_src, src.reg);
+
+    /* Setting a field to the same value is pretty common, so we'll check for
+     * that since it's vastly cheaper than copying if we're right, and doesn't
+     * cost much if we're wrong. */
+    if (Hint.get() == am_reuse && updates.size() == 2) {
+        const auto next_index = updates[0].as<ArgWord>().get();
+        const auto &next_value = updates[1].as<ArgSource>();
+
+        safe_ldr(TMP1, arm::Mem(untagged_src, next_index * sizeof(Eterm)));
+        cmp_arg(TMP1, next_value);
+
+        if (destination.reg != src.reg) {
+            a.csel(destination.reg,
+                   destination.reg,
+                   src.reg,
+                   imm(arm::CondCode::kNE));
+        }
+        a.b_eq(next);
+    }
+
+    size_t copy_index = 0;
+
+    for (size_t i = 0; i < updates.size(); i += 2) {
+        const auto next_index = updates[i].as<ArgWord>().get();
+        const auto &next_value = updates[i + 1].as<ArgSource>();
+        bool odd_copy;
+
+        ASSERT(next_index > 0 && next_index >= copy_index);
+
+        /* If we need to copy an odd number of elements, we'll do the last one
+         * ourselves to save us from having to increment `untagged_src`
+         * separately. */
+        odd_copy = (next_index - copy_index) & 1;
+        emit_copy_words_increment(untagged_src,
+                                  HTOP,
+                                  (next_index - copy_index) & ~1);
+
+        if ((i + 2) < updates.size()) {
+            const auto adjacent_index = updates[i + 2].as<ArgWord>().get();
+            const auto &adjacent_value = updates[i + 3].as<ArgSource>();
+
+            if (adjacent_index == next_index + 1) {
+                auto [first, second] =
+                        load_sources(next_value, TMP1, adjacent_value, TMP2);
+
+                if (odd_copy) {
+                    a.ldr(TMP3, arm::Mem(untagged_src).post(sizeof(Eterm[3])));
+                    a.stp(TMP3,
+                          first.reg,
+                          arm::Mem(HTOP).post(sizeof(Eterm[2])));
+                    a.str(second.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+                } else {
+                    a.add(untagged_src, untagged_src, imm(sizeof(Eterm[2])));
+                    a.stp(first.reg,
+                          second.reg,
+                          arm::Mem(HTOP).post(sizeof(Eterm[2])));
+                }
+
+                copy_index = next_index + 2;
+                i += 2;
+                continue;
+            }
+        }
+
+        auto value = load_source(next_value, TMP1);
+
+        if ((next_index - copy_index) & 1) {
+            a.ldr(TMP2, arm::Mem(untagged_src).post(sizeof(Eterm[2])));
+            a.stp(TMP2, value.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            a.add(untagged_src, untagged_src, imm(sizeof(Eterm)));
+            a.str(value.reg, arm::Mem(HTOP).post(sizeof(Eterm)));
+        }
+
+        copy_index = next_index + 1;
+    }
+
+    emit_copy_words_increment(untagged_src, HTOP, size_on_heap - copy_index);
+
+    sub(destination.reg,
+        HTOP,
+        (size_on_heap * sizeof(Eterm)) - TAG_PRIMARY_BOXED);
+
+    a.bind(next);
+    flush_var(destination);
+}
+
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
                                                  const ArgRegister &Tuple,
                                                  const ArgWord &Offset) {

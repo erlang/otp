@@ -864,6 +864,87 @@ protected:
         mov_imm(to, 0);
     }
 
+    /* Copies `count` words from `from` to `to`.
+     *
+     * Clobbers `spill` and the first vector register (xmm0, ymm0 etc). */
+    void emit_copy_words(x86::Mem from,
+                         x86::Mem to,
+                         Sint32 count,
+                         x86::Gp spill) {
+        ASSERT(!from.hasIndex() && !to.hasIndex());
+        ASSERT(count >= 0 && count < (ERTS_SINT32_MAX / (Sint32)sizeof(UWord)));
+        ASSERT(from.offset() < ERTS_SINT32_MAX - count * (Sint32)sizeof(UWord));
+        ASSERT(to.offset() < ERTS_SINT32_MAX - count * (Sint32)sizeof(UWord));
+
+        /* We're going to mix sizes pretty wildly below, so it's easiest to
+         * turn off size validation. */
+        from.setSize(0);
+        to.setSize(0);
+
+        using vectors = std::initializer_list<
+                std::tuple<x86::Vec, Sint32, CpuFeatures::X86::Id>>;
+        for (const auto &spec :
+             vectors{{x86::zmm0, 8, CpuFeatures::X86::kAVX512_VL},
+                     {x86::zmm0, 8, CpuFeatures::X86::kAVX512_F},
+                     {x86::ymm0, 4, CpuFeatures::X86::kAVX},
+                     {x86::xmm0, 2, CpuFeatures::X86::kSSE}}) {
+            const auto &[vector_reg, vector_size, feature] = spec;
+
+            if (!hasCpuFeature(feature)) {
+                continue;
+            }
+
+            /* Copy the words inline if we can, otherwise use a loop with the
+             * largest vector size we're capable of. */
+            if (count <= vector_size * 4) {
+                while (count >= vector_size) {
+                    a.vmovups(vector_reg, from);
+                    a.vmovups(to, vector_reg);
+
+                    from.addOffset(sizeof(UWord) * vector_size);
+                    to.addOffset(sizeof(UWord) * vector_size);
+                    count -= vector_size;
+                }
+            } else {
+                Sint32 loop_iterations, loop_size;
+                Label copy_next = a.newLabel();
+
+                loop_iterations = count / vector_size;
+                loop_size = loop_iterations * vector_size * sizeof(UWord);
+
+                from.addOffset(loop_size);
+                to.addOffset(loop_size);
+                from.setIndex(spill);
+                to.setIndex(spill);
+
+                mov_imm(spill, -loop_size);
+                a.bind(copy_next);
+                {
+                    a.vmovups(vector_reg, from);
+                    a.vmovups(to, vector_reg);
+
+                    a.add(spill, imm(vector_size * sizeof(UWord)));
+                    a.short_().jne(copy_next);
+                }
+
+                from.resetIndex();
+                to.resetIndex();
+
+                count %= vector_size;
+            }
+        }
+
+        if (count == 1) {
+            a.mov(spill, from);
+            a.mov(to, spill);
+
+            count -= 1;
+        }
+
+        ASSERT(count == 0);
+        (void)count;
+    }
+
 public:
     void embed_rodata(const char *labelName, const char *buff, size_t size);
     void embed_bss(const char *labelName, size_t size);

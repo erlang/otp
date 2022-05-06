@@ -383,6 +383,8 @@ do_booleans_3(NewContent, IsAnchor) ->
             error
     end.
 
+-record(update_tuple_a, {a,b}).
+-record(update_tuple_b, {a,b,c}).
 
 setelement(_Config) ->
     T0 = id({a,42}),
@@ -404,7 +406,40 @@ setelement(_Config) ->
              end,
     {'EXIT',{badarg,_}} = catch setelement(Index1, {a,b,c}, y),
 
+    %% Cover some edge cases in beam_call_types:will_succeed/3 and
+    %% beam_call_types:types/3
+    {y} = setelement(1, tuple_or_integer(0), y),
+    {y} = setelement(1, record_or_integer(0), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, tuple_or_integer(id(0)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, tuple_or_integer(id(1)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, record_or_integer(id(0)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, record_or_integer(id(1)), y),
+    {'EXIT',{badarg,_}} = catch setelement(id(2), not_a_tuple, y),
+
+    %% Cover some edge cases in beam_types:update_tuple/2
+    {'EXIT',{badarg,_}} = catch setelement(2, not_a_tuple, y),
+    {'EXIT',{badarg,_}} = catch setelement(not_an_index, {a,b,c}, y),
+    {'EXIT',{badarg,_}} = catch setelement(8, {out_of_range}, y),
+    {y,_,_} = update_tuple_1(#update_tuple_a{}, y),
+    {y,_,_,_} = update_tuple_1(#update_tuple_b{}, y),
+    #update_tuple_a{a=y} = update_tuple_2(#update_tuple_a{}, y),
+    #update_tuple_b{a=y} = update_tuple_2(#update_tuple_b{}, y),
+    {'EXIT',{badarg,_}} = catch update_tuple_3(id(#update_tuple_a{}), y),
+    {'EXIT',{badarg,_}} = catch update_tuple_3(id(#update_tuple_b{}), y),
+    {'EXIT',{badarg,_}} = catch update_tuple_4(id(#update_tuple_a{}), y),
+    #update_tuple_b{c=y} = update_tuple_4(id(#update_tuple_b{}), y),
+
     ok.
+
+record_or_integer(0) ->
+    {tuple};
+record_or_integer(N) when is_integer(N) ->
+    N.
+
+tuple_or_integer(0) ->
+    {id(tuple)};
+tuple_or_integer(N) when is_integer(N) ->
+    N.
 
 do_setelement_1(<<N:32>>, Tuple, NewValue) ->
     _ = element(N, Tuple),
@@ -417,6 +452,36 @@ do_setelement_2(<<N:1>>, Tuple, NewValue) ->
     %% type for the second element will be kept.
     two = element(2, Tuple),
     setelement(N, Tuple, NewValue).
+
+update_tuple_1(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(1, Tuple, Value).
+
+update_tuple_2(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(2, Tuple, Value).
+
+update_tuple_3(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(47, Tuple, Value).
+
+update_tuple_4(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    %% #update_tuple_a{} is three elements long, so this should only work for
+    %% #update_tuple_b{}.
+    setelement(4, Tuple, Value).
 
 cons(_Config) ->
     [did] = cons(assigned, did),

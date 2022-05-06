@@ -1240,6 +1240,11 @@ protected:
         BeamAssembler::emit_is_boxed(Fail, Src);
     }
 
+    /* Copies `count` words from the address at `from`, to the address at `to`.
+     *
+     * Clobbers v30 and v31. */
+    void emit_copy_words_increment(arm::Gp from, arm::Gp to, size_t count);
+
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);

@@ -118,6 +118,7 @@
                    'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
+                   'update_tuple' | 'update_record' |
                    'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
@@ -127,8 +128,8 @@
 -type cg_prim_op() :: 'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
-                      'put_tuple_element' | 'put_tuple_elements' |
-                      'set_tuple_element' | 'succeeded'.
+                      'set_tuple_element' | 'succeeded' |
+                      'update_record'.
 
 -import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
@@ -221,6 +222,8 @@ no_side_effect(#b_set{op=Op}) ->
         put_tuple -> true;
         raw_raise -> true;
         {succeeded,guard} -> true;
+        update_record -> true;
+        update_tuple -> true;
         _ -> false
     end.
 

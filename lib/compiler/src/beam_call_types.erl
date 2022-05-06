@@ -36,11 +36,6 @@
 -define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
 
 %%
-%% The documented maximum size of a tuple.
-%%
--define(MAX_TUPLE_SIZE, (1 bsl 24) - 1).
-
-%%
 %% Returns whether a call will succeed or not.
 %%
 %% Note that it only answers 'yes' for functions in the 'erlang' module as
@@ -139,25 +134,28 @@ will_succeed(erlang, map_size, [Arg]) ->
     succeeds_if_type(Arg, #t_map{});
 will_succeed(erlang, 'not', [Arg]) ->
     succeeds_if_type(Arg, beam_types:make_boolean());
-will_succeed(erlang, setelement, [Pos, Tuple, _Value]) ->
-    case {meet(Pos, #t_integer{}),
-          meet(Tuple, #t_tuple{size=1})} of
-        {#t_integer{elements={Min,Max}}=Pos,
-         #t_tuple{exact=Exact,size=Size}=Tuple} ->
-            if
-                is_integer(Min), is_integer(Max), 1 =< Min, Max =< Size ->
-                    %% The index is always in range.
-                    yes;
-                is_integer(Max), Max < 1; Exact, is_integer(Min), Size < Min ->
-                    %% The index is always out of range.
-                    no;
-                true ->
-                    'maybe'
-            end;
-        {_, none} ->
-            no;
+will_succeed(erlang, setelement, [Pos, Tuple0, _Value]) ->
+    PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
+    case {meet(Pos, PosRange), meet(Tuple0, #t_tuple{size=1})} of
         {none, _} ->
             no;
+        {_, none} ->
+            no;
+        {#t_integer{elements={Min,Max}}=Pos, Tuple} ->
+            MaxTupleSize = max_tuple_size(Tuple),
+            if
+                MaxTupleSize < Min ->
+                    %% Index is always out of range.
+                    no;
+                Tuple0 =:= Tuple, Max =< MaxTupleSize ->
+                    %% We always have a tuple, and the index is always in
+                    %% range.
+                    yes;
+                true ->
+                    %% We may or may not have a tuple, and the index may or may
+                    %% not be in range if we do.
+                    'maybe'
+            end;
         {_, _} ->
             'maybe'
     end;
@@ -194,6 +192,15 @@ will_succeed(Mod, Func, Args) ->
                     end
             end
     end.
+
+max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
+    Union = meet(Union, #t_tuple{}),            %Assertion.
+    Arities = [Arity || {{Arity, _Tag}, _Record} <- Set],
+    lists:max(Arities);
+max_tuple_size(#t_tuple{exact=true,size=Size}) ->
+    Size;
+max_tuple_size(#t_tuple{exact=false}) ->
+    ?MAX_TUPLE_SIZE.
 
 fails_on_conflict([ArgType | Args], [Required | Types]) ->
     case meet(ArgType, Required) of
@@ -533,45 +540,19 @@ types(erlang, element, [Pos, Tuple0]) ->
             sub_unsafe(any, [PosRange, #t_tuple{}])
     end;
 types(erlang, setelement, [PosType, TupleType, ArgType]) ->
-    RetType = case {PosType,TupleType} of
-                  {#t_integer{elements={Index,Index}},
-                   #t_tuple{elements=Es0,size=Size}=T} when Index >= 1 ->
-                      %% This is an exact index, update the type of said
-                      %% element or return 'none' if it's known to be out of
-                      %% bounds.
-                      Es = beam_types:set_tuple_element(Index, ArgType, Es0),
-                      case T#t_tuple.exact of
-                          false ->
-                              T#t_tuple{size=max(Index, Size),elements=Es};
-                          true when Index =< Size ->
-                              T#t_tuple{elements=Es};
-                          true ->
-                              none
+    PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
+    RetType = case meet(PosType, PosRange) of
+                  #t_integer{elements={Same,Same}} ->
+                      beam_types:update_tuple(TupleType, [{Same, ArgType}]);
+                  #t_integer{} ->
+                      case normalize(meet(TupleType, #t_tuple{size=1})) of
+                          #t_tuple{}=T -> T#t_tuple{elements=#{}};
+                          none -> none
                       end;
-                  {#t_integer{elements={Min,Max}},
-                   #t_tuple{elements=Es0,size=Size}=T}
-                    when is_integer(Min), Min >= 1, is_integer(Max) ->
-                      %% We know this will land between Min and Max, so kill
-                      %% the types for those indexes.
-                      Es = discard_tuple_element_info(Min, Max, Es0),
-                      case T#t_tuple.exact of
-                          false ->
-                              T#t_tuple{elements=Es,size=max(Min, Size)};
-                          true when Min =< Size ->
-                              T#t_tuple{elements=Es,size=Size};
-                          true ->
-                              none
-                      end;
-                  {_,#t_tuple{}=T} ->
-                      %% Position unknown, so we have to discard all element
-                      %% information.
-                      T#t_tuple{elements=#{}};
-                  {#t_integer{elements={Min,_Max}},_} ->
-                      #t_tuple{size=Min};
-                  {_,_} ->
-                      #t_tuple{}
+                  none ->
+                      none
               end,
-    sub_unsafe(RetType, [#t_integer{}, #t_tuple{}, any]);
+    sub_unsafe(RetType, [PosRange, #t_tuple{size=1}, any]);
 
 types(erlang, make_fun, [_,_,Arity0]) ->
     Type = case meet(Arity0, #t_integer{}) of
@@ -1273,12 +1254,6 @@ sub_unsafe(RetType, ArgTypes) ->
 
 sub_safe(RetType, ArgTypes) ->
     {RetType, ArgTypes, true}.
-
-discard_tuple_element_info(Min, Max, Es) ->
-    foldl(fun(El, Acc) when Min =< El, El =< Max ->
-                  maps:remove(El, Acc);
-             (_El, Acc) -> Acc
-          end, Es, maps:keys(Es)).
 
 proper_cons() ->
     #t_cons{terminator=nil}.

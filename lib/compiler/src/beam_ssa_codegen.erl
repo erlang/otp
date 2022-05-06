@@ -29,7 +29,7 @@
 -include("beam_ssa.hrl").
 -include("beam_asm.hrl").
 
--import(lists, [foldl/3,keymember/3,keysort/2,map/2,mapfoldl/3,
+-import(lists, [append/1,foldl/3,keymember/3,keysort/2,map/2,mapfoldl/3,
                 member/2,reverse/1,reverse/2,sort/1,
                 splitwith/2,takewhile/2]).
 
@@ -351,6 +351,8 @@ classify_heap_need({float,Op}, _Args) ->
         get -> put_float;
         _ -> neutral
     end;
+classify_heap_need(update_record, [_Flag, #b_literal{val=Size} |_ ]) ->
+    {put, Size + 1};
 classify_heap_need(Name, _Args) ->
     classify_heap_need(Name).
 
@@ -677,6 +679,7 @@ need_live_anno(Op) ->
         bs_skip -> true;
         call -> true;
         put_map -> true;
+        update_record -> true;
         _ -> false
     end.
 
@@ -803,6 +806,7 @@ need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
     end;
 need_y_init(#cg_set{op=bs_start_match}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
+need_y_init(#cg_set{op=update_record}) -> true;
 need_y_init(#cg_set{}) -> false.
 
 %% opt_allocate([{BlockLabel,Block}], #st{}) -> [BeamInstruction].
@@ -1769,7 +1773,10 @@ cg_instr(recv_marker_reserve, [], Dst) ->
 cg_instr(remove_message, [], _Dst) ->
     [remove_message];
 cg_instr(resume, [A,B], _Dst) ->
-    [{bif,raise,{f,0},[A,B],{x,0}}].
+    [{bif,raise,{f,0},[A,B],{x,0}}];
+cg_instr(update_record, [Hint, {integer,Size}, Src | Ss0], Dst) ->
+    Ss = cg_update_record_list(Ss0, []),
+    [{update_record,Hint,Size,Src,Dst,{list,Ss}}].
 
 cg_test(bs_skip, Fail, Args, _Dst, I) ->
     cg_bs_skip(Fail, Args, I);
@@ -1787,10 +1794,20 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, #cg_set{anno=Anno}=Set) ->
     Live = get_live(Set),
     [line(Anno),{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
+cg_test(set_tuple_element=Op, Fail, Args, Dst, Set) ->
+    {f,0} = Fail,                               %Assertion.
+    cg_instr(Op, Args, Dst, Set);
 cg_test(raw_raise, _Fail, Args, Dst, _I) ->
     cg_instr(raw_raise, Args, Dst);
 cg_test(resume, _Fail, [_,_]=Args, Dst, _I) ->
     cg_instr(resume, Args, Dst).
+
+cg_update_record_list([{integer, Index}, Value], []) ->
+    [Index, Value];
+cg_update_record_list([{integer, Index}, Value | Updates], Acc) ->
+    cg_update_record_list(Updates, [{Index, Value} | Acc]);
+cg_update_record_list([], Acc) ->
+    append([[Index, Value] || {Index, Value} <- sort(Acc)]).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of

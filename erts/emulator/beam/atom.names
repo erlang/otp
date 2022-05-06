@@ -601,6 +601,7 @@ atom return_time_trace
 atom return_to
 atom return_to_trace
 atom return_trace
+atom reuse
 atom run_process
 atom run_queue
 atom run_queue_lengths

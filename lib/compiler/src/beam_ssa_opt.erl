@@ -243,6 +243,7 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
+          ?PASS(ssa_opt_update_tuple),
           ?PASS(ssa_opt_cse),                   % Helps the first type pass.
           ?PASS(ssa_opt_live)],                 % ...
     passes_1(Ps, Opts).
@@ -874,6 +875,73 @@ is_tagged_tuple_4([#b_set{op={bif,'=:='},dst=Bool,
 is_tagged_tuple_4([_|Is], Bool, TagVar) ->
     is_tagged_tuple_4(Is, Bool, TagVar);
 is_tagged_tuple_4([], _, _) -> no.
+
+%%%
+%%% Replaces setelement/3 with the update_tuple psuedo-instruction, and merges
+%%% multiple such calls into the same instruction.
+%%%
+ssa_opt_update_tuple({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    {St#opt_st{ssa=update_tuple_opt(Linear0, #{})}, FuncDb}.
+
+update_tuple_opt([{L, #b_blk{is=Is0}=B} | Bs], SetOps0) ->
+    {Is, SetOps} = update_tuple_opt_is(Is0, SetOps0, []),
+    [{L, B#b_blk{is=Is}} | update_tuple_opt(Bs, SetOps)];
+update_tuple_opt([], _SetOps) ->
+    [].
+
+update_tuple_opt_is([#b_set{op=call,
+                            dst=Dst,
+                            args=[#b_remote{mod=#b_literal{val=erlang},
+                                            name=#b_literal{val=setelement}},
+                                  #b_literal{val=N}=Index,
+                                  Src,
+                                  Value]}=I0 | Is],
+                  SetOps0, Acc) when is_integer(N), N >= 1 ->
+    SetOps1 = SetOps0#{ Dst => {Src, Index, Value} },
+    SetOps = maps:remove(Value, SetOps1),
+
+    Args = update_tuple_merge(Src, SetOps, [Index, Value],
+                              sets:new([{version,2}])),
+    I = I0#b_set{op=update_tuple,dst=Dst,args=Args},
+
+    update_tuple_opt_is(Is, SetOps, [I | Acc]);
+update_tuple_opt_is([#b_set{op=Op}=I | Is], SetOps0, Acc) ->
+    case {Op, beam_ssa:clobbers_xregs(I)} of
+        {_, true} ->
+            %% Merging setelement across stack frames is potentially very
+            %% expensive as the update list needs to be saved on the stack, so
+            %% we discard our state whenever we need one.
+            update_tuple_opt_is(Is, #{}, [I | Acc]);
+        {{succeeded, _}, false} ->
+            %% This is a psuedo-op used to link ourselves with our catch block,
+            %% so it doesn't really count as a use.
+            update_tuple_opt_is(Is, SetOps0, [I | Acc]);
+        {_, false} ->
+            %% It's pointless to merge us with later ops if our result is used
+            %% and needs to be created anyway.
+            SetOps = maps:without(beam_ssa:used(I), SetOps0),
+            update_tuple_opt_is(Is, SetOps, [I | Acc])
+    end;
+update_tuple_opt_is([], SetOps, Acc) ->
+    {reverse(Acc), SetOps}.
+
+update_tuple_merge(Src, SetOps, Updates0, Seen0) ->
+    %% Note that we're merging in reverse order, so Updates0 contains the
+    %% updates made *after* this one.
+    case SetOps of
+        #{ Src := {Ancestor, Index, Value} } ->
+            %% Drop redundant updates, which can happen when when a record is
+            %% updated in several branches and one of them overwrites a
+            %% previous index.
+            Updates = case sets:is_element(Index, Seen0) of
+                          false -> [Index, Value | Updates0];
+                          true -> Updates0
+                      end,
+            Seen = sets:add_element(Index, Seen0),
+            update_tuple_merge(Ancestor, SetOps, Updates, Seen);
+        #{} ->
+            [Src | Updates0]
+    end.
 
 %%%
 %%% Common subexpression elimination (CSE).
