@@ -374,11 +374,9 @@ successors(#b_blk{last=Terminator}) ->
 
 normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
-        {false,_} ->
-            Set;
-        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
+        {true, [#b_literal{}=Lit,#b_var{}=Var]} ->
             Set#b_set{args=[Var,Lit]};
-        {true,_} ->
+        {_, _} ->
             Set
     end;
 normalize(#b_set{}=Set) ->
