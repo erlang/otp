@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/6,
+-export([start_link/7,
          new/3,
          use/4
         ]).
@@ -54,12 +54,16 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(term(), atom(), integer(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(term(), Mode, integer(), integer(), integer(), tuple(), Seed) ->
+                      {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
-                      ignore.
-start_link(Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
+                      ignore
+    when Mode :: stateless | stateful,
+         Seed :: undefined | binary().
+start_link(Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay, Seed) ->
+    gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize,
+                                    MaxEarlyDataSize, AntiReplay, Seed], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -148,20 +152,18 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
     #state{nonce = 0,
-           stateless = #{seed => {crypto:strong_rand_bytes(16), 
-                                  crypto:strong_rand_bytes(32)},
+           stateless = #{seed => stateless_seed(Seed),
                          window => undefined},
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}, Seed]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
-                         seed => {crypto:strong_rand_bytes(16),
-                                  crypto:strong_rand_bytes(32)},
+                         seed => stateless_seed(Seed),
                          window => Window},
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
@@ -443,3 +445,11 @@ stateless_anti_replay(Index, PSK, Binder,
     end;
 stateless_anti_replay(Index, PSK, _, State) ->
      {{ok, {Index, PSK}}, State}.
+
+-spec stateless_seed(Seed :: undefined | binary()) ->
+          {IV :: binary(), Shard :: binary()}.
+stateless_seed(undefined) ->
+    {crypto:strong_rand_bytes(16), crypto:strong_rand_bytes(32)};
+stateless_seed(Seed) ->
+    <<IV:16/binary, Shard:32/binary, _/binary>> = crypto:hash(sha512, Seed),
+    {IV, Shard}.

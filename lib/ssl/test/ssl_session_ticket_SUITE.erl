@@ -78,7 +78,9 @@
          early_data_basic/0,
          early_data_basic/1,
          early_data_basic_auth/0,
-         early_data_basic_auth/1]).
+         early_data_basic_auth/1,
+         stateless_multiple_servers/0,
+         stateless_multiple_servers/1]).
 
 -include("tls_handshake.hrl").
 
@@ -104,7 +106,8 @@ groups() ->
           [ticketage_smaller_than_windowsize_anti_replay,
            ticketage_bigger_than_windowsize_anti_replay,
            ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
-           ticket_reuse_anti_replay_server_restart]},
+           ticket_reuse_anti_replay_server_restart,
+           stateless_multiple_servers]},
      {mixed, [], mixed_tests()}].
 
 session_tests() ->
@@ -1227,6 +1230,69 @@ early_data_basic_auth(Config) when is_list(Config) ->
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
 
+stateless_multiple_servers() ->
+    [{doc, "Test session resumption with session tickets, resuming on different server"}].
+stateless_multiple_servers(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Seed = crypto:strong_rand_bytes(64),
+
+    %% Configure session tickets
+    ClientOpts = [{session_tickets, auto},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0],
+    ServerOpts = [{session_tickets, stateless},
+                  {stateless_tickets_seed, Seed},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
+
+    Server0 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    Server1 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,  %% Short handshake
+                                          verify_active_session_resumption,
+                                          [true]}},
+                                   {options, ServerOpts}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+
+    %% Store ticket from first connection to server 0
+    Client0 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port0}, {host, Hostname},
+                                   {mfa, {ssl_test_lib,  %% Full handshake
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket when connecting to server 1
+    Client1 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port1}, {host, Hostname},
+                                   {mfa, {ssl_test_lib,  %% Short handshake
+                                          verify_active_session_resumption,
+                                          [true]}},
+                                   {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

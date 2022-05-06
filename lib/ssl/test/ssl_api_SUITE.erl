@@ -175,6 +175,8 @@
          server_options_negative_version_gap/1,
          server_options_negative_dependency_role/0,
          server_options_negative_dependency_role/1,
+         server_options_negative_stateless_tickets_seed/0,
+         server_options_negative_stateless_tickets_seed/1,
          invalid_options_tls13/0,
          invalid_options_tls13/1,
          cookie/0,
@@ -354,6 +356,7 @@ tls13_group() ->
      server_options_negative_early_data,
      server_options_negative_version_gap,
      server_options_negative_dependency_role,
+     server_options_negative_stateless_tickets_seed,
      invalid_options_tls13,
      cookie
     ].
@@ -2472,6 +2475,50 @@ server_options_negative_dependency_role(Config) when is_list(Config) ->
                                    {session_tickets, manual}],
                           {options,role,
                            {session_tickets,{manual,{server,[disabled,stateful,stateless]}}}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_stateless_tickets_seed() ->
+    [{doc, "Test server option stateless_tickets_seed"}].
+server_options_negative_stateless_tickets_seed(Config) ->
+    Seed = crypto:strong_rand_bytes(32),
+    start_server_negative(Config, [{versions, ['tlsv1.2']},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, dependency,
+                           {stateless_tickets_seed, {versions, ['tlsv1.3']}}}),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, dependency,
+                           {stateless_tickets_seed,
+                            {session_tickets, [stateless]}}}),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, disabled},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, dependency,
+                           {stateless_tickets_seed,
+                            {session_tickets, [stateless]}}}),
+
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateful},
+                                   {stateless_tickets_seed, Seed}],
+                          {options, dependency,
+                           {stateless_tickets_seed,
+                            {session_tickets, [stateless]}}}),
+
+    InvalidSeed1 = 12345,
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateless},
+                                   {stateless_tickets_seed, InvalidSeed1}],
+                          {options, type, {stateless_tickets_seed,
+                                           {InvalidSeed1, not_binary}}}),
+
+    InvalidSeed2 = 'some-random-char-list',
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateless},
+                                   {stateless_tickets_seed, InvalidSeed2}],
+                          {options, type, {stateless_tickets_seed,
+                                           {InvalidSeed2, not_binary}}}).
 
 %%--------------------------------------------------------------------
 honor_server_cipher_order_tls13() ->

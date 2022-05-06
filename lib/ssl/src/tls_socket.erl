@@ -261,20 +261,24 @@ session_tickets_tracker(_,_, _, _, #{erl_dist := false,
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := false,
                           session_tickets := Mode,
-                          anti_replay := AntiReplay}) ->
+                          anti_replay := AntiReplay,
+                          stateless_tickets_seed := Seed}) ->
     tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
-                                               TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
+                                               TicketStoreSize, MaxEarlyDataSize,
+                                               AntiReplay, Seed]);
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := true,
                           session_tickets := Mode,
-                          anti_replay := AntiReplay}) ->
+                          anti_replay := AntiReplay,
+                          stateless_tickets_seed := Seed}) ->
     SupName = tls_server_session_ticket_sup:sup_name(dist),
     Children = supervisor:count_children(SupName),
     Workers = proplists:get_value(workers, Children),
     case Workers of
         0 ->
             tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
-                                                       TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
+                                                       TicketStoreSize, MaxEarlyDataSize,
+                                                       AntiReplay, Seed]);
         1 ->
             [{_,Child,_, _}] = supervisor:which_children(SupName),
             {ok, Child}
