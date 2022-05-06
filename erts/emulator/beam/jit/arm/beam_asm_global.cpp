@@ -242,13 +242,9 @@ void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
 
     fragment_call(ga->get_raise_exception());
 
-    /*
-     * It is important that error address is not equal to a line
-     * instruction that may follow this BEAM instruction. To avoid
-     * that, BeamModuleAssembler::emit() will emit a nop instruction
-     * if necessary.
-     */
-    last_error_offset = getOffset() & -8;
+    /* `line` instructions need to know the latest offset that may throw an
+     * exception. See the `line` instruction for details. */
+    last_error_offset = a.offset();
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,

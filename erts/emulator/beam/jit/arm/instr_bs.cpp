@@ -1546,7 +1546,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
              */
             comment("handle error");
             fragment_call(ga->get_bs_create_bin_error_shared());
-            last_error_offset = getOffset() & -8;
+            last_error_offset = a.offset();
         }
 
         a.bind(past_error);
