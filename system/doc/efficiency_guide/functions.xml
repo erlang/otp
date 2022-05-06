@@ -158,22 +158,23 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
   <section>
     <title>Function Calls</title>
 
-    <p>This is an intentionally rough guide to the relative costs of
-    different calls. It is based on benchmark figures run on
-    Solaris/Sparc:</p>
+    <p>This is a rough hierarchy of the performance of the
+    different types of function calls:</p>
 
     <list type="bulleted">
     <item>Calls to local or external functions (<c>foo()</c>, <c>m:foo()</c>)
     are the fastest calls.</item>
 
     <item>Calling or applying a fun (<c>Fun()</c>, <c>apply(Fun, [])</c>)
-    is about <em>three times</em> as expensive as calling a local
-    function.</item>
+    is just a little slower than external calls.</item>
 
     <item>Applying an exported function (<c>Mod:Name()</c>,
-    <c>apply(Mod, Name, [])</c>) is about twice as expensive as calling
-    a fun or about <em>six times</em> as expensive as calling a local
-    function.</item>
+    <c>apply(Mod, Name, [])</c>) where the number of arguments is known
+    at compile time is next.</item>
+
+    <item>Applying an exported function (<c>apply(Mod, Name, Args)</c>)
+    where the number of arguments is not known at compile time is the
+    least efficient.</item>
     </list>
 
     <section>
@@ -187,25 +188,8 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
        in a hash table. It is therefore always slower than a
        direct call or a fun call.</p>
 
-       <p>It no longer matters (from a performance point of view)
-       whether you write:</p>
-
-       <code type="erl">
-Module:Function(Arg1, Arg2)</code>
-
-       <p>or:</p>
-
-       <code type="erl">
-apply(Module, Function, [Arg1,Arg2])</code>
-
-       <p>The compiler internally rewrites the latter code into the
-       former.</p>
-
-       <p>The following code is slightly slower because the shape of the
-       list of arguments is unknown at compile time.</p>
-
-       <code type="erl">
-apply(Module, Function, Arguments)</code>
+       <p>Caching callback functions into funs may be more efficient
+       in the long run than apply calls for frequently-used callbacks.</p>
 
     </section>
   </section>
