@@ -405,7 +405,7 @@ handle_info({'EXIT', Port, Reason}, #peer_state{connection = Port} = State) ->
 handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
     %% TCP connection closed, no i/o port - assume node is stopped
     catch gen_tcp:close(Sock),
-    maybe_stop(normal, State#peer_state{connection = undefined}).
+    maybe_stop(tcp_closed, State#peer_state{connection = undefined}).
 
 %%--------------------------------------------------------------------
 %% cleanup/termination
