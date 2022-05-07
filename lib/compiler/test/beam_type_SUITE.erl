@@ -27,7 +27,7 @@
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
-         switch_fail_inference/1]).
+         switch_fail_inference/1,cover_maps_functions/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -62,7 +62,8 @@ groups() ->
        container_subtraction,
        is_list_opt,
        connected_tuple_elements,
-       switch_fail_inference
+       switch_fail_inference,
+       cover_maps_functions
       ]}].
 
 init_per_suite(Config) ->
@@ -651,8 +652,21 @@ do_test_size(Term) when is_binary(Term) ->
     size(Term).
 
 cover_lists_functions(Config) ->
-    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+    foo = lists:foldl(id(fun(_, _) -> foo end), foo, Config),
+    foo = lists:foldl(fun(_, _) -> foo end, foo, Config),
+    {'EXIT',_} = catch lists:foldl(not_a_fun, foo, Config),
 
+    foo = lists:foldr(id(fun(_, _) -> foo end), foo, Config),
+    foo = lists:foldr(fun(_, _) -> foo end, foo, Config),
+    {'EXIT',_} = catch lists:foldr(not_a_fun, foo, Config),
+
+    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+    {'EXIT',_} = catch lists:keyfind(data_dir, not_a_position, Config),
+    {'EXIT',_} = catch lists:keyfind(data_dir, 1, not_a_list),
+
+    {'EXIT',_} = catch lists:map(not_a_fun, Config),
+    {'EXIT',_} = catch lists:map(not_a_fun, []),
+    {'EXIT',_} = catch lists:map(fun id/1, not_a_list),
     Config = lists:map(id(fun id/1), Config),
 
     case lists:suffix([no|Config], Config) of
@@ -661,6 +675,9 @@ cover_lists_functions(Config) ->
         false ->
             ok
     end,
+
+    [] = lists:zip([], []),
+    {'EXIT',_} = (catch lists:zip(not_list, [b])),
 
     Zipper = fun(A, B) -> {A,B} end,
 
@@ -676,11 +693,17 @@ cover_lists_functions(Config) ->
                               Zipped),
     [{zip_zip,{zip,_}}|_] = DoubleZip,
 
+    {'EXIT',_} = (catch lists:zipwith(not_a_fun, [a], [b])),
+    {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                            [a], [b])),
+    {'EXIT',_} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                      not_list, [b])),
     {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
                                             lists:duplicate(length(Zipped), zip_zip),
                                             Zipped)),
-    [{zip_zip,{zip,_}}|_] = DoubleZip,
 
+    {'EXIT',_} = catch lists:unzip(not_a_list),
+    {'EXIT',_} = catch lists:unzip([not_a_tuple]),
     {[_|_],[_|_]} = lists:unzip(Zipped),
 
     ok.
@@ -939,6 +962,66 @@ sfi_send_return_value({304}) ->
     ok;
 sfi_send_return_value({412}) ->
     error.
+
+%% Covers various edge cases in beam_call_types:types/3 relating to maps
+cover_maps_functions(_Config) ->
+    {'EXIT',_} = catch maps:filter(fun(_, _) -> true end, not_a_map),
+    {'EXIT',_} = catch maps:filter(not_a_predicate, #{}),
+
+    error = maps:find(key_not_present, #{}),
+
+    {'EXIT',_} = catch maps:fold(fun(_, _, _) -> true end, init, not_a_map),
+    {'EXIT',_} = catch maps:fold(not_a_fun, init, #{}),
+
+    #{} = maps:from_keys([], gurka),
+    #{ hello := gurka } = maps:from_keys([hello], gurka),
+    {'EXIT',_} = catch maps:from_keys(not_a_list, gurka),
+
+    #{} = catch maps:from_list([]),
+    {'EXIT',_} = catch maps:from_list([not_a_tuple]),
+
+    default = maps:get(key_not_present, #{}, default),
+    {'EXIT',_} = catch maps:get(key_not_present, #{}),
+
+    [] = maps:keys(#{}),
+    {'EXIT',_} = catch maps:keys(not_a_map),
+
+    #{ a := ok } = catch maps:map(fun(_, _) -> ok end, #{ a => a }),
+    {'EXIT',_} = catch maps:map(fun(_, _) -> error(crash) end, #{ a => a }),
+    {'EXIT',_} = catch maps:map(not_a_fun, #{}),
+    {'EXIT',_} = catch maps:map(fun(_, _) -> ok end, not_a_map),
+
+    {'EXIT',_} = catch maps:merge(not_a_map, #{}),
+
+    #{} = maps:new(),
+
+    {'EXIT',_} = catch maps:put(key, value, not_a_map),
+
+    #{} = maps:remove(a, #{ a => a }),
+    {'EXIT',_} = catch maps:remove(gurka, not_a_map),
+
+    error = maps:take(key_not_present, #{}),
+    {'EXIT',_} = catch maps:take(key, not_a_map),
+
+    {'EXIT',_} = catch maps:to_list(not_a_map),
+
+    #{ a := ok } = maps:update_with(a, fun(_) -> ok end, #{ a => a }),
+    {'EXIT',_} = catch maps:update_with(a, fun(_) -> error(a) end, #{ a => a }),
+    {'EXIT',_} = catch maps:update_with(key_not_present, fun(_) -> ok end, #{}),
+    {'EXIT',_} = catch maps:update_with(key, not_a_fun, not_a_map),
+
+    [] = maps:values(#{}),
+    {'EXIT',_} = catch maps:values(not_a_map),
+
+    #{} = maps:with([key_not_present], #{}),
+    {'EXIT',_} = catch maps:with(not_a_list, #{}),
+    {'EXIT',_} = catch maps:with([], not_a_map),
+    {'EXIT',_} = catch maps:with([foobar], not_a_map),
+
+    {'EXIT',_} = catch maps:without(not_a_list, #{}),
+    {'EXIT',_} = catch maps:without([], not_a_map),
+
+    ok.
 
 id(I) ->
     I.
