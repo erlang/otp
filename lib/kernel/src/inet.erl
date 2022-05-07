@@ -874,28 +874,28 @@ ntoa(Addr) ->
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
-      IPv4Address :: ip_address().
+      IPv4Address :: ip4_address().
 parse_ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
 
 -spec parse_ipv6_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
-      IPv6Address :: ip_address().
+      IPv6Address :: ip6_address().
 parse_ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
 
 -spec parse_ipv4strict_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
-      IPv4Address :: ip_address().
+      IPv4Address :: ip4_address().
 parse_ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
 
 -spec parse_ipv6strict_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
-      IPv6Address :: ip_address().
+      IPv6Address :: ip6_address().
 parse_ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
 
