@@ -274,13 +274,7 @@
 	  Files delivered to the client are MIME typed according to RFC
           1590. File suffixes are mapped to MIME types before file delivery.
           The mapping between file suffixes and MIME types can be specified
-	  as an Apache-like file or directly in the property list. Such
-        a file can look like the following:</p>
-        <pre>
-# MIME type	Extension  
-text/html	html htm
-text/plain	asc txt</pre>
-	
+	  in the property list.</p>
 	<p>Default is [{"html","text/html"},{"htm","text/html"}].</p>
       </item>
 
