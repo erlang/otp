@@ -21,6 +21,7 @@
 -export([
     dist/0, dist/1,
     peer_down_crash/0, peer_down_crash/1,
+    peer_down_crash_tcp/1,
     peer_down_continue/0, peer_down_continue/1,
     peer_down_boot/0, peer_down_boot/1,
     dist_io_redirect/0, dist_io_redirect/1,
@@ -61,7 +62,8 @@ groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
             dist_up_down, dist_localhost] ++ shutdown_alternatives()},
-        {dist_seq, [], [dist_io_redirect]}, %% Cannot be run in parallel in dist group
+        {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
+                        peer_down_crash_tcp]},
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
@@ -150,6 +152,32 @@ peer_down_crash(Config) when is_list(Config) ->
         {'DOWN', MRef, process, Peer, {nodedown, Node}} ->
             ok
     after 2000 ->
+        link(Peer),
+        {fail, disconnect_timeout}
+    end.
+
+%% Verify option combo #{peer_down=>crash, connection=>0}
+%% exits control process abnormally.
+peer_down_crash_tcp(Config) when is_list(Config) ->
+    %% two-way link: "crash" mode
+    {ok, Peer, Node} = peer:start_link(#{name => peer:random_name(?FUNCTION_NAME),
+                                         peer_down => crash,
+                                         connection => 0}),
+    %% verify node started locally
+    ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
+    %% verify there is no distribution connection
+    ?assertEqual([], erlang:nodes(connected)),
+    %% unlink and monitor
+    unlink(Peer),
+    MRef = monitor(process, Peer),
+    %% Make the node go down
+    ok = erpc:cast(Node, erlang, halt, [0]),
+
+    %% since two-way link is requested, it triggers peer to stop
+    receive
+        {'DOWN', MRef, process, Peer, tcp_closed} ->
+            ok
+    after 5000 ->
         link(Peer),
         {fail, disconnect_timeout}
     end.
