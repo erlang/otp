@@ -687,14 +687,11 @@ certificate_authorities(?'TLS_v1.3') ->
     #certificate_authorities{authorities = Auths};
 certificate_authorities(_) ->
     #{server_config := ServerConf} = cert_conf(), 
-    Authorities = proplists:get_value(cacerts, ServerConf),
-    Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
-		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
-		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
-		  DNEncodedLen = byte_size(DNEncodedBin),
-		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
-	  end,
-    list_to_binary([Enc(public_key:pkix_decode_cert(DERCert, otp)) || DERCert <- Authorities]).
+    Certs = proplists:get_value(cacerts, ServerConf),
+    Auths = fun(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.subject)
+            end,
+    [Auths(public_key:pkix_decode_cert(Cert, otp)) || Cert <- Certs].
 
 digest_size()->
    oneof([160,224,256,384,512]).
