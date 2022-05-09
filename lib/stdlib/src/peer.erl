@@ -174,7 +174,7 @@ random_name(Prefix) ->
 %% @doc Starts a distributed node with random name, on this host,
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
--spec start_link() -> {ok, node()} | {error, Reason :: term()}.
+-spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
 start_link() ->
     start_link(#{name => random_name()}).
 
