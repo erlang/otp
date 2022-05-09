@@ -399,10 +399,11 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
 	%% Calculate the effective version that should be used when decoding an incoming handshake
 	%% message.
 	EffectiveVersion = effective_version(Version, Options, Role, StateName),
-	{Packets, Buf} = tls_handshake:get_tls_handshake(EffectiveVersion,Data,Buf0, Options),
-	State =
-	    State0#state{protocol_buffers =
-			     Buffers#protocol_buffers{tls_handshake_buffer = Buf}},
+        {Packets, Buf} = tls_handshake:get_tls_handshakes(EffectiveVersion,Data,Buf0, Options),
+
+        State = case EffectiveVersion =/= NegotiatedVersion of
+                    State0#state{protocol_buffers =
+                                     Buffers#protocol_buffers{tls_handshake_buffer = Buf}},
 	case Packets of
             [] -> 
                 assert_buffer_sanity(Buf, Options),

@@ -129,8 +129,8 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
     Version = {3, 0},
-    {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>, 
-                                                         default_options_map()),
+    {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>,
+                                                          default_options_map()),
 
     {Hello, _Data} = hd(Records),
     Extensions = Hello#server_hello.extensions,
