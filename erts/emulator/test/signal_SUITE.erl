@@ -44,8 +44,10 @@
          busy_dist_unlink_ack_signal/1,
          monitor_order/1,
          monitor_named_order_local/1,
-         monitor_named_order_remote/1]).
+         monitor_named_order_remote/1,
+         monitor_nodes_order/1]).
 
+-export([spawn_spammers/3]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -74,7 +76,8 @@ all() ->
      busy_dist_unlink_ack_signal,
      monitor_order,
      monitor_named_order_local,
-     monitor_named_order_remote].
+     monitor_named_order_remote,
+     monitor_nodes_order].
 
 %% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
@@ -556,10 +559,62 @@ recv_msg_seq(N) ->
 receive_any() ->
     receive M -> M end.
 
+receive_any(Timeout) ->
+    receive M -> M
+    after Timeout -> timeout
+    end.
+
+monitor_nodes_order(_Config) ->
+    process_flag(message_queue_data, off_heap),
+    erts_debug:set_internal_state(available_internal_state, true),
+    true = erts_debug:set_internal_state(proc_sig_buffers, true),
+
+    {ok, Peer, RNode} = ?CT_PEER(#{peer_down => continue,
+                                   connection => 0}),
+    Self = self(),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+    [] = nodes(connected),
+    Pids = peer:call(Peer, ?MODULE, spawn_spammers, [64, Self, []]),
+    {nodeup, RNode, []} = receive_any(),
+
+    ok = peer:cast(Peer, erlang, halt, [0]),
+
+    [put(P, 0) || P <- Pids],  % spam counters per sender
+    {nodedown, RNode, [{nodedown_reason,connection_closed}]} =
+        receive_filter_spam(),
+    [io:format("From spammer ~p: ~p messages\n", [P, get(P)]) || P <- Pids],
+    timeout = receive_any(100),   % Nothing after nodedown
+
+    {down, tcp_closed} = peer:get_state(Peer),
+    peer:stop(Peer),
+    ok.
+
+spawn_spammers(0, _To, Acc) ->
+    Acc;
+spawn_spammers(N, To, Acc) ->
+    Pid = spawn(fun() -> spam_pid(To, 1) end),
+    spawn_spammers(N-1, To, [Pid | Acc]).
+
+spam_pid(To, N) ->
+    To ! {spam, self(), N},
+    erlang:yield(), % Let other spammers run to get lots of different senders
+    spam_pid(To, N+1).
+
+receive_filter_spam() ->
+    receive
+        {spam, From, N} ->
+            match(N, get(From) + 1),
+            put(From, N),
+            receive_filter_spam();
+        M -> M
+    end.
+
 
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+match(X,X) -> ok.
 
 load_driver(Config, Driver) ->
     DataDir = proplists:get_value(data_dir, Config),
