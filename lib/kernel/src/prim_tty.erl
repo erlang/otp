@@ -138,6 +138,7 @@
                 unicode,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
+                buffer_expand,       %% Characters in expand buffer
                 cols = 80,
                 rows = 24,
                 xn = false,
@@ -147,6 +148,7 @@
                 right = <<"\e[C">>,
                 %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
                 tab = <<"\e[1I">>,
+                delete_after_cursor = <<"\e[J">>,
                 insert = false,
                 delete = false,
                 position = <<"\e[6n">>, %% "u7" on my Linux
@@ -164,6 +166,7 @@
                     }.
 -type request() ::
         {putc, unicode:unicode_binary()} |
+        {expand, unicode:unicode_binary()} |
         {insert, unicode:unicode_binary()} |
         {delete, integer()} |
         {move, integer()} |
@@ -319,6 +322,16 @@ init(State, {unix,_}) ->
                    false -> (#state{})#state.position
                end,
 
+    %% According to the manual this should only be issued when the cursor
+    %% is at position 0, but until we encounter such a console we keep things
+    %% simple and issue this with the cursor anywhere
+    DeleteAfter = case tgetstr("cd") of
+                      {ok, DA} ->
+                          DA;
+                      false ->
+                          (#state{})#state.delete_after_cursor
+                  end,
+
     State#state{
       cols = Cols,
       xn = tgetflag("xn"),
@@ -329,8 +342,9 @@ init(State, {unix,_}) ->
       insert = Insert,
       delete = Delete,
       tab = Tab,
-      position = Position
-    };
+      position = Position,
+      delete_after_cursor = DeleteAfter
+     };
 init(State, {win32, _}) ->
     State#state{
       %% position = false,
@@ -513,6 +527,26 @@ handle_request(State = #state{ options = #{ tty := false } }, Request) ->
         _Ignore ->
             {<<>>, State}
     end;
+%% Clear the expand buffer after the cursor when we handle any request.
+handle_request(State = #state{ buffer_expand = Expand, unicode = U }, Request)
+  when Expand =/= undefined ->
+    BBCols = cols(State#state.buffer_before, U),
+    BACols = cols(State#state.buffer_after, U),
+    ClearExpand = [move_cursor(State, BBCols, BBCols + BACols),
+                   State#state.delete_after_cursor,
+                   move_cursor(State, BBCols + BACols, BBCols)],
+    {Output, NewState} = handle_request(State#state{ buffer_expand = undefined }, Request),
+    {[ClearExpand, encode(Output, U)], NewState};
+%% Print characters in the expandbuffer after the cursor
+handle_request(State = #state{ unicode = U }, {expand, Binary}) ->
+    BBCols = cols(State#state.buffer_before, U),
+    BACols = cols(State#state.buffer_after, U),
+    Expand = iolist_to_binary(["\r\n",string:trim(Binary, both)]),
+    MoveToEnd = move_cursor(State, BBCols, BBCols + BACols),
+    {ExpandBuffer, NewState} = insert_buf(State#state{ buffer_expand = [] }, Expand),
+    BECols = cols(NewState#state.cols, BBCols + BACols, NewState#state.buffer_expand, U),
+    MoveToOrig = move_cursor(State, BECols, BBCols),
+    {[MoveToEnd, encode(ExpandBuffer, U), MoveToOrig], NewState};
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
@@ -650,6 +684,13 @@ cols([SkipSeq | T], Unicode) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T, Unicode).
 
+cols(_ColsPerLine, CurrCols, [], _Unicode) ->
+    CurrCols;
+cols(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
+    CurrCols + (ColsPerLine - CurrCols) + cols(ColsPerLine, 0, T, Unicode);
+cols(ColsPerLine, CurrCols, [H | T], Unicode) ->
+    cols(ColsPerLine, CurrCols + cols([H], Unicode), T, Unicode).
+
 update_geometry(State) ->
     case tty_window_size(State#state.tty) of
         {ok, {Cols, Rows}} when Cols > 0 ->
@@ -738,6 +779,10 @@ insert_buf(State, Binary) when is_binary(Binary) ->
     insert_buf(State, Binary, [], []).
 insert_buf(State, Bin, LineAcc, Acc) ->
     case string:next_grapheme(Bin) of
+        [] when State#state.buffer_expand =/= undefined ->
+            Expand = lists:reverse(LineAcc),
+            {[Acc, characters_to_output(Expand)],
+             State#state{ buffer_expand = characters_to_buffer(Expand) }};
         [] ->
             NewBB = characters_to_buffer(LineAcc) ++ State#state.buffer_before,
             NewState = State#state{ buffer_before = NewBB },
@@ -769,12 +814,17 @@ insert_buf(State, Bin, LineAcc, Acc) ->
                    true ->
                         <<$\r>>
                 end,
-            insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, [],
-                       [Acc, [characters_to_output(lists:reverse(LineAcc)), Tail]]);
+            if State#state.buffer_expand =:= undefined ->
+                    insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, [],
+                               [Acc, [characters_to_output(lists:reverse(LineAcc)), Tail]]);
+               true ->
+                    insert_buf(State, Rest, [binary_to_list(Tail) | LineAcc], Acc)
+            end;
         [Cluster | Rest] when is_list(Cluster) ->
             insert_buf(State, Rest, [Cluster | LineAcc], Acc);
         %% We have gotten a code point that may be part of the previous grapheme cluster. 
-        [Char | Rest] when Char >= 128, LineAcc =:= [], State#state.buffer_before =/= [] ->
+        [Char | Rest] when Char >= 128, LineAcc =:= [], State#state.buffer_before =/= [],
+                           State#state.buffer_expand =:= undefined ->
             [PrevChar | BB] = State#state.buffer_before,
             case string:next_grapheme([PrevChar | Bin]) of
                 [PrevChar | _] ->
@@ -863,7 +913,7 @@ encode(UnicodeChars, false) ->
 -ifdef(debug).
 dbg(_) ->
     ok.
--endif
+-endif.
 
 %% Nif functions
 -spec isatty(stdin | stdout | stderr) -> boolean() | ebadf.

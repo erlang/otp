@@ -574,6 +574,7 @@ do_break(void)
 {
     const char *helpstring = "BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
         "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
+    char *clearscreen = "\E[J";
     int i;
 #ifdef __WIN32__
     char *mode; /* enough for storing "window" */
@@ -588,7 +589,14 @@ do_break(void)
 
     ASSERT(erts_thr_progress_is_blocking());
 
-    erts_printf("\n%s", helpstring);
+    /* If we are writing to something known to be a tty we clear the screen
+       after doing newline as the shell tab completion may have written
+       things there. */
+    if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
+        clearscreen = "";
+    }
+
+    erts_printf("\n%s%s", clearscreen, helpstring);
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)

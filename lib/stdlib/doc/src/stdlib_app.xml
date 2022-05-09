@@ -57,6 +57,11 @@
         <p>Can be used to set the exception handling of the evaluator process of
           Erlang shell.</p>
       </item>
+      <tag><marker id="shell_expand_location"/><c>shell_expand_location = above | below</c></tag>
+      <item>
+          <p>Sets where the tab expansion text should appear in the shell.
+            The default is <c>below</c>.</p>
+      </item>
       <tag><marker id="shell_history_length"/><c>shell_history_length = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many commands are saved by the Erlang

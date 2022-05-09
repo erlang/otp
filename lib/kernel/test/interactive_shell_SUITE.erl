@@ -53,6 +53,8 @@
          shell_invalid_ansi/1, shell_suspend/1, shell_full_queue/1,
          shell_unicode_wrap/1, shell_delete_unicode_wrap/1,
          shell_delete_unicode_not_at_cursor_wrap/1,
+         shell_expand_location_above/1,
+         shell_expand_location_below/1,
          shell_update_window_unicode_wrap/1,
          shell_standard_error_nlcr/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
@@ -126,7 +128,9 @@ groups() ->
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_huge_input,
        shell_support_ansi_input,
-       shell_standard_error_nlcr]}
+       shell_standard_error_nlcr,
+       shell_expand_location_above,
+       shell_expand_location_below]}
     ].
 
 init_per_suite(Config) ->
@@ -872,6 +876,108 @@ shell_support_ansi_input(Config) ->
         ok
     end.
 
+shell_expand_location_below(Config) ->
+
+    Term = start_tty(Config),
+
+    {Rows, _} = get_location(Term),
+
+    NumFunctions = lists:seq(0, Rows*2),
+    FunctionName = "a_long_function_name",
+
+    Module = lists:flatten(
+               ["-module(long_module).\n",
+                "-export([",lists:join($,,[io_lib:format("~s~p/0",[FunctionName,I]) || I <- NumFunctions]),"]).\n\n",
+                [io_lib:format("~s~p() -> ok.\n",[FunctionName,I]) || I <- NumFunctions]]),
+
+    DoScan = fun F([]) ->
+                     [];
+                 F(Str) ->
+                     {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
+                     [ T | F(C) ]
+             end,
+    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- DoScan(Module) ],
+    {ok,_,Bin} = compile:forms(Forms, [debug_info]),
+
+    try
+        tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+
+        %% First check that basic completion works
+        send_stdin(Term, "escript:"),
+        send_stdin(Term, "\t"),
+        %% Cursor at correct place
+        check_location(Term, {-3, width("escript:")}),
+        %% Nothing after the start( completion
+        check_content(Term, "start\\($"),
+
+        %% Check that completion is cleared when we type
+        send_stdin(Term, "s"),
+        check_location(Term, {-3, width("escript:s")}),
+        check_content(Term, "escript:s$"),
+
+        %% Check that completion works when in the middle of a term
+        send_tty(Term, "Home"),
+        send_tty(Term, "["),
+        send_tty(Term, "End"),
+        send_tty(Term, ", test_after]"),
+        [send_tty(Term, "Left") || _ <- ", test_after]"],
+        send_stdin(Term, "\t"),
+        check_location(Term, {-3, width("[escript:s")}),
+        check_content(Term, "script_name\\([ ]+start\\($"),
+        send_tty(Term, "End"),
+        send_stdin(Term, ".\n"),
+
+        %% Check that we behave as we should with very long completions
+        rpc(Term, fun() ->
+                          {module, long_module} = code:load_binary(long_module, "long_module.beam", Bin)
+                  end),
+        check_content(Term, "3>"),
+        send_stdin(Term, "long_module:" ++ FunctionName),
+        send_stdin(Term, "\t"),
+        %% Check that correct text is printed below expansion
+        check_content(Term, io_lib:format("Press tab to see all ~p expansions",
+                                          [length(NumFunctions)])),
+        send_stdin(Term, "\t"),
+        %% The expansion does not fit on screen, verify that
+        %% expand above mode is used
+        check_content(fun() -> get_content(Term, "-S -5") end,
+                      "3> long_module:" ++ FunctionName ++ "\nfunctions"),
+        check_content(Term, "3> long_module:" ++ FunctionName ++ "$"),
+
+        %% We resize the terminal to make everything fit and test that
+        %% expand below mode is used
+        tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Rows+10)]),
+        timer:sleep(1000), %% Sleep to make sure window has resized
+        send_stdin(Term, "\t\t"),
+        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name99\\($"),
+        ok
+    after
+        stop_tty(Term),
+        ok
+    end.
+
+shell_expand_location_above(Config) ->
+
+    Term = start_tty([{args,["-stdlib","shell_expand_location","above"]}|Config]),
+
+    try
+        tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+        send_stdin(Term, "escript:"),
+        send_stdin(Term, "\t"),
+        check_location(Term, {0, width("escript:")}),
+        check_content(Term, "start\\(\n"),
+        check_content(Term, "escript:$"),
+        send_stdin(Term, "s"),
+        send_stdin(Term, "\t"),
+        check_location(Term, {0, width("escript:s")}),
+        check_content(Term, "\nscript_name\\([ ]+start\\(\n"),
+        check_content(Term, "escript:s$"),
+        ok
+    after
+        stop_tty(Term),
+        ok
+    end.
+
 %% Test the we can handle invalid ansi escape chars.
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->
@@ -1017,9 +1123,9 @@ shell_standard_error_nlcr(Config) ->
          try
              rpc(Term, io, format, [standard_error,"test~ntest~ntest", []]),
              check_content(Term, "test\ntest\ntest$"),
-             rpc(Term, erlang, apply, [fun() -> shell:start_interactive(),
-                                                io:format(standard_error,"test~ntest~ntest", [])
-                                       end, []]),
+             rpc(Term, fun() -> shell:start_interactive(),
+                                io:format(standard_error,"test~ntest~ntest", [])
+                       end),
              check_content(Term, "test\ntest\ntest(\n|.)*test\ntest\ntest")
          after
              stop_tty(Term)
@@ -1253,6 +1359,8 @@ tmux([Cmd|_] = Command) when is_list(Cmd) ->
 tmux(Command) ->
     string:trim(os:cmd(["tmux ",Command])).
 
+rpc(#tmux{ node = N }, Fun) ->
+    erpc:call(N, Fun).
 rpc(#tmux{ node = N }, M, F, A) ->
     erpc:call(N, M, F, A).
 
@@ -1265,7 +1373,7 @@ setup_tty(Config) ->
                                  ["-env",Key,Value]
                          end, proplists:get_value(env,Config,[])),
 
-    Args = proplists:get_value(args, Config, []),
+    ExtraArgs = proplists:get_value(args,Config,[]),
 
     ExecArgs = case os:getenv("TMUX_DEBUG") of
                    "strace" ->
@@ -1294,7 +1402,7 @@ setup_tty(Config) ->
                                   "-kernel","shell_history","disabled",
                                   "-kernel","prevent_overlapping_partitions","false",
                                   "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
-                                 ] ++ Envs ++ Args,
+                                 ] ++ Envs ++ ExtraArgs,
                          detached => false
                        },
 

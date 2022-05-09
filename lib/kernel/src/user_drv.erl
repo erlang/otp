@@ -287,7 +287,7 @@ init_remote_shell(State, Node, {M, F, A}) ->
 
                     Group = group:start(self(), RShell,
                                         [{echo,State#state.shell_started =:= new}] ++
-                                            remsh_opts(RemoteNode)),
+                                            group_opts(RemoteNode)),
 
                     Gr = gr_add_cur(State#state.groups, Group, RShell),
 
@@ -311,7 +311,7 @@ init_local_shell(State, InitialShell) ->
 
     Gr = gr_add_cur(State#state.groups,
                     group:start(self(), InitialShell,
-                                [{echo,State#state.shell_started =:= new}]),
+                                group_opts() ++ [{echo,State#state.shell_started =:= new}]),
                     InitialShell),
 
     init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
@@ -692,7 +692,7 @@ switch_cmd(r, Gr0) ->
     case is_alive() of
 	true ->
 	    Node = pool:get_node(),
-	    Pid = group:start(self(), {Node,shell,start,[]}, remsh_opts(Node)),
+	    Pid = group:start(self(), {Node,shell,start,[]}, group_opts(Node)),
 	    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
 	    {retry, [], Gr};
 	false ->
@@ -703,7 +703,7 @@ switch_cmd({r, Node}, Gr) when is_atom(Node)->
 switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
     case is_alive() of
 	true ->
-            Pid = group:start(self(), {Node,Shell,start,[]}, remsh_opts(Node)),
+            Pid = group:start(self(), {Node,Shell,start,[]}, group_opts(Node)),
             Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
             {retry, [], Gr};
         false ->
@@ -743,13 +743,17 @@ list_commands() ->
         QuitReq ++
         [{put_chars, unicode,<<"  ? | h             - this message\n">>}].
 
-remsh_opts(Node) ->
+group_opts(Node) ->
     VersionString = erpc:call(Node, erlang, system_info, [otp_release]),
     Version = list_to_integer(VersionString),
-    case Version > 25 of
-        true -> [{expand_fun,fun(B, Opts)-> erpc:call(Node,edlin_expand,expand,[B, Opts]) end}];
-        false -> [{expand_fun,fun(B, _)-> erpc:call(Node,edlin_expand,expand,[B]) end}]
-    end.
+    ExpandFun =
+        case Version > 25 of
+            true -> [{expand_fun,fun(B, Opts)-> erpc:call(Node,edlin_expand,expand,[B, Opts]) end}];
+            false -> [{expand_fun,fun(B, _)-> erpc:call(Node,edlin_expand,expand,[B]) end}]
+        end,
+    group_opts() ++ ExpandFun.
+group_opts() ->
+    [{expand_below, application:get_env(stdlib, shell_expand_location, below) =:= below}].
 
 -spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
           {term(), reference(), prim_tty:state()}.
@@ -761,6 +765,8 @@ io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
     {Reply, MonitorRef, NewTTY};
+io_request({put_expand, unicode, Chars}, TTY) ->
+    write(prim_tty:handle_request(TTY, {expand, unicode:characters_to_binary(Chars)}));
 io_request({move_rel, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {move, N}));
 io_request({insert_chars, unicode, Chars}, TTY) ->

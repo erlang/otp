@@ -47,6 +47,7 @@ server(Ancestors, Drv, Shell, Options) ->
         end,
     put(expand_fun,ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
+    put(expand_below, proplists:get_value(expand_below, Options, true)),
 
     server_loop(Drv, start_shell(Shell), []).
 
@@ -621,7 +622,8 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls, Encoding)
     {more_chars,Ncont,Nrs} = edlin:start(Pbs, search),
     send_drv_reqs(Drv, Nrs),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
-get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
+  when Expand =:= expand; Expand =:= expand_full ->
     send_drv_reqs(Drv, Rs),
     ExpandFun = get(expand_fun),
     {Found, CompleteChars, Matches} = ExpandFun(Before, []),
@@ -633,19 +635,47 @@ get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     Cs1 = append(CompleteChars, Cs0, Encoding),
 
     MatchStr = case Matches of
-        [] -> [];
-        _ -> edlin_expand:format_matches(Matches, Width)
-    end,
+                   [] -> [];
+                   _ -> edlin_expand:format_matches(Matches, Width)
+               end,
     Cs = case {Cs1, MatchStr} of
-        {_,[]} -> Cs1;
-        {[],_} ->
-            send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary("\n"++MatchStr,unicode)}),
-            [$\^L | Cs1];
-        {_,[_SingleMatch]} -> Cs1;
-        _ ->
-            send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary("\n"++MatchStr,unicode)}),
-            [$\^L | Cs1]
-    end,
+             {_, []} -> Cs1;
+             {Cs1, [_SingleMatch]} when Cs1 =/= [] -> Cs1;
+             _ ->
+                 NlMatchStr = unicode:characters_to_binary("\n"++MatchStr),
+                 case get(expand_below) of
+                     true ->
+                         Lines = string:split(string:trim(MatchStr), "\n", all),
+                         NoLines = length(Lines),
+                         if NoLines > 5, Expand =:= expand ->
+                                 %% Only show 5 lines to start with
+                                 [L1,L2,L3,L4,L5|_] = Lines,
+                                 String = lists:join(
+                                            $\n,
+                                            [L1,L2,L3,L4,L5,
+                                             io_lib:format("Press tab to see all ~p expansions",
+                                                           [edlin_expand:number_matches(Matches)])]),
+                                 send_drv(Drv, {put_expand, unicode,
+                                                unicode:characters_to_binary(String)}),
+                                 Cs1;
+                            true ->
+                                 case get_tty_geometry(Drv) of
+                                     {_, Rows} when Rows > NoLines ->
+                                         %% If all lines fit on screen, we expand below
+                                         send_drv(Drv, {put_expand, unicode, NlMatchStr}),
+                                         Cs1;
+                                     _ ->
+                                         %% If there are more results than fit on
+                                         %% screen we expand above
+                                         send_drv(Drv, {put_chars, unicode, NlMatchStr}),
+                                         [$\^L | Cs1]
+                                 end
+                         end;
+                     false ->
+                         send_drv(Drv, {put_chars, unicode, NlMatchStr}),
+                         [$\^L | Cs1]
+                 end
+         end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),
