@@ -1652,7 +1652,7 @@ select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSi
     select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, undefined).
 
 select_client_cert_key_pair(Session0,_,[], _, _,_,_, undefined) ->
-    %% No certificate compliant with signing algorithms found: empty certificate will be sent
+    %% No certificate compliant with supported algorithms: empty certificate will be sent
     Session0#session{own_certificates = [[]],
                      private_key = #{}};
 select_client_cert_key_pair(_,_,[], _, _,_,_,#session{}=Session) ->
@@ -1662,7 +1662,7 @@ select_client_cert_key_pair(Session0, #certificate_request{certificate_authoriti
                             [#{private_key := PrivateKey, certs := [Cert| _] = Certs} | Rest],
                             SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, TLSVersion) of
-        #alert {} ->
+        #alert{} ->
             select_client_cert_key_pair(Session0, CertRequest, Rest, SupportedHashSigns, TLSVersion, CertDbHandle, CertDbRef, Default);
         SelectedHashSign ->
             case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of

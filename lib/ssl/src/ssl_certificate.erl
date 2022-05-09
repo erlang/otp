@@ -309,19 +309,24 @@ find_cross_sign_root_paths([_ | Rest] = Path, CertDbHandle, CertDbRef, Invalidat
     end.
 
 handle_cert_auths(Chain, [], _, _) ->
-    %% If we have no authorities extension to check we just accept 
-    %% first choice
+    %% If we have no authorities extension (or corresponding
+    %% 'certificate_authorities' in the certificate request message in
+    %% TLS-1.2 is empty) to check we just accept first choice.
     {ok, Chain};
 handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
-    {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}} = certificate_chain(Cert, CertDbHandle, CertDbRef, [], both),
-    case cert_auth_member(cert_subjects(DCerts), CertAuths) of
-        true ->
-            {ok, EChain};
-        false ->
-            {error, EChain, not_in_auth_domain}
+    case certificate_chain(Cert, CertDbHandle, CertDbRef, [], both) of
+        {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}}  ->
+            case cert_auth_member(cert_issuers(DCerts), CertAuths) of
+                true ->
+                    {ok, EChain};
+                false ->
+                    {error, EChain, not_in_auth_domain}
+            end;
+        _ ->
+            {ok, [Cert]}
     end;
 handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
-    case cert_auth_member(cert_subjects(Certs), CertAuths) of
+    case cert_auth_member(cert_issuers(Certs), CertAuths) of
         true ->
             {ok, EChain};
         false ->
@@ -699,18 +704,18 @@ maybe_shorten_path(Path, PartialChainHandler, Default) ->
     DerCerts = [Der || #cert{der=Der} <- Path],
     try PartialChainHandler(DerCerts) of
         {trusted_ca, Root} ->
-            new_trusteded_path(Root, Path, Default);
+            new_trusted_path(Root, Path, Default);
         unknown_ca ->
             Default
     catch _:_ ->
             Default
     end.
 
-new_trusteded_path(DerCert, [#cert{der=DerCert}=Cert | Chain], _) ->
-    {Cert, Chain};
-new_trusteded_path(DerCert, [_ | Rest], Default) ->
-    new_trusteded_path(DerCert, Rest, Default);
-new_trusteded_path(_, [], Default) ->
+new_trusted_path(DerCert, [#cert{der=DerCert}=Cert | Path], _) ->
+    {Cert, Path};
+new_trusted_path(DerCert, [_ | Rest], Default) ->
+    new_trusted_path(DerCert, Rest, Default);
+new_trusted_path(_, [], Default) ->
     %% User did not pick a cert present 
     %% in the cert chain so ignore
     Default.
@@ -790,13 +795,28 @@ subject(Cert) ->
     {_Serial,Subject} = public_key:pkix_subject_id(Cert),
     Subject.
 
-cert_subjects([], Acc) ->
-    Acc;
-cert_subjects([Cert | Rest], Acc) ->
-    cert_subjects(Rest, [subject(Cert) | Acc]).
+issuer(Cert) ->
+    case public_key:pkix_is_self_signed(Cert) of
+        true ->
+            subject(Cert);
+        false ->
+            case is_binary(Cert) of
+                true ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer);
+                false ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = Cert,
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer)
+            end
+    end.
 
-cert_subjects(OTPCerts) ->
-    cert_subjects(OTPCerts, []).
+cert_issuers([], Acc) ->
+    Acc;
+cert_issuers([Cert | Rest], Acc) ->
+    cert_issuers(Rest, [issuer(Cert) | Acc]).
+
+cert_issuers(OTPCerts) ->
+    cert_issuers(OTPCerts, []).
 
 cert_auth_member(ChainSubjects, CertAuths) ->
     CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),

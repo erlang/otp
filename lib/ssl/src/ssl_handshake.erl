@@ -1078,7 +1078,7 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessId
 new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSuites, SslOpts,
                        Version, Compressions, HashSigns, CertKeyPairs) ->
     Compression = select_compression(Compressions),
-    {Certs, Key, {ECCCurve, CipherSuite}} = select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
+    {Certs, Key, {ECCCurve, CipherSuite}} = server_select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
                                                                             ECCCurve0, SslOpts, Version),
     Session#session{session_id = SessionId,
                     ecc = ECCCurve,
@@ -1089,32 +1089,32 @@ new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSui
 
 %% Possibly support part of "trusted_ca_keys" extension that corresponds to TLS-1.3 certificate_authorities?!
 
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
               #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
     %% This can happen if anonymous cipher suites are enabled
     Suites = available_suites(undefined, UserSuites, Version, HashSigns, ECCCurve0),
     CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
     CurveAndSuite = cert_curve(undefined, ECCCurve0, CipherSuite0),
     {NoCerts, NoKey, CurveAndSuite};
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
                                 #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
     Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
     CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
     CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
     {Certs, Key, CurveAndSuite};
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
                  #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = Opts, Version) ->
     Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
     case select_cipher_suite(CipherSuites, Suites, HonorCipherOrder) of
         no_suite ->
-            select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
+            server_select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
         CipherSuite0 ->
             case is_acceptable_cert(Cert, HashSigns, ssl:tls_version(Version)) of
                 true ->
                     CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
                     {Certs, Key, CurveAndSuite};
                 false ->
-                    select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version)
+                    server_select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version)
             end
     end.
 
