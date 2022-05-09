@@ -53,6 +53,7 @@
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
+                   mwc59_value/1,
 		   get_52/1, normal_kiwi/1]}).
 
 -define(DEFAULT_ALG_HANDLER, exsss).
@@ -1507,32 +1508,37 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
 
--spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+-spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(58, CX1),
-    CX bxor ?BSL(58, CX, ?MWC59_XS).
+    CX = ?MASK(59, CX1),
+    CX bxor ?BSL(59, CX, ?MWC59_XS).
 
--spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+-spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(58, CX1),
-    CX2 = CX bxor ?BSL(58, CX, ?MWC59_XS1),
-    CX2 bxor ?BSL(58, CX2, ?MWC59_XS2).
+    CX = ?MASK(59, CX1),
+    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
+    CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
 
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
 mwc59_float(CX1) ->
-    CX = ?MASK(53, CX1),
-    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
-    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
-    CX3 * ?TWO_POW_MINUS53.
+    mwc59_value(CX1) * (1/(1 bsl 59)).
 
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
     {A1, A2, A3} = default_seed(),
-    mwc59_seed(seed64_int([A1, A2, A3])).
+    {X1,_} = splitmix64_next(A1),
+    {X2,_} = splitmix64_next(A2),
+    {X3,_} = splitmix64_next(A3),
+    mwc59_seed_state(X1 bxor X2 bxor X3).
 
 -spec mwc59_seed(S :: integer()) -> CX :: mwc59_state().
 mwc59_seed(S) when is_integer(S) ->
-    mod(?MWC59_P - 1, S) + 1.
+    {X,_} = splitmix64_next(mod(?BIT(64), S)),
+    mwc59_seed_state(X).
+
+mwc59_seed_state(X) ->
+    %% Ensure non-zero carry and within state range
+    ?BIT(?MWC59_B) bor ?MASK(58, X).
 
 
 
@@ -1611,16 +1617,6 @@ seed64(X_0) ->
 	true ->
 	    ZX
     end.
-
-%% Create a splitmixed (big) integer from a list of integers
-seed64_int(As) ->
-    seed64_int(As, 0, 0).
-%%
-seed64_int([], _X, Y) ->
-    Y;
-seed64_int([A | As], X0, Y) ->
-    {Z, X1} = splitmix64_next(A bxor X0),
-    seed64_int(As, X1, (Y bsl 64) bor Z).
 
 %% =====================================================================
 %% The SplitMix64 generator:
@@ -1988,6 +1984,8 @@ bc(V, B, N) -> bc(V, B bsr 1, N - 1).
 
 
 %% Non-negative rem
+mod(Q, X) when 0 =< X, X < Q ->
+    X;
 mod(Q, X) ->
     Y = X rem Q,
     if
