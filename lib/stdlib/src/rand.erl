@@ -37,7 +37,9 @@
 	]).
 
 %% Utilities
--export([exsp_next/1, exsp_jump/1, splitmix64_next/1, mcg35/1, lcg35/1]).
+-export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
+         mwc59/1, mwc59_fast_value/1, mwc59_value/1, mwc59_float/1,
+         mwc59_seed/0, mwc59_seed/1]).
 
 %% Test, dev and internal
 -export([exro928_jump_2pow512/1, exro928_jump_2pow20/1,
@@ -145,9 +147,9 @@
     state/0, export_state/0, seed/0]).
 -export_type(
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
-    exs64_state/0, dummy_state/0]).
+    exs64_state/0, mwc59_state/0, dummy_state/0]).
 -export_type(
-   [uint58/0, uint64/0, splitmix64_state/0, mcg35_state/0, lcg35_state/0]).
+   [uint58/0, uint64/0, splitmix64_state/0]).
 
 %% =====================================================================
 %% Range macro and helper
@@ -272,9 +274,12 @@ seed_s({Alg, AlgState}) when is_atom(Alg) ->
     {AlgHandler,_SeedFun} = mk_alg(Alg),
     {AlgHandler,AlgState};
 seed_s(Alg) ->
-    seed_s(Alg, {erlang:phash2([{node(),self()}]),
-		 erlang:system_time(),
-		 erlang:unique_integer()}).
+    seed_s(Alg, default_seed()).
+
+default_seed() ->
+    {erlang:phash2([{node(),self()}]),
+     erlang:system_time(),
+     erlang:unique_integer()}.
 
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
@@ -866,7 +871,6 @@ exsss_seed({A1, A2, A3}) ->
        ?MASK(58, V_b + ?BSL(58, V_b, 3))                     % * 9
    end).
 
-
 %% Advance state and generate 58bit unsigned integer
 %%
 -dialyzer({no_improper_lists, exsp_next/1}).
@@ -1425,6 +1429,8 @@ dummy_uniform({AlgHandler,R}) ->
 %%
 dummy_seed(L) when is_list(L) ->
     case L of
+        [] ->
+            erlang:error(zero_seed);
         [X] when is_integer(X) ->
             ?MASK(58, X);
         [X|_] when is_integer(X) ->
@@ -1443,90 +1449,104 @@ dummy_seed({A1, A2, A3}) ->
 
 
 %% =====================================================================
-%% mcg35 PRNG: Multiplicative Linear Congruential Generator
+%% mcg58 PRNG: Multiply With Carry generator
 %%
-%% Parameters by Pierre L'Ecuyer from the paper:
-%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
-%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
+%% Parameters deduced in collaboration with
+%% Prof. Sebastiano Vigna of the University of Milano.
 %%
-%% X1 = (A * X0) rem M
+%% X = CX0 & (2^B - 1)  % Low B bits - digit
+%% C = CX0 >> B         % High bits  - carry
+%% CX1 = A * X0 + C0
 %%
-%% A = 185852
-%% M = 2^B - D
-%%     B = 35, D = 31
+%% An MWC generator is an efficient alternative implementation of
+%% a Multiplicative Congruential Generator, that is, the generator
+%% CX1 = (CX0 * 2^B) rem P
+%% where P is the safe prime (A * 2^B - 1), that generates
+%% the same sequence in the reverse order.  The generator
+%% CX1 = (A * CX0) rem P
+%% that uses the multiplicative inverse mod P is, indeed,
+%% an exact equevalent to the corresponding MWC generator.
 %%
-%% X cannot, and never will be 0.
-%% Take X1 as output value with range 1..(M-1).
+%% An MWC generator has, due to the power of two multiplier
+%% in the corresponding MCG, got known statistical weaknesses
+%% in the spectral score for 3 dimensions, so it should be used
+%% with a scrambler that hides the flaws.  The scramblers
+%% have been tried out in the PractRand and TestU01 frameworks
+%% and settled for a single Xorshift to get B good bits,
+%% and a double Xorshift to get all bits good enough.
 %%
-%% Use this generator for speed, not for quality.
-%% The calculation should avoid bignum operations,
-%% so A * X0 should not become a bignum.
-%% M and A has been selected accordingly.
-%% The period is M - 1 since 0 cannot occur.
+%% The chosen parameters are:
+%% A = 16#7fa6502
+%% B = 32
+%% Single Xorshift: 8
+%% Double Xorshift: 4, 27
 %%
-%% =====================================================================
--define(MCG35_A, (185852)).
--define(MCG35_B, (35)).
--define(MCG35_D, (31)).
--define(MCG35_M, (?BIT(?MCG35_B) - ?MCG35_D)).
-
--type mcg35_state() :: 1..(?MCG35_M-1).
-
--spec mcg35(X0 :: mcg35_state()) -> X1 :: mcg35_state().
-mcg35(X0) -> % when is_integer(X0), 1 =< X0, X0 < ?MCG35_M ->
-    %% The mask operation on the input tricks the JIT into
-    %% realizing that all following operations does not
-    %% need bignum handling.  The suggested guard test above
-    %% could have had the same effect but it did not, and, alas,
-    %% needs much more native code to execute than a 'band'.
-    X = ?MCG35_A * ?MASK(?MCG35_B, X0),
-    %% rem M = rem (2^B - D), optimization to avoid 'rem'
-    X1 = ?MASK(?MCG35_B, X) + ?MCG35_D*(X bsr ?MCG35_B),
-    if
-        X1 < ?MCG35_M -> X1;
-        true          -> X1 - ?MCG35_M
-    end.
-
-
-%% =====================================================================
-%% lcg35 PRNG: Multiplicative Linear Congruential Generator
+%% These parameters gives the MWC "digit" size 32 bits
+%% which gives them theoretical statistical guarantees,
+%% and keeps the state in 59 bits.
 %%
-%% Parameters by Pierre L'Ecuyer from the paper:
-%%   TABLES OF LINEAR CONGRUENTIAL GENERATORS
-%% OF DIFFERENT SIZES AND GOOD LATTICE STRUCTURE
-%%
-%% X1 = (A * X0 + C) rem M
-%%
-%% M = 2^35, A = 15319397, C = 1
-%%
-%% Choosing C = 15366142135, which is an odd value
-%% about 2^35 / sqrt(5) gives a perhaps nicer value in
-%% the sequence after 0 (-> C).
-%%
-%% Take X1 as output value with range 1..(M-1).
-%%
-%% Use this generator for speed, not for quality.
-%% The calculation should avoid bignum operations,
-%% so A * X0 + C should not become a bignum.
-%% M, A and C has been selected accordingly.
-%% The period is M.
+%% The state should only be used to mask or rem out low bits.
+%% The scramblers return 58 bits from which a number should
+%% be masked or rem:ed out.
 %%
 %% =====================================================================
--define(LCG35_A, (15319397)).
--define(LCG35_C, (15366142135)). % (1 bsl 35) / sqrt(5), odd
--define(LCG35_B, 35). % Number of bits
+-define(MWC59_A, (16#7fa6502)).
+-define(MWC59_B, (32)).
+-define(MWC59_P, ((?MWC59_A bsl ?MWC59_B) - 1)).
 
--type lcg35_state() :: 0..?MASK(?LCG35_B).
+-define(MWC59_XS, 8).
+-define(MWC59_XS1, 4).
+-define(MWC59_XS2, 27).
 
--spec lcg35(X0 :: lcg35_state()) -> X1 :: lcg35_state().
-%%lcg35(X0) when is_integer(X0), 0 =< X0, X0 =< ?MASK(?LCG35_B) ->
-lcg35(X0) ->
-    %% The mask operation on the input tricks the JIT into
-    %% realizing that all following operations does not
-    %% need bignum handling.  The suggested guard test above
-    %% could have had the same effect but it did not, and, alas,
-    %% needs much more native code to execute than a 'band'.
-    ?MASK(?LCG35_B, ?LCG35_A * ?MASK(?LCG35_B, X0) + ?LCG35_C).
+-type mwc59_state() :: 1..?MWC59_P-1.
+
+-spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
+mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+    CX = ?MASK(59, CX0),
+    C = CX bsr ?MWC59_B,
+    X = ?MASK(?MWC59_B, CX),
+    ?MWC59_A * X + C.
+
+-spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(58, CX1),
+    CX bxor ?BSL(58, CX, ?MWC59_XS).
+
+-spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(58, CX1),
+    CX2 = CX bxor ?BSL(58, CX, ?MWC59_XS1),
+    CX2 bxor ?BSL(58, CX2, ?MWC59_XS2).
+
+-spec mwc59_float(CX :: mwc59_state()) -> V :: float().
+mwc59_float(CX1) ->
+    CX = ?MASK(53, CX1),
+    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
+    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
+    CX3 * ?TWO_POW_MINUS53.
+
+-spec mwc59_seed() -> CX :: mwc59_state().
+mwc59_seed() ->
+    {A1, A2, A3} = default_seed(),
+    mwc59_seed(seed64_int([A1, A2, A3])).
+
+-spec mwc59_seed(S :: integer()) -> CX :: mwc59_state().
+mwc59_seed(S) when is_integer(S) ->
+    mod(?MWC59_P - 1, S) + 1.
+
+
+
+%%% %% Verification by equivalent MCG generator
+%%% mwc59_r(CX1) ->
+%%%     (CX1 bsl ?MWC59_B) rem ?MWC59_P. % Reverse
+%%% %%%     (CX1 * ?MWC59_A) rem ?MWC59_P. % Forward
+%%%
+%%% mwc59(CX0, 0) ->
+%%%     CX0;
+%%% mwc59(CX0, N) ->
+%%%     CX1 = mwc59(CX0),
+%%%     CX0 = mwc59_r(CX1),
+%%%     mwc59(CX1, N - 1).
 
 
 %% =====================================================================
@@ -1591,6 +1611,16 @@ seed64(X_0) ->
 	true ->
 	    ZX
     end.
+
+%% Create a splitmixed (big) integer from a list of integers
+seed64_int(As) ->
+    seed64_int(As, 0, 0).
+%%
+seed64_int([], _X, Y) ->
+    Y;
+seed64_int([A | As], X0, Y) ->
+    {Z, X1} = splitmix64_next(A bxor X0),
+    seed64_int(As, X1, (Y bsl 64) bor Z).
 
 %% =====================================================================
 %% The SplitMix64 generator:
@@ -1955,7 +1985,19 @@ bc64(V) -> ?BC(V, 64).
 %% Linear from high bit - higher probability first gives faster execution
 bc(V, B, N) when B =< V -> N;
 bc(V, B, N) -> bc(V, B bsr 1, N - 1).
-    
+
+
+%% Non-negative rem
+mod(Q, X) ->
+    Y = X rem Q,
+    if
+        Y < 0 ->
+            Y + Q;
+        true ->
+            Y
+    end.
+
+
 make_float(S, E, M) ->
     <<F/float>> = <<S:1, E:11, M:52>>,
     F.

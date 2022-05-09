@@ -35,8 +35,9 @@ all() ->
     [seed, interval_int, interval_float,
      bytes_count,
      api_eq,
-     mcg35_api, mcg35_rem, lcg35_api,
-     exsp_next_api, exsp_jump_api, splitmix64_next_api,
+     mwc59_api,
+     exsp_next_api, exsp_jump_api,
+     splitmix64_next_api,
      reference,
      {group, basic_stats},
      {group, distr_stats},
@@ -207,50 +208,36 @@ api_eq_1(S00) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(MCG35_M, ((1 bsl 35) - 31)).
-
-%% Verify mcg35 behaviour
+%% Verify mwc59 behaviour
 %%
-mcg35_api(Config) when is_list(Config) ->
-    mcg35_api(1, 1000000).
+mwc59_api(Config) when is_list(Config) ->
+    mwc59_api(1, 1000000).
 
-mcg35_api(X0, 0) ->
-    X = 30203473714,
-    {X, X} = {X0, X},
+mwc59_api(CX0, 0) ->
+    CX = 216355295181821136,
+    {CX, CX} = {CX0, CX},
+    V0 = rand:mwc59_fast_value(CX0),
+    V = 262716604851324112,
+    {V, V} = {V0, V},
+    W0 = rand:mwc59_value(CX0),
+    W = 240206843777063376,
+    {W, W} = {W0, W},
+    F0 = rand:mwc59_float(CX0),
+    F = (W band ((1 bsl 53) - 1)) * (1 / (1 bsl 53)),
+    {F, F} = {F0, F},
     ok;
-mcg35_api(X0, N)
-  when is_integer(X0), 1 =< X0, X0 < ?MCG35_M ->
-    mcg35_api(rand:mcg35(X0), N - 1).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% Verify the 'rem' optimization in mcg35
-%%
-mcg35_rem(Config) when is_list(Config) ->
-    {_, X0} = rand:seed_s(dummy),
-    mcg35_rem((X0 rem (?MCG35_M - 1)) + 1, 10000000).
-
-mcg35_rem(_X0, 0) ->
-    ok;
-mcg35_rem(X0, N) ->
-    X1 = (185852 * X0) rem ?MCG35_M,
-    {X1, X1, X0, N} = {rand:mcg35(X0), X1, X0, N},
-    mcg35_rem(X1, N - 1).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% Verify lcg35 behaviour
-%%
-lcg35_api(Config) when is_list(Config) ->
-    lcg35_api(0, 1000000).
-
-lcg35_api(X0, 0) ->
-    X = 19243690048,
-    {X, X} = {X0, X},
-    ok;
-lcg35_api(X0, N)
-  when is_integer(X0), 0 =< X0, X0 < 1 bsl 35 ->
-    lcg35_api(rand:lcg35(X0), N - 1).
+mwc59_api(CX, N)
+  when is_integer(CX), 1 =< CX, CX < (16#7fa6502 bsl 32) - 1 ->
+    V = rand:mwc59_fast_value(CX),
+    W = rand:mwc59_value(CX),
+    F = rand:mwc59_float(CX),
+    true = 0 =< V,
+    true = V < 1 bsl 58,
+    true = 0 =< W,
+    true = W < 1 bsl 58,
+    true = 0.0 =< F,
+    true = F < 1.0,
+    mwc59_api(rand:mwc59(CX), N - 1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1125,21 +1112,7 @@ do_measure(Iterations) ->
           fun (_Mod, _State) ->
                   Range = 10000,
                   fun (St0) ->
-                          St1 = rand:mcg35(St0),
-                          %% Just a 'rem' with slightly skewed distribution
-                          case (St1 rem Range) + 1 of
-                              R when is_integer(R), 0 < R, R =< Range ->
-                                  St1
-                          end
-                  end
-          end, mcg35_inline, Iterations,
-          TMarkUniformRange10000, OverheadUniformRange1000),
-    _ =
-        measure_1(
-          fun (_Mod, _State) ->
-                  Range = 10000,
-                  fun (St0) ->
-                          St1 = rand:lcg35(St0),
+                          St1 = rand:mwc59(St0),
                           %% Just a 'rem' with slightly skewed distribution
                             case (St1 rem Range) + 1 of
                                 R when is_integer(R), 0 < R, R =< Range ->
@@ -1147,7 +1120,37 @@ do_measure(Iterations) ->
                             end
                   end
           end,
-          lcg35_inline, Iterations,
+          {mwc59,raw_mod}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Just a 'rem' with slightly skewed distribution
+                            case (rand:mwc59_fast_value(St1) rem Range) + 1 of
+                                R when is_integer(R), 0 < R, R =< Range ->
+                                    St1
+                            end
+                  end
+          end,
+          {mwc59,fast_mod}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Just a 'rem' with slightly skewed distribution
+                            case (rand:mwc59_value(St1) rem Range) + 1 of
+                                R when is_integer(R), 0 < R, R =< Range ->
+                                    St1
+                            end
+                  end
+          end,
+          {mwc59,value_mod}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1162,7 +1165,7 @@ do_measure(Iterations) ->
                             end
                   end
           end,
-          exsp_inline, Iterations,
+          {exsp,mod}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1213,14 +1216,45 @@ do_measure(Iterations) ->
           fun (_Mod, _State) ->
                   Range = 1 bsl 32,
                   fun (St0) ->
-                          St1 = rand:lcg35(St0),
-                          case St1 bsr (35-32) of
+                          St1 = rand:mwc59(St0),
+                          case St1 band ((1 bsl 32)-1) of
                               R when is_integer(R), 0 =< R, R < Range ->
                                   St1
                           end
                   end
           end,
-          lcg35_inline, Iterations,
+          {mwc59,raw_mask}, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          case rand:mwc59_fast_value(St1) band ((1 bsl 32)-1) of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,fast_mask}, Iterations,
+          TMarkUniform32Bit, OverheadUniform32Bit),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 32,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          case
+                              rand:mwc59_value(St1) band
+                              ((1 bsl 32)-1)
+                          of
+                              R when is_integer(R), 0 =< R, R < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,value_mask}, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
@@ -1234,7 +1268,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          exsp_inline, Iterations,
+          {exsp,shift}, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
@@ -1320,28 +1354,61 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = (1 bsl 35) - 31,
+                  Range = (16#7fa6502 bsl 32) - 1,
                   fun (St0) ->
-                          case rand:mcg35(St0) of
-                              R when is_integer(R), 1 =< R, R =< Range ->
-                                  R
+                          St1 = rand:mwc59(St0),
+                          V = St1,
+                          if
+                              is_integer(V), 1 =< V, V < Range ->
+                                  St1
                           end
                   end
           end,
-          mcg35_inline, Iterations,
+          {mwc59,raw}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = 1 bsl 35,
+                  Range = 1 bsl 58,
                   fun (St0) ->
-                          case rand:lcg35(St0) of
-                              R when is_integer(R), 0 =< R, R < Range ->
-                                  R
+                          St1 = rand:mwc59(St0),
+                          V = rand:mwc59_fast_value(St1),
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
+                                  St1
                           end
                   end
           end,
-          lcg35_inline, Iterations,
+          {mwc59,fast}, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 58,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          V = rand:mwc59_value(St1),
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,value}, Iterations,
+          TMarkUniformFullRange, OverheadUniformFullRange),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 1 bsl 58,
+                  fun (St0) ->
+                          {V, St1} = rand:exsp_next(St0),
+                          if
+                              is_integer(V), 0 =< V, V < Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {exsp,next}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
@@ -1356,20 +1423,6 @@ do_measure(Iterations) ->
                   end
           end,
           splitmix64_inline, Iterations,
-          TMarkUniformFullRange, OverheadUniformFullRange),
-    _ =
-        measure_1(
-          fun (_Mod, _State) ->
-                  Range = 1 bsl 58,
-                  fun (St0) ->
-                          {V, St1} = rand:exsp_next(St0),
-                          if
-                              is_integer(V), 0 =< V, V < Range ->
-                                  St1
-                          end
-                  end
-          end,
-          exsp_inline, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
@@ -1402,18 +1455,18 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = 1 bsl 35,
+                  Range = (16#7fa6502 bsl 32) - 1,
                   fun (St0) ->
                           case
-                              put(lcg35_procdict,
-                                  rand:lcg35(get(lcg35_procdict)))
+                              put(mwc59_procdict,
+                                  rand:mwc59(get(mwc59_procdict)))
                           of
                               X when is_integer(X), 0 =< X, X < Range ->
                                   St0
                           end
                   end
           end,
-          lcg35_procdict, Iterations,
+          {mwc59,procdict}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
@@ -1500,9 +1553,9 @@ do_measure(Iterations) ->
           fun (_Mod, _State) ->
                   fun (St0) ->
                           ?CHECK_BYTE_SIZE(
-                             lcg35_bytes(ByteSize, St0), ByteSize, Bin, St1)
+                             mwc59_bytes(ByteSize, St0), ByteSize, Bin, St1)
                   end
-          end, lcg35_bytes, Iterations,
+          end, {mwc59,bytes}, Iterations,
           TMarkBytes1, OverheadBytes1),
     %%
     ByteSize2 = 1000, % At about 100 bytes crypto_bytes breaks even to exsss
@@ -1527,9 +1580,9 @@ do_measure(Iterations) ->
           fun (_Mod, _State) ->
                   fun (St0) ->
                           ?CHECK_BYTE_SIZE(
-                             lcg35_bytes(ByteSize2, St0), ByteSize2, Bin, St1)
+                             mwc59_bytes(ByteSize2, St0), ByteSize2, Bin, St1)
                   end
-          end, lcg35_bytes, Iterations div 50,
+          end, {mwc59,bytes}, Iterations div 50,
           TMarkBytes2, OverheadBytes2),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
@@ -1546,29 +1599,15 @@ do_measure(Iterations) ->
         measure_1(
           fun (_Mod, _State) ->
                   fun (St0) ->
-                          St1 = rand:mcg35(St0),
+                          St1 = rand:mwc59(St0),
                           %% Too few bits for full mantissa
-                          case (St1 - 1) * (1/((1 bsl 35) - 31)) of
-                              R when is_float(R), 0.0 =< R, R < 1.0 ->
-                                  St1
-                          end
-                    end
-          end,
-          mcg35_inline, Iterations,
-          TMarkUniformFloat, OverheadUniformFloat),
-    _ =
-        measure_1(
-          fun (_Mod, _State) ->
-                  fun (St0) ->
-                          St1 = rand:lcg35(St0),
-                          %% Too few bits for full mantissa
-                          case St1 * (1/(1 bsl 35)) of
+                          case rand:mwc59_float(St1) of
                               R when is_float(R), 0.0 =< R, R < 1.0 ->
                                   St1
                           end
                   end
           end,
-          lcg35_inline, Iterations,
+          {mwc59,float}, Iterations,
           TMarkUniformFloat, OverheadUniformFloat),
     _ =
         measure_1(
@@ -1581,7 +1620,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          exsp_inline, Iterations,
+          {exsp,float}, Iterations,
           TMarkUniformFloat, OverheadUniformFloat),
     %%
     ct:pal("~nRNG uniform_real float performance~n",[]),
@@ -1710,26 +1749,21 @@ measure_init(Alg) ->
             {?MODULE, undefined};
         system_time ->
             {?MODULE, undefined};
-        mcg35_inline ->
-            {_, S} = rand:seed_s(dummy),
-            {rand, (S rem ((1 bsl 35)-31 - 1)) + 1};
-        lcg35_inline ->
-            {_, S} = rand:seed_s(dummy),
-            {rand, S bsr (58-35)};
-        lcg35_bytes ->
-            {_, S} = rand:seed_s(dummy),
-            {rand, S bsr (58-35)};
         splitmix64_inline ->
             {rand, erlang:unique_integer()};
-        lcg35_procdict ->
-            {_, S} = rand:seed_s(dummy),
-            _ = put(Alg, S bsr (58-35)),
-            {rand, undefined};
-        exsp_inline ->
-            {_, S} = rand:seed_s(exsp),
-            {rand, S};
         procdict ->
             {rand, rand:seed(exsss)};
+        {Name, Tag} ->
+            case Name of
+                mwc59 when Tag =:= procdict ->
+                    _ = put(mwc59_procdict, rand:mwc59_seed()),
+                    {rand, undefined};
+                mwc59 ->
+                    {rand, rand:mwc59_seed()};
+                exsp ->
+                    {_, S} = rand:seed_s(exsp),
+                    {rand, S}
+            end;
         _ ->
             {rand, rand:seed_s(Alg)}
     end.
@@ -1749,18 +1783,30 @@ bytes_s(N, undefined = St) ->
     %% crypto_bytes
     {crypto:strong_rand_bytes(N), St}.
 
-lcg35_bytes(N, R0) ->
-    lcg35_bytes(N, R0, <<>>).
+mwc59_bytes(N, R0) ->
+    mwc59_bytes(N, R0, <<>>).
 %%
-lcg35_bytes(N, R0, Bin) when N < 4 ->
-    R1 = rand:lcg35(R0),
+mwc59_bytes(N, R0, Bin) when is_integer(N), 7*4 =< N ->
+    R1 = rand:mwc59(R0),
+    R2 = rand:mwc59(R1),
+    R3 = rand:mwc59(R2),
+    R4 = rand:mwc59(R3),
+    V1 = rand:mwc59_fast_value(R1),
+    V2 = rand:mwc59_fast_value(R2),
+    V3 = rand:mwc59_fast_value(R3),
+    V4 = rand:mwc59_fast_value(R4),
+    mwc59_bytes(N-7*4, R4, <<Bin/binary, V1:56, V2:56, V3:56, V4:56>>);
+mwc59_bytes(N, R0, Bin) when is_integer(N), 7 =< N ->
+    R1 = rand:mwc59(R0),
+    V = rand:mwc59_fast_value(R1),
+    mwc59_bytes(N-7, R1, <<Bin/binary, V:56>>);
+mwc59_bytes(N, R0, Bin) when is_integer(N), 0 < N ->
+    R1 = rand:mwc59(R0),
     Bits = N bsl 3,
-    V = R1 bsr (35 - Bits),
+    V = rand:mwc59_fast_value(R1),
     {<<Bin/binary, V:Bits>>, R1};
-lcg35_bytes(N, R0, Bin) ->
-    R1 = rand:lcg35(R0),
-    V = R1 bsr (35 - 32),
-    lcg35_bytes(N - 4, R1, <<Bin/binary, V:32>>).
+mwc59_bytes(0, R0, Bin) ->
+    {Bin, R0}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

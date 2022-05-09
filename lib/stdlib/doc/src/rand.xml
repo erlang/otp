@@ -409,12 +409,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <desc><p>0 .. (2^64 - 1)</p></desc>
     </datatype>
     <datatype>
-      <name name="mcg35_state"/>
-      <desc><p>1 .. ((2^35 - 31) - 1)</p></desc>
-    </datatype>
-    <datatype>
-      <name name="lcg35_state"/>
-      <desc><p>0 .. (2^35 - 1)</p></desc>
+      <name name="mwc59_state"/>
+      <desc><p>1 .. ((16#1ffb072 * 2^29 - 1) - 1)</p></desc>
     </datatype>
   </datatypes>
 
@@ -890,112 +886,158 @@ end.</pre>
       </desc>
     </func>
     <func>
-      <name name="mcg35" arity="1" since="OTP 25.0"/>
-      <fsummary>Return a new generator state / number.</fsummary>
+      <name name="mwc59" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a new generator state.</fsummary>
       <desc>
         <p>
-          Returns a generated Pseudo Random Number which is also
-          the new generated state, <c><anno>X1</anno></c>,
-          according to a classical Multiplicative Congruential Generator
-          (a.k.a Multiplicative Linear Congruential Generator,
-          Lehmer random number generator,
-          Park-Miller random number generator).
+          Returns a new generator state <c><anno>CX1</anno></c>,
+          according to a Multiply With Carry generator,
+          which is an efficient implementation of a
+          Multiplicative Congruential Generator with
+          a power of 2 multiplier and a prime modulus.
         </p>
         <p>
-          This generator uses the modulus 2^35 - 31
-          and the multiplication constant 185852
-          from the paper "Tables of Linear Congruential Generators
-          of different sizes and good lattice structure" by
-          Pierre L'Ecuyer (1997) and they are selected
-          for performance to keep the computation under
-          the Erlang bignum limit.
+          This generator uses the multiplier 2^32 and the modulus
+          16#7fa6502&nbsp;*&nbsp;2^32&nbsp;-&nbsp;1,
+          which have been selected,
+          in collaboration with Sebastiano Vigna,
+          to avoid bignum operations
+          and still get good statistical quality.
+          It can be written as:<br/>
+          <c>C&nbsp;=&nbsp;<anno>CX0</anno>&nbsp;bsr&nbsp;32</c><br/>
+          <c>X&nbsp;=&nbsp;<anno>CX0</anno>&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;32)-1))</c><br/>
+          <c><anno>CX1</anno>&nbsp;=&nbsp;16#7fa6502&nbsp;*&nbsp;X&nbsp;+&nbsp;C</c>
         </p>
         <p>
-          The generator may be written as
-          <c><anno>X1</anno>&nbsp;=&nbsp;(185852*<anno>X0</anno>)&nbsp;rem&nbsp;((1&nbsp;bsl&nbsp;35)-31)</c>,
-          but the properties of the chosen constants has allowed
-          an optimization of the otherwise expensive <c>rem</c> operation.
+          Because the generator uses a multiplier that is
+          a power of 2 it gets statistical flaws for collision tests
+          and birthday spacings tests in 2 and 3 dimensions,
+          so the state should be scrambled, to create
+          an output value.
+        </p><p>
+          The quality of the state bits <c><anno>CX1</anno></c>
+          as a random value is far from good, but if speed is
+          much more important than these imperfections, the lowest
+          say 16 bits of the generator state could be used
+          without scrambling.
+        </p>
+        <p>
+          Function
+          <seemfa marker="#mwc59_fast_value/1">
+            <c>mwc59_fast_value</c>
+          </seemfa>
+          is a fast scrambler that gives 32 decent bits, but still
+          some problems in 2- and 3-dimensional collision tests
+          show through.
+          The slightly slower
+          <seemfa marker="#mwc59_value/1">
+            <c>mwc59_value</c>
+          </seemfa>
+          scrambler returns 58 bits of very good quality, and
+          <seemfa marker="#mwc59_float/1"><c>mwc59_float</c></seemfa>
+          returns a <c>float()</c> of very good quality.
         </p>
         <p>
           On a typical 64 bit Erlang VM this generator executes
-          in just below 10% (1/10) of the time
-          for the default algorithm in this module.
+          in below 8% (1/13) of the time
+          for the default algorithm in the
+          <seeerl marker="#plug_in_api">
+            plug-in framework API
+          </seeerl>
+          of this module.  With the
+          <seemfa marker="#mwc59_fast_value/1">
+            <c>mwc59_fast_value</c>
+          </seemfa>
+          scrambler the total time becomes 16% (1/6),
+          and with
+          <seemfa marker="#mwc59_value/1">
+            <c>mwc59_value</c>
+          </seemfa>
+          it becomes 20% (1/5) of the time for the default algorithm.
+          With
+          <seemfa marker="#mwc59_float/1"><c>mwc59_float</c></seemfa>
+          the total time is 60% of the time for the default
+          algorithm generating a <c>float()</c>.
         </p>
         <note>
           <p>
-            This generator is only suitable for insensitive
-            special niche applications since it has
-            a short period (2^35 - 32),
-            few bits (under 35),
-            is not a power of 2 generator (range 1 .. (2^35 - 32)),
-            offers no help in generating numbers on a specified range,
-            and so on.
-          </p>
-          <p>
-            But for pseudo random load distribution
-            and such it might be useful, since it is very fast.
-            It normally beats even the known-to-be-fast trick
-            <c>erlang:phash2(erlang:unique_integer())</c>.
+            This generator is a niche generator for high speed
+            applications.  It has a much shorter period
+            than the default generator, which in itself
+            is a quality concern, although when used with the
+            value scramblers it passes strict PRNG tests.
+            The generator is much faster than
+            <seemfa marker="#exsp_next/1"><c>exsp_next/1</c></seemfa>
+            but with a bit lower quality.
           </p>
         </note>
       </desc>
     </func>
     <func>
-      <name name="lcg35" arity="1" since="OTP 25.0"/>
-      <fsummary>Return a new generator state / number.</fsummary>
+      <name name="mwc59_fast_value" arity="1" since="OTP 25.0"/>
+      <fsummary>Return the generator value.</fsummary>
       <desc>
         <p>
-          Returns a generated Pseudo Random Number which is also
-          the new generated state, <c><anno>X1</anno></c>,
-          according to a classical Linear Congruential Generator,
-          a power of 2 mixed congruential generator.
+          Returns a 58-bit value <c><anno>V</anno></c>
+          from a generator state <c><anno>CX</anno></c>.
+          The generator state is scrambled using
+          an 8-bit xorshift which masks
+          the statistical imperfecions of the base generator
+          <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
+          enough that the 32 lowest bits are of decent quality.
+          It is not recommended to generate numbers
+          in a range > 2^32 with this function.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="mwc59_value" arity="1" since="OTP 25.0"/>
+      <fsummary>Return the generator value.</fsummary>
+      <desc>
+        <p>
+          Returns a 58-bit value <c><anno>V</anno></c>
+          from a generator state <c><anno>CX</anno></c>.
+          The generator state is scrambled using
+          an 4-bit followed by a 27-bit xorshift, which masks
+          the statistical imperfecions of the base generator
+          <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
+          enough that all 58 bits are of very good quality.
+          Beware of bias in the generated numbers if
+          generating on a non power of 2 range too close to 2^58.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="mwc59_float" arity="1" since="OTP 25.0"/>
+      <fsummary>Return a generated float.</fsummary>
+      <desc>
+        <p>
+          Returns the generator value <c><anno>V</anno></c>
+          from a generator state <c><anno>CX</anno></c>,
+          as a <c>float()</c>.
+          The generator state is scrambled as with
+          <seemfa marker="#mwc59_value/1">
+            <c>mwc59_value/1</c>
+          </seemfa>
+          before converted to a <c>float()</c>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="mwc59_seed" arity="0" since="OTP 25.0"/>
+      <name name="mwc59_seed" arity="1" since="OTP 25.0"/>
+      <fsummary>Create a generator state.</fsummary>
+      <desc>
+        <p>
+          Returns a generator state <c><anno>CX</anno></c>.
+          It is set it to <c><anno>S</anno></c>, after folding it
+          into the state's range, if out of range.
         </p>
         <p>
-          This generator uses the modulus 2^35
-          and the multiplication constant 15319397
-          from the paper "Tables of Linear Congruential Generators
-          of different sizes and good lattice structure" by
-          Pierre L'Ecuyer (1997) and they are selected
-          for performance to keep the computation under
-          the Erlang bignum limit.
-          The addition constant has been selected to
-          15366142135 (it has to be odd) which looks
-          more interesting than simply 1.
+          Without <c><anno>S</anno></c>,
+          the generator state is created as for
+          <seemfa marker="#seed_s/1"><c>seed_s(atom())</c></seemfa>.
         </p>
-        <p>
-          The generator may be written as
-          <c><anno>X1</anno>&nbsp;=&nbsp;((15319397*<anno>X0</anno>)&nbsp;+&nbsp;15366142135)&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;35)-1)</c>.
-        </p>
-        <p>
-          On a typical 64 bit Erlang VM this generator executes
-          in just below 7% (1/15) of the time
-          for the default algorithm in this module,
-          which is the fastest generator the author has seen.
-          It can hardly be beaten by even a BIF
-          implementation of any generator since the execution
-          time is close to the overhead of a BIF call.
-        </p>
-        <note>
-          <p>
-            This generator is only suitable for insensitive
-            special niche applications since it has
-            a short period (2^35), few bits (35),
-            offers no help in generating numbers on a specified range,
-            and has, among others, the known statistical artifact
-            that the lowest bit simply alternates,
-            the next to lowest has a period of 4,
-            and so on, so it is only the highest bits
-            that achieve any form of statistical quality.
-          </p>
-          <p>
-            But for pseudo random load distribution
-            and such it might be useful, since it is extremely fast.
-            The <seemfa marker="#mcg35/1"><c>mcg35/1</c></seemfa>
-            generator above has less statistical artifacts,
-            but instead it has other peculiarities since it is not
-            a power of 2 generator.
-          </p>
-        </note>
       </desc>
     </func>
   </funcs>
