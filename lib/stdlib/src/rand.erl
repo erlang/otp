@@ -38,7 +38,7 @@
 
 %% Utilities
 -export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
-         mwc59/1, mwc59_value/1, mwc59_full_value/1, mwc59_float/1,
+         mwc59/1, mwc59_fast_value/1, mwc59_value/1, mwc59_float/1,
          mwc59_seed/0, mwc59_seed/1]).
 
 %% Test, dev and internal
@@ -1478,8 +1478,8 @@ dummy_seed({A1, A2, A3}) ->
 %% The chosen parameters are:
 %% A = 16#7fa6502
 %% B = 32
-%% Single Xorshift: 16
-%% Double Xorshift: 8, 16
+%% Single Xorshift: 8
+%% Double Xorshift: 4, 27
 %%
 %% These parameters gives the MWC "digit" size 32 bits
 %% which gives them theoretical statistical guarantees,
@@ -1490,19 +1490,13 @@ dummy_seed({A1, A2, A3}) ->
 %% be masked or rem:ed out.
 %%
 %% =====================================================================
-%%% -define(MWC_A, (6)).
-%%% -define(MWC_B, (3)).
-
-%%% -define(MWC59_A, (16#20075dc0)). % 16#1ffb0729
-%%% -define(MWC59_B, (29)).
-
--define(MWC59_A, (16#7fa6502)). % 16#7f17555 16#3f35301
+-define(MWC59_A, (16#7fa6502)).
 -define(MWC59_B, (32)).
 -define(MWC59_P, ((?MWC59_A bsl ?MWC59_B) - 1)).
 
--define(MWC59_XS, 16).
--define(MWC59_XS1, 8).
--define(MWC59_XS2, 16).
+-define(MWC59_XS, 8).
+-define(MWC59_XS1, 4).
+-define(MWC59_XS2, 27).
 
 -type mwc59_state() :: 1..?MWC59_P-1.
 
@@ -1513,13 +1507,13 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
 
--spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
-mwc59_value(CX1) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+-spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(58, CX1),
     CX bxor ?BSL(58, CX, ?MWC59_XS).
 
--spec mwc59_full_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
-mwc59_full_value(CX1) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+-spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
+mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(58, CX1),
     CX2 = CX bxor ?BSL(58, CX, ?MWC59_XS1),
     CX2 bxor ?BSL(58, CX2, ?MWC59_XS2).
@@ -1528,7 +1522,8 @@ mwc59_full_value(CX1) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
 mwc59_float(CX1) ->
     CX = ?MASK(53, CX1),
     CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
-    (CX2 bxor ?BSL(53, CX2, ?MWC59_XS2)) * ?TWO_POW_MINUS53.
+    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
+    CX3 * ?TWO_POW_MINUS53.
 
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
