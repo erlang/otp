@@ -417,7 +417,7 @@ typedef struct {
      * part of the thread progress system.
      */
     erts_atomic64_t dirty_refc;
-    Uint nr_of_rounds;
+    Uint nr_of_rounds_left;
     Uint nr_of_enqueues;
     int alive;
 } ErtsSignalInQueueBufferArray;
