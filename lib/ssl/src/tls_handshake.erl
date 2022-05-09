@@ -436,7 +436,7 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
 	error:_ ->
-	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, handshake_decode_error))
+	    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, handshake_decode_error))
     end;
 get_tls_handshake_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
