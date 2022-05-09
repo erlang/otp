@@ -1194,6 +1194,18 @@ use_all_ec_sign_verify(_Config) ->
             ok;
         _ ->
             ct:log("Fails:~n~p",[Fails]),
+            Errors = lists:usort([Err || {_,Err} <- Fails]),
+            FailedCurves = [Curve || {Curve,_} <- Fails],
+            FailedCurvesPerError = [{E, [C || {C,E0} <- Fails,
+                                              E0 == E]}
+                                    || E <- Errors],
+            ct:pal("~p failed curves: ~p", [length(FailedCurves), FailedCurves]),
+            ct:pal("Failed curves per error:~n~s", 
+                   [
+                    [io_lib:format("  Error: ~p~n Curves: ~p~n~n", [E,Cs])
+                     || {E,Cs} <- FailedCurvesPerError]
+                   ]
+                  ), 
             ct:fail("Bad curve(s)",[])
     end.
 
@@ -1238,13 +1250,31 @@ do_dh_curves(_Config, Curves) ->
                         (_) -> true
                      end, Results),
 
+    Succedes =
+        lists:filter(fun({_,true}) -> true;
+                        (_) -> false
+                     end, Results),
+
     case Fails of
         [] ->
             ct:comment("All ~p passed",[length(Results)]),
             ok;
         _ ->
-            ct:comment("passed: ~p, failed: ~p",[length(Results),length(Fails)]),
+            ct:comment("passed: ~p, failed: ~p",[length(Results)-length(Fails),length(Fails)]),
+            ct:log("Succedes:~n~p",[Succedes]),
             ct:log("Fails:~n~p",[Fails]),
+            Errors = lists:usort([Err || {_,Err} <- Fails]),
+            FailedCurves = [C || {C,_} <- Fails],
+            FailedCurvesPerError = [{E, [C || {C,E0} <- Fails,
+                                              E == E0]}
+                                    || E <- Errors],
+            ct:pal("~p (~p) failed curves: ~p", [length(FailedCurves), length(Results), FailedCurves]),
+            ct:pal("Failed curves per error:~n~s", 
+                   [
+                    [io_lib:format("  Error: ~p~n Curves: ~p~n~n", [E,Cs])
+                     || {E,Cs} <- FailedCurvesPerError]
+                   ]
+                  ), 
             ct:fail("Bad curve(s)",[])
     end.
 
@@ -1274,7 +1304,7 @@ hash_equals(Config) when is_list(Config) ->
         true = crypto:hash_equals(<<"abc">>, <<"abc">>),
         false = crypto:hash_equals(<<"abc">>, <<"abe">>)
     catch
-        error:{notsup,{"hash_equals.c",_Line},"Unsupported CRYPTO_memcmp"} ->
+        error:{notsup,{"hash_equals.c",_Line},"Unsupported CRYPTO_memcmp"++_} ->
             {skip, "No CRYPTO_memcmp"}
     end.
 %%--------------------------------------------------------------------
@@ -4379,7 +4409,7 @@ bad_generate_key_name(_Config) ->
 
 bad_hash_name(_Config) ->
     ?chk_api_name(crypto:hash_init(foobar),
-                  error:{badarg,{"hash.c",_},"Bad digest type"}).
+                  error:{badarg,{"hash.c",_},"Bad digest type"++_}).
 
 bad_mac_name(_Config) ->
     ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),
@@ -4387,15 +4417,15 @@ bad_mac_name(_Config) ->
 
 bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad digest type"}),
+                  error:{badarg, {"pkey.c",_}, "Bad digest type"++_}),
     ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"}).
+                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
     
 bad_verify_name(_Config) ->
     ?chk_api_name(crypto:verify(rsa, foobar, "nothing", <<"nothing">>,  <<1:1024>>),
-                  error:{badarg,{"pkey.c",_},"Bad digest type"}),
+                  error:{badarg,{"pkey.c",_},"Bad digest type"++_}),
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"}).
+                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
 
 
 %%%----------------------------------------------------------------
@@ -4485,7 +4515,7 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     <<"6B9CF26D45455A43A5B8BB276A403B39E7FE37A0C41E02C281FF3069E1E94F52">> =
       F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32)
   catch
-    error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"} ->
+    error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
 
