@@ -4172,17 +4172,24 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
 keyword_warning(Anno, Atom, St) ->
+    Reserved =
+        fun(Ftr) ->
+                lists:member(Atom, erl_features:keywords(Ftr))
+        end,
+
     case is_warn_enabled(keyword_warning, St) of
         true ->
-            Ftrs = erl_features:all(),
-            Reserved =
-                fun(Ftr) ->
-                        lists:member(Atom, erl_features:keywords(Ftr))
-                end,
-            case lists:filter(Reserved, Ftrs) of
-                [] -> St;
-                [Ftr] ->
-                    add_warning(Anno, {future_feature, Ftr, Atom}, St)
+            case erl_anno:text(Anno) of
+                [$'| _] ->
+                    %% Don't warn for quoted atoms
+                    St;
+                _ ->
+                    Ftrs = erl_features:all(),
+                    case lists:filter(Reserved, Ftrs) of
+                        [] -> St;
+                        [Ftr] ->
+                            add_warning(Anno, {future_feature, Ftr, Atom}, St)
+                    end
             end;
         false ->
             St
