@@ -104,7 +104,7 @@ init([HttpdServices]) ->
 %% The format of the httpd service is:
 %% httpd_service() -> {httpd,httpd()}
 %% httpd()         -> [httpd_config()] | file()
-%% httpd_config()  -> {file,file()} |
+%% httpd_config()  -> {proplist_file,file()} |
 %%                    {debug,debug()} |
 %%                    {accept_timeout,integer()}
 %% debug()         -> disable | [debug_options()]
