@@ -1533,29 +1533,32 @@ mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
 
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
 mwc59_float(CX1) ->
-    mwc59_value(CX1) * (1/(1 bsl 59)).
+    CX = ?MASK(59, CX1),
+    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
+    CX3 = CX2 bxor ?BSL(59, CX2, ?MWC59_XS2),
+    (CX3 bsr (59-53)) * ?TWO_POW_MINUS53.
 
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
     {A1, A2, A3} = default_seed(),
-    X1 = hash57(A1),
-    X2 = hash57(A2),
-    X3 = hash57(A3),
-    ?BIT(58) bor (X1 bxor X2 bxor X3).
+    X1 = hash58(A1),
+    X2 = hash58(A2),
+    X3 = hash58(A3),
+    (X1 bxor X2 bxor X3) + 1.
 
--spec mwc59_seed(S :: 0..?MASK(57)) -> CX :: mwc59_state().
-mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(57) ->
-    ?BIT(58) bor hash57(S).
+-spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
+mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
+    hash58(S) + 1.
 
 %% Constants a'la SplitMix64, MurMurHash, etc.
 %% Not that critical, just mix the bits using bijections
 %% (reversible mappings) to not have any two user input seeds
 %% become the same generator start state.
 %%
-hash57(X) ->
-    X0 = ?MASK(57, X),
-    X1 = ?MASK(57, (X0 bxor (X0 bsr 29)) * 16#151afd7ed558ccd),
-    X2 = ?MASK(57, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
+hash58(X) ->
+    X0 = ?MASK(58, X),
+    X1 = ?MASK(58, (X0 bxor (X0 bsr 29)) * 16#351afd7ed558ccd),
+    X2 = ?MASK(58, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
     X2 bxor (X2 bsr 29).
 
 

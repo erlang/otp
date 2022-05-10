@@ -216,25 +216,25 @@ mwc59_api(Config) when is_list(Config) ->
             error({bad_return, CX1})
     catch
         error : function_clause ->
-            try rand:mwc59_seed(1 bsl 57) of
+            try rand:mwc59_seed(1 bsl 58) of
                 CX2 ->
                     error({bad_return, CX2})
             catch
                 error : function_clause ->
-                    Seed = 324109835948422043,
+                    Seed = 11213862807209314,
                     Seed = rand:mwc59_seed(1),
                     mwc59_api(Seed, 1000000)
             end
     end.
 
 mwc59_api(CX0, 0) ->
-    CX = 394988924775693874,
+    CX = 182322083224642863,
     {CX, CX} = {CX0, CX},
     V0 = rand:mwc59_value32(CX0),
-    V = 3767127090,
+    V = 2905950767,
     {V, V} = {V0, V},
     W0 = rand:mwc59_value(CX0),
-    W = 418709302640385298,
+    W = 269866568368142303,
     {W, W} = {W0, W},
     F0 = rand:mwc59_float(CX0),
     F = (W bsr (59-53)) * (1 / (1 bsl 53)),

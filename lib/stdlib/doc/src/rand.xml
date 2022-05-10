@@ -1064,8 +1064,8 @@ end.</pre>
       <desc>
         <p>
           Returns a generator state <c><anno>CX</anno></c>.
-          It is set it to <c><anno>S</anno></c>, after folding it
-          into the state's range, if out of range.
+          <c><anno>S</anno></c> is hashed to create the generator state,
+          to avoid that similar seeds create similar sequences.
         </p>
         <p>
           Without <c><anno>S</anno></c>,
