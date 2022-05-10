@@ -247,6 +247,14 @@
 
   <datatypes>
     <datatype>
+      <name name="server_ref"/>
+      <desc>
+        <p>
+	  Identifies the controlling process of a peer node.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="start_options"/>
       <desc>
         <p>
