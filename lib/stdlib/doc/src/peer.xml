@@ -247,14 +247,6 @@ build_image(Dir) ->
 
   <datatypes>
     <datatype>
-      <name name="server_ref"/>
-      <desc>
-        <p>
-	  Identifies the controlling process of a peer node.
-	</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="start_options"/>
       <desc>
         <p>
@@ -512,7 +504,18 @@ peer:start(#{ name => peer:random_name(),
     </func>
 
     <func>
-      <name name="start" arity="1" since="OTP 25.0"/>
+        <name name="start" arity="0" since="OTP 26.0"/>
+        <fsummary>Starts a peer node without linking controlling process to caller process.</fsummary>
+        <desc>
+            <p>
+                The same as
+                <seemfa marker="#start/1"><c>start(#{name => peer:random_name()})</c></seemfa>.
+            </p>
+        </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="1" since="OTP @OTP-17720@"/>
       <fsummary>Starts a peer node.</fsummary>
       <desc>
         <p>
@@ -530,7 +533,7 @@ peer:start(#{ name => peer:random_name(),
       <desc>
         <p>
           The same as
-          <seemfa marker="#start_link/1"><c>start_link(#{name => random_name()})</c></seemfa>.
+          <seemfa marker="#start_link/1"><c>start_link(#{name => peer:random_name()})</c></seemfa>.
         </p>
       </desc>
     </func>

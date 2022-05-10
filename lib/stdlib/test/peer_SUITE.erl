@@ -22,6 +22,7 @@
 %% Test cases
 -export([
     dist/0, dist/1,
+    peer_unlinked/0, peer_unlinked/1,
     peer_down_crash/0, peer_down_crash/1,
     peer_down_crash_tcp/1,
     peer_down_continue/0, peer_down_continue/1,
@@ -81,6 +82,7 @@ groups() ->
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
                             dist_up_down, dist_localhost, post_process_args, attached,
                             attached_cntrl_channel_handler_crash, cntrl_channel_handler_crash,
+                            peer_unlinked,
                             cntrl_channel_handler_crash_old_release | shutdown_alternatives()]},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
@@ -150,6 +152,14 @@ dist(Config) when is_list(Config) ->
     ct:sleep(500),
     _ = sys:get_state(net_kernel),
     ?assertException(exit, {noproc, _}, peer:get_state(Peer)).
+
+peer_unlinked() ->
+    [{doc, "Ensures that start/0 works"}].
+
+peer_unlinked(Config) when is_list(Config) ->
+    {ok, Peer, Node} = peer:start(),
+    ?assertEqual(Node, erpc:call(Node, erlang, node, [])),
+    peer:stop(Peer).
 
 peer_down_crash() ->
     [{doc, "Tests peer_down handling when crash mode is requested"}].

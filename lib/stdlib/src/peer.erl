@@ -45,6 +45,7 @@
 -export([
          start_link/0,
          start_link/1,
+         start/0,
          start/1,
          stop/1,
 
@@ -58,12 +59,6 @@
          cast/4,
          send/3
         ]).
-
--export_type([server_ref/0]).
-
--type server_ref() :: % What stop, get_state, call, cast, send accepts
-        pid().
-
 
 %% Could be gen_statem too, with peer_state, but most interactions
 %%  are anyway available in all states.
@@ -80,8 +75,6 @@
 
 %% Internal exports for stdin/stdout, non-distribution RPC, and tests
 -export([
-         start/0, %% this function must be named "start", requirement for user.erl
-
          %% Peer supervision...
          supervision_child_spec/0,
          start_supervision/0,
@@ -194,8 +187,8 @@ random_name(Prefix) ->
     lists:concat([Prefix, "-", Uniq, "-", OsPid]).
 
 %% @doc Starts a distributed node with random name, on this host,
-%%      and waits for that node to boot. Returns full node name,
-%%      registers local process with the same name as peer node.
+%%      and waits for that node to boot. Returns a controlling process
+%%      id and full peer node name.
 -spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
 start_link() ->
     start_link(#{name => random_name()}).
@@ -208,6 +201,23 @@ start_link() ->
 start_link(Options) ->
     start_it(Options, start_link).
 
+%% @doc Starts a distributed peer node, not linked to the calling process,
+%%      waits for that node to boot.
+%% @end
+%% NOTE: this function is also used to start the code within peer node via
+%%  undocumented `-user' command line argument. In this case the function
+%%  returns just pid(), to be compatible with user_sup.
+-spec start() -> {ok, pid(), node()} | {error, Reason :: term()} | pid().
+start() ->
+    %% check if we're getting started from user_sup
+    case whereis(kernel_safe_sup) of
+        undefined ->
+            start_user();
+        Pid when is_pid(Pid) ->
+            start(#{name => random_name()})
+    end.
+
+
 %% @doc Starts peer node, not linked to the calling process.
 -spec start(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
@@ -215,23 +225,23 @@ start(Options) ->
     start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
--spec stop(Dest :: server_ref()) -> ok.
+-spec stop(Dest :: gen_server:server_ref()) -> ok.
 stop(Dest) ->
     gen_server:stop(Dest).
 
 %% @doc returns peer node state.
--spec get_state(Dest :: server_ref()) -> peer_state().
+-spec get_state(Dest :: gen_server:server_ref()) -> peer_state().
 get_state(Dest) ->
     gen_server:call(Dest, get_state).
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
--spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: gen_server:server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()]) -> Result :: term().
 call(Dest, M, F, A) ->
     call(Dest, M, F, A, ?SYNC_RPC_TIMEOUT).
 
 %% @doc Call M:F(A) remotely, timeout is explicitly specified
--spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: gen_server:server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()], Timeout :: timeout()) -> Result :: term().
 call(Dest, M, F, A, Timeout) ->
     case gen_server:call(Dest, {call, M, F, A}, Timeout) of
@@ -244,13 +254,13 @@ call(Dest, M, F, A, Timeout) ->
     end.
 
 %% @doc Cast M:F(A) remotely, don't care about the result
--spec cast(Dest :: server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
+-spec cast(Dest :: gen_server:server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
 cast(Dest, M, F, A) ->
     gen_server:cast(Dest, {cast, M, F, A}).
 
 %% @doc Sends a message to pid or named process on the peer node
 %%  using alternative connection. No delivery guarantee.
--spec send(Dest :: server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
+-spec send(Dest :: gen_server:server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
 send(Dest, To, Message) ->
     gen_server:cast(Dest, {send, To, Message}).
 
@@ -1035,8 +1045,7 @@ system_replace_state(StateFun, State) ->
 %% End of peer user supervision
 
 %% I/O redirection: peer side
--spec start() -> pid().
-start() ->
+start_user() ->
     try
         PeerChannelHandler = start_peer_channel_handler(),
         PeerSup = case whereis(peer_supervision) of
