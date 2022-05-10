@@ -1508,6 +1508,18 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
 
+%%% %% Verification by equivalent MCG generator
+%%% mwc59_r(CX1) ->
+%%%     (CX1 bsl ?MWC59_B) rem ?MWC59_P. % Reverse
+%%% %%%     (CX1 * ?MWC59_A) rem ?MWC59_P. % Forward
+%%%
+%%% mwc59(CX0, 0) ->
+%%%     CX0;
+%%% mwc59(CX0, N) ->
+%%%     CX1 = mwc59(CX0),
+%%%     CX0 = mwc59_r(CX1),
+%%%     mwc59(CX1, N - 1).
+
 -spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(59, CX1),
@@ -1526,33 +1538,25 @@ mwc59_float(CX1) ->
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
     {A1, A2, A3} = default_seed(),
-    {X1,_} = splitmix64_next(A1),
-    {X2,_} = splitmix64_next(A2),
-    {X3,_} = splitmix64_next(A3),
-    mwc59_seed_state(X1 bxor X2 bxor X3).
+    X1 = hash57(A1),
+    X2 = hash57(A2),
+    X3 = hash57(A3),
+    ?BIT(58) bor (X1 bxor X2 bxor X3).
 
--spec mwc59_seed(S :: integer()) -> CX :: mwc59_state().
-mwc59_seed(S) when is_integer(S) ->
-    {X,_} = splitmix64_next(mod(?BIT(64), S)),
-    mwc59_seed_state(X).
+-spec mwc59_seed(S :: 0..?MASK(57)) -> CX :: mwc59_state().
+mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(57) ->
+    ?BIT(58) bor hash57(S).
 
-mwc59_seed_state(X) ->
-    %% Ensure non-zero carry and within state range
-    ?BIT(?MWC59_B) bor ?MASK(58, X).
-
-
-
-%%% %% Verification by equivalent MCG generator
-%%% mwc59_r(CX1) ->
-%%%     (CX1 bsl ?MWC59_B) rem ?MWC59_P. % Reverse
-%%% %%%     (CX1 * ?MWC59_A) rem ?MWC59_P. % Forward
-%%%
-%%% mwc59(CX0, 0) ->
-%%%     CX0;
-%%% mwc59(CX0, N) ->
-%%%     CX1 = mwc59(CX0),
-%%%     CX0 = mwc59_r(CX1),
-%%%     mwc59(CX1, N - 1).
+%% Constants a'la SplitMix64, MurMurHash, etc.
+%% Not that critical, just mix the bits using bijections
+%% (reversible mappings) to not have any two user input seeds
+%% become the same generator start state.
+%%
+hash57(X) ->
+    X0 = ?MASK(57, X),
+    X1 = ?MASK(57, (X0 bxor (X0 bsr 29)) * 16#151afd7ed558ccd),
+    X2 = ?MASK(57, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
+    X2 bxor (X2 bsr 29).
 
 
 %% =====================================================================
@@ -1983,17 +1987,17 @@ bc(V, B, N) when B =< V -> N;
 bc(V, B, N) -> bc(V, B bsr 1, N - 1).
 
 
-%% Non-negative rem
-mod(Q, X) when 0 =< X, X < Q ->
-    X;
-mod(Q, X) ->
-    Y = X rem Q,
-    if
-        Y < 0 ->
-            Y + Q;
-        true ->
-            Y
-    end.
+%%% %% Non-negative rem
+%%% mod(Q, X) when 0 =< X, X < Q ->
+%%%     X;
+%%% mod(Q, X) ->
+%%%     Y = X rem Q,
+%%%     if
+%%%         Y < 0 ->
+%%%             Y + Q;
+%%%         true ->
+%%%             Y
+%%%     end.
 
 
 make_float(S, E, M) ->

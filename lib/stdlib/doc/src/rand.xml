@@ -912,16 +912,12 @@ end.</pre>
           Because the generator uses a multiplier that is
           a power of 2 it gets statistical flaws for collision tests
           and birthday spacings tests in 2 and 3 dimensions,
-          so the state should be scrambled, to create
-          an output value.
-        </p><p>
-          The quality of the state bits <c><anno>CX1</anno></c>
-          as a random value is far from good, but if speed is
-          much more important than these imperfections, the lowest
-          say 16 bits of the generator state could be used
-          without scrambling.
+          and even these caveats apply only to the MWC "digit",
+          that is the low 32 bits (due to the multiplier) of
+          the generator state.
         </p>
         <p>
+          To create an output value, the state should be scrambled.
           Function
           <seemfa marker="#mwc59_fast_value/1">
             <c>mwc59_fast_value</c>
@@ -984,14 +980,27 @@ end.</pre>
           an 8-bit xorshift which masks
           the statistical imperfecions of the base generator
           <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
-          enough that the 32 highest bits are of decent quality.
+          enough that the 32 low bits are of decent quality.
+        </p>
+        <p>
+          Be careful to not accidentaly create a bignum
+          when handling the value <c><anno>V</anno></c>.
         </p>
         <p>
           To extract a power of two number it is recommended
-          to shift down the high bits, but for an arbitrary
-          range a `rem` operation on the whole value
-          can be used.  Be careful to not accidentaly create
-          a bignum when handling the value <c><anno>V</anno></c>.
+          to use the high of the decent 32 bits.
+        </p>
+        <p>
+          For an arbitrary range less than 32 bits
+          a <c>rem</c> operation on the whole value can be used,
+          but that is a rather slow operation.
+        </p>
+        <p>
+          For a small arbitrary range less than about 16 bits
+          (to not get too much bias and to avoid bignums)
+          multiply-and-shift can be used,
+          which is much faster than using <c>rem</c>:
+          <c>(Range*(<anno>V</anno>&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;32)-1)))&nbsp;bsr&nbsp;32</c>.
         </p>
         <p>
           It is not recommended to generate numbers
@@ -1013,16 +1022,31 @@ end.</pre>
           enough that all 59 bits are of very good quality.
         </p>
         <p>
-          To extract a power of two number it is recommended
-          to shift down the high bits, but for an arbitrary
-          range a `rem` operation on the whole value
-          can be used.  Be careful to not accidentaly create
-          a bignum when handling the value <c><anno>V</anno></c>.
+          Be careful to not accidentaly create a bignum
+          when handling the value <c><anno>V</anno></c>.
         </p>
         <p>
-          As usual: beware of bias in the generated numbers if
-          generating on range too close to 2^59 that is not
-          a power of 2.
+          To extract a power of two number it is recommended
+          to shift down the high bits.
+        </p>
+        <p>
+          For an arbitrary range a <c>rem</c> operation
+          on the whole value can be used but that is
+          a rather slow operation.  Beware of bias
+          in the generated numbers if generating in a range
+          above about 2^30 (getting too close to 2^59).
+        </p>
+        <p>
+          For a small arbitrary range less than about 20 bits
+          (to not get too much bias and to avoid bignums)
+          multiply-and-shift can be used,
+          which is much faster than using <c>rem</c>.
+          Example for range 1000000;
+          the range is 20 bits, we use 39 bits from the generator,
+          adding up to 59 bits, which is not a bignum:
+          <c>(1000000&nbsp;*&nbsp;(<anno>V</anno>&nbsp;bsr&nbsp;(59-39)))&nbsp;bsr&nbsp;39</c>.
+          <em>
+          </em>
         </p>
       </desc>
     </func>

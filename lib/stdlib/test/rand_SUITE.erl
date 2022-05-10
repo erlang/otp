@@ -211,16 +211,30 @@ api_eq_1(S00) ->
 %% Verify mwc59 behaviour
 %%
 mwc59_api(Config) when is_list(Config) ->
-    mwc59_api(1, 1000000).
+    try rand:mwc59_seed(-1) of
+        CX1 ->
+            error({bad_return, CX1})
+    catch
+        error : function_clause ->
+            try rand:mwc59_seed(1 bsl 57) of
+                CX2 ->
+                    error({bad_return, CX2})
+            catch
+                error : function_clause ->
+                    Seed = 324109835948422043,
+                    Seed = rand:mwc59_seed(1),
+                    mwc59_api(Seed, 1000000)
+            end
+    end.
 
 mwc59_api(CX0, 0) ->
-    CX = 216355295181821136,
+    CX = 394988924775693874,
     {CX, CX} = {CX0, CX},
     V0 = rand:mwc59_fast_value(CX0),
-    V = 262716604851324112,
+    V = 446733510867799090,
     {V, V} = {V0, V},
     W0 = rand:mwc59_value(CX0),
-    W = 528437219928775120,
+    W = 418709302640385298,
     {W, W} = {W0, W},
     F0 = rand:mwc59_float(CX0),
     F = (W bsr (59-53)) * (1 / (1 bsl 53)),
@@ -1162,10 +1176,87 @@ do_measure(Iterations) ->
                           case (V rem Range) + 1 of
                               X when is_integer(X), 0 < X, X =< Range ->
                                   St1
-                            end
+                          end
                   end
           end,
           {exsp,mod}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Fixpoint inversion, slightly skewed
+                            case
+                                ( (Range * ((St1 band ((1 bsl 32)-1))))
+                                      bsr 32 )
+                                + 1
+                            of
+                                R when is_integer(R), 0 < R, R =< Range ->
+                                    St1
+                            end
+                  end
+          end,
+          {mwc59,raw_mas}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Fixpoint inversion, slightly skewed
+                          case
+                              ( (Range *
+                                     ((rand:mwc59_fast_value(St1)
+                                           band ((1 bsl 32)-1) )) )
+                                    bsr 32 )
+                              + 1
+                          of
+                              R when is_integer(R), 0 < R, R =< Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,fast_mas}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000, % 14 bits
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Fixpoint inversion, slightly skewed
+                          case
+                              ( (Range *
+                                     (rand:mwc59_value(St1) bsr 14) )
+                                    bsr (59-14) )
+                                + 1
+                          of
+                              R when is_integer(R), 0 < R, R =< Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,value_mas}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          {V,St1} = rand:exsp_next(St0),
+                          %% Fixpoint inversion, slightly skewed
+                          case
+                              ((Range * (V bsr 14)) bsr (58-14)) + 1
+                          of
+                              X when is_integer(X), 0 < X, X =< Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {exsp,mas}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1231,13 +1322,16 @@ do_measure(Iterations) ->
                   Range = 1 bsl 32,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          case rand:mwc59_fast_value(St1) bsr (59-32) of
+                          case
+                              rand:mwc59_fast_value(St1)
+                              band ((1 bsl 32)-1)
+                          of
                               R when is_integer(R), 0 =< R, R < Range ->
                                   St1
                           end
                   end
           end,
-          {mwc59,fast_shift}, Iterations,
+          {mwc59,fast_mask}, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
@@ -1419,7 +1513,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          splitmix64_inline, Iterations,
+          {splitmix64,next}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
@@ -1525,7 +1619,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          splitmix64_inline, Iterations,
+          {splitmix64,next}, Iterations,
           TMarkUniform64Bit, OverheadUniform64Bit),
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
@@ -1745,8 +1839,6 @@ measure_init(Alg) ->
             {?MODULE, undefined};
         system_time ->
             {?MODULE, undefined};
-        splitmix64_inline ->
-            {rand, erlang:unique_integer()};
         procdict ->
             {rand, rand:seed(exsss)};
         {Name, Tag} ->
@@ -1758,7 +1850,9 @@ measure_init(Alg) ->
                     {rand, rand:mwc59_seed()};
                 exsp ->
                     {_, S} = rand:seed_s(exsp),
-                    {rand, S}
+                    {rand, S};
+                splitmix64 ->
+                    {rand, erlang:unique_integer()}
             end;
         _ ->
             {rand, rand:seed_s(Alg)}
