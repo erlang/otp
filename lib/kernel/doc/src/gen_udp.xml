@@ -91,6 +91,18 @@
           <seemfa marker="#open/1"><c>open/1,2</c></seemfa>.</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="multicast_if"/>
+    </datatype>
+    <datatype>
+      <name name="ip_multicast_if"/>
+    </datatype>
+    <datatype>
+      <name name="ip6_multicast_if"/>
+      <desc>
+        <p>For IPv6 this is an interface index (an integer).</p>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
