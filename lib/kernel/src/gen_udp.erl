@@ -42,7 +42,7 @@
         {high_msgq_watermark, pos_integer()} |
         {low_msgq_watermark, pos_integer()} |
         {mode,            list | binary} | list | binary |
-        {multicast_if,    inet:ip_address()} |
+        {multicast_if,    multicast_if()} |
         {multicast_loop,  boolean()} |
         {multicast_ttl,   non_neg_integer()} |
         {priority,        non_neg_integer()} |
@@ -105,7 +105,12 @@
 
 -type socket() :: inet:socket().
 
--export_type([option/0, open_option/0, option_name/0, socket/0]).
+-type ip_multicast_if()  :: inet:ip4_address().
+-type ip6_multicast_if() :: integer(). % interface index
+-type multicast_if()     :: ip_multicast_if() | ip6_multicast_if().
+
+-export_type([option/0, open_option/0, option_name/0, socket/0,
+              multicast_if/0, ip_multicast_if/0, ip6_multicast_if/0]).
 
 
 %% -- open ------------------------------------------------------------------
