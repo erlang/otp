@@ -38,7 +38,7 @@
 
 %% Utilities
 -export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
-         mwc59/1, mwc59_fast_value/1, mwc59_value/1, mwc59_float/1,
+         mwc59/1, mwc59_value32/1, mwc59_value/1, mwc59_float/1,
          mwc59_seed/0, mwc59_seed/1]).
 
 %% Test, dev and internal
@@ -1520,10 +1520,10 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
 %%%     CX0 = mwc59_r(CX1),
 %%%     mwc59(CX1, N - 1).
 
--spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
-mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(59, CX1),
-    CX bxor ?BSL(59, CX, ?MWC59_XS).
+-spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
+mwc59_value32(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(32, CX1),
+    CX bxor ?BSL(32, CX, ?MWC59_XS).
 
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->

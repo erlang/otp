@@ -917,14 +917,13 @@ end.</pre>
           the generator state.
         </p>
         <p>
-          To create an output value, the state should be scrambled.
+          To create an output value, the quality improves much
+          if the state is scrambled.
           Function
-          <seemfa marker="#mwc59_fast_value/1">
-            <c>mwc59_fast_value</c>
+          <seemfa marker="#mwc59_value32/1">
+            <c>mwc59_value32</c>
           </seemfa>
-          is a fast scrambler that returns a 59-bit number with
-          32 decent bits, but still some problems in 2- and
-          3-dimensional collision tests show through.
+          is a fast scrambler that returns a decent 32-bit number.
           The slightly slower
           <seemfa marker="#mwc59_value/1">
             <c>mwc59_value</c>
@@ -934,6 +933,15 @@ end.</pre>
           returns a <c>float()</c> of very good quality.
         </p>
         <p>
+          The low bits of the base generator are surprisingly good,
+          so the lowest 16 bits actually passes fairly strict PRNG tests,
+          despite the generator's weaknesses that lies in the high
+          bits of the 32-bit MWC "digit".  It is recommended
+          to use <c>rem</c> on the the generator state,
+          or bit mask on the lowest bits to produce numbers
+          in a range 16 bits or less.
+        </p>
+        <p>
           On a typical 64 bit Erlang VM this generator executes
           in below 8% (1/13) of the time
           for the default algorithm in the
@@ -941,8 +949,8 @@ end.</pre>
             plug-in framework API
           </seeerl>
           of this module.  With the
-          <seemfa marker="#mwc59_fast_value/1">
-            <c>mwc59_fast_value</c>
+          <seemfa marker="#mwc59_value32/1">
+            <c>mwc59_value32</c>
           </seemfa>
           scrambler the total time becomes 16% (1/6),
           and with
@@ -970,41 +978,31 @@ end.</pre>
       </desc>
     </func>
     <func>
-      <name name="mwc59_fast_value" arity="1" since="OTP 25.0"/>
+      <name name="mwc59_value32" arity="1" since="OTP 25.0"/>
       <fsummary>Return the generator value.</fsummary>
       <desc>
         <p>
-          Returns a 59-bit value <c><anno>V</anno></c>
+          Returns a 32-bit value <c><anno>V</anno></c>
           from a generator state <c><anno>CX</anno></c>.
           The generator state is scrambled using
           an 8-bit xorshift which masks
           the statistical imperfecions of the base generator
           <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
-          enough that the 32 low bits are of decent quality.
-        </p>
-        <p>
-          Be careful to not accidentaly create a bignum
-          when handling the value <c><anno>V</anno></c>.
+          enough to produce numbers of decent quality.
+          Still some problems in 2- and 3-dimensional
+          birthday spacing and collision tests show through.
         </p>
         <p>
           To extract a power of two number it is recommended
-          to use the high of the decent 32 bits.
-        </p>
-        <p>
-          For an arbitrary range less than 32 bits
-          a <c>rem</c> operation on the whole value can be used,
-          but that is a rather slow operation.
+          to use the high bits which helps in hiding
+          the remaining base generator problems.
         </p>
         <p>
           For a small arbitrary range less than about 16 bits
           (to not get too much bias and to avoid bignums)
           multiply-and-shift can be used,
           which is much faster than using <c>rem</c>:
-          <c>(Range*(<anno>V</anno>&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;32)-1)))&nbsp;bsr&nbsp;32</c>.
-        </p>
-        <p>
-          It is not recommended to generate numbers
-          in a range > 2^32 with this function.
+          <c>(Range*<anno>V</anno>)&nbsp;bsr&nbsp;32</c>.
         </p>
       </desc>
     </func>
@@ -1026,25 +1024,18 @@ end.</pre>
           when handling the value <c><anno>V</anno></c>.
         </p>
         <p>
-          To extract a power of two number it is recommended
-          to shift down the high bits.
+          To extract a power of two number it is slightly better
+          to shift down the high bits than to mask the low.
         </p>
         <p>
-          For an arbitrary range a <c>rem</c> operation
-          on the whole value can be used but that is
-          a rather slow operation.  Beware of bias
-          in the generated numbers if generating in a range
-          above about 2^30 (getting too close to 2^59).
-        </p>
-        <p>
-          For a small arbitrary range less than about 20 bits
+          For an arbitrary range less than about 29 bits
           (to not get too much bias and to avoid bignums)
           multiply-and-shift can be used,
           which is much faster than using <c>rem</c>.
-          Example for range 1000000;
-          the range is 20 bits, we use 39 bits from the generator,
+          Example for range 1'000'000'000;
+          the range is 30 bits, we use 29 bits from the generator,
           adding up to 59 bits, which is not a bignum:
-          <c>(1000000&nbsp;*&nbsp;(<anno>V</anno>&nbsp;bsr&nbsp;(59-39)))&nbsp;bsr&nbsp;39</c>.
+          <c>(1000000000&nbsp;*&nbsp;(<anno>V</anno>&nbsp;bsr&nbsp;(59-29)))&nbsp;bsr&nbsp;29</c>.
           <em>
           </em>
         </p>

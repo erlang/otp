@@ -230,8 +230,8 @@ mwc59_api(Config) when is_list(Config) ->
 mwc59_api(CX0, 0) ->
     CX = 394988924775693874,
     {CX, CX} = {CX0, CX},
-    V0 = rand:mwc59_fast_value(CX0),
-    V = 446733510867799090,
+    V0 = rand:mwc59_value32(CX0),
+    V = 3767127090,
     {V, V} = {V0, V},
     W0 = rand:mwc59_value(CX0),
     W = 418709302640385298,
@@ -242,11 +242,11 @@ mwc59_api(CX0, 0) ->
     ok;
 mwc59_api(CX, N)
   when is_integer(CX), 1 =< CX, CX < (16#7fa6502 bsl 32) - 1 ->
-    V = rand:mwc59_fast_value(CX),
+    V = rand:mwc59_value32(CX),
     W = rand:mwc59_value(CX),
     F = rand:mwc59_float(CX),
     true = 0 =< V,
-    true = V < 1 bsl 59,
+    true = V < 1 bsl 32,
     true = 0 =< W,
     true = W < 1 bsl 59,
     true = 0.0 =< F,
@@ -1143,21 +1143,6 @@ do_measure(Iterations) ->
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
                           %% Just a 'rem' with slightly skewed distribution
-                            case (rand:mwc59_fast_value(St1) rem Range) + 1 of
-                                R when is_integer(R), 0 < R, R =< Range ->
-                                    St1
-                            end
-                  end
-          end,
-          {mwc59,fast_mod}, Iterations,
-          TMarkUniformRange10000, OverheadUniformRange1000),
-    _ =
-        measure_1(
-          fun (_Mod, _State) ->
-                  Range = 10000,
-                  fun (St0) ->
-                          St1 = rand:mwc59(St0),
-                          %% Just a 'rem' with slightly skewed distribution
                             case (rand:mwc59_value(St1) rem Range) + 1 of
                                 R when is_integer(R), 0 < R, R =< Range ->
                                     St1
@@ -1187,31 +1172,9 @@ do_measure(Iterations) ->
                   Range = 10000,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          %% Fixpoint inversion, slightly skewed
-                            case
-                                ( (Range * ((St1 band ((1 bsl 32)-1))))
-                                      bsr 32 )
-                                + 1
-                            of
-                                R when is_integer(R), 0 < R, R =< Range ->
-                                    St1
-                            end
-                  end
-          end,
-          {mwc59,raw_mas}, Iterations,
-          TMarkUniformRange10000, OverheadUniformRange1000),
-    _ =
-        measure_1(
-          fun (_Mod, _State) ->
-                  Range = 10000,
-                  fun (St0) ->
-                          St1 = rand:mwc59(St0),
-                          %% Fixpoint inversion, slightly skewed
+                          %% Multiply-and-shift, slightly skewed
                           case
-                              ( (Range *
-                                     ((rand:mwc59_fast_value(St1)
-                                           band ((1 bsl 32)-1) )) )
-                                    bsr 32 )
+                              ((Range * rand:mwc59_value32(St1)) bsr 32)
                               + 1
                           of
                               R when is_integer(R), 0 < R, R =< Range ->
@@ -1227,7 +1190,7 @@ do_measure(Iterations) ->
                   Range = 10000, % 14 bits
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          %% Fixpoint inversion, slightly skewed
+                          %% Multiply-and-shift, slightly skewed
                           case
                               ( (Range *
                                      (rand:mwc59_value(St1) bsr 14) )
@@ -1247,7 +1210,7 @@ do_measure(Iterations) ->
                   Range = 10000,
                   fun (St0) ->
                           {V,St1} = rand:exsp_next(St0),
-                          %% Fixpoint inversion, slightly skewed
+                          %% Multiply-and-shift, slightly skewed
                           case
                               ((Range * (V bsr 14)) bsr (58-14)) + 1
                           of
@@ -1322,16 +1285,13 @@ do_measure(Iterations) ->
                   Range = 1 bsl 32,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          case
-                              rand:mwc59_fast_value(St1)
-                              band ((1 bsl 32)-1)
-                          of
+                          case rand:mwc59_value32(St1) of
                               R when is_integer(R), 0 =< R, R < Range ->
                                   St1
                           end
                   end
           end,
-          {mwc59,fast_mask}, Iterations,
+          {mwc59,fast}, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
@@ -1460,10 +1420,10 @@ do_measure(Iterations) ->
     _ =
         measure_1(
           fun (_Mod, _State) ->
-                  Range = (1 bsl 59) - 1,
+                  Range = (1 bsl 32) - 1,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          V = rand:mwc59_fast_value(St1),
+                          V = rand:mwc59_value32(St1),
                           if
                               is_integer(V), 0 =< V, V =< Range ->
                                   St1
@@ -1882,19 +1842,19 @@ mwc59_bytes(N, R0, Bin) when is_integer(N), 7*4 =< N ->
     R3 = rand:mwc59(R2),
     R4 = rand:mwc59(R3),
     Shift = 59 - 56,
-    V1 = rand:mwc59_fast_value(R1) bsr Shift,
-    V2 = rand:mwc59_fast_value(R2) bsr Shift,
-    V3 = rand:mwc59_fast_value(R3) bsr Shift,
-    V4 = rand:mwc59_fast_value(R4) bsr Shift,
+    V1 = rand:mwc59_value(R1) bsr Shift,
+    V2 = rand:mwc59_value(R2) bsr Shift,
+    V3 = rand:mwc59_value(R3) bsr Shift,
+    V4 = rand:mwc59_value(R4) bsr Shift,
     mwc59_bytes(N-7*4, R4, <<Bin/binary, V1:56, V2:56, V3:56, V4:56>>);
 mwc59_bytes(N, R0, Bin) when is_integer(N), 7 =< N ->
     R1 = rand:mwc59(R0),
-    V = rand:mwc59_fast_value(R1) bsr (59-56),
+    V = rand:mwc59_value(R1) bsr (59-56),
     mwc59_bytes(N-7, R1, <<Bin/binary, V:56>>);
 mwc59_bytes(N, R0, Bin) when is_integer(N), 0 < N ->
     R1 = rand:mwc59(R0),
     Bits = N bsl 3,
-    V = rand:mwc59_fast_value(R1) bsr (59-Bits),
+    V = rand:mwc59_value(R1) bsr (59-Bits),
     {<<Bin/binary, V:Bits>>, R1};
 mwc59_bytes(0, R0, Bin) ->
     {Bin, R0}.
