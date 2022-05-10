@@ -1182,7 +1182,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {mwc59,fast_mas}, Iterations,
+          {mwc59,value32_mas}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1291,7 +1291,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {mwc59,fast}, Iterations,
+          {mwc59,value32}, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     _ =
         measure_1(
@@ -1430,7 +1430,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {mwc59,fast}, Iterations,
+          {mwc59,value32}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     _ =
         measure_1(
