@@ -1533,10 +1533,10 @@ mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
 
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
 mwc59_float(CX1) ->
-    CX = ?MASK(59, CX1),
-    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
-    CX3 = CX2 bxor ?BSL(59, CX2, ?MWC59_XS2),
-    (CX3 bsr (59-53)) * ?TWO_POW_MINUS53.
+    CX = ?MASK(53, CX1),
+    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
+    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
+    CX3 * ?TWO_POW_MINUS53.
 
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->

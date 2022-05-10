@@ -237,7 +237,7 @@ mwc59_api(CX0, 0) ->
     W = 269866568368142303,
     {W, W} = {W0, W},
     F0 = rand:mwc59_float(CX0),
-    F = (W bsr (59-53)) * (1 / (1 bsl 53)),
+    F = (W band ((1 bsl 53)-1)) * (1 / (1 bsl 53)),
     {F, F} = {F0, F},
     ok;
 mwc59_api(CX, N)
