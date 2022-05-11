@@ -104,10 +104,7 @@ start(Args) when is_map(Args) ->
     case gen_statem:start({local, ?MODULE}, ?MODULE, Args, []) of
         {ok, Pid} -> Pid;
         {error, _Reason} ->
-            spawn(fun() ->
-                          process_flag(trap_exit, true),
-                          user:start()
-                  end)
+            user:start()
     end.
 
 callback_mode() -> state_functions.
@@ -118,13 +115,11 @@ init(Args) ->
         {'EXIT', _Reason} ->
             {stop, normal};
         Port ->
-            {ok, init, {Args, #state{ } },
+            {ok, init, {Args, #state{ user = start_user() } },
              {next_event, internal, Port}}
     end.
 
-init(internal, Port, {Args, State}) ->
-
-    User = start_user(),
+init(internal, Port, {Args, State = #state{ user = User }}) ->
 
     %% Cleanup ancestors so that observer looks nice
     put('$ancestors',[User|get('$ancestors')]),

@@ -45,7 +45,7 @@ init(Flags) ->
 	nouser ->
 	    ignore;
 	{master, Master} ->
-	    Pid = start_slave(Master),
+	    Pid = start_relay(Master),
 	    {ok, Pid, Pid};
 	{M, F, A} ->
 	    case start_user(M, F, A) of
@@ -56,7 +56,7 @@ init(Flags) ->
 	    end
     end.
 
-start_slave(Master) ->
+start_relay(Master) ->
     case rpc:call(Master, erlang, whereis, [user]) of
 	User when is_pid(User) ->
 	    spawn(?MODULE, relay, [User]);
