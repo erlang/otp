@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -225,6 +225,26 @@
             reduce the paths in stack traces to the module name alone.
 	    This option will make it easier to achieve reproducible builds.
 	    </p>
+          </item>
+
+          <tag><c>{feature, Feature, enable | disable}</c></tag>
+          <item>
+            <p><marker id="feature-option"/>
+            Enable (disable) the <seeguide
+            marker="system/reference_manual:features#features">feature</seeguide>
+            <c>Feature</c> during compilation.  The special feature
+            <c>all</c> can be used to enable (disable) all features.
+	    </p>
+            <note>
+              <p><marker id="feature-directive"/>
+              A feature can also be enabled (disabled) using the
+              <c>-feature(Feature, enable | disable).</c> module attribute.
+              Note that this directive can only be present in a prefix
+              of the file, before exports and function definitions.
+              This is the preferred method of enabling and disabling
+              features, since it is a local property of a module.
+              </p>
+            </note>
           </item>
 
           <tag><c>makedep</c></tag>
@@ -653,6 +673,18 @@ module.beam: module.erl \
 	      in functional objects or list comprehensions with the same 
 	      name as some already defined variable. Default is to 
 	      emit warnings for such variables.</p>   
+          </item>
+
+	  <tag><c>warn_keywords</c></tag>
+          <item>
+	    <p><marker id="warn-keywords"/>
+              Emits warnings when the code contains atoms that are
+            used as keywords in some <seeguide
+            marker="system/reference_manual:features#features">feature</seeguide>.
+            When the feature is enabled, any occurrences will lead to
+            a syntax error.  To prevent this, the atom has to
+            be renamed or quoted.
+            </p>
           </item>
 
 	  <tag><c>nowarn_unused_function</c></tag>

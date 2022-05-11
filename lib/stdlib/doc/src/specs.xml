@@ -15,6 +15,7 @@
   <xi:include href="../specs/specs_erl_error.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
+  <xi:include href="../specs/specs_erl_features.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>
   <xi:include href="../specs/specs_erl_internal.xml"/>
   <xi:include href="../specs/specs_erl_lint.xml"/>

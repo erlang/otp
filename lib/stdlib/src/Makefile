@@ -185,6 +185,7 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_anno.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_error.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_features.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
