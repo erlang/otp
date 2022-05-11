@@ -96,7 +96,8 @@ MODULES = \
         x509_test \
 	inet_crypto_dist \
 	openssl_ocsp_SUITE \
-	tls_server_session_ticket_SUITE
+	tls_server_session_ticket_SUITE \
+	tls_client_ticket_store_SUITE
 
 
 ERL_FILES = $(MODULES:%=%.erl)
