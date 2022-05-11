@@ -92,6 +92,16 @@ server(Iname, Oname, Shell) ->
     end.
 
 server1(Iport, Oport, Shell) ->
+
+    Encoding =
+        case get_unicode_state(Iport) of
+            true -> unicode;
+            false -> latin1
+        end,
+
+    %% Initialize standard_error
+    ok = io:setopts(standard_error, [{encoding, Encoding}, {onlcr,true}]),
+
     put(eof, false),
     %% Start user and initial shell.
     User = start_user(),

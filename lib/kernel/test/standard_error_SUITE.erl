@@ -34,8 +34,10 @@ badarg(Config) when is_list(Config) ->
     true = erlang:is_process_alive(whereis(standard_error)),
     ok.
 
+%% Check that standard_out and standard_error have the same encoding
 getopts(Config) when is_list(Config) ->
-    [{encoding,latin1}] = io:getopts(standard_error),
+    Encoding = proplists:get_value(encoding, io:getopts(user)),
+    Encoding = proplists:get_value(encoding, io:getopts(standard_error)),
     ok.
 
 %% Test that writing a lot of output to standard_error does not cause the

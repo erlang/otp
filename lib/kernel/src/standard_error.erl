@@ -66,6 +66,7 @@ server(PortName,PortSettings) ->
 
 run(P) ->
     put(encoding, latin1),
+    put(onlcr, false),
     server_loop(P).
 
 server_loop(Port) ->
@@ -161,7 +162,7 @@ io_request({get_geometry,rows},Port) ->
 io_request(getopts, _Port) ->
     getopts();
 io_request({setopts,Opts}, _Port) when is_list(Opts) ->
-    setopts(Opts);
+    do_setopts(Opts);
 io_request({requests,Reqs}, Port) ->
     io_requests(Reqs, {ok,ok}, Port);
 io_request(R, _Port) ->                      %Unknown request
@@ -203,19 +204,27 @@ put_chars(Chars, Port) when is_binary(Chars) ->
     {ok,ok}.
 
 %% setopts
-setopts(Opts0) ->
+do_setopts(Opts0) ->
     Opts = expand_encoding(Opts0),
     case check_valid_opts(Opts) of
         true ->
-            do_setopts(Opts);
+            lists:foreach(
+              fun({encoding, Enc}) ->
+                      put(encoding, Enc);
+                 ({onlcr, Bool}) ->
+                      put(onlcr, Bool)
+              end, Opts),
+            {ok, ok};
         false ->
             {error,{error,enotsup}}
     end.
 
 check_valid_opts([]) ->
     true;
-check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
-                                            Valid =:= utf8; Valid =:= latin1 ->
+check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode; Valid =:= utf8;
+                                            Valid =:= latin1 ->
+    check_valid_opts(T);
+check_valid_opts([{onlcr,Bool}|T]) when is_boolean(Bool) ->
     check_valid_opts(T);
 check_valid_opts(_) ->
     false.
@@ -226,27 +235,21 @@ expand_encoding([latin1 | T]) ->
     [{encoding,latin1} | expand_encoding(T)];
 expand_encoding([unicode | T]) ->
     [{encoding,unicode} | expand_encoding(T)];
+expand_encoding([utf8 | T]) ->
+    [{encoding,unicode} | expand_encoding(T)];
+expand_encoding([{encoding,utf8} | T]) ->
+    [{encoding,unicode} | expand_encoding(T)];
 expand_encoding([H|T]) ->
     [H|expand_encoding(T)].
 
-do_setopts(Opts) ->
-    case proplists:get_value(encoding, Opts) of
-        Valid when Valid =:= unicode; Valid =:= utf8 ->
-            put(encoding, unicode);
-        latin1 ->
-            put(encoding, latin1);
-        undefined ->
-            ok
-    end,
-    {ok,ok}.
-
 getopts() ->
     Uni = {encoding,get(encoding)},
-    {ok,[Uni]}.
+    Onlcr = {onlcr, get(onlcr)},
+    {ok,[Uni, Onlcr]}.
 
 wrap_characters_to_binary(Chars,From,To) ->
-    TrNl = (whereis(user_drv) =/= undefined),
-    Limit = case To of 
+    TrNl = get(onlcr),
+    Limit = case To of
 		latin1 ->
 		    255;
 		_Else ->
