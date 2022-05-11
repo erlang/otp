@@ -59,6 +59,12 @@
          send/3
         ]).
 
+-export_type([server_ref/0]).
+
+-type server_ref() :: % What stop, get_state, call, cast, send accepts
+        pid().
+
+
 %% Could be gen_statem too, with peer_state, but most interactions
 %%  are anyway available in all states.
 -behaviour(gen_server).
@@ -193,23 +199,23 @@ start(Options) ->
     start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
--spec stop(gen_statem:server_ref()) -> ok.
+-spec stop(Dest :: server_ref()) -> ok.
 stop(Dest) ->
     gen_server:stop(Dest).
 
 %% @doc returns peer node state.
--spec get_state(Dest :: gen_statem:server_ref()) -> peer_state().
+-spec get_state(Dest :: server_ref()) -> peer_state().
 get_state(Dest) ->
     gen_server:call(Dest, get_state).
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
--spec call(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()]) -> Result :: term().
 call(Dest, M, F, A) ->
     call(Dest, M, F, A, ?SYNC_RPC_TIMEOUT).
 
 %% @doc Call M:F(A) remotely, timeout is explicitly specified
--spec call(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(),
+-spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()], Timeout :: timeout()) -> Result :: term().
 call(Dest, M, F, A, Timeout) ->
     case gen_server:call(Dest, {call, M, F, A}, Timeout) of
@@ -222,13 +228,13 @@ call(Dest, M, F, A, Timeout) ->
     end.
 
 %% @doc Cast M:F(A) remotely, don't care about the result
--spec cast(Dest :: gen_statem:server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
+-spec cast(Dest :: server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
 cast(Dest, M, F, A) ->
     gen_server:cast(Dest, {cast, M, F, A}).
 
 %% @doc Sends a message to pid or named process on the peer node
 %%  using alternative connection. No delivery guarantee.
--spec send(Dest :: gen_statem:server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
+-spec send(Dest :: server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
 send(Dest, To, Message) ->
     gen_server:cast(Dest, {send, To, Message}).
 
