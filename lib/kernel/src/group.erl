@@ -22,7 +22,6 @@
 %% A group leader process for user io.
 
 -export([start/2, start/3, server/3]).
--export([interfaces/1]).
 
 start(Drv, Shell) ->
     start(Drv, Shell, []).
@@ -40,31 +39,8 @@ server(Drv, Shell, Options) ->
 	proplists:get_value(expand_fun, Options,
 			    fun(B) -> edlin_expand:expand(B) end)),
     put(echo, proplists:get_value(echo, Options, true)),
-    
-    start_shell(Shell),
-    server_loop(Drv, get(shell), []).
 
-%% Return the pid of user_drv and the shell process.
-%% Note: We can't ask the group process for this info since it
-%% may be busy waiting for data from the driver.
-interfaces(Group) ->
-    case process_info(Group, dictionary) of
-	{dictionary,Dict} ->
-	    get_pids(Dict, [], false);
-	_ ->
-	    []
-    end.
-
-get_pids([Drv = {user_drv,_} | Rest], Found, _) ->
-    get_pids(Rest, [Drv | Found], true);
-get_pids([Sh = {shell,_} | Rest], Found, Active) ->
-    get_pids(Rest, [Sh | Found], Active);
-get_pids([_ | Rest], Found, Active) ->
-    get_pids(Rest, Found, Active);
-get_pids([], Found, true) ->
-    Found;
-get_pids([], _Found, false) ->
-    [].
+    server_loop(Drv, start_shell(Shell), []).
 
 %% start_shell(Shell)
 %%  Spawn a shell with its group_leader from the beginning set to ourselves.
@@ -81,9 +57,9 @@ start_shell(Shell) when is_function(Shell) ->
 start_shell(Shell) when is_pid(Shell) ->
     group_leader(self(), Shell),		% we are the shells group leader
     link(Shell),				% we're linked to it.
-    put(shell, Shell);
+    Shell;
 start_shell(_Shell) ->
-    ok.
+    undefined.
 
 start_shell1(M, F, Args) ->
     G = group_leader(),
@@ -92,7 +68,7 @@ start_shell1(M, F, Args) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    put(shell, Shell);
+	    Shell;
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
     end.
@@ -104,7 +80,7 @@ start_shell1(Fun) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    put(shell, Shell);
+	    Shell;
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
     end.
@@ -127,7 +103,7 @@ server_loop(Drv, Shell, Buf0) ->
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,interrupt} ->
 	    %% Send interrupt to the shell.
-	    exit_shell(interrupt),
+	    exit_shell(Shell, interrupt),
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,R} ->
 	    exit(R);
@@ -143,11 +119,10 @@ server_loop(Drv, Shell, Buf0) ->
 	    server_loop(Drv, Shell, Buf0)
     end.
 
-exit_shell(Reason) ->
-    case get(shell) of
-	undefined -> true;
-	Pid -> exit(Pid, Reason)
-    end.
+exit_shell(undefined, _Reason) ->
+    true;
+exit_shell(Pid, Reason) ->
+    exit(Pid, Reason).
 
 get_tty_geometry(Drv) ->
     Drv ! {self(),tty_geometry},
@@ -192,7 +167,7 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 	    %% 'kill' instead of R, since the shell is not always in
 	    %% a state where it is ready to handle a termination
 	    %% message.
-	    exit_shell(kill),
+	    exit_shell(Shell, kill),
 	    exit(R)
     end.
 

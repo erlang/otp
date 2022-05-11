@@ -23,8 +23,6 @@
 
 -export([start/0,start/1,start/2,start/3,server/2,server/3]).
 
--export([interfaces/1]).
-
 -include_lib("kernel/include/logger.hrl").
 
 -define(OP_PUTC,0).
@@ -64,26 +62,6 @@ start(Pname, Shell) ->
 
 start(Iname, Oname, Shell) ->
     spawn(user_drv, server, [Iname,Oname,Shell]).
-
-
-%% Return the pid of the active group process.
-%% Note: We can't ask the user_drv process for this info since it
-%% may be busy waiting for data from the port.
-
--spec interfaces(pid()) -> [{'current_group', pid()}].
-
-interfaces(UserDrv) ->
-    case process_info(UserDrv, dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keysearch(current_group, 1, Dict) of
-		{value,Gr={_,Group}} when is_pid(Group) ->
-		    [Gr];
-		_ ->
-		    []
-	    end;
-	_ ->
-	    []
-    end.
 
 %% server(Pid, Shell)
 %% server(Pname, Shell)
@@ -147,7 +125,6 @@ server1(Iport, Oport, Shell) ->
 		{group:start(self(), Shell),Shell}
 	end,
 
-    put(current_group, Curr),
     Gr = gr_add_cur(Gr1, Curr, Shell1),
     %% Print some information.
     io_request({put_chars, unicode,
@@ -191,7 +168,6 @@ start_user() ->
    
 server_loop(Iport, Oport, User, Gr, IOQueue) ->
     Curr = gr_cur_pid(Gr),
-    put(current_group, Curr),
     server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
 
 server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
@@ -254,7 +230,6 @@ server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
 			    Pid1 = group:start(self(), {shell,start,Params}),
 			    {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, Pid1, 
 							     {shell,start,Params}), Ix),
-			    put(current_group, Pid1),
 			    server_loop(Iport, Oport, Pid1, User, Gr2, IOQueue);
 			_ -> % remote shell
 			    io_requests([{put_chars,unicode,"(^G to start new job) ***\n"}],
