@@ -20,8 +20,59 @@
 -module(user_drv).
 
 %% Basic interface to a port.
+%%
+%% This is responsible for a couple of things:
+%%   - Dispatching I/O messages when erl is running as a terminal.
+%%     The messages are listed in the type message/0.
+%%   - Any data received from the terminal is sent to the current group like this:
+%%     `{DrvPid :: pid(), {data, UnicodeBinary :: binary()}}`
+%%   - It serves as the job control manager (i.e. what happens when you type ^G)
+%%   - Starts potential -remsh sessions to other nodes
+%%
+-type message() ::
+        %% I/O requests that modify the terminal
+        {Sender :: pid(), request()} |
+        %% Query the server of the current dimensions of the terminal.
+        %% `Sender` will be sent the message:
+        %%   `{DrvPid :: pid(), tty_geometry, {Width :: integer(), Height :: integer()}}`
+        {Sender :: pid(), tty_geometry} |
+        %% Query the server if it supports unicode characters
+        %% `Sender` will be sent the message:
+        %%   `{DrvPid :: pid(), get_unicode_state, SupportUnicode :: boolean()}`
+        {Sender :: pid(), get_unicode_state} |
+        %% Change whether the server supports unicode characters or not. The reply
+        %% contains the previous unicode state.
+        %% `Sender` will be sent the message:
+        %%   `{DrvPid :: pid(), set_unicode_state, SupportedUnicode :: boolean()}`
+        {Sender :: pid(), set_unicode_state, boolean()}.
+-type request() ::
+        %% Put characters at current cursor position,
+        %% overwriting any characters it encounters.
+        {put_chars, unicode, binary()} |
+        %% Same as put_chars/3, but sends Reply to From when the characters are
+        %% guaranteed to have been written to the terminal
+        {put_chars_sync, unicode, binary(), {From :: pid(), Reply :: term()}} |
+        %% Move the cursor X characters left or right (negative is left)
+        {move_rel, -32768..32767} |
+        %% Insert characters at current cursor position moving any
+        %% characters after the cursor.
+        {insert_chars, unicode, binary()} |
+        %% Delete X chars before or after the cursor adjusting any test remaining
+        %% to the right of the cursor.
+        {delete_chars, -32768..32767} |
+        %% Trigger a terminal "bell"
+        beep |
+        %% Execute multiple request() actions
+        {requests, [request()]}.
 
--export([start/0,start/1,start/2,start/3,server/2,server/3]).
+-export_type([message/0]).
+-export([start/0, start/1]).
+
+%% gen_statem state callbacks
+-export([init/3,server/3,switch_loop/3]).
+
+%% gen_statem callbacks
+-export([init/1, callback_mode/0]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -37,77 +88,57 @@
 -define(CTRL_OP_GET_UNICODE_STATE, (101 + ?ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER)).
 -define(CTRL_OP_SET_UNICODE_STATE, (102 + ?ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER)).
 
+-record(state, { port, user, current_group, groups, queue }).
+
 %% start()
-%% start(ArgumentList)
-%% start(PortName, Shell)
-%% start(InPortName, OutPortName, Shell)
-%%  Start the user driver server. The arguments to start/1 are slightly
-%%  strange as this may be called both at start up from the command line
-%%  and explicitly from other code.
 
 -spec start() -> pid().
 
 start() ->					%Default line editing shell
-    spawn(user_drv, server, ['tty_sl -c -e',{shell,start,[init]}]).
+    start(#{}).
 
-start([Pname]) ->
-    spawn(user_drv, server, [Pname,{shell,start,[init]}]);
-start([Pname|Args]) ->
-    spawn(user_drv, server, [Pname|Args]);
-start(Pname) ->
-    spawn(user_drv, server, [Pname,{shell,start,[init]}]).
-
-start(Pname, Shell) ->
-    spawn(user_drv, server, [Pname,Shell]).
-
-start(Iname, Oname, Shell) ->
-    spawn(user_drv, server, [Iname,Oname,Shell]).
-
-%% server(Pid, Shell)
-%% server(Pname, Shell)
-%% server(Iname, Oname, Shell)
-%%  The initial calls to run the user driver. These start the port(s)
-%%  then call server1/3 to set everything else up.
-
-server(Pid, Shell) when is_pid(Pid) ->
-    server1(Pid, Pid, Shell);
-server(Pname, Shell) ->
-    process_flag(trap_exit, true),
-    case catch open_port({spawn,Pname}, [eof]) of
-	{'EXIT', _} ->
-	    %% Let's try a dumb user instead
-	    user:start();
-	Port ->
-	    server1(Port, Port, Shell)
+%% Backwards compatibility with pre OTP-26 for Elixir/LFE etc
+start(['tty_sl -c -e', Shell]) ->
+    start(#{ initial_shell => Shell });
+start(Args) when is_map(Args) ->
+    case gen_statem:start({local, ?MODULE}, ?MODULE, Args, []) of
+        {ok, Pid} -> Pid;
+        {error, _Reason} ->
+            spawn(fun() ->
+                          process_flag(trap_exit, true),
+                          user:start()
+                  end)
     end.
 
-server(Iname, Oname, Shell) ->
+callback_mode() -> state_functions.
+
+init(Args) ->
     process_flag(trap_exit, true),
-    case catch open_port({spawn,Iname}, [eof]) of
-	{'EXIT', _} -> %% It might be a dumb terminal lets start dumb user
-	    user:start();
-	Iport ->
-	    Oport = open_port({spawn,Oname}, [eof]),
-	    server1(Iport, Oport, Shell)
+    case catch open_port({spawn,"tty_sl -c -e"}, [eof]) of
+        {'EXIT', _Reason} ->
+            {stop, normal};
+        Port ->
+            {ok, init, {Args, #state{ } },
+             {next_event, internal, Port}}
     end.
 
-server1(Iport, Oport, Shell) ->
+init(internal, Port, {Args, State}) ->
 
+    User = start_user(),
+
+    %% Cleanup ancestors so that observer looks nice
+    put('$ancestors',[User|get('$ancestors')]),
+
+    %% Initialize standard_error
     Encoding =
-        case get_unicode_state(Iport) of
+        case get_unicode_state(Port) of
             true -> unicode;
             false -> latin1
         end,
-
-    %% Initialize standard_error
     ok = io:setopts(standard_error, [{encoding, Encoding}, {onlcr,true}]),
 
-    put(eof, false),
-    %% Start user and initial shell.
-    User = start_user(),
-    Gr1 = gr_add_cur(gr_new(), User, {}),
-
-    {Curr,Shell1} =
+    %% Initialize the starting shell
+    {Curr,Shell} =
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
                 ANode =
@@ -129,21 +160,31 @@ server1(Iport, Oport, Shell) ->
                     end,
 
 		RShell = {ANode,shell,start,[]},
-		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
-		{RGr,RShell};
+		{group:start(self(), RShell, rem_sh_opts(ANode)), RShell};
 	    E when E =:= error ; E =:= {ok,[[]]} ->
-		{group:start(self(), Shell),Shell}
+		LShell = maps:get(initial_shell, Args, {shell,start,[init]}),
+		{group:start(self(), LShell), LShell}
 	end,
 
-    Gr = gr_add_cur(Gr1, Curr, Shell1),
-    %% Print some information.
-    io_request({put_chars, unicode,
-		flatten(io_lib:format("~ts\n",
-				      [erlang:system_info(system_version)]))},
-	       Iport, Oport),
+    Gr1 = gr_add_cur(gr_new(), User, {}),
+    Gr = gr_add_cur(Gr1, Curr, Shell),
 
-    %% Enter the server loop.
-    server_loop(Iport, Oport, Curr, User, Gr, {false, queue:new()}).
+    NewState = State#state{ port = Port, current_group = Curr, user = User,
+                            groups = Gr, queue = {false, queue:new()}
+                          },
+
+    %% Print some information.
+    Slogan = case application:get_env(stdlib, shell_slogan,
+                                      fun() -> erlang:system_info(system_version) end) of
+                 Fun when is_function(Fun, 0) ->
+                     Fun();
+                 SloganEnv ->
+                     SloganEnv
+             end,
+
+    {next_state, server, NewState,
+     {next_event, info,
+      {Curr, {put_chars, unicode, lists:flatten(io_lib:format("~ts\n", [Slogan]))}}}}.
 
 append_hostname(Node, LocalNode) ->
     case string:find(Node,"@") of
@@ -161,12 +202,6 @@ rem_sh_opts(Node) ->
 %%  of course, a 'user' already exists.
 
 start_user() ->
-    case whereis(user_drv) of
-	undefined ->
-	    register(user_drv, self());
-	_ ->
-	    ok
-    end,
     case whereis(user) of
 	undefined ->
 	    User = group:start(self(), {}),
@@ -175,305 +210,302 @@ start_user() ->
 	User ->
 	    User
     end.
-   
-server_loop(Iport, Oport, User, Gr, IOQueue) ->
-    Curr = gr_cur_pid(Gr),
-    server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
 
-server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
-    receive
-	{Iport,{data,Bs}} ->
-	    BsBin = list_to_binary(Bs),
-	    Unicode = unicode:characters_to_list(BsBin,utf8),
-	    port_bytes(Unicode, Iport, Oport, Curr, User, Gr, IOQueue);
-	{Iport,eof} ->
-	    Curr ! {self(),eof},
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+server(info, {Port,{data,Bs}}, State = #state{ port = Port }) ->
+    UTF8Binary = list_to_binary(Bs),
+    case contains_ctrl_g_or_ctrl_c(UTF8Binary) of
+        ctrl_g -> {next_state, switch_loop, State, {next_event, internal, init}};
+        ctrl_c ->
+            case gr_get_info(State#state.groups, State#state.current_group) of
+                undefined -> ok;
+                _ -> exit(State#state.current_group, interrupt)
+            end,
+            keep_state_and_data;
+        none ->
+            State#state.current_group !
+                {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+            keep_state_and_data
+    end;
+server(info, {Port,eof}, State = #state{ port = Port }) ->
+    State#state.current_group ! {self(),eof},
+    keep_state_and_data;
+server(info, {Requester,tty_geometry}, #state{ port = Port }) ->
+    Requester ! {self(),tty_geometry,get_tty_geometry(Port)},
+    keep_state_and_data;
+server(info, {Requester,get_unicode_state}, #state{ port = Port }) ->
+    Requester ! {self(),get_unicode_state,get_unicode_state(Port)},
+    keep_state_and_data;
+server(info, {Requester,set_unicode_state,Bool}, #state{ port = Port }) ->
+    Requester ! {self(),set_unicode_state,set_unicode_state(Port, Bool)},
+    keep_state_and_data;
+server(info, Req, State = #state{ user = User, current_group = Curr })
+  when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
+       tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
+    %% We match {User|Curr,_}|{User|Curr,_,_}
+    {keep_state, State#state{ queue = handle_req(Req, State#state.port, State#state.queue) }};
+server(info, {Port, ok}, State = #state{ port = Port, queue = {{Origin, Reply}, IOQ} }) ->
+    %% We get this ok from the port, in io_request we store
+    %% info about where to send reply at head of queue
+    Origin ! {reply,Reply},
+    {keep_state, State#state{ queue = handle_req(next, Port, {false, IOQ}) }};
+server(info,{'EXIT',Port, _Reason}, #state{ port = Port }) ->
+    keep_state_and_data;
+server(info,{'EXIT',User, shutdown}, #state{ user = User }) ->
+    keep_state_and_data;
+server(info,{'EXIT',User, _Reason}, State = #state{ user = User }) ->
+    NewUser = start_user(),
+    {keep_state, State#state{ user = NewUser,
+                              groups = gr_set_num(State#state.groups, 1, NewUser, {})}};
+server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
+    case gr_cur_pid(State#state.groups) of
+        Group when Reason =/= die ,
+                   Reason =/= terminated  ->	% current shell exited
+            if Reason =/= normal ->
+                    io_requests([{put_chars,unicode,"*** ERROR: "}], State#state.port);
+               true -> % exit not caused by error
+                    io_requests([{put_chars,unicode,"*** "}], State#state.port)
+            end,
+            io_requests([{put_chars,unicode,"Shell process terminated! "}], State#state.port),
+            Gr1 = gr_del_pid(State#state.groups, Group),
+            case gr_get_info(State#state.groups, Group) of
+                {Ix,{shell,start,Params}} -> % 3-tuple == local shell
+                    io_requests([{put_chars,unicode,"***\n"}], State#state.port),
+                    %% restart group leader and shell, same index
+                    NewGroup = group:start(self(), {shell,start,Params}),
+                    {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, NewGroup,
+                                                     {shell,start,Params}), Ix),
+                    {keep_state, State#state{ current_group = NewGroup, groups = Gr2 }};
+                _ -> % remote shell
+                    io_requests([{put_chars,unicode,"(^G to start new job) ***\n"}],
+                                State#state.port),
+                    {keep_state, State#state{ groups = Gr1 }}
+            end;
+        _ ->  % not current, just remove it
+            {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
+    end;
+server(info,{Requester, {put_chars_sync, _, _, Reply}}, _State) ->
+    %% This is a sync request from an unknown or inactive group.
+    %% We need to ack the Req otherwise originating process will hang forever.
+    %% We discard the output to non visible shells
+    Requester ! {reply, Reply},
+    keep_state_and_data;
+server(_, _, _) ->
+    %% Ignore unknown messages.
+    keep_state_and_data.
 
-        %% We always handle geometry and unicode requests
-        {Requester,tty_geometry} ->
-            Requester ! {self(),tty_geometry,get_tty_geometry(Iport)},
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-        {Requester,get_unicode_state} ->
-            Requester ! {self(),get_unicode_state,get_unicode_state(Iport)},
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-        {Requester,set_unicode_state, Bool} ->
-            Requester ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-
-        Req when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
-                 tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
-            %% We match {User|Curr,_}|{User|Curr,_,_}
-            NewQ = handle_req(Req, Iport, Oport, IOQueue),
-            server_loop(Iport, Oport, Curr, User, Gr, NewQ);
-        {Oport,ok} ->
-            %% We get this ok from the port, in io_request we store
-            %% info about where to send reply at head of queue
-            {Origin,Reply} = Resp,
-            Origin ! {reply,Reply},
-            NewQ = handle_req(next, Iport, Oport, {false, IOQ}),
-            server_loop(Iport, Oport, Curr, User, Gr, NewQ);
-	{'EXIT',Iport,_R} ->
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-	{'EXIT',Oport,_R} ->
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-        {'EXIT',User,shutdown} ->               % force data to port
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-	{'EXIT',User,_R} ->			% keep 'user' alive
-	    NewU = start_user(),
-	    server_loop(Iport, Oport, Curr, NewU, gr_set_num(Gr, 1, NewU, {}), IOQueue);
-	{'EXIT',Pid,R} ->			% shell and group leader exit
-	    case gr_cur_pid(Gr) of
-		Pid when R =/= die ,
-			 R =/= terminated  ->	% current shell exited
-		    if R =/= normal ->
-			    io_requests([{put_chars,unicode,"*** ERROR: "}], Iport, Oport);
-		       true -> % exit not caused by error
-			    io_requests([{put_chars,unicode,"*** "}], Iport, Oport)
-		    end,
-		    io_requests([{put_chars,unicode,"Shell process terminated! "}], Iport, Oport),
-		    Gr1 = gr_del_pid(Gr, Pid),		    
-		    case gr_get_info(Gr, Pid) of
-			{Ix,{shell,start,Params}} -> % 3-tuple == local shell
-			    io_requests([{put_chars,unicode,"***\n"}], Iport, Oport),	    
-			    %% restart group leader and shell, same index
-			    Pid1 = group:start(self(), {shell,start,Params}),
-			    {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, Pid1, 
-							     {shell,start,Params}), Ix),
-			    server_loop(Iport, Oport, Pid1, User, Gr2, IOQueue);
-			_ -> % remote shell
-			    io_requests([{put_chars,unicode,"(^G to start new job) ***\n"}],
-					Iport, Oport),	    
-			    server_loop(Iport, Oport, Curr, User, Gr1, IOQueue)
-		    end;
-		_ ->				% not current, just remove it
-		    server_loop(Iport, Oport, Curr, User, gr_del_pid(Gr, Pid), IOQueue)
-	    end;
-        {Requester, {put_chars_sync, _, _, Reply}} ->
-            %% We need to ack the Req otherwise originating process will hang forever
-            %% Do discard the output to non visible shells (as was done previously)
-            Requester ! {reply, Reply},
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-	_X ->
-            %% Ignore unknown messages.
-            server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
-    end.
-
-handle_req(next,Iport,Oport,{false,IOQ}=IOQueue) ->
+handle_req(next,Port,{false,IOQ}=IOQueue) ->
     case queue:out(IOQ) of
         {empty,_} ->
 	    IOQueue;
         {{value,{Origin,Req}},ExecQ} ->
-            case io_request(Req, Iport, Oport) of
+            case io_request(Req,Port) of
                 ok ->
-		    handle_req(next,Iport,Oport,{false,ExecQ});
+		    handle_req(next,Port,{false,ExecQ});
                 Reply ->
-		    {{Origin,Reply}, ExecQ}
+		    {{Origin,Reply},ExecQ}
             end
     end;
-handle_req(Msg,Iport,Oport,{false,IOQ}=IOQueue) ->
+handle_req(Msg,Port,{false,IOQ}=IOQueue) ->
     empty = queue:peek(IOQ),
     {Origin,Req} = Msg,
-    case io_request(Req, Iport, Oport) of
+    case io_request(Req, Port) of
 	ok ->
 	    IOQueue;
 	Reply ->
 	    {{Origin,Reply}, IOQ}
     end;
-handle_req(Msg,_Iport,_Oport,{Resp, IOQ}) ->
+handle_req(Msg,_Port,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars
     {Resp, queue:in(Msg,IOQ)}.
 
-%% port_bytes(Bytes, InPort, OutPort, CurrentProcess, UserProcess, Group)
-%%  Check the Bytes from the port to see if it contains a ^G. If so,
-%%  either escape to switch_loop or restart the shell. Otherwise send 
-%%  the bytes to Curr.
+contains_ctrl_g_or_ctrl_c(<<$\^G,_/binary>>) ->
+    ctrl_g;
+contains_ctrl_g_or_ctrl_c(<<$\^C,_/binary>>) ->
+    ctrl_c;
+contains_ctrl_g_or_ctrl_c(<<_/utf8,T/binary>>) ->
+    contains_ctrl_g_or_ctrl_c(T);
+contains_ctrl_g_or_ctrl_c(<<>>) ->
+    none.
 
-port_bytes([$\^G|_Bs], Iport, Oport, _Curr, User, Gr, IOQueue) ->
-    handle_escape(Iport, Oport, User, Gr, IOQueue);
-
-port_bytes([$\^C|_Bs], Iport, Oport, Curr, User, Gr, IOQueue) ->
-    interrupt_shell(Iport, Oport, Curr, User, Gr, IOQueue);
-
-port_bytes([B], Iport, Oport, Curr, User, Gr, IOQueue) ->
-    Curr ! {self(),{data,[B]}},
-    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
-port_bytes(Bs, Iport, Oport, Curr, User, Gr, IOQueue) ->
-    case member($\^G, Bs) of
-	true ->
-	    handle_escape(Iport, Oport, User, Gr, IOQueue);
-	false ->
-	    Curr ! {self(),{data,Bs}},
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
-    end.
-
-interrupt_shell(Iport, Oport, Curr, User, Gr, IOQueue) ->
-    case gr_get_info(Gr, Curr) of
-	undefined -> 
-	    ok;					% unknown
-	_ ->
-	    exit(Curr, interrupt)
-    end,
-    server_loop(Iport, Oport, Curr, User, Gr, IOQueue).
-
-handle_escape(Iport, Oport, User, Gr, IOQueue) ->
-    case application:get_env(stdlib, shell_esc) of
-	{ok,abort} ->
-	    Pid = gr_cur_pid(Gr),
-	    exit(Pid, die),
+switch_loop(internal, init, State) ->
+    case application:get_env(stdlib, shell_esc, jcl) of
+	abort ->
+	    CurrGroup = gr_cur_pid(State#state.groups),
+	    exit(CurrGroup, die),
 	    Gr1 =
-		case gr_get_info(Gr, Pid) of
-		    {_Ix,{}} ->			% no shell
-			Gr;
+		case gr_get_info(State#state.groups, CurrGroup) of
+		    {_Ix,{}} ->	% no shell
+			State#state.groups;
 		    _ ->
-			receive {'EXIT',Pid,_} ->
-				gr_del_pid(Gr, Pid)
+			receive {'EXIT',CurrGroup,_} ->
+				gr_del_pid(State#state.groups, CurrGroup)
 			after 1000 ->
-				Gr
+				State#state.groups
 			end
 		end,
-	    Pid1 = group:start(self(), {shell,start,[]}),
-	    io_request({put_chars,unicode,"\n"}, Iport, Oport),
-	    server_loop(Iport, Oport, User, 
-			gr_add_cur(Gr1, Pid1, {shell,start,[]}), IOQueue);
-
-	_ ->					% {ok,jcl} | undefined
-	    io_request({put_chars,unicode,"\nUser switch command\n"}, Iport, Oport),
+	    NewGroup = group:start(self(), {shell,start,[]}),
+	    io_request({put_chars,unicode,"\n"}, State#state.port),
+            {next_state, server,
+             State#state{ groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
+	jcl ->
+	    io_request({put_chars,unicode,"\nUser switch command\n"}, State#state.port),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
-	    edlin:init(gr_cur_pid(Gr)),
-	    server_loop(Iport, Oport, User, switch_loop(Iport, Oport, Gr), IOQueue)
-    end.
+	    edlin:init(gr_cur_pid(State#state.groups)),
+            {keep_state_and_data,
+             {next_event, internal, line}}
+    end;
+switch_loop(internal, line, State) ->
+    {more_chars, Cont, Rs} = edlin:start(" --> "),
+    io_requests(Rs, State#state.port),
+    {keep_state, {Cont, State}};
+switch_loop(internal, {line, Line}, State) ->
+    case erl_scan:string(Line) of
+        {ok, Tokens, _} ->
+            case switch_cmd(Tokens, State#state.port, State#state.groups) of
+                {ok, Groups} ->
+                    {next_state, server,
+                     State#state{ current_group = gr_cur_pid(Groups), groups = Groups } };
+                retry ->
+                    {keep_state_and_data,
+                     {next_event, internal, line}};
+                {retry, Groups} ->
+                    {keep_state, State#state{ current_group = gr_cur_pid(Groups),
+                                              groups = Groups },
+                     {next_event, internal, line}}
+            end;
+        {error, _, _} ->
+            io_request({put_chars,unicode,"Illegal input\n"}, State#state.port),
+            {keep_state_and_data,
+             {next_event, internal, line}}
+    end;
+switch_loop(info,{Port,{data,Cs}}, {Cont, State}) ->
+    case edlin:edit_line(Cs, Cont) of
+        {done,Line,_Rest, Rs} ->
+            io_requests(Rs, State#state.port),
+            {keep_state, State, {next_event, internal, {line, Line}}};
+        {undefined,_Char,MoreCs,NewCont,Rs} ->
+            io_requests(Rs, State#state.port),
+            io_request(beep, State#state.port),
+            {keep_state, {NewCont, State},
+             {next_event, info, {Port,{data,MoreCs}}}};
+        {more_chars,NewCont,Rs} ->
+            io_requests(Rs, State#state.port),
+            {keep_state, {NewCont, State}};
+        {blink,NewCont,Rs} ->
+            io_requests(Rs, State#state.port),
+            {keep_state, {NewCont, State}, 1000}
+    end;
+switch_loop(timeout, _, State) ->
+    {keep_state_and_data,
+     {next_state, info,{State#state.port,{data,[]}}}};
+switch_loop(info, _Unknown, _State) ->
+    {keep_state_and_data, postpone}.
 
-switch_loop(Iport, Oport, Gr) ->
-    Line = get_line(edlin:start(" --> "), Iport, Oport),
-    switch_cmd(erl_scan:string(Line), Iport, Oport, Gr).
+switch_cmd([{atom,_,Key},{Type,_,Value}], Port, Gr)
+  when Type =:= atom; Type =:= integer ->
+    switch_cmd({Key, Value}, Port, Gr);
+switch_cmd([{atom,_,Key},{atom,_,V1},{atom,_,V2}], Port, Gr) ->
+    switch_cmd({Key, V1, V2}, Port, Gr);
+switch_cmd([{atom,_,Key}], Port, Gr) ->
+    switch_cmd(Key, Port, Gr);
+switch_cmd([{'?',_}], Port, Gr) ->
+    switch_cmd(h, Port, Gr);
 
-switch_cmd({ok,[{atom,_,c},{integer,_,I}],_}, Iport, Oport, Gr0) ->
+switch_cmd(Cmd, Port, Gr) when Cmd =:= c; Cmd =:= i; Cmd =:= k ->
+    Pid = gr_cur_pid(Gr),
+    CurrIndex =
+        case gr_get_info(Gr, Pid) of
+            undefined -> undefined;
+            {Ix, _} -> Ix
+        end,
+    switch_cmd({Cmd, CurrIndex}, Port, Gr);
+switch_cmd({c, I}, Port, Gr0) ->
     case gr_set_cur(Gr0, I) of
-	{ok,Gr} -> Gr;
-	undefined -> unknown_group(Iport, Oport, Gr0)
+	{ok,Gr} -> {ok, Gr};
+	undefined -> unknown_group(Port)
     end;
-switch_cmd({ok,[{atom,_,c}],_}, Iport, Oport, Gr) ->
-    case gr_get_info(Gr, gr_cur_pid(Gr)) of
-	undefined -> 
-	    unknown_group(Iport, Oport, Gr);
-	_ ->
-	    Gr
-    end;
-switch_cmd({ok,[{atom,_,i},{integer,_,I}],_}, Iport, Oport, Gr) ->
+switch_cmd({i, I}, Port, Gr) ->
     case gr_get_num(Gr, I) of
 	{pid,Pid} ->
 	    exit(Pid, interrupt),
-	    switch_loop(Iport, Oport, Gr);
+	    retry;
 	undefined ->
-	    unknown_group(Iport, Oport, Gr)
+	    unknown_group(Port)
     end;
-switch_cmd({ok,[{atom,_,i}],_}, Iport, Oport, Gr) ->
-    Pid = gr_cur_pid(Gr),
-    case gr_get_info(Gr, Pid) of
-	undefined -> 
-	    unknown_group(Iport, Oport, Gr);
-	_ ->
-	    exit(Pid, interrupt),
-	    switch_loop(Iport, Oport, Gr)
-    end;
-switch_cmd({ok,[{atom,_,k},{integer,_,I}],_}, Iport, Oport, Gr) ->
+switch_cmd({k, I}, Port, Gr) ->
     case gr_get_num(Gr, I) of
 	{pid,Pid} ->
 	    exit(Pid, die),
 	    case gr_get_info(Gr, Pid) of
 		{_Ix,{}} ->			% no shell
-		    switch_loop(Iport, Oport, Gr);
+		    retry;
 		_ ->
-		    Gr1 = 
-			receive {'EXIT',Pid,_} ->
-				gr_del_pid(Gr, Pid)
-			after 1000 ->
-				Gr
-			end,
-		    switch_loop(Iport, Oport, Gr1)
+                    receive {'EXIT',Pid,_} ->
+                            {retry,gr_del_pid(Gr, Pid)}
+                    after 1000 ->
+                            {retry,Gr}
+                    end
 	    end;
 	undefined ->
-	    unknown_group(Iport, Oport, Gr)
+	    unknown_group(Port)
     end;
-switch_cmd({ok,[{atom,_,k}],_}, Iport, Oport, Gr) ->
-    Pid = gr_cur_pid(Gr),
-    Info = gr_get_info(Gr, Pid), 
-    case Info of
-	undefined ->
-	    unknown_group(Iport, Oport, Gr);
-	{_Ix,{}} ->				% no shell
-	    switch_loop(Iport, Oport, Gr);
-	_ ->
-	    exit(Pid, die),
-	    Gr1 = 
-		receive {'EXIT',Pid,_} ->
-			gr_del_pid(Gr, Pid)
-		after 1000 ->
-			Gr
-		end,
-	    switch_loop(Iport, Oport, Gr1)
-    end;
-switch_cmd({ok,[{atom,_,j}],_}, Iport, Oport, Gr) ->
-    io_requests(gr_list(Gr), Iport, Oport),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{atom,_,s},{atom,_,Shell}],_}, Iport, Oport, Gr0) ->
+switch_cmd(j, Port, Gr) ->
+    io_requests(gr_list(Gr), Port),
+    retry;
+switch_cmd({s, Shell}, _Port, Gr0) when is_atom(Shell) ->
     Pid = group:start(self(), {Shell,start,[]}),
     Gr = gr_add_cur(Gr0, Pid, {Shell,start,[]}),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{atom,_,s}],_}, Iport, Oport, Gr0) ->
-    Pid = group:start(self(), {shell,start,[]}),
-    Gr = gr_add_cur(Gr0, Pid, {shell,start,[]}),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{atom,_,r}],_}, Iport, Oport, Gr0) ->
+    {retry, Gr};
+switch_cmd(s, Port, Gr) ->
+    switch_cmd({s, shell}, Port, Gr);
+switch_cmd(r, Port, Gr0) ->
     case is_alive() of
 	true ->
 	    Node = pool:get_node(),
 	    Pid = group:start(self(), {Node,shell,start,[]}),
 	    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
-	    switch_loop(Iport, Oport, Gr);
+	    {retry, Gr};
 	false ->
-	    io_request({put_chars,unicode,"Not alive\n"}, Iport, Oport),
-	    switch_loop(Iport, Oport, Gr0)
+	    io_request({put_chars,unicode,"Node is not alive\n"}, Port),
+            retry
     end;
-switch_cmd({ok,[{atom,_,r},{atom,_,Node}],_}, Iport, Oport, Gr0) ->
-    Pid = group:start(self(), {Node,shell,start,[]}),
-    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{atom,_,r},{atom,_,Node},{atom,_,Shell}],_},
-	   Iport, Oport, Gr0) ->
-    Pid = group:start(self(), {Node,Shell,start,[]}),
-    Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{atom,_,q}],_}, Iport, Oport, Gr) ->
+switch_cmd({r, Node}, Port, Gr) when is_atom(Node)->
+    switch_cmd({r, Node, shell}, Port, Gr);
+switch_cmd({r,Node,Shell}, Port, Gr0) when is_atom(Node),
+                                            is_atom(Shell) ->
+    case is_alive() of
+	true ->
+            Pid = group:start(self(), {Node,Shell,start,[]}),
+            Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
+            {retry, Gr};
+        false ->
+            io_request({put_chars,unicode,"Node is not alive\n"}, Port),
+            retry
+    end;
+switch_cmd(q, Port, _Gr) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
-	    io_request({put_chars,unicode,"Unknown command\n"}, Iport, Oport),
-	    switch_loop(Iport, Oport, Gr);
+	    io_request({put_chars,unicode,"Unknown command\n"}, Port),
+	    retry;
 	false ->
 	    halt()
     end;
-switch_cmd({ok,[{atom,_,h}],_}, Iport, Oport, Gr) ->
-    list_commands(Iport, Oport),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[{'?',_}],_}, Iport, Oport, Gr) ->
-    list_commands(Iport, Oport),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,[],_}, Iport, Oport, Gr) ->
-    switch_loop(Iport, Oport, Gr);
-switch_cmd({ok,_Ts,_}, Iport, Oport, Gr) ->
-    io_request({put_chars,unicode,"Unknown command\n"}, Iport, Oport),
-    switch_loop(Iport, Oport, Gr);
-switch_cmd(_Ts, Iport, Oport, Gr) ->
-    io_request({put_chars,unicode,"Illegal input\n"}, Iport, Oport),
-    switch_loop(Iport, Oport, Gr).
+switch_cmd(h, Port, _Gr) ->
+    list_commands(Port),
+    retry;
+switch_cmd([], _Port, _Gr) ->
+    retry;
+switch_cmd(_Ts, Port, _Gr) ->
+    io_request({put_chars,unicode,"Unknown command\n"}, Port),
+    retry.
 
-unknown_group(Iport, Oport, Gr) ->
-    io_request({put_chars,unicode,"Unknown job\n"}, Iport, Oport),
-    switch_loop(Iport, Oport, Gr).
+unknown_group(Port) ->
+    io_request({put_chars,unicode,"Unknown job\n"}, Port),
+    retry.
 
-list_commands(Iport, Oport) ->
+
+list_commands(Port) ->
     QuitReq = case erlang:system_info(break_ignored) of
 		  true -> 
 		      [];
@@ -488,42 +520,20 @@ list_commands(Iport, Oport) ->
 		 {put_chars, unicode,"  r [node [shell]]  - start remote shell\n"}] ++
 		QuitReq ++
 		[{put_chars, unicode,"  ? | h             - this message\n"}],
-		Iport, Oport).
-
-get_line({done,Line,_Rest,Rs}, Iport, Oport) ->
-    io_requests(Rs, Iport, Oport),
-    Line;
-get_line({undefined,_Char,Cs,Cont,Rs}, Iport, Oport) ->
-    io_requests(Rs, Iport, Oport),
-    io_request(beep, Iport, Oport),
-    get_line(edlin:edit_line(Cs, Cont), Iport, Oport);
-get_line({What,Cont0,Rs}, Iport, Oport) ->
-    io_requests(Rs, Iport, Oport),
-    receive
-	{Iport,{data,Cs}} ->
-	    get_line(edlin:edit_line(Cs, Cont0), Iport, Oport);
-	{Iport,eof} ->
-	    get_line(edlin:edit_line(eof, Cont0), Iport, Oport)
-    after
-	get_line_timeout(What) ->
-	    get_line(edlin:edit_line([], Cont0), Iport, Oport)
-    end.
-
-get_line_timeout(blink) -> 1000;
-get_line_timeout(more_chars) -> infinity.
+		Port).
 
 % Let driver report window geometry,
 % definitely outside of the common interface
-get_tty_geometry(Iport) ->
-    case (catch port_control(Iport,?CTRL_OP_GET_WINSIZE,[])) of
+get_tty_geometry(Port) ->
+    case (catch port_control(Port,?CTRL_OP_GET_WINSIZE,[])) of
 	List when length(List) =:= 8 -> 
 	    <<W:32/native,H:32/native>> = list_to_binary(List),
 	    {W,H};
 	_ ->
 	    error
     end.
-get_unicode_state(Iport) ->
-    case (catch port_control(Iport,?CTRL_OP_GET_UNICODE_STATE,[])) of
+get_unicode_state(Port) ->
+    case (catch port_control(Port,?CTRL_OP_GET_UNICODE_STATE,[])) of
 	[Int] when Int > 0 -> 
 	    true;
 	[Int] when Int =:= 0 ->
@@ -532,16 +542,16 @@ get_unicode_state(Iport) ->
 	    error
     end.
 
-set_unicode_state(Iport, Bool) ->
+set_unicode_state(Port, Bool) ->
     Data = case Bool of
 	       true -> [1];
 	       false -> [0]
 	   end,
-    case (catch port_control(Iport,?CTRL_OP_SET_UNICODE_STATE,Data)) of
+    case (catch port_control(Port,?CTRL_OP_SET_UNICODE_STATE,Data)) of
 	[Int] when Int > 0 -> 
-	    {unicode, utf8};
+	    true;
 	[Int] when Int =:= 0 ->
-	    {unicode, false};
+	    false;
 	_ ->
 	    error
     end.
@@ -549,21 +559,21 @@ set_unicode_state(Iport, Bool) ->
 %% io_request(Request, InPort, OutPort)
 %% io_requests(Requests, InPort, OutPort)
 %% Note: InPort is unused.
-io_request({requests,Rs}, Iport, Oport) ->
-    io_requests(Rs, Iport, Oport);
-io_request(Request, _Iport, Oport) ->
+io_request({requests,Rs}, Port) ->
+    io_requests(Rs, Port);
+io_request(Request, Port) ->
     case io_command(Request) of
         {Data, Reply} ->
-            true = port_command(Oport, Data),
+            true = port_command(Port, Data),
             Reply;
         unhandled ->
             ok
     end.
 
-io_requests([R|Rs], Iport, Oport) ->
-    io_request(R, Iport, Oport),
-    io_requests(Rs, Iport, Oport);
-io_requests([], _Iport, _Oport) ->
+io_requests([R|Rs], Port) ->
+    io_request(R, Port),
+    io_requests(Rs, Port);
+io_requests([], _Port) ->
     ok.
 
 put_int16(N, Tail) ->
@@ -575,15 +585,15 @@ put_int16(N, Tail) ->
 %% OTP 18 to make sure that data sent from io:format is actually printed
 %% to the console before the vm stops when calling erlang:halt(integer()).
 -dialyzer({no_improper_lists, io_command/1}).
-io_command({put_chars_sync, unicode,Cs,Reply}) ->
-    {[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)], Reply};
-io_command({put_chars, unicode,Cs}) ->
-    {[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)], ok};
-io_command({move_rel,N}) ->
+io_command({put_chars_sync, unicode, Cs, Reply}) ->
+    {[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs, utf8)], Reply};
+io_command({put_chars, unicode, Cs}) ->
+    {[?OP_PUTC|unicode:characters_to_binary(Cs, utf8)], ok};
+io_command({move_rel, N}) ->
     {[?OP_MOVE|put_int16(N, [])], ok};
-io_command({insert_chars,unicode,Cs}) ->
-    {[?OP_INSC|unicode:characters_to_binary(Cs,utf8)], ok};
-io_command({delete_chars,N}) ->
+io_command({insert_chars, unicode, Cs}) ->
+    {[?OP_INSC|unicode:characters_to_binary(Cs, utf8)], ok};
+io_command({delete_chars, N}) ->
     {[?OP_DELC|put_int16(N, [])], ok};
 io_command(beep) ->
     {[?OP_BEEP], ok};
@@ -629,7 +639,7 @@ gr_get_info1([], _I) ->
     undefined.
 
 gr_add_cur({Next,_CurI,_CurP,Gs}, Pid, Shell) ->
-    {Next+1,Next,Pid,append(Gs, [{Next,Pid,Shell}])}.
+    {Next+1,Next,Pid,lists:append(Gs, [{Next,Pid,Shell}])}.
 
 gr_set_cur({Next,_CurI,_CurP,Gs}, I) ->
     case gr_get_num1(Gs, I) of
@@ -666,30 +676,10 @@ gr_list({_Next,CurI,_CurP,Gs}) ->
 gr_list([{_I,_Pid,{}}|Gs], Cur, Jobs) ->
     gr_list(Gs, Cur, Jobs);
 gr_list([{Cur,_Pid,Shell}|Gs], Cur, Jobs) ->
-    gr_list(Gs, Cur, [{put_chars, unicode,flatten(io_lib:format("~4w* ~w\n", [Cur,Shell]))}|Jobs]);
+    gr_list(Gs, Cur, [{put_chars, unicode,
+                       lists:flatten(io_lib:format("~4w* ~w\n", [Cur,Shell]))}|Jobs]);
 gr_list([{I,_Pid,Shell}|Gs], Cur, Jobs) ->
-    gr_list(Gs, Cur, [{put_chars, unicode,flatten(io_lib:format("~4w  ~w\n", [I,Shell]))}|Jobs]);
+    gr_list(Gs, Cur, [{put_chars, unicode,
+                       lists:flatten(io_lib:format("~4w  ~w\n", [I,Shell]))}|Jobs]);
 gr_list([], _Cur, Jobs) ->
     lists:reverse(Jobs).
-
-append([H|T], X) ->
-    [H|append(T, X)];
-append([], X) ->
-    X.
-
-member(X, [X|_Rest]) -> true;
-member(X, [_H|Rest]) ->
-    member(X, Rest);
-member(_X, []) -> false.
-
-flatten(List) ->
-    flatten(List, [], []).
-
-flatten([H|T], Cont, Tail) when is_list(H) ->
-    flatten(H, [T|Cont], Tail);
-flatten([H|T], Cont, Tail) ->
-    [H|flatten(T, Cont, Tail)];
-flatten([], [H|Cont], Tail) ->
-    flatten(H, Cont, Tail);
-flatten([], [], Tail) ->
-    Tail.
