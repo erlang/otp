@@ -181,7 +181,7 @@ inital_state([stateful, Lifetime, TicketStoreSize, MaxEarlyDataSize|_]) ->
           }.
 
 ticket_age_add() ->
-    MaxTicketAge = 7 * 24 * 3600,
+    MaxTicketAge = 7 * 24 * 3600 * 1000,
     IntMax = round(math:pow(2,32)) - 1,
     MaxAgeAdd = IntMax - MaxTicketAge,
     <<?UINT32(I)>> = crypto:strong_rand_bytes(4),
@@ -385,10 +385,10 @@ stateless_living_ticket(0, _, _, _, _) ->
 stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, Timestamp, Window) ->
     ReportedAge = ObfAge - TicketAgeAdd,
     RealAge = erlang:system_time(second) - Timestamp,
-    (ReportedAge =< Lifetime)
+    (ReportedAge =< Lifetime * 1000)
         andalso (RealAge =< Lifetime)
         andalso (in_window(RealAge, Window)).
-        
+
 in_window(_, undefined) ->
     true;
 in_window(Age, Window) when is_integer(Window) ->

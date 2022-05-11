@@ -71,15 +71,18 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config)  ->
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active, false}]),
     {ok, Pid} = tls_server_session_ticket:start_link(
-                  ?config(server_session_tickets, Config), ?LIFETIME,
-                  ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
+                  ListenSocket, ?config(server_session_tickets, Config),
+                  ?LIFETIME, ?TICKET_STORE_SIZE, _MaxEarlyDataSize = 100,
                   ?config(anti_replay, Config)),
-    [{server_pid, Pid} | Config].
+    [{server_pid, Pid}, {listen_socket, ListenSocket} | Config].
 
 end_per_testcase(_TestCase, Config) ->
     Pid = ?config(server_pid, Config),
     exit(Pid, normal),
+    ListenSocket = ?config(listen_socket, Config),
+    ok = gen_tcp:close(ListenSocket),
     Config.
 
 %%--------------------------------------------------------------------
@@ -94,7 +97,12 @@ main_test(Config) when is_list(Config) ->
     % Reach ticket store size limit - force GB tree pruning
     SessionTicket = #new_session_ticket{} =
         tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
-    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, ?PSK),
+    TicketRecvTime = erlang:system_time(millisecond),
+    %% Sleep more than the ticket lifetime (which is in seconds) in
+    %% milliseconds, to confirm that the client reported age (which is in
+    %% milliseconds) is compared correctly with the lifetime
+    ct:sleep(5 * ?LIFETIME),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
     AcceptResponse = {ok, {0, ?PSK}},
     AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
@@ -132,8 +140,9 @@ expired_ticket_test() ->
 expired_ticket_test(Config) when is_list(Config) ->
     Pid = ?config(server_pid, Config),
     SessionTicket = tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
-    {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, ?PSK),
+    TicketRecvTime = erlang:system_time(millisecond),
     ct:sleep({seconds, 2 * ?LIFETIME}),
+    {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
     {ok, undefined} = tls_server_session_ticket:use(Pid, OFPSKs, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     true = is_process_alive(Pid).
@@ -152,18 +161,18 @@ misc_test(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Helpers -----------------------------------------------------------
 %%--------------------------------------------------------------------
-get_handshake_hist(#new_session_ticket{ticket=Ticket} = T, PSK0) ->
-    Ids = [#psk_identity{identity = Ticket, obfuscated_ticket_age = 100}],
-    SomeBinder = <<159, 187, 86, 6, 55, 20, 149, 208, 3, 221, 78, 126, 254, 101,
-                   123, 251, 151, 189, 17, 53>>,
-    OfferedPSKs0 = #offered_psks{identities = Ids, binders = [SomeBinder]},
-    Hello0 = get_client_hello(OfferedPSKs0),
+get_handshake_hist(#new_session_ticket{} = T, TicketRecvTime, PSK0) ->
     M = #{cipher_suite => {nothing, ?PRF},
           sni => nothing,
           psk => PSK0,
-          timestamp => erlang:system_time(seconds),
+          timestamp => TicketRecvTime,
           ticket => T},
     TicketData = tls_handshake_1_3:get_ticket_data(self(), manual, [M]),
+    [#ticket_data{identity = Identity}] = TicketData,
+    SomeBinder = <<159, 187, 86, 6, 55, 20, 149, 208, 3, 221, 78, 126, 254, 101,
+                   123, 251, 151, 189, 17, 53>>,
+    OfferedPSKs0 = #offered_psks{identities = [Identity], binders = [SomeBinder]},
+    Hello0 = get_client_hello(OfferedPSKs0),
     Hello1 = tls_handshake_1_3:maybe_add_binders(Hello0, TicketData, ?VERSION),
     PSK1 =  maps:get(pre_shared_key, Hello1#client_hello.extensions),
     OfferedPSKs1 = PSK1#pre_shared_key_client_hello.offered_psks,

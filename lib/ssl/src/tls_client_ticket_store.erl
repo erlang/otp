@@ -202,8 +202,8 @@ iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc) ->
                     lock = Lock}, Iter} when Lock =:= undefined orelse
                                              Lock =:= Pid ->
             MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
-            Age = erlang:system_time(seconds) - Timestamp,
-            if Age < Lifetime ->
+            Age = erlang:monotonic_time(millisecond) - Timestamp,
+            if Age < Lifetime * 1000 ->
                     case verify_ticket_sni(SNI, TicketSNI) of
                         match ->
                             case lists:member(Cipher, Ciphers) of
@@ -274,7 +274,7 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
                ticket = Ticket,
                extensions = Extensions
               } = NewSessionTicket,
-            TicketAge =  erlang:system_time(seconds) - Timestamp,
+            TicketAge =  erlang:monotonic_time(millisecond) - Timestamp,
             ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
             Identity = #psk_identity{
                           identity = Ticket,
@@ -329,8 +329,8 @@ collect_invalid_tickets(Iter0, Lifetime, Acc) ->
     case gb_trees:next(Iter0) of
         {Key, #data{timestamp = Timestamp,
                     lock = undefined}, Iter} ->
-            Age = erlang:system_time(seconds) - Timestamp,
-            if Age < Lifetime ->
+            Age = erlang:monotonic_time(millisecond) - Timestamp,
+            if Age < Lifetime * 1000 ->
                     collect_invalid_tickets(Iter, Lifetime, Acc);
                true ->
                     collect_invalid_tickets(Iter, Lifetime, [Key|Acc])
@@ -343,7 +343,7 @@ collect_invalid_tickets(Iter0, Lifetime, Acc) ->
 
 
 store_ticket(#state{db = Db0, max = Max} = State, Ticket, CipherSuite, SNI, PSK) ->
-    Timestamp = erlang:system_time(seconds),
+    Timestamp = erlang:monotonic_time(millisecond),
     Size = gb_trees:size(Db0),
     Db1 = if Size =:= Max ->
                   delete_oldest(Db0);
