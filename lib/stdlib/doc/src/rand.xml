@@ -806,6 +806,175 @@ end.</pre>
     <fsdescription>
       <marker id="niche_algorithms"/>
       <title>Niche algorithms API</title>
+      <p>
+        This section contains special purpose algorithms
+        that does not use the
+        <seeerl marker="#plug_in_api">plug-in framework API</seeerl>,
+        for example for speed reasons.
+      </p>
+      <p>
+        Since these algorithms lack the plug-in framework support,
+        generating numbers in a range other than the
+        generator's own generated range may become a problem.
+      </p>
+      <p>
+        There are at least 3 ways to do this, assuming that
+        the range is less than the generator's range:
+      </p>
+      <taglist>
+        <tag>Modulo</tag>
+        <item>
+          <p>
+            To generate a number <c>V</c> in the range 0..<c>Range</c>-1:
+          </p>
+          <list type="bulleted">
+            <item>Generate a number <c>X</c>.</item>
+            <item>
+              Use <c>V&nbsp;=&nbsp;X&nbsp;rem&nbsp;Range</c> as your value.
+            </item>
+          </list>
+          <p>
+            This method uses <c>rem</c>, that is, the remainder of
+            an integer division, which is a slow operation.
+          </p>
+          <p>
+            Low bits from the generator propagate straight through
+            to the generated value, so if the generator has got
+            weaknesses in the low bits this method propagates
+            them too.
+          </p>
+          <p>
+            If <c>Range</c> is not a divisor of the generator range,
+            the generated numbers have a bias.
+            Example:
+          </p>
+          <p>
+            Say the generator generates a byte, that is,
+            the generator range is 0..255,
+            and the desired range is 0..99 (<c>Range=100</c>).
+            Then there are 3 generator outputs that produce the value 0,
+            that is; 0, 100 and 200.  But there are only
+            2 generator outputs that produce the value 99,
+            which are; 99 and 199.  So the probability for
+            a value <c>V</c> in 0..55 is 3/2 times
+            the probability for the other values 56..99.
+          </p>
+          <p>
+            If <c>Range</c> is much smaller than the generator range,
+            then this bias gets hard to detect.  The rule of thumb is
+            that if <c>Range</c> is smaller than the square root
+            of the generator range, the bias is small enough.
+            Example:
+          </p>
+          <p>
+            A byte generator when <c>Range=20</c>.
+            There are 12 (<c>256&nbsp;div&nbsp;20</c>)
+            possibilities to generate the highest numbers
+            and one more to generate a number
+            <c>V</c>&nbsp;&lt;&nbsp;16 (<c>256&nbsp;rem&nbsp;20</c>).
+            So the probability is 13/12 for a low number
+            versus a high.  To detect that difference
+            with some confidence you would need to generate
+            a lot more numbers than the generator range,
+            256 in this small example.
+          </p>
+        </item>
+        <tag>Truncated multiplication</tag>
+        <item>
+          <p>
+            To generate a number <c>V</c> in the range 0..<c>Range</c>-1,
+            when you have a generator with the range
+            0..2^<c>Bits</c>-1:
+          </p>
+          <list type="bulleted">
+            <item>Generate a number <c>X</c>.</item>
+            <item>
+              Use <c>V&nbsp;=&nbsp;X*Range&nbsp;bsr&nbsp;Bits</c>
+              as your value.
+            </item>
+          </list>
+          <p>
+            If the multiplication <c>X*Range</c> creates a bignum
+            this method becomes very slow.
+          </p>
+          <p>
+            High bits from the generator propagate through
+            to the generated value, so if the generator has got
+            weaknesses in the high bits this method propagates
+            them too.
+          </p>
+          <p>
+            If <c>Range</c> is not a divisor of the generator range,
+            the generated numbers have a bias,
+            pretty much as for the <em>Modulo</em> method above.
+          </p>
+        </item>
+        <tag>Shift or mask</tag>
+        <item>
+          <p>
+            To generate a number in the range 0..2^<c>RBits</c>-1,
+            when you have a generator with the range 0..2^<c>Bits</c>:
+          </p>
+          <list type="bulleted">
+            <item>Generate a number <c>X</c>.</item>
+            <item>
+              Use <c>V&nbsp;=&nbsp;X&nbsp;band&nbsp;((1&nbsp;bsl&nbsp;RBits)-1)</c>
+              or <c>V&nbsp;=&nbsp;X&nbsp;bsr&nbsp;(Bits-RBits)</c>
+              as your value.
+            </item>
+          </list>
+          <p>
+            Masking with <c>band</c> preserves the low bits,
+            and right shifting with <c>bsr</c> preserves the high,
+            so if the generator has got weaknesses in high or low
+            bits; choose the right operator.
+          </p>
+          <p>
+            If the generator has got a range that is not a power of 2
+            and this method is used anyway, it introduces bias
+            in the same way as for the <em>Modulo</em> method above.
+          </p>
+        </item>
+        <tag>Rejection</tag>
+        <item>
+          <list type="bulleted">
+            <item>Generate a number <c>X</c>.</item>
+            <item>
+              If <c>X</c> is in the range, use <c>V&nbsp;=&nbsp;X</c>
+              as your value, otherwise reject it and repeat.
+            </item>
+          </list>
+          <p>
+            In theory it is not certain that this method
+            will ever complete, but in practice you ensure
+            that the probability of rejection is low.
+            Then the probability for yet another iteration
+            decreases exponentially so the expected mean
+            number of iterations will often be between 1 and 2.
+            Also, since the base generator is a full length generator,
+            a value that will break the loop must eventually
+            be generated.
+          </p>
+        </item>
+      </taglist>
+      <p>
+        Chese methods can be combined, such as using the <em>Modulo</em>
+        method and only if the generator value would create bias
+        use <em>Rejection</em>.  Or using <em>Shift or mask</em>
+        to reduce the size of a generator value so that
+        <em>Truncated multiplication</em> will not create a bignum.
+      </p>
+      <p>
+        The recommended way to generate a floating point number
+        (IEEE 745 double, that has got a 53-bit mantissa)
+        in the range 0..1, that is
+        0.0&nbsp;=&lt;&nbsp;<c>V</c>&nbsp;&lt;1.0
+        is to generate a 53-bit number <c>X</c> and then use
+        <c>V&nbsp;=&nbsp;X&nbsp;*&nbsp;(1.0/((1&nbsp;bsl&nbsp;53)))</c>
+        as your value.  This will create a value on the form
+        <c>N</c>*2^-53 with equal probability for every
+        possible <c>N</c> for the range.
+      </p>
     </fsdescription>
     <func>
       <name name="splitmix64_next" arity="1" since="OTP 25.0"/>
@@ -861,6 +1030,11 @@ end.</pre>
             on a selected range, nor in generating a floating point number.
             It is easy to accidentally mess up the fairly good
             statistical properties of this generator when doing either.
+            See the recepies at the start of this
+            <seeerl marker="#niche_algorithms">
+              Niche algorithms API
+            </seeerl>
+            description.
             Note also the caveat about weak low bits that
             this generator suffers from.
             The generator is exported in this form
@@ -912,30 +1086,39 @@ end.</pre>
           Because the generator uses a multiplier that is
           a power of 2 it gets statistical flaws for collision tests
           and birthday spacings tests in 2 and 3 dimensions,
-          so the state should be scrambled, to create
-          an output value.
-        </p><p>
-          The quality of the state bits <c><anno>CX1</anno></c>
-          as a random value is far from good, but if speed is
-          much more important than these imperfections, the lowest
-          say 16 bits of the generator state could be used
-          without scrambling.
+          and even these caveats apply only to the MWC "digit",
+          that is the low 32 bits (due to the multiplier) of
+          the generator state.
         </p>
         <p>
+          The quality of the output value improves much by using
+          a scrambler instead of just taking the low bits.
           Function
-          <seemfa marker="#mwc59_fast_value/1">
-            <c>mwc59_fast_value</c>
+          <seemfa marker="#mwc59_value32/1">
+            <c>mwc59_value32</c>
           </seemfa>
-          is a fast scrambler that gives 32 decent bits, but still
-          some problems in 2- and 3-dimensional collision tests
-          show through.
+          is a fast scrambler that returns a decent 32-bit number.
           The slightly slower
           <seemfa marker="#mwc59_value/1">
             <c>mwc59_value</c>
           </seemfa>
-          scrambler returns 58 bits of very good quality, and
+          scrambler returns 59 bits of very good quality, and
           <seemfa marker="#mwc59_float/1"><c>mwc59_float</c></seemfa>
           returns a <c>float()</c> of very good quality.
+        </p>
+        <p>
+          The low bits of the base generator are surprisingly good,
+          so the lowest 16 bits actually pass fairly strict PRNG tests,
+          despite the generator's weaknesses that lie in the high
+          bits of the 32-bit MWC "digit".  It is recommended
+          to use <c>rem</c> on the the generator state,
+          or bit mask extracting the lowest bits to produce numbers
+          in a range 16 bits or less.
+          See the recepies at the start of this
+          <seeerl marker="#niche_algorithms">
+            Niche algorithms API
+          </seeerl>
+          description.
         </p>
         <p>
           On a typical 64 bit Erlang VM this generator executes
@@ -945,8 +1128,8 @@ end.</pre>
             plug-in framework API
           </seeerl>
           of this module.  With the
-          <seemfa marker="#mwc59_fast_value/1">
-            <c>mwc59_fast_value</c>
+          <seemfa marker="#mwc59_value32/1">
+            <c>mwc59_value32</c>
           </seemfa>
           scrambler the total time becomes 16% (1/6),
           and with
@@ -974,19 +1157,42 @@ end.</pre>
       </desc>
     </func>
     <func>
-      <name name="mwc59_fast_value" arity="1" since="OTP 25.0"/>
+      <name name="mwc59_value32" arity="1" since="OTP 25.0"/>
       <fsummary>Return the generator value.</fsummary>
       <desc>
         <p>
-          Returns a 58-bit value <c><anno>V</anno></c>
+          Returns a 32-bit value <c><anno>V</anno></c>
           from a generator state <c><anno>CX</anno></c>.
           The generator state is scrambled using
           an 8-bit xorshift which masks
           the statistical imperfecions of the base generator
           <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
-          enough that the 32 lowest bits are of decent quality.
-          It is not recommended to generate numbers
-          in a range > 2^32 with this function.
+          enough to produce numbers of decent quality.
+          Still some problems in 2- and 3-dimensional
+          birthday spacing and collision tests show through.
+        </p>
+        <p>
+          When using this scrambler it is in general better to use
+          the high bits of the value than the low.
+          The lowest 8 bits are of good quality and pass right through
+          from the base generator.  They are combined with the next 8
+          in the xorshift making the low 16 good quality,
+          but in the range 16..31 bits there are weaker bits
+          that you do not want to have as the high bits
+          of your generated values.
+          Therefore it is in general safer to shift out low bits.
+          See the recepies at the start of this
+          <seeerl marker="#niche_algorithms">
+            Niche algorithms API
+          </seeerl>
+          description.
+        </p>
+        <p>
+          For a non power of 2 range less than about 16 bits
+          (to not get too much bias and to avoid bignums)
+          truncated multiplication can be used,
+          which is much faster than using <c>rem</c>:
+          <c>(Range*<anno>V</anno>)&nbsp;bsr&nbsp;32</c>.
         </p>
       </desc>
     </func>
@@ -995,15 +1201,36 @@ end.</pre>
       <fsummary>Return the generator value.</fsummary>
       <desc>
         <p>
-          Returns a 58-bit value <c><anno>V</anno></c>
+          Returns a 59-bit value <c><anno>V</anno></c>
           from a generator state <c><anno>CX</anno></c>.
           The generator state is scrambled using
           an 4-bit followed by a 27-bit xorshift, which masks
           the statistical imperfecions of the base generator
           <seemfa marker="#mwc59/1"><c>mwc59</c></seemfa>
-          enough that all 58 bits are of very good quality.
-          Beware of bias in the generated numbers if
-          generating on a non power of 2 range too close to 2^58.
+          enough that all 59 bits are of very good quality.
+        </p>
+        <p>
+          Be careful to not accidentaly create a bignum
+          when handling the value <c><anno>V</anno></c>.
+        </p>
+        <p>
+          It is in general general better to use the high bits
+          from this scrambler than the low.
+          See the recepies at the start of this
+          <seeerl marker="#niche_algorithms">
+            Niche algorithms API
+          </seeerl>
+          description.
+        </p>
+        <p>
+          For a non power of 2 range less than about 29 bits
+          (to not get too much bias and to avoid bignums)
+          truncated multiplication can be used,
+          which is much faster than using <c>rem</c>.
+          Example for range 1'000'000'000;
+          the range is 30 bits, we use 29 bits from the generator,
+          adding up to 59 bits, which is not a bignum:
+          <c>(1000000000&nbsp;*&nbsp;(<anno>V</anno>&nbsp;bsr&nbsp;(59-29)))&nbsp;bsr&nbsp;29</c>.
         </p>
       </desc>
     </func>
@@ -1030,8 +1257,8 @@ end.</pre>
       <desc>
         <p>
           Returns a generator state <c><anno>CX</anno></c>.
-          It is set it to <c><anno>S</anno></c>, after folding it
-          into the state's range, if out of range.
+          <c><anno>S</anno></c> is hashed to create the generator state,
+          to avoid that similar seeds create similar sequences.
         </p>
         <p>
           Without <c><anno>S</anno></c>,

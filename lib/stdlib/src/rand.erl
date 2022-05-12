@@ -38,7 +38,7 @@
 
 %% Utilities
 -export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
-         mwc59/1, mwc59_fast_value/1, mwc59_value/1, mwc59_float/1,
+         mwc59/1, mwc59_value32/1, mwc59_value/1, mwc59_float/1,
          mwc59_seed/0, mwc59_seed/1]).
 
 %% Test, dev and internal
@@ -53,6 +53,7 @@
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
+                   mwc59_value/1,
 		   get_52/1, normal_kiwi/1]}).
 
 -define(DEFAULT_ALG_HANDLER, exsss).
@@ -1507,35 +1508,6 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
 
--spec mwc59_fast_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
-mwc59_fast_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(58, CX1),
-    CX bxor ?BSL(58, CX, ?MWC59_XS).
-
--spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(58).
-mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(58, CX1),
-    CX2 = CX bxor ?BSL(58, CX, ?MWC59_XS1),
-    CX2 bxor ?BSL(58, CX2, ?MWC59_XS2).
-
--spec mwc59_float(CX :: mwc59_state()) -> V :: float().
-mwc59_float(CX1) ->
-    CX = ?MASK(53, CX1),
-    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
-    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
-    CX3 * ?TWO_POW_MINUS53.
-
--spec mwc59_seed() -> CX :: mwc59_state().
-mwc59_seed() ->
-    {A1, A2, A3} = default_seed(),
-    mwc59_seed(seed64_int([A1, A2, A3])).
-
--spec mwc59_seed(S :: integer()) -> CX :: mwc59_state().
-mwc59_seed(S) when is_integer(S) ->
-    mod(?MWC59_P - 1, S) + 1.
-
-
-
 %%% %% Verification by equivalent MCG generator
 %%% mwc59_r(CX1) ->
 %%%     (CX1 bsl ?MWC59_B) rem ?MWC59_P. % Reverse
@@ -1547,6 +1519,47 @@ mwc59_seed(S) when is_integer(S) ->
 %%%     CX1 = mwc59(CX0),
 %%%     CX0 = mwc59_r(CX1),
 %%%     mwc59(CX1, N - 1).
+
+-spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
+mwc59_value32(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(32, CX1),
+    CX bxor ?BSL(32, CX, ?MWC59_XS).
+
+-spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
+mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(59, CX1),
+    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
+    CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
+
+-spec mwc59_float(CX :: mwc59_state()) -> V :: float().
+mwc59_float(CX1) ->
+    CX = ?MASK(53, CX1),
+    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
+    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
+    CX3 * ?TWO_POW_MINUS53.
+
+-spec mwc59_seed() -> CX :: mwc59_state().
+mwc59_seed() ->
+    {A1, A2, A3} = default_seed(),
+    X1 = hash58(A1),
+    X2 = hash58(A2),
+    X3 = hash58(A3),
+    (X1 bxor X2 bxor X3) + 1.
+
+-spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
+mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
+    hash58(S) + 1.
+
+%% Constants a'la SplitMix64, MurMurHash, etc.
+%% Not that critical, just mix the bits using bijections
+%% (reversible mappings) to not have any two user input seeds
+%% become the same generator start state.
+%%
+hash58(X) ->
+    X0 = ?MASK(58, X),
+    X1 = ?MASK(58, (X0 bxor (X0 bsr 29)) * 16#351afd7ed558ccd),
+    X2 = ?MASK(58, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
+    X2 bxor (X2 bsr 29).
 
 
 %% =====================================================================
@@ -1611,16 +1624,6 @@ seed64(X_0) ->
 	true ->
 	    ZX
     end.
-
-%% Create a splitmixed (big) integer from a list of integers
-seed64_int(As) ->
-    seed64_int(As, 0, 0).
-%%
-seed64_int([], _X, Y) ->
-    Y;
-seed64_int([A | As], X0, Y) ->
-    {Z, X1} = splitmix64_next(A bxor X0),
-    seed64_int(As, X1, (Y bsl 64) bor Z).
 
 %% =====================================================================
 %% The SplitMix64 generator:
@@ -1987,15 +1990,17 @@ bc(V, B, N) when B =< V -> N;
 bc(V, B, N) -> bc(V, B bsr 1, N - 1).
 
 
-%% Non-negative rem
-mod(Q, X) ->
-    Y = X rem Q,
-    if
-        Y < 0 ->
-            Y + Q;
-        true ->
-            Y
-    end.
+%%% %% Non-negative rem
+%%% mod(Q, X) when 0 =< X, X < Q ->
+%%%     X;
+%%% mod(Q, X) ->
+%%%     Y = X rem Q,
+%%%     if
+%%%         Y < 0 ->
+%%%             Y + Q;
+%%%         true ->
+%%%             Y
+%%%     end.
 
 
 make_float(S, E, M) ->
