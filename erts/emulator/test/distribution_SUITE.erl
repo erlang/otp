@@ -2606,10 +2606,23 @@ address_please(_Name, _Address, _AddressFamily) ->
     {ok, IP}.
 
 hopefull_data_encoding(Config) when is_list(Config) ->
-    test_hopefull_data_encoding(Config, true),
-    test_hopefull_data_encoding(Config, false).
+    MkHopefullData = fun(Ref,Pid) -> mk_hopefull_data(Ref,Pid) end,
+    test_hopefull_data_encoding(Config, true, MkHopefullData),
+    test_hopefull_data_encoding(Config, false, MkHopefullData),
 
-test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
+    %% Test funs with hopefully encoded term in environment
+    MkBitstringInFunEnv = fun(_,_) -> [mk_fun_with_env(<<5:7>>)] end,
+    test_hopefull_data_encoding(Config, true, MkBitstringInFunEnv),
+    test_hopefull_data_encoding(Config, false, MkBitstringInFunEnv),
+    MkExpFunInFunEnv = fun(_,_) -> [mk_fun_with_env(fun a:a/0)] end,
+    test_hopefull_data_encoding(Config, true, MkExpFunInFunEnv),
+    test_hopefull_data_encoding(Config, false, MkExpFunInFunEnv),
+    ok.
+
+mk_fun_with_env(Term) ->
+    fun() -> Term end.
+
+test_hopefull_data_encoding(Config, Fallback, MkDataFun) when is_list(Config) ->
     {ok, ProxyNode} = start_node(hopefull_data_normal),
     {ok, BouncerNode} = start_node(hopefull_data_bouncer, "-hidden"),
     case Fallback of
@@ -2631,7 +2644,7 @@ test_hopefull_data_encoding(Config, Fallback) when is_list(Config) ->
                                register(bouncer, self()),
                                %% We create the data on the proxy node in order
                                %% to create the correct sub binaries
-                               HData = mk_hopefull_data(R1, Tester),
+                               HData = MkDataFun(R1, Tester),
                                %% Verify same result between this node and tester
                                Tester ! [R1, HData],
                                %% Test when connection has not been setup yet
@@ -2756,9 +2769,18 @@ chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
     M = ModName,
     F = FuncName,
     ok;
-chk_hopefull_fallback(Other, SameOther) ->
-    Other = SameOther,
-    ok.
+chk_hopefull_fallback(Fun1, Fun2) when is_function(Fun1), is_function(Fun2) ->
+    FI1 = erlang:fun_info(Fun1),
+    FI2 = erlang:fun_info(Fun2),
+    {env, E1} = lists:keyfind(env, 1, FI1),
+    {env, E2} = lists:keyfind(env, 1, FI1),
+    chk_hopefull_fallback(E1, E2),
+    assert_same(lists:keydelete(env, 1, FI1),
+                lists:keydelete(env, 1, FI2));
+chk_hopefull_fallback(A, B) ->
+    ok = assert_same(A,B).
+
+assert_same(A,A) -> ok.
 
 %% ERL-1254
 hopefull_export_fun_bug(Config) when is_list(Config) ->
@@ -3278,5 +3300,3 @@ free_memory() ->
 	error : undef ->
 	    ct:fail({"os_mon not built"})
     end.
-
-
