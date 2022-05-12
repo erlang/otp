@@ -1172,7 +1172,25 @@ do_measure(Iterations) ->
                   Range = 10000,
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          %% Multiply-and-shift, slightly skewed
+                          %% Truncated multiplication, slightly skewed
+                          case
+                              ((Range * (St1 band ((1 bsl 16)-1))) bsr 16)
+                              + 1
+                          of
+                              R when is_integer(R), 0 < R, R =< Range ->
+                                  St1
+                          end
+                  end
+          end,
+          {mwc59,raw_tm}, Iterations,
+          TMarkUniformRange10000, OverheadUniformRange1000),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  Range = 10000,
+                  fun (St0) ->
+                          St1 = rand:mwc59(St0),
+                          %% Truncated multiplication, slightly skewed
                           case
                               ((Range * rand:mwc59_value32(St1)) bsr 32)
                               + 1
@@ -1182,7 +1200,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {mwc59,value32_mas}, Iterations,
+          {mwc59,value32_tm}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1190,7 +1208,7 @@ do_measure(Iterations) ->
                   Range = 10000, % 14 bits
                   fun (St0) ->
                           St1 = rand:mwc59(St0),
-                          %% Multiply-and-shift, slightly skewed
+                          %% Truncated multiplication, slightly skewed
                           case
                               ( (Range *
                                      (rand:mwc59_value(St1) bsr 14) )
@@ -1202,7 +1220,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {mwc59,value_mas}, Iterations,
+          {mwc59,value_tm}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
@@ -1210,7 +1228,7 @@ do_measure(Iterations) ->
                   Range = 10000,
                   fun (St0) ->
                           {V,St1} = rand:exsp_next(St0),
-                          %% Multiply-and-shift, slightly skewed
+                          %% Truncated multiplication, slightly skewed
                           case
                               ((Range * (V bsr 14)) bsr (58-14)) + 1
                           of
@@ -1219,7 +1237,7 @@ do_measure(Iterations) ->
                           end
                   end
           end,
-          {exsp,mas}, Iterations,
+          {exsp,tm}, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     _ =
         measure_1(
