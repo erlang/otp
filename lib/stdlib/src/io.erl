@@ -213,7 +213,8 @@ get_password(Io) ->
 -type opt_pair()   :: {'binary', boolean()}
                     | {'echo', boolean()}
                     | {'expand_fun', expand_fun()}
-                    | {'encoding', encoding()}.
+                    | {'encoding', encoding()}
+                    | {atom(), term()}.
 
 -spec getopts() -> [opt_pair()] | {'error', Reason} when
       Reason :: term().
