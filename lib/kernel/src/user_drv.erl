@@ -601,80 +601,67 @@ io_command(_) ->
 %% gr_add_cur(Group, Pid, Shell)
 %% gr_set_cur(Group, Index)
 %% gr_cur_pid(Group)
+%% gr_cur_index(Group)
 %% gr_del_pid(Group, Pid)
 %%  Manage the group list. The group structure has the form:
 %%	{NextIndex,CurrIndex,CurrPid,GroupList}
 %%
 %%  where each element in the group list is:
 %%	{Index,GroupPid,Shell}
-
+-record(group, { index, pid, shell }).
+-record(gr, { next = 0, current = 0, pid = none, groups = []}).
 gr_new() ->
-    {0,0,none,[]}.
+    #gr{}.
+gr_new_group(I, P, S) ->
+    #group{ index = I, pid = P, shell = S }.
 
-gr_get_num({_Next,_CurI,_CurP,Gs}, I) ->
-    gr_get_num1(Gs, I).
+gr_get_num(#gr{ groups = Gs }, I) ->
+    case lists:keyfind(I, #group.index, Gs) of
+        false -> undefined;
+        #group{ shell = {} } ->
+            undefined;
+        #group{ pid = Pid } ->
+            {pid, Pid}
+    end.
 
-gr_get_num1([{I,_Pid,{}}|_Gs], I) ->
-    undefined;
-gr_get_num1([{I,Pid,_S}|_Gs], I) ->
-    {pid,Pid};
-gr_get_num1([_G|Gs], I) ->
-    gr_get_num1(Gs, I);
-gr_get_num1([], _I) ->
-    undefined.
+gr_get_info(#gr{ groups = Gs }, Pid) ->
+    case lists:keyfind(Pid, #group.pid, Gs) of
+        false -> undefined;
+        #group{ index = I, shell = S } ->
+            {I, S}
+    end.
 
-gr_get_info({_Next,_CurI,_CurP,Gs}, Pid) ->
-    gr_get_info1(Gs, Pid).
+gr_add_cur(#gr{ next = Next, groups = Gs}, Pid, Shell) ->
+    #gr{ next = Next + 1, current = Next, pid = Pid,
+         groups = Gs ++ [gr_new_group(Next, Pid, Shell)]
+       }.
 
-gr_get_info1([{I,Pid,S}|_Gs], Pid) ->
-    {I,S};
-gr_get_info1([_G|Gs], I) ->
-    gr_get_info1(Gs, I);
-gr_get_info1([], _I) ->
-    undefined.
-
-gr_add_cur({Next,_CurI,_CurP,Gs}, Pid, Shell) ->
-    {Next+1,Next,Pid,lists:append(Gs, [{Next,Pid,Shell}])}.
-
-gr_set_cur({Next,_CurI,_CurP,Gs}, I) ->
-    case gr_get_num1(Gs, I) of
-	{pid,Pid} -> {ok,{Next,I,Pid,Gs}};
+gr_set_cur(Gr, I) ->
+    case gr_get_num(Gr, I) of
+	{pid,Pid} -> {ok, Gr#gr{ current = I, pid = Pid }};
 	undefined -> undefined
     end.
 
-gr_set_num({Next,CurI,CurP,Gs}, I, Pid, Shell) ->
-    {Next,CurI,CurP,gr_set_num1(Gs, I, Pid, Shell)}.
+gr_set_num(Gr = #gr{ groups = Groups }, I, Pid, Shell) ->
+    NewGroups = lists:keystore(I, #group.index, Groups, gr_new_group(I,Pid,Shell)),
+    Gr#gr{ groups = NewGroups }.
 
-gr_set_num1([{I,_Pid,_Shell}|Gs], I, NewPid, NewShell) ->
-    [{I,NewPid,NewShell}|Gs];
-gr_set_num1([{I,Pid,Shell}|Gs], NewI, NewPid, NewShell) when NewI > I ->
-    [{I,Pid,Shell}|gr_set_num1(Gs, NewI, NewPid, NewShell)];
-gr_set_num1(Gs, NewI, NewPid, NewShell) ->
-    [{NewI,NewPid,NewShell}|Gs].
 
-gr_del_pid({Next,CurI,CurP,Gs}, Pid) ->
-    {Next,CurI,CurP,gr_del_pid1(Gs, Pid)}.
+gr_del_pid(Gr = #gr{ groups = Groups }, Pid) ->
+    Gr#gr{ groups = lists:keydelete(Pid, #group.pid, Groups) }.
 
-gr_del_pid1([{_I,Pid,_S}|Gs], Pid) ->
-    Gs;
-gr_del_pid1([G|Gs], Pid) ->
-    [G|gr_del_pid1(Gs, Pid)];
-gr_del_pid1([], _Pid) ->
-    [].
 
-gr_cur_pid({_Next,_CurI,CurP,_Gs}) ->
-    CurP.
+gr_cur_pid(#gr{ pid = Pid }) ->
+    Pid.
+gr_cur_index(#gr{ current = Index }) ->
+    Index.
 
-gr_list({_Next,CurI,_CurP,Gs}) ->
-    gr_list(Gs, CurI, []).
-
-gr_list([{_I,_Pid,{}}|Gs], Cur, Jobs) ->
-    gr_list(Gs, Cur, Jobs);
-gr_list([{Cur,_Pid,Shell}|Gs], Cur, Jobs) ->
-    gr_list(Gs, Cur, [{put_chars, unicode,
-                       lists:flatten(io_lib:format("~4w* ~w\n", [Cur,Shell]))}|Jobs]);
-gr_list([{I,_Pid,Shell}|Gs], Cur, Jobs) ->
-    gr_list(Gs, Cur, [{put_chars, unicode,
-                       lists:flatten(io_lib:format("~4w  ~w\n", [I,Shell]))}|Jobs]);
-gr_list([], _Cur, Jobs) ->
-    lists:reverse(Jobs).
+gr_list(#gr{ current = Current, groups = Groups}) ->
+    lists:flatmap(
+      fun(#group{ shell = {} }) ->
+              [];
+         (#group{ index = I, shell = S }) ->
+              Marker = ["*" || Current =:= I],
+              [{put_chars, unicode,
+                lists:flatten(io_lib:format("~4w~.1ts ~w\n", [I,Marker,S]))}]
+      end, Groups).
