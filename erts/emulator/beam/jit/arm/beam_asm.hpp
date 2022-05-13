@@ -1479,8 +1479,7 @@ protected:
                       arm::Gp tmp1,
                       const ArgVal &Src2,
                       arm::Gp tmp2) {
-        if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
-            !isRegisterBacked(Src2)) {
+        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
             switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);
