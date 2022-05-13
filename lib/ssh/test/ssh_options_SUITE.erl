@@ -45,6 +45,7 @@
 	 id_string_own_string_server_trail_space/1, 
 	 id_string_random_client/1, 
 	 id_string_random_server/1, 
+         max_log_item_len/1,
 	 max_sessions_sftp_start_channel_parallel/1, 
 	 max_sessions_sftp_start_channel_sequential/1, 
 	 max_sessions_ssh_connect_parallel/1, 
@@ -139,6 +140,7 @@ all() ->
      id_string_own_string_server,
      id_string_own_string_server_trail_space,
      id_string_random_server,
+     max_log_item_len,
      save_accepted_host_option,
      raw_option,
      config_file,
@@ -1350,6 +1352,65 @@ one_shell_op(IO, TimeOut) ->
 	Result0 -> ct:log("Result: ~p~n", [Result0])
     after TimeOut ->  ct:fail("Timeout waiting for result")
     end.
+
+%%--------------------------------------------------------------------
+max_log_item_len(Config) ->
+    %% Find a supported algorithm (to be removed from the daemon):
+    {ok, {Type,Alg}} = select_alg( ssh:default_algorithms() ),
+
+    %% Start a test daemon without support for {Type,Alg}
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {_Pid, Host0, Port} =
+        ssh_test_lib:daemon([
+                             {system_dir, SystemDir},
+                             {user_dir, UserDir},
+                             {user_passwords, [{"carni", "meat"}]},
+                             {modify_algorithms, [{rm, [{Type,[Alg]}]}]},
+                             {max_log_item_len, 10}
+                            ]),
+    Host = ssh_test_lib:mangle_connect_address(Host0),
+    ct:log("~p:~p Listen ~p:~p. Mangled Host = ~p",
+           [?MODULE,?LINE,Host0,Port,Host]),
+
+    {ok,ReportHandlerPid} = ssh_eqc_event_handler:add_report_handler(),
+
+    %% Connect to it with the {Type,Alg} to force a failure and log entry:
+    {error,_} = R =
+        ssh:connect(Host, Port, 
+                    [{preferred_algorithms, [{Type,[Alg]}]},
+                     {max_log_item_len, 10},
+                     {silently_accept_hosts, true},
+                     {save_accepted_host, false},
+                     {user_dir, UserDir},
+                     {user_interaction, false},
+                     {user, "carni"},
+                     {password, "meat"}
+                    ]),
+
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(ReportHandlerPid),
+    ct:log("~p:~p ssh:connect -> ~p~n~p", [?MODULE,?LINE,R,Reports]),
+
+    [ok,ok] =
+        [check_skip_part(
+           string:tokens(
+             lists:flatten(io_lib:format(Fmt,Args)),
+             " \n"))
+         || {info_msg,_,{_,Fmt,Args}} <- Reports].
+
+
+check_skip_part(["Disconnect","...","("++_NumSkipped, "bytes","skipped)"]) ->
+    ok;
+check_skip_part([_|T]) ->
+    check_skip_part(T);
+check_skip_part([]) ->
+    error.
+
+select_alg([{Type,[A,_|_]}|_]) when is_atom(A) -> {ok, {Type,A}};
+select_alg([{Type,[{Dir,[A,_|_]}, _]}|_]) when is_atom(A), is_atom(Dir) -> {ok, {Type,A}};
+select_alg([{Type,[_,{Dir,[A,_|_]}]}|_]) when is_atom(A), is_atom(Dir) -> {ok, {Type,A}};
+select_alg([_|Algs]) -> select_alg(Algs);
+select_alg([]) -> false.
 
 %%--------------------------------------------------------------------
 max_sessions_ssh_connect_parallel(Config) -> 
