@@ -1867,13 +1867,9 @@ log(Tag, D, Reason) ->
     end.
 
 
-do_log(F, Reason0, #data{ssh_params = S}) ->
-    Reason =
-        try io_lib:format("~s",[Reason0])
-        of _ -> Reason0
-        catch
-            _:_ -> io_lib:format("~p",[Reason0])
-        end,
+do_log(F, Reason0, #data{ssh_params=S}) ->
+    Reason1 = string:chomp(assure_string(Reason0)),
+    Reason = limit_size(Reason1, ?GET_OPT(max_log_item_len,S#ssh.opts)),
     case S of
         #ssh{role = Role} when Role==server ;
                                Role==client ->
@@ -1898,6 +1894,29 @@ do_log(F, Reason0, #data{ssh_params = S}) ->
                            [ssh_log_version(), crypto_log_info(), 
                             Reason])
     end.
+
+assure_string(S) ->
+    try io_lib:format("~s",[S])
+    of _ -> S
+    catch
+        _:_ -> io_lib:format("~p",[S])
+    end.
+
+limit_size(S, MaxLen) when is_integer(MaxLen) ->
+    limit_size(S, lists:flatlength(S), MaxLen);
+limit_size(S, _) ->
+    S.
+
+limit_size(S, Len, MaxLen) when Len =< MaxLen ->
+    S;
+limit_size(S, Len, MaxLen) when Len =< (MaxLen + 5) ->
+    %% Looks silly with e.g "... (2 bytes skipped)"
+    S;
+limit_size(S, Len, MaxLen) when Len > MaxLen ->
+    %% Cut
+    io_lib:format("~s ... (~w bytes skipped)", 
+                  [string:substr(lists:flatten(S), 1, MaxLen),
+                   Len-MaxLen]).
 
 crypto_log_info() ->
     try 
