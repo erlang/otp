@@ -996,9 +996,14 @@ fun(srp, Username :: binary(), UserState :: term()) ->
    
      <datatype>
       <name name="client_verify_type"/>
-      <desc><p>In mode <c>verify_none</c> the default behavior is to allow
-      all x509-path validation errors. See also option  <seetype marker="#custom_verify">verify_fun</seetype>.</p>
-      </desc>
+      <desc>
+	<p>Defaults to <c>verify_none</c> as additional options are needed to be able to perform the certificate verification.
+	A warning will be emitted unless <c>verify_none</c> is explicitly configured. Usually the applications will want to configure
+	<c>verify_peer</c> together with an appropriate <c>cacert</c> or <c>cacertfile</c> option. For example an <c>HTTPS</c> client would normally
+	use the option <c>{cacerts, public_key:cacerts_get()}</c> (available since OTP-25) to access the CA certificates
+	provided by the OS. Using verify_none means that all x509-certificate path validation errors will be ignored.
+        See also option <seetype marker="#custom_verify">verify_fun</seetype>.</p>
+     </desc>
     </datatype>
 
     <datatype>
@@ -1009,7 +1014,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	explicitly specified by its session id and associated data since OTP-22.3.
 	See also
 	<seeguide marker="ssl:using_ssl#session-reuse-pre-tls-1.3">
-	SSL's Users Guide, Session Reuse pre TLS 1.3</seeguide>
+	SSL's Users Guide, Session Reuse pre TLS 1.3.</seeguide>
       </p>
       </desc>
     </datatype>
@@ -1023,7 +1028,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       and used with the client option <seetype marker="#client_reuse_session">reuse_session</seetype>
       The boolean value true specifies that if possible, automated session reuse will
       be performed. If a new session is created, and is unique in regard 
-      to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3</p>
+      to previous stored sessions, it will be saved for possible later reuse. Since OTP-21.3.</p>
       </desc>
     </datatype>
 
@@ -1033,7 +1038,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<p>If set to true, sends the certificate authorities extension in TLS-1.3 client hello.
 	The default is false. Note that setting it to true may result in a big overhead if you
 	have many trusted CA certificates. 
-	Since OTP-24.3</p>
+	Since OTP-24.3.</p>
       </desc>
     </datatype>
 
@@ -1278,12 +1283,13 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 
     <datatype>
 	<name name="server_verify_type"/>
-	<desc><p>A server only does x509-path validation in mode
-	<c>verify_peer</c>, as it then sends a certificate request to
-	the client (this message is not sent if the verify option is
-	<c>verify_none</c>).  You can then also want to specify option
-	<c>fail_if_no_peer_cert</c>. </p>
-	</desc>
+	<desc><p> Client certificates are an optional part of the TLS protocol.
+	A server only does x509-certificate path validation in mode
+	<c>verify_peer</c>. By default the server is in <c>verify_none</c> mode
+	an hence will not send an certificate request to the client.
+	When using <c>verify_peer</c> you may also want to specify the option
+	<seetype marker="#fail_if_no_peer_cert">fail_if_no_peer_cert</seetype>.</p>
+      </desc>
       </datatype>
 
       <datatype>
@@ -1302,7 +1308,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<desc><p>The boolean value true specifies that the server will
 	agree to reuse sessions. Setting it to false will result in an empty
 	session table, that is no sessions will be reused. 
-	See also option <seetype marker="#server_reuse_session">reuse_session</seetype>
+	See also option <seetype marker="#server_reuse_session">reuse_session</seetype>.
       </p>
 	</desc>
       </datatype>
