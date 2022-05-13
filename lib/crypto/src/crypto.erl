@@ -152,7 +152,8 @@
        engine_ctrl_cmd_strings_nif/3, engine_register_nif/2,
        engine_unregister_nif/2, engine_add_nif/1, engine_remove_nif/1,
        engine_get_first_nif/0, engine_get_next_nif/1, engine_get_id_nif/1,
-       engine_get_name_nif/1, engine_get_all_methods_nif/0
+       engine_get_name_nif/1, engine_get_all_methods_nif/0,
+       ensure_engine_loaded_nif/3, ensure_engine_unloaded_nif/2
       ]).
 
 -export_type([ %% A minimum exported: only what public_key needs.
