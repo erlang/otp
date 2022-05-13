@@ -1685,8 +1685,8 @@ type_opt_1(ipv6_v6only)     -> bool;
 type_opt_1(multicast_ttl)   -> int;
 type_opt_1(multicast_loop)  -> bool;
 type_opt_1(multicast_if)    -> mif;
-type_opt_1(add_membership)  -> {ip,ip};
-type_opt_1(drop_membership) -> {ip,ip};
+type_opt_1(add_membership)  -> membership;
+type_opt_1(drop_membership) -> membership;
 %% driver options
 type_opt_1(header)          -> uint;
 type_opt_1(buffer)          -> int;
@@ -1924,6 +1924,20 @@ type_value_2(time, X) when is_integer(X), X >= 0      -> true;
 type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
 type_value_2(mif,{A,B,C,D}) when ?ip(A,B,C,D)         -> true;
 type_value_2(mif,Idx) when is_integer(Idx)            -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}})
+  when ?ip(A1,B1,C1,D1) andalso ?ip(A2,B2,C2,D2)      -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any})
+  when ?ip(A1,B1,C1,D1)                               -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       ?ip(A2,B2,C2,D2) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A,B,C,D,E,F,G,H}, Idx})
+  when ?ip6(A,B,C,D,E,F,G,H) andalso
+       is_integer(Idx)                                -> true;
 %%
 type_value_2(addr, {any,Port}) ->
     type_value_2(uint16, Port);
@@ -2103,6 +2117,37 @@ enc_value_2(mif, IP)
   when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
 enc_value_2(mif, Idx)
   when is_integer(Idx)        -> ?int32(Idx);
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (IP2 =:= any) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+%% enc_value_2(membership, {IP1, any = _IP2})
+%%   when (tuple_size(IP1) =:= 4) ->
+%%     [?INET_AF_INET, ?int32(0), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP1, IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the two address'es) so that we as much as possible
+    %% "look like" IPv6...se below
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_to_bytes(IP2)];
+enc_value_2(membership, {IP1, any = _IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       is_integer(Idx) ->
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP, Idx})
+  when (tuple_size(IP) =:= 8) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the address) is because of the inet-driver (it reads out a
+    %% 32-bit value for *all* options, so we might as well put a 32-nit
+    %% value "first".
+    [?int32(?INET_AF_INET6), ?int32(Idx), ip6_to_bytes(IP)];
 
 %%
 enc_value_2(addr, {any,Port}) ->

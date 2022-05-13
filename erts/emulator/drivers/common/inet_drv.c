@@ -574,8 +574,8 @@ static int (*p_sctp_connectx)
 /* #define INET_DRV_DEBUG 1 */
 #ifdef INET_DRV_DEBUG
 #define DEBUG 1
-#undef DEBUGF
-#define DEBUGF(X) printf X
+#undef  DEBUGF
+#define DEBUGF(__X__) erts_printf __X__
 #endif
 
 
@@ -6454,6 +6454,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 
 #endif
 
+
 /* Per H @ Tail-f: The original code here had problems that possibly
    only occur if you abuse it for non-INET sockets, but anyway:
    a) If the getsockopt for SO_PRIORITY or IP_TOS failed, the actual
@@ -6521,6 +6522,40 @@ static int setopt_prio_tos_trick
 }
 #endif
 
+
+static
+int inet_setopt(int fd,
+                int proto, int type,
+                char* arg_ptr, int arg_sz,
+                int propagate)
+{
+    int res;
+
+#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
+    && defined(SO_PRIORITY) && !defined(__WIN32__)
+    DEBUGF(("inet_setopt -> try trick setopt with"
+             "\r\n   fd:        %d"
+             "\r\n   proto:     %d"
+             "\r\n   type:      %d"
+             "\r\n   sz:        %d"
+             "\r\n   propagate: %d"
+             "\r\n", fd, proto, type, arg_sz, propagate));
+    res = setopt_prio_tos_trick (fd, proto, type, arg_ptr, arg_sz, propagate);
+#else
+    DEBUGF(("inet_setopt -> try std setopt with"
+             "\r\n   fd:        %d"
+             "\r\n   proto:     %d"
+             "\r\n   type:      %d"
+             "\r\n   sz:        %d"
+             "\r\n", fd, proto, type, arg_sz));
+    res = sock_setopt	    (fd, proto, type, arg_ptr, arg_sz);
+#endif
+
+    return res;
+}
+
+
+
 /* set socket options:
 ** return -1 on error
 **         0 if ok
@@ -6536,12 +6571,22 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int proto;
     int opt;
     struct linger li_val;
-#if defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP)
-    struct ip_mreq mreq_val;
+#if defined(HAVE_MULTICAST_SUPPORT)
+#if defined(IPPROTO_IP)
+#if defined(HAVE_STRUCT_IP_MREQN)
+    struct ip_mreqn  mreq4;
+#else    
+    struct ip_mreq   mreq4;
 #endif
-    int ival;
+#endif
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
+    struct ipv6_mreq mreq6;
+#endif
+    unsigned int mreqSz = 0;
+#endif
+    int   ival;
     char* arg_ptr;
-    int arg_sz;
+    int   arg_sz;
 #ifdef SO_BINDTODEVICE
     char ifname[IFNAMSIZ];
 #endif
@@ -7097,7 +7142,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                         desc->port, desc->s, ival));
                 ival = sock_htonl(ival);
             }
-#if defined(HAVE_IN6) && defined(AF_INET6)
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
             else if (desc->sfamily == AF_INET6) {
                 proto = IPPROTO_IPV6;
                 type  = IPV6_MULTICAST_IF;
@@ -7119,25 +7164,143 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(add-membership) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
-	    proto = IPPROTO_IP;
-	    type = IP_ADD_MEMBERSHIP;
-	    goto L_set_mreq;
-	    
+            if (ival == INET_AF_INET) {
+                proto = IPPROTO_IP;
+                type  = IP_ADD_MEMBERSHIP;
+            }
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
+            else if (ival == INET_AF_INET6) {
+                proto = IPPROTO_IPV6;
+                type  = IPV6_ADD_MEMBERSHIP;
+            }
+#endif
+            else {
+                return -1;
+            }
+            goto L_init_mreq;
+
 	case UDP_OPT_DROP_MEMBERSHIP:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(drop-membership) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
-	    proto = IPPROTO_IP;
-	    type = IP_DROP_MEMBERSHIP;
-	L_set_mreq:
-	    mreq_val.imr_multiaddr.s_addr = sock_htonl(ival);
-	    ival = get_int32(ptr);
-	    mreq_val.imr_interface.s_addr = sock_htonl(ival);
-	    ptr += 4;
-	    len -= 4;
-	    arg_ptr = (char*)&mreq_val;
-	    arg_sz = sizeof(mreq_val);
+            if (ival == INET_AF_INET) {
+                proto = IPPROTO_IP;
+                type  = IP_DROP_MEMBERSHIP;
+            }
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
+            else if (ival == INET_AF_INET6) {
+                proto = IPPROTO_IPV6;
+                type  = IPV6_DROP_MEMBERSHIP;
+            }
+#endif
+            else {
+                return -1;
+            }
+
+        L_init_mreq:
+            {
+                int domain = ival;
+
+                ival = get_int32(ptr); // Interface | Ifindex
+                ptr += 4;
+                len -= 4;
+
+                DEBUGF(("inet_set_opts(L_init_mreq) -> "
+                        "\r\n   proto:  %d (%d, %d)"
+                        "\r\n   type:   %d (%d, %d)"
+                        "\r\n   domain: %d"
+                        "\r\n   if:     %d"
+                        "\r\n",
+                        proto, IPPROTO_IP, IPPROTO_IPV6,
+                        type,  IP_ADD_MEMBERSHIP, IPV6_ADD_MEMBERSHIP,
+                        domain, ival));
+
+                if ((domain == INET_AF_INET) && (desc->sfamily == AF_INET)) {
+
+                    mreqSz = sizeof(mreq4);
+
+                    /* 0) Read out the ifindex (see above)
+                     * 1) Read out the multiaddr
+                     * 2) Read out the local address
+                     */
+                
+#if defined(HAVE_STRUCT_IP_MREQN)
+
+                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> mreqn\r\n"));
+
+                    mreq4.imr_ifindex          = sock_htonl(ival);
+                    ival = get_int32(ptr);
+                    ptr += 4;
+                    len -= 4;
+                    mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
+                    ival = get_int32(ptr);
+                    mreq4.imr_address.s_addr   = sock_htonl(ival);
+#else
+
+                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> mreq\r\n"));
+
+                    ival = get_int32(ptr);
+                    ptr += 4;
+                    len -= 4;
+                    mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
+                    ival = get_int32(ptr);
+                    mreq4.imr_interface.s_addr = sock_htonl(ival);
+#endif
+
+                    proto = IPPROTO_IP;
+                    type  = IP_ADD_MEMBERSHIP;
+
+                    arg_ptr = (char*)&mreq4;
+                    arg_sz  = mreqSz;
+
+                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> "
+                            "try setopt: "
+                            "\r\n   maddr: %x"
+                            "\r\n   if:    %x"
+                            "\r\n   sz:    %d"
+                            "\r\n",
+                            mreq4.imr_multiaddr.s_addr,
+                            mreq4.imr_interface.s_addr,
+                            mreqSz));
+
+                }
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
+                else if ((domain == INET_AF_INET6) &&
+                         (desc->sfamily == AF_INET6)) {
+
+                    mreqSz = sizeof(mreq6);
+
+                    DEBUGF(("inet_set_opts(L_init_mreq,inet6) -> mreq\r\n"));
+
+                    /* 0) Read out the ifindex
+                     * 1) Read out the multiaddr
+                     */
+
+                    sys_memcpy(&mreq6.ipv6mr_multiaddr, ptr, 16);
+                    ptr += 16;
+                    len -= len;
+                    mreq6.ipv6mr_interface = ival;
+
+                    proto = IPPROTO_IPV6;
+                    type  = IPV6_ADD_MEMBERSHIP;
+
+                    arg_ptr = (char*)&mreq6;
+                    arg_sz  = mreqSz;
+
+                }
+#endif
+                else {
+                    DEBUGF(("inet_set_opts(L_init_mreq) -> "
+                             "invalid domain: "
+                             "\r\n   domain:  %d (%d, %d)"
+                             "\r\n   sfmaily: %d (%d, %d)"
+                             "\r\n",
+                             domain, INET_AF_INET, INET_AF_INET6,
+                             desc->sfamily, AF_INET, AF_INET6));
+                    return -1;
+                }
+            }
 	    break;
 
 #endif /* defined(HAVE_MULTICAST_SUPPORT) && defined(IPPROTO_IP) */
@@ -7228,13 +7391,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
               "inet_set_opts -> try set opt (%d) %d\r\n",
 	      __LINE__, desc->s, driver_caller(desc->port), proto, type) );
 
-
-#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
-    && defined(SO_PRIORITY) && !defined(__WIN32__)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, propagate);
-#else
-	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
-#endif
+        res = inet_setopt(desc->s, proto, type, arg_ptr, arg_sz, propagate);
 
 	DDBG(desc,
 	     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
@@ -7263,7 +7420,8 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
         }
 
 	if (desc->active != old_active) {
-            /* Need to cancel the read_packet timer if we go from active to passive. */
+            /* Need to cancel the read_packet timer *
+             * if we go from active to passive.     */
             if (desc->active == INET_PASSIVE && desc->stype == SOCK_DGRAM)
                 driver_cancel_timer(desc->port);
 
@@ -8164,13 +8322,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    return -1;
 	}
 
-
-#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
-    && defined(SO_PRIORITY) && !defined(__WIN32__)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
-#else
-	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
-#endif
+        res = inet_setopt(desc->s, proto, type, arg_ptr, arg_sz, 1);
 
 	/* The return values of "sock_setopt" can only be 0 or -1: */
 	ASSERT(res == 0 || res == -1);
