@@ -965,7 +965,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     /* Get Arguments */
     ASSERT(argc == 3);
-    enif_fprintf(stderr, "ensure_engine_loaded_nif ENTER\n\n");   
 
     /* EngineId */
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
@@ -1005,7 +1004,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     if ((engine = ENGINE_by_id(engine_id)) != NULL)
     {
-        enif_fprintf(stderr, "ensure_engine_loaded_nif ENGINE ALREADY LOADED\n\n");   
         
         PRINTF_ERR0("Engine already loaded, get a reference\r\n");
         /* Get structural reference to already loaded engine */
@@ -1024,7 +1022,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         goto done;
 
       } else {
-        enif_fprintf(stderr, "ensure_engine_loaded_nif LOAD ENGINE\n\n");   
         PRINTF_ERR0("Load engine\r\n");
         /* Load dynamic engine */
         ENGINE_load_dynamic();
@@ -1058,7 +1055,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             goto err;
         }
 
-        enif_fprintf(stderr, "ENGINE_init called!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");   
         /* Init engine and get functional reference */
         if (!ENGINE_init(engine)) {
             ret = ERROR_Atom(env, "engine_init_failed");
@@ -1120,7 +1116,6 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         enif_free(engine_id);
     if (ctx)
         enif_release_resource(ctx);
-    enif_fprintf(stderr, "ensure_engine_loaded_nif LEAVING\n\n");   
 
     return ret;
 
@@ -1142,7 +1137,6 @@ ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* Get Arguments */
     ASSERT(argc == 2);
-    enif_fprintf(stderr, "ensure_engine_unloaded_nif ENTER\n\n");   
 
     /* Engine */
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
@@ -1167,12 +1161,10 @@ ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* Remove functional reference */
     if(ctx->is_functional) {
-        enif_fprintf(stderr, "ensure_engine_unloaded_nif REMOVE FUNCTIONAL\n\n");   
 
         /* Remove engine from OpenSSls internal list if existing */
         if((tmp_engine_id = ENGINE_get_id(ctx->engine)) != NULL)
             if ((tmp_engine = ENGINE_by_id(tmp_engine_id)) != NULL) {
-                enif_fprintf(stderr, "ensure_engine_unloaded_nif REMOVE TAG\n\n");   
                 ENGINE_free(tmp_engine);
                 if(!ENGINE_remove(ctx->engine)) {
                     ret = ERROR_Atom(env, "remove_engine_failed");
@@ -1188,7 +1180,6 @@ ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     }
 
     /* Remove structural reference */
-    enif_fprintf(stderr, "ensure_engine_unloaded_nif REMOVE STRUCTURAL\n\n");   
     if (!ENGINE_free(ctx->engine))
         goto err;
     ctx->engine = NULL;
@@ -1208,7 +1199,6 @@ ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         enif_mutex_unlock(ensure_engine_loaded_mtx);
         is_locked = 0;
     }
-    enif_fprintf(stderr, "ensure_engine_unloaded_nif LEAVING\n\n");   
     return ret;
 
 #else
