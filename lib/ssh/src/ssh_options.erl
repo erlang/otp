@@ -771,6 +771,14 @@ default(common) ->
              class => user_option
             },
 
+       max_log_item_len =>
+           #{default => 500,
+             chk => fun(infinity) -> true;
+                       (I) -> check_non_neg_integer(I)
+                    end,
+             class => user_option
+            },
+
       rekey_limit =>
           #{default => {3600000, 1024000000}, % {1 hour, 1 GB}
             chk => fun({infinity, infinity}) ->
