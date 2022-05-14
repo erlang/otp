@@ -3205,6 +3205,7 @@ global_groups_change(Config) ->
     Config2 = filename:join(Dir, "sys2"),
     {ok, CpC} = start_node_boot(NcpC, Config2, dc),
 
+    gg_sync_and_wait(Cp1, [Cp2], [], [mk_node(Ncp5, M)]),
     gg_sync_and_wait(CpA, [CpB], [], []),
     gg_sync_and_wait(CpD, [CpC, CpE], [], []),
 

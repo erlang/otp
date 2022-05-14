@@ -1814,18 +1814,34 @@ upgrade_gg(Conf) ->
     %% start gg2 and gg6
     [Gg2,Gg6] = start_nodes(Conf,[Gg2Sname,Gg6Sname],"upgrade_gg start gg2/gg6"),
 
+    %% Watch dog pulling out some more information in case we hang...
+    Nodes3 = [Gg1,Gg2,Gg4,Gg5,Gg6],
+    Tester = self(),
+    WD = spawn_link(fun () ->
+                            receive after 7*60*1000 -> ok end,
+                            ct:pal("7 minutes passed...~n", []),
+                            erlang:suspend_process(Tester),
+                            load_suite(Nodes3),
+                            dump_info([node()|Nodes3]),
+                            exit(operation_hang)
+                    end),
+
     %% reg proc on each of the nodes
     ok = rpc:call(Gg2, installer, reg_proc, [reg2]),
     ok = rpc:call(Gg6, installer, reg_proc, [reg6]),
 
     %% Check global group info
-    Nodes3 = [Gg1,Gg2,Gg4,Gg5,Gg6],
     [check_gg_info(Node,Nodes3,[],Nodes3--[Node]) || Node <- Nodes3],
 
     OkList = lists:map(fun (_) -> ok end, Nodes3),
     {OkList,[]} = rpc:multicall(Nodes3, global, sync, []),
 
     are_names_reg_gg(Gg1, [reg1, reg2, reg4, reg5, reg6]),
+
+    unlink(WD),
+    exit(WD, kill),
+    false = is_process_alive(WD),
+
     ok.
 
 upgrade_gg(cleanup,Config) ->
@@ -1833,6 +1849,53 @@ upgrade_gg(cleanup,Config) ->
     NodeNames = [node_name(Sname) || Sname <- Snames],
     ok = stop_nodes(NodeNames).
 
+load_suite(Nodes) ->
+    {ok,Bin}=file:read_file(code:which(?MODULE)),
+    _ = rpc:multicall(Nodes, erlang, load_module, [?MODULE, Bin]),
+    ok.
+
+dump_info(Nodes) ->
+    GetLockerState = fun (TheLocker) ->
+                             Mon = erlang:monitor(process, TheLocker),
+                             TheLocker ! {get_state, self(), Mon},
+                             receive
+                                 Msg when element(1, Msg) =:= Mon ->
+                                     erlang:demonitor(Mon, [flush]),
+                                     RList = tl(erlang:tuple_to_list(Msg)),
+                                     erlang:list_to_tuple([state | RList]);
+                                 {'DOWN', Mon, process, TheLocker, Reason} ->
+                                     {error, Reason}
+                             after 60*1000 ->
+                                     erlang:demonitor(Mon, [flush]),
+                                     {error, timeout}
+                             end
+                     end,
+    GI = rpc:multicall(Nodes,
+                       erlang,
+                       apply,
+                       [fun () ->
+                                GlobalLocker = global:get_locker(),
+                                {node(),
+                                 #{global_state => global:info(),
+                                   global_dict => process_info(whereis(global_name_server), dictionary),
+                                   global_locks_tab => ets:tab2list(global_locks),
+                                   global_names_tab => ets:tab2list(global_names),
+                                   global_names_ext_tab => ets:tab2list(global_names_ext),
+                                   global_pid_names_tab => ets:tab2list(global_pid_names),
+                                   global_pid_ids_tab => ets:tab2list(global_pid_ids),
+                                   global_lost_connections_tab => ets:tab2list(global_lost_connections),
+                                   global_node_resources_tag => ets:tab2list(global_node_resources),
+                                   global_locker_state => GetLockerState(GlobalLocker),
+                                   global_locker_info => process_info(GlobalLocker,
+                                                                      [status,
+                                                                       current_stacktrace,
+                                                                       messages,
+                                                                       dictionary]),
+                                   global_group_info => global_group:info()}}
+                        end,
+                        []],
+                       2*60*1000),
+    ct:pal("GI: ~p~n", [GI]).
 
 %%%-----------------------------------------------------------------
 %%% OTP-10463, Bug - release_handler could not handle regexp in appup
