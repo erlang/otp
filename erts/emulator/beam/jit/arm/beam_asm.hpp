@@ -1599,8 +1599,8 @@ protected:
             }
         }
 
-        mov_arg(SUPER_TMP, arg);
-        a.cmp(gp, SUPER_TMP);
+        auto tmp = load_source(arg, SUPER_TMP);
+        a.cmp(gp, tmp.reg);
     }
 
     void safe_stp(arm::Gp gp1,
