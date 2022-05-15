@@ -19,7 +19,7 @@
 %%
 -module(rtnode).
 
--export([run/1, run/2, run/3, run/4, start/1, start/3, send_commands/3, stop/1,
+-export([run/1, run/2, run/3, run/4, start/1, start/3, send_commands/4, stop/1,
          start_runerl_command/3,
          check_logs/3, check_logs/4, read_logs/1, dump_logs/1,
          get_default_shell/0, get_progs/0, create_tempdir/0, timeout/1]).
@@ -50,8 +50,8 @@ run(Commands, Nodename, ErlPrefix) ->
 
 run(Commands, Nodename, ErlPrefix, Args) ->
     case start(Nodename, ErlPrefix, Args) of
-        {ok, _SPid, CPid, RTState} ->
-            Res = catch send_commands(CPid, Commands, 1),
+        {ok, _SPid, CPid, Node, RTState} ->
+            Res = catch send_commands(Node, CPid, Commands, 1),
             Logs = stop(RTState),
             case Res of
                 ok ->
@@ -84,11 +84,11 @@ start(Nodename, ErlPrefix, Args) ->
                                               lists:join($\s, ErlArgs),
 					  Tempdir,Nodename,Args),
 		    CPid = start_toerl_server(ToErl,Tempdir,undefined),
-                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}};
+                    {ok, SPid, CPid, undefined, {CPid, SPid, ToErl, Tempdir}};
                 Tempdir ->
-                    SPid = start_peer_runerl_node(RunErl,ErlWArgs,Tempdir,Nodename,Args),
+                    {SPid, Node} = start_peer_runerl_node(RunErl,ErlWArgs,Tempdir,Nodename,Args),
                     CPid = start_toerl_server(ToErl,Tempdir,SPid),
-                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}}
+                    {ok, SPid, CPid, Node, {CPid, SPid, ToErl, Tempdir}}
             end
     end.
 
@@ -108,7 +108,7 @@ stop({CPid, SPid, ToErl, Tempdir}) ->
 
 stop_try_harder(ToErl, Tempdir, SPid) ->
     CPid = start_toerl_server(ToErl, Tempdir, SPid),
-    ok = send_commands(CPid,
+    ok = send_commands(undefined, CPid,
                        [{putline,[7]},
                         {expect, " --> $"},
                         {putline, "s"},
@@ -125,36 +125,43 @@ timeout(short) ->
 timeout(normal) ->
     10000 * test_server:timetrap_scale_factor().
 
-send_commands(CPid, [{sleep, X}|T], N) ->
+send_commands(Node, CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),
     receive
     after X ->
-	    send_commands(CPid, T, N+1)
+	    send_commands(Node, CPid, T, N+1)
     end;
-send_commands(CPid, [{expect, Expect}|T], N) when is_list(Expect) ->
-    send_commands(CPid, [{expect, unicode, Expect}|T], N);
-send_commands(CPid, [{expect, Encoding, Expect}|T], N) when is_list(Expect) ->
+send_commands(Node, CPid, [{expect, Expect}|T], N) when is_list(Expect) ->
+    send_commands(Node, CPid, [{expect, unicode, Expect}|T], N);
+send_commands(Node, CPid, [{expect, Encoding, Expect}|T], N) when is_list(Expect) ->
     ?dbg({expect, Expect}),
     case command(CPid, {expect, Encoding, [Expect], timeout(normal)}) of
         ok ->
-            send_commands(CPid, T, N + 1);
+            send_commands(Node, CPid, T, N + 1);
         {expect_timeout, Got} ->
             ct:pal("expect timed out waiting for ~p\ngot: ~p\n", [Expect,Got]),
             {error, timeout};
         Other ->
             Other
     end;
-send_commands(CPid, [{putline, Line}|T], N) ->
-    send_commands(CPid, [{putdata, Line ++ "\n"}|T], N);
-send_commands(CPid, [{putdata, Data}|T], N) ->
+send_commands(Node, CPid, [{putline, Line}|T], N) ->
+    send_commands(Node, CPid, [{putdata, Line ++ "\n"}|T], N);
+send_commands(Node, CPid, [{putdata, Data}|T], N) ->
     ?dbg({putdata, Data}),
     case command(CPid, {send_data, Data}) of
         ok ->
-	    send_commands(CPid, T, N+1);
+	    send_commands(Node, CPid, T, N+1);
         Error ->
             Error
     end;
-send_commands(_CPid, [], _) ->
+send_commands(Node, CPid, [{eval, Fun}|T], N) ->
+    case erpc:call(Node, Fun) of
+        ok ->
+            send_commands(Node, CPid, T, N+1);
+         Error ->
+             Error
+     end;
+send_commands(_Node, _CPid, [], _) ->
     ok.
 
 command(Pid, Req) ->
@@ -300,7 +307,7 @@ start_peer_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
                           erlang:raise(E,R,ST)
                   end
           end),
-    Peer.
+    {Peer, Node}.
 
 start_toerl_server(ToErl,Tempdir,SPid) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir,SPid]),
