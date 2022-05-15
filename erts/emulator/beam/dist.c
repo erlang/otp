@@ -3628,7 +3628,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
         erts_snprintf(remote_str, sizeof(DTRACE_CHARBUF_NAME(remote_str)),
                       "%T", dep->sysname);
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
-                remote_str, size);
+                remote_str, eiovp->size);
     }
 #endif
     prt->caller = NIL;
