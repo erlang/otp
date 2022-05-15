@@ -650,13 +650,12 @@ int main(int argc, char **argv)
 		    break;
 
 		  case 'd':
-		    if (strcmp(argv[i], "-detached") != 0) {
-			add_arg(argv[i]);
-		    } else {
-			start_detached = 1;
-			add_args("-noshell", "-noinput", NULL);
-		    }
-		    break;
+                    add_arg(argv[i]);
+                    if (strcmp(argv[i], "-detached") == 0) {
+                        start_detached = 1;
+                        add_args("-noshell", "-noinput", NULL);
+                    }
+                    break;
 
 		  case 'e':
 		    if (strcmp(argv[i], "-extra") == 0) {

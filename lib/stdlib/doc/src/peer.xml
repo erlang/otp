@@ -308,6 +308,13 @@ build_image(Dir) ->
               default bash.
             </p>
           </item>
+          <tag><c>detached</c></tag>
+          <item>
+            <p>Defines whether to pass the <c>-detached</c> flag to the started peer.
+              This option cannot be set to <c>false</c> using the standard_io alternative
+              connection type. Default is <c>true</c>.
+            </p>
+          </item>
           <tag><c>args</c></tag>
           <item>
             <p>Extra command line arguments to append to the "erl" command. Arguments are

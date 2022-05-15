@@ -115,6 +115,7 @@
           %%  terminates with underlying reason
           connection => connection(),         %% alternative connection specification
           exec => exec(),                     %% path to executable, or SSH/Docker support
+          detached => boolean(),              %% if the node should be start in detached mode
           args => [string()],                 %% additional command line parameters to append
           post_process_args =>
               fun(([string()]) -> [string()]),%% fix the arguments
@@ -571,8 +572,13 @@ verify_args(Options) ->
             ok;
         {ok, Err2} ->
             error({shutdown, Err2})
+    end,
+    case maps:find(detached, Options) of
+        {ok, false} when map_get(connection, Options) =:= standard_io ->
+            error({detached, cannot_detach_with_standard_io});
+        _ ->
+            ok
     end.
-            
 
 make_notify_ref(infinity) ->
     {self(), make_ref()};
@@ -788,6 +794,14 @@ command_line(Listen, Options) ->
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
+
+    %% If we should detach from the node. We use -detached to tell erl to detach
+    %% and -peer_detached to tell peer:start that we are detached.
+    DetachArgs = case maps:get(detached, Options, true) of
+                     true -> ["-detached","-peer_detached"];
+                     false -> []
+                 end,
+
     %% start command
     StartCmd =
         case Listen of
@@ -795,14 +809,14 @@ command_line(Listen, Options) ->
                 ["-user", atom_to_list(?MODULE)];
             undefined ->
                 Self = base64:encode_to_string(term_to_binary(self())),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", Self];
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", Self];
             {Ips, Port} ->
                 IpStr = lists:concat(lists:join(",", [inet:ntoa(Ip) || Ip <- Ips])),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
         end,
     %% build command line
     {Exec, PreArgs} = exec(Options),
-    {Exec, PreArgs ++ NameArg ++ StartCmd ++ CmdOpts}.
+    {Exec, PreArgs ++ NameArg ++ CmdOpts ++ StartCmd}.
 
 exec(#{exec := Prog}) when is_list(Prog) ->
     {Prog, []};
@@ -899,24 +913,41 @@ start() ->
         {ok, [[IpStr, PortString]]} ->
             %% enter this clause when -origin IpList Port is specified in the command line.
             Port = list_to_integer(PortString),
-            Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end || Ip <- string:lexemes(IpStr, ",")],
-            spawn(fun () -> tcp_init(Ips, Port) end);
+            Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end ||
+                      Ip <- string:lexemes(IpStr, ",")],
+            TCPConnection = spawn(fun () -> tcp_init(Ips, Port) end),
+            case init:get_argument(peer_detached) of
+                {ok, _} ->
+                    register(user, TCPConnection),
+                    TCPConnection;
+                error ->
+                    user_sup:init(
+                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+            end;
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
             OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
-            %% setup 'user' process, I/O redirection: ask controlling process
-            %%  who is the group leader.
-            GroupLeader = gen_server:call(OriginProcess, group_leader),
-            RelayPid = spawn(fun () -> relay(GroupLeader) end),
-            register(user, RelayPid),
             spawn(
               fun () ->
                       MRef = monitor(process, OriginProcess),
                       notify_when_started(dist, OriginProcess),
                       origin_link(MRef, OriginProcess)
               end),
-            %% return RelayPid for user_sup to link to
-            RelayPid;
+            case init:get_argument(peer_detached) of
+                {ok, _} ->
+                    %% We are detached, so setup 'user' process, I/O redirection:
+                    %%   ask controlling process who is the group leader.
+                    GroupLeader = gen_server:call(OriginProcess, group_leader),
+                    RelayPid = spawn(fun () -> relay(GroupLeader) end),
+                    register(user, RelayPid),
+                    %% return RelayPid for user_sup to link to
+                    RelayPid;
+                error ->
+                    %% We are not detached, so after we spawn the link process we
+                    %% start the terminal as normal but without the -user peer flag.
+                    user_sup:init(
+                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+            end;
         error ->
             %% no -origin specified, meaning that standard I/O is used for alternative
             spawn(fun io_server/0)
@@ -949,7 +980,6 @@ io_server() ->
 tcp_init(IpList, Port) ->
     try
         Sock = loop_connect(IpList, Port),
-        register(user, self()),
         erlang:group_leader(self(), self()),
         notify_when_started(tcp, Sock),
         io_server_loop(tcp, Sock, #{}, #{}, undefined)
