@@ -257,9 +257,9 @@ Uncheck option:
 
   (20)
 
-    $ wget http://zlib.net/zlib-1.2.11.tar.gz
-    $ tar xf zlib-1.2.11.tar.gz
-    $ pushd zlib-1.2.11
+    $ wget http://zlib.net/zlib-1.2.12.tar.gz
+    $ tar xf zlib-1.2.12.tar.gz
+    $ pushd zlib-1.2.12
     $ CHOST=armv8-rpi3-linux-gnueabihf ./configure --prefix=/Volumes/xtools-build-env/local
     $ make
     $ make install
