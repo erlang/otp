@@ -1065,6 +1065,26 @@ typedef union {
 } inet_address;
 
 
+/* On some platforms, for instance FreeBSD, this option is instead
+ * called IPV6_JOIN_GROUP and IPV6_JOIN_GROUP. */
+
+#if defined(HAVE_IN6)
+
+#if defined(IPV6_ADD_MEMBERSHIP)
+#define INET_ADD_MEMBERSHIP IPV6_ADD_MEMBERSHIP
+#elif defined(IPV6_JOIN_GROUP)
+#define INET_ADD_MEMBERSHIP IPV6_JOIN_GROUP
+#endif
+
+#if defined(IPV6_DROP_MEMBERSHIP)
+#define INET_DROP_MEMBERSHIP IPV6_DROP_MEMBERSHIP
+#elif defined(IPV6_LEAVE_GROUP)
+#define INET_DROP_MEMBERSHIP IPV6_LEAVE_GROUP
+#endif
+
+#endif
+
+
 #define inet_address_port(x)			\
   ((((x)->sai.sin_family == AF_INET) ||		\
     ((x)->sai.sin_family == AF_INET6)) ?	\
@@ -7171,7 +7191,11 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
             else if (ival == INET_AF_INET6) {
                 proto = IPPROTO_IPV6;
-                type  = IPV6_ADD_MEMBERSHIP;
+#if defined(INET_ADD_MEMBERSHIP)
+                type  = INET_DROP_MEMBERSHIP;
+#else
+                return -1;
+#endif
             }
 #endif
             else {
@@ -7191,7 +7215,11 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
             else if (ival == INET_AF_INET6) {
                 proto = IPPROTO_IPV6;
-                type  = IPV6_DROP_MEMBERSHIP;
+#if defined(INET_DROP_MEMBERSHIP)
+                type  = INET_DROP_MEMBERSHIP;
+#else
+                return -1;
+#endif
             }
 #endif
             else {
@@ -7213,7 +7241,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                         "\r\n   if:     %d"
                         "\r\n",
                         proto, IPPROTO_IP, IPPROTO_IPV6,
-                        type,  IP_ADD_MEMBERSHIP, IPV6_ADD_MEMBERSHIP,
+                        type,  IP_ADD_MEMBERSHIP,
+#if defined(INET_ADD_MEMBERSHIP)
+                        INET_ADD_MEMBERSHIP,
+#else
+                        -1,
+#endif
                         domain, ival));
 
                 if ((domain == INET_AF_INET) && (desc->sfamily == AF_INET)) {
@@ -7248,9 +7281,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                     mreq4.imr_interface.s_addr = sock_htonl(ival);
 #endif
 
-                    proto = IPPROTO_IP;
-                    type  = IP_ADD_MEMBERSHIP;
-
                     arg_ptr = (char*)&mreq4;
                     arg_sz  = mreqSz;
 
@@ -7281,9 +7311,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                     ptr += 16;
                     len -= len;
                     mreq6.ipv6mr_interface = ival;
-
-                    proto = IPPROTO_IPV6;
-                    type  = IPV6_ADD_MEMBERSHIP;
 
                     arg_ptr = (char*)&mreq6;
                     arg_sz  = mreqSz;
