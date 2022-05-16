@@ -1659,6 +1659,16 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	])
 
 dnl ----------------------------------------------------------------------
+dnl Checks for types.
+dnl ----------------------------------------------------------------------
+
+AC_CHECK_TYPES([struct ip_mreqn], [], [],
+               [
+                #include <netinet/in.h>
+               ])
+
+
+dnl ----------------------------------------------------------------------
 dnl  Check the availability of systemd
 dnl ----------------------------------------------------------------------
 AS_IF([test x"$enable_systemd" != x"no"],
