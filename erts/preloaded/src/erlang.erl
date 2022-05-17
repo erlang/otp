@@ -36,7 +36,7 @@
 -export([dmonitor_node/3]).
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
--export([nodes/0]).
+-export([nodes/0, nodes/1, nodes/2]).
 
 -export([integer_to_list/2]).
 -export([integer_to_binary/2]).
@@ -191,7 +191,7 @@
          is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/2,
          is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
-         make_tuple/2, make_tuple/3, nodes/1, open_port/2,
+         make_tuple/2, make_tuple/3, open_port/2,
          port_call/2, port_call/3, port_info/1, port_info/2, process_flag/2,
          process_info/2, send/2, send/3, seq_trace_info/1,
          setelement/3,
@@ -2217,13 +2217,6 @@ make_tuple(_Arity,_InitialValue) ->
 make_tuple(_Arity,_DefaultValue,_InitList) ->
     erlang:nif_error(undefined).
 
--spec nodes(Arg) -> Nodes when
-      Arg :: NodeType | [NodeType],
-      NodeType :: visible | hidden | connected | this | known,
-      Nodes :: [node()].
-nodes(_Arg) ->
-    erlang:nif_error(undefined).
-
 -spec open_port(PortName, PortSettings) -> port() when
       PortName :: {spawn, Command :: string() | binary()} |
                   {spawn_driver, Command :: string() | binary()} |
@@ -3318,7 +3311,28 @@ yield() ->
 -spec nodes() -> Nodes when
       Nodes :: [node()].
 nodes() ->
-    erlang:nodes(visible).
+    erlang:nif_error(undefined).
+
+-spec nodes(Arg) -> Nodes when
+      Arg :: NodeType | [NodeType],
+      NodeType :: visible | hidden | connected | this | known,
+      Nodes :: [node()].
+nodes(_Arg) ->
+    erlang:nif_error(undefined).
+
+-spec nodes(Arg, InfoOpts) -> [NodeInfo] when
+      NodeType :: visible | hidden | connected | this | known,
+      Arg :: NodeType | [NodeType],
+      InfoOpts :: #{connection_id => boolean(),
+                    node_type => boolean()},
+      NodeTypeInfo :: visible | hidden | this | known,
+      ConnectionId :: undefined | integer(),
+      Info :: #{connection_id => ConnectionId,
+                node_type => NodeTypeInfo},
+      NodeInfo :: {node(), Info}.
+
+nodes(_Args, _Opts) ->
+    erlang:nif_error(undefined).
 
 -spec disconnect_node(Node) -> boolean() | ignored when
       Node :: node().
