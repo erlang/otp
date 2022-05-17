@@ -4888,6 +4888,91 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
+      <name name="nodes" arity="2" since="OTP @OTP-17934@"/>
+      <fsummary>All nodes of a certain type in the system.</fsummary>
+      <desc>
+        <p>
+          Returns a list of <c><anno>NodeInfo</anno></c> tuples. The first
+          element is the node name. Nodes to be included in the list are
+          determined by the first argument <c><anno>Arg</anno></c> in the same
+          way as for
+          <seemfa marker="#nodes/1"><c>nodes(<anno>Arg</anno>)</c></seemfa>.
+          The second element of <c><anno>NodeInfo</anno></c> tuples is a map
+          containing further information about the node identified by the
+          first element. The information present in this map is determined by
+          the <c><anno>InfoOpts</anno></c> map passed as the second argument.
+          Currently the following associations are allowed in the
+          <c><anno>InfoOpts</anno></c> map:</p>
+        <taglist>
+          <tag><c>connection_id => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>connection_id</c>
+            associated with the value <c><anno>ConnectionId</anno></c>. If
+            <c><anno>ConnectionId</anno></c> equals <c>undefined</c>, the node
+            is not connected to the node which the caller is executing on, or
+            is the node which the caller is executing on. If
+            <c><anno>ConnectionId</anno></c> is an integer, the node is
+            currently connected to the node which the caller is executing on.
+          </p>
+          <p>
+            <marker id="connection_id"/>
+            The integer connection identifier value together with a node name
+            identifies a specific connection instance to the node with that
+            node name. The connection identifier value is node local. That is,
+            on the other node the connection identifier will <i>not</i> be the
+            same value. If a connection is taken down and then taken up again,
+            the connection identifier value will change for the connection to
+            that node. The amount of values for connection identifiers are
+            limited, so it is possible to see the same value for different
+            instances, but quite unlikely. It is undefined how the value
+            change between two consecutive connection instances.
+          </p></item>
+          <tag><c>node_type => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>node_type</c>
+            associated with the value <c><anno>NodeTypeInfo</anno></c>.
+            Currently the following node types exist:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through an ordinary visible connection. That is, the node
+                name would appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through a hidden connection. That is, the node
+                name would <i>not</i> appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>this</c></tag>
+              <item><p>
+                This is the node of the calling process.
+              </p></item>
+              <tag><c>known</c></tag>
+              <item><p>
+                The node is not connected but known to the node of the
+                calling process.
+              </p></item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="erl">
+(a@localhost)1> nodes([this, connected], #{connection_id=>true, node_type=>true}). 
+[{c@localhost,#{connection_id => 13892108,node_type => hidden}},
+ {b@localhost,#{connection_id => 3067553,node_type => visible}},
+ {a@localhost,#{connection_id => undefined,node_type => this}}]
+(a@localhost)2> 
+        </code>
+      </desc>
+    </func>
+
+    <func>
       <name name="now" arity="0" since=""/>
       <fsummary>Elapsed time since 00:00 GMT.</fsummary>
       <type name="timestamp"/>

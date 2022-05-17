@@ -41,7 +41,7 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          ping/1, bulk_send_small/1,
-         group_leader/1,
+         group_leader/1, nodes2/1,
          optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
@@ -96,7 +96,7 @@ suite() ->
 
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
-     group_leader,
+     group_leader, nodes2,
      optimistic_dflags,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
      link_to_dead_new_node,
@@ -216,6 +216,294 @@ group_leader_1(Node2) ->
     ?Line ExtPid ! {self(), group_leader},
     ?Line {ExtPid, group_leader, GL2} = receive_one(),
     ok.
+
+nodes2(Config) when is_list(Config) ->
+
+    This = node(),
+
+    ok = net_kernel:monitor_nodes(true, #{node_type => all,
+                                          connection_id => true}),
+
+    AlreadyConnected = maps:from_list(lists:map(fun (N) ->
+                                                        {N, true}
+                                                end, nodes(connected))),
+    AlreadyVisible = maps:from_list(lists:map(fun (N) ->
+                                                      {N, true}
+                                              end, nodes(visible))),
+    AlreadyHidden = maps:from_list(lists:map(fun (N) ->
+                                                     {N, true}
+                                             end, nodes(visible))),
+    AlreadyKnown = maps:from_list(lists:map(fun (N) ->
+                                                    {N, true}
+                                            end, nodes(known))),
+
+    {ok, V1} = start_node(visible1),
+    {ok, H1} = start_node(hidden1, "-hidden"),
+    {ok, V2} = start_node(visible2),
+    {ok, H2} = start_node(hidden2, "-hidden"),
+
+    TestNodes = maps:from_list(lists:map(fun (N) ->
+                                                 {N, true}
+                                         end, [This, V1, H1, V2, H2])),
+
+    V1CId = receive {nodeup, V1, #{connection_id := C1, node_type := visible}} -> C1 end,
+    V2CId = receive {nodeup, V2, #{connection_id := C2, node_type := visible}} -> C2 end,
+    H1CId = receive {nodeup, H1, #{connection_id := C3, node_type := hidden}} -> C3 end,
+    H2CId = receive {nodeup, H2, #{connection_id := C4, node_type := hidden}} -> C4 end,
+
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{connection_id => true,
+                                                 node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes([this, connected], #{connection_id => true,
+                                                         node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{connection_id := V1CId} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{connection_id := V2CId} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{connection_id := H1CId} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{connection_id := H2CId} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{connection_id := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{connection_id => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyConnected)
+                  end, erlang:nodes(connected, #{node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyVisible)
+                  end, erlang:nodes(visible, #{connection_id => true,
+                                               node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := V2CId, node_type := visible} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyVisible)
+                  end, erlang:nodes([this, visible], #{connection_id => true,
+                                                       node_type => true})),
+    lists:foreach(fun ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := H2CId, node_type := hidden} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyHidden)
+                  end, erlang:nodes(hidden, #{connection_id => true,
+                                              node_type => true})),
+    [{This, #{connection_id := undefined,
+              node_type := this}}] = erlang:nodes(this, #{connection_id => true,
+                                                          node_type => true}),
+    [{This, #{connection_id := undefined}}] = erlang:nodes(this, #{connection_id => true}),
+    [{This, #{node_type := this}}] = erlang:nodes(this, #{node_type => true}),
+
+    %% Ensure dist these dist entries are not GC:d yet...
+    NKV2 = rpc:call(V2, erlang, whereis, [net_kernel]),
+    true = is_pid(NKV2),
+    NKH2 = rpc:call(H2, erlang, whereis, [net_kernel]),
+    true = is_pid(NKH2),
+
+    stop_node(V2),
+    stop_node(H2),
+
+    receive {nodedown, V2, #{connection_id := V2CId, node_type := visible}} -> ok end,
+    receive {nodedown, H2, #{connection_id := H2CId, node_type := hidden}} -> ok end,
+
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          2 = maps:size(I),
+                          #{connection_id := V1CId, node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := known} = I;
+                      ({N, I}) when N == H1 ->
+                          2 = maps:size(I),
+                          #{connection_id := H1CId, node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := known} = I;
+                      ({N, I}) when N == This ->
+                          2 = maps:size(I),
+                          #{connection_id := undefined, node_type := this} = I;
+                      ({N, I}) ->
+                          2 = maps:size(I),
+                          #{connection_id := _, node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{connection_id => true,
+                                             node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{node_type := visible} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{node_type := known} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{node_type := hidden} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{node_type := known} = I;
+                      ({N, I}) when N == This ->
+                          1 = maps:size(I),
+                          #{node_type := this} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{node_type := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{node_type => true})),
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          1 = maps:size(I),
+                          #{connection_id := V1CId} = I;
+                      ({N, I}) when N == V2 ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) when N == H1 ->
+                          1 = maps:size(I),
+                          #{connection_id := H1CId} = I;
+                      ({N, I}) when N == H2 ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) when N == This ->
+                          1 = maps:size(I),
+                          #{connection_id := undefined} = I;
+                      ({N, I}) ->
+                          1 = maps:size(I),
+                          #{connection_id := _} = I,
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{connection_id => true})),    
+    lists:foreach(fun ({N, I}) when N == V1 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == V2 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == H1 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == H2 ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) when N == This ->
+                          0 = maps:size(I),
+                          #{} = I;
+                      ({N, I}) ->
+                          0 = maps:size(I),
+                          false = maps:is_key(N, TestNodes),
+                          true = maps:is_key(N, AlreadyKnown)
+                  end, erlang:nodes(known, #{})),
+
+    stop_node(V1),
+    stop_node(H1),
+
+    id(NKV2),
+    id(NKH2),
+
+    try erlang:nodes("visible", #{connection_id => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes([another], #{connection_id => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{cid => true})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{connection_id => yes})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, #{node_type => yes})
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, [{connection_id, true}])
+    catch error:badarg -> ok
+    end,
+    try erlang:nodes(visible, [{node_type, true}])
+    catch error:badarg -> ok
+    end,
+    ok.
+
+id(X) ->
+    X.
 
 %% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
 optimistic_dflags(Config) when is_list(Config) ->

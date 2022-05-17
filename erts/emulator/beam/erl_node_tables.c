@@ -152,8 +152,12 @@ dist_table_alloc(void *dep_tmpl)
     Eterm sysname;
     Binary *bin;
     DistEntry *dep;
+    Uint32 init_connection_id;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+
+    init_connection_id = (Uint32) erts_get_monotonic_time(NULL);
+    init_connection_id &= ERTS_DIST_CON_ID_MASK;
 
     sysname = ((DistEntry *) dep_tmpl)->sysname;
 
@@ -175,7 +179,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->creation                       = 0; /* undefined */
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
-    dep->connection_id			= 0;
+    dep->connection_id			= init_connection_id;
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->pending_nodedown               = 0;
     dep->suspended_nodeup               = NULL;
