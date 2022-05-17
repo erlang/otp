@@ -27,6 +27,7 @@
          nfd/1, nfc/1, nfkd/1, nfkc/1,
          whitespace/1,
          get/1,
+         lookup/1,
          count/1]).
 
 -export([debug/0, id/1, bin_split/1, uc_loaded_size/0,
@@ -45,6 +46,7 @@ all() ->
      nfd, nfc, nfkd, nfkc,
      whitespace,
      get,
+     lookup,
      count
     ].
 
@@ -323,6 +325,29 @@ verify_nfkc(Data0, LineNo, _Acc) ->
 
 get(_) ->
     add_get_tests.
+
+lookup(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok, Bin} = file:read_file(filename:join(DataDir, "unicode_table.bin")),
+    0 = check_category(0,  binary_to_term(Bin), 0),
+    ok.
+
+check_category(Id, [{Id, {_, _, _, What}}|Rest], Es) ->
+    case maps:get(category, unicode_util:lookup(Id)) of
+        What -> check_category(Id+1, Rest, Es);
+        _Err ->
+            io:format("~w Exp: ~w Got ~w~n",[Id, What, _Err]), exit(_Err),
+            check_category(Id+1, Rest, Es+1)
+    end;
+check_category(Id, [{Next,_}|_] = Rest, Es) ->
+    case maps:get(category, unicode_util:lookup(Id)) of
+        {other, not_assigned} -> check_category(max(Id+1,Next-1), Rest, Es);
+        Err ->  io:format("~w Exp: {other, not_assigned} Got ~w~n",[Id,Err]),
+                check_category(max(Id+1,Next-1), Rest, Es+1)
+    end;
+check_category(_Id, [], Es) ->
+    Es.
+
 
 count(Config) ->
     Parent = self(),
