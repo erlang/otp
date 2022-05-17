@@ -240,6 +240,8 @@ crl_verify_valid(Config) when is_list(Config) ->
 		  end,			  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
+    ssl_crl_cache:insert("http://localhost/erlangCA/crl.pem", {file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
+    ssl_crl_cache:insert("http://localhost/otpCA/crl.pem", {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     

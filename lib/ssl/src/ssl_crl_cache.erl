@@ -175,7 +175,7 @@ cache_lookup(URL, {{Cache, _}, _}) ->
     case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
 	undefined ->
 	    [];
-	CRLs ->
+	[CRLs] ->
 	    CRLs
     end.
 
