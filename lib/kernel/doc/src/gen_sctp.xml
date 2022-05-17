@@ -305,7 +305,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connectx_init" arity="3" since="OTP @OTP-17951@"/>
+      <name name="connectx_init" arity="3" since="OTP 25.0"/>
       <fsummary>Same as <c>connectx_init(Socket, SockAddrs, Opts, infinity)</c>..</fsummary>
       <desc>
         <p>Similar to
@@ -320,7 +320,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connectx_init" arity="4" since="OTP @OTP-17951@"/>
+      <name name="connectx_init" arity="4" since="OTP 25.0"/>
       <fsummary>Same as <c>connectx_init(Socket, Addrs, Port, Opts, infinity)</c>..</fsummary>
       <desc>
         <p>Same as <c>connectx_init(<anno>Socket</anno>, <anno>Addrs</anno>,
@@ -329,7 +329,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connectx_init" arity="5" since="OTP @OTP-17951@"/>
+      <name name="connectx_init" arity="5" since="OTP 25.0"/>
       <fsummary>Initiate a new association for socket <c>Socket</c>, with a
         peer (SCTP server socket).</fsummary>
       <desc>

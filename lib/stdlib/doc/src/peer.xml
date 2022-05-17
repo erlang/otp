@@ -31,7 +31,7 @@
     <rev></rev>
     <file>peer.xml</file>
   </header>
-  <module since="OTP @OTP-17720@">peer</module>
+  <module since="OTP 25.0">peer</module>
   <modulesummary>Start and control linked Erlang nodes.
   </modulesummary>
   <description>
@@ -397,8 +397,8 @@
   <funcs>
 
     <func>
-      <name name="call" arity="4" since="OTP @OTP-17720@"/>
-      <name name="call" arity="5" since="OTP @OTP-17720@"/>
+      <name name="call" arity="4" since="OTP 25.0"/>
+      <name name="call" arity="5" since="OTP 25.0"/>
       <fsummary>Evaluates a function call on a peer node.</fsummary>
       <desc>
         <p>
@@ -420,7 +420,7 @@
     </func>
 
     <func>
-      <name name="cast" arity="4" since="OTP @OTP-17720@"/>
+      <name name="cast" arity="4" since="OTP 25.0"/>
       <fsummary>Evaluates a function call on a peer node ignoring the result.</fsummary>
       <desc>
         <p>
@@ -438,7 +438,7 @@
     </func>
 
     <func>
-      <name name="send" arity="3" since="OTP @OTP-17720@"/>
+      <name name="send" arity="3" since="OTP 25.0"/>
       <fsummary>Sends a message to a process on the peer node.</fsummary>
       <desc>
         <p>
@@ -450,7 +450,7 @@
     </func>
 
     <func>
-      <name name="get_state" arity="1" since="OTP @OTP-17720@"/>
+      <name name="get_state" arity="1" since="OTP 25.0"/>
       <fsummary>Returns peer node state.</fsummary>
       <desc>
         <p>Returns the peer node state. Th initial state is <c>booting</c>; the node stays in that
@@ -461,7 +461,7 @@
     </func>
 
     <func>
-      <name name="random_name" arity="0" since="OTP @OTP-17720@"/>
+      <name name="random_name" arity="0" since="OTP 25.0"/>
       <fsummary>Creates a sufficiently unique node name.</fsummary>
       <desc>
         <p>
@@ -471,7 +471,7 @@
     </func>
 
     <func>
-      <name name="random_name" arity="1" since="OTP @OTP-17720@"/>
+      <name name="random_name" arity="1" since="OTP 25.0"/>
       <fsummary>Creates a sufficiently unique node name given a prefix.</fsummary>
       <desc>
         <p>
@@ -491,7 +491,7 @@
     </func>
 
     <func>
-      <name name="start" arity="1" since="OTP @OTP-17720@"/>
+      <name name="start" arity="1" since="OTP 25.0"/>
       <fsummary>Starts a peer node.</fsummary>
       <desc>
         <p>
@@ -504,7 +504,7 @@
     </func>
 
     <func>
-      <name name="start_link" arity="0" since="OTP @OTP-17720@"/>
+      <name name="start_link" arity="0" since="OTP 25.0"/>
       <fsummary>Starts a peer node, and links controlling process to caller process.</fsummary>
       <desc>
         <p>
@@ -515,7 +515,7 @@
     </func>
 
     <func>
-      <name name="start_link" arity="1" since="OTP @OTP-17720@"/>
+      <name name="start_link" arity="1" since="OTP 25.0"/>
       <fsummary>Starts a peer node, and links controlling process to caller process.</fsummary>
       <desc>
         <p>Starts a peer node in the same way as <seemfa marker="#start/1"><c>start/1</c></seemfa>,
@@ -536,7 +536,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="1" since="OTP @OTP-17720@"/>
+      <name name="stop" arity="1" since="OTP 25.0"/>
       <fsummary>Stop controlling process and terminate peer node.</fsummary>
       <type name="disconnect_timeout"/>
       <desc>

@@ -271,7 +271,7 @@
 <funcs>    
 
   <func>
-    <name name="cacerts_clear" arity="0" since="OTP @OTP-17798@"/>
+    <name name="cacerts_clear" arity="0" since="OTP 25.0"/>
     <fsummary>Clears any loaded CA certificates.</fsummary>
     <desc>
       <p>Clears any loaded CA certificates, returns true if any was loaded.
@@ -280,7 +280,7 @@
   </func>
 
   <func>
-    <name name="cacerts_get" arity="0" since="OTP @OTP-17798@"/>
+    <name name="cacerts_get" arity="0" since="OTP 25.0"/>
     <fsummary>Returns CA certificates.</fsummary>
     <desc>
       <p>Returns the trusted CA certificates if any are loaded, otherwise
@@ -290,7 +290,7 @@
   </func>
 
   <func>
-    <name name="cacerts_load" arity="0" since="OTP @OTP-17798@"/>
+    <name name="cacerts_load" arity="0" since="OTP 25.0"/>
     <fsummary>Loads OS specific CA certificates.</fsummary>
     <desc>
       <p>Loads the OS supplied trusted CA certificates.
@@ -299,7 +299,7 @@
   </func>
 
   <func>
-    <name name="cacerts_load" arity="1" since="OTP @OTP-17798@"/>
+    <name name="cacerts_load" arity="1" since="OTP 25.0"/>
     <fsummary>Loads CA certificates.</fsummary>
     <desc>
       <p>Loads the trusted CA certificates from a file.

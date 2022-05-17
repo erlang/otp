@@ -32,6 +32,166 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A subtle bug regarding variable scoping has been
+	    corrected. Consider this example:</p>
+	    <p><c>(A=1) + fun() -&gt; A = 2() end</c></p>
+	    <p>In the shell, the expression correctly evaluates to
+	    <c>3</c>. In compiled code, it raised a <c>{badmatch,
+	    2}</c> exception.</p>
+          <p>
+	    Own Id: OTP-17810 Aux Id: GH-5379 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug that would crash the compiler during
+	    type optimization.</p>
+          <p>
+	    Own Id: OTP-17820</p>
+        </item>
+        <item>
+	    <p>Starting in OTP 24, when a fun was created and
+	    immediately used, it would be inlined. An unintended
+	    consequence of the inlining was that what would be a
+	    <c>function_clause</c> exception without the inlining
+	    would now be a rather confusing <c>case_clause</c>
+	    exception. This has been corrected, so that
+	    <c>function_clause</c> exceptions remain
+	    <c>function_clause</c> exceptions in inlined code.</p>
+          <p>
+	    Own Id: OTP-17860 Aux Id: GH-5513, OTP-17226 </p>
+        </item>
+        <item>
+          <p>
+	    If a default record field initialization (<c>_ =
+	    Expr</c>) was used even though all records fields were
+	    explicitly initialized, <c>Expr</c> would not be
+	    evaluated. That would not be a problem, except when
+	    <c>Expr</c> would bind a variable subsequently used, in
+	    which case the compiler would crash.</p>
+          <p>
+	    As an example, if record <c>#r{}</c> is defined to have
+	    only one field <c>a</c>, the following code would crash
+	    the compiler:</p>
+          <p>
+	    <c>#r{a=[],_=V=42}, V</c></p>
+          <p>
+	    To fix that problem, the compiler will make sure that
+	    <c>Expr</c> is always evaluated at least once. The
+	    compiler will now rewrite the example to essentially:</p>
+          <p>
+	    <c>V=42, #r{a=[]}, V</c></p>
+          <p>
+	    Own Id: OTP-18083</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>To enable more optimizations, BEAM files compiled with
+	    OTP 21 and earlier cannot be loaded in OTP 25.</p>
+          <p>
+	    Own Id: OTP-16702</p>
+        </item>
+        <item>
+          <p>
+	    Added support for the compile attribute <c>-nifs()</c> to
+	    empower compiler and loader with information about which
+	    functions may be overridden as NIFs by
+	    <c>erlang:load_nif/2</c>. It is recommended to use this
+	    attribute in all modules that load NIF libraries.</p>
+          <p>
+	    Own Id: OTP-17151 Aux Id: ERIERL-590, PR-5479 </p>
+        </item>
+        <item>
+	    <p>When binary construction using the binary syntax
+	    fails, the error message printed in the shell and by
+	    <c>erl_error:format_exception/3,4</c> will contain more
+	    detailed information about what went wrong.</p>
+          <p>
+	    Own Id: OTP-17504 Aux Id: GH-4971, PR-5281, PR-5752 </p>
+        </item>
+        <item>
+	    <p>The Erlang compiler now includes type information in
+	    BEAM files, and the JIT can now use that type information
+	    to do optimizations such as eliminating or simplifying
+	    type tests.</p>
+          <p>
+	    Own Id: OTP-17684 Aux Id: PR-5316, PR-5664 </p>
+        </item>
+        <item>
+	    <p>Improved the JIT's support for external tools like
+	    <c>perf</c> and <c>gdb</c>, allowing them to show line
+	    numbers and even the original Erlang source code when
+	    that can be found.</p>
+	    <p>To aid them in finding the source code, the
+	    <c>absolute_path</c> compiler option has been added to
+	    embed the absolute file path of a module.</p>
+          <p>
+	    Own Id: OTP-17685</p>
+        </item>
+        <item>
+	    <p>The <c>maybe</c> ... <c>end</c> construction proposed
+	    in EEP-49 has been implemented. It can simplify complex
+	    code where otherwise deeply nested cases would have to be
+	    used.</p> <p>To enable <c>maybe</c>, give the option
+	    <c>-enable-feature maybe_expr</c> to <c>erlc</c> or add
+	    <c>-feature(maybe_expr, enable).</c> inside the
+	    module.</p>
+          <p>
+	    Own Id: OTP-17705 Aux Id: PR-5411 </p>
+        </item>
+        <item>
+	    <p>When a record matching or record update fails, a
+	    <c>{badrecord,ExpectedRecordTag}</c> exception used to be
+	    raised. In this release, the exception has been changed
+	    to <c>{badrecord,ActualValue}</c>, where
+	    <c>ActualValue</c> is the actual that was found instead
+	    of the expected record.</p>
+          <p>
+	    Own Id: OTP-17841 Aux Id: PR-5694 </p>
+        </item>
+        <item>
+	    <p>Improved optimization of try/catch expressions.</p>
+          <p>
+	    Own Id: OTP-17842</p>
+        </item>
+        <item>
+	    <p>The <c>beam_trim</c> pass of the compiler could be
+	    extremely slow for huge straight-line functions. It will
+	    now compile such functions much faster (down to seconds
+	    from minutes for some huge functions).</p>
+          <p>
+	    Own Id: OTP-17885 Aux Id: GH-5140 </p>
+        </item>
+        <item>
+          <p>
+	    Added support for configurable features as described in
+	    EEP-60. Features can be enabled/disabled during
+	    compilation with options (<c>-enable-feature Feature</c>,
+	    <c>-disable-feature Feature</c> and <c>+{feature,
+	    Feature, enable|disable}</c>) to <c>erlc</c> as well as
+	    with directives (<c>-feature(Feature,
+	    enable|disable).</c>) in the file. Similar options can be
+	    used to <c>erl</c> for enabling/disabling features
+	    allowed at runtime. The new <c>maybe</c> expression
+	    (EEP-49) is fully supported as the feature
+	    <c>maybe_expr</c>. The features support is documented in
+	    the reference manual.</p>
+          <p>
+	    Own Id: OTP-17988</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

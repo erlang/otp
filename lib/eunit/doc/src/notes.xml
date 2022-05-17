@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor internal improvements.</p>
+          <p>
+	    Own Id: OTP-17884 Aux Id: GH-5617 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.7</title>
 
     <section><title>Improvements and New Features</title>

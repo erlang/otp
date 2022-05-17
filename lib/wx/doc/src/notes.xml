@@ -32,6 +32,38 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Added <c>aux1Down</c> and <c>aux2Down</c> fields to the
+	    <c>wxMouseState</c> record. Since one record have been
+	    changed a recompilation of user code might be required.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17950</p>
+        </item>
+        <item>
+          <p>
+	    Add mac specific menubar functions.</p>
+          <p>
+	    Own Id: OTP-18008 Aux Id: PR-5816 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 2.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -696,7 +696,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="check_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="check_response" arity="3" since="OTP 25.0"/>
       <fsummary>Check if a message is a response from a server.</fsummary>
       <desc>
 	<p>
@@ -952,7 +952,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="receive_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="receive_response" arity="3" since="OTP 25.0"/>
       <fsummary>Receive a response from a server.</fsummary>
       <desc>
 	<p>
@@ -1056,7 +1056,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_add" arity="3" since="OTP @OTP-17784@"/>
+      <name name="reqids_add" arity="3" since="OTP 25.0"/>
       <fsummary>Save a request identifier.</fsummary>
       <desc>
 	<p>
@@ -1069,7 +1069,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="reqids_new" arity="0" since="OTP @OTP-17784@"/>
+      <name name="reqids_new" arity="0" since="OTP 25.0"/>
       <fsummary>Create a new empty request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -1099,7 +1099,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_size" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_size" arity="1" since="OTP 25.0"/>
       <fsummary>Get size of a request identifier collection.</fsummary>
       <desc>
 	<p>
@@ -1110,7 +1110,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="reqids_to_list" arity="1" since="OTP @OTP-17784@"/>
+      <name name="reqids_to_list" arity="1" since="OTP 25.0"/>
       <fsummary>List a request identifiers.</fsummary>
       <desc>
 	<p>
@@ -1175,7 +1175,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name name="send_request" arity="4" since="OTP @OTP-17784@"/>
+      <name name="send_request" arity="4" since="OTP 25.0"/>
       <fsummary>Sends a request to a generic server.</fsummary>
       <desc>
 	<p>
@@ -1381,7 +1381,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
     
     <func>
-      <name name="wait_response" arity="3" since="OTP @OTP-17784@"/>
+      <name name="wait_response" arity="3" since="OTP 25.0"/>
       <fsummary>Wait or poll for a response from a server.</fsummary>
       <desc>
 	<p>
@@ -1509,7 +1509,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP @OTP-17351@">Module:format_status(Status) -> NewStatus</name>
+      <name since="OTP 25.0">Module:format_status(Status) -> NewStatus</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>

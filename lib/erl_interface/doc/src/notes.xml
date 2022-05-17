@@ -31,6 +31,77 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>erl_call</c> no longer links against <c>nsl</c> on
+	    platforms where <c>gethostbyname</c> is provided by libc.</p>
+          <p>
+	    Own Id: OTP-17846 Aux Id: PR-5558 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following distribution flags are now mandatory:
+	    <c>DFLAG_BIT_BINARIES</c>, <c>DFLAG_EXPORT_PTR_TAG</c>,
+	    <c>DFLAG_MAP_TAGS</c>, <c>DFLAG_NEW_FLOATS</c>, and
+	    <c>DFLAG_FUN_TAGS</c>. This mainly concerns libraries or
+	    application that implement the distribution protocol
+	    themselves.</p>
+          <p>
+	    Own Id: OTP-17318 Aux Id: PR-4972 </p>
+        </item>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Removed use of node creation value zero as a wildcard.
+	    Also prevent zero from being used as creation by
+	    <c>erl_interface</c> and <c>jinterface</c> nodes.</p>
+          <p>
+	    Own Id: OTP-17682 Aux Id: PR-5347 </p>
+        </item>
+        <item>
+          <p>
+	    Changed <c>creation</c> arguments, of function
+	    <c>ei_connect_init</c> and friends, from type
+	    <c>short</c> to <c>unsigned int</c> for full 32-bit
+	    range.</p>
+          <p>
+	    Own Id: OTP-17802 Aux Id: PR-5347 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    The <c>ei</c> API for decoding/encoding terms is not
+	    fully 64-bit compatible since terms that have a
+	    representation on the external term format larger than 2
+	    GB cannot be handled.</p>
+          <p>
+	    Own Id: OTP-16607 Aux Id: OTP-16608 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 5.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

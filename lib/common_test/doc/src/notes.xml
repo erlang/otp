@@ -33,6 +33,64 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.23</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug when running parallel test cases and together
+	    with one or more ct hooks that would cause the hook lock
+	    process to crash and produce printouts in the ct logs.</p>
+          <p>
+	    Own Id: OTP-17881 Aux Id: PR-5581 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Remove unused and undocumented tracer node functionality.</p>
+          <p>
+	    Own Id: OTP-17676 Aux Id: PR-5021 </p>
+        </item>
+        <item>
+          <p>
+	    The new module <c>peer</c> supersedes the <c>slave</c>
+	    module. The <c>slave</c> module is now deprecated and
+	    will be removed in OTP 27.</p>
+          <p>
+	    <c>peer</c> contains an extended and more robust API for
+	    starting erlang nodes.</p>
+          <p>
+	    Own Id: OTP-17720 Aux Id: PR-5162 </p>
+        </item>
+        <item>
+          <p>
+	    The cth_surefire ct hook has been updated to include the
+	    file and line number of the executed test case in the xml
+	    output.</p>
+          <p>
+	    The performance of the hook has also been improved
+	    greatly for test runs with many test cases.</p>
+          <p>
+	    Own Id: OTP-17882 Aux Id: PR-5581 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.22.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

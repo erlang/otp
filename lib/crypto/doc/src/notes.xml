@@ -31,6 +31,157 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix timing bug in ensure_engine_loaded</p> <p>When two
+	    ensure_engine_loaded() calls were done in parallel there
+	    was a possibility that a crypto lib function was called
+	    by both instead of just one of them which resulted in an
+	    error. This is solved by moving the implementation from
+	    erlang down into a NIF function that uses a mutex to
+	    protect the sensitive part.</p>
+          <p>
+	    Own Id: OTP-17858 Aux Id: ERIERL-728 </p>
+        </item>
+        <item>
+          <p>
+	    Remove faulty types <c>run_time_error()</c> and
+	    <c>descriptive_error()</c>.</p>
+          <p>
+	    Own Id: OTP-17984</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Add crypto:hash_equals/2</p>
+          <p>
+	    Own Id: OTP-17471 Aux Id: PR-4750 </p>
+        </item>
+        <item>
+          <p>
+	    Add /opt/homebrew/opt/openssl to standard locations to
+	    search for OpenSSL cryptolib.</p>
+          <p>
+	    Own Id: OTP-17561</p>
+        </item>
+        <item>
+          <p>
+	    <c>crypto_dyn_iv_init/3</c> and
+	    <c>crypto_dyn_iv_update/3</c> are deprecated.</p>
+          <p>
+	    Own Id: OTP-17870</p>
+        </item>
+        <item>
+          <p>
+	    The information in error messages are increased.</p>
+          <p>
+	    Previously the error was signaled with en error class
+	    exception <c>badarg</c>, <c>notsup</c> or <c>error</c>,
+	    and also in some more ways like an other exception or a
+	    return value in a non-standardized format.</p>
+          <p>
+	    Now it is an error-class exception
+	    <c>{notsup|badarg|error, InfoFromCfile,
+	    Description::string()}</c>.</p>
+          <p>
+	    The <c>InfoFromCfile</c> is a term with name and line
+	    number of the C-file where the error was found. This is
+	    primarily intended for a crypto maintainer or an advanced
+	    user to find the cause of complicated errors - maybe in
+	    crypto itself. The contents of that term might be changed
+	    in the future.</p>
+          <p>
+	    The <c>Description</c> is a clear text string that
+	    describes the error. In case of <c>badarg</c> and
+	    <c>notsup</c> the intention is that it should help the
+	    user to find the cause ("Bad key size" as an example).
+	    Specially for some <c>error</c> that are unlikely, the
+	    string may not be possible to understand without deep
+	    knowledge of the underlying cryptolib. Such messages are
+	    intended for a crypto maintainer.</p>
+          <p>
+	    The first element on call stack (the <c>S</c> in <c>try
+	    ... catch error:E:S .... end</c>) gives more information
+	    like the actual argument list in the call of crypto and
+	    the argument number (if possible) in the call to the NIF
+	    inside crypto.</p>
+          <p>
+	    The functions in crypto affected by this change are:</p>
+          <p>
+	    sign/4, sign/5, verify/5, verify/6,</p>
+          <p>
+	    generate_key/2, generate_key/3, compute_key/4,</p>
+          <p>
+	    hash/2, hash/4, hash_init/1, hash_update/4, hash_final/1,</p>
+          <p>
+	    mac/3,4, mac_init/3, mac_update/2, mac_final/2,</p>
+          <p>
+	    pbkdf2_hmac/5,</p>
+          <p>
+	    public_encrypt/4, private_decrypt/4, private_encrypt/4,
+	    public_decrypt/4</p>
+          <p>
+	    This schema was introduced earlier in:</p>
+          <p>
+	    crypto_init/3, crypto_init/4, crypto_update/2,
+	    crypto_final/1, crypto_get_data/1,</p>
+          <p>
+	    crypto_one_time/4, crypto_one_time/5,
+	    crypto_one_time_aead/6, crypto_one_time_aead/7</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17965</p>
+        </item>
+        <item>
+          <p>
+	    Add Output Feedback mode (OFB) support for AES encryption
+	    / decryption for key sizes of 128, 192 and 256 bits.</p>
+          <p>
+	    Own Id: OTP-18067 Aux Id: PR-5866 </p>
+        </item>
+        <item>
+          <p>
+	    The cryptolib API deprecated in OpenSSL 3.0 is now no
+	    longer used with a few exceptions listed below.</p>
+          <p>
+	    Although OpenSSL 3.0.x itself is stable, its usage in
+	    OTP/crypto should still not be considered suitable for
+	    production code.</p>
+          <p>
+	    The use of ENGINEs is still disabled by default when
+	    using 3.0.</p>
+          <p>
+	    Deprecated functions are still called in the
+	    otp_test_engine.c (only used in tests), in mac.c
+	    (EVP_PKEY_new_CMAC_key) and five function calls in ec.c
+	    (EVP_PKEY_assign, EC_KEY_get_conv_form,
+	    EVP_PKEY_get1_EC_KEY, EC_KEY_get0_group and
+	    EC_KEY_set_public_key).</p>
+          <p>
+	    Own Id: OTP-18086 Aux Id: OTP-16282, OTP-16643,
+	    OTP-16644, OTP-17701, OTP-17702, OTP-17704 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.0.6</title>
 
     <section><title>Improvements and New Features</title>

@@ -35,6 +35,47 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added functions to retrieve OS provided CA-certs.</p>
+          <p>
+	    Own Id: OTP-17798 Aux Id: GH-5760 </p>
+        </item>
+        <item>
+          <p>
+	    Allow key file passwords to be input as a single binary,
+	    that is we change the data type to be the more for the
+	    purpose logical data type iodata() instead of string().</p>
+          <p>
+	    Own Id: OTP-17890</p>
+        </item>
+        <item>
+          <p>
+	    The deprecated public_key functions ssh_decode/2,
+	    ssh_encode/2, ssh_hostkey_fingerprint/1 and
+	    ssh_hostkey_fingerprint/2 are removed.</p>
+          <p>
+	    They are replaced by ssh_file:decode/2,
+	    ssh_file:encode/2, ssh:hostkey_fingerprint/1 and
+	    ssh:hostkey_fingerprint/2 respectively.</p>
+          <p>
+	    Note that the decode/2 and encode/2 are not exact
+	    replacement functions, some minor changes may be needed.
+	    Se the manual for more information.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17921</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.12</title>
 
     <section><title>Improvements and New Features</title>

@@ -33,7 +33,88 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.5.3</title>
+  <section><title>Inets 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adjust uri_string:normalize behavior for URIs with
+	    undefined port (URI string with a port colon but no port
+	    value or URI map with port => undefined).</p>
+          <p>
+	    Remove redundant normalization from http_request module.</p>
+          <p>
+	    Before this change, normalize would not remove port
+	    subcomponent in such cases and could for example return
+	    "http://localhost:" URI.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17627</p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo in Reason term returned from
+	    httpc_handler:handle_http_body.</p>
+          <p>
+	    After this change, could_not_establish_ssl_tunnel atom is
+	    returned within Reason term.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17889</p>
+        </item>
+        <item>
+          <p>
+	    With this change, inet6fb4 option is documented for
+	    inets/httpc. Option can be used when IP family needs to
+	    be discovered by a connection attempt.</p>
+          <p>
+	    Own Id: OTP-18063 Aux Id: ERIERL-798 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This change removes deprecated functions:
+	    http_uri:parse/1, http_uri:parse/2 and
+	    http_uri:scheme_defaults/0.</p>
+          <p>
+	    This change delays until OTP-26 removal of deprecated
+	    functions: http_uri:encode/1 and http_uri:decode/1.</p>
+          <p>
+	    This change marks httpd_util:decode_hex/1 and
+	    httpd_util:encode_hex/1 as deprecated.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17866</p>
+        </item>
+        <item>
+          <p>
+	    After this change, connect_timeout value is re-used when
+	    upgrading TCP connection to TLS over a proxy.</p>
+          <p>
+	    Own Id: OTP-17997 Aux Id: GH-5782 </p>
+        </item>
+        <item>
+          <p>
+	    Remove reference to unsupported Apache-like config file
+	    from httpd manual.</p>
+          <p>
+	    Own Id: OTP-18088 Aux Id: GH-5276 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

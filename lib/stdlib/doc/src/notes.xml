@@ -31,6 +31,403 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve the Erlang code linter's check of unused types.</p>
+          <p>
+	    Own Id: OTP-17370 Aux Id: GH-4784 </p>
+        </item>
+        <item>
+          <p>
+	    Fix race condition in <seemfa
+	    marker="stdlib:proc_lib#stop/3"><c>proc_lib:stop/3</c></seemfa>
+	    where the process is not stopped when the timeout given
+	    is very short.</p>
+          <p>
+	    Own Id: OTP-17480 Aux Id: GH-4853 PR-4872 </p>
+        </item>
+        <item>
+	    <p>Maps are now fully supported in by
+	    <c>ms_transform</c>.</p>
+          <p>
+	    Own Id: OTP-17518 Aux Id: GH-4915 </p>
+        </item>
+        <item>
+          <p>
+	    Fix gen_server:call with the first argument as self() to
+	    throw an error instead of failing with a timeout.</p>
+          <p>
+	    The same fix has also been done for gen_statem:call/3,
+	    gen_event:sync_notify/2 and any other functionality
+	    relying on the internal gen:call/3 function.</p>
+          <p>
+	    A similar fix was also done when using io:format/2 and
+	    the current group_leader was set to the current process.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17544 Aux Id: PR-5008 </p>
+        </item>
+        <item>
+          <p>
+	    erl_pp printed unary - and + operators with a space
+	    between the operator and the operand. This is fixed by
+	    not having any space in between.</p>
+          <p>
+	    Own Id: OTP-17566 Aux Id: PR-5095, GH-5093 </p>
+        </item>
+        <item>
+          <p>
+	    Adjust uri_string:normalize behavior for URIs with
+	    undefined port (URI string with a port colon but no port
+	    value or URI map with port => undefined).</p>
+          <p>
+	    Remove redundant normalization from http_request module.</p>
+          <p>
+	    Before this change, normalize would not remove port
+	    subcomponent in such cases and could for example return
+	    "http://localhost:" URI.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17627</p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction counting bug in <c>re:run</c> that caused
+	    the function to yield too frequently when doing
+	    <c>global</c> matches.</p>
+          <p>
+	    Own Id: OTP-17661 Aux Id: PR-5165 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the memory value returned from
+	    <c>ets:info(Tid,memory)</c> when the
+	    <c>read_concurrency</c> option is used.</p>
+          <p>
+	    Before this fix the memory used by the scheduler specific
+	    lock cache lines was not counted towards the total. This
+	    caused the returned memory usage to be very incorrect on
+	    systems with many schedulers for tables with man locks.</p>
+          <p>
+	    Own Id: OTP-17832 Aux Id: PR-5494 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid confusion by correcting the argument order in the
+	    gen_event crash log printout.</p>
+          <p>
+	    Own Id: OTP-17878</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>string:next_grapheme/1</c> to return an empty
+	    binary in the tail for binary input for the last grapheme
+	    cluster.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18009 Aux Id: PR-5785 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed type specifications of the
+	    <c>supervisor:sup_name/0</c> and
+	    <c>supervisor:sup_ref/0</c> types.</p>
+          <p>
+	    Own Id: OTP-18034 Aux Id: PR-4661, GH-4622 </p>
+        </item>
+        <item>
+          <p>
+	    If a default record field initialization (<c>_ =
+	    Expr</c>) was used even though all records fields were
+	    explicitly initialized, <c>Expr</c> would not be
+	    evaluated. That would not be a problem, except when
+	    <c>Expr</c> would bind a variable subsequently used, in
+	    which case the compiler would crash.</p>
+          <p>
+	    As an example, if record <c>#r{}</c> is defined to have
+	    only one field <c>a</c>, the following code would crash
+	    the compiler:</p>
+          <p>
+	    <c>#r{a=[],_=V=42}, V</c></p>
+          <p>
+	    To fix that problem, the compiler will make sure that
+	    <c>Expr</c> is always evaluated at least once. The
+	    compiler will now rewrite the example to essentially:</p>
+          <p>
+	    <c>V=42, #r{a=[]}, V</c></p>
+          <p>
+	    Own Id: OTP-18083</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Users can now configure ETS tables with the
+	    <c>{write_concurrency, auto}</c> option. This option
+	    forces tables to automatically change the number of locks
+	    that are used at run-time depending on how much
+	    concurrency is detected. The <c>{decentralized_counters,
+	    true}</c> option is enabled by default when
+	    <c>{write_concurrency, auto}</c> is active.</p>
+          <p>
+	    Benchmark results comparing this option with the other
+	    ETS optimization options are available here:</p>
+          <p>
+	    https://erlang.org/bench/ets_bench_result_lock_config.html</p>
+          <p>
+	    Own Id: OTP-15991 Aux Id: PR-5208 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>format_status/2</c> callback for
+	    <c>gen_server</c>, <c>gen_statem</c> and <c>gen_event</c>
+	    has been deprecated in favor of the new
+	    <c>format_status/1</c> callback.</p>
+          <p>
+	    The new callback adds the possibility to limit and change
+	    many more things than the just the state, such as the
+	    last received message, the reason for terminating and
+	    more events specific to each type of behavior. See the
+	    respective modules documentation for more details.</p>
+          <p>
+	    Own Id: OTP-17351 Aux Id: GH-4673 PR-4952 </p>
+        </item>
+        <item>
+	    <p>The <c>timer</c> module has been modernized and made
+	    more efficient, which makes the timer server less
+	    susceptible to being overloaded. The <c>timer:sleep/1</c>
+	    function now accepts an arbitrarily large integer.</p>
+          <p>
+	    Own Id: OTP-17481 Aux Id: PR-4811 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>lists:enumerate/[1,2]</c>.</p>
+          <p>
+	    Own Id: OTP-17523 Aux Id: PR-4928 </p>
+        </item>
+        <item>
+          <p>
+	    The configuration files <seecom
+	    marker="erts:erl"><c>.erlang</c></seecom>, <seeguide
+	    marker="system/reference_manual:distributed"><c>.erlang.cookie</c></seeguide>
+	    and <seeerl
+	    marker="stdlib:beam_lib#.erlang.crypt"><c>.erlang.crypt</c></seeerl>
+	    can now be located in the XDG Config Home directory.</p>
+          <p>
+	    See the documentation for each file and
+	    <c>filename:basedir/2</c> for more details.</p>
+          <p>
+	    Own Id: OTP-17554 Aux Id: GH-5016 PR-5408 OTP-17821 </p>
+        </item>
+        <item>
+          <p>
+	    Support <c>native</c> time unit in <c>calendar</c>
+	    functions <c>system_time_to_rfc3339/2</c> and
+	    <c>rfc3339_to_system_time</c>.</p>
+          <p>
+	    Own Id: OTP-17592 Aux Id: ERIERL-663, PR-5243 </p>
+        </item>
+        <item>
+          <p>
+	    The tagged tuple tests and fun-calls have been optimized
+	    and are now a little bit cheaper than previously.</p>
+          <p>
+	    These optimizations become possible after making sure
+	    that all boxed terms have at least one word allocated
+	    after the arity word. This has been accomplished by
+	    letting all empty tuples refer to the same empty tuple
+	    literal which also reduces memory usage for empty tuples.</p>
+          <p>
+	    Own Id: OTP-17608</p>
+        </item>
+        <item>
+          <p>
+	    The signal queue benchmark in parallel_messages_SUITE and
+	    the ETS benchmark in ets_SUITE have benchmark result
+	    visualization HTML pages with "fill-screen" buttons to
+	    make the graphs bigger. This button did not work as
+	    intended before. When pressing the button for a graph,
+	    the last graph got replaced with a bigger version and not
+	    the one over the button. This is now fixed.</p>
+          <p>
+	    Own Id: OTP-17630</p>
+        </item>
+        <item>
+          <p>
+	    The new module <c>peer</c> supersedes the <c>slave</c>
+	    module. The <c>slave</c> module is now deprecated and
+	    will be removed in OTP 27.</p>
+          <p>
+	    <c>peer</c> contains an extended and more robust API for
+	    starting erlang nodes.</p>
+          <p>
+	    Own Id: OTP-17720 Aux Id: PR-5162 </p>
+        </item>
+        <item>
+          <p>
+	    This change introduces quote and unquote functions in
+	    uri_string module - a replacement for deprecated encode
+	    and decode functions from http_uri.</p>
+          <p>
+	    Own Id: OTP-17778 Aux Id: GH-5368 </p>
+        </item>
+        <item>
+          <p>
+	    In order to make it easier for the user to manage
+	    multiple outstanding asynchronous <c>call</c> requests,
+	    new functionality utilizing request identifier
+	    collections have been introduced in <seetype
+	    marker="kernel:erpc#request_id_collection"><c>erpc</c></seetype>,
+	    <seetype
+	    marker="stdlib:gen_server#request_id_collection"><c>gen_server</c></seetype>,
+	    <seetype
+	    marker="stdlib:gen_statem#request_id_collection"><c>gen_statem</c></seetype>,
+	    and <seetype
+	    marker="stdlib:gen_event#request_id_collection"><c>gen_event</c></seetype>.</p>
+          <p>
+	    Own Id: OTP-17784 Aux Id: PR-5792 </p>
+        </item>
+        <item>
+          <p>
+	    Update to the Unicode 14.0 specification.</p>
+          <p>
+	    Own Id: OTP-17869 Aux Id: PR-5595 </p>
+        </item>
+        <item>
+          <p>
+	    The following ets types have been renamed to a clearer
+	    name: <c>tab/0</c> to <c>table/0</c> and
+	    <c>comp_match_spec/0</c> to <c>compiled_match_spec/0</c>.</p>
+          <p>
+	    The types <c>table_access/0</c> and <c>table_type/0</c>
+	    have been exported.</p>
+          <p>
+	    Own Id: OTP-17901 Aux Id: GH-4968 PR-5649 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for locating <c>.asn1</c> files to the
+	    default search rules of <c>filelib:find_file/1</c> and
+	    <c>filelib:find_source/1</c>.</p>
+          <p>
+	    Own Id: OTP-17908 Aux Id: GH-5655 PR-5669 </p>
+        </item>
+        <item>
+	    <p>Type specifications have been added to the
+	    <c>gen_server</c>, and the documentation has been updated
+	    to utilize this. </p><p>This surfaced a few type
+	    violations that has been corrected in <c>global</c>,
+	    <c>logger_olp</c> and <c>rpc</c>. </p>
+          <p>
+	    Own Id: OTP-17915 Aux Id: PR-5751, GH-2375, GH-2690 </p>
+        </item>
+        <item>
+	    <p>The non-local function handler for the <c>erl_eval</c>
+	    can now be called with either two or three arguments.
+	    When called with three arguments, the first argument is
+	    the annotation for the node in the abstract format.</p>
+	    <p>All errors during evaluation will now be passed
+	    through <c>erlang:raise/3</c>. If the restricted shell is
+	    active and it does not let <c>erlang:raise/3</c> through,
+	    evaluation errors will be printed in less clear way. See
+	    the documentation for restricted shell in
+	    <c>shell</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17925 Aux Id: PR-5631 </p>
+        </item>
+        <item>
+	    <p>Added <c>filelib:ensure_path/1</c> that ensures that
+	    all directories for the given path exists (unlike
+	    <c>filelib:ensure_dir/1</c>, which will not create the
+	    last segment of the path).</p>
+          <p>
+	    Own Id: OTP-17953 Aux Id: PR-5621 </p>
+        </item>
+        <item>
+	    <p>The functions <c>groups_from_list/2</c> and
+	    <c>groups_from_list/3</c> have been added to the
+	    <c>maps</c> module.</p>
+          <p>
+	    Own Id: OTP-17969 Aux Id: PR-5588 </p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_server</c> has been refactored to throw more
+	    readable exceptions when a callback returns bad values in
+	    the <c>Timeout</c> field (<c>timeout() | 'hibernate' |
+	    {'continue,_}</c>), and also to verify that argument in
+	    the <c>gen_server:enter_loop/3,4,5</c> API function.</p>
+          <p>
+	    Own Id: OTP-17974 Aux Id: GH-5683 </p>
+        </item>
+        <item>
+	    <p>The functions <c>uniq/1</c> and <c>uniq/2</c> for
+	    removing duplicates have been added to the <c>lists</c>
+	    module.</p>
+          <p>
+	    Own Id: OTP-17977 Aux Id: GH-5606, PR-5766 </p>
+        </item>
+        <item>
+          <p>
+	    Added support for configurable features as described in
+	    EEP-60. Features can be enabled/disabled during
+	    compilation with options (<c>-enable-feature Feature</c>,
+	    <c>-disable-feature Feature</c> and <c>+{feature,
+	    Feature, enable|disable}</c>) to <c>erlc</c> as well as
+	    with directives (<c>-feature(Feature,
+	    enable|disable).</c>) in the file. Similar options can be
+	    used to <c>erl</c> for enabling/disabling features
+	    allowed at runtime. The new <c>maybe</c> expression
+	    (EEP-49) is fully supported as the feature
+	    <c>maybe_expr</c>. The features support is documented in
+	    the reference manual.</p>
+          <p>
+	    Own Id: OTP-17988</p>
+        </item>
+        <item>
+	    <p>The function <c>filename:safe_relative_path/1</c>,
+	    which has been deprecated since OTP 25, has been removed.
+	    Use <c>filelib:safe_relative_path/2</c> instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17991</p>
+        </item>
+        <item>
+	    <p> A new PRNG have been added to the <c>rand</c> module:
+	    <c>mwc59</c> which has been developed in collaboration
+	    with Sebastiano Vigna. It is intended for applications
+	    that need really fast pseudo-random numbers, and it comes
+	    with two output value scramblers, one fast and one
+	    thorough. </p><p> Two internal functions for the
+	    <c>exsp</c> generator have also been exported so they can
+	    be used outside the <c>rand</c> plug-in framework to
+	    shave off some overhead. </p><p> The internal
+	    <c>splitmix64</c> generator has also been exported which
+	    can be useful for seeding other kinds of PRNG:s than its
+	    own. </p>
+          <p>
+	    Own Id: OTP-18011</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.17.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

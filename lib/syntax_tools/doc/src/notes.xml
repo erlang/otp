@@ -32,6 +32,48 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>erl_syntax_lib:analyze_attribute/1</c> function
+	    would return <c>{Name, {Name, Value}}</c> instead of
+	    <c>{Name, Value}</c> (which is the documented return
+	    value).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17894 Aux Id: PR-5509 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added support for configurable features as described in
+	    EEP-60. Features can be enabled/disabled during
+	    compilation with options (<c>-enable-feature Feature</c>,
+	    <c>-disable-feature Feature</c> and <c>+{feature,
+	    Feature, enable|disable}</c>) to <c>erlc</c> as well as
+	    with directives (<c>-feature(Feature,
+	    enable|disable).</c>) in the file. Similar options can be
+	    used to <c>erl</c> for enabling/disabling features
+	    allowed at runtime. The new <c>maybe</c> expression
+	    (EEP-49) is fully supported as the feature
+	    <c>maybe_expr</c>. The features support is documented in
+	    the reference manual.</p>
+          <p>
+	    Own Id: OTP-17988</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
