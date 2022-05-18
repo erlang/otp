@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,8 @@
               ip6_address/0, ip_address/0, port_number/0,
 	      family_address/0, local_address/0,
               socket_address/0, returned_non_ip_address/0,
-	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
+	      socket_setopt/0, socket_getopt/0, socket_optval/0,
+              ancillary_data/0,
 	      posix/0, socket/0, inet_backend/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -144,13 +145,14 @@
 -type inet_backend() :: {'inet_backend', 'inet' | 'socket'}.
 
 -type socket_setopt() ::
-        gen_sctp:setoption() | gen_tcp:option() | gen_udp:option().
+        gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
 -type socket_optval() ::
-        gen_sctp:optionval() | gen_tcp:option() | gen_udp:option() | gen_tcp:pktoptions_value().
+        gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
+        gen_tcp:pktoptions_value().
 
 -type socket_getopt() ::
-        gen_sctp:getoption() | gen_tcp:option_name() | gen_udp:option_name().
+        gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
 
 -type ether_address() :: [0..255].
 

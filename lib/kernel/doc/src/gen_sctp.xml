@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2021</year>
+      <year>2007</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,6 +69,7 @@
   </description>
 
   <datatypes>
+    <datatype_title>Exported data types</datatype_title>
     <datatype>
       <name>assoc_id()</name>
       <desc>
@@ -79,26 +80,47 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="setoption"/>
+      <name name="option"/>
       <desc>
-        <p>One of the
-          <seeerl marker="#options">SCTP Socket Options</seeerl> used to set an option.</p>
+        <p>
+          One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          used to set an option.
+        </p>
       </desc>
     </datatype>
     <datatype>
-      <name name="getoption"/>
+      <name name="option_name"/>
       <desc>
-        <p>One of the
-          <seeerl marker="#options">SCTP Socket Options</seeerl> or name used to get an option.</p>
+        <p>
+          An option name or one of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          used to get an option.
+        </p>
       </desc>
     </datatype>
     <datatype>
-      <name name="optionval"/>
+      <name name="option_value"/>
       <desc>
-        <p>One of the
-          <seeerl marker="#options">SCTP Socket Options</seeerl>.</p>
+        <p>
+          One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          as returned when getting an option.
+        </p>
       </desc>
     </datatype>
+    <datatype>
+      <name>sctp_socket()</name>
+      <desc>
+        <p>Socket identifier returned from
+          <seemfa marker="#open/0"><c>open/*</c></seemfa>.</p>
+        <marker id="exports"></marker>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <datatypes>
+    <datatype_title>Internal data types</datatype_title>
     <datatype>
       <name name="elementary_option"/>
     </datatype>
@@ -110,14 +132,6 @@
     </datatype>
     <datatype>
       <name name="ro_option"/>
-    </datatype>
-    <datatype>
-      <name>sctp_socket()</name>
-      <desc>
-        <p>Socket identifier returned from
-          <seemfa marker="#open/0"><c>open/*</c></seemfa>.</p>
-        <marker id="exports"></marker>
-      </desc>
     </datatype>
   </datatypes>
 

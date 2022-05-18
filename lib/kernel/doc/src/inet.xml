@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -92,6 +92,7 @@ fe80::204:acff:fe17:bf38
   </description>
 
   <datatypes>
+    <datatype_title>Exported data types</datatype_title>
     <datatype>
       <name name="hostent"/>
       <desc>
@@ -127,30 +128,6 @@ fe80::204:acff:fe17:bf38
 	  and is a complete address
 	  (for example an IP address including port number).
 	</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet6_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
       </desc>
     </datatype>
     <datatype>
@@ -260,6 +237,61 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="posix"/>
+      <desc>
+        <p>An atom that is named from the POSIX error codes used in Unix,
+          and in the runtime libraries of most C compilers. See section
+          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>socket()</name>
+      <desc>
+        <p>See
+          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
+          and
+          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="address_family"/>
+    </datatype>
+    <datatype>
+      <name name="socket_protocol"/>
+    </datatype>
+    <datatype>
+      <name name="stat_option"/>
+    </datatype>
+  </datatypes>
+
+  <datatypes>
+    <datatype_title>Internal data types</datatype_title>
+    <datatype>
+      <name name="inet_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet6_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="getifaddrs_ifopts"/>
       <desc>
 	<p>
@@ -332,34 +364,8 @@ fe80::204:acff:fe17:bf38
 	</warning>
       </desc>
     </datatype>
-    <datatype>
-      <name name="posix"/>
-      <desc>
-        <p>An atom that is named from the POSIX error codes used in Unix,
-          and in the runtime libraries of most C compilers. See section
-          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name>socket()</name>
-      <desc>
-        <p>See
-          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
-          and
-          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
-        </p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="address_family"/>
-    </datatype>
-    <datatype>
-      <name name="socket_protocol"/>
-    </datatype>
-    <datatype>
-      <name name="stat_option"/>
-    </datatype>
   </datatypes>
+
 
   <funcs>
     <func>
@@ -560,7 +566,8 @@ fe80::204:acff:fe17:bf38
         <p>Gets one or more options for a socket. For a list of available
           inet options, see
           <seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>.
-	  See also the descriptions for the protocol specific types referenced by
+	  See also the descriptions
+          for the protocol specific types referenced by
           <seetype marker="#socket_optval">
 	    <c>socket_optval()</c>
 	  </seetype>.</p>

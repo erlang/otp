@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,16 +38,16 @@
 
 -type assoc_id() :: term().
 
--type setoption() ::
+-type option() ::
         elementary_option() |
         record_option().
 
--type getoption() ::
+-type option_name() ::
         elementary_option_name() |
         record_option() |
         ro_option().
 
--type optionval() ::
+-type option_value() ::
         elementary_option() |
         record_option() |
         ro_option().
@@ -120,7 +120,8 @@
 
 -type sctp_socket() :: port().
 
--export_type([assoc_id/0, setoption/0, getoption/0, optionval/0, sctp_socket/0]).
+-export_type(
+   [assoc_id/0, option/0, option_name/0,  option_value/0, sctp_socket/0]).
 
 -spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().
@@ -140,7 +141,7 @@ open() ->
         	   | {type, SockType}
                    | {netns, file:filename_all()}
                    | {bind_to_device, binary()}
-                   | setoption(),
+                   | option(),
               IP       :: inet:ip_address() | any | loopback,
               SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
               Port     :: inet:port_number(),
@@ -170,7 +171,7 @@ open(X) ->
                    | {type, SockType}
                    | {netns, file:filename_all()}
                    | {bind_to_device, binary()}
-                   | setoption(),
+                   | option(),
       IP       :: inet:ip_address() | any | loopback,
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
       Port     :: inet:port_number(),
@@ -238,7 +239,7 @@ peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
                          when
       Socket   :: sctp_socket(),
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Opts     :: [Opt :: setoption()].
+      Opts     :: [Opt :: option()].
 
 connect(S, SockAddr, Opts) ->
     connect(S, SockAddr, Opts, infinity).
@@ -250,7 +251,7 @@ connect(S, SockAddr, Opts) ->
                          when
       Socket   :: sctp_socket(),
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Opts     :: [Opt :: setoption()],
+      Opts     :: [Opt :: option()],
       Timeout  :: timeout();
              (Socket, Addr, Port, Opts) ->
                      {ok, #sctp_assoc_change{state :: 'comm_up'}} |
@@ -260,7 +261,7 @@ connect(S, SockAddr, Opts) ->
       Socket :: sctp_socket(),
       Addr   :: inet:ip_address() | inet:hostname(),
       Port   :: inet:port_number(),
-      Opts   :: [Opt :: setoption()].
+      Opts   :: [Opt :: option()].
 
 connect(S, SockAddr, Opts, Timeout)
   when is_map(SockAddr) andalso is_list(Opts) ->
@@ -281,7 +282,7 @@ connect(S, Addr, Port, Opts) ->
       Socket :: sctp_socket(),
       Addr :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Opts :: [Opt :: setoption()],
+      Opts :: [Opt :: option()],
       Timeout :: timeout().
 
 connect(S, Addr, Port, Opts, Timeout) ->
@@ -296,7 +297,7 @@ connect(S, Addr, Port, Opts, Timeout) ->
                           ok | {error, inet:posix()} when
       Socket   :: sctp_socket(),
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Opts     :: [setoption()].
+      Opts     :: [option()].
 
 connect_init(S, SockAddr, Opts) ->
     connect_init(S, SockAddr, Opts, infinity).
@@ -305,14 +306,14 @@ connect_init(S, SockAddr, Opts) ->
                           ok | {error, inet:posix()} when
       Socket   :: sctp_socket(),
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Opts     :: [setoption()],
+      Opts     :: [option()],
       Timeout  :: timeout();
                   (Socket, Addr, Port, Opts) ->
                           ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
       Addr   :: inet:ip_address() | inet:hostname(),
       Port   :: inet:port_number(),
-      Opts   :: [setoption()].
+      Opts   :: [option()].
 
 connect_init(S, SockAddr, Opts, Timeout)
   when is_map(SockAddr) andalso is_list(Opts) ->
@@ -330,7 +331,7 @@ connect_init(S, Addr, Port, Opts) ->
       Socket :: sctp_socket(),
       Addr :: inet:ip_address() | inet:hostname(),
       Port :: inet:port_number(),
-      Opts :: [setoption()],
+      Opts :: [option()],
       Timeout :: timeout().
 
 connect_init(S, Addr, Port, Opts, Timeout) ->
