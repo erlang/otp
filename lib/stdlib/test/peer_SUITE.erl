@@ -45,7 +45,8 @@
     duplicate_name/0, duplicate_name/1,
     old_release/0, old_release/1,
     ssh/0, ssh/1,
-    docker/0, docker/1
+    docker/0, docker/1,
+    post_process_args/0, post_process_args/1
 ]).
 
 suite() ->
@@ -61,7 +62,7 @@ alternative() ->
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
+                            dist_up_down, dist_localhost, post_process_args] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
         {tcp, [parallel], alternative()},
@@ -482,6 +483,29 @@ duplicate_name(Config) when is_list(Config) ->
     {ok, Peer, _Node} = peer:start_link(#{connection => Conn, name => ?FUNCTION_NAME, register => false}),
     ?assertException(exit, _, peer:start_link(#{connection => standard_io, name => ?FUNCTION_NAME})),
     peer:stop(Peer).
+
+post_process_args() ->
+    [{doc, "Test that the post_process_args option works"}].
+
+post_process_args(Config) when is_list(Config) ->
+    case {os:type(),os:find_executable("bash")} of
+        {{win32,_}, _Bash} ->
+            {skip,"Test does not work on windows"};
+        {_, false} ->
+            {skip,"Test needs bash to run"};
+        {_, Bash} ->
+            Erl = string:split(ct:get_progname()," ",all),
+            [throw({skip, "Needs bash to run"}) || Bash =:= false],
+            {ok, Peer, _Node} =
+                peer:start_link(
+                  #{ name => ?CT_PEER_NAME(),
+                     exec => {Bash,["-c"|Erl]},
+                     post_process_args =>
+                         fun(["-c"|Args]) ->
+                                 ["-c", lists:flatten(lists:join($\s, Args))]
+                         end }),
+            peer:stop(Peer)
+    end.
 
 %% -------------------------------------------------------------------
 %% Compatibility: old releases

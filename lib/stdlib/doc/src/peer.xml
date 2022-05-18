@@ -313,6 +313,20 @@ build_image(Dir) ->
             <p>Extra command line arguments to append to the "erl" command. Arguments are
               passed as is, no escaping or quoting is needed or accepted.</p>
           </item>
+          <tag><c>post_process_args</c></tag>
+          <item>
+            <p>Allows the user to change the arguments passed to <c>exec</c> before the
+              peer is started. This can for example be useful when the <c>exec</c> program
+              wants the arguments to "erl" as a single argument. Example:
+            </p>
+            <code type="erl">
+peer:start(#{ name => peer:random_name(),
+  exec => {os:find_executable("bash"),["-c","erl"]},
+  post_process_args =>
+     fun(["-c"|Args]) -> ["-c", lists:flatten(lists:join($\s, Args))] end
+  }).
+            </code>
+          </item>
           <tag><c>env</c></tag>
           <item>
             <p>
