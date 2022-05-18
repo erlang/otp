@@ -2844,7 +2844,6 @@ start_peer(#{name := Name} = Opts, Module) ->
             Shutdown = binary_to_term(term_to_binary({10000, CoverMain})),
             case peer:start_link(Opts#{args => FullArgs, shutdown => Shutdown}) of
                 {ok, Peer, Node} ->
-                    do_cover_for_node(Node, start),
                     {ok, Peer, Node};
                 Other ->
                     Other

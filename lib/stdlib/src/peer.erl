@@ -332,6 +332,25 @@ handle_call({call, M, F, A}, From,
     origin_to_peer(tcp, Socket, {call, Seq, M, F, A}),
     {noreply, State#peer_state{outstanding = Out#{Seq => From}, seq = Seq + 1}};
 
+handle_call({starting, Node}, _From, #peer_state{ options = Options } = State) ->
+    case maps:find(shutdown, Options) of
+        {ok, {Timeout, MainCoverNode}} when is_integer(Timeout),
+                                            is_atom(MainCoverNode) ->
+
+            %% The node was started using test_server:start_peer/2 with cover enabled
+            %% so we should start cover on the starting node.
+            Modules = erpc:call(MainCoverNode,cover,modules,[]),
+            erpc:call(
+              Node, fun() ->
+                            Sticky = [ begin code:unstick_mod(M), M end
+                                       || M <- Modules, code:is_sticky(M)],
+                            erpc:call(MainCoverNode, cover, start, [Node]),
+                            [code:stick_mod(M) || M <- Sticky]
+                    end);
+        _ ->
+            ok
+    end,
+    {reply, ok, State};
 handle_call(get_node, _From, #peer_state{node = Node} = State) ->
     {reply, Node, State};
 
@@ -531,8 +550,9 @@ verify_args(Options) ->
     [error({invalid_arg, Arg}) || Arg <- Args, not io_lib:char_list(Arg)],
     %% alternative connection must be requested for non-distributed node,
     %%  or a distributed node when origin is not alive
-    is_map_key(connection, Options) orelse
-                                      (is_map_key(name, Options) andalso erlang:is_alive()) orelse error(not_alive),
+    is_map_key(connection, Options)
+        orelse
+          (is_map_key(name, Options) andalso erlang:is_alive()) orelse error(not_alive),
     %% exec must be a string, or a tuple of string(), [string()]
     case maps:find(exec, Options) of
         {ok, {Exec, Strs}} ->
@@ -933,6 +953,7 @@ start() ->
                       notify_when_started(dist, OriginProcess),
                       origin_link(MRef, OriginProcess)
               end),
+            ok = gen_server:call(OriginProcess, {starting, node()}),
             case init:get_argument(peer_detached) of
                 {ok, _} ->
                     %% We are detached, so setup 'user' process, I/O redirection:
