@@ -1558,14 +1558,12 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
     return ret;
 }
 #define REALLOC(X,Y) realloc_wrapper(X,Y)
-#define FREE(P) { driver_free((P)); \
-    (P) = NULL;}
+#define FREE(P)      driver_free((P))
 #else /* FATAL_MALLOC */
 
-#define ALLOC(X) driver_alloc((X))
+#define ALLOC(X)     driver_alloc((X))
 #define REALLOC(X,Y) driver_realloc((X), (Y))
-#define FREE(P) { driver_free((P)); \
-    (P) = NULL;}
+#define FREE(P)      driver_free((P))
 
 #endif /* FATAL_MALLOC */
 
@@ -5908,6 +5906,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    }
 	    if (! i) {
 		FREE(ip_adaddrs_p);
+                ip_adaddrs_p = NULL;
 	    }
 	} else ip_adaddrs_p = NULL;
     }
@@ -5926,7 +5925,10 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    i = 0;
 	    break;
 	}
-	if (! i) FREE(info_p);
+	if (! i) {
+            FREE(info_p);
+            info_p = NULL;
+        }
     }
 
     if (! ip_adaddrs_p) {
