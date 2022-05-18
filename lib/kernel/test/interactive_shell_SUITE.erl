@@ -19,6 +19,7 @@
 %%
 -module(interactive_shell_SUITE).
 -include_lib("kernel/include/file.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
@@ -34,7 +35,7 @@
          remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1]).
 
 %% For spawn
--export([toerl_server/3]).
+-export([toerl_server/4]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 
@@ -96,11 +97,8 @@ init_per_group(shell_history, Config) ->
         new -> Config
     end;
 init_per_group(sh_custom, Config) ->
-    %% Ensure that ERL_AFLAGS will not override the value of the
-    %% shell_history variable.
-    Name = interactive_shell_sh_custom,
-    Args = "-noshell -kernel shell_history not_overridden",
-    {ok, Node} = test_server:start_node(Name, slave, [{args,Args}]),
+    %% Ensure that ERL_AFLAGS will not override the value of the shell_history variable.
+    {ok, Peer, Node} = ?CT_PEER(["-noshell","-kernel","shell_history","not_overridden"]),
     try erpc:call(Node, application, get_env, [kernel, shell_history], timeout(normal)) of
         {ok, not_overridden} ->
             Config;
@@ -112,7 +110,7 @@ init_per_group(sh_custom, Config) ->
             io:format("~p\n~p\n~p\n", [C,R,Stk]),
             {skip, "Unexpected error"}
     after
-        test_server:stop_node(Node)
+        peer:stop(Peer)
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -281,13 +279,13 @@ test_exit_initial(new) ->
             {expect, "35\r\n"}]).
 
 stop_during_init(Config) when is_list(Config) ->
-    {RunErl,_ToErl,Erl} = get_progs(),
+    {RunErl,_ToErl,[Erl|ErlArgs]} = get_progs(),
     case create_tempdir() of
         {error, Reason} ->
             {skip, Reason};
         Tempdir ->
             XArg = " -kernel shell_history enabled -s init stop",
-            start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
+            start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++ErlArgs++XArg),
             Logs = rtnode_read_logs(Tempdir),
             rtnode_dump_logs(Logs),
             nomatch = binary:match(map_get("erlang.log.1", Logs),
@@ -320,8 +318,7 @@ wrap(Config) when is_list(Config) ->
                     {expect, As ++ "\r\n" ++ As ++ " \b"}
                    ],
                    [],
-                   "stty rows 40; stty columns 20; ",
-                   [""]);
+                   "stty rows 40; stty columns 20; ");
         _ ->
             ok
     end,
@@ -347,11 +344,10 @@ shell_history(Config) when is_list(Config) ->
             {expect, "echo4\r\n"},
             {putline, "echo5."},
             {expect, "echo5\r\n"}
-           ], [], [], " -kernel shell_history enabled " ++
-               "-kernel shell_history_drop '[\\\"init:stop().\\\"]' " ++
-               mk_sh_param(Path)),
+           ], [], [], mk_history_param(Path)),
     receive after 1000 -> ok end,
     rtnode([
+            {sleep,100},
             {putline, ""},
             %% the init:stop that stopped the node is dropped
             {putdata, [$\^p]}, {expect, "echo5[.]$"},
@@ -366,26 +362,30 @@ shell_history(Config) when is_list(Config) ->
             {putdata, [$\^b]}, {sleep,50}, %% the echo4. (cursor moved one left)
             {putline, ["ECHO"]},
             {expect, "echo4ECHO\r\n"}
-           ], [], [], " -kernel shell_history enabled " ++ mk_sh_param(Path)),
+           ], [], [],
+           mk_history_param(Path)),
     ok.
 
 shell_history_resize(Config) ->
     Path = shell_history_path(Config, "resize"),
     rtnode([
             {putline, "echo."},
-            {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history_file_bytes 123456 " ++
-               "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+            {expect, "echo\r\n"},
+            {putline, "echo2."},
+            {expect, "echo2\r\n"}
+           ], [], [], ["-kernel","shell_history_file_bytes","123456"] ++
+               mk_history_param(Path)),
 
     {ok, Logs} =
         rtnode([
+                {sleep,100},
                 {putline, ""},
-                {putdata, [$\^p]}, {expect, "init:stop\\(\\)[.]$"},
+                {putdata, [$\^p]}, {expect, "echo2[.]$$"},
                 {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
                 {expect, "echo"}
-               ], [], [], " -kernel shell_history_file_bytes 654321 " ++
-                   "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+               ], [], [], ["-kernel","shell_history_file_bytes","654321"] ++
+                   mk_history_param(Path)),
 
     rtnode_check_logs(
       "erlang.log.1",
@@ -408,8 +408,9 @@ shell_history_eaccess(Config) ->
             rtnode([
                     {putline, "echo."},
                     {expect, "echo\r\n"}
-                   ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+                   ], [], [], mk_history_param(Path)),
 
+        ct:pal("~p",[Logs1]),
         rtnode_check_logs("erlang.log.1", "Error handling file", Logs1),
 
         %% shell_docs recursively creates the folder to store the
@@ -419,8 +420,7 @@ shell_history_eaccess(Config) ->
             rtnode([
                     {putline, "echo."},
                     {expect, "echo\r\n"}
-                   ], [], [], "-kernel shell_history enabled " ++
-                       mk_sh_param(filename:join(Path,"logs"))),
+                   ], [], [], mk_history_param(filename:join(Path,"logs"))),
 
         rtnode_check_logs("erlang.log.1", "Error handling file", Logs2)
 
@@ -441,7 +441,7 @@ shell_history_repair(Config) ->
                 {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
                 {expect, "echo\r\n"}
-               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+               ], [], [], mk_history_param(Path)),
 
     %% The regexp below checks that he string is NOT part of the log
     rtnode_check_logs("erlang.log.1",
@@ -467,7 +467,7 @@ shell_history_repair_corrupt(Config) ->
                 {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
                 {expect, "echo\r\n"}
-               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+               ], [], [], mk_history_param(Path)),
 
     rtnode_check_logs("erlang.log.1",
                       "The shell history log file was corrupted and was repaired.",
@@ -479,8 +479,10 @@ shell_history_corrupt(Config) ->
 
     %% We initialize the shell history log with a known value.
     rtnode([{putline, "echo."},
-            {expect, "echo\r\n"}
-           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+            {expect, "echo\r\n"},
+            {putline, "echo2."},
+            {expect, "echo2\r\n"}
+           ], [], [], mk_history_param(Path)),
 
     %% We corrupt the disklog.
     {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read, append]),
@@ -490,11 +492,11 @@ shell_history_corrupt(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {expect, "init:stop\\(\\)[.]$"},
+                {putdata, [$\^p]}, {expect, "echo2[.]$"},
                 {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
                 {expect, "echo\r\n"}
-               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
+               ], [], [], mk_history_param(Path)),
 
     rtnode_check_logs("erlang.log.1", "Invalid chunk in the file", Logs),
     ok.
@@ -506,8 +508,10 @@ shell_history_halt(Path) ->
                 {putline, "echo."},
                 {expect, "echo\r\n"},
                 {sleep, 2500}, % disk_log internal cache timer is 2000 ms
-                {putline, "halt(0)."}
-               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path))
+                {putline, "halt(0)."},
+                {expect, "\r\n"},
+                {sleep, 1000} %% wait for node to terminate
+               ], [], [], mk_history_param(Path))
     catch
         _:_ ->
             ok
@@ -517,8 +521,11 @@ shell_history_path(Config, TestCase) ->
         filename:join([proplists:get_value(priv_dir, Config),
                        "shell_history", TestCase]).
 
-mk_sh_param(Path) ->
-    "-kernel shell_history_path '\\\""  ++ Path ++ "\\\"'".
+mk_history_param(Path) ->
+    ["-kernel","shell_history","enabled",
+     "-kernel","shell_history_path","\"" ++ Path ++ "\"",
+     "-kernel","shell_history_drop","[\"init:stop().\"]"
+    ].
 
 shell_history_custom(_Config) ->
     %% Up key: Ctrl + P = Cp=[$\^p]
@@ -529,47 +536,46 @@ shell_history_custom(_Config) ->
             {expect, "0\r\n"},
             {putline, "echo."},
             {expect, "!echo\r\n"} % exclamation mark is printed by custom history module
-           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+           ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
+                       "-pz",filename:dirname(code:which(?MODULE))]),
     ok.
 
 shell_history_custom_errors(_Config) ->
 
     %% Check that we can start with a node with an undefined
     %% provider module.
-    rtnode([{expect, "1> $"},
-            {putline, "echo."},
+    rtnode([{putline, "echo."},
             {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history very_broken " ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+           ], [], [], ["-kernel","shell_history","very_broken",
+                       "-pz",filename:dirname(code:which(?MODULE))]),
 
     %% Check that we can start with a node with a provider module
     %% that crashes in load/0.
     rtnode([
             {putline, "echo."},
             {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -kernel provider_load crash" ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+           ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
+                       "-kernel","provider_load","crash",
+                       "-pz",filename:dirname(code:which(?MODULE))]),
 
     %% Check that we can start with a node with a provider module
     %% that return incorrect in load/0.
     rtnode([
             {putline, "echo."},
             {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -kernel provider_load badreturn" ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+           ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
+                       "-kernel","provider_load","badreturn",
+                       "-pz",filename:dirname(code:which(?MODULE))]),
 
     %% Check that we can start with a node with a provider module
     %% that crashes in load/0.
     rtnode([
             {putline, "echo."},
-            {expect, "Disabling shell history logging.\r\n"},
-            {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -kernel provider_add crash" ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+            {expect, "(Disabling shell history logging.|echo)\r\n"},
+            {expect, "(Disabling shell history logging.|echo)\r\n"}
+           ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
+                       "-kernel","provider_add","crash",
+                       "-pz",filename:dirname(code:which(?MODULE))]),
 
     %% Check that we can start with a node with a provider module
     %% that return incorrect in load/0.
@@ -577,9 +583,9 @@ shell_history_custom_errors(_Config) ->
             {putline, "echo."},
             {expect, "It returned {error,badreturn}.\r\n"},
             {expect, "echo\r\n"}
-           ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -kernel provider_add badreturn" ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))),
+           ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
+                       "-kernel","provider_add","badreturn",
+                       "-pz",filename:dirname(code:which(?MODULE))]),
 
     ok.
 
@@ -625,8 +631,7 @@ job_control_local(Config) when is_list(Config) ->
                     {expect, ["\r\nEshell"]},
                     {expect, ["1> $"]},
 		    {putline, "35."},
-                    {expect, "\r\n35\r\n2> $"}],
-                   []),
+                    {expect, "\r\n35\r\n2> $"}]),
             ok
     end.
 
@@ -636,11 +641,11 @@ job_control_remote(Config) when is_list(Config) ->
 	old ->
 	    {skip,"No new shell found"};
 	_ ->
-	    NSNode = start_node(?FUNCTION_NAME, []),
+            {ok, Peer, NSNode} = ?CT_PEER(#{ peer_down => continue }),
             try
                 test_remote_job_control(NSNode)
             after
-                test_server:stop_node(NSNode)
+                peer:stop(Peer)
             end
     end.
 
@@ -651,16 +656,17 @@ job_control_remote_noshell(Config) when is_list(Config) ->
 	old ->
 	    {skip,"No new shell found"};
 	_ ->
-	    NSNode = start_node(?FUNCTION_NAME, ["-noshell"]),
+	    {ok, Peer, NSNode} = ?CT_PEER(#{ args => ["-noshell"],
+                                             peer_down => continue }),
             try
                 test_remote_job_control(NSNode)
             after
-                test_server:stop_node(NSNode)
+                peer:stop(Peer)
             end
     end.
 
 test_remote_job_control(Node) ->
-    RemNode = create_nodename(),
+    RemNode = peer:random_name(test_remote_job_control),
     Pid = spawn_link(Node, fun() ->
                                    receive die ->
                                            ok
@@ -684,6 +690,7 @@ test_remote_job_control(Node) ->
             {expect, "\\Q(" ++ atom_to_list(Node) ++")1> \\E$"},
             {putline, "whereis(kalaskula)."},
             {expect, PidStr},
+            {putline, "kalaskula ! die."},
             {putline, "exit()."},
             {expect, "[*][*][*] Shell process terminated!"},
             {putdata, "\^g"},
@@ -691,7 +698,7 @@ test_remote_job_control(Node) ->
             {putline, "c 1"},
             {expect, "\r\n"},
             {putline, ""},
-            {expect, "\\Q("++RemNode++")\\E[12]> $"}
+            {expect, "\\Q("++RemNode++"@\\E[^)]*\\)[12]> $"}
            ], RemNode),
     Pid ! die,
     ok.
@@ -716,7 +723,7 @@ ctrl_keys(_Config) ->
 	    {expect,"\"hello world\""},
 	    {putline,"\"hello world\""++Cu++Cy++"."},
 	    {expect,"\"hello world\""}] ++
-               wordLeft() ++ wordRight(), []),
+               wordLeft() ++ wordRight()),
     ok.
 
 wordLeft() ->
@@ -743,7 +750,7 @@ wordRight(Chars) ->
 
 %% Test that -remsh works
 remsh_basic(Config) when is_list(Config) ->
-    TargetNode = start_node(?FUNCTION_NAME, []),
+    {ok, Peer, TargetNode} = ?CT_PEER(),
     TargetNodeStr = printed_atom(TargetNode),
     [_Name,Host] = string:split(atom_to_list(node()), "@"),
 
@@ -760,12 +767,12 @@ remsh_basic(Config) when is_list(Config) ->
                [{putline,"nodes()."},
                 {expect, "\\Q" ++ HostNodeStr ++ "\\E"}] ++
                PostCmds,
-           HostNode, [], "-remsh " ++ TargetNodeStr),
+           HostNode, " ", "-remsh " ++ TargetNodeStr),
 
     %% Test that remsh works without -sname.
-    rtnode(PreCmds ++ PostCmds, [], [], " -remsh " ++ TargetNodeStr),
+    rtnode(PreCmds ++ PostCmds, [], " ", "-remsh " ++ TargetNodeStr),
 
-    test_server:stop_node(TargetNode),
+    peer:stop(Peer),
 
     ok.
 
@@ -847,10 +854,10 @@ remsh_no_epmd(Config) when is_list(Config) ->
     end.
 
 rtnode(C) ->
-    rtnode(C, []).
+    rtnode(C, [], [], []).
 
 rtnode(C, N) ->
-    rtnode(C, N, []).
+    rtnode(C, N, [], []).
 
 rtnode(Commands, Nodename, ErlPrefix) ->
     rtnode(Commands, Nodename, ErlPrefix, []).
@@ -874,29 +881,37 @@ rtnode(Commands, Nodename, ErlPrefix, Args) ->
     end.
 
 rtstart(Args) ->
-    rtstart([], [], Args).
+    rtstart([], " ", Args).
 
 rtstart(Nodename, ErlPrefix, Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
-	{RunErl,ToErl,Erl} ->
+	{RunErl,ToErl,[Erl|ErlArgs] = ErlWArgs} ->
 	    case create_tempdir() of
 		{error, Reason2} ->
 		    {skip, Reason2};
-		Tempdir ->
+		Tempdir when ErlPrefix =/= [] ->
 		    SPid =
-			start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
+			start_runerl_node(RunErl,
+                                          ErlPrefix++"\\\""++Erl++"\\\" "++
+                                              lists:join($\s, ErlArgs),
 					  Tempdir,Nodename,Args),
-		    CPid = start_toerl_server(ToErl,Tempdir),
+		    CPid = start_toerl_server(ToErl,Tempdir,undefined),
+                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}};
+                Tempdir ->
+                    SPid = start_peer_runerl_node(RunErl,ErlWArgs,Tempdir,Nodename,Args),
+                    CPid = start_toerl_server(ToErl,Tempdir,SPid),
                     {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}}
             end
     end.
 
 rtstop({CPid, SPid, ToErl, Tempdir}) ->
+    %% Unlink from peer so that we don't crash when peer quits
+    unlink(SPid),
     case stop_runerl_node(CPid) of
         {error,_} ->
-            catch rtstop_try_harder(ToErl, Tempdir);
+            catch rtstop_try_harder(ToErl, Tempdir, SPid);
         _ ->
             ok
     end,
@@ -905,8 +920,8 @@ rtstop({CPid, SPid, ToErl, Tempdir}) ->
     file:del_dir_r(Tempdir),
     Logs.
 
-rtstop_try_harder(ToErl, Tempdir) ->
-    CPid = start_toerl_server(ToErl, Tempdir),
+rtstop_try_harder(ToErl, Tempdir, SPid) ->
+    CPid = start_toerl_server(ToErl, Tempdir, SPid),
     ok = send_commands(CPid,
                        [{putline,[7]},
                         {expect, " --> $"},
@@ -923,13 +938,6 @@ timeout(short) ->
     timeout(normal) div 10;
 timeout(normal) ->
     10000 * test_server:timetrap_scale_factor().
-
-start_node(Name, Args0) ->
-    PaDir =  filename:dirname(code:which(?MODULE)),
-    Args1 = ["-pa",PaDir|Args0],
-    Args = lists:append(lists:join(" ", Args1)),
-    {ok, Node} = test_server:start_node(Name, slave, [{args,Args}]),
-    Node.
 
 send_commands(CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),
@@ -1002,27 +1010,19 @@ stop_runerl_node(CPid) ->
     end.
 
 get_progs() ->
-    try
-        do_get_progs()
-    catch
-        throw:Thrown ->
-            {error, Thrown}
-    end.
-
-do_get_progs() ->
     case os:type() of
-	{unix,freebsd} ->
-	    throw("Can't use run_erl on FreeBSD");
-	{unix,openbsd} ->
-	    throw("Can't use run_erl on OpenBSD");
-	{unix,_} ->
+        {unix,freebsd} ->
+            {error,"Can't use run_erl on FreeBSD"};
+        {unix,openbsd} ->
+            {error,"Can't use run_erl on OpenBSD"};
+        {unix,_} ->
             RunErl = find_executable("run_erl"),
             ToErl = find_executable("to_erl"),
-            Erl = find_executable("erl"),
+            Erl = string:split(ct:get_progname()," ",all),
             {RunErl, ToErl, Erl};
-	_ ->
-	    throw("Not a Unix OS")
-    end.
+        _ ->
+            {error,"Not a Unix OS"}
+        end.
 
 find_executable(Name) ->
     case os:find_executable(Name) of
@@ -1057,24 +1057,6 @@ create_tempdir(Dir0, Ch) ->
 	    Dir
     end.
 
-create_nodename() ->
-    create_nodename($A).
-
-create_nodename(X) when X > $Z, X < $a ->
-    create_nodename($a);
-create_nodename(X) when X > $z -> 
-    {error,out_of_nodenames};
-create_nodename(X) ->
-    NN = "rtnode"++os:getpid()++[X],
-    case file:read_file_info(filename:join(["/tmp",NN])) of
-	{error,enoent} ->
-	    Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
-	    NN++"@"++Host;
-	_ ->
-	    create_nodename(X+1)
-    end.
-
-
 start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
 	       [] ->
@@ -1092,8 +1074,26 @@ start_runerl_command(RunErl, Tempdir, Cmd) ->
     ct:pal("~ts",[FullCmd]),
     os:cmd(FullCmd).
 
-start_toerl_server(ToErl,Tempdir) ->
-    Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
+start_peer_runerl_node(RunErl,Erl,Tempdir,[],Args) ->
+    start_peer_runerl_node(RunErl,Erl,Tempdir,peer:random_name(),Args);
+start_peer_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
+    {ok, Peer, _Node} =
+        ?CT_PEER(#{ name => Nodename,
+                    exec => {RunErl,Erl},
+                    detached => false,
+                    shutdown => 10000,
+                    post_process_args =>
+                        fun(As) ->
+                                [Tempdir++"/",Tempdir,
+                                 lists:flatten(
+                                   lists:join(
+                                     " ",[[$',A,$'] || A <- As]))]
+                        end,
+                    args => Args }),
+    Peer.
+
+start_toerl_server(ToErl,Tempdir,SPid) ->
+    Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir,SPid]),
     receive
 	{Pid,started} ->
 	    Pid;
@@ -1116,7 +1116,7 @@ try_to_erl(Command, N) ->
 	    Port
     end.
 
-toerl_server(Parent, ToErl, TempDir) ->
+toerl_server(Parent, ToErl, TempDir, SPid) ->
     Port = try_to_erl("\""++ToErl++"\" "++TempDir++"/ 2>/dev/null", 8),
     case Port of
 	P when is_port(P) ->
@@ -1126,7 +1126,7 @@ toerl_server(Parent, ToErl, TempDir) ->
 	    exit(Other)
     end,
 
-    State = #{port => Port, acc => [], kill_emulator_command => init_stop},
+    State = #{port => Port, acc => [], spid => SPid},
     case toerl_loop(State) of
 	normal ->
 	    ok;
@@ -1162,6 +1162,9 @@ toerl_loop(#{port := Port} = State0) ->
 	    {error, {unexpected, Other}}
     end.
 
+kill_emulator(#{spid := SPid, port := Port}) when is_pid(SPid) ->
+    catch peer:stop(SPid),
+    wait_for_eof(Port);
 kill_emulator(#{port := Port}) ->
     %% If the line happens to end in a ".", issuing "init:stop()."
     %% will result in a syntax error.  To avoid that, issue a "\n"
@@ -1306,7 +1309,7 @@ get_default_shell() ->
     try
         rtnode([{putline,""},
                 {putline, "is_pid(whereis(user_drv))."},
-                {expect, "true\r\n"}], []),
+                {expect, "true\r\n"}]),
         new
     catch _E:_R ->
             ?dbg({_E,_R}),
