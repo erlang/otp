@@ -550,10 +550,13 @@ ok
         </p>
 
         <p>
-          If <c>Name</c> is set to <em><c>undefined</c></em> the distribution
-          will be started to request a dynamic node name from the first node it
-          connects to. See <seeguide marker="system/reference_manual:distributed#dyn_node_name">
-          Dynamic Node Name</seeguide>.
+          If <c><anno>Name</anno></c> is set to <em><c>undefined</c></em> the
+          distribution will be started to request a dynamic node name from the
+          first node it connects to. See
+          <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+            Dynamic Node Name</seeguide>. Setting <c><anno>Name</anno></c> to
+            <c>undefined</c> implies options <c>dist_listen => false</c> and
+            <c>hidden => true</c>.
         </p>
 
         <p>Currently supported options:</p>
@@ -587,6 +590,30 @@ ok
             be replaced by a valid value, but if an invalid
             <c><anno>NetTickIntensity</anno></c> value is passed as option value
             to this function, the call will fail.
+          </p></item>
+          <tag><c>dist_listen => boolean()</c></tag>
+          <item><p>
+            Enable or disable listening for incoming connections. Defaults to
+            the value of the
+            <seecom marker="erts:erl#dist_listen"><c>-dist_listen</c></seecom>
+            <c>erl</c> command line argument. Note that
+            <c>dist_listen => false</c> implies <c>hidden => true</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            the <c>dist_listen</c> option will be overridden with
+            <c>dist_listen => false</c>.
+          </p></item>
+          <tag><c>hidden => boolean()</c></tag>
+          <item><p>
+            Enable or disable hidden node. Defaults to <c>true</c> if the
+            <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom> <c>erl</c>
+            command line argument has been passed; otherwise <c>false</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            or the option <c>dist_listen</c> equals <c>false</c>, the
+            <c>hidden</c> option will be overridden with <c>hidden => true</c>.
           </p></item>
         </taglist>
       </desc>

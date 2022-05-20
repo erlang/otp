@@ -155,7 +155,7 @@ dilbert@uab</pre>
        name from the first node it connects to. In addition these
        distribution settings will be set:
      </p>
-     <pre><seeapp marker="kernel:kernel_app#dist_listen">-dist_listen false</seeapp> <seecom marker="erts:erl#hidden">-hidden</seecom> <seeapp marker="kernel:kernel_app#dist_auto_connect">-dist_auto_connect never</seeapp></pre>
+     <pre><seecom marker="erts:erl#dist_listen">-dist_listen false</seecom> <seecom marker="erts:erl#hidden">-hidden</seecom> <seeapp marker="kernel:kernel_app#dist_auto_connect">-kernel dist_auto_connect never</seeapp></pre>
      <p>
        As <c>-dist_auto_connect</c> is set to <c>never</c>,
        <seemfa marker="kernel:net_kernel#connect_node/1"><c>net_kernel:connect_node/1</c></seemfa>

@@ -430,7 +430,6 @@ handshake_we_started(#hs_data{request_type=ReqType,
         case node() of
             nonode@nohost ->
                 {node, "undefined", Host} = split_node(MyNode),
-                false = net_kernel:dist_listen(),
                 {?DFLAG_NAME_ME, Host};
 
             _ ->
