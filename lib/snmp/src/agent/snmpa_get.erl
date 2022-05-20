@@ -35,7 +35,9 @@
 
 %% Debugging
 -export([
-         empty_pdu_size/0
+         empty_pdu/0,        empty_pdu/1,
+         empty_scoped_pdu/0, empty_scoped_pdu/1,
+         empty_pdu_size/0,   empty_scoped_pdu_size/0
         ]).
 
 -define(VMODULE,"GET").
@@ -49,7 +51,7 @@
 -endif.
 
 -ifndef(empty_pdu_size).
--define(empty_pdu_size, 29). % See below!
+-define(empty_pdu_size, 21). % See below!
 -endif.
 
 -ifdef(snmp_extended_verbosity).
@@ -91,13 +93,51 @@
 %%
 %%-----------------------------------------------------------------
 %% Ret: 21 (see above)
-%% empty_pdu() ->
+%% empty_pdu_size() ->
 %%     Pdu = #pdu{type         = 'get-response', 
 %%                request_id   = 1,
 %% 	          error_status = noError, 
 %%                error_index  = 0, 
 %%                varbinds     = []},
 %%     length(snmp_pdus:enc_pdu(Pdu)) + 8.
+
+empty_pdu() ->
+    empty_pdu(1).
+empty_pdu(RequestId) when is_integer(RequestId) andalso (RequestId > 0) ->
+    #pdu{type         = 'get-response', 
+         request_id   = RequestId,
+         error_status = noError, 
+         error_index  = 0, 
+         varbinds     = []}.
+
+%% empty_pdu_size() ->
+%%     empty_pdu_size(1).
+%% empty_pdu_size(RequestId) ->
+%%     length(snmp_pdus:enc_pdu(empty_pdu(RequestId))) + 8.
+
+empty_pdu_size() ->
+    ?empty_pdu_size.
+
+
+%% This is used when calculating how many VBs to include in a pdu.
+%% For "some reason" we need to add 8 to the size for version 3.
+%% Could be the context EngineID and Name, which is actuall part
+%% of the scoped PDU?
+
+empty_scoped_pdu() ->
+    empty_scoped_pdu(1).
+empty_scoped_pdu(RequestId) ->
+    #scopedPdu{contextEngineID = "",
+               contextName     = "",
+               data            = empty_pdu(RequestId)}.
+
+%% empty_scoped_pdu_size() ->
+%%     empty_scoped_pdu_size(1).
+%% empty_scoped_pdu_size(RequestId) ->
+%%     length(snmp_pdus:enc_scoped_pdu(empty_scoped_pdu(RequestId))) + 8.
+
+empty_scoped_pdu_size() ->
+    ?empty_pdu_size + 6.
 
 
 %%%-----------------------------------------------------------------
