@@ -29,7 +29,11 @@
          ei_accept/1, ei_threaded_accept/1,
          monitor_ei_process/1]).
 
+%% Internals
+-export([id/1]).
+
 -import(runner, [get_term/1,send_term/2]).
+
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -61,11 +65,20 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
     %% We take this opportunity to also test export-funs and bit-strings
     %% with (ugly) tuple fallbacks in OTP 21 and older.
     %% Test both toward pending connection and established connection.
-    RealTerms = [<<1:1>>,     fun lists:map/2],
+    TermsAndFallbacks =
+        [{<<1:1>>, {<<128>>,1}},
+         {fun lists:map/2, {lists,map}},
+
+         %% Also test funs with hopeful encoding in environment,
+         %% which lead to incorrect fun size encoding (OTP-18104)
+         %% toward pending connection.
+         {fun_with_env(<<1:1>>), fun_with_env({<<128>>,1})},
+         {fun_with_env(fun lists:map/2), fun_with_env({lists,map})}],
+    {RealTerms, Fallbacks} = lists:unzip(TermsAndFallbacks),
     EncTerms = case CompatRel of
                    0 -> RealTerms;
-                   21 -> [{<<128>>,1}, {lists,map}]
-                end,
+                   21 -> Fallbacks
+               end,
 
     Self = self(),
     Funny = fun() -> hello end,
@@ -89,6 +102,12 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
 
     runner:finish(P),
     ok.
+
+fun_with_env(Term) ->
+    Env = ?MODULE:id(Term),
+    fun() -> Env end.
+
+id(X) -> X.
 
 ei_threaded_accept(Config) when is_list(Config) ->
     Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
