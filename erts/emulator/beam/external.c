@@ -6127,7 +6127,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
             case EXPORT_EXT: {
                 byte *start_ep, *end_ep;
                 Eterm module, function;
-                if (!(hopefull_flags & DFLAG_EXPORT_PTR_TAG))
+                if (dflags & DFLAG_EXPORT_PTR_TAG)
                     break;
                 /* Read original encoding... */
                 ep++;
@@ -6172,7 +6172,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                 Uint bin_sz;
                 byte bitsize, epilog_byte;
                 ASSERT(hopefull_ix != ERTS_NO_HIX);
-                if (!(hopefull_flags & DFLAG_BIT_BINARIES)) {
+                if (dflags & DFLAG_BIT_BINARIES) {
                     /* skip to epilog... */
                     hopefull_ix = new_hopefull_ix;
                     ep = (byte *) iov[hopefull_ix].iov_base;
