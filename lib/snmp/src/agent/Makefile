@@ -76,6 +76,14 @@ ifeq ($(SNMP_EXT_VERBOSITY),true)
   SNMP_FLAGS += -Dsnmp_extended_verbosity
 endif
 
+
+# 21 or 29?
+# SNMP_EMPTY_PDU_SIZE=42
+ifneq ($(SNMP_EMPTY_PDU_SIZE),)
+  SNMP_FLAGS += -Dempty_pdu_size=$(SNMP_EMPTY_PDU_SIZE)
+endif
+
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------

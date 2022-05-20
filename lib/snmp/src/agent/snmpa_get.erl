@@ -33,6 +33,11 @@
          do_get_bulk/7
         ]).
 
+%% Debugging
+-export([
+         empty_pdu_size/0
+        ]).
+
 -define(VMODULE,"GET").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
@@ -43,7 +48,9 @@
 -define(default_verbosity,silence).
 -endif.
 
+-ifndef(empty_pdu_size).
 -define(empty_pdu_size, 29). % See below!
+-endif.
 
 -ifdef(snmp_extended_verbosity).
 -define(vt(F,A), ?vtrace(F, A)).
@@ -83,7 +90,7 @@
 %% calculation?
 %%
 %%-----------------------------------------------------------------
-%% Ret: 21
+%% Ret: 21 (see above)
 %% empty_pdu() ->
 %%     Pdu = #pdu{type         = 'get-response', 
 %%                request_id   = 1,
