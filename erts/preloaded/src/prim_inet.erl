@@ -1921,7 +1921,7 @@ type_value_2(uint16, X) when X band 16#ffff =:= X     -> true;
 type_value_2(uint8, X)  when X band 16#ff =:= X       -> true;
 type_value_2(time, infinity)                          -> true;
 type_value_2(time, X) when is_integer(X), X >= 0      -> true;
-type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+%% type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
 type_value_2(mif,{A,B,C,D}) when ?ip(A,B,C,D)         -> true;
 type_value_2(mif,Idx) when is_integer(Idx)            -> true;
 type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}})
@@ -2109,10 +2109,10 @@ enc_value_2(uint16, Val)     -> ?int16(Val);
 enc_value_2(uint8, Val)      -> ?int8(Val);
 enc_value_2(time, infinity)  -> ?int32(-1);
 enc_value_2(time, Val)       -> ?int32(Val);
-enc_value_2(ip, IP)
-  when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
-enc_value_2(ip, any)          -> ip4_any();
-enc_value_2(ip, loopback)     -> ip4_loopback();
+%% enc_value_2(ip, IP)
+%%   when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
+%% enc_value_2(ip, any)          -> ip4_any();
+%% enc_value_2(ip, loopback)     -> ip4_loopback();
 enc_value_2(mif, IP)
   when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
 enc_value_2(mif, Idx)
@@ -2248,7 +2248,7 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	-1 -> {infinity, T};
 	Val -> {Val, T}
     end;
-dec_value(ip,  [A,B,C,D|T])             -> {{A,B,C,D}, T};
+%% dec_value(ip,  [A,B,C,D|T])             -> {{A,B,C,D}, T};
 dec_value(mif, [A,B,C,D, X3,X2,X1,X0|T]) ->
     Domain = ?i32(X3, X2, X1, X0),
     case Domain of
