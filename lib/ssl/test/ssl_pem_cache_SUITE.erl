@@ -136,44 +136,44 @@ pem_cleanup(Config)when is_list(Config) ->
     Size1 = ssl_pkix_db:db_size(get_pem_cache()),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
-    false = Size == Size1.
+    %% in majority of runs Size1 will be 0 because all pem files are
+    %% invalidated, when they're created at the same second when ssl_pem_cache
+    %% is started in some rare runs Size1 will be 5 and only pem file with
+    %% modified mtime will be invalidated
+    true = Size > Size1.
 
 clear_pem_cache() ->
     [{doc,"Test that internal reference table is cleaned properly even when "
      " the PEM cache is cleared" }].
-clear_pem_cache(Config) when is_list(Config) -> 
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    [_,{FilRefDb, _} |_] = element(5, State),
+clear_pem_cache(Config) when is_list(Config) ->
+    FileRefDb = get_fileref_db(),
     {Server, Client} = basic_verify_test_no_close(Config),
     CountReferencedFiles = fun({_, -1}, Acc) ->
 				   Acc;
 			      ({_, N}, Acc) ->
 				   N + Acc
 			   end,
-    
-    2 = ets:foldl(CountReferencedFiles, 0, FilRefDb), 
+    2 = ets:foldl(CountReferencedFiles, 0, FileRefDb),
     ssl:clear_pem_cache(),
     _ = sys:get_status(whereis(ssl_manager)),
     {Server1, Client1} = basic_verify_test_no_close(Config),
-    4 =  ets:foldl(CountReferencedFiles, 0, FilRefDb), 
+    4 =  ets:foldl(CountReferencedFiles, 0, FileRefDb),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     ct:sleep(2000),
     _ = sys:get_status(whereis(ssl_manager)),
-    2 =  ets:foldl(CountReferencedFiles, 0, FilRefDb), 
+    2 =  ets:foldl(CountReferencedFiles, 0, FileRefDb),
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1),
     ct:sleep(2000),
     _ = sys:get_status(whereis(ssl_manager)),
-    0 =  ets:foldl(CountReferencedFiles, 0, FilRefDb).
+    0 =  ets:foldl(CountReferencedFiles, 0, FileRefDb).
 
 invalid_insert() ->
     [{doc, "Test that insert of invalid pem does not cause empty cache entry"}].
-invalid_insert(Config)when is_list(Config) ->      
+invalid_insert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    
+
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -194,11 +194,11 @@ invalid_insert(Config)when is_list(Config) ->
 new_root_pem() ->
     [{doc, "Test that changed PEM-files on disk followed by ssl:clear_pem_cache() invalidates"
       "trusted CA cache as well as ordinary PEM cache"}].
-new_root_pem(Config)when is_list(Config) ->
+new_root_pem(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    #{cert := OrgSRoot} = SRoot = 
+    #{cert := OrgSRoot} = SRoot =
         public_key:pkix_test_root_cert("OTP test server ROOT",  [{key, ssl_test_lib:hardcode_rsa_key(6)}]),
-    
+
     DerConfig = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                               intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                                               peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
@@ -216,7 +216,7 @@ new_root_pem(Config)when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    %% Start a connection and keep it up for a little while, so that 
+    %% Start a connection and keep it up for a little while, so that
     %% it will be up when the second connection is started.
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -276,37 +276,32 @@ new_root_pem(Config)when is_list(Config) ->
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Client1).
-    
+
 %%--------------------------------------------------------------------
-%% Internal funcations 
+%% Internal functions
 %%--------------------------------------------------------------------
+get_refs() ->
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    case element(5, State) of
+	[_CertDb, {FileRefDb,_}, PemCache | _] ->
+	    {FileRefDb, PemCache};
+	_ ->
+	    undefined
+    end.
 
 get_pem_cache() ->
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    case element(5, State) of
-	[_CertDb, _FileRefDb, PemCache| _] ->
-	    PemCache;
-	_ ->
-	    undefined
-    end.
+    element(2, get_refs()).
 
 get_fileref_db() ->
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    case element(5, State) of
-	[_CertDb, {FileRefDb,_} | _] ->
-	    FileRefDb;
-	_ ->
-	    undefined
-    end.
+    element(1, get_refs()).
+
 later()->
-    DateTime = calendar:now_to_local_time(os:timestamp()), 
+    DateTime = calendar:now_to_local_time(os:timestamp()),
     Gregorian = calendar:datetime_to_gregorian_seconds(DateTime),
     calendar:gregorian_seconds_to_datetime(Gregorian + (2 * ?CLEANUP_INTERVAL)).
-	
+
 basic_verify_test_no_close(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
