@@ -65,6 +65,27 @@
               del_handler_ret/0, request_id/0, request_id_collection/0]).
 
 -record(handler, {module             :: atom(),
+		  handle_event = error(uninitialized_handle_event)
+			       :: fun((Event :: term(), State :: term()) ->
+				      {ok, NewState :: term()} |
+				      {ok, NewState :: term(), hibernate} |
+				      {swap_handler, Args1 :: term(), NewState :: term(),
+				       Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+				      remove_handler),
+		  handle_call = error(uninitialized_handle_call)
+			      :: fun((Request :: term(), State :: term()) ->
+				     {ok, Reply :: term(), NewState :: term()} |
+				     {ok, Reply :: term(), NewState :: term(), hibernate} |
+				     {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
+				      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+				     {remove_handler, Reply :: term()}),
+		  handle_info = error(uninitialized_handle_info)
+			      :: fun((Info :: term(), State :: term()) ->
+				     {ok, NewState :: term()} |
+				     {ok, NewState :: term(), hibernate} |
+				     {swap_handler, Args1 :: term(), NewState :: term(),
+				      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
+				     remove_handler),
 		  id = false,
 		  state,
 		  supervised = false :: 'false' | pid()}).
@@ -677,13 +698,9 @@ print_event(Dev, Dbg, Name) ->
 %%   Ret goes to the top level MSL' is the new internal state of the
 %%   event handler
 
-server_add_handler({Mod,Id}, Args, MSL) ->
-    Handler = #handler{module = Mod,
-		       id = Id},
-    server_add_handler(Mod, Handler, Args, MSL);
-server_add_handler(Mod, Args, MSL) ->
-    Handler = #handler{module = Mod},
-    server_add_handler(Mod, Handler, Args, MSL).
+server_add_handler(ModId, Args, MSL) ->
+    Handler = mk_handler(ModId),
+    server_add_handler(Handler#handler.module, Handler, Args, MSL).
 
 server_add_handler(Mod, Handler, Args, MSL) ->
     case catch Mod:init(Args) of
@@ -700,17 +717,10 @@ server_add_handler(Mod, Handler, Args, MSL) ->
 %% NOTE: This link will not be removed then the
 %% handler is removed in case another handler has
 %% own link to this process.
-server_add_sup_handler({Mod,Id}, Args, MSL, Parent) ->
+server_add_sup_handler(ModId, Args, MSL, Parent) ->
     link(Parent),
-    Handler = #handler{module = Mod,
-		       id = Id,
-		       supervised = Parent},
-    server_add_handler(Mod, Handler, Args, MSL);
-server_add_sup_handler(Mod, Args, MSL, Parent) ->
-    link(Parent),
-    Handler = #handler{module = Mod,
-		       supervised = Parent},
-    server_add_handler(Mod, Handler, Args, MSL).
+    Handler = mk_handler(ModId, Parent),
+    server_add_handler(Handler#handler.module, Handler, Args, MSL).
 
 %% server_delete_handler(HandlerId, Args, MSL) -> {Ret, MSL'}
 
@@ -788,13 +798,20 @@ server_notify(_, _, [], _) ->
 %% server_update(Handler, Func, Event, ServerName) -> Handler1 | no
 
 server_update(Handler1, Func, Event, SName) ->
-    Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
-    case catch Mod1:Func(Event, State) of
+    case catch (get_callback(Func, Handler1))(Event, State) of
 	{ok, State1} ->
 	    {ok, Handler1#handler{state = State1}};
 	{ok, State1, hibernate} ->
 	    {hibernate, Handler1#handler{state = State1}};
+	Result ->
+	    server_update_slow(Handler1, Event, SName, Result)
+    end.
+
+server_update_slow(Handler1, Event, SName, Result) ->
+    Mod1 = Handler1#handler.module,
+    State = Handler1#handler.state,
+    case Result of
 	{swap_handler, Args1, State1, Handler2, Args2} ->
 	    do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName);
 	remove_handler ->
@@ -817,6 +834,10 @@ server_update(Handler1, Func, Event, SName) ->
 	    no
     end.
 
+-compile({inline, [get_callback/2]}).
+get_callback(handle_event, #handler{handle_event = Fun}) -> Fun;
+get_callback(handle_info, #handler{handle_info = Fun}) -> Fun.
+
 do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName) ->
     %% finalise the existing handler
     State2 = do_terminate(Mod1, Handler1, Args1, State1,
@@ -831,14 +852,20 @@ do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName) ->
 	    no
     end.
 
-new_handler({Mod,Id}, Handler1) ->
-    {Mod, #handler{module = Mod,
-		   id = Id,
-		   supervised = Handler1#handler.supervised}};
-new_handler(Mod, Handler1) ->
-    {Mod, #handler{module = Mod,
-		   supervised = Handler1#handler.supervised}}.
+new_handler(ModId, Handler1) ->
+    Handler = mk_handler(ModId, Handler1#handler.supervised),
+    {Handler#handler.module, Handler}.
 
+mk_handler(ModId) -> mk_handler(ModId, _Parent = false).
+
+mk_handler({Mod, Id}, Parent) ->
+    #handler{module = Mod,
+	     handle_event = fun Mod:handle_event/2,
+	     handle_call = fun Mod:handle_call/2,
+	     handle_info = fun Mod:handle_info/2,
+	     id = Id,
+	     supervised = Parent};
+mk_handler(Mod, Parent) when is_atom(Mod) -> mk_handler({Mod, _Id = false}, Parent).
 
 -spec split(handler(), [#handler{}]) ->
 	{atom(), #handler{}, [#handler{}]} | 'error'.
@@ -911,14 +938,21 @@ replace(_, [], NewHa) ->
 %%    {{Handler1, State1} | 'no', Reply}
 
 server_call_update(Handler1, Query, SName) ->
-    Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
-    case catch Mod1:handle_call(Query, State) of
+    case catch (Handler1#handler.handle_call)(Query, State) of
 	{ok, Reply, State1} ->
 	    {{ok, Handler1#handler{state = State1}}, Reply};
 	{ok, Reply, State1, hibernate} ->
 	    {{hibernate, Handler1#handler{state = State1}},
 	     Reply};
+	Result ->
+	    server_call_update_slow(Handler1, Query, SName, Result)
+    end.
+
+server_call_update_slow(Handler1, Query, SName, Result) ->
+    Mod1 = Handler1#handler.module,
+    State = Handler1#handler.state,
+    case Result of
 	{swap_handler, Reply, Args1, State1, Handler2, Args2} ->
 	    {do_swap(Mod1,Handler1,Args1,State1,Handler2,Args2,SName), Reply};
 	{remove_handler, Reply} ->
@@ -1188,7 +1222,7 @@ format_status(Opt, StatusData) ->
                   Status = gen:format_status(
                              Mod, Opt, #{ log => Logs, state => State },
                              [PDict, State]),
-                  {MS#handler{state=maps:get('$status',Status,maps:get(state,Status))},
+                  {format_handler(MS, maps:get('$status',Status,maps:get(state,Status))),
                    maps:get(log,Status)}
           end, sys:get_log(Debug), MSL),
     [{header, Header},
@@ -1196,3 +1230,6 @@ format_status(Opt, StatusData) ->
              {"Logged Events", Logs},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
+
+format_handler(#handler{module = Mod, id = Id, supervised = Parent}, State) ->
+   {handler, Mod, Id, State, Parent}.
