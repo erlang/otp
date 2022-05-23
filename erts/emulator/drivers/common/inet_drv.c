@@ -7269,6 +7269,19 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                     mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
                     ival = get_int32(ptr);
                     mreq4.imr_address.s_addr   = sock_htonl(ival);
+
+                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> "
+                            "try setopt: "
+                            "\r\n   maddr: %x"
+                            "\r\n   addr:  %x"
+                            "\r\n   if:    %d"
+                            "\r\n   sz:    %d"
+                            "\r\n",
+                            mreq4.imr_multiaddr.s_addr,
+                            mreq4.imr_address.s_addr,
+                            mreq4.imr_ifindex,
+                            mreqSz));
+
 #else
 
                     DEBUGF(("inet_set_opts(L_init_mreq,inet) -> mreq\r\n"));
@@ -7279,10 +7292,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                     mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
                     ival = get_int32(ptr);
                     mreq4.imr_interface.s_addr = sock_htonl(ival);
-#endif
-
-                    arg_ptr = (char*)&mreq4;
-                    arg_sz  = mreqSz;
 
                     DEBUGF(("inet_set_opts(L_init_mreq,inet) -> "
                             "try setopt: "
@@ -7293,6 +7302,11 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                             mreq4.imr_multiaddr.s_addr,
                             mreq4.imr_interface.s_addr,
                             mreqSz));
+
+#endif
+
+                    arg_ptr = (char*)&mreq4;
+                    arg_sz  = mreqSz;
 
                 }
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(IPPROTO_IPV6)
