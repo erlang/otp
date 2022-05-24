@@ -884,6 +884,15 @@
     </datatype>
 
     <datatype>
+      <name name="max_log_item_len_common_option"/>
+      <desc>
+	<p>Sets a limit for the size of a logged item excluding a header.
+	The unit is bytes and the value defaults to 500.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="rekey_limit_common_option"/>
       <name name="limit_bytes"/>
       <name name="limit_time"/>
