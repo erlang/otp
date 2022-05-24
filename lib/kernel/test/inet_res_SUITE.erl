@@ -514,6 +514,7 @@ basic(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",
     NameC = caseflip(Name),
+    NameD = NameC ++ ".",
     IP1 = {127,0,0,253},
     IP2 = {127,0,0,254},
     %%
@@ -575,6 +576,9 @@ basic(Config) when is_list(Config) ->
     [IP1, IP2] =
         lists:sort(
           inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose])),
+    [IP1, IP2] =
+        lists:sort(
+          inet_res:lookup(NameD, in, a, [{nameservers,[NS]},verbose])),
     %%
     %% gethostbyname
     ?P("gethostbyname"),
