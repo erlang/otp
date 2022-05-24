@@ -5994,6 +5994,7 @@ index:
 		        }
 		        break;
 		    }
+                }
 	    }
 	}
 	if (wname_p) {
