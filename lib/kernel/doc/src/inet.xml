@@ -92,6 +92,7 @@ fe80::204:acff:fe17:bf38
   </description>
 
   <datatypes>
+    <datatype_title>Exported data types</datatype_title>
     <datatype>
       <name name="hostent"/>
       <desc>
@@ -127,30 +128,6 @@ fe80::204:acff:fe17:bf38
 	  and is a complete address
 	  (for example an IP address including port number).
 	</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet6_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
       </desc>
     </datatype>
     <datatype>
@@ -210,6 +187,9 @@ fe80::204:acff:fe17:bf38
       <name name="socket_setopt"/>
     </datatype>
     <datatype>
+      <name name="socket_optval"/>
+    </datatype>
+    <datatype>
       <name name="returned_non_ip_address"/>
       <desc>
 	<p>
@@ -254,6 +234,61 @@ fe80::204:acff:fe17:bf38
 	  or for a single send operation the option(s) to override
 	  the currently active socket option(s).
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="posix"/>
+      <desc>
+        <p>An atom that is named from the POSIX error codes used in Unix,
+          and in the runtime libraries of most C compilers. See section
+          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>socket()</name>
+      <desc>
+        <p>See
+          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
+          and
+          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="address_family"/>
+    </datatype>
+    <datatype>
+      <name name="socket_protocol"/>
+    </datatype>
+    <datatype>
+      <name name="stat_option"/>
+    </datatype>
+  </datatypes>
+
+  <datatypes>
+    <datatype_title>Internal data types</datatype_title>
+    <datatype>
+      <name name="inet_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet6_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
       </desc>
     </datatype>
     <datatype>
@@ -329,34 +364,8 @@ fe80::204:acff:fe17:bf38
 	</warning>
       </desc>
     </datatype>
-    <datatype>
-      <name name="posix"/>
-      <desc>
-        <p>An atom that is named from the POSIX error codes used in Unix,
-          and in the runtime libraries of most C compilers. See section
-          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name>socket()</name>
-      <desc>
-        <p>See
-          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
-          and
-          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
-        </p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="address_family"/>
-    </datatype>
-    <datatype>
-      <name name="socket_protocol"/>
-    </datatype>
-    <datatype>
-      <name name="stat_option"/>
-    </datatype>
   </datatypes>
+
 
   <funcs>
     <func>
@@ -555,11 +564,12 @@ fe80::204:acff:fe17:bf38
       <fsummary>Get one or more options for a socket.</fsummary>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
-          options, see
+          inet options, see
           <seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>.
-	  See also the description for the type
-          <seetype marker="gen_tcp#pktoptions_value">
-	    <c>gen_tcp:pktoptions_value()</c>
+	  See also the descriptions
+          for the protocol specific types referenced by
+          <seetype marker="#socket_optval">
+	    <c>socket_optval()</c>
 	  </seetype>.</p>
         <p>The number of elements in the returned
           <c><anno>OptionValues</anno></c>
