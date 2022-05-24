@@ -6551,7 +6551,7 @@ int inet_setopt(int fd,
 {
     int res;
 
-#if  defined(IP_TOS) && defined(IPPROTO_IP)             \
+#if defined(IP_TOS) && defined(IPPROTO_IP)             \
     && defined(SO_PRIORITY) && !defined(__WIN32__)
     DEBUGF(("inet_setopt -> try trick setopt with"
              "\r\n   fd:        %d"
@@ -7235,19 +7235,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                 len -= 4;
 
                 DEBUGF(("inet_set_opts(L_init_mreq) -> "
-                        "\r\n   proto:  %d (%d, %d)"
-                        "\r\n   type:   %d (%d, %d)"
+                        "\r\n   proto:  %d"
+                        "\r\n   type:   %d"
                         "\r\n   domain: %d"
                         "\r\n   if:     %d"
                         "\r\n",
-                        proto, IPPROTO_IP, IPPROTO_IPV6,
-                        type,  IP_ADD_MEMBERSHIP,
-#if defined(INET_ADD_MEMBERSHIP)
-                        INET_ADD_MEMBERSHIP,
-#else
-                        -1,
-#endif
-                        domain, ival));
+                        proto, type, domain, ival));
 
                 if ((domain == INET_AF_INET) && (desc->sfamily == AF_INET)) {
 
