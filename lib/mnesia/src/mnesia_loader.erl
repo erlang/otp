@@ -1014,15 +1014,15 @@ finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
                         mnesia_checkpoint:tm_add_copy(Tab, RecNode),
                         DatBin = dat2bin(Tab, ?catch_val({Tab, storage_type}), RemoteS),
                         Pid ! {self(), {no_more, DatBin}},
-                        cleanup_tab_copier(Pid, Storage, Tab)
-                end,
-		receive
-		    {Pid, no_more} -> % Dont bother about the spurious 'more' message
-			no_more;
-		    {copier_done, Node} ->
-			verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
-			receiver_died
-		end
+                        cleanup_tab_copier(Pid, Storage, Tab),
+                        receive
+                            {Pid, no_more} -> % Dont bother about the spurious 'more' message
+                                no_more;
+                            {copier_done, Node} ->
+                                verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
+                                receiver_died
+                        end
+                end
 	end,
     mnesia:transaction(Trans).
 
