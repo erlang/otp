@@ -1122,7 +1122,7 @@ maybe_append_change_cipher_spec(#state{
 maybe_append_change_cipher_spec(State, Bin) ->
     {State, Bin}.
 
-maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
+maybe_queue_cert_cert_cv(#state{client_certificate_status = not_requested} = State) ->
     {ok, State};
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
@@ -1322,7 +1322,7 @@ create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
 
 process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificates = undefined}} = State) ->
-    {ok, {State#state{client_certificate_requested = true}, wait_cert}};
+    {ok, {State#state{client_certificate_status = requested}, wait_cert}};
 
 process_certificate_request(#certificate_request_1_3{
                               extensions = Extensions},
@@ -1334,17 +1334,16 @@ process_certificate_request(#certificate_request_1_3{
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
     {_PublicKeyAlgo, SignAlgo, SignHash, _} = get_certificate_params(Cert),
-
-    %% Check if server supports signature algorithm of client certificate
+    
     case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
-        ok ->
-            {ok, {State#state{client_certificate_requested = true}, wait_cert}};
-        {error, _} ->
-            %% Certificate not supported: send empty certificate in state 'wait_finished'
-            {ok, {State#state{client_certificate_requested = true,
-                              session = Session#session{own_certificates = undefined}}, wait_cert}}
+            ok ->
+            {ok, {State#state{client_certificate_status = requested,
+                              session = Session#session{sign_alg = SignAlgo}}, wait_cert}};
+            {error, _} ->
+                %% Certificate not supported: send empty certificate in state 'wait_finished'
+                {ok, {State#state{client_certificate_status = requested,
+                                  session = Session#session{own_certificates = undefined}}, wait_cert}}
     end.
-
 
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
