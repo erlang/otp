@@ -349,7 +349,28 @@ next_event(StateName,  #alert{} = Alert, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}.
 
 %%% TLS record protocol level application data messages 
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, 
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, StateName,
+                       #state{static_env = #static_env{role = server},
+                              connection_env = #connection_env{negotiated_version = Version},
+                              handshake_env = #handshake_env{renegotiation = {false, first}}
+                             } = State) when StateName == initial_hello;
+                                             StateName == hello;
+                                             StateName == certify;
+                                             StateName == wait_cert_verify,
+                                             StateName == wait_ocsp_stapling,
+                                             StateName == abbreviated;
+                                             StateName == cipher
+                                             ->
+    %% Application data can not be sent before initial handshake pre TLS-1.3.
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State);
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA}, start = StateName,
+                       #state{static_env = #static_env{role = server},
+                              connection_env = #connection_env{negotiated_version = Version}
+                             } = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?DECODE_ERROR, invalid_tls_13_message),
+    ssl_gen_statem:handle_own_alert(Alert, Version, StateName, State);
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
                        #state{start_or_recv_from = From,
                               socket_options = #socket_options{active = false}} = State0) when From =/= undefined ->
     case ssl_gen_statem:read_application_data(Data, State0) of
