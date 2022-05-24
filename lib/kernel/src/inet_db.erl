@@ -1848,6 +1848,10 @@ eq_domains([A | As], [B | Bs]) ->
                     false
             end
     end;
+eq_domains([$.], []) ->
+    true;
+eq_domains([], [$.]) ->
+    true;
 eq_domains([], []) ->
     true;
 eq_domains(As, Bs) when is_list(As), is_list(Bs) ->
