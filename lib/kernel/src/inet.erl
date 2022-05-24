@@ -86,7 +86,8 @@
               ip6_address/0, ip_address/0, port_number/0,
 	      family_address/0, local_address/0,
               socket_address/0, returned_non_ip_address/0,
-	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
+	      socket_setopt/0, socket_getopt/0, socket_optval/0,
+              ancillary_data/0,
 	      posix/0, socket/0, inet_backend/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -147,8 +148,13 @@
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
+-type socket_optval() ::
+        gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
+        gen_tcp:pktoptions_value().
+
 -type socket_getopt() ::
         gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
+
 -type ether_address() :: [0..255].
 
 -type if_setopt() ::
@@ -399,7 +405,7 @@ setopts(Socket, Opts) ->
 	{'ok', OptionValues} | {'error', posix()} when
       Socket :: socket(),
       Options :: [socket_getopt()],
-      OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
+      OptionValues :: [socket_optval()].
 
 getopts(?module_socket(GenSocketMod, _) = Socket, Opts)
   when is_atom(GenSocketMod) ->

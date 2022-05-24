@@ -38,7 +38,22 @@
 -export([controlling_process/2]).
 
 -type assoc_id() :: term().
+
 -type option() ::
+        elementary_option() |
+        record_option().
+
+-type option_name() ::
+        elementary_option_name() |
+        record_option() |
+        ro_option().
+
+-type option_value() ::
+        elementary_option() |
+        record_option() |
+        ro_option().
+
+-type elementary_option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
         {dontroute, boolean()} |
@@ -50,31 +65,20 @@
         {recbuf, non_neg_integer()} |
         {reuseaddr, boolean()} |
 	{ipv6_v6only, boolean()} |
-        {sctp_adaptation_layer, #sctp_setadaptation{}} |
-        {sctp_associnfo, #sctp_assocparams{}} |
+        {sndbuf, non_neg_integer()} |
         {sctp_autoclose, non_neg_integer()} |
-        {sctp_default_send_param, #sctp_sndrcvinfo{}} |
-        {sctp_delayed_ack_time, #sctp_assoc_value{}} |
         {sctp_disable_fragments, boolean()} |
-        {sctp_events, #sctp_event_subscribe{}} |
-        {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
         {sctp_i_want_mapped_v4_addr, boolean()} |
-        {sctp_initmsg, #sctp_initmsg{}} |
         {sctp_maxseg, non_neg_integer()} |
         {sctp_nodelay, boolean()} |
-        {sctp_peer_addr_params, #sctp_paddrparams{}} |
-        {sctp_primary_addr, #sctp_prim{}} |
-        {sctp_rtoinfo, #sctp_rtoinfo{}} |
-        {sctp_set_peer_primary_addr, #sctp_setpeerprim{}} |
-        {sctp_status, #sctp_status{}} |
-        {sndbuf, non_neg_integer()} |
         {tos, non_neg_integer()} |
         {tclass, non_neg_integer()} |
         {ttl, non_neg_integer()} |
         {recvtos, boolean()} |
         {recvtclass, boolean()} |
         {recvttl, boolean()}.
--type option_name() ::
+
+-type elementary_option_name() ::
         active |
         buffer |
         dontroute |
@@ -86,23 +90,11 @@
         recbuf |
         reuseaddr |
 	ipv6_v6only |
-        sctp_adaptation_layer |
-        sctp_associnfo |
         sctp_autoclose |
-        sctp_default_send_param |
-        sctp_delayed_ack_time |
         sctp_disable_fragments |
-        sctp_events |
-        sctp_get_peer_addr_info |
         sctp_i_want_mapped_v4_addr |
-        sctp_initmsg |
         sctp_maxseg |
         sctp_nodelay |
-        sctp_peer_addr_params |
-        sctp_primary_addr |
-        sctp_rtoinfo |
-        sctp_set_peer_primary_addr |
-        sctp_status |
         sndbuf |
         tos |
         tclass |
@@ -110,9 +102,27 @@
         recvtos |
         recvtclass |
         recvttl.
+
+-type record_option() ::
+        {sctp_adaptation_layer, #sctp_setadaptation{}} |
+        {sctp_associnfo, #sctp_assocparams{}} |
+        {sctp_default_send_param, #sctp_sndrcvinfo{}} |
+        {sctp_delayed_ack_time, #sctp_assoc_value{}} |
+        {sctp_events, #sctp_event_subscribe{}} |
+        {sctp_initmsg, #sctp_initmsg{}} |
+        {sctp_peer_addr_params, #sctp_paddrparams{}} |
+        {sctp_primary_addr, #sctp_prim{}} |
+        {sctp_rtoinfo, #sctp_rtoinfo{}} |
+        {sctp_set_peer_primary_addr, #sctp_setpeerprim{}}.
+
+-type ro_option() ::
+        {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
+        {sctp_status, #sctp_status{}}.
+
 -type sctp_socket() :: port().
 
--export_type([assoc_id/0, option/0, option_name/0, sctp_socket/0]).
+-export_type(
+   [assoc_id/0, option/0, option_name/0,  option_value/0, sctp_socket/0]).
 
 -spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().

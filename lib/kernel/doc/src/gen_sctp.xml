@@ -69,6 +69,7 @@
   </description>
 
   <datatypes>
+    <datatype_title>Exported data types</datatype_title>
     <datatype>
       <name>assoc_id()</name>
       <desc>
@@ -81,12 +82,32 @@
     <datatype>
       <name name="option"/>
       <desc>
-        <p>One of the
-          <seeerl marker="#options">SCTP Socket Options</seeerl>.</p>
+        <p>
+          One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          used to set an option.
+        </p>
       </desc>
     </datatype>
     <datatype>
       <name name="option_name"/>
+      <desc>
+        <p>
+          An option name or one of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          used to get an option.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="option_value"/>
+      <desc>
+        <p>
+          One of the
+          <seeerl marker="#options">SCTP Socket Options</seeerl>
+          as returned when getting an option.
+        </p>
+      </desc>
     </datatype>
     <datatype>
       <name>sctp_socket()</name>
@@ -95,6 +116,22 @@
           <seemfa marker="#open/0"><c>open/*</c></seemfa>.</p>
         <marker id="exports"></marker>
       </desc>
+    </datatype>
+  </datatypes>
+
+  <datatypes>
+    <datatype_title>Internal data types</datatype_title>
+    <datatype>
+      <name name="elementary_option"/>
+    </datatype>
+    <datatype>
+      <name name="elementary_option_name"/>
+    </datatype>
+    <datatype>
+      <name name="record_option"/>
+    </datatype>
+    <datatype>
+      <name name="ro_option"/>
     </datatype>
   </datatypes>
 
@@ -526,7 +563,7 @@ connect(Socket, Ip, Port>,
 	    ancillary data
 	  </seetype>
 	  from the socket
-	  <seetype marker="#option">options</seetype>
+	  <seeerl marker="#options">options</seeerl>
 	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
 	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  or
