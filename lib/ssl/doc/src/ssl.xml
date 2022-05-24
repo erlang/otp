@@ -1456,7 +1456,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  <p>Allowed values are the pre-defined <c>'10k'</c>, <c>'100k'</c> or a custom 3-tuple that
 	  defines the properties of the bloom filters: <c>{WindowSize, HashFunctions, Bits}</c>.
 	  <c>WindowSize</c> is the number of seconds after the current Bloom filter is rotated
-	  and also the window size used for freshness checks. <c>HashFunctions</c> is the number
+	  and also the window size used for freshness checks of ClientHello. <c>HashFunctions</c> is the number
 	  hash functions and <c>Bits</c> is the number of bits in the bit vector.
 	  <c>'10k'</c> and <c>'100k'</c> are simple defaults with the following properties:</p>
 	  <list type="bulleted">
