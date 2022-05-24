@@ -354,8 +354,10 @@
     ?$ERLPROMPT
 
 [shell cmds]
+    -atom 'ifnot'
     [invoke compile ignorant.erl "+warn_keywords"]
     # Note: not all messges are checked
+    ?atom 'until' is reserved in the experimental feature 'while_expr'
     ?atom 'while' is reserved in the experimental feature 'while_expr'
     ?atom 'until' is reserved in the experimental feature 'while_expr'
     ?atom 'ifn' is reserved in the experimental feature 'ifn_expr'
@@ -363,6 +365,7 @@
 
     [invoke compile ignorant.erl "+warn_keywords -Werror"]
     # Note: not all messges are checked
+    ?atom 'until' is reserved in the experimental feature 'while_expr'
     ?atom 'while' is reserved in the experimental feature 'while_expr'
     ?atom 'until' is reserved in the experimental feature 'while_expr'
     ?atom 'ifn' is reserved in the experimental feature 'ifn_expr'
