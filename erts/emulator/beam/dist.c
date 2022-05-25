@@ -47,6 +47,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_global_literals.h"
+#include "erl_map.h"
 
 #define DIST_CTL_DEFAULT_SIZE 64
 
@@ -192,7 +193,7 @@ static Export *dist_ctrl_put_data_trap;
 static void erts_schedule_dist_command(Port *, DistEntry *);
 static int dsig_send_exit(ErtsDSigSendContext *ctx, Eterm ctl, Eterm msg);
 static int dsig_send_ctl(ErtsDSigSendContext *ctx, Eterm ctl);
-static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
+static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Uint32, Eterm, Eterm);
 static void init_nodes_monitors(void);
 static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id,
                                      int *was_connected_p);
@@ -311,6 +312,7 @@ typedef enum {
 typedef struct {
     ErtsConMonLnkSeqCleanupState state;
     DistEntry* dep;
+    Uint32 connection_id;
     ErtsMonLnkDist *dist;
     DistSeqNode *seq;
     void *yield_state;
@@ -389,6 +391,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
             send_nodes_mon_msgs(NULL,
                                 am_nodedown,
                                 cmlcp->nodename,
+                                cmlcp->connection_id,
                                 cmlcp->visability,
                                 cmlcp->reason);
             erts_de_rwlock(cmlcp->dep);
@@ -454,10 +457,13 @@ schedule_con_monitor_link_seq_cleanup(DistEntry* dep,
 
         cmlcp->yield_state = NULL;
         cmlcp->dist = dist;
-        if (!dist)
+        if (!dist) {
             cmlcp->state = ERTS_CML_CLEANUP_STATE_NODE_MONITORS;
+            cmlcp->connection_id = 0;
+        }
         else {
             cmlcp->state = ERTS_CML_CLEANUP_STATE_LINKS;
+            cmlcp->connection_id = dist->connection_id;
             erts_mtx_lock(&dist->mtx);
             ASSERT(dist->alive);
             dist->alive = 0;
@@ -806,7 +812,8 @@ set_node_not_alive(void *unused)
     erts_thr_progress_block();
     erts_set_this_node(am_Noname, 0);
     erts_is_alive = 0;
-    send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nodedown.reason);
+    send_nodes_mon_msgs(NULL, am_nodedown, nodename, ~((Uint32) 0),
+                        am_visible, nodedown.reason);
     nodedown.reason = NIL;
     bp = nodedown.bp;
     nodedown.bp = NULL;
@@ -4702,7 +4709,8 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
         erts_set_this_node(BIF_ARG_1, (Uint32) creation);
         erts_this_dist_entry->creation = creation;
         erts_is_alive = 1;
-        send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
+        send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, ~((Uint32) 0),
+                            am_visible, NIL);
         erts_proc_lock(net_kernel, ERTS_PROC_LOCKS_ALL);
 
         /* By setting F_DISTRIBUTION on net_kernel,
@@ -5081,6 +5089,7 @@ setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
     send_nodes_mon_msgs(c_p,
 			am_nodeup,
 			dep->sysname,
+                        dep->connection_id,
 			flags & DFLAG_PUBLISHED ? am_visible : am_hidden,
 			NIL);
 
@@ -5820,38 +5829,54 @@ BIF_RETTYPE node_0(BIF_ALIST_0)
     BIF_RET(erts_this_dist_entry->sysname);
 }
 
-
 /**********************************************************************/
 /* nodes() -> [ Node ] */
 
-#if 0 /* Done in erlang.erl instead. */
+static BIF_RETTYPE nodes(Process *c_p, Eterm node_types, Eterm options);
+
 BIF_RETTYPE nodes_0(BIF_ALIST_0)
 {
-  return nodes_1(BIF_P, am_visible);
+    return nodes(BIF_P, am_visible, THE_NON_VALUE);
 }
-#endif
-
 
 BIF_RETTYPE nodes_1(BIF_ALIST_1)
 {
+    return nodes(BIF_P, BIF_ARG_1, THE_NON_VALUE);
+}
+
+BIF_RETTYPE nodes_2(BIF_ALIST_2)
+{
+    return nodes(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+typedef struct {
+    Eterm name;
+    Eterm type;
+    Uint32 cid;
+} ErtsNodeInfo;
+
+static BIF_RETTYPE
+nodes(Process *c_p, Eterm node_types, Eterm options)
+{
+    BIF_RETTYPE ret_val;
+    ErtsNodeInfo *eni, *eni_start = NULL, *eni_end;
     Eterm result;
-    int length;
-    Eterm* hp;
+    Uint length;
     int not_connected = 0;
     int visible = 0;
     int hidden = 0;
     int this = 0;
-    DeclareTmpHeap(buf,2,BIF_P); /* For one cons-cell */
+    int node_type = 0;
+    int connection_id = 0;
+    int xinfo = 0;
+    Eterm tmp_heap[2]; /* For one cons-cell */
     DistEntry *dep;
-    Eterm arg_list = BIF_ARG_1;
-#ifdef DEBUG
-    Eterm* endp;
-#endif
+    Eterm arg_list;
 
-    UseTmpHeap(2,BIF_P);
-
-    if (is_atom(BIF_ARG_1))
-      arg_list = CONS(buf, BIF_ARG_1, NIL);
+    if (is_atom(node_types))
+        arg_list = CONS(&tmp_heap[0], node_types, NIL);
+    else
+        arg_list = node_types;
 
     while (is_list(arg_list)) {
       switch(CAR(list_val(arg_list))) {
@@ -5860,13 +5885,43 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
       case am_known:     visible = hidden = not_connected = this = 1; break;
       case am_this:      this = 1;                                    break;
       case am_connected: visible = hidden = 1;                        break;
-      default:           goto error;                                  break;
+      default:           goto badarg;                                 break;
       }
       arg_list = CDR(list_val(arg_list));
     }
 
     if (is_not_nil(arg_list)) {
-	goto error;
+	goto badarg;
+    }
+
+    if (is_value(options)) {
+        if (is_not_map(options)) {
+            goto badarg;
+        }
+        else {
+            Sint no_opts = 0;
+            const Eterm *conn_idp = erts_maps_get(am_connection_id, options);
+            const Eterm *node_typep = erts_maps_get(am_node_type, options);
+            if (conn_idp) {
+                switch (*conn_idp) {
+                case am_true: connection_id = !0; break;
+                case am_false: connection_id = 0; break;
+                default: goto badarg;
+                }
+                no_opts++;
+            }
+            if (node_typep) {
+                switch (*node_typep) {
+                case am_true: node_type = !0; break;
+                case am_false: node_type = 0; break;
+                default: goto badarg;
+                }
+                no_opts++;
+            }
+            if (no_opts != erts_map_size(options))
+                goto badarg; /* got invalid options... */
+            xinfo = !0;
+        }
     }
 
     length = 0;
@@ -5891,50 +5946,130 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 
     if (length == 0) {
 	erts_rwmtx_runlock(&erts_dist_table_rwmtx);
-	goto done;
+        ERTS_BIF_PREP_RET(ret_val, NIL);
+        return ret_val;
     }
 
-    hp = HAlloc(BIF_P, 2*length);
+    eni_start = eni = erts_alloc(ERTS_ALC_T_TMP, sizeof(ErtsNodeInfo)*length);
 
-#ifdef DEBUG
-    endp = hp + length*2;
-#endif
-    if(not_connected) {
-      for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
-          if (dep != erts_this_dist_entry) {
-            result = CONS(hp, dep->sysname, result);
-            hp += 2;
-          }
+    if (this) {
+        eni->name = erts_this_dist_entry->sysname;
+        eni->type = am_this;
+        eni->cid = ~((Uint32) 0);
+        eni++;
+    }
+
+    if (visible) {
+        for (dep = erts_visible_dist_entries; dep; dep = dep->next) {
+            eni->name = dep->sysname;
+            eni->type = am_visible;
+            eni->cid = dep->connection_id;
+            ASSERT(eni->cid >= 0);
+            eni++;
         }
-      for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
-          result = CONS(hp, dep->sysname, result);
-          hp += 2;
-      }
     }
-    if(hidden)
-      for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
-	result = CONS(hp, dep->sysname, result);
-	hp += 2;
-      }
-    if(visible)
-      for(dep = erts_visible_dist_entries; dep; dep = dep->next) {
-	result = CONS(hp, dep->sysname, result);
-	hp += 2;
-      }
-    if(this) {
-	result = CONS(hp, erts_this_dist_entry->sysname, result);
-	hp += 2;
+
+    if (hidden) {
+        for (dep = erts_hidden_dist_entries; dep; dep = dep->next) {
+            eni->name = dep->sysname;
+            eni->type = am_hidden;
+            eni->cid = dep->connection_id;
+            eni++;
+        }
     }
-    ASSERT(endp == hp);
+
+    if (not_connected) {
+        for (dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
+            if (dep != erts_this_dist_entry) {
+                eni->name = dep->sysname;
+                eni->type = am_known;
+                eni->cid =  ~((Uint32) 0);
+                eni++;
+            }
+        }
+        for (dep = erts_pending_dist_entries; dep; dep = dep->next) {
+            eni->name = dep->sysname;
+            eni->type = am_known;
+            eni->cid =  ~((Uint32) 0);
+            eni++;
+        }
+    }
+
     erts_rwmtx_runlock(&erts_dist_table_rwmtx);
 
-done:
-    UnUseTmpHeap(2,BIF_P);
-    BIF_RET(result);
+    eni_end = eni;
 
-error:
-    UnUseTmpHeap(2,BIF_P);
-    BIF_ERROR(BIF_P,BADARG);
+    result = NIL;
+    if (!xinfo) {
+        Eterm *hp = HAlloc(c_p, 2*length);
+        for (eni = eni_start; eni < eni_end; eni++) {
+            result = CONS(hp, eni->name, result);
+            hp += 2;
+        }
+    }
+    else {
+        Eterm ks[2], *hp, keys_tuple = THE_NON_VALUE;
+        Uint map_size = 0, el_xtra, xtra;
+        ErtsHeapFactory hfact;
+
+        erts_factory_proc_init(&hfact, c_p);
+
+        if (connection_id) {
+            ks[map_size++] = am_connection_id;
+        }
+        if (node_type) {
+            ks[map_size++] = am_node_type;
+        }
+
+        el_xtra = 3 + 2 + MAP_HEADER_FLATMAP_SZ + map_size;
+        xtra = length*el_xtra;
+        
+        for (eni = eni_start; eni < eni_end; eni++) {
+            Eterm vs[2], info_map, tuple;
+            map_size = 0;
+            if (connection_id) {
+                Eterm cid;
+                if (eni->cid == ~((Uint32) 0))
+                    cid = am_undefined;
+                else if (IS_USMALL(0, (Uint) eni->cid))
+                    cid = make_small((Uint) eni->cid);
+                else {
+                    hp = erts_produce_heap(&hfact, BIG_UINT_HEAP_SIZE, xtra);
+                    cid = uint_to_big((Uint) eni->cid, hp);
+                }
+                vs[map_size++] = cid;
+            }
+            if (node_type) {
+                vs[map_size++] = eni->type;
+            }
+
+            info_map = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
+                                                      map_size, &keys_tuple);
+
+            hp = erts_produce_heap(&hfact, 3+2, xtra);
+
+            tuple = TUPLE2(hp, eni->name, info_map);
+            hp += 3;
+            result = CONS(hp, tuple, result);
+            xtra -= el_xtra;
+        }
+
+        erts_factory_close(&hfact);
+    }
+
+    erts_free(ERTS_ALC_T_TMP, (void *) eni_start);
+
+    if (length > 10) {
+        Uint reds = length / 10;
+        BUMP_REDS(c_p, reds);
+    }
+    
+    ERTS_BIF_PREP_RET(ret_val, result);
+    return ret_val;
+
+badarg:
+    ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
+    return ret_val;
 }
 
 /**********************************************************************/
@@ -6160,6 +6295,8 @@ BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)
 #define ERTS_NODES_MON_OPT_TYPE_VISIBLE		(((Uint16) 1) << 0)
 #define ERTS_NODES_MON_OPT_TYPE_HIDDEN		(((Uint16) 1) << 1)
 #define ERTS_NODES_MON_OPT_DOWN_REASON		(((Uint16) 1) << 2)
+#define ERTS_NODES_MON_OPT_INFO_MAP             (((Uint16) 1) << 3)
+#define ERTS_NODES_MON_OPT_CONN_ID              (((Uint16) 1) << 4)
 
 #define ERTS_NODES_MON_OPT_TYPES \
   (ERTS_NODES_MON_OPT_TYPE_VISIBLE|ERTS_NODES_MON_OPT_TYPE_HIDDEN)
@@ -6189,10 +6326,10 @@ init_nodes_monitors(void)
 }
 
 Eterm
-erts_monitor_nodes(Process *c_p, Eterm on, Eterm olist)
+erts_monitor_nodes(Process *c_p, Eterm on, Eterm options)
 {
-    Eterm key, old_value, opts_list = olist;
-    Uint opts = (Uint) 0;
+    Eterm key, old_value;
+    Uint opts = (Uint) ERTS_NODES_MON_OPT_INFO_MAP;
 
     ASSERT(c_p);
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
@@ -6200,55 +6337,63 @@ erts_monitor_nodes(Process *c_p, Eterm on, Eterm olist)
     if (on != am_true && on != am_false)
 	return THE_NON_VALUE;
 
-    if (is_not_nil(opts_list)) {
-	int all = 0, visible = 0, hidden = 0;
-
-	while (is_list(opts_list)) {
-	    Eterm *cp = list_val(opts_list);
-	    Eterm opt = CAR(cp);
-	    opts_list = CDR(cp);
-	    if (opt == am_nodedown_reason)
+    if (is_nil(options)) {
+        opts &= ~ERTS_NODES_MON_OPT_INFO_MAP;
+    }
+    else if (is_not_map(options)) {
+        return THE_NON_VALUE;
+    }
+    else {
+        Sint no_opts = 0;
+        const Eterm *l = erts_maps_get(am_list, options);
+        const Eterm *cid = erts_maps_get(am_connection_id, options);
+        const Eterm *nt = erts_maps_get(am_node_type, options);
+        const Eterm *nr = erts_maps_get(am_nodedown_reason, options);
+        if (l) {
+            if (*l == am_true) {
+                opts &= ~ERTS_NODES_MON_OPT_INFO_MAP;
+            }
+            else {
+                return THE_NON_VALUE;
+            }
+            no_opts++;
+        }
+        if (cid) {
+            if (*cid == am_true) {
+		opts |= ERTS_NODES_MON_OPT_CONN_ID;                
+            }
+            else if (*cid != am_false) {
+                return THE_NON_VALUE;
+            }
+            no_opts++;
+        }
+        if (nt) {
+            switch (*nt) {
+            case am_visible:
+                opts |= ERTS_NODES_MON_OPT_TYPE_VISIBLE;
+                break;
+            case am_hidden:
+                opts |= ERTS_NODES_MON_OPT_TYPE_HIDDEN;
+                break;
+            case am_all:
+                opts |= ERTS_NODES_MON_OPT_TYPES;
+                break;
+            default:
+                return THE_NON_VALUE;
+            }
+            no_opts++;
+        }
+        if (nr) {
+            if (*nr == am_true) {
 		opts |= ERTS_NODES_MON_OPT_DOWN_REASON;
-	    else if (is_tuple(opt)) {
-		Eterm* tp = tuple_val(opt);
-		if (arityval(tp[0]) != 2)
-		    return THE_NON_VALUE;
-		switch (tp[1]) {
-		case am_node_type:
-		    switch (tp[2]) {
-		    case am_visible:
-			if (hidden || all)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPE_VISIBLE;
-			visible = 1;
-			break;
-		    case am_hidden:
-			if (visible || all)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPE_HIDDEN;
-			hidden = 1;
-			break;
-		    case am_all:
-			if (visible || hidden)
-			    return THE_NON_VALUE;
-			opts |= ERTS_NODES_MON_OPT_TYPES;
-			all = 1;
-			break;
-		    default:
-			return THE_NON_VALUE;
-		    }
-		    break;
-		default:
-		    return THE_NON_VALUE;
-		}
-	    }
-	    else {
-		return THE_NON_VALUE;
-	    }
-	}
-
-	if (is_not_nil(opts_list))
-	    return THE_NON_VALUE;
+            }
+            else if (*nr != am_false) {
+                return THE_NON_VALUE;
+            }
+            no_opts++;
+        }
+        if (no_opts != erts_map_size(options))
+            return THE_NON_VALUE; /* got invalid options... */
     }
 
     key = make_small(opts);
@@ -6341,8 +6486,24 @@ save_nodes_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     return 1;
 }
 
+#define ERTS_MON_NODES_MAX_INFO_LIST_SZ__(MAX_ELEMS)            \
+    ((MAX_ELEMS)*(3 /* key/value 2-tuple */ + 2/* cons cell */) \
+     + BIG_UINT_HEAP_SIZE /* connection id value */             \
+     + 4 /* top 3-tuple */)
+#define ERTS_MON_NODES_MAX_INFO_MAP_SZ__(MAX_ELEMS)             \
+    ((MAX_ELEMS)*2 /* keys and values */                        \
+     + 1 /* key tuple header */ + MAP_HEADER_FLATMAP_SZ /* 3 */ \
+     + BIG_UINT_HEAP_SIZE /* connection id value */             \
+     + 4 /* top 3-tuple */)
+#define ERTS_MON_NODES_MAX_INFO_SZ__(MAX_ELEMS)                 \
+    ((ERTS_MON_NODES_MAX_INFO_MAP_SZ__((MAX_ELEMS))             \
+      > ERTS_MON_NODES_MAX_INFO_LIST_SZ__((MAX_ELEMS)))         \
+     ? ERTS_MON_NODES_MAX_INFO_MAP_SZ__((MAX_ELEMS))            \
+     : ERTS_MON_NODES_MAX_INFO_LIST_SZ__((MAX_ELEMS)))
+        
 static void
-send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reason)
+send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node,
+                    Uint32 connection_id, Eterm type, Eterm reason)
 {
     Uint opts;
     Uint i, no, reason_size;
@@ -6388,7 +6549,8 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
     erts_mtx_unlock(&nodes_monitors_mtx);
 
     for (i = 0; i < no; i++) {
-        Eterm tmp_heap[3+2+3+2+4 /* max need */];
+        ErtsHeapFactory hfact;
+        Eterm tmp_heap[ERTS_MON_NODES_MAX_INFO_SZ__(3/* max info elements */)];
         Eterm *hp, msg;
         Uint hsz;
 
@@ -6414,45 +6576,119 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 	    }
 	}
 
+        /*
+         * tmp_heap[] is sized so there will be room for everything
+         * we need assuming no info, a two-tuple info list, or an info
+         * flat map is generated. In case there would be a greater heap
+         * need this will be taken care of by the heap factory...
+         */
+        erts_factory_tmp_init(&hfact,
+                              &tmp_heap[0],
+                              sizeof(tmp_heap)/sizeof(Uint),
+                              ERTS_ALC_T_TMP);
         hsz = 0;
-        hp = &tmp_heap[0];
 
         if (!opts) {
+            hp = erts_produce_heap(&hfact, 3, 0);
             msg = TUPLE2(hp, what, node);
-            hp += 3;
         }
-        else {
+        else { /* Info list or map... */
             Eterm tup;
-            Eterm info = NIL;
+            Eterm info;
 
-            if (opts & (ERTS_NODES_MON_OPT_TYPE_VISIBLE
-                        | ERTS_NODES_MON_OPT_TYPE_HIDDEN)) {
+            if (opts & ERTS_NODES_MON_OPT_INFO_MAP) { /* Info map */
+                Uint map_size = 0;
+                Eterm ks[3], vs[3];
 
-                tup = TUPLE2(hp, am_node_type, type);
-                hp += 3;
-                info = CONS(hp, tup, info);
-                hp += 2;
+                if (opts & ERTS_NODES_MON_OPT_CONN_ID) {
+                    Eterm cid;
+                    if (connection_id == ~((Uint32) 0)) {
+                        cid = am_undefined;
+                    }
+                    else if (IS_USMALL(0, (Uint) connection_id)) {
+                        cid = make_small(connection_id);
+                    }
+                    else {
+                        hp = erts_produce_heap(&hfact, BIG_UINT_HEAP_SIZE, 0);
+                        cid = uint_to_big(connection_id, hp);
+                    }
+                    ks[map_size] = am_connection_id;
+                    vs[map_size] = cid;
+                    map_size++;
+                }
+                if (opts & (ERTS_NODES_MON_OPT_TYPE_VISIBLE
+                            | ERTS_NODES_MON_OPT_TYPE_HIDDEN)) {
+                    ks[map_size] = am_node_type;
+                    vs[map_size] = type;
+                    map_size++;
+                }
+                if (what == am_nodedown
+                    && (opts & ERTS_NODES_MON_OPT_DOWN_REASON)) {
+                    hsz += reason_size;
+                    ks[map_size] = am_nodedown_reason;
+                    vs[map_size] = reason;
+                    map_size++;
+                }
+
+                info = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
+                                                      map_size, NULL);
+                ASSERT(is_value(info));
             }
+            else { /* Info list */
 
-            if (what == am_nodedown
-                && (opts & ERTS_NODES_MON_OPT_DOWN_REASON)) {
-                hsz += reason_size;
-                tup = TUPLE2(hp, am_nodedown_reason, reason);
-                hp += 3;
-                info = CONS(hp, tup, info);
-                hp += 2;
+                info = NIL;
+                if (opts & (ERTS_NODES_MON_OPT_TYPE_VISIBLE
+                            | ERTS_NODES_MON_OPT_TYPE_HIDDEN)) {
+                    hp = erts_produce_heap(&hfact, 3 + 2, 0);
+                    tup = TUPLE2(hp, am_node_type, type);
+                    hp += 3;
+                    info = CONS(hp, tup, info);
+                }
+
+                if (what == am_nodedown
+                    && (opts & ERTS_NODES_MON_OPT_DOWN_REASON)) {
+                    hp = erts_produce_heap(&hfact, 3 + 2, 0);
+                    hsz += reason_size;
+                    tup = TUPLE2(hp, am_nodedown_reason, reason);
+                    hp += 3;
+                    info = CONS(hp, tup, info);
+                }
+
+                if (opts & ERTS_NODES_MON_OPT_CONN_ID) {
+                    Eterm cid;
+                    if (connection_id == ~((Uint32) 0)) {
+                        cid = am_undefined;
+                    }
+                    else if (IS_USMALL(0, (Uint) connection_id)) {
+                        cid = make_small(connection_id);
+                    }
+                    else {
+                        hp = erts_produce_heap(&hfact, BIG_UINT_HEAP_SIZE, 0);
+                        cid = uint_to_big(connection_id, hp);
+                    }
+                    hp = erts_produce_heap(&hfact, 3 + 2, 0);
+                    tup = TUPLE2(hp, am_connection_id, cid);
+                    hp += 3;
+                    info = CONS(hp, tup, info);
+                }
             }
-
+            
+            hp = erts_produce_heap(&hfact, 4, 0);
             msg = TUPLE3(hp, what, node, info);
-            hp += 4;
         }
 
-        ASSERT(hp - &tmp_heap[0] <= sizeof(tmp_heap)/sizeof(tmp_heap[0]));
 
-        hsz += hp - &tmp_heap[0];
+        hsz += hfact.hp - hfact.hp_start;
+        if (hfact.heap_frags) {
+            ErlHeapFragment *bp;
+            for (bp = hfact.heap_frags; bp; bp = bp->next)
+                hsz += bp->used_size;
+        }
 
         erts_proc_sig_send_monitor_nodes_msg(nmdp[i].options, nmdp[i].pid,
                                              msg, hsz);
+
+        erts_factory_close(&hfact);
     }
 
     if (nmdp != &def_buf[0])

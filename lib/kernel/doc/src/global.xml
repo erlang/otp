@@ -66,6 +66,17 @@
         nodes in the network in order to work properly. 
       </p>
     </warning>
+    <note>
+      <p>
+        None of the above services will be reliably delivered unless both of
+        the kernel parameters
+        <seeapp marker="kernel_app#connect_all"><c>connect_all</c></seeapp>
+        and <seeapp marker="kernel_app#prevent_overlapping_partitions">
+        <c>prevent_overlapping_partitions</c></seeapp> are enabled. Calls to
+        the <c>global</c> API will, however, <i>not</i> fail even though one or
+        both of them are disabled. You will just get unreliable results.
+      </p>
+    </note>
     <p>These services are controlled through the process
       <c>global_name_server</c> that exists on every node. The global
       name server starts automatically when a node is started.
@@ -104,9 +115,7 @@
       example, if node <c>N1</c> connects to node <c>N2</c> (which is
       already connected to <c>N3</c>), the global name servers on the
       nodes <c>N1</c> and <c>N3</c> ensure that also <c>N1</c>
-      and <c>N3</c> are connected. If this is not desired,
-      command-line flag <c>-connect_all false</c> can be used (see also
-      <seecom marker="erts:erl#connect_all"><c>erl(1)</c></seecom>).
+      and <c>N3</c> are connected.
       In this case, the name registration service cannot be used, but the
       lock mechanism still works.</p>
     <p>If the global name server fails to connect nodes (<c>N1</c> and

@@ -74,7 +74,7 @@
          get_state/0,
          dist_listen/0]).
 
--export([disconnect/1, passive_cnct/1]).
+-export([disconnect/1, async_disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
 -export([set_net_ticktime/1, set_net_ticktime/2, get_net_ticktime/0]).
 
@@ -82,7 +82,7 @@
 	 connecttime/0,
 	 i/0, i/1, verbose/1]).
 
--export([publish_on_node/1, update_publish_nodes/1]).
+-export([publish_on_node/1]).
 
 %% Internal exports for spawning processes.
 
@@ -113,7 +113,6 @@
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
 	  verbose = 0,   %% level of verboseness
-	  publish_on_nodes = undefined,
           dyn_name_pool = #{},  %% Reusable remote node names: #{Host => [{Name,Creation}]}
           supervisor    %% Our supervisor (net_sup | net_sup_dynamic | {restart,Restarter})
 	 }).
@@ -290,15 +289,41 @@ monitor_nodes(Flag) ->
 
 -spec monitor_nodes(Flag, Options) -> ok | Error when
       Flag :: boolean(),
-      Options :: [Option],
-      Option :: {node_type, NodeType}
-              | nodedown_reason,
+      Options :: OptionsList | OptionsMap,
+      OptionsList :: [ListOption],
+      ListOption :: connection_id
+                  | {node_type, NodeType}
+                  | nodedown_reason,
+      OptionsMap :: #{connection_id => boolean(),
+                      node_type => NodeType,
+                      nodedown_reason => boolean()},
       NodeType :: visible | hidden | all,
       Error :: error | {error, term()}.
 monitor_nodes(Flag, Opts) ->
-    case catch process_flag({monitor_nodes, Opts}, Flag) of
-	N when is_integer(N) -> ok;
-	_ -> mk_monitor_nodes_error(Flag, Opts)
+    try
+        MapOpts = if is_map(Opts) ->
+                          error = maps:find(list, Opts),
+                          Opts;
+                     is_list(Opts) ->
+                          lists:foldl(fun (nodedown_reason, Acc) ->
+                                              Acc#{nodedown_reason => true};
+                                          (connection_id, Acc) ->
+                                              Acc#{connection_id => true};
+                                          ({node_type, Val}, Acc) ->
+                                              case maps:find(node_type, Acc) of
+                                                  error -> ok;
+                                                  {ok, Val} -> ok
+                                              end,
+                                              Acc#{node_type => Val}
+                                      end,
+                                      #{list => true},
+                                      Opts)
+                  end,
+        true = is_integer(process_flag({monitor_nodes, MapOpts}, Flag)),
+        ok
+    catch
+        _:_ ->
+            mk_monitor_nodes_error(Flag, Opts)
     end.
 
 %% ...
@@ -318,13 +343,14 @@ passive_cnct(Node) ->
 
 disconnect(Node) ->            request({disconnect, Node}).
 
+async_disconnect(Node) ->
+    gen_server:cast(net_kernel, {disconnect, Node}).
+
 %% Should this node publish itself on Node?
 publish_on_node(Node) when is_atom(Node) ->
-    request({publish_on_node, Node}).
-
-%% Update publication list
-update_publish_nodes(Ns) ->
-    request({update_publish_nodes, Ns}).
+    global_group:publish(persistent_term:get({?MODULE, publish_type},
+                                             hidden),
+                         Node).
 
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
@@ -513,6 +539,8 @@ init(#{name := Name,
     case init_node(Name, NameDomain, CleanHalt) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
+            persistent_term:put({?MODULE, publish_type},
+                                publish_type()),
             TickInterval = NetTicktime div NetTickIntensity,
 	    Ticker = spawn_link(net_kernel, ticker, [self(), TickInterval]),
 	    {ok, #state{node = Node,
@@ -531,6 +559,7 @@ init(#{name := Name,
                         supervisor = Supervisor
 		       }};
 	Error ->
+            _ = persistent_term:erase({?MODULE, publish_type}),
 	    {stop, Error}
     end.
 
@@ -733,25 +762,6 @@ handle_call(longnames, From, State) ->
 handle_call(nodename, From, State) ->
     async_reply({reply, State#state.node, State}, From);
 
-handle_call({update_publish_nodes, Ns}, From, State) ->
-    async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
-
-handle_call({publish_on_node, Node}, From, State) ->
-    NewState = case State#state.publish_on_nodes of
-		   undefined ->
-		       State#state{publish_on_nodes =
-				   global_group:publish_on_nodes()};
-		   _ ->
-		       State
-	       end,
-    Publish = case NewState#state.publish_on_nodes of
-		  all ->
-		      true;
-		  Nodes ->
-		      lists:member(Node, Nodes)
-	      end,
-    async_reply({reply, Publish, NewState}, From);
-
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},
                 From);
@@ -882,6 +892,13 @@ handle_call(_Msg, _From, State) ->
 %% handle_cast.
 %% ------------------------------------------------------------
 
+handle_cast({disconnect, Node}, State) when Node =:= node() ->
+    {noreply, State};
+handle_cast({disconnect, Node}, State) ->
+    verbose({disconnect, Node}, 1, State),
+    {_Reply, State1} = do_disconnect(Node, State),
+    {noreply, State1};
+
 handle_cast(_, State) ->
     {noreply,State}.
 
@@ -901,6 +918,7 @@ terminate(Reason, State) ->
         #state{supervisor = {restart, _}} ->
             ok;
         _ ->
+            _ = persistent_term:erase({?MODULE, publish_type}),
             case persistent_term:get(net_kernel, undefined) of
                 undefined -> ok;
                 _ -> persistent_term:erase(net_kernel)
@@ -1537,8 +1555,45 @@ check_options(Opts) when is_list(Opts) ->
 	_ ->
 	    {error, {unknown_options, RestOpts2}}
     end;
+check_options(Opts) when is_map(Opts) ->
+    BadMap0 = case maps:find(connection_id, Opts) of
+                  error ->
+                      Opts;
+                  {ok, CIdBool} when is_boolean(CIdBool) ->
+                      maps:remove(connection_id, Opts);
+                   {ok, BadCIdVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{connection_id => BadCIdVal}}})
+              end,
+    BadMap1 = case maps:find(nodedown_reason, BadMap0) of
+                  error ->
+                      BadMap0;
+                  {ok, NRBool} when is_boolean(NRBool) ->
+                      maps:remove(nodedown_reason, BadMap0);
+                  {ok, BadNRVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{nodedown_reason => BadNRVal}}})
+              end,
+    BadMap2 = case maps:find(node_type, BadMap1) of
+                  error ->
+                      BadMap1;
+                  {ok, NTVal} when NTVal == visible; NTVal == hidden; NTVal == all ->
+                      maps:remove(node_type, BadMap1);
+                  {ok, BadNTVal} ->
+                      throw({error,
+                             {bad_option_value,
+                              #{node_type => BadNTVal}}})
+              end,
+    if map_size(BadMap2) == 0 ->
+	    {error, internal_error};
+       true ->
+            throw({error, {unknown_options, BadMap2}})
+    end;
 check_options(Opts) ->
-    {error, {options_not_a_list, Opts}}.
+    {error, {invalid_options, Opts}}.
+    
 
 mk_monitor_nodes_error(Flag, _Opts) when Flag =/= true, Flag =/= false ->
     error;
@@ -1879,6 +1934,24 @@ epmd_module() ->
 	    list_to_atom(Module);
 	_ ->
 	    erl_epmd
+    end.
+
+%%%
+%%% publish type
+%%%
+publish_type() ->
+    case dist_listen() of
+        false ->
+            hidden;
+        true ->
+            case init:get_argument(hidden) of
+                {ok,[[] | _]} ->
+                    hidden;
+                {ok,[["true" | _] | _]} ->
+                    hidden;
+                _ ->
+                    normal
+            end
     end.
 
 %%
