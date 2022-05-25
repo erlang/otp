@@ -72,13 +72,6 @@
 				      {swap_handler, Args1 :: term(), NewState :: term(),
 				       Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
 				      remove_handler),
-		  handle_call = error(uninitialized_handle_call)
-			      :: fun((Request :: term(), State :: term()) ->
-				     {ok, Reply :: term(), NewState :: term()} |
-				     {ok, Reply :: term(), NewState :: term(), hibernate} |
-				     {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
-				      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
-				     {remove_handler, Reply :: term()}),
 		  id = false,
 		  state,
 		  supervised = false :: 'false' | pid()}).
@@ -854,7 +847,6 @@ mk_handler(ModId) -> mk_handler(ModId, _Parent = false).
 mk_handler({Mod, Id}, Parent) ->
     #handler{module = Mod,
 	     handle_event = fun Mod:handle_event/2,
-	     handle_call = fun Mod:handle_call/2,
 	     id = Id,
 	     supervised = Parent};
 mk_handler(Mod, Parent) when is_atom(Mod) -> mk_handler({Mod, _Id = false}, Parent).
@@ -930,21 +922,14 @@ replace(_, [], NewHa) ->
 %%    {{Handler1, State1} | 'no', Reply}
 
 server_call_update(Handler1, Query, SName) ->
+    Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
-    case catch (Handler1#handler.handle_call)(Query, State) of
+    case catch Mod1:handle_call(Query, State) of
 	{ok, Reply, State1} ->
 	    {{ok, Handler1#handler{state = State1}}, Reply};
 	{ok, Reply, State1, hibernate} ->
 	    {{hibernate, Handler1#handler{state = State1}},
 	     Reply};
-	Result ->
-	    server_call_update_slow(Handler1, Query, SName, Result)
-    end.
-
-server_call_update_slow(Handler1, Query, SName, Result) ->
-    Mod1 = Handler1#handler.module,
-    State = Handler1#handler.state,
-    case Result of
 	{swap_handler, Reply, Args1, State1, Handler2, Args2} ->
 	    {do_swap(Mod1,Handler1,Args1,State1,Handler2,Args2,SName), Reply};
 	{remove_handler, Reply} ->
