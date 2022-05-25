@@ -330,8 +330,8 @@ handle_client_hello(Version,
 	true ->
             SupportedHashSigns = maps:get(signature_algs, SslOpts, undefined),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
-            ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
-            ClientSignatureSchemes = maps:get(signature_algs_cert, HelloExt, undefined),
+            ClientHashSigns = get_signature_ext(signature_algs, HelloExt, Version),
+            ClientSignatureSchemes = get_signature_ext(signature_algs_cert, HelloExt, Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, Version, ECCOrder),
@@ -357,7 +357,7 @@ handle_client_hello(Version,
                                                            CipherSuites, HelloExt,
 							   SslOpts, Session1, 
                                                            ConnectionStates0,
-							   Renegotiation, HashSign)
+                                                           Renegotiation, HashSign)
 		    end
 	    end;
 	false ->
@@ -470,3 +470,22 @@ ocsp_expect(true) ->
     staple;
 ocsp_expect(_) ->
     no_staple.
+
+get_signature_ext(Ext, HelloExt, {3,3}) ->
+    case maps:get(Ext, HelloExt, undefined) of
+        %% Signature algorithms was not sent
+        undefined ->
+            undefined;
+        %% Can happen when connection is upgraded and sni_fun changes
+        %% the versions option from default
+        #signature_algorithms{signature_scheme_list = Schemes} ->
+            #hash_sign_algos{hash_sign_algos = ssl_cipher:signature_schemes_1_2(Schemes)};
+        #signature_algorithms_cert{} = Algos ->
+            Algos;
+        #hash_sign_algos{} = Algos ->
+            Algos
+    end;
+get_signature_ext(Ext, HelloExt, _) ->
+    maps:get(Ext, HelloExt, undefined).
+
+

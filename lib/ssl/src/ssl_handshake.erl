@@ -561,7 +561,7 @@ encode_handshake(#server_key_params{params_bin = Keys, hashsign = HashSign,
 encode_handshake(#certificate_request{certificate_types = CertTypes,
                                       hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
                                       certificate_authorities = CertAuths},
-                 {Major, Minor}) when Major == 3, Minor >= 3 ->
+                 {3,3}) ->
     HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- HashSignAlgos >>,
     EncCertAuths = encode_cert_auths(CertAuths),
@@ -3873,12 +3873,12 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
                   log_level := Level,
-                  signature_algs := SignAlgos,
-                  signature_algs_cert := SignAlgosCert,
-                  depth := Depth}, 
+                  depth := Depth} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
+    SignAlgos = maps:get(signature_algs, Opts, undefined),
+    SignAlgosCert = maps:get(signature_algs_cert, Opts, undefined),
     ValidationFunAndState = 
         validation_fun_and_state(VerifyFun, #{role => Role,
                                               certdb => CertDbHandle,
