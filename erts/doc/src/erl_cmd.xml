@@ -218,10 +218,11 @@
       </item>
       <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
-        <p>If this flag is present, <c><![CDATA[global]]></c> does not maintain
-          a fully connected network of distributed Erlang nodes, and then
-          global name registration cannot be used; see
-          <seeerl marker="kernel:global"><c>global(3)</c></seeerl>.</p>
+        <p>
+          This flag is deprecated and has been replaced by the <c>kernel</c>
+          application parameter
+          <seeapp marker="kernel:kernel_app#connect_all"><c>connect_all</c></seeapp>.
+        </p>
       </item>
       <tag><c><![CDATA[-cookie Cookie]]></c></tag>
       <item>

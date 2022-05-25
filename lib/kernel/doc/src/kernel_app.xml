@@ -121,6 +121,32 @@
       application. For more information about configuration parameters,
     see file <seefile marker="app"><c>app(4)</c></seefile>.</p>
     <taglist>
+      <tag><marker id="connect_all"/>
+      <c>connect_all = true | false</c></tag>
+      <item>
+        <p>
+          If enabled (<c>true</c>), which also is the default,
+          <seeerl marker="global"><c>global(3)</c></seeerl> will
+          actively connect to all nodes that becomes known to it. Note
+          that you also want to enable
+          <seeapp marker="#prevent_overlapping_partitions">
+          <c>prevent_overlapping_partitions</c></seeapp> in order for
+          <c>global</c> to ensure that a fully connected network
+          is maintained. <c>prevent_overlapping_partitions</c>
+          will also prevent inconsistencies in <c>global</c>'s
+          name registration and locking. Note that
+          <c>prevent_overlapping_partitions</c> currently is disabled
+          by default.
+        </p>
+        <p>
+          The now deprecated command line argument
+          <seecom marker="erts:erl#connect_all"><c>-connect_all
+          &lt;boolean&gt;</c></seecom> has the same effect as the
+          <c>connect_all</c> configuration parameter. If this
+          configuration parameter is defined, it will override
+          the command line argument.
+        </p>
+      </item>
       <tag><c>distributed = [Distrib]</c></tag>
       <item>
         <p>Specifies which applications that are distributed and on which
