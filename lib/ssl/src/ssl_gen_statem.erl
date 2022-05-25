@@ -1337,7 +1337,9 @@ filter_for_versions(['tlsv1.1'], OrigSSLOptions) ->
     maps:without(Opts, OrigSSLOptions);
 filter_for_versions(['tlsv1.1'| Rest], OrigSSLOptions) ->
     Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS',
-    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions)).
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions));
+filter_for_versions(['tlsv1'], OrigSSLOptions) ->
+    OrigSSLOptions.
 
 maybe_exclude_tlsv1(Versions, Options) ->
     case lists:member('tlsv1', Versions) of

@@ -45,6 +45,8 @@
          tls_upgrade/1,
          tls_upgrade_new_opts/0,
          tls_upgrade_new_opts/1,
+         tls_upgrade_new_opts_with_sni_fun/0,
+         tls_upgrade_new_opts_with_sni_fun/1,
          tls_upgrade_with_timeout/0,
          tls_upgrade_with_timeout/1,
          tls_upgrade_with_client_timeout/0,
@@ -145,6 +147,7 @@ api_tests() ->
     [
      tls_upgrade,
      tls_upgrade_new_opts,
+     tls_upgrade_new_opts_with_sni_fun,
      tls_upgrade_with_timeout,
      tls_upgrade_with_client_timeout,
      tls_downgrade,
@@ -281,6 +284,52 @@ tls_upgrade_new_opts(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+tls_upgrade_new_opts_with_sni_fun() ->
+    [{doc,"Test that you can upgrade an tcp connection to an ssl connection with new versions option provided by sni_fun"}].
+
+tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+    Version = ssl_test_lib:protocol_version(Config),
+    NewVersions = new_versions(Version),
+    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), []),
+
+    NewOpts = [{versions, NewVersions},
+               {ciphers, Ciphers},
+               {verify, verify_peer}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{mfa, {?MODULE,
+						       upgrade_result, []}},
+						{tcp_options,
+						 [{active, false} | TcpOpts]},
+						{ssl_options, [{versions,  [Version |NewVersions]}, {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
+						{port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, upgrade_result, []}},
+				   {tcp_options, [binary]},
+				   {ssl_options,  [{verify, verify_peer},
+                                                   {versions,  [Version |NewVersions]},
+                                                   {ciphers, Ciphers},
+                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
 
 %%--------------------------------------------------------------------
 tls_upgrade_with_timeout() ->
@@ -1338,3 +1387,13 @@ session_info(_) ->
 
 count_children(ChildType, SupRef) ->
     proplists:get_value(ChildType, supervisor:count_children(SupRef)).
+
+
+new_versions('tlsv1.3') ->
+    ['tlsv1.2'];
+new_versions('tlsv1.2') ->
+    ['tlsv1.1'];
+new_versions('tlsv1.1') ->
+    ['tlsv1'];
+new_versions('tlsv1') ->
+    ['tlsv1'].
