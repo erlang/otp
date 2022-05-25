@@ -187,6 +187,7 @@ atom convert_time_unit
 atom connect
 atom connected
 atom connection_closed
+atom connection_id
 atom const
 atom context_switches
 atom continue_exit
