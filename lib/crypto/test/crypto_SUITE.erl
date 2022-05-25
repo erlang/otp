@@ -53,7 +53,9 @@
          bad_key_length/1,
          bad_cipher_name/1,
          bad_generate_key_name/1,
+         bad_cmac_name/1,
          bad_hash_name/1,
+         bad_hmac_name/1,
          bad_mac_name/1,
          bad_sign_name/1,
          bad_verify_name/1,
@@ -62,6 +64,10 @@
          cipher_info_prop_aead_attr/0,
          cipher_info_prop_aead_attr/1,
          cipher_padding/1,
+         cmac/0,
+         cmac/1,
+         cmac_update/0,
+         cmac_update/1,
          compute/0,
          compute/1,
          compute_bug/0,
@@ -78,6 +84,10 @@
          hash/1,
          hash_info/0,
          hash_info/1,
+         hmac/0,
+         hmac/1,
+         hmac_update/0,
+         hmac_update/1,
          info/1,
          mod_pow/0,
          mod_pow/1,
@@ -87,11 +97,17 @@
          no_generate_compute/1,
          no_hash/0,
          no_hash/1,
+         no_hmac/0,
+         no_hmac/1,
+         no_poly1305/0,
+         no_poly1305/1,
          no_sign_verify/0,
          no_sign_verify/1,
          no_support/0,
          no_support/1,
          node_supports_cache/1,
+         poly1305/0,
+         poly1305/1,
          private_encrypt/0,
          private_encrypt/1,
          public_encrypt/0,
@@ -216,6 +232,7 @@ groups() ->
     [{non_fips, [], [
                      {group, blake2b},
                      {group, blake2s},
+                     {group, poly1305},
                      {group, dss},
                      {group, ecdsa},
                      {group, ed25519},
@@ -284,6 +301,7 @@ groups() ->
      {fips, [], [
                  {group, no_blake2b},
                  {group, no_blake2s},
+                 {group, no_poly1305},
                  {group, dss},
                  {group, ecdsa},
                  {group, no_ed25519},
@@ -346,21 +364,21 @@ groups() ->
                 ]},
 
      {md4,                  [], [hash]},
-     {md5,                  [], [hash]},
+     {md5,                  [], [hash, hmac, hmac_update]},
      {ripemd160,            [], [hash]},
-     {sha,                  [], [hash]},
-     {sha224,               [], [hash]},
-     {sha256,               [], [hash]},
-     {sha384,               [], [hash]},
-     {sha512,               [], [hash]},
-     {sha3_224,             [], [hash]},
-     {sha3_256,             [], [hash]},
-     {sha3_384,             [], [hash]},
-     {sha3_512,             [], [hash]},
-     {blake2b,              [], [hash]},
-     {blake2s,              [], [hash]},
-     {no_blake2b,           [], [no_hash]},
-     {no_blake2s,           [], [no_hash]},
+     {sha,                  [], [hash, hmac, hmac_update]},
+     {sha224,               [], [hash, hmac, hmac_update]},
+     {sha256,               [], [hash, hmac, hmac_update]},
+     {sha384,               [], [hash, hmac, hmac_update]},
+     {sha512,               [], [hash, hmac, hmac_update]},
+     {sha3_224,             [], [hash, hmac, hmac_update]},
+     {sha3_256,             [], [hash, hmac, hmac_update]},
+     {sha3_384,             [], [hash, hmac, hmac_update]},
+     {sha3_512,             [], [hash, hmac, hmac_update]},
+     {blake2b,              [], [hash, hmac, hmac_update]},
+     {blake2s,              [], [hash, hmac, hmac_update]},
+     {no_blake2b,           [], [no_hash, no_hmac]},
+     {no_blake2s,           [], [no_hash, no_hmac]},
      {rsa,                  [], [sign_verify,
                                  public_encrypt,
                                  private_encrypt,
@@ -389,7 +407,7 @@ groups() ->
      {srp,                  [], [generate_compute]},
      {des_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_cfb,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {des_ede3_cfb,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {rc2_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_cfb8,             [], []},
@@ -409,9 +427,11 @@ groups() ->
      {rc4,                  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
      {chacha20,             [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {poly1305,             [], [poly1305]},
+     {no_poly1305,          [], [no_poly1305]},
      {no_aes_cfb128,        [], [no_support]},
      {no_md4,               [], [no_support, no_hash]},
-     {no_md5,               [], [no_support, no_hash]},
+     {no_md5,               [], [no_support, no_hash, no_hmac]},
      {no_ed25519,           [], [no_support, no_sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
@@ -437,6 +457,8 @@ groups() ->
                                  bad_generate_key_name,
                                  bad_hash_name,
                                  bad_mac_name,
+                                 bad_hmac_name,
+                                 bad_cmac_name,
                                  bad_sign_name,
                                  bad_verify_name
                                 ]},
@@ -444,16 +466,16 @@ groups() ->
      %% New cipher nameing schema
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
      {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
-     {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
+     {aes_128_ecb,  [], [api_ng, api_ng_one_shot, cmac_update]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
@@ -554,6 +576,13 @@ init_per_testcase(cmac, Config) ->
             configure_mac(cmac, proplists:get_value(type,Config), Config);
         false ->
             {skip, "CMAC is not supported"}
+    end;
+init_per_testcase(cmac_update, Config) ->
+    case {is_supported(cmac),
+          maps:get(cryptolib_version_linked, crypto:info(), "")} of
+        {true, "OpenSSL 1.0."++_} -> {skip, "cmac_update is not supported"};
+        {false,                _} -> {skip, "CMAC is not supported"};
+        _ -> Config
     end;
 init_per_testcase(generate, Config) ->
     case proplists:get_value(type, Config) of
@@ -754,6 +783,62 @@ no_hash(Config) when is_list(Config) ->
     Type = ?config(type, Config),
     notsup(fun crypto:hash/2, [Type, <<"Hi There">>]),
     notsup(fun crypto:hash_init/1, [Type]).
+%%--------------------------------------------------------------------
+hmac() ->
+     [{doc, "Test hmac function"}].
+hmac(Config) when is_list(Config) ->
+    Tuples = lazy_eval(proplists:get_value(hmac, Config)),
+    do_cipher_tests(fun mac_check/1, Tuples++mac_listify(Tuples)).
+%%--------------------------------------------------------------------
+no_hmac() ->
+     [{doc, "Test all disabled hmac functions"}].
+no_hmac(Config) when is_list(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:mac/4, [hmac, Type, <<"Key">>, <<"Hi There">>]).
+%%--------------------------------------------------------------------
+hmac_update() ->
+     [{doc, "Test all incremental hmac functions"}].
+hmac_update(Config) ->
+    SubType = ?config(type, Config),
+    Key = hmac_key(SubType),
+    Increments = hmac_inc(SubType),
+    mac_increment(hmac, SubType, Key, Increments).
+%%--------------------------------------------------------------------
+cmac() ->
+     [{doc, "Test all different cmac functions"}].
+cmac(Config) when is_list(Config) ->
+    Pairs = lazy_eval(proplists:get_value(cmac, Config)),
+    do_cipher_tests(fun mac_check/1, Pairs ++ mac_listify(Pairs)).
+%%--------------------------------------------------------------------
+cmac_update() ->
+     [{doc, "Test all incremental cmac functions"}].
+cmac_update(Config) ->
+    SubType = ?config(type, Config),
+    Key = cmac_key(SubType),
+    Increments = cmac_inc(SubType),
+    mac_increment(cmac, SubType, Key, Increments).
+%%--------------------------------------------------------------------
+poly1305() ->
+    [{doc, "Test poly1305 function"}].
+poly1305(Config) ->
+    lists:foreach(
+      fun({Key, Txt, Expect}) ->
+              case crypto:mac(poly1305,Key,Txt) of
+                  Expect ->
+                      ok;
+                  Other ->
+                      ct:fail({{crypto, mac, [poly1305, Key, Txt]}, {expected, Expect}, {got, Other}})
+              end
+      end, proplists:get_value(poly1305, Config)).
+
+%%--------------------------------------------------------------------
+no_poly1305() ->
+    [{doc, "Test disabled poly1305 function"}].
+no_poly1305(_Config) ->
+    Key = <<133,214,190,120,87,85,109,51,127,68,82,254,66,213,6,168,1,
+            3,128,138,251,13,178,253,74,191,246,175,65,73,245,27>>,
+    Txt = <<"Cryptographic Forum Research Group">>,
+    notsup(fun crypto:mac/3, [poly1305,Key,Txt]).
 
 %%--------------------------------------------------------------------
 api_ng() ->
@@ -1477,8 +1562,26 @@ mac_check({MacType, SubType, Key, Text, Mac}=T) ->
 mac_check({MacType, SubType, Key, Text, Size, Mac}=T) ->
     ExpMac = iolist_to_binary(Mac),
     cipher_test(T,
-                fun() -> crypto:mac(MacType, SubType, Key, Text, Size) end,
+                fun() -> crypto:macN(MacType, SubType, Key, Text, Size) end,
                 ExpMac).
+
+mac_increment(Type, SubType, Key, Increments) ->
+    Expected = crypto:mac(Type, SubType, Key, Increments),
+    State = crypto:mac_init(Type, SubType, Key),
+    case do_mac_increment(State, Increments) of
+	Expected ->
+	    ok;
+	Other ->
+	    ct:fail({{crypto, "mac_init/update/final", [Type, SubType, Increments]},
+                     {expected, Expected},
+                     {got, Other}})  
+    end.
+
+do_mac_increment(State, []) ->
+    crypto:mac_final(State);
+do_mac_increment(State0, [Increment | Rest]) ->
+    State = crypto:mac_update(State0, Increment),
+    do_mac_increment(State, Rest).
 
 aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     Plain = iolist_to_binary(PlainText),
@@ -1529,7 +1632,7 @@ cipher_test(Tag, T, F, E) ->
         E -> ok;
         Other -> {other, {Tag,T,Other}}
     catch
-        error:Error -> {error, {Tag,T,Error}}
+        error:Error -> ct:pal("Tag = ~p,~n T = ~p,~n F = ~p,~n E = ~p,~n Error = ~p", [Tag, T, F, E, Error]), {error, {Tag,T,Error}}
     end.
 
 do_cipher_tests(F, TestVectors) when is_function(F,1) ->
@@ -1813,6 +1916,16 @@ decstr2int(S) ->
 
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
+
+
+mac_listify(Blocks) ->
+    lists:map(fun do_mac_listify/1, Blocks).
+
+do_mac_listify({MType, Type, Key, Text, CMac}) ->
+    {MType, Type, iolistify(Key), iolistify(Text), CMac};
+do_mac_listify({MType, Type, Key, Text, Size, CMac}) ->
+    {MType, Type, iolistify(Key), iolistify(Text), Size, CMac}.
+
 
 iolistify(X) ->
     iolistify1(lazy_eval(X)).
@@ -2147,6 +2260,15 @@ group_config(eddh, Config) ->
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
+group_config(poly1305, Config) ->
+    V = [%% {Key, Txt, Expect}
+         {%% RFC7539 2.5.2
+           hexstr2bin("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"),
+           <<"Cryptographic Forum Research Group">>,
+           hexstr2bin("a8061dc1305136c6c22b8baf0c0127a9")
+         }
+        ],
+    [{poly1305,V} | Config];
 
 group_config(F, Config) ->
     TestVectors = fun() -> ?MODULE:F(Config) end,
@@ -2156,7 +2278,7 @@ group_config(F, Config) ->
 configure_mac(MacType, SubType, Config) ->
     case do_configure_mac(MacType, SubType, Config) of
         undefined ->
-            {skip, io:format("No ~p test vectors for ~p", [MacType, SubType])};
+            {skip, io_lib:format("No ~p test vectors for ~p", [MacType, SubType])};
         Pairs ->
             [{MacType, Pairs} | Config]
     end.
@@ -2214,15 +2336,23 @@ do_configure_mac(cmac, Cipher, Config) ->
             fun() -> read_rsp(Config, Cipher,  ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]) end;
         aes_256_cbc ->
             fun() -> read_rsp(Config, Cipher,  ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]) end;
+        des_ede3_cbc ->
+            fun() -> read_rsp(Config, Cipher,  ["CMACGenTDES3.rsp", "CMACVerTDES3.rsp"]) end;
         _ ->
             undefined
     end.
 
 
 zip3_special(Type, SubType, As, Bs, Cs) ->
-    [{Type, SubType, A, B, C}
+    [mk_zip3_special_elem(Type, SubType, A, B, C)
      || {A,B,C} <- lists:zip3(As, Bs, Cs)].
 
+mk_zip3_special_elem(hmac, sha, Key, <<"Test With Truncation">>=Data, Expected) ->
+    {hmac, sha, Key, Data, 20, Expected};
+mk_zip3_special_elem(hmac, SubType, Key, <<"Test With Truncation">>=Data, Expected) ->
+    {hmac, SubType, Key, Data, 16, Expected};
+mk_zip3_special_elem(Type, SubType, A, B, C) ->
+    {Type, SubType, A, B, C}.
 
 rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, OptsToTry) ->
         case ?config(fips, Config) of
@@ -2648,6 +2778,26 @@ rfc_2202_msgs()->
      <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
      <<"Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data">>
     ].
+
+hmac_key(md5) ->
+    [<<"A fine speach">>, <<"by a fine man!">>];
+hmac_key(_) ->
+    hexstr2bin("00010203101112132021222330313233"
+	       "04050607141516172425262734353637"
+	       "08090a0b18191a1b28292a2b38393a3b"
+	       "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f").
+hmac_inc(_) ->
+    [<<"Sampl">>, <<"e #1">>].
+
+
+cmac_key(aes_128_cbc) ->
+    hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec");
+cmac_key(aes_128_ecb) ->
+    hexstr2bin("8eeca0d146fd09ffbbe0d47edcddfcec").
+
+cmac_inc(_) ->
+    [<<"Sampl">>, <<"e #1">>].
+
 
 %% https://www.cosic.esat.kuleuven.be/nessie/testvectors/
 long_hmac_key(Type) when Type == sha384;
@@ -4235,6 +4385,23 @@ parse_rsp(Type, [<<"Count = ", _/binary>>,
         _ ->
             parse_rsp_cmac(Type, Key, Msg, Mlen, Tlen, MAC, Rest, State, Acc)
     end;
+parse_rsp(Type, [<<"Count = ", _/binary>>,
+                 <<"Klen = ", _/binary>>,
+                 <<"Mlen = ", Mlen/binary>>,
+                 <<"Tlen = ", Tlen/binary>>,
+                 <<"Key1 = ", Key1/binary>>,
+                 <<"Key2 = ", Key2/binary>>,
+                 <<"Key3 = ", Key3/binary>>,
+                 <<"Msg = ", Msg/binary>>,
+                 <<"Mac = ", MAC/binary>>|Rest], State, Acc) ->
+    case Rest of
+        [<<"Result = P">>|Next] ->
+            parse_rsp_cmac(Type, [Key1,Key2,Key3], Msg, Mlen, Tlen, MAC, Next, State, Acc);
+        [<<"Result = ", _/binary>>|Next] ->
+            parse_rsp(Type, Next, State, Acc);
+        _ ->
+            parse_rsp_cmac(Type, [Key1,Key2,Key3], Msg, Mlen, Tlen, MAC, Rest, State, Acc)
+    end;
 %% GCM format decode format
 parse_rsp(Type, [<<"Count = ", Count/binary>>,
                  <<"Key = ", Key/binary>>,
@@ -4352,7 +4519,9 @@ parse_rsp(Type, [_|Next], State, Acc) ->
 
 
 parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, State, Acc) ->
-    Key = hexstr2bin(Key0),
+    Key = if is_list(Key0) -> lists:map(fun hexstr2bin/1, Key0);
+             true -> hexstr2bin(Key0)
+          end,
     Mlen = binary_to_integer(Mlen0),
     <<Msg:Mlen/bytes, _/binary>> = hexstr2bin(Msg0),
     MAC = hexstr2bin(MAC0),
@@ -4376,13 +4545,12 @@ api_errors_ecdh(Config) when is_list(Config) ->
 
 
 %%%----- Tests for bad algorithm name as argument
--define(chk_api_name(Call, Expect),
-        %% Check that we don't segfault on bad names
+-define(chk_api_name_helper(Call, ExpectPart),
         (fun() -> % avoid binding vars
                  try
                      Call
                  catch 
-                     Expect -> ok;
+                     ExpectPart
 
                      Class:Reason:Stack ->
                          ct:log("~p:~p~n~p", [Class,Reason,Stack]),
@@ -4390,6 +4558,19 @@ api_errors_ecdh(Config) when is_list(Config) ->
                  end
          end)()
        ).
+
+-define(chk_api_name(Call, Expect),
+        ?chk_api_name_helper(Call,  Expect -> ok;)
+       ).
+
+-define(chk_api_name(Call, Expect1, Expect2),
+        ?chk_api_name_helper(Call,  Expect1 -> ok; Expect2 -> ok; )
+       ).
+
+-define(chk_api_name(Call, Expect1, Expect2, Expect3),
+        ?chk_api_name_helper(Call,  Expect1 -> ok; Expect2 -> ok; Expect3 -> ok; )
+       ).
+
 
 bad_combo(_Config) ->
     ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<>>, []),
@@ -4414,6 +4595,17 @@ bad_hash_name(_Config) ->
 bad_mac_name(_Config) ->
     ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),
                   error:function_clause).
+
+bad_hmac_name(_Config) ->
+    ?chk_api_name(crypto:mac(hmac, foobar, <<1:1024>>, "nothing"),
+                  error:{badarg,{"mac.c",_},"Bad digest algorithm"++_}).
+
+bad_cmac_name(_Config) ->
+    ?chk_api_name(crypto:mac(cmac, foobar, <<1:1024>>, "nothing"),
+                  error:{badarg,{"mac.c",_},"Unknown cipher"++_},
+                  error:{notsup,_,          "Unsupported mac algorithm"++_},
+                  error:{badarg,#{},        "Unknown cipher"++_}
+                 ).
 
 bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
