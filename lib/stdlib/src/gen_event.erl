@@ -685,8 +685,8 @@ print_event(Dev, Dbg, Name) ->
 %%   event handler
 
 server_add_handler(ModId, Args, MSL) ->
-    Handler = mk_handler(ModId),
-    server_add_handler(Handler#handler.module, Handler, Args, MSL).
+    {Mod, Handler} = mk_handler(ModId),
+    server_add_handler(Mod, Handler, Args, MSL).
 
 server_add_handler(Mod, Handler, Args, MSL) ->
     case catch Mod:init(Args) of
@@ -705,8 +705,8 @@ server_add_handler(Mod, Handler, Args, MSL) ->
 %% own link to this process.
 server_add_sup_handler(ModId, Args, MSL, Parent) ->
     link(Parent),
-    Handler = mk_handler(ModId, Parent),
-    server_add_handler(Handler#handler.module, Handler, Args, MSL).
+    {Mod, Handler} = mk_handler(ModId, Parent),
+    server_add_handler(Mod, Handler, Args, MSL).
 
 %% server_delete_handler(HandlerId, Args, MSL) -> {Ret, MSL'}
 
@@ -839,16 +839,16 @@ do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName) ->
     end.
 
 new_handler(ModId, Handler1) ->
-    Handler = mk_handler(ModId, Handler1#handler.supervised),
-    {Handler#handler.module, Handler}.
+    mk_handler(ModId, Handler1#handler.supervised).
 
 mk_handler(ModId) -> mk_handler(ModId, _Parent = false).
 
 mk_handler({Mod, Id}, Parent) ->
-    #handler{module = Mod,
-	     handle_event = fun Mod:handle_event/2,
-	     id = Id,
-	     supervised = Parent};
+    {Mod,
+     #handler{module = Mod,
+	      handle_event = fun Mod:handle_event/2,
+	      id = Id,
+	      supervised = Parent}};
 mk_handler(Mod, Parent) when is_atom(Mod) -> mk_handler({Mod, _Id = false}, Parent).
 
 -spec split(handler(), [#handler{}]) ->
