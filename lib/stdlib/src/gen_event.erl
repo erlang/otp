@@ -79,13 +79,6 @@
 				     {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
 				      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
 				     {remove_handler, Reply :: term()}),
-		  handle_info = error(uninitialized_handle_info)
-			      :: fun((Info :: term(), State :: term()) ->
-				     {ok, NewState :: term()} |
-				     {ok, NewState :: term(), hibernate} |
-				     {swap_handler, Args1 :: term(), NewState :: term(),
-				      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
-				     remove_handler),
 		  id = false,
 		  state,
 		  supervised = false :: 'false' | pid()}).
@@ -836,7 +829,7 @@ server_update_slow(Handler1, Event, SName, Result) ->
 
 -compile({inline, [get_callback/2]}).
 get_callback(handle_event, #handler{handle_event = Fun}) -> Fun;
-get_callback(handle_info, #handler{handle_info = Fun}) -> Fun.
+get_callback(handle_info, #handler{module = Mod}) -> fun Mod:handle_info/2.
 
 do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName) ->
     %% finalise the existing handler
@@ -862,7 +855,6 @@ mk_handler({Mod, Id}, Parent) ->
     #handler{module = Mod,
 	     handle_event = fun Mod:handle_event/2,
 	     handle_call = fun Mod:handle_call/2,
-	     handle_info = fun Mod:handle_info/2,
 	     id = Id,
 	     supervised = Parent};
 mk_handler(Mod, Parent) when is_atom(Mod) -> mk_handler({Mod, _Id = false}, Parent).
