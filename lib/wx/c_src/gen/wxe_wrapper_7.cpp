@@ -2339,7 +2339,13 @@ void wxToolBar_AddTool_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
     } else        Badarg("Options");
   };
   if(!This) throw wxe_badarg("This");
+// AddTool() type check workaround
+// See https://docs.wxwidgets.org/3.1.6/classwx_bitmap_bundle.html
+#if wxCHECK_VERSION(3,1,6)
+  wxToolBarToolBase * Result = (wxToolBarToolBase*)This->AddTool(toolId,label,(wxBitmapBundle)*bitmap,shortHelp,kind);
+#else // wx Version < 3.1.6
   wxToolBarToolBase * Result = (wxToolBarToolBase*)This->AddTool(toolId,label,*bitmap,shortHelp,kind);
+#endif // wxCHECK_VERSION(3,1,6)
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wx"));
 
