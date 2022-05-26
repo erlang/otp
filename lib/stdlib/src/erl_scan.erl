@@ -264,15 +264,15 @@ string_thing(_) -> "string".
 -define(WHITE_SPACE(C),
         is_integer(C) andalso
          (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240)).
--define(DIGIT(C), C >= $0 andalso C =< $9).
--define(CHAR(C), is_integer(C), C >= 0).
+-define(DIGIT(C), (is_integer(C) andalso $0 =< C andalso C =< $9)).
+-define(CHAR(C), (is_integer(C) andalso 0 =< C andalso C < 16#110000)).
 -define(UNICODE(C),
-        is_integer(C) andalso
+        (is_integer(C) andalso
          (C >= 0 andalso C < 16#D800 orelse
           C > 16#DFFF andalso C < 16#FFFE orelse
-          C > 16#FFFF andalso C =< 16#10FFFF)).
+          C > 16#FFFF andalso C =< 16#10FFFF))).
 
--define(UNI255(C), C >= 0, C =< 16#ff).
+-define(UNI255(C), (is_integer(C) andalso 0 =< C andalso C =< 16#ff)).
 
 options(Opts0) when is_list(Opts0) ->
     Opts = lists:foldr(fun expand_opt/2, [], Opts0),
@@ -363,7 +363,7 @@ string1(Cs, St, Line, Col, Toks) ->
             Error
     end.
 
-scan(Cs, St, Line, Col, Toks, _) ->
+scan(Cs, #erl_scan{}=St, Line, Col, Toks, _) ->
     scan1(Cs, St, Line, Col, Toks).
 
 scan1([$\s|Cs], St, Line, Col, Toks) when St#erl_scan.ws ->
@@ -374,10 +374,6 @@ scan1([$\n|Cs], St, Line, Col, Toks) when St#erl_scan.ws ->
     scan_newline(Cs, St, Line, Col, Toks);
 scan1([$\n|Cs], St, Line, Col, Toks) ->
     skip_white_space(Cs, St, Line+1, new_column(Col, 1), Toks, 0);
-scan1([C|Cs], St, Line, Col, Toks) when C >= $A, C =< $Z ->
-    scan_variable(Cs, St, Line, Col, Toks, [C]);
-scan1([C|Cs], St, Line, Col, Toks) when C >= $a, C =< $z ->
-    scan_atom(Cs, St, Line, Col, Toks, [C]);
 %% Optimization: some very common punctuation characters:
 scan1([$,|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ",", ',', 1);
@@ -397,11 +393,17 @@ scan1([$;|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ";", ';', 1);
 scan1([$_=C|Cs], St, Line, Col, Toks) ->
     scan_variable(Cs, St, Line, Col, Toks, [C]);
-%% More punctuation characters below.
 scan1([$\%|Cs], St, Line, Col, Toks) when not St#erl_scan.comment ->
     skip_comment(Cs, St, Line, Col, Toks, 1);
 scan1([$\%=C|Cs], St, Line, Col, Toks) ->
     scan_comment(Cs, St, Line, Col, Toks, [C]);
+%% More punctuation characters below.
+scan1([C|_], _St, _Line, _Col0, _Toks) when not ?CHAR(C) ->
+    error({not_character,C});
+scan1([C|Cs], St, Line, Col, Toks) when C >= $A, C =< $Z ->
+    scan_variable(Cs, St, Line, Col, Toks, [C]);
+scan1([C|Cs], St, Line, Col, Toks) when C >= $a, C =< $z ->
+    scan_atom(Cs, St, Line, Col, Toks, [C]);
 scan1([C|Cs], St, Line, Col, Toks) when ?DIGIT(C) ->
     scan_number(Cs, St, Line, Col, Toks, [C], no_underscore);
 scan1("..."++Cs, St, Line, Col, Toks) ->
@@ -557,39 +559,49 @@ scan1([]=Cs, _St, Line, Col, Toks) ->
 scan1(eof=Cs, _St, Line, Col, Toks) ->
     {ok,Toks,Cs,Line,Col}.
 
+scan_atom_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
+    scan_atom(Cs, St, Line, Col, Toks, Ncs).
+
 scan_atom(Cs0, St, Line, Col, Toks, Ncs0) ->
     case scan_name(Cs0, Ncs0) of
         {more,Ncs} ->
-            {more,{[],Col,Toks,Line,Ncs,fun scan_atom/6}};
+            {more,{[],Col,Toks,Line,Ncs,fun scan_atom_fun/6}};
         {Wcs,Cs} ->
-            case catch list_to_atom(Wcs) of
-                Name when is_atom(Name) ->
+            try list_to_atom(Wcs) of
+                Name ->
                     case (St#erl_scan.resword_fun)(Name) of
                         true ->
                             tok2(Cs, St, Line, Col, Toks, Wcs, Name);
                         false ->
                             tok3(Cs, St, Line, Col, Toks, atom, Wcs, Name)
-                    end;
-                _Error ->
+                    end
+            catch
+                _:_ ->
                     Ncol = incr_column(Col, length(Wcs)),
                     scan_error({illegal,atom}, Line, Col, Line, Ncol, Cs)
             end
     end.
 
+scan_variable_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
+    scan_variable(Cs, St, Line, Col, Toks, Ncs).
+
 scan_variable(Cs0, St, Line, Col, Toks, Ncs0) ->
     case scan_name(Cs0, Ncs0) of
         {more,Ncs} ->
-            {more,{[],Col,Toks,Line,Ncs,fun scan_variable/6}};
+            {more,{[],Col,Toks,Line,Ncs,fun scan_variable_fun/6}};
         {Wcs,Cs} ->
-            case catch list_to_atom(Wcs) of
-                Name when is_atom(Name) ->
-                    tok3(Cs, St, Line, Col, Toks, var, Wcs, Name);
-                _Error ->
+            try list_to_atom(Wcs) of
+                Name ->
+                    tok3(Cs, St, Line, Col, Toks, var, Wcs, Name)
+            catch
+                _:_ ->
                     Ncol = incr_column(Col, length(Wcs)),
                     scan_error({illegal,var}, Line, Col, Line, Ncol, Cs)
             end
     end.
 
+scan_name([C|_]=Cs, Ncs) when not ?CHAR(C) ->
+    {lists:reverse(Ncs),Cs};
 scan_name([C|Cs], Ncs) when C >= $a, C =< $z ->
     scan_name(Cs, [C|Ncs]);
 scan_name([C|Cs], Ncs) when C >= $A, C =< $Z ->
@@ -663,19 +675,30 @@ scan_newline([], _St, Line, Col, Toks) ->
 scan_newline(Cs, St, Line, Col, Toks) ->
     scan_nl_white_space(Cs, St, Line, Col, Toks, "\n").
 
+scan_nl_spcs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
+  when is_integer(N) ->
+    scan_nl_spcs(Cs, St, Line, Col, Toks, N).
+
 scan_nl_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 17 ->
     scan_nl_spcs(Cs, St, Line, Col, Toks, N+1);
 scan_nl_spcs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_spcs/6}};
+    {more,{Cs,Col,Toks,Line,N,fun scan_nl_spcs_fun/6}};
 scan_nl_spcs(Cs, St, Line, Col, Toks, N) ->
     newline_end(Cs, St, Line, Col, Toks, N, nl_spcs(N)).
+
+scan_nl_tabs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
+  when is_integer(N) ->
+    scan_nl_tabs(Cs, St, Line, Col, Toks, N).
 
 scan_nl_tabs([$\t|Cs], St, Line, Col, Toks, N) when N < 11 ->
     scan_nl_tabs(Cs, St, Line, Col, Toks, N+1);
 scan_nl_tabs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_tabs/6}};
+    {more,{Cs,Col,Toks,Line,N,fun scan_nl_tabs_fun/6}};
 scan_nl_tabs(Cs, St, Line, Col, Toks, N) ->
     newline_end(Cs, St, Line, Col, Toks, N, nl_tabs(N)).
+
+scan_nl_white_space_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
+    scan_nl_white_space(Cs, St, Line, Col, Toks, Ncs).
 
 %% Note: returning {more,Cont} is meaningless here; one could just as
 %% well return several tokens. But since tokens() scans up to a full
@@ -689,10 +712,11 @@ scan_nl_white_space([$\n|Cs], St, Line, Col, Toks, Ncs0) ->
     Anno = anno(Line, Col, St, ?STR(white_space, St, Ncs)),
     Token = {white_space,Anno,Ncs},
     scan_newline(Cs, St, Line+1, new_column(Col, length(Ncs)), [Token|Toks]);
-scan_nl_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
+scan_nl_white_space([C|Cs], St, Line, Col, Toks, Ncs)
+  when ?WHITE_SPACE(C) ->
     scan_nl_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
 scan_nl_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_nl_white_space/6}};
+    {more,{Cs,Col,Toks,Line,Ncs,fun scan_nl_white_space_fun/6}};
 scan_nl_white_space(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col,
                     Toks, Ncs) ->
     Anno = anno(Line),
@@ -706,32 +730,46 @@ scan_nl_white_space(Cs, St, Line, Col, Toks, Ncs0) ->
 newline_end(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col,
             Toks, _N, Ncs) ->
     scan1(Cs, St, Line+1, Col, [{white_space,anno(Line),Ncs}|Toks]);
-newline_end(Cs, St, Line, Col, Toks, N, Ncs) ->
+newline_end(Cs, #erl_scan{}=St, Line, Col, Toks, N, Ncs) ->
     Anno = anno(Line, Col, St, ?STR(white_space, St, Ncs)),
     scan1(Cs, St, Line+1, new_column(Col, N), [{white_space,Anno,Ncs}|Toks]).
+
+scan_spcs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
+  when is_integer(N), N >= 1 ->
+    scan_spcs(Cs, St, Line, Col, Toks, N).
 
 scan_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 16 ->
     scan_spcs(Cs, St, Line, Col, Toks, N+1);
 scan_spcs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_spcs/6}};
+    {more,{Cs,Col,Toks,Line,N,fun scan_spcs_fun/6}};
 scan_spcs(Cs, St, Line, Col, Toks, N) ->
     white_space_end(Cs, St, Line, Col, Toks, N, spcs(N)).
+
+scan_tabs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
+  when is_integer(N), N >= 1 ->
+    scan_tabs(Cs, St, Line, Col, Toks, N).
 
 scan_tabs([$\t|Cs], St, Line, Col, Toks, N) when N < 10 ->
     scan_tabs(Cs, St, Line, Col, Toks, N+1);
 scan_tabs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_tabs/6}};
+    {more,{Cs,Col,Toks,Line,N,fun scan_tabs_fun/6}};
 scan_tabs(Cs, St, Line, Col, Toks, N) ->
     white_space_end(Cs, St, Line, Col, Toks, N, tabs(N)).
+
+skip_white_space_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N) ->
+    skip_white_space(Cs, St, Line, Col, Toks, N).
 
 skip_white_space([$\n|Cs], St, Line, Col, Toks, _N) ->
     skip_white_space(Cs, St, Line+1, new_column(Col, 1), Toks, 0);
 skip_white_space([C|Cs], St, Line, Col, Toks, N) when ?WHITE_SPACE(C) ->
     skip_white_space(Cs, St, Line, Col, Toks, N+1);
 skip_white_space([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun skip_white_space/6}};
+    {more,{Cs,Col,Toks,Line,N,fun skip_white_space_fun/6}};
 skip_white_space(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
+
+scan_white_space_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
+    scan_white_space(Cs, St, Line, Col, Toks, Ncs).
 
 %% Maybe \t and \s should break the loop.
 scan_white_space([$\n|_]=Cs, St, Line, Col, Toks, Ncs) ->
@@ -739,7 +777,7 @@ scan_white_space([$\n|_]=Cs, St, Line, Col, Toks, Ncs) ->
 scan_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
     scan_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
 scan_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_white_space/6}};
+    {more,{Cs,Col,Toks,Line,Ncs,fun scan_white_space_fun/6}};
 scan_white_space(Cs, St, Line, Col, Toks, Ncs) ->
     white_space_end(Cs, St, Line, Col, Toks, length(Ncs), lists:reverse(Ncs)).
 
@@ -778,7 +816,7 @@ scan_char([], _St, Line, Col, Toks) ->
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
-scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
+scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
             State = {Nwcs,Nstr,Line0,Col0},
@@ -793,7 +831,7 @@ scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
             scan1(Ncs, St, Nline, Ncol, [{string,Anno,Nwcs}|Toks])
     end.
 
-scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
+scan_qatom(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\', Str, Wcs) of %'
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
             State = {Nwcs,Nstr,Line0,Col0},
@@ -803,12 +841,13 @@ scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
         {error,Nline,Ncol,Nwcs,Ncs} ->
             Estr = string:slice(Nwcs, 0, 16), % Expanded escape chars.
             scan_error({string,$\',Estr}, Line0, Col0, Nline, Ncol, Ncs); %'
-        {Ncs,Nline,Ncol,Nstr,Nwcs} ->
-            case catch list_to_atom(Nwcs) of
+            {Ncs,Nline,Ncol,Nstr,Nwcs} ->
+            try list_to_atom(Nwcs) of
                 A when is_atom(A) ->
                     Anno = anno(Line0, Col0, St, ?STR(atom, St, Nstr)),
-                    scan1(Ncs, St, Nline, Ncol, [{atom,Anno,A}|Toks]);
-                _ ->
+                    scan1(Ncs, St, Nline, Ncol, [{atom,Anno,A}|Toks])
+            catch
+                _:_ ->
                     scan_error({illegal,atom}, Line0, Col0, Nline, Ncol, Ncs)
             end
     end.
@@ -884,10 +923,11 @@ scan_string1([]=Cs, Line, Col, _Q, Str, Wcs) ->
 scan_string1(eof, Line, Col, _Q, _Str, Wcs) ->
     {error,Line,Col,lists:reverse(Wcs),eof}.
 
--define(OCT(C), C >= $0, C =< $7).
--define(HEX(C), C >= $0 andalso C =< $9 orelse
-                C >= $A andalso C =< $F orelse
-                C >= $a andalso C =< $f).
+-define(OCT(C), (is_integer(C) andalso $0 =< C andalso C =< $7)).
+-define(HEX(C), (is_integer(C) andalso
+                 (C >= $0 andalso C =< $9 orelse
+                  C >= $A andalso C =< $F orelse
+                  C >= $a andalso C =< $f))).
 
 %% \<1-3> octal digits
 scan_escape([O1,O2,O3|Cs], Col) when ?OCT(O1), ?OCT(O2), ?OCT(O3) ->
@@ -939,26 +979,31 @@ scan_escape([], _Col) ->
 scan_escape(eof, Col) ->
     {eof,Col}.
 
-scan_hex([C|Cs], no_col=Col, Wcs) when ?HEX(C) ->
-    scan_hex(Cs, Col, [C|Wcs]);
 scan_hex([C|Cs], Col, Wcs) when ?HEX(C) ->
-    scan_hex(Cs, Col+1, [C|Wcs]);
+    scan_hex(Cs, incr_column(Col, 1), [C|Wcs]);
 scan_hex(Cs, Col, Wcs) ->
-    scan_esc_end(Cs, Col, Wcs, 16, "x{").
+    scan_hex_end(Cs, Col, Wcs, "x{").
 
-scan_esc_end([$}|Cs], Col, Wcs0, B, Str0) ->
+scan_hex_end([$}|Cs], Col, [], _Str) ->
+    %% Empty escape sequence.
+    {error,Cs,{illegal,character},incr_column(Col, 1)};
+scan_hex_end([$}|Cs], Col, Wcs0, Str0) ->
     Wcs = lists:reverse(Wcs0),
-    case catch erlang:list_to_integer(Wcs, B) of
+    try list_to_integer(Wcs, 16) of
         Val when ?UNICODE(Val) ->
             {Val,Str0++Wcs++[$}],Cs,incr_column(Col, 1)};
-        _ ->
+        _Val ->
+            {error,Cs,{illegal,character},incr_column(Col, 1)}
+    catch
+        error:system_limit ->
+            %% Extremely unlikely to occur in practice.
             {error,Cs,{illegal,character},incr_column(Col, 1)}
     end;
-scan_esc_end([], _Col, _Wcs, _B, _Str0) ->
+scan_hex_end([], _Col, _Wcs, _Str0) ->
     more;
-scan_esc_end(eof, Col, _Wcs, _B, _Str0) ->
+scan_hex_end(eof, Col, _Wcs, _Str0) ->
     {eof,Col};
-scan_esc_end(Cs, Col, _Wcs, _B, _Str0) ->
+scan_hex_end(Cs, Col, _Wcs, _Str0) ->
     {error,Cs,{illegal,character},Col}.
 
 escape_char($n) -> $\n;                         % \n = LF
@@ -972,7 +1017,7 @@ escape_char($s) -> $\s;                         % \s = SPC
 escape_char($d) -> $\d;                         % \d = DEL
 escape_char(C) -> C.
 
-scan_number(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+scan_number(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs, Us}) ->
     scan_number(Cs, St, Line, Col, Toks, Ncs, Us).
 
 scan_number([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
@@ -988,22 +1033,28 @@ scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_integer(remove_digit_separators(Ncs, Us)) of
-        B when B >= 2, B =< 1+$Z-$A+10 ->
+    try list_to_integer(remove_digit_separators(Ncs, Us)) of
+        B when is_integer(B), 2 =< B, B =< 1+$Z-$A+10 ->
             Bcs = Ncs++[$#],
             scan_based_int(Cs, St, Line, Col, Toks, B, [], Bcs, no_underscore);
-        B ->
+        B when is_integer(B) ->
             Len = length(Ncs),
             scan_error({base,B}, Line, Col, Line, incr_column(Col, Len), Cs0)
+    catch
+        error:system_limit ->
+            %% Extremely unlikely to occur in practice.
+            scan_error({illegal,base}, Line, Col, Line, Col, Cs0)
     end;
 scan_number([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number(Cs, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_integer(remove_digit_separators(Ncs, Us)) of
-        N when is_integer(N) ->
-            tok3(Cs, St, Line, Col, Toks, integer, Ncs, N);
-        _ ->
+    try list_to_integer(remove_digit_separators(Ncs, Us), 10) of
+        N ->
+            tok3(Cs, St, Line, Col, Toks, integer, Ncs, N)
+    catch
+        error:system_limit ->
+            %% Extremely unlikely to occur in practice.
             Ncol = incr_column(Col, length(Ncs)),
             scan_error({illegal,integer}, Line, Col, Line, Ncol, Cs)
     end.
@@ -1014,11 +1065,14 @@ remove_digit_separators(Number, with_underscore) ->
     [C || C <- Number, C =/= $_].
 
 -define(BASED_DIGIT(C, B),
-        ((?DIGIT(C) andalso C < $0 + B)
-         orelse (C >= $A andalso B > 10 andalso C < $A + B - 10)
-         orelse (C >= $a andalso B > 10 andalso C < $a + B - 10))).
+        (is_integer(C)
+         andalso
+           ((?DIGIT(C) andalso C < $0 + B)
+            orelse (C >= $A andalso B > 10 andalso C < $A + B - 10)
+            orelse (C >= $a andalso B > 10 andalso C < $a + B - 10)))).
 
-scan_based_int(Cs, St, Line, Col, Toks, {B,NCs,BCs,Us}) ->
+scan_based_int(Cs, #erl_scan{}=St, Line, Col, Toks, {B,NCs,BCs,Us})
+  when is_integer(B), 2 =< B, B =< 1+$Z-$A+10 ->
     scan_based_int(Cs, St, Line, Col, Toks, B, NCs, BCs, Us).
 
 scan_based_int([C|Cs], St, Line, Col, Toks, B, Ncs, Bcs, Us) when
@@ -1032,18 +1086,25 @@ scan_based_int([$_]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
     {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
 scan_based_int([]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
     {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
-scan_based_int(Cs, St, Line, Col, Toks, B, Ncs0, Bcs, Us) ->
+scan_based_int(Cs, _St, Line, Col, _Toks, _B, [], Bcs, _Us) ->
+    %% No actual digits following the base.
+    Len = length(Bcs),
+    Ncol = incr_column(Col, Len),
+    scan_error({illegal,integer}, Line, Col, Line, Ncol, Cs);
+scan_based_int(Cs, St, Line, Col, Toks, B, Ncs0, [_|_]=Bcs, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch erlang:list_to_integer(remove_digit_separators(Ncs, Us), B) of
-        N when is_integer(N) ->
-            tok3(Cs, St, Line, Col, Toks, integer, Bcs++Ncs, N);
-        _ ->
+    try list_to_integer(remove_digit_separators(Ncs, Us), B) of
+        N ->
+            tok3(Cs, St, Line, Col, Toks, integer, Bcs++Ncs, N)
+    catch
+        error:system_limit ->
+            %% Extremely unlikely to occur in practice.
             Len = length(Bcs)+length(Ncs),
             Ncol = incr_column(Col, Len),
             scan_error({illegal,integer}, Line, Col, Line, Ncol, Cs)
     end.
 
-scan_fraction(Cs, St, Line, Col, Toks, {Ncs,Us}) ->
+scan_fraction(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs,Us}) ->
     scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us).
 
 scan_fraction([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
@@ -1060,7 +1121,7 @@ scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
 scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us) ->
     float_end(Cs, St, Line, Col, Toks, Ncs, Us).
 
-scan_exponent_sign(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+scan_exponent_sign(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs, Us}) ->
     scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs, Us).
 
 scan_exponent_sign([C|Cs], St, Line, Col, Toks, Ncs, Us) when
@@ -1071,7 +1132,7 @@ scan_exponent_sign([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
 scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs, Us) ->
     scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us).
 
-scan_exponent(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+scan_exponent(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs, Us}) ->
     scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us).
 
 scan_exponent([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
@@ -1088,13 +1149,17 @@ scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us) ->
 
 float_end(Cs, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_float(remove_digit_separators(Ncs, Us)) of
-        F when is_float(F) ->
-            tok3(Cs, St, Line, Col, Toks, float, Ncs, F);
-        _ ->
+    try list_to_float(remove_digit_separators(Ncs, Us)) of
+        F ->
+            tok3(Cs, St, Line, Col, Toks, float, Ncs, F)
+    catch
+        _:_ ->
             Ncol = incr_column(Col, length(Ncs)),
             scan_error({illegal,float}, Line, Col, Line, Ncol, Cs)
     end.
+
+skip_comment_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N) ->
+    skip_comment(Cs, St, Line, Col, Toks, N).
 
 skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, ?CHAR(C) ->
     case ?UNICODE(C) of
@@ -1105,11 +1170,15 @@ skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, ?CHAR(C) ->
             scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
     end;
 skip_comment([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun skip_comment/6}};
+    {more,{Cs,Col,Toks,Line,N,fun skip_comment_fun/6}};
 skip_comment(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
-scan_comment([C|Cs], St, Line, Col, Toks, Ncs) when C =/= $\n, ?CHAR(C) ->
+scan_comment_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
+    scan_comment(Cs, St, Line, Col, Toks, Ncs).
+
+scan_comment([C|Cs], St, Line, Col, Toks, Ncs)
+  when C =/= $\n, ?CHAR(C) ->
     case ?UNICODE(C) of
         true ->
             scan_comment(Cs, St, Line, Col, Toks, [C|Ncs]);
@@ -1118,33 +1187,33 @@ scan_comment([C|Cs], St, Line, Col, Toks, Ncs) when C =/= $\n, ?CHAR(C) ->
             scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
     end;
 scan_comment([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_comment/6}};
+    {more,{Cs,Col,Toks,Line,Ncs,fun scan_comment_fun/6}};
 scan_comment(Cs, St, Line, Col, Toks, Ncs0) ->
     Ncs = lists:reverse(Ncs0),
     tok3(Cs, St, Line, Col, Toks, comment, Ncs, Ncs).
 
 tok2(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col, Toks, _Wcs, P) ->
     scan1(Cs, St, Line, Col, [{P,anno(Line)}|Toks]);
-tok2(Cs, St, Line, Col, Toks, Wcs, P) ->
+tok2(Cs, #erl_scan{}=St, Line, Col, Toks, Wcs, P) ->
     Anno = anno(Line, Col, St, ?STR(P, St, Wcs)),
     scan1(Cs, St, Line, incr_column(Col, length(Wcs)), [{P,Anno}|Toks]).
 
 tok2(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col, Toks, _Wcs, P, _N) ->
     scan1(Cs, St, Line, Col, [{P,anno(Line)}|Toks]);
-tok2(Cs, St, Line, Col, Toks, Wcs, P, N) ->
+tok2(Cs, #erl_scan{}=St, Line, Col, Toks, Wcs, P, N) ->
     Anno = anno(Line, Col, St, ?STR(P,St,Wcs)),
     scan1(Cs, St, Line, incr_column(Col, N), [{P,Anno}|Toks]).
 
 tok3(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col, Toks, Item, _S, Sym) ->
     scan1(Cs, St, Line, Col, [{Item,anno(Line),Sym}|Toks]);
-tok3(Cs, St, Line, Col, Toks, Item, String, Sym) ->
+tok3(Cs, #erl_scan{}=St, Line, Col, Toks, Item, String, Sym) ->
     Token = {Item,anno(Line, Col, St, ?STR(Item, St, String)),Sym},
     scan1(Cs, St, Line, incr_column(Col, length(String)), [Token|Toks]).
 
 tok3(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col, Toks, Item,
      _String, Sym, _Length) ->
     scan1(Cs, St, Line, Col, [{Item,anno(Line),Sym}|Toks]);
-tok3(Cs, St, Line, Col, Toks, Item, String, Sym, Length) ->
+tok3(Cs, #erl_scan{}=St, Line, Col, Toks, Item, String, Sym, Length) ->
     Token = {Item,anno(Line, Col, St, ?STR(Item, St, String)),Sym},
     scan1(Cs, St, Line, incr_column(Col, Length), [Token|Toks]).
 
