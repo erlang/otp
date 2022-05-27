@@ -1904,7 +1904,7 @@ update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
     Ts#{ Dst => T }.
 
 type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
-    ArgTypes = normalized_types(Args, Ts),
+    ArgTypes = concrete_types(Args, Ts),
     case beam_call_types:types(erlang, Bif, ArgTypes) of
         {any, _, _} ->
             case {Bif, Args} of
@@ -2212,12 +2212,7 @@ concrete_type(#b_var{}=Var, Ts) ->
 %%  subtraction for L will be added to FailTypes.
 
 infer_types_br(#b_var{}=V, Ts, IsTempVar, Ds) ->
-    #{V:=#b_set{op=Op,args=Args}} = Ds,
-
-    {PosTypes, NegTypes} = infer_type(Op, Args, Ts, Ds),
-
-    SuccTs0 = meet_types(PosTypes, Ts),
-    FailTs0 = subtract_types(NegTypes, Ts),
+    {SuccTs0, FailTs0} = infer_types_br_1(V, Ts, Ds),
 
     case IsTempVar of
         true ->
@@ -2233,6 +2228,115 @@ infer_types_br(#b_var{}=V, Ts, IsTempVar, Ds) ->
             FailTs = infer_br_value(V, false, FailTs0),
             {SuccTs, FailTs}
     end.
+
+infer_types_br_1(V, Ts, Ds) ->
+    #{V:=#b_set{op=Op0,args=Args}} = Ds,
+
+    case inv_relop(Op0) of
+        none ->
+            %% No a relation operator.
+            {PosTypes, NegTypes} = infer_type(Op0, Args, Ts, Ds),
+            SuccTs = meet_types(PosTypes, Ts),
+            FailTs = subtract_types(NegTypes, Ts),
+            {SuccTs, FailTs};
+        InvOp ->
+            %% This is an relational operator.
+            {bif,Op} = Op0,
+
+            %% Infer the types for both sides for operator succceding
+            Types = concrete_types(Args, Ts),
+            TrueTypes0 = infer_relop(Op, Args, Types),
+            TrueTypes = meet_types(TrueTypes0, Ts),
+
+            %% Infer the types for both sides operator failing.
+            FalseTypes0 = infer_relop(InvOp, Args, Types),
+            FalseTypes = meet_types(FalseTypes0, Ts),
+
+            {TrueTypes, FalseTypes}
+    end.
+
+infer_relop(Op, [Arg1,Arg2], Types0) ->
+    case infer_relop(Op, Types0) of
+        any ->
+            %% Both operands lacked ranges.
+            [];
+        {NewType1,NewType2} ->
+            Types = [{Arg1,NewType1},{Arg2,NewType2}],
+            [{V,T} || {#b_var{}=V,T} <- Types,
+                      T =/= any]
+    end.
+
+infer_relop(Op, [#t_integer{elements=R1},
+                 #t_integer{elements=R2}]) ->
+    case beam_bounds:infer_relop_types(Op, R1, R2) of
+        any ->
+            any;
+        {NewR1,NewR2} ->
+            {#t_integer{elements=NewR1},
+             #t_integer{elements=NewR2}}
+    end;
+infer_relop(Op0, [Type1,Type2]) ->
+    Op = case Op0 of
+             '<' -> '=<';
+             '>' -> '>=';
+             _ -> Op0
+         end,
+    case {infer_get_range(Type1),infer_get_range(Type2)} of
+        {unknown,unknown} ->
+            any;
+        {unknown,_}=R ->
+            infer_relop_any(Op, R);
+        {_,unknown}=R ->
+            infer_relop_any(Op, R);
+        {R1,R2} ->
+            %% Both operands are numeric types.
+            case beam_bounds:infer_relop_types(Op, R1, R2) of
+                any ->
+                    any;
+                {NewR1,NewR2} ->
+                    {#t_number{elements=NewR1},
+                     #t_number{elements=NewR2}}
+            end
+    end.
+
+infer_relop_any('=<', {unknown,any}) ->
+    %% Since numbers are smaller than any other terms, the LHS must be
+    %% a number if operator '=<' evaluates to true.
+    {#t_number{}, any};
+infer_relop_any('=<', {unknown,{_,Max}}) ->
+    {make_number({'-inf',Max}), any};
+infer_relop_any('>=', {any,unknown}) ->
+    {any, #t_number{}};
+infer_relop_any('>=', {{_,Max},unknown}) ->
+    {any, make_number({'-inf',Max})};
+infer_relop_any('>=', {unknown,{Min,_}}) when is_integer(Min) ->
+    %% LHS can be any term, including number, but we can figure out
+    %% the minimal possible number.
+    N = #t_number{elements={'-inf',Min}},
+    {beam_types:subtract(any, N), any};
+infer_relop_any('=<', {{Min,_},unknown}) when is_integer(Min) ->
+    N = #t_number{elements={'-inf',Min}},
+    {any, beam_types:subtract(any, N)};
+infer_relop_any(_Op, _R) ->
+    any.
+
+make_number({'-inf','+inf'}) ->
+    #t_number{};
+make_number({_,_}=R) ->
+    #t_number{elements=R}.
+
+inv_relop({bif,Op}) -> inv_relop_1(Op);
+inv_relop(_) -> none.
+
+inv_relop_1('<') -> '>=';
+inv_relop_1('=<') -> '>';
+inv_relop_1('>=') -> '<';
+inv_relop_1('>') ->  '=<';
+inv_relop_1(_) -> none.
+
+infer_get_range(#t_integer{elements=R}) -> R;
+infer_get_range(#t_number{elements=R}) -> R;
+infer_get_range(_) -> unknown.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2312,7 +2416,7 @@ infer_type({bif,is_map}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_map{}},
     {[T], [T]};
 infer_type({bif,is_number}, [#b_var{}=Arg], _Ts, _Ds) ->
-    T = {Arg, number},
+    T = {Arg, #t_number{}},
     {[T], [T]};
 infer_type({bif,is_pid}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, pid},

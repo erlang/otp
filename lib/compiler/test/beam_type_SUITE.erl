@@ -104,6 +104,15 @@ integers(_Config) ->
 
     -693 = do_integers_9(id(7), id(1)),
 
+    3 = do_integers_10(1, 2),
+    10 = do_integers_10(-2, -5),
+
+    {'EXIT',{badarith,_}} = catch do_integers_11(42),
+    {'EXIT',{badarith,_}} = catch do_integers_11({a,b}),
+
+    {'EXIT',{system_limit,_}} = catch do_integers_12(42),
+    {'EXIT',{system_limit,_}} = catch do_integers_12([]),
+
     ok.
 
 do_integers_1(B0) ->
@@ -175,6 +184,18 @@ do_integers_8() ->
 do_integers_9(X, Y) ->
     X * (-100 bor (Y band 1)).
 
+do_integers_10(A, B) when is_integer(A), is_integer(B), A < 2, B < 5 ->
+    if
+        A < B -> A + B;
+        true -> A * B
+    end.
+
+do_integers_11(V) ->
+    true - V bsl [].
+
+do_integers_12(X) ->
+    (1 bsl (1 bsl 100)) + X.
+
 numbers(_Config) ->
     Int = id(42),
     true = is_integer(Int),
@@ -226,7 +247,15 @@ numbers(_Config) ->
     Meet1 = id(0) + -10.0,                       %Float.
     10.0 = abs(Meet1),                           %Number.
 
+    %% Cover code in beam_call_types:beam_bounds_type/3.
+    ok = fcmp(0.0, 1.0),
+    error = fcmp(1.0, 0.0),
+
     ok.
+
+fcmp(0.0, 0.0) -> ok;
+fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok;
+fcmp(_, _) -> error.
 
 coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),

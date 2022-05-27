@@ -61,7 +61,7 @@
         N =:= nil).
 
 -define(IS_NUMBER_TYPE(N),
-        N =:= number orelse
+        is_record(N, t_number) orelse
         is_record(N, t_float) orelse
         is_record(N, t_integer)).
 
@@ -277,19 +277,17 @@ join_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
                      other=lub(OtherA, OtherB)},
     shrink_union(Union);
 join_unions(#t_union{atom=AtomA}=A, #t_atom{}=B) ->
-    A#t_union{atom=lub(AtomA, B)};
+    shrink_union(A#t_union{atom=lub(AtomA, B)});
 join_unions(#t_union{list=ListA}=A, B) when ?IS_LIST_TYPE(B) ->
-    A#t_union{list=lub(ListA, B)};
+    shrink_union(A#t_union{list=lub(ListA, B)});
 join_unions(#t_union{number=NumberA}=A, B) when ?IS_NUMBER_TYPE(B) ->
-    A#t_union{number=lub(NumberA, B)};
+    shrink_union(A#t_union{number=lub(NumberA, B)});
 join_unions(#t_union{tuple_set=TSetA}=A, #t_tuple{}=B) ->
     Set = join_tuple_sets(TSetA, new_tuple_set(B)),
     shrink_union(A#t_union{tuple_set=Set});
 join_unions(#t_union{other=OtherA}=A, B) ->
-    case lub(OtherA, B) of
-        any -> any;
-        T -> A#t_union{other=T}
-    end.
+    T = lub(OtherA, B),
+    shrink_union(A#t_union{other=T}).
 
 join_tuple_sets(A, none) ->
     A;
@@ -334,6 +332,14 @@ jts_records([], [{KeyB, B} | RsB], N, Acc) ->
 
 -spec subtract(type(), type()) -> type().
 
+subtract(any, #t_number{elements={'-inf',Max}}) ->
+    %% We handle this case specially in order to represent the type
+    %% Var in Var =< Integer.
+    #t_union{atom=#t_atom{},
+             list=#t_list{},
+             number=#t_number{elements={Max,'+inf'}},
+             tuple_set=#t_tuple{},
+             other=other};
 subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     case ordsets:subtract(Set0, Set1) of
         [] -> none;
@@ -358,8 +364,10 @@ subtract(#t_integer{elements={Min, Max}}, #t_integer{elements={N,N}}) ->
         Max =:= N ->
             #t_integer{elements={Min, Max - 1}}
     end;
-subtract(number, #t_float{elements=any}) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> #t_float{};
+subtract(#t_number{elements=R}, #t_float{elements=any}) ->
+    integer_from_range(R);
+subtract(#t_number{elements=R}, #t_integer{elements=any}) ->
+    float_from_range(R);
 
 %% A list is essentially `#t_cons{} | nil`, so we're left with nil if we
 %% subtract a cons cell that is more general than the one in the list.
@@ -475,7 +483,7 @@ is_boolean_type(_) ->
 
 -spec is_numerical_type(type()) -> boolean().
 is_numerical_type(#t_integer{}) -> true;
-is_numerical_type(number) -> true;
+is_numerical_type(#t_number{}) -> true;
 is_numerical_type(_) -> false.
 
 -spec set_tuple_element(Index, Type, Elements) -> Elements when
@@ -757,15 +765,8 @@ glb(#t_cons{type=TypeA,terminator=TermA},
         {_, none} -> none;
         {Type, Term} -> #t_cons{type=Type,terminator=Term}
     end;
-glb(#t_float{}=T, #t_float{elements=any}) ->
-    T;
-glb(#t_float{elements=any}, #t_float{}=T) ->
-    T;
-glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
-  when MinA >= MinB, MinA =< MaxB;
-       MinB >= MinA, MinB =< MaxA ->
-    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
-    #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
+glb(#t_float{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(glb_ranges(R1, R2));
 glb(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
     #t_fun{arity=SameArity,target=SameTarget,type=TypeB}=T) ->
     T#t_fun{type=meet(TypeA, TypeB)};
@@ -777,19 +778,12 @@ glb(#t_fun{arity=any}=A, #t_fun{arity=ArityB}=B) when ArityB =/= any->
     glb(A#t_fun{arity=ArityB}, B);
 glb(#t_fun{arity=ArityA}=A, #t_fun{arity=any}=B) when ArityA =/= any ->
     glb(A, B#t_fun{arity=ArityA});
-glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
-    T;
-glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
-    T;
-glb(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
-  when MinA >= MinB, MinA =< MaxB;
-       MinB >= MinA, MinB =< MaxA ->
-    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
-    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-glb(#t_integer{}=T, number) ->
-    T;
-glb(#t_float{}=T, number) ->
-    T;
+glb(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_integer{elements=R1}, #t_number{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_float{elements=R1}, #t_number{elements=R2}) ->
+    float_from_range(glb_ranges(R1, R2));
 glb(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     %% A list is a union of `[type() | _]` and `[]`, so we're left with
@@ -805,10 +799,12 @@ glb(#t_list{}, nil) ->
     nil;
 glb(nil, #t_list{}) ->
     nil;
-glb(number, #t_integer{}=T) ->
-    T;
-glb(number, #t_float{}=T) ->
-    T;
+glb(#t_number{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(glb_ranges(R1, R2));
+glb(#t_number{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_number{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(glb_ranges(R1, R2));
 glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of meet/2; elements don't need to be normal types.
@@ -817,9 +813,33 @@ glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKey,super_value=SValue};
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
+glb(other, T) ->
+    case is_other(T) of
+        true -> T;
+        false -> none
+    end;
+glb(T, other) ->
+    glb(other, T);
 glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
+
+glb_ranges({MinA,MaxA}, {MinB,MaxB}) ->
+    true = inf_le(MinA, MaxA) andalso inf_le(MinB, MaxB), %Assertion.
+    case (inf_ge(MinA, MinB) andalso inf_le(MinA, MaxB)) orelse
+        (inf_ge(MinB, MinA) andalso inf_le(MinB, MaxA)) of
+        true ->
+            true = inf_le(MinA, MaxA) andalso inf_le(MinB, MaxB),   %Assertion.
+            {inf_max(MinA, MinB),inf_min(MaxA, MaxB)};
+        false ->
+            none
+    end;
+glb_ranges({MinA,MaxA}, any) ->
+    {MinA,MaxA};
+glb_ranges(any, {MinB,MaxB}) ->
+    {MinB,MaxB};
+glb_ranges(_, _) ->
+    any.
 
 glb_tuples(#t_tuple{size=Sz1,exact=Ex1}, #t_tuple{size=Sz2,exact=Ex2})
   when Ex1, Sz1 < Sz2;
@@ -918,15 +938,12 @@ lub(#t_cons{type=TypeA,terminator=TermA},
     #t_list{type=join(TypeA,TypeB),terminator=join(TermA, TermB)};
 lub(#t_cons{type=Type,terminator=Term}, nil) ->
     #t_list{type=Type,terminator=Term};
-lub(#t_float{elements={MinA,MaxA}},
-    #t_float{elements={MinB,MaxB}}) ->
-    #t_float{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-lub(#t_float{}, #t_float{}) ->
-    #t_float{};
-lub(#t_float{}, #t_integer{}) ->
-    number;
-lub(#t_float{}, number) ->
-    number;
+lub(#t_float{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(lub_ranges(R1, R2));
+lub(#t_float{elements=R1}, #t_integer{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_float{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
     #t_fun{arity=SameArity,target=SameTarget,type=TypeB}) ->
     #t_fun{arity=SameArity,target=SameTarget,type=join(TypeA, TypeB)};
@@ -934,15 +951,12 @@ lub(#t_fun{arity=SameArity,type=TypeA}, #t_fun{arity=SameArity,type=TypeB}) ->
     #t_fun{arity=SameArity,type=join(TypeA, TypeB)};
 lub(#t_fun{type=TypeA}, #t_fun{type=TypeB}) ->
     #t_fun{type=join(TypeA, TypeB)};
-lub(#t_integer{elements={MinA,MaxA}},
-    #t_integer{elements={MinB,MaxB}}) ->
-    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-lub(#t_integer{}, #t_integer{}) ->
-    #t_integer{};
-lub(#t_integer{}, #t_float{}) ->
-    number;
-lub(#t_integer{}, number) ->
-    number;
+lub(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(lub_ranges(R1, R2));
+lub(#t_integer{elements=R1}, #t_float{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_integer{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     #t_list{type=join(TypeA, TypeB),terminator=join(TermA, TermB)};
@@ -954,10 +968,12 @@ lub(nil, #t_list{}=T) ->
     T;
 lub(#t_list{}=T, nil) ->
     T;
-lub(number, #t_integer{}) ->
-    number;
-lub(number, #t_float{}) ->
-    number;
+lub(#t_number{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_number{elements=R1}, #t_integer{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_number{elements=R1}, #t_float{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of join/2; elements don't need to be normal types.
@@ -973,8 +989,24 @@ lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
     Sz = min(SzA, SzB),
     Es = lub_tuple_elements(Sz, EsA, EsB),
     #t_tuple{size=Sz,elements=Es};
-lub(_T1, _T2) ->
-    %%io:format("~p ~p\n", [_T1,_T2]),
+lub(T1, T2) ->
+    %%io:format("~p ~p\n", [T1,T2]),
+    case is_other(T1) andalso is_other(T2) of
+        true -> other;
+        false -> any
+    end.
+
+is_other(Type) ->
+    AnyMinusOther = #t_union{atom=#t_atom{},
+                             list=#t_list{},
+                             number=#t_number{},
+                             tuple_set=#t_tuple{},
+                             other=none},
+    meet(AnyMinusOther, Type) =:= none.
+
+lub_ranges({MinA,MaxA}, {MinB,MaxB}) ->
+    {inf_min(MinA, MinB), inf_max(MaxA, MaxB)};
+lub_ranges(_, _) ->
     any.
 
 lub_bs_matchable(UnitA, UnitB) ->
@@ -1011,6 +1043,65 @@ gcd(A, B) ->
         X -> gcd(B, X)
     end.
 
+%%%
+%%% Handling of ranges.
+%%%
+%%% A range can begin with '-inf' OR end with '+inf'.
+%%%
+%%% Atoms are greater than all integers. Therefore, we don't
+%%% need any special handling of '+inf'.
+%%%
+
+float_from_range(none) ->
+    none;
+float_from_range(any) ->
+    #t_float{};
+float_from_range({'-inf','+inf'}) ->
+    #t_float{};
+float_from_range({'-inf',Max}) ->
+    #t_float{elements={'-inf',float(Max)}};
+float_from_range({Min,'+inf'}) ->
+    #t_float{elements={float(Min),'+inf'}};
+float_from_range({Min,Max}) ->
+    #t_float{elements={float(Min),float(Max)}}.
+
+integer_from_range(none) ->
+    none;
+integer_from_range(any) ->
+    #t_integer{};
+integer_from_range({'-inf','+inf'}) ->
+    #t_integer{};
+integer_from_range({'-inf',Max}) ->
+    #t_integer{elements={'-inf',ceil(Max)}};
+integer_from_range({Min,'+inf'}) ->
+    #t_integer{elements={floor(Min),'+inf'}};
+integer_from_range({Min,Max}) ->
+    #t_integer{elements={floor(Min),ceil(Max)}}.
+
+number_from_range(N) ->
+    case integer_from_range(N) of
+        #t_integer{elements=R} ->
+            #t_number{elements=R};
+        none ->
+            none
+    end.
+
+inf_le('-inf', _) -> true;
+inf_le(A, B) -> A =< B.
+
+inf_ge(_, '-inf') -> true;
+inf_ge('-inf', _) -> false;
+inf_ge(A, B) -> A >= B.
+
+inf_min(A, B) when A =:= '-inf'; B =:= '-inf' -> '-inf';
+inf_min(A, B) when A =< B -> A;
+inf_min(A, B) when A > B -> B.
+
+inf_max('-inf', B) -> B;
+inf_max(A, '-inf') -> A;
+inf_max(A, B) when A >= B -> A;
+inf_max(A, B) when A < B -> B.
+
 %%
 
 record_key(#t_tuple{exact=true,size=Size,elements=#{ 1 := Tag }}) ->
@@ -1029,8 +1120,6 @@ new_tuple_set(T) ->
 
 %%
 
-shrink_union(#t_union{other=any}) ->
-    any;
 shrink_union(#t_union{atom=Atom,list=none,number=none,
                       tuple_set=none,other=none}) ->
     Atom;
@@ -1049,6 +1138,12 @@ shrink_union(#t_union{atom=none,list=none,number=none,
 shrink_union(#t_union{atom=none,list=none,number=none,
                       tuple_set=none,other=Other}) ->
     Other;
+shrink_union(#t_union{atom=#t_atom{elements=any},
+                      list=#t_list{type=any,terminator=any},
+                      number=#t_number{elements=any},
+                      tuple_set=#t_tuple{size=0,exact=false},
+                      other=other}) ->
+    any;
 shrink_union(#t_union{}=T) ->
     T.
 
@@ -1124,6 +1219,12 @@ verified_normal_type(#t_fun{arity=Arity,
     T;
 verified_normal_type(#t_float{}=T) -> T;
 verified_normal_type(#t_integer{elements=any}=T) -> T;
+verified_normal_type(#t_integer{elements={'-inf',Max}}=T)
+  when is_integer(Max) ->
+    T;
+verified_normal_type(#t_integer{elements={Min,'+inf'}}=T)
+  when is_integer(Min) ->
+    T;
 verified_normal_type(#t_integer{elements={Min,Max}}=T)
   when is_integer(Min), is_integer(Max), Min =< Max ->
     T;
@@ -1133,7 +1234,8 @@ verified_normal_type(#t_list{type=Type,terminator=Term}=T) ->
     T;
 verified_normal_type(#t_map{}=T) -> T;
 verified_normal_type(nil=T) -> T;
-verified_normal_type(number=T) -> T;
+verified_normal_type(#t_number{}=T) -> T;
+verified_normal_type(other=T) -> T;
 verified_normal_type(pid=T) -> T;
 verified_normal_type(port=T) -> T;
 verified_normal_type(reference=T) -> T;

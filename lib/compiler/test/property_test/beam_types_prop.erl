@@ -184,10 +184,11 @@ term_type(Depth) ->
 term_types(Depth) ->
     nested_generators(Depth) ++
         numerical_generators() ++
-        [gen_atom(), gen_bs_matchable()].
+        [gen_atom(), gen_bs_matchable(),
+         pid, port, reference, other].
 
 numerical_generators() ->
-    [gen_integer(), gen_float(), number].
+    [gen_integer(), gen_float(), gen_number()].
 
 nested_generators(Depth) when Depth =< 0 ->
     [nil];
@@ -221,8 +222,18 @@ gen_bs_matchable() ->
 gen_float() ->
     oneof([?LET({A, B}, {integer(), integer()},
                 begin
-                    Min = float(min(A,B)),
-                    Max = float(max(A,B)),
+                    Min = float(min(A, B)),
+                    Max = float(max(A, B)),
+                    #t_float{elements={Min,Max}}
+                end),
+           ?LET({A, B, AExp, BExp},
+                {integer(0, 1_000_000), integer(0, 10_00_000),
+                 integer(-300, 300), integer(-300, 300)},
+                begin
+                    F1 = A * math:pow(10, AExp),
+                    F2 = B * math:pow(10, BExp),
+                    Min = min(F1, F2),
+                    Max = max(F1, F2),
                     #t_float{elements={Min,Max}}
                 end),
            #t_float{}]).
@@ -235,6 +246,10 @@ gen_fun(Depth) ->
 gen_integer() ->
     oneof([?LET({A, B}, {integer(), integer()},
                 #t_integer{elements={min(A,B), max(A,B)}}),
+           ?LET(Min, integer(),
+                #t_integer{elements={Min, '+inf'}}),
+           ?LET(Max, integer(),
+                #t_integer{elements={'-inf', Max}}),
            #t_integer{}]).
 
 gen_list(Depth) ->
@@ -249,6 +264,15 @@ gen_map(Depth) ->
     ?SHRINK(?LET({SKey, SValue}, {term_type(Depth), term_type(Depth)},
                  #t_map{super_key=SKey,super_value=SValue}),
             [#t_map{}]).
+
+gen_number() ->
+    oneof([?LET({A, B}, {integer(), integer()},
+                #t_number{elements={min(A,B), max(A,B)}}),
+           ?LET(Min, integer(),
+                #t_number{elements={Min, '+inf'}}),
+           ?LET(Max, integer(),
+                #t_number{elements={'-inf', Max}}),
+           #t_number{}]).
 
 gen_tuple(Depth) ->
     ?SHRINK(oneof([gen_tuple_plain(Depth), gen_tuple_record(Depth)]),

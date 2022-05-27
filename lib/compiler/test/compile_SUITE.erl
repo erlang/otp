@@ -2027,7 +2027,7 @@ types_pp(Config) when is_list(Config) ->
                      "{any(), any(), any(), any(), any()}"},
                     {make_inexact_tuple, "{any(), any(), any(), ...}"},
                     {make_union,
-                     "'foo' | nonempty_list(1..3) | number() |"
+                     "'foo' | nonempty_list(1..3) | number(3, 7) |"
                      " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(24)"},
                     {make_bitstring, "bitstring(24)"},
                     {make_none, "none()"}],
