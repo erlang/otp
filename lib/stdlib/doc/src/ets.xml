@@ -854,7 +854,7 @@ Error: fun containing local Erlang function calls
       <desc>
         <p>Checks if a term represent a valid compiled
 	  <seeerl marker="#match_spec">match specification</seeerl>.
-          A compiled match specifications is only valid on the Erlang node where
+          A compiled match specification is only valid on the Erlang node where
 	  it was compiled by calling <seemfa marker="#match_spec_compile/1">
 	  <c>match_spec_compile/1</c></seemfa>.</p>
         <note>
