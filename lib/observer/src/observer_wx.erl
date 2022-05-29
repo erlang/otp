@@ -747,17 +747,20 @@ get_nodes() ->
     Nodes0 = case erlang:is_alive() of
 		false -> [];
 		true  ->
-		    case net_adm:names() of
-			{error, _} -> nodes();
-			{ok, Names} ->
-			    epmd_nodes(Names) ++ nodes()
-		    end
+                    case net_adm:names() of
+                        {error, _} -> [];
+                        {ok, Names} -> epmd_nodes(Names)
+                    end
+                    ++
+                    nodes(connected)
 	     end,
     Nodes = lists:usort(Nodes0),
+    WarningText = "WARNING: connecting to non-erlang nodes may crash them",
     {_, Menues} =
 	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
 			    {Id + 1, [#create_menu{id=Id + ?FIRST_NODES_MENU_ID,
-						   text=atom_to_list(Node)} | Acc]}
+						   text=atom_to_list(Node),
+						   help=WarningText} | Acc]}
 		    end, {1, []}, Nodes),
     {Nodes, lists:reverse(Menues)}.
 
