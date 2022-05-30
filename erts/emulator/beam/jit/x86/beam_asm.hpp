@@ -1377,6 +1377,24 @@ protected:
         }
     }
 
+    void cmp(x86::Gp gp, int64_t val, const x86::Gp &spill) {
+        if (Support::isInt32(val)) {
+            a.cmp(gp, imm(val));
+        } else {
+            mov_imm(spill, val);
+            a.cmp(gp, spill);
+        }
+    }
+
+    void sub(x86::Gp gp, int64_t val, const x86::Gp &spill) {
+        if (Support::isInt32(val)) {
+            a.sub(gp, imm(val));
+        } else {
+            mov_imm(spill, val);
+            a.sub(gp, spill);
+        }
+    }
+
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isBytePtr()) {

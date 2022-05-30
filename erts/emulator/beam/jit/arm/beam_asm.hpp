@@ -739,6 +739,17 @@ protected:
         }
     }
 
+    void cmp(arm::Gp src, int64_t val) {
+        if (Support::isUInt12(val)) {
+            a.cmp(src, imm(val));
+        } else if (Support::isUInt12(-val)) {
+            a.cmn(src, imm(-val));
+        } else {
+            mov_imm(SUPER_TMP, val);
+            a.cmp(src, SUPER_TMP);
+        }
+    }
+
     void ldur(arm::Gp reg, arm::Mem mem) {
         safe_9bit_imm(a64::Inst::kIdLdur, reg, mem);
     }
@@ -1589,18 +1600,12 @@ protected:
         if (arg.isImmed() || arg.isWord()) {
             Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                      : arg.as<ArgWord>().get();
-
-            if (Support::isUInt12(val)) {
-                a.cmp(gp, imm(val));
-                return;
-            } else if (Support::isUInt12(-val)) {
-                a.cmn(gp, imm(-val));
-                return;
-            }
+            cmp(gp, val);
+            return;
         }
 
-        mov_arg(SUPER_TMP, arg);
-        a.cmp(gp, SUPER_TMP);
+        auto tmp = load_source(arg, SUPER_TMP);
+        a.cmp(gp, tmp.reg);
     }
 
     void safe_stp(arm::Gp gp1,
