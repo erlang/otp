@@ -627,7 +627,8 @@ init_server(Pid, FileName, Options, St0) ->
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
                          erl_scan_opts =
-                             [{reserved_word_fun, ResWordFun}],
+                             [{text_fun, keep_ftr_keywords()},
+                              {reserved_word_fun, ResWordFun}],
                          features = Features,
                          else_reserved = ResWordFun('else')},
             From = wait_request(St),
@@ -637,6 +638,18 @@ init_server(Pid, FileName, Options, St0) ->
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
+    end.
+
+%% Return a function that keeps quoted atoms that are keywords in
+%% configurable features.  Need in erl_lint to avoid warning about
+%% them.
+keep_ftr_keywords() ->
+    Features = erl_features:all(),
+    Keywords = lists:flatmap(fun erl_features:keywords/1, Features),
+    F = fun(Atom) -> atom_to_list(Atom) ++ "'" end,
+    Strings = lists:map(F, Keywords),
+    fun(atom, [$'|S]) -> lists:member(S, Strings);
+       (_, _) -> false
     end.
 
 %% predef_macros(FileName) -> Macrodict
@@ -1029,9 +1042,9 @@ scan_feature(Toks, {atom, _, Tag} = Token, From, St) ->
 %% FIXME Rewrite this
 update_features(St0, Ind, Ftr, Loc) ->
     Ftrs0 = St0#epp.features,
-    ScanOpts = St0#epp.erl_scan_opts,
+    ScanOpts0 = St0#epp.erl_scan_opts,
     KeywordFun =
-        case proplists:get_value(reserved_word_fun, ScanOpts) of
+        case proplists:get_value(reserved_word_fun, ScanOpts0) of
             undefined -> fun erl_scan:f_reserved_word/1;
             Fun -> Fun
         end,
@@ -1041,15 +1054,13 @@ update_features(St0, Ind, Ftr, Loc) ->
         {ok, {Ftrs1, ResWordFun1}} ->
             Macs0 = St0#epp.macs,
             Macs1 = Macs0#{'FEATURE_ENABLED' => [ftr_macro(Ftrs1)]},
-            %% FIXME WE need to keep any other scan_opts
-            %% present.  Right now, there are no other, but
-            %% that might change.
-            StX = St0#epp{erl_scan_opts =
-                              [{reserved_word_fun, ResWordFun1}],
-                          features = Ftrs1,
-                          else_reserved = ResWordFun1('else'),
-                          macs = Macs1},
-            {ok, StX}
+            ScanOpts1 = proplists:delete(reserved_word_fun, ScanOpts0),
+            St = St0#epp{erl_scan_opts =
+                             [{reserved_word_fun, ResWordFun1}| ScanOpts1],
+                         features = Ftrs1,
+                         else_reserved = ResWordFun1('else'),
+                         macs = Macs1},
+            {ok, St}
     end.
 
 %% scan_define(Tokens, DefineToken, From, EppState)

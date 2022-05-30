@@ -3,4 +3,4 @@
 -export [foo/0].
 
 foo() ->
-    foo.
+    ['maybe', 'else'].

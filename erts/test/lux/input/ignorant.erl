@@ -26,7 +26,11 @@
 -export([foo/0,
          frob/1,
          bar/0,
+         until/1,
          baz/1]).
+
+until(X) ->
+    until(X).
 
 foo() ->
     [ifn, while, until].
@@ -37,4 +41,4 @@ bar() ->
     [until, while].
 
 baz(ifn) ->
-    true.
+    {true, 'ifnot'}.
