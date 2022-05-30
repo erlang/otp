@@ -20,6 +20,7 @@
 -module(erl_features).
 
 -export([all/0,
+         configurable/0,
          info/1,
          short/1,
          long/1,
@@ -40,7 +41,10 @@
                   | 'rejected'.
 -type release() :: non_neg_integer().
 -type feature() :: atom().
--type error() :: {?MODULE, {'invalid_features', [atom()]}}.
+-type error() :: {?MODULE,
+                  {'invalid_features', [atom()]}
+                  | {'incorrect_features', [atom()]}
+                  | {'not_configurable', [atom()]}}.
 
 -define(VALID_FEATURE(Feature),
         (case is_valid(Feature) of
@@ -71,10 +75,19 @@ all() ->
               none -> init_specs();
               M -> M
           end,
-    maps:keys(Map).
+    lists:sort(maps:keys(Map)).
+
+-spec configurable() -> [feature()].
+configurable() ->
+    [Ftr || Ftr <- all(),
+            lists:member(maps:get(status, info(Ftr)),
+                         [experimental, approved])].
 
 is_valid(Ftr) ->
     lists:member(Ftr, all()).
+
+is_configurable(Ftr) ->
+    lists:member(Ftr, configurable()).
 
 -spec short(feature()) -> iolist() | no_return().
 short(Feature) ->
@@ -187,20 +200,13 @@ keyword_fun(Opts, KeywordFun) ->
                (_) -> false
             end,
     FeatureOps = lists:filter(IsFtr, Opts),
-    {AddFeatures, DelFeatures} = collect_features(FeatureOps),
-    %% FIXME check that all features are known at this stage so we
-    %% don't miss out on reporting any unknown features.
+    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps),
 
-    case add_features_fun(AddFeatures, KeywordFun) of
-        {ok, Fun} ->
-            case remove_features_fun(DelFeatures, Fun) of
-                {ok, FunX} ->
-                    {ok, {AddFeatures -- DelFeatures, FunX}};
-                {error, _} = Error ->
-                    %% FIXME We are missing potential incorrect
-                    %% features being disabled
-                    Error
-            end;
+    case configurable_features(RawFtrs) of
+        ok ->
+            {ok, Fun} = add_features_fun(AddFeatures, KeywordFun),
+            {ok, FunX} = remove_features_fun(DelFeatures, Fun),
+            {ok, {AddFeatures -- DelFeatures, FunX}};
         {error, _} = Error ->
             Error
     end.
@@ -210,18 +216,27 @@ keyword_fun(Opts, KeywordFun) ->
           {'ok', {[feature()], fun((atom()) -> boolean())}}
               | {'error', error()}.
 keyword_fun(Ind, Feature, Ftrs, KeywordFun) ->
-    case is_valid(Feature) of
+    case is_configurable(Feature) of
         true ->
             case Ind of
                 enable ->
-                    {ok, {[Feature | Ftrs],
+                    NewFtrs = case lists:member(Feature, Ftrs) of
+                                  true -> Ftrs;
+                                  false -> [Feature | Ftrs]
+                              end,
+                    {ok, {NewFtrs,
                           add_feature_fun(Feature, KeywordFun)}};
                 disable ->
                     {ok, {Ftrs -- [Feature],
                           remove_feature_fun(Feature, KeywordFun)}}
             end;
         false ->
-            {error, {?MODULE, {invalid_features, [Feature]}}}
+            Error =
+                case is_valid(Feature) of
+                    true -> not_configurable;
+                    false -> invalid_features
+                end,
+            {error, {?MODULE, {Error, [Feature]}}}
     end.
 
 add_feature_fun(Feature, F) ->
@@ -241,30 +256,39 @@ remove_feature_fun(Feature, F) ->
     end.
 
 -spec add_features_fun([feature()], fun((atom()) -> boolean())) ->
-          {'ok', fun((atom()) -> boolean())}
-              | {'error', error()}.
+          {'ok', fun((atom()) -> boolean())}.
 add_features_fun(Features, F) ->
-    case lists:all(fun is_valid/1, Features) of
-        true ->
-            {ok, lists:foldl(fun add_feature_fun/2, F, Features)};
-        false ->
-            IsInvalid = fun(Ftr) -> not is_valid(Ftr) end,
-            Invalid = lists:filter(IsInvalid, Features),
-            {error, {?MODULE, {invalid_features, Invalid}}}
-    end.
+    {ok, lists:foldl(fun add_feature_fun/2, F, Features)}.
 
 -spec remove_features_fun([feature()], fun((atom()) -> boolean())) ->
-          {'ok', fun((atom()) -> boolean())}
-              | {'error', error()}.
+          {'ok', fun((atom()) -> boolean())}.
 remove_features_fun(Features, F) ->
-    case lists:all(fun is_valid/1, Features) of
+    {ok, lists:foldl(fun remove_feature_fun/2, F, Features)}.
+
+configurable_features(Features) ->
+    case lists:all(fun is_configurable/1, Features) of
         true ->
-            {ok, lists:foldl(fun remove_feature_fun/2, F, Features)};
+            ok;
         false ->
-            IsInvalid = fun(Ftr) -> not is_valid(Ftr) end,
-            Invalid = lists:filter(IsInvalid, Features),
-            {error, {?MODULE, {invalid_features, Invalid}}}
+            feature_error(Features)
     end.
+
+feature_error(Features) ->
+    IsInvalid = fun(Ftr) -> not is_valid(Ftr) end,
+    IsNonConfig = fun(Ftr) ->
+                          is_valid(Ftr)
+                              andalso
+                                (not is_configurable(Ftr))
+                  end,
+    Invalid = lists:filter(IsInvalid, Features),
+    NonConfig = lists:filter(IsNonConfig, Features),
+    {Error, Culprits} =
+        case {Invalid, NonConfig} of
+            {[], NC} -> {not_configurable, NC};
+            {NV, []} -> {invalid_features, NV};
+            {NV, NC} -> {incorrect_features, NV ++ NC}
+        end,
+    {error, {?MODULE, {Error, Culprits}}}.
 
 -spec format_error(Reason, StackTrace) -> ErrorDescription
               when Reason :: term(),
@@ -280,19 +304,28 @@ format_error(Reason, [{_M, _F, _Args, Info}| _St]) ->
 
 -spec format_error(Reason) -> iolist()
               when Reason :: term().
-format_error({invalid_features, Features}) ->
+format_error({Error, Features}) ->
     Fmt = fun F([Ftr]) -> io_lib:fwrite("'~p'", [Ftr]);
               F([Ftr1, Ftr2]) ->
                   io_lib:fwrite("'~p' and '~p'", [Ftr1, Ftr2]);
               F([Ftr| Ftrs]) ->
                   io_lib:fwrite("'~p', ~s", [Ftr, F(Ftrs)])
           end,
-    case Features of
-        [Ftr] ->
-            io_lib:fwrite("the feature ~s does not exist.", [Fmt([Ftr])]);
-        Ftrs ->
-            io_lib:fwrite("the features ~s do not exist.", [Fmt(Ftrs)])
-    end.
+    FmtStr =
+        case {Error, Features} of
+            {invalid_features, [_]} ->
+                "the feature ~s does not exist.";
+            {invalid_features, _} ->
+                "the features ~s do not exist.";
+            {not_configurable, [_]} ->
+                "the feature ~s is not configurable.";
+            {not_configurable, _} ->
+                "the features ~s are not configurable.";
+            {incorrect_features, _} ->
+                "the features ~s do not exist or are not configurable."
+        end,
+
+    io_lib:fwrite(FmtStr, [Fmt(Features)]).
 
 %% Hold the state of which features are currently enabled.
 %% This is almost static, so we go for an almost permanent state,
@@ -326,7 +359,7 @@ init_features() ->
     F = fun({Tag, String}) ->
                 try
                     Atom = list_to_atom(String),
-                    case is_valid(Atom) of
+                    case is_configurable(Atom) of
                         true -> {true, {feature, Atom, Cnv(Tag)}};
                         false when Atom == all ->
                             {true, {feature, Atom, Cnv(Tag)}};
@@ -337,7 +370,7 @@ init_features() ->
                 end
         end,
     FOps = lists:filtermap(F, FeatureOps),
-    {Features, _} = collect_features(FOps),
+    {Features, _, _} = collect_features(FOps),
     {Enabled, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
@@ -439,37 +472,32 @@ features_in(NameOrBin) ->
             not_found
     end.
 
-approved() ->
-    [Ftr || Ftr <- all(),
-            maps:get(status, info(Ftr)) == approved].
-
-permanent() ->
-    [Ftr || Ftr <- all(),
-            maps:get(status, info(Ftr)) == permanent].
-
 %% Interpret feature ops (enable or disable) to build the full set of
 %% features.  The meta feature 'all' is expanded to all known
 %% features.
 collect_features(FOps) ->
     %% Features enabled by default
-    Enabled = approved() ++ permanent(),
-    collect_features(FOps, Enabled, []).
+    Enabled = [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) == approved],
+    collect_features(FOps, Enabled, [], []).
 
-collect_features([], Add, Del) ->
-    {Add, Del};
-collect_features([{feature, all, enable}| FOps], Add, _Del) ->
-    All = all(),
+collect_features([], Add, Del, Raw) ->
+    {Add, Del, Raw};
+collect_features([{feature, all, enable}| FOps], Add, _Del, Raw) ->
+    All = configurable(),
     Add1 = lists:foldl(fun add_ftr/2, Add, All),
-    collect_features(FOps, Add1, []);
-collect_features([{feature, Feature, enable}| FOps], Add, Del) ->
-    collect_features(FOps, add_ftr(Feature, Add), Del -- [Feature]);
-collect_features([{feature, all, disable}| FOps], _Add, Del) ->
+    collect_features(FOps, Add1, [], Raw);
+collect_features([{feature, Feature, enable}| FOps], Add, Del, Raw) ->
+    collect_features(FOps, add_ftr(Feature, Add), Del -- [Feature],
+                     Raw ++ [Feature]);
+collect_features([{feature, all, disable}| FOps], _Add, Del, Raw) ->
     %% Start over
-    All = all(),
-    collect_features(FOps, [], Del -- All);
-collect_features([{feature, Feature, disable}| FOps], Add, Del) ->
+    All = configurable(),
+    collect_features(FOps, [], Del -- All, Raw);
+collect_features([{feature, Feature, disable}| FOps], Add, Del, Raw) ->
     collect_features(FOps, Add -- [Feature],
-                     add_ftr(Feature, Del)).
+                     add_ftr(Feature, Del),
+                    Raw ++ [Feature]).
 
 add_ftr(F, []) ->
     [F];
@@ -481,65 +509,62 @@ add_ftr(F, [F0| Fs]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Test features - not present in a release
 test_features() ->
-    #{ifn_expr =>
-          #{short => "New expression `ifn cond -> body end`",
+    #{experimental_ftr_1 =>
+          #{short => "Experimental test feature #1",
             description =>
-                "Inclusion of expression `ifn cond -> body end`, which "
-            "evaluates `body` when cond is false.  This is a truly "
-            "experimental feature, present only to show and use the "
-            "support for experimental features.  Not extensively tested.  "
-            "Implementated by a transformation in the parser.",
+                "Test feature in the experimental state. "
+           "It is disabled by default, but can be enabled.",
             status => experimental,
             experimental => 24,
             keywords => ['ifn'],
             type => extension},
-      ifnot_expr =>
-          #{short => "New expression `ifnot cond -> body end`",
+      experimental_ftr_2 =>
+          #{short => "Experimental test features #2",
             description =>
-                "Inclusion of expression `ifnot cond -> body end`, which "
-            "evaluates `body` when cond is false.  This is a truly "
-            "experimental feature, present only to show and use the "
-            "support for experimental features.  Not extensively tested.  "
-            "Similar to ifn_expr, but with a deeper implementation.",
+                "Test feature in experimental state. "
+            "It is disabled by default, but can be enabled.",
             status => experimental,
             experimental => 25,
-            keywords => ['ifnot'],
+            keywords => ['while', 'until'],
             type => extension},
-      unless_expr =>
-          #{short => "`unless <cond> -> <body> end",
+      approved_ftr_1 =>
+          #{short => "Approved test feature #1",
+            description => "Test feature in the approved state.  "
+            "It is on by default and can be disabled.",
+            status => approved,
+            experimental => 24,
+            approved => 25,
+            keywords => [],
+            type => extension},
+      approved_ftr_2 =>
+          #{short => "Approved test feature #2",
             description =>
-                "Introduction of new expression `unless <cond> -> <body> end."
-            " Truly experimental.",
-            status => experimental,
-            experimental => 25,
+                "Test feature in the approved state. "
+            "It is enabled by default, but can still be disabled.",
+            status => approved,
+            experimental => 24,
+            approved => 25,
             keywords => ['unless'],
             type => extension},
-      maps =>
-          #{short => "Add maps as new data type",
-            description => "Add new data type for maps with syntactic "
-            "support in Erlang as well native support in the beam.",
+      permanent_ftr =>
+          #{short => "Permanent test feature",
+            description => "Test feature in the permanent state.  "
+            "This means it is on by default and cannot be disabled.  "
+            "It is now a permanent part of Erlang/OTP.",
             status => permanent,
             experimental => 17,
             approved => 18,
             permanent => 19,
             keywords => [],
             type => extension},
-      cond_expr =>
-          #{short => "Introduce general Lisp style conditional",
+      rejected_ftr =>
+          #{short => "Rejected test feature.",
             description =>
-                "Finally complement the painfully broken `if` "
-            "with a general conditional as in Lisp from the days of old.",
-            status => approved,
+                "Test feature existing only to end up as rejected. "
+            "It is not available and cannot be enabled. "
+            "This should be the only trace of it",
+            status => rejected,
             experimental => 24,
-            approved => 25,
-            keywords => [],
-            type => extension},
-      while_expr =>
-          #{short => "Introduce strange iterative expressions",
-            description =>
-                "Introduce looping constructs, with seemingly "
-            "destructive assignment and vague semantics.",
-            status => experimental,
-            experimental => 25,
-            keywords => ['while', 'until'],
+            rejected => 25,
+            keywords => ['inline', 'return', 'set'],
             type => extension}}.

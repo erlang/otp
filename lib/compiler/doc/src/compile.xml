@@ -236,9 +236,13 @@
             <c>all</c> can be used to enable (disable) all features.
 	    </p>
             <note>
+              <p>This option has no effect when used in a
+              <c>-compile(..)</c> attribute.  Instead, the
+              <c>-feature(..)</c> directive (below) should be used.
+              </p>
               <p><marker id="feature-directive"/>
               A feature can also be enabled (disabled) using the
-              <c>-feature(Feature, enable | disable).</c> module attribute.
+              <c>-feature(Feature, enable | disable).</c> module directive.
               Note that this directive can only be present in a prefix
               of the file, before exports and function definitions.
               This is the preferred method of enabling and disabling

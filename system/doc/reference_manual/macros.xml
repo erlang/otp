@@ -277,6 +277,27 @@ or
   </section>
 
   <section>
+    <title>
+      The -feature() directive
+    </title>
+    <marker id="feature-directive"/>
+
+    <p>
+      The directive <c>-feature(FeatureName, enable | disable)</c> can
+      be used to enable or disable the <seeguide
+      marker="system/reference_manual:features#features">feature</seeguide>
+      <c>FeatureName</c>.  This is the preferred way of enabling
+      (disabling) features, although it is possible to do it with
+      options to the compiler as well.
+    </p>
+    <p>
+      Note that the <c>-feature(..)</c> directive may only appear
+      before any syntax is used.  In practice this means it should
+      appear before any <c>-export(..)</c> or record definitions.
+    </p>
+  </section>
+
+  <section>
     <title>-error() and -warning() directives</title>
 
     <p>The directive <c>-error(Term)</c> causes a compilation error.</p>

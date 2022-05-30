@@ -19,7 +19,7 @@
 %%
 
 %% This module is ignorant about any features and thus use 'ifn',
-%% 'maybe' and 'then' as ordinary atoms.
+%% 'while and 'until' as ordinary atoms.
 
 -module(ignorant_directive).
 
