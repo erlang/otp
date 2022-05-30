@@ -167,6 +167,9 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
+               feature_keywords =               %Keywords in
+                                                %configurable features
+                   feature_keywords() :: #{atom() => atom()},
                bvt = none :: 'none' | [any()],  %Variables in binary pattern
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context(),
@@ -4168,21 +4171,32 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
 	    St
     end.
 
+feature_keywords() ->
+    Features = erl_features:all(),
+    G = fun(Ftr, Map) ->
+                Keywords = erl_features:keywords(Ftr),
+                Add = fun(Keyword, M) -> maps:put(Keyword, Ftr, M) end,
+                lists:foldl(Add, Map, Keywords)
+        end,
+    lists:foldl(G, #{}, Features).
+
 %% keyword_warning(Anno, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
 keyword_warning(Anno, Atom, St) ->
     case is_warn_enabled(keyword_warning, St) of
         true ->
-            Ftrs = erl_features:all(),
-            Reserved =
-                fun(Ftr) ->
-                        lists:member(Atom, erl_features:keywords(Ftr))
-                end,
-            case lists:filter(Reserved, Ftrs) of
-                [] -> St;
-                [Ftr] ->
-                    add_warning(Anno, {future_feature, Ftr, Atom}, St)
+            case erl_anno:text(Anno) of
+                [$'| _] ->
+                    %% Don't warn for quoted atoms
+                    St;
+                _ ->
+                    Keywords = St#lint.feature_keywords,
+                    case maps:find(Atom, Keywords) of
+                        error -> St;
+                        {ok, Ftr} ->
+                            add_warning(Anno, {future_feature, Ftr, Atom}, St)
+                    end
             end;
         false ->
             St
