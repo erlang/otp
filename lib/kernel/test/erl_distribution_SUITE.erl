@@ -2213,21 +2213,34 @@ erl_1424(Config) when is_list(Config) ->
 net_kernel_start(Config) when is_list(Config) ->
     MyName = net_kernel_start_tester,
     register(MyName, self()),
-    net_kernel_start_test(MyName, 120, 8),
-    net_kernel_start_test(MyName, undefined, undefined).
+    net_kernel_start_test(MyName, 120, 8, true, false),
+    net_kernel_start_test(MyName, 120, 8, false, false),
+    net_kernel_start_test(MyName, 120, 8, true, true),
+    net_kernel_start_test(MyName, undefined, undefined, undefined, undefined).
 
-net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
+net_kernel_start_test(MyName, NetTickTime, NetTickIntesity, DistListen, Hidden) ->
     TestNameStr = "net_kernel_start_test_node-"
         ++ integer_to_list(erlang:system_time(seconds))
         ++ "-" ++ integer_to_list(erlang:unique_integer([monotonic,positive])),
     TestNode = list_to_atom(TestNameStr ++ "@" ++ atom_to_list(gethostname())),
     CmdLine = net_kernel_start_cmdline(MyName, list_to_atom(TestNameStr),
-                                       NetTickTime, NetTickIntesity),
+                                       NetTickTime, NetTickIntesity, DistListen, Hidden),
     io:format("Starting test node ~p: ~s~n", [TestNode, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->
+            case DistListen == false of
+                false ->
+                    ok;
+                true ->
+                    receive after 1500 -> ok end,
+                    pang = net_adm:ping(TestNode),
+                    ok
+            end,
             receive
                 {i_am_alive, Pid, Node, NTT} = Msg ->
+                    IsHidden = lists:member(TestNode, nodes(hidden)),
+                    IsVisible = lists:member(TestNode, nodes(visible)),
+                    io:format("IsVisible = ~p~nIsHidden = ~p~n", [IsVisible, IsHidden]),
                     io:format("Response from ~p: ~p~n", [Node, Msg]),
                     rpc:cast(Node, erlang, halt, []),
                     catch erlang:port_close(Port),
@@ -2239,6 +2252,14 @@ net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
                             DefNTT = NTT;
                         false ->
                             NetTickTime = NTT
+                    end,
+                    case DistListen == false orelse Hidden == true of
+                        true ->
+                            true = IsHidden,
+                            false = IsVisible;
+                        false ->
+                            false = IsHidden,
+                            true = IsVisible
                     end
             end,
             ok;
@@ -2246,7 +2267,7 @@ net_kernel_start_test(MyName, NetTickTime, NetTickIntesity) ->
 	    error({open_port_failed, TestNode, Error})
     end.
 
-net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity) ->
+net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity, DistListen, Hidden) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
 	       {ok, [[Prg]]} -> Prg;
@@ -2270,21 +2291,36 @@ net_kernel_start_cmdline(TestName, Name, NetTickTime, NetTickIntensity) ->
                false ->
                    " " ++ integer_to_list(NetTickTime) ++
                        " " ++ integer_to_list(NetTickIntensity)
+           end
+        ++ case DistListen == undefined of
+               true -> "";
+               false -> " " ++ atom_to_list(DistListen)
+           end
+        ++ case Hidden == undefined of
+               true -> "";
+               false -> " " ++ atom_to_list(Hidden)
            end.
 
 net_kernel_start_do_test([TestName, TestNode, Name, NameDomain]) ->
     net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
                              #{name_domain => list_to_atom(NameDomain)});
 
-net_kernel_start_do_test([TestName, TestNode, Name, NameDomain, NetTickTime, NetTickIntensity]) ->
+net_kernel_start_do_test([TestName, TestNode, Name, NameDomain, NetTickTime, NetTickIntensity,
+                          DistListen, Hidden]) ->
     net_kernel_start_do_test(TestName, TestNode, list_to_atom(Name),
                              #{net_ticktime => list_to_integer(NetTickTime),
                                name_domain => list_to_atom(NameDomain),
-                               net_tickintensity => list_to_integer(NetTickIntensity)}).
+                               net_tickintensity => list_to_integer(NetTickIntensity),
+                               dist_listen => list_to_atom(DistListen),
+                               hidden => list_to_atom(Hidden)}).
 
 net_kernel_start_do_test(TestName, TestNode, Name, Options) ->
     case net_kernel:start(Name, Options) of
         {ok, _Pid} ->
+            case maps:get(dist_listen, Options, true) of
+                false -> receive after 3000 -> ok end;
+                true -> ok
+            end,
             Tester = {list_to_atom(TestName), list_to_atom(TestNode)},
             Tester ! {i_am_alive, self(), node(), net_kernel:get_net_ticktime()},
             receive after 60000 -> ok end,

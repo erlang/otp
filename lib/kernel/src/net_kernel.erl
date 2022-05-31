@@ -71,8 +71,7 @@
          nodename/0,
 	 protocol_childspecs/0,
 	 epmd_module/0,
-         get_state/0,
-         dist_listen/0]).
+         get_state/0]).
 
 -export([disconnect/1, async_disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
@@ -414,7 +413,9 @@ retry_request_maybe(Req) ->
 -spec start(Name, Options) -> {ok, pid()} | {error, Reason} when
       Options :: #{name_domain => NameDomain,
                    net_ticktime => NetTickTime,
-                   net_tickintensity => NetTickIntensity},
+                   net_tickintensity => NetTickIntensity,
+                   dist_listen => boolean(),
+                   hidden => boolean()},
       Name :: atom(),
       NameDomain :: shortnames | longnames,
       NetTickTime :: pos_integer(),
@@ -432,6 +433,10 @@ start(Name, Options) when is_atom(Name), is_map(Options) ->
                          (net_tickintensity, Val) when is_integer(Val),
                                                        4 =< Val,
                                                        Val =< 1000 ->
+                             ok;
+                         (dist_listen, Val) when is_boolean(Val) ->
+                             ok;
+                         (hidden, Val) when is_boolean(Val) ->
                              ok;
                          (Opt, Val) ->
                              error({invalid_option, Opt, Val})
@@ -519,7 +524,7 @@ make_init_opts(Opts) ->
     NTT = if NTT1 rem NTI =:= 0 -> NTT1;
              true -> ((NTT1 div NTI) + 1) * NTI
           end,
-    
+
     ND = case maps:find(name_domain, Opts) of
              {ok, ND0} ->
                  ND0;
@@ -527,20 +532,58 @@ make_init_opts(Opts) ->
                  longnames
          end,
 
-    Opts#{net_ticktime => NTT, net_tickintensity => NTI, name_domain => ND}.
+    DL = case split_node(maps:get(name, Opts)) of
+             {"undefined", _} ->
+                 %% dynamic node name implies dist_listen=false
+                 false;
+             _ ->
+                 case maps:find(dist_listen, Opts) of
+                     error ->
+                         dist_listen_argument();
+                     {ok, false} ->
+                         false;
+                     _ ->
+                         true
+                 end
+         end,
+
+    H = case DL of
+            false ->
+                %% dist_listen=false implies hidden=true
+                true;
+            true ->
+                case maps:find(hidden, Opts) of
+                    error ->
+                        hidden_argument();
+                    {ok, true} ->
+                        true;
+                    _ ->
+                        false
+                 end
+         end,
+
+    Opts#{net_ticktime => NTT,
+          net_tickintensity => NTI,
+          name_domain => ND,
+          dist_listen => DL,
+          hidden => H}.
 
 init(#{name := Name,
        name_domain := NameDomain,
        net_ticktime := NetTicktime,
        net_tickintensity := NetTickIntensity,
        clean_halt := CleanHalt,
-       supervisor := Supervisor}) ->
+       supervisor := Supervisor,
+       dist_listen := DistListen,
+       hidden := Hidden}) ->
     process_flag(trap_exit,true),
-    case init_node(Name, NameDomain, CleanHalt) of
+    persistent_term:put({?MODULE, publish_type},
+                        if Hidden -> hidden;
+                           true -> normal
+                        end),
+    case init_node(Name, NameDomain, CleanHalt, DistListen) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
-            persistent_term:put({?MODULE, publish_type},
-                                publish_type()),
             TickInterval = NetTicktime div NetTickIntensity,
 	    Ticker = spawn_link(net_kernel, ticker, [self(), TickInterval]),
 	    {ok, #state{node = Node,
@@ -1805,10 +1848,10 @@ get_proto_mod(_Family, _Protocol, []) ->
 
 %% -------- Initialisation functions ------------------------
 
-init_node(Name, LongOrShortNames, CleanHalt) ->
+init_node(Name, LongOrShortNames, CleanHalt, Listen) ->
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
-	    case start_protos(Node, CleanHalt) of
+	    case start_protos(Node, CleanHalt, Listen) of
 		{ok, Ls} ->
 		    {ok, Node, Ls};
 		Error ->
@@ -1923,65 +1966,57 @@ protocol_childspecs([H|T]) ->
     end.
 
 %%
-%% epmd_module() -> module_name of erl_epmd or similar gen_server_module.
+%% epmd_module argument -> module_name of erl_epmd or similar gen_server_module.
 %%
 
 epmd_module() ->
     case init:get_argument(epmd_module) of
-	{ok,[[Module]]} ->
+        {ok,[[Module | _] | _]} ->
 	    list_to_atom(Module);
 	_ ->
 	    erl_epmd
     end.
 
-%%%
-%%% publish type
-%%%
-publish_type() ->
-    case dist_listen() of
-        false ->
-            hidden;
-        true ->
-            case init:get_argument(hidden) of
-                {ok,[[] | _]} ->
-                    hidden;
-                {ok,[["true" | _] | _]} ->
-                    hidden;
-                _ ->
-                    normal
-            end
+%%
+%% -dist_listen argument -> whether the erlang distribution should listen for connections
+%%
+
+dist_listen_argument() ->
+    case init:get_argument(dist_listen) of
+        {ok,[["false" | _] | _]} ->
+            false;
+        _ ->
+            true
     end.
 
-%%
-%% dist_listen() -> whether the erlang distribution should listen for connections
-%%
-dist_listen() ->
-    case erts_internal:dynamic_node_name() of
-        true ->
-            false;
-        false ->
-            case init:get_argument(dist_listen) of
-                {ok,[[DoListen]]} ->
-                    list_to_atom(DoListen) =/= false;
-                _ ->
-                    true
-            end
+%%%
+%%% -hidden command line argument
+%%%
+
+hidden_argument() ->
+    case init:get_argument(hidden) of
+        {ok,[[] | _]} ->
+            true;
+        {ok,[["true" | _] | _]} ->
+            true;
+        _ ->
+            false
     end.
 
 %%
 %% Start all protocols
 %%
 
-start_protos(Node, CleanHalt) ->
+start_protos(Node, CleanHalt, Listen) ->
     case init:get_argument(proto_dist) of
 	{ok, [Protos]} ->
-	    start_protos(Node, Protos, CleanHalt);
+	    start_protos(Node, Protos, CleanHalt, Listen);
 	_ ->
-	    start_protos(Node, ["inet_tcp"], CleanHalt)
+	    start_protos(Node, ["inet_tcp"], CleanHalt, Listen)
     end.
 
-start_protos(Node, Ps, CleanHalt) ->
-    Listeners = case dist_listen() of
+start_protos(Node, Ps, CleanHalt, Listen) ->
+    Listeners = case Listen of
                     false -> start_protos_no_listen(Node, Ps, [], CleanHalt);
                     _ -> start_protos_listen(Node, Ps, CleanHalt)
                 end,
@@ -2044,7 +2079,7 @@ wrap_creation(Cr) ->
 start_protos_listen(Node, Ps, CleanHalt) ->
     case split_node(Node) of
         {"undefined", _} ->
-            start_protos_no_listen(Node, Ps, [], CleanHalt);
+            error({internal_error, "Dynamic node name and dist listen both enabled"});
         {Name, "@"++Host} ->
             start_protos_listen(list_to_atom(Name), Host, Node, Ps, [], CleanHalt)
     end.
