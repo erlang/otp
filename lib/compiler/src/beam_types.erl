@@ -592,11 +592,9 @@ mtfv_1(A) when is_atom(A) ->
 mtfv_1(B) when is_bitstring(B) ->
     case bit_size(B) of
         0 ->
-            %% This is a bit of a hack, but saying that empty binaries have a
-            %% unit of 8 helps us get rid of is_binary/1 checks.
-            #t_bitstring{size_unit=8};
+            #t_bitstring{size_unit=256};
         Size ->
-            #t_bitstring{size_unit=Size}
+            #t_bitstring{size_unit=gcd(Size, 256)}
     end;
 mtfv_1(F) when is_float(F) ->
     make_float(F);

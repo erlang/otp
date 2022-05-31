@@ -1116,10 +1116,14 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
     Live = get_live(I),
     Dst = beam_arg(Dst0, St),
     Args = bs_args(Args1),
+    Unit0 = maps:get(unit, Anno, 1),
     Unit = case Args of
-               [{atom,append},_Seg,U|_] -> U;
-               [{atom,private_append},_Seg,U|_] -> U;
-               _ -> 1
+               [{atom,append},_Seg,U|_] ->
+                   max(U, Unit0);
+               [{atom,private_append},_Seg,U|_] ->
+                   max(U, Unit0);
+               _ ->
+                   Unit0
            end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
     {Is,St};

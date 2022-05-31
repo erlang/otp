@@ -1012,6 +1012,15 @@ simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     {I, Ts, Ds};
+simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
+         Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = I0#b_set{args=Args},
+    #t_bitstring{size_unit=Unit} = T = type(Op, Args, Anno, Ts0, Ds0),
+    I = beam_ssa:add_anno(unit, Unit, I1),
+    Ts = Ts0#{ Dst => T },
+    Ds = Ds0#{ Dst => I },
+    {I, Ts, Ds};
 simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
@@ -1972,8 +1981,9 @@ type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
         {RetType, _, _} ->
             RetType
     end;
-type(bs_create_bin, _Args, _Anno, _Ts, _Ds) ->
-    #t_bitstring{};
+type(bs_create_bin, Args, _Anno, Ts, _Ds) ->
+    SizeUnit = bs_size_unit(Args, Ts),
+    #t_bitstring{size_unit=SizeUnit};
 type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
     #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
     bs_match_type(Args);
@@ -2176,6 +2186,59 @@ pmt_1([Key0, Value0 | Ss], Ts, Acc0) ->
     pmt_1(Ss, Ts, Acc);
 pmt_1([], _Ts, Acc) ->
     Acc.
+
+bs_size_unit(Args, Ts) ->
+    #t_bitstring{size_unit=Unit0} = beam_types:make_type_from_value(<<>>),
+    Unit = bs_size_unit(Args, Ts, 0, Unit0),
+    safe_gcd(Unit0, Unit).
+
+bs_size_unit([#b_literal{val=Type},#b_literal{val=[U1|_]},Value,SizeTerm|Args],
+             Ts, Size0, U0) ->
+    case {Type,Value,SizeTerm} of
+        {_,_,#b_literal{val=all}} ->
+            case concrete_type(Value, Ts) of
+                #t_bitstring{size_unit=U2} ->
+                    U = safe_gcd(U0, max(U1, U2)),
+                    bs_size_unit(Args, Ts, none, U);
+                _ ->
+                    U = safe_gcd(U0, U1),
+                    bs_size_unit(Args, Ts, none, U)
+            end;
+        {utf8,_,_} ->
+            U = gcd(U0, 8),
+            bs_size_unit(Args, Ts, none, U);
+        {utf16,_,_} ->
+            U = gcd(U0, 16),
+            bs_size_unit(Args, Ts, none, U);
+        {utf32,_,_} ->
+            U = gcd(U0, 32),
+            bs_size_unit(Args, Ts, none, U);
+        {_,_,_} ->
+            case concrete_type(SizeTerm, Ts) of
+                #t_integer{elements={Size1, Size1}}
+                  when is_integer(Size1), is_integer(U1), Size1 >= 0 ->
+                    EffectiveSize = Size1 * U1,
+                    U = safe_gcd(U0, EffectiveSize),
+                    Size = safe_add(Size0, EffectiveSize),
+                    bs_size_unit(Args, Ts, Size, U);
+                _ when is_integer(U1) ->
+                    U = safe_gcd(U0, U1),
+                    bs_size_unit(Args, Ts, none, U);
+                _ ->
+                    bs_size_unit(Args, Ts, none, 1)
+            end
+    end;
+bs_size_unit([], _Ts, none, Unit) ->
+    Unit;
+bs_size_unit([], _Ts, Size, _Unit) when is_integer(Size) ->
+    Size.
+
+safe_gcd(0, Other) -> Other;
+safe_gcd(Other, 0) -> Other;
+safe_gcd(A, B) -> gcd(A, B).
+
+safe_add(none, _) -> none;
+safe_add(A, B) -> A + B.
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.

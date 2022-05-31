@@ -2028,8 +2028,8 @@ types_pp(Config) when is_list(Config) ->
                     {make_inexact_tuple, "{any(), any(), any(), ...}"},
                     {make_union,
                      "'foo' | nonempty_list(1..3) | number(3, 7) |"
-                     " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(24)"},
-                    {make_bitstring, "bitstring(24)"},
+                     " {'tag0', 1, 2} | {'tag1', 3, 4} | bitstring(8)"},
+                    {make_bitstring, "bitstring(8)"},
                     {make_none, "none()"}],
     lists:foreach(fun({FunName, Expected}) ->
                           Actual = map_get(atom_to_list(FunName), ResultTypes),
