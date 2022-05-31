@@ -2521,6 +2521,8 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
     ErlHeapFragment *hfrag;
     ErlOffHeap *ohp;
     ErtsMessage *mp;
+    Eterm ordered_from;
+    int force_flush;
 
     ASSERT(is_atom(node));
 
@@ -2593,8 +2595,22 @@ erts_proc_sig_send_dist_spawn_reply(Eterm node,
     ERL_MESSAGE_FROM(mp) = node;
     ERL_MESSAGE_TOKEN(mp) = token_copy;
 
-    if (!proc_queue_signal(NULL, am_spawn_service, to, (ErtsSignal *)mp, 0,
-                           ERTS_SIG_Q_OP_DIST_SPAWN_REPLY)) {
+    /*
+     * Sent from spawn-service at node, but we need to order this
+     * signal against signals sent from the spawned process, so
+     * we need to pass the pid of the spawned process as from
+     * parameter or flush if connection was lost...
+     */
+    if (is_external_pid(result)) {
+        force_flush = 0;
+        ordered_from = result;
+    }
+    else {
+        force_flush = result == am_noconnection;
+        ordered_from = am_spawn_service;
+    }
+    if (!proc_queue_signal(NULL, ordered_from, to, (ErtsSignal *)mp,
+                           force_flush, ERTS_SIG_Q_OP_DIST_SPAWN_REPLY)) {
         mp->next = NULL;
         mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
         ERL_MESSAGE_TERM(mp) = msg;

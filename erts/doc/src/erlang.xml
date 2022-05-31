@@ -8097,6 +8097,11 @@ true</pre>
 	  </p>
 	  </item>
 	</taglist>
+        <p>
+          If a spawn reply message is delivered, it is guaranteed to be
+          delivered before any other signals from the newly spawned
+          process are delivered to the process issuing the spawn request.
+        </p>
 	<p>This function will fail with a <c>badarg</c> exception if:
 	</p>
 	<list>
