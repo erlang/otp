@@ -440,4 +440,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 Uint erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments);
 void erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
                        Sint vlen, Uint fragments, Uint fragments_size);
+
+int erts_is_this_node_alive(void);
+
 #endif

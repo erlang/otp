@@ -245,6 +245,7 @@ atom dsend_continue_trap
 atom duplicate_bag
 atom duplicated
 atom dupnames
+atom dynamic_node_name
 atom einval
 atom emu_flavor
 atom emu_type
