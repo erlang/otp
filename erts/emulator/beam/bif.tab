@@ -109,7 +109,9 @@ bif erlang:monitor_node/2
 bif erlang:monitor_node/3
 ubif erlang:node/1
 ubif erlang:node/0
+bif erlang:nodes/0
 bif erlang:nodes/1
+bif erlang:nodes/2
 bif erlang:now/0
 bif erlang:monotonic_time/0
 bif erlang:monotonic_time/1
