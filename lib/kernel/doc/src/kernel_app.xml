@@ -176,12 +176,6 @@
 	   <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl>.</p></item>
         </taglist>
       </item>
-      <tag><marker id="dist_listen"/><c>dist_listen = boolean()</c></tag>
-      <item>
-        <p>Specifies whether this node should be listening for incoming
-        distribution connections. Using this option implies that the node
-        also is <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom>.</p>
-      </item>
       <tag><marker id="permissions"/><c>permissions = [Perm]</c></tag>
       <item>
         <p>Specifies the default permission for applications when they
