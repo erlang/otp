@@ -4735,6 +4735,36 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 }
 
 /*
+ * erts_is_this_node_alive() returns the same result as erlang:is_alive()
+ */
+int
+erts_is_this_node_alive(void)
+{
+    Eterm tmp_heap[3];
+    Eterm dyn_name_key, dyn_name_value;
+
+    /*
+     * erts_is_alive is only non zero if a node name has been set. Not if
+     * dynamic node name has been enabled.
+     */
+    if (erts_is_alive) {
+        return !0;
+    }
+
+    /*
+     * A persistent term with key '{erts_internal, dynamic_node_name}' has been
+     * set if dynamic node name has been enabled.
+     */
+    dyn_name_key = TUPLE2(&tmp_heap[0], am_erts_internal, am_dynamic_node_name);
+    dyn_name_value = erts_persistent_term_get(dyn_name_key);
+    if (is_value(dyn_name_value) && dyn_name_value != am_false) {
+        return !0;
+    }
+
+    return 0;
+}
+
+/*
  * erts_internal:create_dist_channel/4 is used by
  * erlang:setnode/3.
  */
@@ -5970,7 +6000,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     if (is_not_atom(Node))
         goto badarg;
 
-    if (erts_this_node->sysname == am_Noname && Node != am_Noname) {
+    if (Node != am_Noname && !erts_is_this_node_alive()) {
         ERTS_BIF_PREP_ERROR(ret, p, EXC_NOTALIVE);
         goto do_return;
     }

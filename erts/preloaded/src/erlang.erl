@@ -1279,7 +1279,7 @@ iolist_to_iovec(_IoListOrBinary) ->
 %% is_alive/0
 -spec is_alive() -> boolean().
 is_alive() ->
-    erlang:whereis(net_kernel) =/= undefined.
+    erlang:node() =/= nonode@nohost orelse erts_internal:dynamic_node_name().
 
 %% is_builtin/3
 -spec erlang:is_builtin(Module, Function, Arity) -> boolean() when

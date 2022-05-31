@@ -765,7 +765,7 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
                 goto badarg;
             if (is_not_atom(tpl[1]) || is_not_atom(tpl[2]))
                 goto badarg;
-            if (!erts_is_alive && tpl[2] != am_Noname)
+            if (tpl[2] != am_Noname && !erts_is_this_node_alive())
                 goto badarg;
             target = tpl[1];
             dep = erts_find_or_insert_dist_entry(tpl[2]);
