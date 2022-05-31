@@ -148,7 +148,7 @@ publish_flag(_, NameMeFlg, _) when (NameMeFlg band ?DFLAG_NAME_ME) =/= 0 ->
     ?DFLAG_NAME_ME;
 publish_flag(hidden, _, _) ->
     0;
-publish_flag(_, _, OtherNode) when is_atom(OtherNode) ->
+publish_flag(_, _, OtherNode) ->
     case net_kernel:publish_on_node(OtherNode) of
 	true ->
 	    ?DFLAG_PUBLISHED;

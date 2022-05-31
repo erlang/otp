@@ -36,26 +36,29 @@
 -export([send/3]).
 -export([whereis_name/1]).
 -export([whereis_name/2]).
--export([global_groups_changed/1]).
--export([global_groups_added/1]).
--export([global_groups_removed/1]).
 -export([sync/0]).
--export([ng_add_check/2, ng_add_check/3]).
-
 -export([info/0]).
--export([registered_names_test/1]).
--export([send_test/2]).
--export([whereis_name_test/1]).
--export([get_own_nodes/0, get_own_nodes_with_errors/0]).
--export([publish_on_nodes/0]).
 
--export([config_scan/1, config_scan/2]).
+%% Kernel application internal exports
+
+-export([global_groups_changed/1,
+         global_groups_added/1,
+         global_groups_removed/1,
+         get_own_nodes/0,
+         get_own_nodes_with_errors/0,
+         member/1,
+         participant/1,
+         publish/2,
+         group_configured/0]).
 
 %% Internal exports
--export([sync_init/4]).
+-export([ng_add_check/2,
+         ng_add_check/3,
+         registered_names_test/1,
+         send_test/2,
+         whereis_name_test/1]).
 
-
--define(cc_vsn, 2).
+-define(cc_vsn, 3).
 
 %%%====================================================================================
 
@@ -67,7 +70,7 @@
                      | {GroupName :: group_name(),
                         PublishType :: publish_type(),
                         [node()]}.
-
+-type node_state() :: 'sync' | 'sync_error' | 'no_contact'.
 %%%====================================================================================
 %%% The state of the global_group process
 %%% 
@@ -78,22 +81,45 @@
 %%% no_contact =  Nodes which we haven't had contact with yet
 %%% sync_error =  Nodes which we haven't had contact with yet
 %%% other_grps =  list of other global group names and nodes, [{otherName, [Node]}]
-%%% node_name =   Own node 
 %%% monitor =     List of Pids requesting nodeup/nodedown
 %%%====================================================================================
 
 -record(state, {sync_state = no_conf        :: sync_state(),
-		connect_all                 :: boolean(),
 		group_name = []             :: group_name() | [],
-		nodes = []                  :: [node()],
-		no_contact = []             :: [node()],
-		sync_error = [],
+		nodes = #{}                 :: #{node() => node_state()},
 		other_grps = [], 
-		node_name = node()          :: node(),
 		monitor = [],
-		publish_type = normal       :: publish_type(),
-		group_publish_type = normal :: publish_type()}).
+		group_publish_type = normal :: publish_type(),
+                connections                 :: #{node() => non_neg_integer()},
+                erpc_requests               :: erpc:request_id_collection(),
+                config_check                :: 'undefined'
+                                             | {reference(),
+                                                #{node() => reference()}}}).
 
+%%%====================================================================================
+%%% Configuration record. Returned by:
+%%% * fetch_new_group_conf/1,2        -- Fetch and install new configuration
+%%% * new_group_conf/2,3              -- Install new configuration
+%%% * lookup_group_conf/1             -- Lookup installed configuration (will fetch
+%%%                                      and install configuration if it has not
+%%%                                      been initialized)
+%%% * alive_state_change_group_conf/1 -- Adjust configuration according to alive
+%%%                                      state
+%%%====================================================================================
+-record(gconf, {parameter_value = invalid   :: [group_tuple()]
+                                             | undefined
+                                             | invalid,
+                node_name                   :: node() | 'undefined',
+                group_name = []             :: group_name() | [],
+                group_publish_type = normal :: publish_type(),
+                group_list = []             :: [node()],
+                group_map = all             :: 'all' | #{ node() => ok },
+                other_groups = []           :: [group_tuple()],
+                state = no_conf             :: 'no_conf'
+                                             | 'conf'
+                                             | {error,
+                                                term(),
+                                                [group_tuple()]}}).
 
 %%%====================================================================================
 %%% External exported
@@ -165,12 +191,6 @@ global_groups_removed(NewPara) ->
 sync() ->
     request(sync).
 
-ng_add_check(Node, OthersNG) ->
-    ng_add_check(Node, normal, OthersNG).
-
-ng_add_check(Node, PubType, OthersNG) ->
-    request({ng_add_check, Node, PubType, OthersNG}).
-
 -type info_item() :: {'state', State :: sync_state()}
                    | {'own_group_name', GroupName :: group_name()}
                    | {'own_group_nodes', Nodes :: [node()]}
@@ -183,6 +203,14 @@ ng_add_check(Node, PubType, OthersNG) ->
 -spec info() -> [info_item()].
 info() ->
     request(info, 3000).
+
+%% global_group internal...
+
+ng_add_check(Node, OthersNG) ->
+    ng_add_check(Node, normal, OthersNG).
+
+ng_add_check(Node, PubType, OthersNG) ->
+    request({ng_add_check, Node, PubType, OthersNG}).
 
 %% ==== ONLY for test suites ====
 registered_names_test(Arg) ->
@@ -214,8 +242,8 @@ request(Req, Time) ->
 %%% Otherwise a sync process is started to check that all nodes in the own global
 %%% group have the same configuration. This is done by sending 'conf_check' to all
 %%% other nodes and requiring 'conf_check_result' back.
-%%% If the nodes are not in agreement of the configuration the global_group process 
-%%% will remove these nodes from the #state.nodes list. This can be a normal case
+%%% If the nodes are not in agreement of the configuration the global_group process,
+%%% these nodes will be set in a state different than 'sync'. This can be a normal case
 %%% at release upgrade when all nodes are not yet upgraded.
 %%%
 %%% It is possible to manually force a sync of the global_group. This is done for 
@@ -233,49 +261,66 @@ stop() -> gen_server:call(global_group, stop, infinity).
 
 init([]) ->
     process_flag(priority, max),
-    ok = net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true, #{connection_id => true}),
     put(registered_names, [undefined]),
     put(send, [undefined]),
     put(whereis_name, [undefined]),
     process_flag(trap_exit, true),
-    Ca = case init:get_argument(connect_all) of
-	     {ok, [["false"]]} ->
-		 false;
-	     _ ->
-		 true
-	 end,
-    PT = publish_arg(),
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    update_publish_nodes(PT),
-	    {ok, #state{publish_type = PT,
-			connect_all = Ca}};
-	{ok, []} ->
-	    update_publish_nodes(PT),
-	    {ok, #state{publish_type = PT,
-			connect_all = Ca}};
-	{ok, NodeGrps} ->
-	    {DefGroupName, PubTpGrp, DefNodes, DefOther} = 
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			update_publish_nodes(PT),
-			exit({error, {'invalid global_groups definition', NodeGrps}});
-		    {DefGroupNameT, PubType, DefNodesT, DefOtherT} ->
-			update_publish_nodes(PT, {PubType, DefNodesT}),
-			%% First disconnect any nodes not belonging to our own group
-			disconnect_nodes(nodes(connected) -- DefNodesT),
-			lists:foreach(fun(Node) ->
-					      erlang:monitor_node(Node, true)
-				      end,
-				      DefNodesT),
-			{DefGroupNameT, PubType, lists:delete(node(), DefNodesT), DefOtherT}
-		end,
-	    {ok, #state{publish_type = PT, group_publish_type = PubTpGrp,
-			sync_state = synced, group_name = DefGroupName, 
-			no_contact = lists:sort(DefNodes), 
-			other_grps = DefOther, connect_all = Ca}}
-    end.
 
+    GGC = spawn_link(fun global_group_check_dispatcher/0),
+    register(global_group_check, GGC),
+    put(global_group_check, GGC),
+
+    %% There are most likely no connected nodes at this stage,
+    %% but check to make sure...
+    Conns = lists:foldl(fun ({N, #{connection_id := CId}}, Cs) ->
+                                Cs#{N => CId}
+                        end,
+                        #{},
+                        nodes(visible, #{connection_id => true})),
+    S = initial_group_setup(fetch_new_group_conf(true, node()), Conns,
+                            erpc:reqids_new()),
+    {ok, S}.
+
+initial_group_setup(#gconf{state = no_conf}, Conns, Reqs) ->
+    #state{connections = Conns,
+           erpc_requests = Reqs};
+initial_group_setup(#gconf{state = {error, _Err, NodeGrps}},
+                    _Conns, _Reqs) ->
+    exit({error, {'invalid global_groups definition', NodeGrps}});
+initial_group_setup(#gconf{node_name = NodeName,
+                           group_name = DefGroupName,
+                           group_list = DefNodesT,
+                           group_publish_type = PubTpGrp,
+                           other_groups = DefOther}, Conns, Reqs) ->
+
+    DefNodes = lists:delete(NodeName, DefNodesT),
+    ConnectedNodes = maps:keys(Conns),
+    DisconnectNodes = ConnectedNodes -- DefNodes,
+    NotConnectedOwnNodes = DefNodes -- ConnectedNodes,
+    ConnectedOwnNodes = DefNodes -- NotConnectedOwnNodes,
+    %% First disconnect any nodes not belonging to our own group
+    disconnect_nodes(DisconnectNodes, Conns),
+    
+    %% Schedule group consistency check for all nodes. The response
+    %% is later handled in handle_erpc_response(). 
+    NewReqs = schedule_conf_changed_checks(DefNodes, Reqs, Conns),
+
+    %% Set connected nodes in sync_error state since, we
+    %% have not yet verified their configuration...
+    Nodes0 = lists:foldl(fun (Node, Acc) ->
+                                 Acc#{Node => sync_error}
+                         end,
+                         #{}, ConnectedOwnNodes),
+    Nodes = lists:foldl(fun (Node, Acc) ->
+                                Acc#{Node => no_contact}
+                        end,
+                        Nodes0, NotConnectedOwnNodes),
+
+    #state{group_publish_type = PubTpGrp,
+           sync_state = synced, group_name = DefGroupName,
+           nodes = Nodes, other_grps = DefOther,
+           connections = Conns, erpc_requests = NewReqs}.
 
 %%%====================================================================================
 %%% sync() -> ok 
@@ -284,37 +329,51 @@ init([]) ->
 %%% a release upgrade. It can also be ordered if something has made the nodes
 %%% to disagree of the global_groups definition.
 %%%====================================================================================
-handle_call(sync, _From, S) ->
+handle_call(sync, _From, #state{nodes = OldNodes,
+                                connections = Conns} = S) ->
 %    io:format("~p sync ~p~n",[node(), application:get_env(kernel, global_groups)]),
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    update_publish_nodes(S#state.publish_type),
-	    {reply, ok, S};
-	{ok, []} ->
-	    update_publish_nodes(S#state.publish_type),
-	    {reply, ok, S};
-	{ok, NodeGrps} ->
-	    {DefGroupName, PubTpGrp, DefNodes, DefOther} = 
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			exit({error, {'invalid global_groups definition', NodeGrps}});
-		    {DefGroupNameT, PubType, DefNodesT, DefOtherT} ->
-			update_publish_nodes(S#state.publish_type, {PubType, DefNodesT}),
-			%% First inform global on all nodes not belonging to our own group
-			disconnect_nodes(nodes(connected) -- DefNodesT),
-			%% Sync with the nodes in the own group
-			kill_global_group_check(),
-			Pid = spawn_link(?MODULE, sync_init, 
-					 [sync, DefGroupNameT, PubType, DefNodesT]),
-			register(global_group_check, Pid),
-			{DefGroupNameT, PubType, lists:delete(node(), DefNodesT), DefOtherT}
-		end,
-	    {reply, ok, S#state{sync_state = synced, group_name = DefGroupName, 
-				no_contact = lists:sort(DefNodes), 
-				other_grps = DefOther, group_publish_type = PubTpGrp}}
+
+    case lookup_group_conf(true) of
+        #gconf{state = no_conf,
+               group_name = DefGroupName,
+               group_list = _DefNodesT,
+               group_publish_type = PubTpGrp,
+               other_groups = DefOther} ->
+	    {reply, ok, S#state{sync_state = no_conf,
+                                group_name = DefGroupName,
+                                nodes = #{},
+                                group_publish_type = PubTpGrp,
+                                other_grps = DefOther}};
+
+        #gconf{state = {error, _Err, NodeGrps}} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+
+        #gconf{group_name = DefGroupName,
+               group_list = DefNodesT,
+               group_publish_type = PubTpGrp,
+               other_groups = DefOther} ->
+            DefNodes = lists:delete(node(), DefNodesT),
+            %% First inform global on all nodes not belonging to our own group
+            disconnect_nodes(nodes() -- DefNodes, Conns),
+            %% Sync with the nodes in the own group
+
+            SyncSession = make_ref(),
+
+            CCMsg = {conf_check, ?cc_vsn, node(), {self(), SyncSession},
+                     sync, DefGroupName, PubTpGrp, DefNodesT},
+            {NewNodes, Mons}
+                = lists:foldl(fun (N, {Nacc, Macc}) ->
+                                      GG = {global_group, N},
+                                      M = erlang:monitor(process, GG),
+                                      gen_server:cast(GG, CCMsg),
+                                      NS = maps:get(N, OldNodes, no_contact),
+                                      {Nacc#{N => NS}, Macc#{N => M}}
+                              end, {#{}, #{}}, DefNodes),
+	    {reply, ok, S#state{sync_state = synced, group_name = DefGroupName,
+                                nodes = NewNodes, other_grps = DefOther,
+                                group_publish_type = PubTpGrp,
+                                config_check = {SyncSession, Mons}}}
     end;
-
-
 
 %%%====================================================================================
 %%% global_groups() -> {OwnGroupName, [OtherGroupName]} | undefined
@@ -347,7 +406,6 @@ handle_call({monitor_nodes, Flag}, {Pid, _}, StateIn) ->
     {Res, State} = monitor_nodes(Flag, Pid, StateIn),
     {reply, Res, State};
 
-
 %%%====================================================================================
 %%% own_nodes() -> [Node] 
 %%%
@@ -358,8 +416,7 @@ handle_call(own_nodes, _From, S) ->
 		no_conf ->
 		    [node() | nodes()];
 		synced ->
-		    get_own_nodes()
-%		    S#state.nodes
+		    get_own_nodes(true)
 	    end,
     {reply, Nodes, S};
 
@@ -503,22 +560,27 @@ handle_call({whereis_name, {node, Node}, Name}, From, S) ->
 %%% The node is not resynced automatically because it would cause this node to
 %%% be disconnected from those nodes not yet been upgraded.
 %%%====================================================================================
-handle_call({global_groups_changed, NewPara}, _From, S) ->
-    {NewGroupName, PubTpGrp, NewNodes, NewOther} = 
-	case catch config_scan(NewPara, publish_type) of
-	    {error, _Error2} ->
-		exit({error, {'invalid global_groups definition', NewPara}});
-	    {DefGroupName, PubType, DefNodes, DefOther} ->
-		update_publish_nodes(S#state.publish_type, {PubType, DefNodes}),
-		{DefGroupName, PubType, DefNodes, DefOther}
-	end,
+handle_call({global_groups_changed, NewPara}, _From,
+            #state{erpc_requests = Reqs,
+                   nodes = OldNodes,
+                   connections = Conns} = S) ->
 
-    %% #state.nodes is the common denominator of previous and new definition
-    NN = NewNodes -- (NewNodes -- S#state.nodes),
-    %% rest of the nodes in the new definition are marked as not yet contacted
-    NNC = (NewNodes -- S#state.nodes) --  S#state.sync_error,
-    %% remove sync_error nodes not belonging to the new group
-    NSE = NewNodes -- (NewNodes -- S#state.sync_error),
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = NewNodesListT,
+           other_groups = NewOther,
+           state = GState} = new_group_conf(true, NewPara),
+
+    case GState of
+        no_conf ->
+            exit({error, 'no global_groups definiton'});
+        {error, _Err, NodeGrps} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+        _ ->
+            ok
+    end,
+
+    NewNodesList = lists:delete(node(), NewNodesListT),
 
     %% Disconnect the connection to nodes which are not in our old global group.
     %% This is done because if we already are aware of new nodes (to our global
@@ -528,59 +590,78 @@ handle_call({global_groups_changed, NewPara}, _From, S) ->
     %% manually force a sync of the nodes after all nodes being uppgraded.
     %% We must disconnect also if some nodes to which we have a connection
     %% will not be in any global group at all.
-    force_nodedown(nodes(connected) -- NewNodes),
+    force_nodedown(nodes(connected) -- NewNodesList, Conns),
 
-    NewS = S#state{group_name = NewGroupName, 
-		   nodes = lists:sort(NN), 
-		   no_contact = lists:sort(lists:delete(node(), NNC)), 
-		   sync_error = lists:sort(NSE), 
+    NewNodes = lists:foldl(fun (N, Nacc) ->
+                                   NS = maps:get(N, OldNodes, no_contact),
+                                   Nacc#{N => NS}
+                           end, #{}, NewNodesList),
+
+    %% Schedule group consistency check due to config change. The response is
+    %% later handled in handle_erpc_response()...
+    NewReqs = schedule_conf_changed_checks(NewNodesList, Reqs, Conns),
+
+    NewS = S#state{group_name = NewGroupName,
+		   nodes = NewNodes,
 		   other_grps = NewOther,
-		   group_publish_type = PubTpGrp},
+		   group_publish_type = PubTpGrp,
+                   erpc_requests = NewReqs,
+                   config_check = undefined},
     {reply, ok, NewS};
-
 
 %%%====================================================================================
 %%% global_groups parameter added
 %%% The node is not resynced automatically because it would cause this node to
 %%% be disconnected from those nodes not yet been upgraded.
 %%%====================================================================================
-handle_call({global_groups_added, NewPara}, _From, S) ->
+handle_call({global_groups_added, NewPara}, _From,
+            #state{connections = Conns,
+                   erpc_requests = Reqs} = S) ->
 %    io:format("### global_groups_changed, NewPara ~p ~n",[NewPara]),
-    {NewGroupName, PubTpGrp, NewNodes, NewOther} = 
-	case catch config_scan(NewPara, publish_type) of
-	    {error, _Error2} ->
-		exit({error, {'invalid global_groups definition', NewPara}});
-	    {DefGroupName, PubType, DefNodes, DefOther} ->
-		update_publish_nodes(S#state.publish_type, {PubType, DefNodes}),
-		{DefGroupName, PubType, DefNodes, DefOther}
-	end,
+
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = NewNodesList,
+           other_groups = NewOther,
+           state = GState} = new_group_conf(true, NewPara),
+
+    case GState of
+        no_conf ->
+            exit({error, 'no global_groups definiton'});
+        {error, _Err, NodeGrps} ->
+            exit({error, {'invalid global_groups definition', NodeGrps}});
+        _ ->
+            ok
+    end,
 
     %% disconnect from those nodes which are not going to be in our global group
-    force_nodedown(nodes(connected) -- NewNodes),
+    force_nodedown(nodes(connected) -- NewNodesList, Conns),
 
     %% Check which nodes are already updated
-    OwnNG = get_own_nodes(),
-    NGACArgs = case S#state.group_publish_type of
-		   normal ->
-		       [node(), OwnNG];
-		   _ ->
-		       [node(), S#state.group_publish_type, OwnNG]
-	       end,
-    {NN, NNC, NSE} = 
-	lists:foldl(fun(Node, {NN_acc, NNC_acc, NSE_acc}) -> 
-			    case rpc:call(Node, global_group, ng_add_check, NGACArgs) of
-				{badrpc, _} ->
-				    {NN_acc, [Node | NNC_acc], NSE_acc};
-				agreed ->
-				    {[Node | NN_acc], NNC_acc, NSE_acc};
-				not_agreed ->
-				    {NN_acc, NNC_acc, [Node | NSE_acc]}
-			    end
-		    end,
-		    {[], [], []}, lists:delete(node(), NewNodes)),
-    NewS = S#state{sync_state = synced, group_name = NewGroupName, nodes = lists:sort(NN), 
-		   sync_error = lists:sort(NSE), no_contact = lists:sort(NNC), 
-		   other_grps = NewOther, group_publish_type = PubTpGrp},
+    NGACArgs = [node(), PubTpGrp, NewNodesList],
+
+    %% Schedule ng_add_check on all nodes in our configuration and build up
+    %% the nodes map. The responses to the ng_add_check are later handled in
+    %% handle_erpc_response(). 
+    {NewReqs, NewNodes}
+        = lists:foldl(
+            fun (N, {Racc, Nacc}) ->
+                    CId = maps:get(N, Conns, not_connected),
+                    NRacc = erpc:send_request(N, ?MODULE, ng_add_check,
+                                              NGACArgs,
+                                              {ng_add_check, N, CId},
+                                              Racc),
+                    What = if CId == not_connected -> no_contact;
+                              true -> sync_error
+                           end,
+                    {NRacc, Nacc#{N => What}}
+            end,
+            {Reqs, #{}}, lists:delete(node(), NewNodesList)),
+
+    NewS = S#state{sync_state = synced, group_name = NewGroupName,
+                   nodes = NewNodes, erpc_requests = NewReqs,
+                   other_grps = NewOther, group_publish_type = PubTpGrp,
+                   config_check = undefined},
     {reply, ok, NewS};
 
 
@@ -589,10 +670,16 @@ handle_call({global_groups_added, NewPara}, _From, S) ->
 %%%====================================================================================
 handle_call({global_groups_removed, _NewPara}, _From, S) ->
 %    io:format("### global_groups_removed, NewPara ~p ~n",[_NewPara]),
-    update_publish_nodes(S#state.publish_type),
-    NewS = S#state{sync_state = no_conf, group_name = [], nodes = [], 
-		   sync_error = [], no_contact = [], 
-		   other_grps = []},
+
+    #gconf{group_name = NewGroupName,
+           group_publish_type = PubTpGrp,
+           group_list = _NewNodes,
+           other_groups = NewOther,
+           state = no_conf} = new_group_conf(true, undefined),
+
+    NewS = S#state{sync_state = no_conf, group_name = NewGroupName, nodes = #{}, 
+		   other_grps = NewOther, group_publish_type = PubTpGrp,
+                   config_check = undefined},
     {reply, ok, NewS};
 
 
@@ -601,40 +688,37 @@ handle_call({global_groups_removed, _NewPara}, _From, S) ->
 %%% belong to the same global group.
 %%% It could happen that our node is not yet updated with the new node_group parameter
 %%%====================================================================================
-handle_call({ng_add_check, Node, PubType, OthersNG}, _From, S) ->
+handle_call({ng_add_check, Node, PubType, OthersNG}, _From,
+            #state{group_publish_type = OwnPubType} = S) ->
     %% Check which nodes are already updated
-    OwnNG = get_own_nodes(),
-    case S#state.group_publish_type =:= PubType of
-	true ->
-	    case OwnNG of
-		OthersNG ->
-		    NN = [Node | S#state.nodes],
-		    NSE = lists:delete(Node, S#state.sync_error),
-		    NNC = lists:delete(Node, S#state.no_contact),
-		    NewS = S#state{nodes = lists:sort(NN), 
-				   sync_error = NSE, 
-				   no_contact = NNC},
-		    {reply, agreed, NewS};
-		_ ->
-		    {reply, not_agreed, S}
-	    end;
-	_ ->
-	    {reply, not_agreed, S}
+    OwnNodes = get_own_nodes(true),
+    case {PubType, lists:sort(OthersNG)} of
+        {OwnPubType, OwnNodes} ->
+            {reply, agreed, node_state(sync, Node, S)};
+        _ ->
+            {reply, not_agreed, node_state(sync_error, Node, S)}
     end;
-
-
 
 %%%====================================================================================
 %%% Misceleaneous help function to read some variables
 %%%====================================================================================
-handle_call(info, _From, S) ->    
+handle_call(info, _From, S) ->
+    {InSync, SyncError, NoContact}
+        = maps:fold(fun (N, sync, {ISacc, SEacc, NCacc}) ->
+                            {[N|ISacc], SEacc, NCacc};
+                        (N, sync_error, {ISacc, SEacc, NCacc}) ->
+                            {ISacc, [N|SEacc], NCacc};
+                        (N, no_contact, {ISacc, SEacc, NCacc}) ->
+                            {ISacc, SEacc, [N|NCacc]}
+                    end,
+                    {[],[],[]},
+                    S#state.nodes),
     Reply = [{state,          S#state.sync_state},
 	     {own_group_name, S#state.group_name},
-	     {own_group_nodes, get_own_nodes()},
-%	     {"nodes()",      lists:sort(nodes())},
-	     {synced_nodes,   S#state.nodes},
-	     {sync_error,     S#state.sync_error},
-	     {no_contact,     S#state.no_contact},
+	     {own_group_nodes, get_own_nodes(true)},
+	     {synced_nodes,   lists:sort(InSync)},
+	     {sync_error,     lists:sort(SyncError)},
+	     {no_contact,     lists:sort(NoContact)},
 	     {other_groups,   S#state.other_grps},
 	     {monitoring,     S#state.monitor}],
 
@@ -755,221 +839,270 @@ handle_cast({find_name_res, Result, Pid, From}, S) ->
     gen_server:reply(From, Result),
     {noreply, S};
 
-
-%%%====================================================================================
-%%% The node is synced successfully
-%%%====================================================================================
-handle_cast({synced, NoContact}, S) ->
-%    io:format("~p>>>>> synced ~p  ~n",[node(), NoContact]),
-    kill_global_group_check(),
-    Nodes = get_own_nodes() -- [node() | NoContact],
-    {noreply, S#state{nodes = lists:sort(Nodes),
-		      sync_error = [],
-		      no_contact = NoContact}};    
-
-
-%%%====================================================================================
-%%% The node could not sync with some other nodes.
-%%%====================================================================================
-handle_cast({sync_error, NoContact, ErrorNodes}, S) ->
-%    io:format("~p>>>>> sync_error ~p ~p ~n",[node(), NoContact, ErrorNodes]),
-    Txt = io_lib:format("Global group: Could not synchronize with these nodes ~p~n"
-			"because global_groups were not in agreement. ~n", [ErrorNodes]),
-    error_logger:error_report(Txt),
-    kill_global_group_check(),
-    Nodes = (get_own_nodes() -- [node() | NoContact]) -- ErrorNodes,
-    {noreply, S#state{nodes = lists:sort(Nodes), 
-		      sync_error = ErrorNodes,
-		      no_contact = NoContact}};
-
-
 %%%====================================================================================
 %%% Another node is checking this node's group configuration
 %%%====================================================================================
 handle_cast({conf_check, Vsn, Node, From, sync, CCName, CCNodes}, S) ->
     handle_cast({conf_check, Vsn, Node, From, sync, CCName, normal, CCNodes}, S);
     
-handle_cast({conf_check, Vsn, Node, From, sync, CCName, PubType, CCNodes}, S) ->
-    CurNodes = S#state.nodes,
+handle_cast({conf_check, Vsn, Node, From, sync, CCName, PubType, CCNodes},
+            #state{connections = Conns} = S) ->
 %    io:format(">>>>> conf_check,sync  Node ~p~n",[Node]),
     %% Another node is syncing, 
     %% done for instance after upgrade of global_groups parameter
-    NS = 
-	case application:get_env(kernel, global_groups) of
-	    undefined ->
-		%% We didn't have any node_group definition
-		update_publish_nodes(S#state.publish_type),
-		disconnect_nodes([Node]),
-		{global_group_check, Node} ! {config_error, Vsn, From, node()},
-		S;
-	    {ok, []} ->
-		%% Our node_group definition was empty
-		update_publish_nodes(S#state.publish_type),
-		disconnect_nodes([Node]),
-		{global_group_check, Node} ! {config_error, Vsn, From, node()},
-		S;
-	    %%---------------------------------
-	    %% global_groups defined
-	    %%---------------------------------
-	    {ok, NodeGrps} ->
-		case catch config_scan(NodeGrps, publish_type) of
-		    {error, _Error2} ->
-			%% Our node_group definition was erroneous
-			disconnect_nodes([Node]),
-			{global_group_check, Node} ! {config_error, Vsn, From, node()},
-			S#state{nodes = lists:delete(Node, CurNodes)};
+    try
+        CId = case maps:get(Node, Conns, undefined) of
+                  undefined ->
+                      %% We got garbage from someone...
+                      throw({noreply, S});
+                  CId0 ->
+                      CId0
+              end,
+        To = if is_integer(Vsn) andalso Vsn >= 3 ->
+                     case From of
+                         {Pid, _Session} when is_pid(Pid) ->
+                             %% New node that does not use the
+                             %% global_group_check process...
+                             Pid;
+                         _Garbage ->
+                             %% We got garbage from someone...
+                             throw({noreply, S})
+                     end;
+                true ->
+                     %% Old node that still use the
+                     %% global_group_check process...
+                     {global_group_check, Node}
+             end,
+        case lookup_group_conf(true) of
+            #gconf{state = no_conf} ->
+                %% We didn't have any node_group definition
+                disconnect_nodes([Node], Conns),
+                To ! {config_error, Vsn, From, node()},
+                {noreply, S};
 
-		    {CCName, PubType, CCNodes, _OtherDef} ->
-			%% OK, add the node to the #state.nodes if it isn't there
-			update_publish_nodes(S#state.publish_type, {PubType, CCNodes}),
-			global_name_server ! {nodeup, Node},
-			{global_group_check, Node} ! {config_ok, Vsn, From, node()},
-			case lists:member(Node, CurNodes) of
-			    false ->
-				NewNodes = lists:sort([Node | CurNodes]),
-				NSE = lists:delete(Node, S#state.sync_error),
-				NNC = lists:delete(Node, S#state.no_contact),
-				S#state{nodes = NewNodes, 
-				        sync_error = NSE,
-				        no_contact = NNC};
-			    true ->
-				S
-			end;
-		    _ ->
-			%% node_group definitions were not in agreement
-			disconnect_nodes([Node]),
-			{global_group_check, Node} ! {config_error, Vsn, From, node()},
-			NN = lists:delete(Node, S#state.nodes),
-			NSE = lists:delete(Node, S#state.sync_error),
-			NNC = lists:delete(Node, S#state.no_contact),
-			S#state{nodes = NN,
-				sync_error = NSE,
-				no_contact = NNC}
-		end
-	end,
-    {noreply, NS};
+            #gconf{state = {error, _Err, _NodeGrps}} ->
+                disconnect_nodes([Node], Conns),
+                To ! {config_error, Vsn, From, node()},
+                {noreply, node_state(remove, Node, S)};
 
+            #gconf{group_name = CCName,
+                   group_list = CCNodes,
+                   group_publish_type = PubType} ->
+                %% OK, change the state of the node to 'sync'
+                global_name_server ! {group_nodeup, Node, CId},
+                To ! {config_ok, Vsn, From, node()},
+                {noreply, node_state(sync, Node, S)};
+
+            #gconf{} ->
+                %% group definitions were not in agreement
+                disconnect_nodes([Node], Conns),
+                To ! {config_error, Vsn, From, node()},
+                {noreply, node_state(sync_error, Node, S)}
+        end
+    catch
+        throw:{noreply, _} = Return -> Return
+    end;
 
 handle_cast(_Cast, S) ->
 %    io:format("***** handle_cast ~p~n",[_Cast]),
     {noreply, S}.
-    
 
+handle_info(Msg, #state{erpc_requests = Requests} = S) ->
+    try erpc:check_response(Msg, Requests, true) of
+        NoMatch when NoMatch == no_request; NoMatch == no_response ->
+            continue_handle_info(Msg, S);
+        {{response, Result}, Label, NewRequests} ->
+            {noreply,
+             handle_erpc_response(ok, Result, Label,
+                                  S#state{erpc_requests = NewRequests})}
+    catch
+        Class:{Reason, Label, NewRequests} ->
+            {noreply,
+             handle_erpc_response(Class, Reason, Label,
+                                  S#state{erpc_requests = NewRequests})}
+    end.
 
 %%%====================================================================================
-%%% A node went down. If no global group configuration inform global;
-%%% if global group configuration inform global only if the node is one in
-%%% the own global group.
+%%% Distribution on this node was started...
 %%%====================================================================================
-handle_info({nodeup, Node}, S) when S#state.sync_state =:= no_conf ->
+continue_handle_info({nodeup, Node, #{connection_id := undefined}},
+                     #state{connections = Conns, erpc_requests = Reqs}) ->
+    %% Check configuration since we now know how to interpret it
+    %% w<hen we know our name...
+    S = initial_group_setup(alive_state_change_group_conf(Node), Conns, Reqs),
+    send_monitor(S#state.monitor, {nodeup, Node}, S#state.sync_state),
+    {noreply, S};
+
+%%%====================================================================================
+%%% A new node connected...
+%%%====================================================================================
+continue_handle_info({nodeup, Node, #{connection_id := CId}},
+                     #state{sync_state = no_conf,
+                            connections = Conns} = S) ->
 %    io:format("~p>>>>> nodeup, Node ~p ~n",[node(), Node]),
     send_monitor(S#state.monitor, {nodeup, Node}, S#state.sync_state),
-    global_name_server ! {nodeup, Node},
-    {noreply, S};
-handle_info({nodeup, Node}, S) ->
+    {noreply, S#state{connections = Conns#{Node => CId}}};
+continue_handle_info({nodeup, Node, #{connection_id := CId}},
+                     #state{erpc_requests = Reqs, connections = Conns} = S) ->
 %    io:format("~p>>>>> nodeup, Node ~p ~n",[node(), Node]),
-    OthersNG = case S#state.sync_state of
-		   synced ->
-		       X = (catch rpc:call(Node, global_group, get_own_nodes, [])),
-		       case X of
-			   X when is_list(X) ->
-			       lists:sort(X);
-			   _ ->
-			       []
-		       end;
-		   no_conf ->
-		       []
-	       end,
 
-    NNC = lists:delete(Node, S#state.no_contact),
-    NSE = lists:delete(Node, S#state.sync_error),
-    OwnNG = get_own_nodes(),
-    case OwnNG of
-	OthersNG ->
-	    send_monitor(S#state.monitor, {nodeup, Node}, S#state.sync_state),
-	    global_name_server ! {nodeup, Node},
-	    case lists:member(Node, S#state.nodes) of
-		false ->
-		    NN = lists:sort([Node | S#state.nodes]),
-		    {noreply, S#state{nodes = NN, 
-				      no_contact = NNC,
-				      sync_error = NSE}};
-		true ->
-		    {noreply, S#state{no_contact = NNC,
-				      sync_error = NSE}}
-	    end;
-	_ ->
-	    case {lists:member(Node, get_own_nodes()), 
-		  lists:member(Node, S#state.sync_error)} of
-		{true, false} ->
-		    NSE2 = lists:sort([Node | S#state.sync_error]),
-		    {noreply, S#state{no_contact = NNC,
-				      sync_error = NSE2}};
-		_ ->
-		    {noreply, S}
-	    end
+    NewConns = Conns#{Node => CId},
+    case member(true, Node) of
+        false ->
+            %% Node is not part of our group configuration...
+            disconnect_nodes([Node], NewConns),
+            {noreply, S#state{connections = NewConns}};
+        true ->
+                    
+            %% Node is part of our group configuration. Check that it has the
+            %% same view of the configuration as us...
+
+            NewReqs = erpc:send_request(Node, global_group, get_own_nodes, [],
+                                        {nodeup_conf_check, Node, CId}, Reqs),
+
+            %% The response is later handled in handle_erpc_response()...
+
+            %% Set the node in 'sync_error' state. It will later be changed
+            %% to 'sync' if it passes the 'nodeup_conf_check' test...
+            {noreply, node_state(sync_error, Node,
+                                 S#state{erpc_requests = NewReqs,
+                                         connections = NewConns})}
     end;
 
 %%%====================================================================================
-%%% A node has crashed. 
-%%% nodedown must always be sent to global; this is a security measurement
-%%% because during release upgrade the global_groups parameter is upgraded
-%%% before the node is synced. This means that nodedown may arrive from a
-%%% node which we are not aware of.
+%%% Distribution on this node was shut down...
 %%%====================================================================================
-handle_info({nodedown, Node}, S) when S#state.sync_state =:= no_conf ->
+continue_handle_info({nodedown, Node, #{connection_id := undefined}}, S) ->
+    %% Clear group configuration. We don't know how to interpret it
+    %% unless we know our own name...
+    #gconf{state = no_conf,
+           group_name = DefGroupName,
+           group_list = _DefNodes,
+           group_publish_type = PubTpGrp,
+           other_groups = DefOther} = alive_state_change_group_conf(nonode@nohost),
+    send_monitor(S#state.monitor, {nodedown, Node}, no_conf),
+    {noreply, S#state{group_publish_type = PubTpGrp,
+                      sync_state = no_conf, group_name = DefGroupName,
+                      nodes = #{}, other_grps = DefOther,
+                      config_check = undefined}};
+
+%%%====================================================================================
+%%% A node has crashed. 
+%%%====================================================================================
+continue_handle_info({nodedown, Node, _Info},
+                     #state{sync_state = no_conf,
+                            monitor = Monitor,
+                            connections = Conns} = S) ->
 %    io:format("~p>>>>> nodedown, no_conf Node ~p~n",[node(), Node]),
-    send_monitor(S#state.monitor, {nodedown, Node}, S#state.sync_state),
-    global_name_server ! {nodedown, Node},
-    {noreply, S};
-handle_info({nodedown, Node}, S) ->
+    send_monitor(Monitor, {nodedown, Node}, no_conf),
+    {noreply, S#state{connections = maps:remove(Node, Conns)}};
+continue_handle_info({nodedown, Node, _Info},
+                     #state{sync_state = SyncState,
+                            monitor = Monitor,
+                            connections = Conns} = S) ->
 %    io:format("~p>>>>> nodedown, Node ~p  ~n",[node(), Node]),
-    send_monitor(S#state.monitor, {nodedown, Node}, S#state.sync_state),
-    NN = lists:delete(Node, S#state.nodes),
-    NSE = lists:delete(Node, S#state.sync_error),
-    NNC = case lists:member(Node, get_own_nodes()) of
-              false ->
-                  global_name_server ! {ignore_node, Node},
-                  S#state.no_contact;
-              true ->
-                  global_name_server ! {nodedown, Node},
-                  case lists:member(Node, S#state.no_contact) of
-                      false ->
-                          [Node | S#state.no_contact];
-                      true ->
-                          S#state.no_contact
-                  end
-	  end,
-    {noreply, S#state{nodes = NN, no_contact = NNC, sync_error = NSE}};
+    send_monitor(Monitor, {nodedown, Node}, SyncState),
+    {noreply, node_state(no_contact, Node,
+                         S#state{connections = maps:remove(Node, Conns)})};
 
 
 %%%====================================================================================
 %%% A node has changed its global_groups definition, and is telling us that we are not
 %%% included in his group any more. This could happen at release upgrade.
 %%%====================================================================================
-handle_info({disconnect_node, Node}, S) ->
+continue_handle_info({disconnect_node, Node}, #state{monitor = Monitor,
+                                                     sync_state = SyncState,
+                                                     nodes = Nodes,
+                                                     connections = Conns} = S) ->
 %    io:format("~p>>>>> disconnect_node Node ~p CN ~p~n",[node(), Node, S#state.nodes]),
-    case {S#state.sync_state, lists:member(Node, S#state.nodes)} of
-	{synced, true} ->
-	    send_monitor(S#state.monitor, {nodedown, Node}, S#state.sync_state);
-	_ ->
-	    cont
+    case {SyncState, maps:get(Node, Nodes, not_member)} of
+	{synced, sync} -> send_monitor(Monitor, {nodedown, Node}, SyncState);
+	_ -> ok
     end,
-    global_name_server ! {ignore_node, Node},
-    NN = lists:delete(Node, S#state.nodes),
-    NNC = lists:delete(Node, S#state.no_contact),
-    NSE = lists:delete(Node, S#state.sync_error),
-    {noreply, S#state{nodes = NN, no_contact = NNC, sync_error = NSE}};
+    CId = maps:get(Node, Conns, not_connected),
+    global_name_server ! {group_nodedown, Node, CId},
+    {noreply, node_state(sync_error, Node, S)};
 
+continue_handle_info({config_ok, ?cc_vsn, {Pid, CCSession}, Node},
+                     #state{config_check = {CCSession, Mons},
+                            connections = Conns} = S0) when Pid == self() ->
+    try
+        {Mon, NewMons} = case maps:take(Node, Mons) of
+                             error -> throw({noreply, S0});
+                             MonTake -> MonTake
+                         end,
+        erlang:demonitor(Mon),
+        S1 = if map_size(NewMons) == 0 ->
+                     S0#state{config_check = undefined};
+                true ->
+                     S0#state{config_check = {CCSession, NewMons}}
+             end,
+        CId = case maps:get(Node, Conns, undefined) of
+                  undefined -> throw({noreply, S1});
+                  CId0 -> CId0
+              end,
+        global_name_server ! {group_nodeup, Node, CId},
+        {noreply, node_state(sync, Node, S0)}
+    catch
+        throw:{noreply, _} = Return -> Return
+    end;
 
+continue_handle_info({config_error, ?cc_vsn, {Pid, CCSession}, Node},
+                     #state{config_check = {CCSession, Mons},
+                            connections = Conns} = S0) when Pid == self() ->
+    try
+        {Mon, NewMons} = case maps:take(Node, Mons) of
+                             error -> throw({noreply, S0});
+                             MonTake -> MonTake
+                         end,
+        erlang:demonitor(Mon),
+        S1 = if map_size(NewMons) == 0 ->
+                     S0#state{config_check = undefined};
+                true ->
+                     S0#state{config_check = {CCSession, NewMons}}
+             end,
+        CId = maps:get(Node, Conns, not_connected),
+        global_name_server ! {group_nodedown, Node, CId},
+        log_sync_error(Node),
+        {noreply, node_state(sync_error, Node, S1)}
+    catch
+        throw:{noreply, _} = Return -> Return
+    end;
 
+continue_handle_info({'DOWN', Mon, process, {global_group, Node}, Reason},
+                     #state{config_check = {CCSession, Mons},
+                            connections = Conns} = S0) ->
+    %% This clause needs to be the last one matching on 'DOWN'
+    %% messages...
+    try
+        NewMons = case maps:take(Node, Mons) of
+                      {Mon, NewMons0} -> NewMons0;
+                      _ -> throw({noreply, S0})
+                  end,
+        S1 = if map_size(NewMons) == 0 ->
+                     S0#state{config_check = undefined};
+                true ->
+                     S0#state{config_check = {CCSession, NewMons}}
+             end,
+        CId = maps:get(Node, Conns, not_connected),
+        global_name_server ! {group_nodedown, Node, CId},
+        What = if Reason == noconnection ->
+                       no_contact;
+                  true ->
+                       log_sync_error(Node),
+                       sync_error
+               end,
+        {noreply, node_state(What, Node, S1)}
+    catch
+        throw:{noreply, _} = Return -> Return
+    end;
 
-handle_info({'EXIT', ExitPid, Reason}, S) ->
+continue_handle_info({'EXIT', ExitPid, Reason}, S) ->
     check_exit(ExitPid, Reason),
     {noreply, S};
 
 
-handle_info(_Info, S) ->
+continue_handle_info(_Info, S) ->
 %    io:format("***** handle_info = ~p~n",[_Info]),
     {noreply, S}.
 
@@ -982,26 +1115,176 @@ terminate(_Reason, _S) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+log_sync_error(Node) ->
+    Txt = io_lib:format("global_group: Could not synchronize with node ~p~n"
+                        "because global_groups parameter were not in agreement.~n",
+                        [Node]),
+    error_logger:error_report(Txt),
+    ok.
+
+%%%====================================================================================
+%%% Schedule group consistency check due to config change. The response is
+%%% later handled in handle_erpc_response()...
+%%%====================================================================================
+
+schedule_conf_changed_checks(Nodes, Requests, Connections) ->
+    lists:foldl(fun (Node, RequestsAcc) ->
+                        CId = maps:get(Node, Connections, not_connected),
+                        erpc:send_request(Node, global_group, get_own_nodes, [],
+                                          {conf_changed_check, Node, CId},
+                                          RequestsAcc)
+                end, Requests, Nodes).
+
+%%%====================================================================================
+%%% We got a response to an asynchronous erpc request
+%%%====================================================================================
+
+handle_erpc_response(ok, Nodes, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) when is_list(Nodes) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            OwnNodes = get_own_nodes(true),
+
+            case lists:sort(Nodes) of
+                OwnNodes -> %% Node has the same group config as us...
+                    send_monitor(S#state.monitor, {nodeup, Node}, S#state.sync_state),
+                    global_name_server ! {group_nodeup, Node, CId},
+                    node_state(sync, Node, S);
+
+                _ -> %% Node has not the same group config but is in our config...
+                    disconnect_nodes([Node], Conns),
+                    node_state(sync_error, Node, S)
+            end;
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(error, nodedown, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            node_state(no_contact, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(_, _, {nodeup_conf_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            disconnect_nodes([Node], Conns),
+            node_state(sync_error, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(ok, Nodes, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) when is_list(Nodes) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            OwnNodes = get_own_nodes(true),
+
+            case lists:sort(Nodes) of
+                OwnNodes -> %% Node has the same group config as us...
+                    node_state(sync, Node, S);
+
+                _ -> %% Node has not the same group config but is in our config...
+                    disconnect_nodes([Node], Conns),
+                    node_state(sync_error, Node, S)
+            end;
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(error, nodedown, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            node_state(no_contact, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(_, _, {conf_changed_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            disconnect_nodes([Node], Conns),
+            node_state(sync_error, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(ok, agreed, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            node_state(sync, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(error, nodedown, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            node_state(no_contact, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end;
+handle_erpc_response(_, _, {ng_add_check, Node, ReqCId},
+                     #state{connections = Conns} = S) ->
+    case maps:get(Node, Conns, undefined) of
+        CId when ReqCId == CId orelse (ReqCId == not_connected
+                                       andalso is_integer(CId)) ->
+            disconnect_nodes([Node], Conns),
+            node_state(sync_error, Node, S);
+        _ ->
+            %% Connection has gone down since we issued the request;
+            %% no action taken...
+            S
+    end.
 
 
+%%%====================================================================================
+%%% Change state of node
+%%%====================================================================================
 
+node_state(What, Node, #state{nodes = Ns} = S)
+  when What == sync; What == sync_error; What == no_contact ->
+    case member(true, Node) of
+        true -> S#state{nodes = Ns#{Node => What}};
+        false -> S#state{nodes = maps:remove(Node, Ns)}
+    end;
+node_state(remove, Node, #state{nodes = Ns} = S) ->
+    case member(true, Node) of
+        true -> error({removing_node_state_of_member_node, Node});
+        false -> S#state{nodes = maps:remove(Node, Ns)}
+    end.
 
 %%%====================================================================================
 %%% Check the global group configuration.
 %%%====================================================================================
 
-config_scan(NodeGrps) ->
-    config_scan(NodeGrps, original).
-
-config_scan(NodeGrps, original) ->
-    case config_scan(NodeGrps, publish_type) of
-	{DefGroupName, _, DefNodes, DefOther} ->
-	    {DefGroupName, DefNodes, DefOther};
-	Error ->
-	    Error
-    end;
-config_scan(NodeGrps, publish_type) ->
-    config_scan(node(), normal, NodeGrps, no_name, [], []).
+config_scan(MyNode, NodeGrps) ->
+    config_scan(MyNode, normal, NodeGrps, no_name, [], []).
 
 config_scan(_MyNode, PubType, [], Own_name, OwnNodes, OtherNodeGrps) ->
     {Own_name, PubType, lists:sort(OwnNodes), lists:reverse(OtherNodeGrps)};
@@ -1027,97 +1310,120 @@ grp_tuple({Name, hidden, Nodes}) ->
 grp_tuple({Name, normal, Nodes}) ->
     {Name, normal, Nodes}.
 
-    
 %%%====================================================================================
-%%% The special process which checks that all nodes in the own global group
-%%% agrees on the configuration.
+%%% Get/set configuration
 %%%====================================================================================
--spec sync_init(_, _, _, _) -> no_return().
-sync_init(Type, Cname, PubType, Nodes) ->
-    {Up, Down} = sync_check_node(lists:delete(node(), Nodes), [], []),
-    sync_check_init(Type, Up, Cname, Nodes, Down, PubType).
 
-sync_check_node([], Up, Down) ->
-    {Up, Down};
-sync_check_node([Node|Nodes], Up, Down) ->
-    case net_adm:ping(Node) of
-	pang ->
-	    sync_check_node(Nodes, Up, [Node|Down]);
-	pong ->
-	    sync_check_node(Nodes, [Node|Up], Down)
+%%
+%% Fetch and install group configuration...
+%%
+fetch_new_group_conf(GG) ->
+    fetch_new_group_conf(GG, undefined).
+
+fetch_new_group_conf(GG, NodeName) ->
+    GGConf = case application:get_env(kernel, global_groups) of
+                 undefined -> undefined;
+                 {ok, V} -> V
+             end,
+    new_group_conf(GG, GGConf, NodeName).
+
+%%
+%% Install new group configuration...
+%%
+new_group_conf(GG, KernParamValue) ->
+    new_group_conf(GG, KernParamValue, undefined).
+
+new_group_conf(GG, KernParamValue, NodeName) ->
+    case persistent_term:get(?MODULE, #gconf{}) of
+        #gconf{parameter_value = KernParamValue,
+               node_name = Name} = GConf when NodeName == Name;
+                                              NodeName == undefined ->
+            GConf;
+        #gconf{node_name = Name} ->
+            UseNodeName = if NodeName == undefined -> Name;
+                             true -> NodeName
+                          end,
+            GConf = make_group_conf(UseNodeName, KernParamValue),
+            %% Only save in persistent term if called by
+            %% the global_group server...
+            if GG == true -> persistent_term:put(?MODULE, GConf);
+               true -> ok
+            end,
+            GConf
     end.
 
+make_group_conf(NodeName, KernParamValue) when KernParamValue == undefined;
+                                               KernParamValue == [];
+                                               NodeName == nonode@nohost ->
+    %% Empty group configuration if it is not defined, or if we are not
+    %% alive (if we are not alive we cannot interpret the configuration
+    %% since we don't know our own node name)...
+    #gconf{parameter_value = KernParamValue,
+           node_name = NodeName};
+make_group_conf(NodeName, KernParamValue) ->
+    case catch config_scan(NodeName, KernParamValue) of
 
+        {error, Error} ->
+            #gconf{parameter_value = KernParamValue,
+                   node_name = NodeName,
+                   state = {error, Error, KernParamValue}};
 
-%%%-------------------------------------------------------------
-%%% Check that all nodes are in agreement of the global
-%%% group configuration.
-%%%-------------------------------------------------------------
--spec sync_check_init(_, _, _, _, _, _) -> no_return().
-sync_check_init(Type, Up, Cname, Nodes, Down, PubType) ->
-    sync_check_init(Type, Up, Cname, Nodes, 3, [], Down, PubType).
+        {GName, PubTpGrp, OwnNodes, OtherGroups} ->
+            GMap = if OwnNodes == [] ->
+                           all;
+                      true ->
+                           maps:from_list(lists:map(fun (Node) ->
+                                                            {Node, ok}
+                                                    end, OwnNodes))
+                   end,
+            #gconf{parameter_value = KernParamValue,
+                   node_name = NodeName,
+                   group_name = GName,
+                   group_publish_type = PubTpGrp,
+                   group_list = lists:sort(OwnNodes),
+                   group_map = GMap,
+                   other_groups = OtherGroups,
+                   state = conf}
+    end.
 
--spec sync_check_init(_, _, _, _, _, _, _, _) -> no_return().
-sync_check_init(_Type, NoContact, _Cname, _Nodes, 0, ErrorNodes, Down, _PubType) ->
-    case ErrorNodes of
-	[] -> 
-	    gen_server:cast(global_group, {synced, lists:sort(NoContact ++ Down)});
-	_ ->
-	    gen_server:cast(global_group, {sync_error, lists:sort(NoContact ++ Down),
-					   ErrorNodes})
+%%
+%% Adjust group configuration according to alive state
+%%
+alive_state_change_group_conf(NodeName) when NodeName /= undefined ->
+    case persistent_term:get(?MODULE, #gconf{}) of
+        #gconf{parameter_value = ParamValue} when ParamValue /= invalid ->
+            new_group_conf(true, ParamValue, NodeName);
+        #gconf{} ->
+            fetch_new_group_conf(true, NodeName)
+    end.
+
+%%
+%% Lookup current group configuration
+%%
+
+lookup_group_conf(GG) ->
+    try
+        persistent_term:get(?MODULE)
+    catch
+        error:badarg -> fetch_new_group_conf(GG)
+    end.
+
+%%%====================================================================================
+%%% The global_group_check process. It used to take care of syncing other nodes,
+%%% but nowadays only serve as a dispatcher config check reply messages from old
+%%% global_group servers to our global_group server.
+%%%====================================================================================
+
+global_group_check_dispatcher() ->
+    receive
+        {config_ok, _Vsn, _From, _Node} = Msg ->
+            global_group ! Msg, ok;
+        {config_error, _Vsn, _From, _Node} = Msg ->
+            global_group ! Msg, ok;
+        _Garbage ->
+            ok
     end,
-    receive
-	kill ->
-	    exit(normal)
-    after 5000 ->
-	    exit(normal)
-    end;
-
-sync_check_init(Type, Up, Cname, Nodes, N, ErrorNodes, Down, PubType) ->
-    ConfCheckMsg = case PubType of
-		       normal ->
-			   {conf_check, ?cc_vsn, node(), self(), Type, Cname, Nodes};
-		       _ ->
-			   {conf_check, ?cc_vsn, node(), self(), Type, Cname, PubType, Nodes}
-		   end,
-    lists:foreach(fun(Node) -> 
-			  gen_server:cast({global_group, Node}, ConfCheckMsg)
-		  end, Up),
-    case sync_check(Up) of
-	{ok, synced} ->
-	    sync_check_init(Type, [], Cname, Nodes, 0, ErrorNodes, Down, PubType);
-	{error, NewErrorNodes} ->
-	    sync_check_init(Type, [], Cname, Nodes, 0, ErrorNodes ++ NewErrorNodes, Down, PubType);
-	{more, Rem, NewErrorNodes} ->
-	    %% Try again to reach the global_group, 
-	    %% obviously the node is up but not the global_group process.
-	    sync_check_init(Type, Rem, Cname, Nodes, N-1, ErrorNodes ++ NewErrorNodes, Down, PubType)
-    end.
-
-sync_check(Up) ->
-    sync_check(Up, Up, []).
-
-sync_check([], _Up, []) ->
-    {ok, synced};
-sync_check([], _Up, ErrorNodes) ->
-    {error, ErrorNodes};
-sync_check(Rem, Up, ErrorNodes) ->
-    receive
-	{config_ok, ?cc_vsn, Pid, Node} when Pid =:= self() ->
-	    global_name_server ! {nodeup, Node},
-	    sync_check(Rem -- [Node], Up, ErrorNodes);
-	{config_error, ?cc_vsn, Pid, Node} when Pid =:= self() ->
-	    sync_check(Rem -- [Node], Up, [Node | ErrorNodes]);
-	{no_global_group_configuration, ?cc_vsn, Pid, Node} when Pid =:= self() ->
-	    sync_check(Rem -- [Node], Up, [Node | ErrorNodes]);
-	%% Ignore, illegal vsn or illegal Pid
-	_ ->
-	    sync_check(Rem, Up, ErrorNodes)
-    after 2000 ->
-	    %% Try again, the previous conf_check message  
-	    %% apparently disapared in the magic black hole.
-	    {more, Rem, ErrorNodes}
-    end.
+    global_group_check_dispatcher().
 
 
 %%%====================================================================================
@@ -1164,7 +1470,7 @@ send_monitor([], _, _) ->
     ok.
 
 safesend(Name, {Msg, Node}) when is_atom(Name) ->
-    case lists:member(Node, get_own_nodes()) of
+    case member(true, Node) of
 	true ->
 	    case whereis(Name) of 
 		undefined ->
@@ -1176,7 +1482,7 @@ safesend(Name, {Msg, Node}) when is_atom(Name) ->
 	    not_own_group
     end;
 safesend(Pid, {Msg, Node}) -> 
-    case lists:member(Node, get_own_nodes()) of
+    case member(true, Node) of
 	true ->
 	    Pid ! {Msg, Node};
 	false ->
@@ -1205,7 +1511,8 @@ check_exit(ExitPid, Reason) ->
 %    io:format("===EXIT===  ~p ~p ~n~p   ~n~p   ~n~p ~n~n",[ExitPid, Reason, get(registered_names), get(send), get(whereis_name)]),
     check_exit_reg(get(registered_names), ExitPid, Reason),
     check_exit_send(get(send), ExitPid, Reason),
-    check_exit_where(get(whereis_name), ExitPid, Reason).
+    check_exit_where(get(whereis_name), ExitPid, Reason),
+    check_exit_ggc(ExitPid, Reason).
 
 
 check_exit_reg(undefined, _ExitPid, _Reason) ->
@@ -1246,29 +1553,23 @@ check_exit_where(Where, ExitPid, Reason) ->
 	    not_found_ignored
     end.
 
-
-
-%%%====================================================================================
-%%% Kill any possible global_group_check processes
-%%%====================================================================================
-kill_global_group_check() ->
-    case whereis(global_group_check) of
-	undefined ->
-	    ok;
-	Pid ->
-	    unlink(Pid),
-	    global_group_check ! kill,
-	    unregister(global_group_check)
+check_exit_ggc(ExitPid, Reason) ->
+    case get(global_group_check) of
+        ExitPid ->
+            %% Our global_group_check companion died; terminate...
+            exit(Reason);
+        _ ->
+            ok
     end.
-
 
 %%%====================================================================================
 %%% Disconnect nodes not belonging to own global_groups
 %%%====================================================================================
-disconnect_nodes(DisconnectNodes) ->
+disconnect_nodes(DisconnectNodes, Conns) ->
     lists:foreach(fun(Node) ->
-			  {global_group, Node} ! {disconnect_node, node()},
-                          global_name_server ! {ignore_node, Node}
+                          CId = maps:get(Node, Conns, not_connected),
+                          global_name_server ! {group_nodedown, Node, CId},
+			  {global_group, Node} ! {disconnect_node, node()}
 		  end,
 		  DisconnectNodes).
 
@@ -1276,10 +1577,11 @@ disconnect_nodes(DisconnectNodes) ->
 %%%====================================================================================
 %%% Disconnect nodes not belonging to own global_groups
 %%%====================================================================================
-force_nodedown(DisconnectNodes) ->
+force_nodedown(DisconnectNodes, Conns) ->
     lists:foreach(fun(Node) ->
-			  erlang:disconnect_node(Node),
-                          global_name_server ! {ignore_node, Node}
+                          CId = maps:get(Node, Conns, not_connected),
+                          global_name_server ! {group_nodedown, Node, CId},
+			  erlang:disconnect_node(Node)
 		  end,
 		  DisconnectNodes).
 
@@ -1288,92 +1590,96 @@ force_nodedown(DisconnectNodes) ->
 %%% Get the current global_groups definition
 %%%====================================================================================
 get_own_nodes_with_errors() ->
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    {ok, all};
-	{ok, []} ->
-	    {ok, all};
-	{ok, NodeGrps} ->
-	    case catch config_scan(NodeGrps, publish_type) of
-		{error, Error} ->
-		    {error, Error};
-		{_, _, NodesDef, _} ->
-		    {ok, lists:sort(NodesDef)}
-	    end
+    case lookup_group_conf(false) of
+        #gconf{state = {error, Error, _NodeGrps}} ->
+            {error, Error};
+        #gconf{group_list = []} ->
+            {ok, all};
+        #gconf{group_list = Nodes} ->
+            {ok, Nodes}
     end.
 
 get_own_nodes() ->
-    case get_own_nodes_with_errors() of
-	{ok, all} ->
-	    [];
-	{error, _} ->
-	    [];
-	{ok, Nodes} ->
-	    Nodes
-    end.
+    get_own_nodes(false).
 
-%%%====================================================================================
-%%% -hidden command line argument
-%%%====================================================================================
-publish_arg() ->
-    case net_kernel:dist_listen() of
-        false ->
-            hidden;
-        _ ->
-            case init:get_argument(hidden) of
-                {ok,[[]]} ->
-                    hidden;
-                {ok,[["true"]]} ->
-                    hidden;
-                _ ->
-                    normal
-            end
-    end.
-
-%%%====================================================================================
-%%% Own group publication type and nodes
-%%%====================================================================================
-own_group() ->
-    case application:get_env(kernel, global_groups) of
-	undefined ->
-	    no_group;
-	{ok, []} ->
-	    no_group;
-	{ok, NodeGrps} ->
-	    case catch config_scan(NodeGrps, publish_type) of
-		{error, _} ->
-		    no_group;
-		{_, PubTpGrp, NodesDef, _} ->
-		    {PubTpGrp, NodesDef}
-	    end
-    end.
-
-
-%%%====================================================================================
-%%% Help function which computes publication list
-%%%====================================================================================
-publish_on_nodes(normal, no_group) ->
-    all;
-publish_on_nodes(hidden, no_group) ->
-    [];
-publish_on_nodes(normal, {normal, _}) ->
-    all;
-publish_on_nodes(hidden, {_, Nodes}) ->
-    Nodes;
-publish_on_nodes(_, {hidden, Nodes}) ->
+get_own_nodes(GG) when is_boolean(GG) ->
+    get_own_nodes(lookup_group_conf(GG));
+get_own_nodes(#gconf{group_list = Nodes}) ->
     Nodes.
 
 %%%====================================================================================
-%%% Update net_kernels publication list
+%%% Is a group configured?
 %%%====================================================================================
-update_publish_nodes(PubArg) ->
-    update_publish_nodes(PubArg, no_group).
-update_publish_nodes(PubArg, MyGroup) ->
-    net_kernel:update_publish_nodes(publish_on_nodes(PubArg, MyGroup)).
 
+-spec group_configured() -> boolean().
+
+group_configured() ->
+    group_configured(lookup_group_conf(false)).
+
+group_configured(GConf) ->
+    case GConf of
+        #gconf{state = no_conf} ->
+            false;
+        #gconf{} ->
+            true
+    end.
 
 %%%====================================================================================
-%%% Fetch publication list
+%%% Is node a participant?
+%%%
+%%% That is, a node is a participant if it either is a member of our configured group,
+%%% or there are no group configured (in which case all nodes are participants).
 %%%====================================================================================
-publish_on_nodes() ->
-    publish_on_nodes(publish_arg(), own_group()).
+
+-spec participant(Node::node()) -> boolean().
+
+participant(Node) ->
+    case lookup_group_conf(false) of
+        #gconf{group_map = all} ->
+            true;
+        #gconf{group_map = #{Node := ok}} ->
+            true;
+        #gconf{} ->
+            false
+    end.
+
+%%%====================================================================================
+%%% Is node member of our configured group?
+%%%====================================================================================
+
+-spec member(Node::node()) -> boolean().
+
+member(Node) ->
+    member(false, Node).
+
+member(GG, Node) ->
+    case lookup_group_conf(GG) of
+        #gconf{group_map = #{Node := ok}} ->
+            true;
+        #gconf{} ->
+            false
+    end.
+
+%%%====================================================================================
+%%% Publish on node?
+%%%====================================================================================
+
+-spec publish(OwnPublishType, Node) -> boolean() when
+      OwnPublishType :: 'hidden' | 'normal',
+      Node :: node().
+
+publish(OwnPublishType, Node) when (OwnPublishType == normal
+                                    orelse OwnPublishType == hidden)
+                                   andalso is_atom(Node) ->
+    case lookup_group_conf(false) of
+        #gconf{group_map = all} when OwnPublishType == normal ->
+            true;
+        #gconf{group_map = all} when OwnPublishType == hidden ->
+            false;
+        #gconf{group_publish_type = normal} when OwnPublishType == normal ->
+            true;
+        #gconf{group_map = #{Node := ok}} ->
+            true;
+        #gconf{} ->
+            false
+    end.

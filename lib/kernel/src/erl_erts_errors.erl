@@ -607,8 +607,56 @@ format_erlang_error(monotonic_time, [_], _) ->
     [bad_time_unit];
 format_erlang_error(node, [_], _) ->
     [not_pid];
-format_erlang_error(nodes, [_], _) ->
+format_erlang_error(nodes, [NTVal], _) when is_atom(NTVal) ->
     [<<"not a valid node type">>];
+format_erlang_error(nodes, [NTVal], _) when is_list(NTVal) ->
+    [<<"not a list of valid node types">>];
+format_erlang_error(nodes, [_NTVal], _) ->
+    [<<"not a valid node type or list of valid node types">>];
+format_erlang_error(nodes, [NTVal, Opts], _) ->
+    ValidNodeTypes = [this, connected, visible, hidden, known],
+    [if is_atom(NTVal) ->
+             case lists:member(NTVal, ValidNodeTypes) of
+                 true -> [];
+                 false -> <<"not a valid node type">>
+             end;
+        is_list(NTVal) ->
+             try
+                 lists:foreach(
+                   fun (NT) ->
+                           case lists:member(NT, ValidNodeTypes) of
+                               true -> [];
+                               false -> throw(invalid)
+                           end
+                   end,
+                   NTVal),
+                 []
+             catch
+                 throw:invalid ->
+                     <<"not a list of valid node types">>
+             end;
+        true ->
+             <<"not a valid node type or list of valid node types">>
+     end,
+     if is_map(Opts) ->
+             try
+                 maps:foreach(
+                   fun (connection_id, Bool) when is_boolean(Bool) ->
+                           ok;
+                       (node_type, Bool) when is_boolean(Bool) ->
+                           ok;
+                       (_, _) ->
+                           throw(invalid)
+                   end,
+                   Opts),
+                 []
+             catch
+                 throw:invalid ->
+                     <<"invalid options in map">>
+             end;
+        true ->
+             not_map
+     end];
 format_erlang_error(open_port, [Name, Settings], Cause) ->
     case Cause of
         badopt ->

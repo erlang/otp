@@ -106,6 +106,8 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
     erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
 
 Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm erts_map_from_sorted_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0,
+                                     Uint n, Eterm *key_tuple);
 Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                          Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
@@ -113,6 +115,8 @@ Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 const Eterm *erts_maps_get(Eterm key, Eterm map);
 
 const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+
+Sint erts_map_size(Eterm map);
 
 /* hamt nodes v2.0
  *
