@@ -10031,9 +10031,12 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
         sres = inet_set_opts(desc, buf, len);
 
-        DDBG(desc,
-             ("INET-DRV-DBG[%d][%d,%T] inet_ctl(setopts) -> sres: %d\r\n",
-              __LINE__, desc->s, driver_caller(desc->port), sres) );
+        /* We cannot debug-print if sres == 0 since we have then actually *
+         * completed a driver_exit => we have no longer a descriptor!     */
+        if (sres != 0)
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][%d,%T] inet_ctl(setopts) -> sres: %d\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), sres) );
 
 	switch(sres) {
 	case -1: 
