@@ -40,7 +40,8 @@
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_succeed/1,
          bs_saved_position_units/1,parent_container/1,
-         container_performance/1]).
+         container_performance/1,
+         infer_relops/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -75,7 +76,7 @@ groups() ->
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
-       container_performance]}].
+       container_performance,infer_relops]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1034,6 +1035,25 @@ container_performance(Config) ->
         ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k30};
         _ -> ok
     end.
+
+%% Type inference was half-broken for relational operators, being implemented
+%% for is_lt/is_ge instructions but not the {bif,RelOp} form.
+infer_relops(_Config) ->
+    [lt = infer_relops_1(N) || N <- lists:seq(0,3)],
+    [ge = infer_relops_1(N) || N <- lists:seq(4,7)],
+    ok.
+
+infer_relops_1(N) ->
+    true = N >= 0,
+    Below4 = N < 4,
+    id(N), %% Force Below4 to use the {bif,'<'} form instead of is_lt
+    case Below4 of
+        true -> infer_relops_true(Below4, N);
+        false -> infer_relops_false(Below4, N)
+    end.
+
+infer_relops_true(_, _) -> lt.
+infer_relops_false(_, _) -> ge.
 
 id(I) ->
     I.

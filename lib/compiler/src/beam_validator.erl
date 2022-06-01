@@ -1245,9 +1245,8 @@ infer_relop_types(Op, Args, Types, Vst) ->
             Vst;
         Infer ->
             Zipped = zip(Args, Infer),
-            F = fun(_, T) -> T end,
             foldl(fun({V,T}, Acc) ->
-                          update_type(F, T, V, Acc)
+                          update_type(fun meet/2, T, V, Acc)
                   end, Vst, Zipped)
     end.
 
@@ -1264,6 +1263,7 @@ infer_relop_types(Op, [#t_integer{elements=R1},
 infer_relop_types(Op0, [Type1,Type2]) ->
     Op = case Op0 of
              '<' -> '=<';
+             '>' -> '>=';
              _ -> Op0
          end,
     case {infer_get_range(Type1),infer_get_range(Type2)} of
@@ -2202,6 +2202,18 @@ infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst) ->
         _ ->
             Vst
     end;
+infer_types_1(#value{op={bif,RelOp},args=[_,_]=Args}, Val, Op, Vst)
+  when RelOp =:= '<'; RelOp =:= '=<'; RelOp =:= '>='; RelOp =:= '>' ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Types = [get_term_type(Arg, Vst) || Arg <- Args],
+            infer_relop_types(RelOp, Args, Types, Vst);
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            Types = [get_term_type(Arg, Vst) || Arg <- Args],
+            infer_relop_types(invert_relop(RelOp), Args, Types, Vst);
+        _ ->
+            Vst
+    end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_boolean},args=[Src]}, Val, Op, Vst) ->
@@ -2290,6 +2302,11 @@ infer_type_test_bif(Type, Src, Val, Op, Vst) ->
         _ ->
             Vst
     end.
+
+invert_relop('<') -> '>=';
+invert_relop('=<') -> '>';
+invert_relop('>=') -> '<';
+invert_relop('>') -> '=<'.
 
 %%%
 %%% Keeping track of types.
